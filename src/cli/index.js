@@ -41,3 +41,8 @@ function playTurn() {
 }
 
 playTurn();
+
+//TODO: create Deck of Cards function
+//TODO: set up board function
+//TODO: deal Cards and coins function
+//TODO: create and place units in initial positions function

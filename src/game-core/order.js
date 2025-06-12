@@ -3,7 +3,7 @@ class Order {
         this.unit = unit;
         this.start = start;
         this.end = end;
-        this.canFire = canFire;
+        this.canFire = canFire;//TODO should unit store this or Order?
     }
 }
 
