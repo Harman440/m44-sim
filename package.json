@@ -1,0 +1,20 @@
+{
+  "name": "m44-sim",
+  "version": "1.0.0",
+  "description": "WW2 game played simultaneously",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Harman440/m44-sim.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Harman440/m44-sim/issues"
+  },
+  "homepage": "https://github.com/Harman440/m44-sim#readme"
+}

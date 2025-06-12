@@ -1,0 +1,10 @@
+class Order {
+    constructor(unit, start, end, canFire) {
+        this.unit = unit;
+        this.start = start;
+        this.end = end;
+        this.canFire = canFire;
+    }
+}
+
+module.exports = Order;
