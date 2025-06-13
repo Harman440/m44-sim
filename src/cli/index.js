@@ -1,48 +1,12 @@
-// cli-version/index.js
-const readline = require('readline');
-const Board = require('../game-core/board');
+// cli/index.js
+import commandCards from '../game-core/commandCards.js';
+import Deck from '../game-core/deck.js';
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+const commandDeck = new Deck(commandCards);
 
-const board = new Board();
-let currentPlayer = 'X';
+console.log(`Shuffled Deck (${commandCards.length} cards):\n`);
+commandDeck.printDeck();
 
-function printBoard() {
-  console.log(`
-    ${board.cells[0] || '0'} | ${board.cells[1] || '1'} | ${board.cells[2] || '2'}
-    -----------
-    ${board.cells[3] || '3'} | ${board.cells[4] || '4'} | ${board.cells[5] || '5'}
-    -----------
-    ${board.cells[6] || '6'} | ${board.cells[7] || '7'} | ${board.cells[8] || '8'}
-  `);
-}
-
-function playTurn() {
-  printBoard();
-  rl.question(`Player ${currentPlayer}, enter position (0-8): `, (position) => {
-    if (board.makeMove(parseInt(position), currentPlayer)) {
-      const winner = board.checkWinner();
-      if (winner) {
-        printBoard();
-        console.log(`🎉 Player ${winner} wins!`);
-        rl.close();
-      } else {
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-        playTurn();
-      }
-    } else {
-      console.log('Invalid move! Try again.');
-      playTurn();
-    }
-  });
-}
-
-playTurn();
-
-//TODO: create Deck of Cards function
 //TODO: set up board function
 //TODO: deal Cards and coins function
 //TODO: create and place units in initial positions function
