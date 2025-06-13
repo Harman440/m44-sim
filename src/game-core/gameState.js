@@ -34,9 +34,10 @@ class GameState {
         this.commandCardsDeck = newDeck;
     }
 
-    discardCommandCard(card) {//TODO: check if this works
+    discardAndDrawCommandCard(card) {//TODO: check if this works
         this.commandCardsPlayer.remove(card);
         this.commandCardsDeck.discard(card);
+        this.commandCardsPlayer.add(this.commandCardsDeck.draw(1)[0]);
     }
 }
 

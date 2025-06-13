@@ -13,8 +13,8 @@ class Deck {
         return drawn;
     }
 
-    discard(cards) {
-        this.discardPile.push(...cards);
+    discard(card) {
+        this.discardPile.push(card);
     }
 
     shuffleDiscardIntoDraw() {
