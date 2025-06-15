@@ -4,6 +4,7 @@ import Hand from './hand.js';
 
 class GameState {
   constructor({
+    faction = null,
     board = null,
     initNumCommandCards = 6,
     playingWithCombatCards = true,
@@ -15,6 +16,7 @@ class GameState {
     combatCardsPlayer = [],
     totalCommandCoins = 0,
   } = {}) {
+    this.faction = faction;
     this.board = board;
     this.playingWithCombatCards = playingWithCombatCards;
     this.units = units;

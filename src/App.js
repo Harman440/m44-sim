@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
 import Board from './components/Board.js';
+
+import BoardManager from './game-core/BoardManager.js';
+import GameState from './game-core/gameState.js';
+
 import './App.css';
 
 const App = () => {
   const [selectedTile, setSelectedTile] = useState(null);
-  const [gameState, setGameState] = useState({
-    currentPlayer: 1,
-    tiles: {}, // Store tile data here (pieces, colors, etc.)
-    gamePhase: 'playing', // 'playing', 'paused', 'ended'
-  });
+  const [boardManager] = useState(() => new BoardManager("forest-blitz"));//TODO: selected in main menu
+  const [gameState, setGameState] = useState(() => new GameState({
+    faction: "axis",
+    initNumCommandCards: 3
+  }));//TODO: change initial state in main menu
 
   // Main tile click handler - App.js is in complete control
   const handleTileClick = (row, col) => {
     console.log(`Tile clicked: Row ${row}, Column ${col}`);
+    
+    const hex = boardManager.getHex(row, col);
+    if (!hex) return;
+    
+    console.log(`Hex info:`, hex.getDescription());
+    console.log(`Can enter: ${hex.canEnter()}, Must stop: ${hex.mustStop()}`);
     
     // Toggle selection
     const newSelectedTile = selectedTile?.row === row && selectedTile?.col === col 
@@ -21,31 +31,34 @@ const App = () => {
     
     setSelectedTile(newSelectedTile);
 
-    // Game logic can be added here
-    if (newSelectedTile) {
-      // Example: Place a piece on the tile
-      setGameState(prevState => ({
-        ...prevState,
-        tiles: {
-          ...prevState.tiles,
-          [`${row}-${col}`]: {
-            player: prevState.currentPlayer,
-            timestamp: Date.now(),
-            // Add other tile properties as needed
-          }
+    // Example game logic: Place a unit on empty hex
+    if (newSelectedTile && !hex.hasUnit() && hex.canEnter()) {
+      const unit = {
+        id: `unit-${Date.now()}`,
+        name: `Player ${gameState.faction} Unit`,
+        player: gameState.faction,
+      };
+      
+      if (boardManager.placeUnit(row, col, unit)) {
+        console.log(`Placed unit on ${hex.name} at (${row}, ${col})`);
+        
+        // Check movement restrictions
+        if (hex.mustStop()) {
+          console.log(`Unit must stop on ${hex.name} - cannot move further this turn`);
         }
-      }));
+      }
     }
   };
 
-  // Get tile data for a specific position
-  const getTileData = (row, col) => {
-    return gameState.tiles[`${row}-${col}`] || null;
+  // Get hex data for selected tile
+  const getSelectedHexInfo = () => {
+    if (!selectedTile) return null;
+    return boardManager.getHex(selectedTile.row, selectedTile.col);
   };
 
-  // Check if a tile is occupied
-  const isTileOccupied = (row, col) => {
-    return getTileData(row, col) !== null;
+  // Get board statistics
+  const getBoardStats = () => {
+    return boardManager.getStats();
   };
 
   return (
@@ -54,22 +67,34 @@ const App = () => {
       <Board 
         onTileClick={handleTileClick}
         selectedTile={selectedTile}
+        boardManager={boardManager}
         boardWidth={13}
         boardHeight={9}
-        hexSize={75}
+        hexSize={50}
         showCoordinates={true}
       />
       
       {selectedTile && (
         <div className="app__selected-info">
-          Selected Tile: Row {selectedTile.row}, Column {selectedTile.col}
-          {isTileOccupied(selectedTile.row, selectedTile.col) && (
-            <div>
-              Occupied by Player {getTileData(selectedTile.row, selectedTile.col).player}
-            </div>
-          )}
+          {(() => {
+            const hexInfo = getSelectedHexInfo();
+            return hexInfo ? (
+              <div>
+                <div>Selected: {hexInfo.getDescription()}</div>
+                <div>Terrain: {hexInfo.name} | Movement Rule: {hexInfo.movementRule}</div>
+              </div>
+            ) : (
+              <div>Selected Tile: Row {selectedTile.row}, Column {selectedTile.col}</div>
+            );
+          })()}
         </div>
       )}
+      
+      <div className="app__instructions">
+        Click on any hexagon to select it | 
+        Turn: {gameState.currentTurn} |
+        Terrain: {Object.entries(getBoardStats()).map(([type, count]) => `${type}: ${count}`).join(', ')}
+      </div>
     </div>
   );
 };

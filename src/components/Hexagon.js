@@ -9,7 +9,8 @@ const Hexagon = ({
   onClick, 
   isSelected, 
   hexSize = 25,
-  showCoordinates = true 
+  showCoordinates = true,
+  hexData = null // Hex class instance
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -45,6 +46,15 @@ const Hexagon = ({
     return 'hexagon__tile hexagon__tile--default hexagon__tile-stroke';
   };
 
+  const getTileColor = () => {
+    if (hexData) {
+      return hexData.color;
+    }
+    if (isSelected) return '#4ade80';
+    if (isHovered) return '#4b5563';
+    return '#374151';
+  };
+
   return (
     <g 
       className="hexagon"
@@ -55,6 +65,7 @@ const Hexagon = ({
       <path
         d={pathData}
         className={getTileClass()}
+        style={{ fill: getTileColor() }}//TODO: Move get color to css
       />
       {showCoordinates && (
         <text
@@ -62,8 +73,18 @@ const Hexagon = ({
           y={y + 4}
           className="hexagon__coordinates"
         >
-          {row},{col}
+          {hexData ? hexData.name[0] : `${row},${col}`}
         </text>
+      )}
+      {hexData && hexData.hasUnit() && (//TODO: create Unit Component
+        <circle
+          cx={x}
+          cy={y - 8}
+          r="4"
+          fill="#ff6b6b"
+          stroke="#fff"
+          strokeWidth="1"
+        />
       )}
     </g>
   );

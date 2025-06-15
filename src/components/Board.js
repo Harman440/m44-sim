@@ -4,6 +4,7 @@ import './Board.css';
 const Board = ({ 
   onTileClick, 
   selectedTile, 
+  boardManager, // BoardManager instance
   boardWidth = 13, 
   boardHeight = 9, 
   hexSize = 50,
@@ -25,6 +26,7 @@ const Board = ({
         const y = 100 + row * offsetY;
 
         const isSelected = selectedTile?.row === row && selectedTile?.col === col;
+        const hexData = boardManager ? boardManager.getHex(row, col) : null;
 
         tiles.push(
           <Hexagon
@@ -37,6 +39,7 @@ const Board = ({
             isSelected={isSelected}
             hexSize={hexSize}
             showCoordinates={showCoordinates}
+            hexData={hexData}
           />
         );
       }
