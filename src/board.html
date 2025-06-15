@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hexagonal Board Game</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #root {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        // Hexagon component
+        const Hexagon = ({ x, y, row, col, onClick, isSelected }) => {
+            const hexSize = 25;
+            const hexWidth = hexSize * 2;
+            const hexHeight = hexSize * Math.sqrt(3);
+            
+            // Create hexagon path
+            const points = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI) / 3;
+                points.push([
+                    x + hexSize * Math.cos(angle),
+                    y + hexSize * Math.sin(angle)
+                ]);
+            }
+            
+            const pathData = `M ${points[0][0]},${points[0][1]} ` +
+                points.slice(1).map(p => `L ${p[0]},${p[1]}`).join(' ') + ' Z';
+
+            return (
+                <g onClick={() => onClick(row, col)} style={{ cursor: 'pointer' }}>
+                    <path
+                        d={pathData}
+                        fill={isSelected ? "#4ade80" : "#374151"}
+                        stroke="#1f2937"
+                        strokeWidth="2"
+                        className="hex-tile"
+                        style={{
+                            transition: 'all 0.2s ease',
+                            filter: isSelected ? 'brightness(1.2)' : 'brightness(1)',
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!isSelected) {
+                                e.target.style.fill = "#4b5563";
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!isSelected) {
+                                e.target.style.fill = "#374151";
+                            }
+                        }}
+                    />
+                    <text
+                        x={x}
+                        y={y + 4}
+                        textAnchor="middle"
+                        fill="#e5e7eb"
+                        fontSize="10"
+                        fontFamily="monospace"
+                        pointerEvents="none"
+                    >
+                        {row},{col}
+                    </text>
+                </g>
+            );
+        };
+
+        // Main Board Component
+        const HexagonalBoard = () => {
+            const [selectedTile, setSelectedTile] = useState(null);
+            const boardWidth = 13;
+            const boardHeight = 9;
+            const hexSize = 25;
+            const hexWidth = hexSize * 2;
+            const hexHeight = hexSize * Math.sqrt(3);
+
+            const handleTileClick = (row, col) => {
+                setSelectedTile(selectedTile?.row === row && selectedTile?.col === col 
+                    ? null 
+                    : { row, col }
+                );
+            };
+
+            const renderBoard = () => {
+                const tiles = [];
+                const offsetX = hexWidth * 0.75; // Horizontal spacing between hex centers
+                const offsetY = hexHeight; // Vertical spacing between rows
+
+                for (let row = 0; row < boardHeight; row++) {
+                    for (let col = 0; col < boardWidth; col++) {
+                        // Calculate position for hexagonal grid
+                        const x = 50 + col * offsetX + (row % 2) * (offsetX / 2);
+                        const y = 50 + row * (offsetY * 0.75);
+
+                        const isSelected = selectedTile?.row === row && selectedTile?.col === col;
+
+                        tiles.push(
+                            <Hexagon
+                                key={`${row}-${col}`}
+                                x={x}
+                                y={y}
+                                row={row}
+                                col={col}
+                                onClick={handleTileClick}
+                                isSelected={isSelected}
+                            />
+                        );
+                    }
+                }
+                return tiles;
+            };
+
+            // Calculate SVG dimensions
+            const svgWidth = boardWidth * hexWidth * 0.75 + hexWidth * 0.5 + 100;
+            const svgHeight = boardHeight * hexHeight * 0.75 + hexHeight * 0.5 + 100;
+
+            return (
+                <div style={{ textAlign: 'center' }}>
+                    <h1 style={{ color: '#e5e7eb', marginBottom: '20px' }}>
+                        Hexagonal Board Game
+                    </h1>
+                    <div style={{ 
+                        backgroundColor: '#111827', 
+                        borderRadius: '8px', 
+                        padding: '20px',
+                        display: 'inline-block'
+                    }}>
+                        <svg 
+                            width={svgWidth} 
+                            height={svgHeight}
+                            style={{ border: '2px solid #374151', borderRadius: '8px' }}
+                        >
+                            {renderBoard()}
+                        </svg>
+                    </div>
+                    {selectedTile && (
+                        <div style={{ 
+                            marginTop: '20px', 
+                            color: '#e5e7eb',
+                            fontSize: '18px'
+                        }}>
+                            Selected Tile: Row {selectedTile.row}, Column {selectedTile.col}
+                        </div>
+                    )}
+                    <div style={{
+                        marginTop: '15px',
+                        color: '#9ca3af',
+                        fontSize: '14px'
+                    }}>
+                        Click on any hexagon to select it
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<HexagonalBoard />, document.getElementById('root'));
+    </script>
+</body>
+</html>

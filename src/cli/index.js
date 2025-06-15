@@ -1,5 +1,5 @@
 // cli/index.js
-import commandCards from '../game-core/commandCards.js';
+import commandCards from '../data/commandCards.js';
 import Deck from '../game-core/deck.js';
 import GameState from '../game-core/gameState.js';
 import TurnState from '../game-core/turnState.js';
