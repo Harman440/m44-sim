@@ -1,0 +1,11 @@
+.board {
+  background-color: #111827;
+  border-radius: 8px;
+  padding: 20px;
+  display: inline-block;
+}
+
+.board__svg {
+  border: 2px solid #374151;
+  border-radius: 8px;
+}
