@@ -16,10 +16,24 @@ const scenarios = [
         { row: 0, col: 1 }, { row: 1, col: 1 },
         { row: 8, col: 4 }, { row: 8, col: 5 }
       ],
-      village: [
+      town: [
         { row: 2, col: 1 }, { row: 2, col: 2 }
       ]
       // Add more types like river, town, hill, etc. later
+    },
+    units: {
+      allies:
+      {
+        infantry: [
+          { row: 2, col: 1 }, { row: 2, col: 2 }
+        ]
+      },
+      axis:
+      {
+        infantry: [
+          { row: 8, col: 4 }, { row: 8, col: 5 }
+        ],
+      }
     }
   },
 ];

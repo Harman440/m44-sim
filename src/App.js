@@ -8,7 +8,7 @@ import './App.css';
 
 const App = () => {
   const [selectedTile, setSelectedTile] = useState(null);
-  const [boardManager] = useState(() => new BoardManager("forest-blitz"));//TODO: selected in main menu
+  const [boardManager] = useState(() => new BoardManager("forest-blitz", "Axis"));//TODO: selected in main menu
   const [gameState, setGameState] = useState(() => new GameState({
     faction: "axis",
     initNumCommandCards: 3

@@ -3,7 +3,7 @@ export const HexType = {
   PLAINS: "plains",
   FOREST: "forest",
   HILL: "hill",
-  VILLAGE: "village",
+  TOWN: "town",
 };
 
 export const MovementRule = {
@@ -47,11 +47,11 @@ class Hex {
         this.name = "hill";
         break;
 
-      case HexType.VILLAGE:
+      case HexType.TOWN:
         this.movementRule = MovementRule.STOP;
         this.movementCost = 1;
         this.color = "#FFD700"; // Gold
-        this.name = "Village";
+        this.name = "town";
         break;
 
       default:
