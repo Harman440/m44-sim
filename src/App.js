@@ -8,7 +8,7 @@ import './App.css';
 
 const App = () => {
   const [selectedTile, setSelectedTile] = useState(null);
-  const [boardManager] = useState(() => new BoardManager("forest-blitz", "Axis"));//TODO: selected in main menu
+  const [boardManager] = useState(() => new BoardManager("forest-blitz", "Allies"));//TODO: selected in main menu
   const [gameState, setGameState] = useState(() => new GameState({
     faction: "axis",
     initNumCommandCards: 3
@@ -32,6 +32,7 @@ const App = () => {
     setSelectedTile(newSelectedTile);
 
     // Example game logic: Place a unit on empty hex
+    //TODO: when clicked show how much unit can move and then click on a hex to move
     if (newSelectedTile && !hex.hasUnit() && hex.canEnter()) {
       const unit = {
         id: `unit-${Date.now()}`,
