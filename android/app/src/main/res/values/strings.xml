@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">m44-sim</string>
+    <string name="title_activity_main">m44-sim</string>
+    <string name="package_name">com.harman.m44sim</string>
+    <string name="custom_url_scheme">com.harman.m44sim</string>
+</resources>
