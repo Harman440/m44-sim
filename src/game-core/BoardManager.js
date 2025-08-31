@@ -32,7 +32,7 @@ class BoardManager {
       positions.forEach(({ row, col }) => {
         if (this.isValidPosition(row, col)) {
           const tile = new Hex(row, col, HexType[tileType.toUpperCase()]);
-          this.hexes.set(tile.getKey(), tile);//TODO: does this override hex or create new layer?
+          this.hexes.set(tile.getKey(), tile);//NOTE: this will overwrite existing hex
         }
       });
     }

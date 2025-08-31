@@ -101,6 +101,11 @@ class Hex {
   hasUnit() {
     return this.unit !== null;
   }
+
+  getUnit() {
+    return this.unit;
+  }
+
   // Utility methods
   getCoordinates() {
     return { row: this.row, col: this.col };

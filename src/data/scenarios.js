@@ -31,7 +31,7 @@ const scenarios = [
       axis:
       {
         infantry: [
-          { row: 8, col: 4 }, { row: 8, col: 5 }
+          { row: 8, col: 4 }, { row: 8, col: 5 }, { row: 8, col: 6 }, { row: 8, col: 7 }
         ],
       }
     }
