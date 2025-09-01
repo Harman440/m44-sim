@@ -1,6 +1,9 @@
 // game-core/Hand.js
 
+import CommandCard from "./commandCard";
+
 class Hand {
+  cards: CommandCard[];
   constructor(cards = []) {
     this.cards = [...cards];
   }

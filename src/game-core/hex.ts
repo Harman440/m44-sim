@@ -1,24 +1,38 @@
+import Unit from "./unit";
+
 // Enum-like objects for tile types and properties
 export const HexType = {
   PLAINS: "plains",
   FOREST: "forest",
   HILL: "hill",
   TOWN: "town",
-};
+} as const;
+
+export type HexType = typeof HexType[keyof typeof HexType];
 
 export const MovementRule = {
-  NORMAL: "normal", // Regular movement
-  STOP: "stop", // Unit must stop when entering
-  BLOCK: "block", // Unit cannot enter
-  SLOW: "slow", // Movement costs extra
-};
+  NORMAL: "normal",
+  STOP: "stop",
+  BLOCK: "block",
+  SLOW: "slow",
+} as const;
+
+export type MovementRule = typeof MovementRule[keyof typeof MovementRule];
 
 class Hex {
-  constructor(row, col, type = HexType.PLAINS) {
+  row: number;
+  col: number;
+  type: HexType;
+  movementRule: MovementRule;
+  movementCost: number;
+  color: string;
+  name: string;
+  unit: Unit | null;
+  constructor(row, col, type = HexType.PLAINS, unit = null) {
     this.row = row;
     this.col = col;
     this.type = type;
-    this.unit = null; // Unit occupying this hex
+    this.unit = unit; // Unit occupying this hex
     // Set properties based on terrain type
     this._setTerrainProperties();
   }
@@ -141,7 +155,7 @@ class Hex {
     let desc = `${this.name} (${this.row}, ${this.col})`;
 
     if (this.unit) {
-      desc += ` - Occupied by ${this.unit.name || "Unit"}`;
+      desc += ` - Occupied by ${this.unit.unitType || "Unit"}`;
     }
 
     return desc;

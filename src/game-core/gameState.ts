@@ -1,8 +1,21 @@
 // game-core/gameState.js
-import Deck from './deck.js';
-import Hand from './hand.js';
+import BoardManager from './BoardManager.js';
+import Deck from './deck';
+import Hand from './hand';
+import Unit from './unit';
 
 class GameState {
+  faction: string;
+  board: BoardManager;//TODO: check if this is the type
+  playingWithCombatCards: boolean;
+  units: Unit[];
+  currentTurn: number;
+  phase: string;
+  commandCardsDeck: Deck;
+  combatCardsDeck: Deck;
+  commandCardsPlayer: Hand;
+  combatCardsPlayer: string[];//TODO: change to deck of cards later
+  totalCommandCoins: number;
   constructor({
     faction = null,
     board = null,
@@ -29,7 +42,7 @@ class GameState {
     this.totalCommandCoins = totalCommandCoins;
   }
 
-    updateCommandCardsDeck(newDeck) {
+    updateCommandCardsDeck(newDeck: Deck) {
         if (!Array.isArray(newDeck)) {
         throw new Error('updateCommandCardsDeck expects an array');
         }

@@ -1,7 +1,12 @@
 // game-core/turn.js
+import CommandCard from "./commandCard.js";
 import Order from "./order.js";
 
 class TurnState {
+  commandCard: CommandCard;
+  orders: Order[];
+  turnNumber: number;
+  turnCoinCost: number;
   constructor() {
     this.commandCard = null;
     this.orders = [];

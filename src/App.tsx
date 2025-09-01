@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import Board from './components/Board.js';
+import Board from './components/Board';
 
-import BoardManager from './game-core/BoardManager.js';
-import GameState from './game-core/gameState.js';
+import BoardManager from './game-core/BoardManager';
+import GameState from './game-core/gameState';
 
 import './App.css';
 
 const App = () => {
   const [selectedTile, setSelectedTile] = useState(null);
-  const [boardManager] = useState(() => new BoardManager("forest-blitz", "Allies"));//TODO: selected in main menu
+  const [boardManager] = useState(() => new BoardManager("forest-blitz", "Axis"));//TODO: selected in main menu
   const [gameState, setGameState] = useState(() => new GameState({
     faction: "axis",
     initNumCommandCards: 3
   }));//TODO: change initial state in main menu
 
-  // Main tile click handler - App.js is in complete control
+  // Main tile click handler - App.tsx is in complete control
   const handleTileClick = (row, col) => {
     console.log(`Tile clicked: Row ${row}, Column ${col}`);
     

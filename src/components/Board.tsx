@@ -1,4 +1,5 @@
-import Hexagon from './Hexagon.js';
+import Hexagon from './Hexagon';
+
 import './Board.css';
 
 const Board = ({ 
@@ -30,7 +31,6 @@ const Board = ({
 
         tiles.push(
           <Hexagon
-            key={`${row}-${col}`}
             x={x}
             y={y}
             row={row}

@@ -1,8 +1,14 @@
-import Hex, { HexType } from './hex.js';
-import scenarios from '../data/scenarios.js';
-import Unit from './unit.js';
+import Hex, { HexType } from './hex';
+import { scenarios } from '../data/scenarios';
+import Unit from './unit';
+import { Scenario, UnitGroup } from '../data/types/scenario.js';
 
 class BoardManager {
+  width: number;
+  height: number;
+  hexes: Map<string, Hex>;
+  units: Unit[];
+
   constructor(scenarioId = "forest-blitz", faction = "Allies", width = 13, height = 9) {//TODO: remove hexes from the side on even column
     this.width = width;
     this.height = height;
@@ -15,7 +21,7 @@ class BoardManager {
 
   // Initialize the board with default terrain
   initializeBoard(scenarioId, faction) {//TODO if Axis faction flip scenario
-    const scenario = scenarios.find(s => s.id === scenarioId);
+    const scenario: Scenario = scenarios.find(s => s.id === scenarioId);
     if (!scenario) {
       console.error(`Scenario '${scenarioId}' not found.`);
       throw new Error(`Scenario '${scenarioId}' not found.`);
@@ -46,12 +52,12 @@ class BoardManager {
 
     // Choose the correct unit positions
     const factionKey = faction.toLowerCase(); // "allies" or "axis"
-    const unitGroups = scenario.units[factionKey];
+    const unitGroups: UnitGroup = scenario.units[factionKey];
 
     for (const [unitType, positions] of Object.entries(unitGroups)) {
       positions.forEach(({ row, col }) => {
         if (this.isValidPosition(row, col)) {
-          const unit = new Unit(row, col, unitType);
+          const unit = new Unit(unitType);
           this.units.push(unit);
 
           const tile = this.getHex(row, col);
@@ -217,9 +223,9 @@ class BoardManager {
   }
 
   // Reset board to initial state
-  reset() {
+  reset(scenarioId = "forest-blitz", faction = "Allies") {
     this.hexes.clear();
-    this.initializeBoard();
+    this.initializeBoard(scenarioId, faction);
   }
 }
 

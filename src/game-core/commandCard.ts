@@ -1,6 +1,22 @@
 // game-core/commandCard.js
 
 class CommandCard {
+    id: string;
+    name: string;
+    description: string;
+    maxTotalOrders: number;
+    maxOrdersLeftSection: number;
+    maxOrdersCenterSection: number;
+    maxOrdersRightSection: number;
+    unitType: string;
+    numOntheMove: number;
+    closeAssaultAdditionalDice: number;
+    rangeAdditionalDice: number;
+    numFireTimes: number;
+    extraMovement: number;
+    extraPickUpCards: number;
+    unitCosts: object;
+    receiveCombatCoins: number;
     constructor({
         id,
         name,

@@ -1,6 +1,8 @@
 // data/scenarios.js
 
-const scenarios = [
+import { Scenario } from "./types/scenario";
+
+export const scenarios: Scenario[] = [
   {
     id: 'forest-blitz',
     name: 'Forest Blitz',
@@ -37,5 +39,3 @@ const scenarios = [
     }
   },
 ];
-
-export default scenarios;

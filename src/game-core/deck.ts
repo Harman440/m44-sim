@@ -1,7 +1,10 @@
 // game-core/Deck.js
-import { shuffle } from './utils.js';
+import { shuffle } from './utils';
 
 class Deck {
+    originalCards: string[];//TODO: change to type card
+    drawPile: string[];
+    discardPile: string[];
     constructor(cards = []) {
         this.originalCards = [...cards]; // in case you want to reset
         this.drawPile = shuffle(cards);
