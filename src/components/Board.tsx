@@ -1,16 +1,29 @@
 import Hexagon from './Hexagon';
 
 import './Board.css';
+import { Position } from '../data/types/scenario';
+import BoardManager from '../game-core/BoardManager';
 
-const Board = ({ 
-  onTileClick, 
-  selectedTile, 
-  boardManager, // BoardManager instance
-  boardWidth = 13, 
-  boardHeight = 9, 
+interface BoardProps {
+  onTileClick: (row: number, col: number) => void;
+  selectedTile: Position | null;
+  boardManager: BoardManager;
+  boardWidth?: number;
+  boardHeight?: number;
+  hexSize?: number;
+  showCoordinates?: boolean;
+}
+
+function Board({
+  onTileClick,
+  selectedTile,
+  boardManager,
+  boardWidth = 13,
+  boardHeight = 9,
   hexSize = 50,
-  showCoordinates = true 
-}) => {
+  showCoordinates = true,
+}: BoardProps) {
+
   // For flat-top hexagons, the spacing calculations
   const hexWidth = hexSize * Math.sqrt(3); // Width of flat-top hexagon
   const hexHeight = hexSize * 2; // Height of flat-top hexagon

@@ -1,23 +1,5 @@
+import { HexType, MovementRule } from "../data/types/hex";
 import Unit from "./unit";
-
-// Enum-like objects for tile types and properties
-export const HexType = {
-  PLAINS: "plains",
-  FOREST: "forest",
-  HILL: "hill",
-  TOWN: "town",
-} as const;
-
-export type HexType = typeof HexType[keyof typeof HexType];
-
-export const MovementRule = {
-  NORMAL: "normal",
-  STOP: "stop",
-  BLOCK: "block",
-  SLOW: "slow",
-} as const;
-
-export type MovementRule = typeof MovementRule[keyof typeof MovementRule];
 
 class Hex {
   row: number;
@@ -28,17 +10,30 @@ class Hex {
   color: string;
   name: string;
   unit: Unit | null;
-  constructor(row, col, type = HexType.PLAINS, unit = null) {
+
+  constructor(
+    row: number,
+    col: number,
+    type: HexType = HexType.PLAINS,
+    movementRule: MovementRule = MovementRule.NORMAL,
+    movementCost: number = 1,
+    color: string = "#90EE90",
+    name: string = "Plains",
+    unit: Unit | null = null
+  ) {
     this.row = row;
     this.col = col;
     this.type = type;
+    this.movementRule = movementRule;
+    this.movementCost = movementCost;
+    this.color = color;
+    this.name = name;
     this.unit = unit; // Unit occupying this hex
     // Set properties based on terrain type
     this._setTerrainProperties();
   }
 
-  // Set terrain-specific properties
-  _setTerrainProperties() {
+  private _setTerrainProperties() {
     switch (this.type) {
       case HexType.PLAINS:
         this.movementRule = MovementRule.NORMAL;
@@ -58,14 +53,14 @@ class Hex {
         this.movementRule = MovementRule.NORMAL;
         this.movementCost = 1;
         this.color = "#8B4513"; // Saddle brown
-        this.name = "hill";
+        this.name = "Hill";
         break;
 
       case HexType.TOWN:
         this.movementRule = MovementRule.STOP;
         this.movementCost = 1;
         this.color = "#FFD700"; // Gold
-        this.name = "town";
+        this.name = "Town";
         break;
 
       default:
@@ -76,7 +71,7 @@ class Hex {
   }
 
   // Game logic methods
-  canEnter(unit) {
+  canEnter(unit: Unit | null = null) {
     if (this.movementRule === MovementRule.BLOCK) {
       return false;
     }
@@ -94,13 +89,13 @@ class Hex {
     return this.movementRule === MovementRule.STOP;
   }
 
-  getMovementCost(unit) {
+  getMovementCost(unit: Unit | null = null) {
     // Could be modified based on unit type
     return this.movementCost;
   }
 
   // Unit management
-  placeUnit(unit) {
+  placeUnit(unit: Unit) {
     if (this.canEnter(unit)) {
       this.unit = unit;
       return true;
@@ -124,7 +119,7 @@ class Hex {
     return `${this.row}-${this.col}`;
   }
 
-  isAdjacent(otherHex) {
+  isAdjacent(otherHex: Hex) {
     const dr = Math.abs(this.row - otherHex.row);
     const dc = Math.abs(this.col - otherHex.col);
 
@@ -138,7 +133,7 @@ class Hex {
     }
   }
 
-  getDistance(otherHex) {
+  getDistance(otherHex: Hex) {
     // Simplified hexagonal distance calculation
     const dx = this.col - otherHex.col;
     const dy = this.row - otherHex.row;

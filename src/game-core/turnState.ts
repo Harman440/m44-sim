@@ -1,9 +1,11 @@
 // game-core/turn.js
 import CommandCard from "./commandCard.js";
+import Hex from "./hex.js";
 import Order from "./order.js";
+import Unit from "./unit.js";
 
 class TurnState {
-  commandCard: CommandCard;
+  commandCard: CommandCard | null; //NOTE: null if card not selected yet
   orders: Order[];
   turnNumber: number;
   turnCoinCost: number;
@@ -14,7 +16,7 @@ class TurnState {
     this.turnCoinCost = 0;
   }
 
-  addOrder(unit, start, end, canFire) {
+  addOrder(unit: Unit, start: Hex, end: Hex, canFire: boolean) {
     this.orders.push(new Order(unit, start, end, canFire));
   }
 

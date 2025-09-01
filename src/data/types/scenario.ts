@@ -1,21 +1,22 @@
+import { HexType } from "./hex";
+
 // src/types/scenario.ts
 export interface Position {
   row: number;
   col: number;
 }
 
-export type Tiles = Record<string, Position[]>;
+export type UnitType = "infantry" | "artillery" | "tank"; 
 
-export type UnitGroup = Record<string, Position[]>;
+export type Tiles = Partial<Record<HexType, Position[]>>;
+/*Keys must be valid unit types ("infantry" | "artillery" | "tank").
+But each key is optional (Partial).*/
+export type UnitGroup = Partial<Record<UnitType, Position[]>>;
 
-export enum Faction {
-  Allies = "allies",
-  Axis = "axis",
-}
 
-export interface Units {
-  [Faction.Allies]: UnitGroup;
-  [Faction.Axis]: UnitGroup;
+export interface Factions {
+  allies: UnitGroup;
+  axis: UnitGroup;
 }
 
 export interface Scenario {
@@ -23,5 +24,5 @@ export interface Scenario {
   name: string;
   description: string;
   tiles: Tiles;
-  units: Units;
+  units: Factions;
 }

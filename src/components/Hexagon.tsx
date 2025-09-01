@@ -2,7 +2,19 @@ import { useState } from 'react';
 
 import './Hexagon.css';
 
-const Hexagon = ({ 
+interface HexProps {
+  x: number;
+  y: number;
+  row: number;
+  col: number;
+  onClick: (row: number, col: number) => void;
+  isSelected: boolean;
+  hexSize?: number;
+  showCoordinates?: boolean;
+  hexData?: any;
+}
+
+function Hexagon({ 
   x, 
   y, 
   row, 
@@ -12,11 +24,11 @@ const Hexagon = ({
   hexSize = 25,
   showCoordinates = true,
   hexData = null // Hex class instance
-}) => {
+}: HexProps) {
   const [isHovered, setIsHovered] = useState(false);
   
   // Create hexagon path with 90-degree rotation (flat top)
-  const points = [];
+  const points: number[][] = [];
   for (let i = 0; i < 6; i++) {
     // Add π/2 (90 degrees) to rotate the hexagon
     const angle = (i * Math.PI) / 3 + Math.PI / 2;
@@ -26,7 +38,7 @@ const Hexagon = ({
     ]);
   }
   
-  const pathData = `M ${points[0][0]},${points[0][1]} ` +
+  const pathData = `M ${points[0]![0]},${points[0]![1]} ` + // the `!` is safe because loop guarantees 6 points
     points.slice(1).map(p => `L ${p[0]},${p[1]}`).join(' ') + ' Z';
 
   const handleClick = () => {

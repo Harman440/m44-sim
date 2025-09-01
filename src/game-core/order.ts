@@ -6,7 +6,7 @@ class Order {
     start: Hex;
     end: Hex;
     canFire: boolean;
-    constructor(unit, start, end, canFire) {
+    constructor(unit: Unit, start: Hex, end: Hex, canFire: boolean) {
         this.unit = unit;
         this.start = start;
         this.end = end;
