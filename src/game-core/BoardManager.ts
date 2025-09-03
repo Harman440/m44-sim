@@ -30,17 +30,18 @@ class BoardManager {
 
     for (let row = 0; row < this.height; row++) {
       for (let col = 0; col < this.width; col++) {
-        const hex = new Hex(row, col, HexType.PLAINS);
+        const position: Position = { row, col };
+        const hex = new Hex(position, HexType.PLAINS);
         this.hexes.set(hex.getKey(), hex);
       }
     }
 
     for (const [tileType, positions] of Object.entries(scenario.tiles)) {
-      positions.forEach(({ row, col }) => {
-        if (this.isValidPosition(row, col)) {
+      positions.forEach(position => {
+        if (this.isValidPosition(position)) {
           const hexType = tileType as HexType; // directly cast, since enum values are strings
-          const tile = new Hex(row, col, hexType);
-          this.hexes.set(tile.getKey(), tile);//TODO: does this override hex or create new layer?
+          const tile = new Hex(position, hexType);
+          this.hexes.set(tile.getKey(), tile);//NOTE: this will overwrite existing hex
         }
       });
     }
@@ -58,14 +59,14 @@ class BoardManager {
 
     for (const [unitType, positions] of Object.entries(unitGroups)) {
       const typedUnitType = unitType as UnitType;
-      positions.forEach(({ row, col }) => {
-        if (this.isValidPosition(row, col)) {
+      positions.forEach(position => {
+        if (this.isValidPosition(position)) {
           const unit = new Unit(typedUnitType);
           this.units.push(unit);
 
-          const tile: Hex|undefined = this.getHex(row, col);
+          const tile: Hex | null = this.getHex(position);
           if (!tile) {
-            throw new Error(`No hex found at row=${row}, col=${col}`);
+            throw new Error(`No hex found at row=${position.row}, col=${position.col}`);
           }
           tile.placeUnit(unit);
         }
@@ -74,13 +75,13 @@ class BoardManager {
   }
 
   // Get hex at specific position
-  getHex(row: number, col: number): Hex | undefined {
-    return this.hexes.get(`${row}-${col}`);
+  getHex(position: Position): Hex | null {
+    return this.hexes.get(`${position.row}-${position.col}`) || null;
   }
 
   // Check if position is valid
-  isValidPosition(row: number, col: number): boolean {
-    return row >= 0 && row < this.height && col >= 0 && col < this.width;
+  isValidPosition(position: Position): boolean {
+    return position.row >= 0 && position.row < this.height && position.col >= 0 && position.col < this.width;
   }
 
   // Get all hexes
@@ -94,9 +95,9 @@ class BoardManager {
   }
 
   // Get adjacent hexes
-  getAdjacentHexes(row: number, col: number) {//TODO: check if it works. Create Possible movement grid
+  getAdjacentHexes(position: Position) {//TODO: check if it works. Create Possible movement grid
     const adjacent: Hex[] = [];
-    const isEvenRow = row % 2 === 0;
+    const isEvenRow = position.row % 2 === 0;
     
     // Hexagonal grid adjacency offsets
     const offsets: [number, number][] = isEvenRow 
@@ -104,11 +105,10 @@ class BoardManager {
       : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];   // Odd row
 
     offsets.forEach(([dr, dc]) => {
-      const newRow = row + dr;
-      const newCol = col + dc;
+      const newPosition: Position = { row: position.row + dr, col: position.col + dc };
       
-      if (this.isValidPosition(newRow, newCol)) {
-        const hex = this.getHex(newRow, newCol);
+      if (this.isValidPosition(newPosition)) {
+        const hex = this.getHex(newPosition);
         if (hex) {
           adjacent.push(hex);
         }
@@ -119,9 +119,9 @@ class BoardManager {
   }
 
   // Movement validation
-  canMoveTo(fromRow: number, fromCol: number, toRow: number, toCol: number, unit = null) {//TODO: check if it works. Create Possible movement grid
-    const fromHex = this.getHex(fromRow, fromCol);
-    const targetHex = this.getHex(toRow, toCol);
+  canMoveTo(fromPosition: Position, toPosition: Position, unit = null) {//TODO: check if it works. Create Possible movement grid
+    const fromHex = this.getHex(fromPosition);
+    const targetHex = this.getHex(toPosition);
     
     if (!targetHex) {
       return false;
@@ -131,10 +131,10 @@ class BoardManager {
   }
 
   // Get movement cost between adjacent hexes
-  getMovementCost(fromRow: number, fromCol: number, toRow: number, toCol: number, unit = null) {
-    const targetHex = this.getHex(toRow, toCol);
+  getMovementCost(fromPosition: Position, toPosition: Position, unit = null) {
+    const targetHex = this.getHex(toPosition);
     
-    if (!targetHex || !this.canMoveTo(fromRow, fromCol, toRow, toCol, unit)) {
+    if (!targetHex || !this.canMoveTo(fromPosition, toPosition, unit)) {
       return Infinity;
     }
 
@@ -142,14 +142,14 @@ class BoardManager {
   }
 
   // Check if unit must stop on this hex
-  mustStopAt(row: number, col: number) {
-    const hex = this.getHex(row, col);
+  mustStopAt(position: Position): boolean {
+    const hex = this.getHex(position);
     return hex ? hex.mustStop() : false;
   }
 
   // Place unit on hex
-  placeUnit(row: number, col: number, unit: Unit) {
-    const hex = this.getHex(row, col);
+  placeUnit(position: Position, unit: Unit): boolean {
+    const hex = this.getHex(position);
     if (hex) {
       return hex.placeUnit(unit);
     }
@@ -157,8 +157,8 @@ class BoardManager {
   }
 
   // Remove unit from hex
-  removeUnit(row: number, col: number) {
-    const hex = this.getHex(row, col);
+  removeUnit(position: Position) {
+    const hex = this.getHex(position);
     if (hex) {
       hex.removeUnit();
       return true;
@@ -167,9 +167,9 @@ class BoardManager {
   }
 
   // Move unit from one hex to another
-  moveUnit(fromRow: number, fromCol: number, toRow: number, toCol: number): boolean {
-    const fromHex = this.getHex(fromRow, fromCol);
-    const toHex = this.getHex(toRow, toCol);
+  moveUnit(fromPosition: Position, toPosition: Position): boolean { //TODO: check if it works
+    const fromHex = this.getHex(fromPosition);
+    const toHex = this.getHex(toPosition);
     const unit = fromHex?.unit;
 
     if (!fromHex || !toHex || !unit) return false;
@@ -182,38 +182,35 @@ class BoardManager {
   }
 
   // Get path between two hexes (simple pathfinding)
-  findPath(
-    fromRow: number,
-    fromCol: number,
-    toRow: number,
-    toCol: number,
+  findPath(//TODO: use this to check movement of units!!!
+    fromPosition: Position,
+    toPosition: Position,
     unit: Unit | null = null
   ): Position[] | null {
-    type Node = { row: number; col: number; path: Position[] };
+    type Node = { position: Position; path: Position[] };
     const visited = new Set<string>();
-    const queue: Node[] = [{ row: fromRow, col: fromCol, path: [] }];
+    const queue: Node[] = [{ position: fromPosition, path: [] }];
 
     while (queue.length > 0) {
       const current = queue.shift();
       if (!current) continue; // safeguard
 
-      const { row, col, path } = current;
-      const key = `${row}-${col}`;
+      const { position, path } = current;
+      const key = `${position.row}-${position.col}`;
 
       if (visited.has(key)) continue;
       visited.add(key);
 
-      if (row === toRow && col === toCol) {
-        return [...path, { row, col }];
+      if (position.row === toPosition.row && position.col === toPosition.col) {
+        return [...path, position];
       }
 
-      const adjacent = this.getAdjacentHexes(row, col);
+      const adjacent = this.getAdjacentHexes(position);
       for (const hex of adjacent) {
         if (!visited.has(hex.getKey()) && hex.canEnter(unit)) {
           queue.push({
-            row: hex.row,
-            col: hex.col,
-            path: [...path, { row, col }],
+            position: hex.position,
+            path: [...path, position],
           });
         }
       }

@@ -11,8 +11,13 @@
 }
 
 .hexagon__tile--selected {
-  fill: #4ade80;
+  fill: #de4a7b;
   filter: brightness(1.2);
+}
+
+.hexagon__tile--highlighted {
+  fill: #1565d4ff;
+  filter: brightness(0.8);
 }
 
 .hexagon__tile--hover {

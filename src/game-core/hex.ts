@@ -1,9 +1,9 @@
 import { HexType, MovementRule } from "../data/types/hex";
+import { Position } from "../data/types/scenario";
 import Unit from "./unit";
 
 class Hex {
-  row: number;
-  col: number;
+  position: Position;
   type: HexType;
   movementRule: MovementRule;
   movementCost: number;
@@ -12,8 +12,7 @@ class Hex {
   unit: Unit | null;
 
   constructor(
-    row: number,
-    col: number,
+    position: Position,
     type: HexType = HexType.PLAINS,
     movementRule: MovementRule = MovementRule.NORMAL,
     movementCost: number = 1,
@@ -21,8 +20,7 @@ class Hex {
     name: string = "Plains",
     unit: Unit | null = null
   ) {
-    this.row = row;
-    this.col = col;
+    this.position = position;
     this.type = type;
     this.movementRule = movementRule;
     this.movementCost = movementCost;
@@ -103,28 +101,33 @@ class Hex {
     return false;
   }
 
+  hasUnit(): this is { unit: Unit } {
+    return this.unit !== null;
+  }
+
+  getUnit(): Unit | null {
+    return this.unit;
+  }
+
   removeUnit() {
     this.unit = null;
   }
 
-  hasUnit() {
-    return this.unit !== null;
-  }
   // Utility methods
   getCoordinates() {
-    return { row: this.row, col: this.col };
+    return { row: this.position.row, col: this.position.col };
   }
 
   getKey() {
-    return `${this.row}-${this.col}`;
+    return `${this.position.row}-${this.position.col}`;
   }
 
-  isAdjacent(otherHex: Hex) {
-    const dr = Math.abs(this.row - otherHex.row);
-    const dc = Math.abs(this.col - otherHex.col);
+  isAdjacent(otherHex: Hex) { //TODO: use to calculate possible paths faster maybe?
+    const dr = Math.abs(this.position.row - otherHex.position.row);
+    const dc = Math.abs(this.position.col - otherHex.position.col);
 
     // Hexagonal grid adjacency logic
-    if (this.row % 2 === 0) {
+    if (this.position.row % 2 === 0) {
       // Even row
       return (dr === 1 && (dc === 0 || dc === 1)) || (dr === 0 && dc === 1);
     } else {
@@ -135,8 +138,8 @@ class Hex {
 
   getDistance(otherHex: Hex) {
     // Simplified hexagonal distance calculation
-    const dx = this.col - otherHex.col;
-    const dy = this.row - otherHex.row;
+    const dx = this.position.col - otherHex.position.col;
+    const dy = this.position.row - otherHex.position.row;
 
     if (Math.sign(dx) === Math.sign(dy)) {
       return Math.abs(dx + dy);
@@ -147,7 +150,7 @@ class Hex {
 
   // Description for UI
   getDescription() {
-    let desc = `${this.name} (${this.row}, ${this.col})`;
+    let desc = `${this.name} (${this.position.row}, ${this.position.col})`;
 
     if (this.unit) {
       desc += ` - Occupied by ${this.unit.unitType || "Unit"}`;
@@ -158,7 +161,7 @@ class Hex {
 
   // For debugging
   toString() {
-    return `Hex[${this.row},${this.col}]:${this.type}`;
+    return `Hex[${this.position.row},${this.position.col}]:${this.type}`;
   }
 }
 

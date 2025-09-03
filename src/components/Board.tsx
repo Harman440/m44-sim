@@ -5,8 +5,9 @@ import { Position } from '../data/types/scenario';
 import BoardManager from '../game-core/BoardManager';
 
 interface BoardProps {
-  onTileClick: (row: number, col: number) => void;
+  onTileClick: (position: Position) => void;
   selectedTile: Position | null;
+  highlightedTiles: Position[];
   boardManager: BoardManager;
   boardWidth?: number;
   boardHeight?: number;
@@ -17,6 +18,7 @@ interface BoardProps {
 function Board({
   onTileClick,
   selectedTile,
+  highlightedTiles,
   boardManager,
   boardWidth = 13,
   boardHeight = 9,
@@ -35,21 +37,32 @@ function Board({
 
     for (let row = 0; row < boardHeight; row++) {
       for (let col = 0; col < boardWidth; col++) {
+        const position: Position = { row, col };
+        
         // Calculate position for hexagonal grid with flat-top hexagons
         const x = 100 + col * offsetX + (row % 2) * (offsetX / 2);
         const y = 100 + row * offsetY;
 
         const isSelected = selectedTile?.row === row && selectedTile?.col === col;
-        const hexData = boardManager ? boardManager.getHex(row, col) : null;
+        
+        // Check if this tile is in the highlightedTiles array
+        const isHighlighted = highlightedTiles.some(tile =>
+          tile?.row === row && tile?.col === col
+        );
+        if (isHighlighted) {
+          console.log(`DEBUG: row: ${row}, col: ${col}, isSelected: ${isSelected}, isHighlighted: ${isHighlighted}`);
+        }
+
+        const hexData = boardManager ? boardManager.getHex(position) : null;
 
         tiles.push(
           <Hexagon
             x={x}
             y={y}
-            row={row}
-            col={col}
+            position={position}
             onClick={onTileClick}
             isSelected={isSelected}
+            isHighlighted={isHighlighted}
             hexSize={hexSize}
             showCoordinates={showCoordinates}
             hexData={hexData}

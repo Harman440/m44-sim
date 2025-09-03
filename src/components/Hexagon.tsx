@@ -1,14 +1,15 @@
 import { useState } from 'react';
 
 import './Hexagon.css';
+import { Position } from '../data/types/scenario';
 
 interface HexProps {
   x: number;
   y: number;
-  row: number;
-  col: number;
-  onClick: (row: number, col: number) => void;
+  position: Position;
+  onClick: (position: Position) => void;
   isSelected: boolean;
+  isHighlighted: boolean;
   hexSize?: number;
   showCoordinates?: boolean;
   hexData?: any;
@@ -17,10 +18,10 @@ interface HexProps {
 function Hexagon({ 
   x, 
   y, 
-  row, 
-  col, 
-  onClick, 
-  isSelected, 
+  position,
+  onClick,
+  isSelected,
+  isHighlighted,
   hexSize = 25,
   showCoordinates = true,
   hexData = null // Hex class instance
@@ -42,7 +43,7 @@ function Hexagon({
     points.slice(1).map(p => `L ${p[0]},${p[1]}`).join(' ') + ' Z';
 
   const handleClick = () => {
-    onClick(row, col);
+    onClick(position);
   };
 
   const handleMouseEnter = () => {
@@ -53,17 +54,21 @@ function Hexagon({
     setIsHovered(false);
   };
 
+  //TODO: simplify naming scheme
   const getTileClass = () => {
     if (isSelected) return 'hexagon__tile hexagon__tile--selected hexagon__tile-stroke';
+    if (isHighlighted) return 'hexagon__tile hexagon__tile--highlighted hexagon__tile-stroke';
     if (isHovered) return 'hexagon__tile hexagon__tile--hover hexagon__tile-stroke';
     return 'hexagon__tile hexagon__tile--default hexagon__tile-stroke';
   };
 
+  //TODO: it is not reading colors from nor from css
   const getTileColor = () => {
     if (hexData) {
       return hexData.color;
     }
-    if (isSelected) return '#4ade80';
+    if (isSelected) return '#d94adeff';
+    if (isHighlighted) return '#1565d4ff';
     if (isHovered) return '#4b5563';
     return '#374151';
   };
@@ -86,7 +91,7 @@ function Hexagon({
           y={y + 4}
           className="hexagon__coordinates"
         >
-          {hexData ? hexData.name[0] : `${row},${col}`}
+          {hexData ? hexData.name[0] : `${position.row},${position.col}`}
         </text>
       )}
       {hexData && hexData.hasUnit() && (//TODO: create Unit Component
