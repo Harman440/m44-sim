@@ -66,31 +66,15 @@ const App = () => {
         setHighlightedTiles([]); // Clear highlights
         return;
       }
-
-      const fromHex = boardManager.getHex(selectedTile);
-      const toHex = boardManager.getHex(position);
       
       // Check if the clicked hex is a valid move destination
-      if (isValidMove(fromHex, toHex, selectedUnit)) {
+      if (boardManager.canMoveTo(selectedTile, position, selectedUnit)) {
         // Move the unit
-
-        
-        if (fromHex && toHex && toHex.canEnter(selectedUnit)) {
-          // Remove unit from old hex and place on new hex
-          fromHex.removeUnit();
-          toHex.placeUnit(selectedUnit);
-          
-          //TODO: Update unit position
-          // selectedUnit.row = row;
-          // selectedUnit.col = col;
-          
+        if (boardManager.moveUnit(selectedTile, position)) {
           console.log(`Moved ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
-          
-          // Check movement restrictions at destination
-        if (hex.mustStop()) {
-          console.log(`Unit must stop on ${hex.name} - cannot move further this turn`);
+        } else {
+          console.log(`Failed to move ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
         }
-      }
         
         // Clear selection and highlights
         setSelectedTile(null);
@@ -103,6 +87,7 @@ const App = () => {
   };
 
   // Helper function to calculate possible moves using your Hex distance method
+  //TODO: Move to boardManager
   const calculatePossibleMoves = (startHex: Hex, unit: Unit): Position[] => {
     const possibleMoves: Position[] = [];
     
@@ -123,16 +108,6 @@ const App = () => {
     
     console.log("DEBUG: Possible moves:", possibleMoves);
     return possibleMoves;
-  };
-
-  // Helper function to check if a move is valid using your Hex methods
-  const isValidMove = (fromHex: Hex | null, toHex: Hex | null, unit: Unit | null): boolean => {
-    if (!fromHex || !toHex || !unit) return false;
-    
-    const distance = fromHex.getDistance(toHex);
-    const maxMovement = unit.maxMove;
-    
-    return distance <= maxMovement && toHex.canEnter(unit) && !toHex.hasUnit();
   };
 
   // Get hex data for selected tile

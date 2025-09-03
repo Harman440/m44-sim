@@ -119,15 +119,16 @@ class BoardManager {
   }
 
   // Movement validation
-  canMoveTo(fromPosition: Position, toPosition: Position, unit = null) {//TODO: check if it works. Create Possible movement grid
+  canMoveTo(fromPosition: Position, toPosition: Position, unit: Unit | null = null): boolean {//TODO: check if it works. Create Possible movement grid
     const fromHex = this.getHex(fromPosition);
-    const targetHex = this.getHex(toPosition);
+    const toHex = this.getHex(toPosition);
     
-    if (!targetHex) {
-      return false;
-    }
+    if (!fromHex || !toHex || !unit) return false;
 
-    return targetHex.canEnter(unit);
+    const distance = fromHex.getDistance(toHex);
+    const maxMovement = unit.maxMove;
+
+    return distance <= maxMovement && toHex.canEnter(unit) && !toHex.hasUnit();
   }
 
   // Get movement cost between adjacent hexes
