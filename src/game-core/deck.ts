@@ -1,19 +1,31 @@
 // game-core/Deck.js
-import { shuffle } from './utils.js';
+import CommandCard from './commandCard';
+import { shuffle } from './utils';
 
 class Deck {
+    originalCards: CommandCard[];//TODO: change to type card
+    drawPile: CommandCard[];
+    discardPile: CommandCard[];
     constructor(cards = []) {
         this.originalCards = [...cards]; // in case you want to reset
         this.drawPile = shuffle(cards);
         this.discardPile = [];
     }
 
-    draw(n = 1) {
+    draw(n = 1): CommandCard[] {
+        //If there are less than n cards in the draw pile, reshuffle the discard pile
+        if (this.drawPile.length < n) {
+            this.shuffleDiscardIntoDraw();
+        }
+        if (this.drawPile.length === 0) {
+            return [];
+            // throw new Error("Cannot draw: the draw pile is empty.");
+        }
         const drawn = this.drawPile.splice(0, n);
         return drawn;
     }
 
-    discard(card) {
+    discard(card: CommandCard) {
         this.discardPile.push(card);
     }
 

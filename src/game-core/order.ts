@@ -1,5 +1,12 @@
+import Hex from "./hex";
+import Unit from "./unit";
+
 class Order {
-    constructor(unit, start, end, canFire) {
+    unit: Unit;
+    start: Hex;
+    end: Hex;
+    canFire: boolean;
+    constructor(unit: Unit, start: Hex, end: Hex, canFire: boolean) {
         this.unit = unit;
         this.start = start;
         this.end = end;

@@ -63,7 +63,7 @@ const cardTemplates = [
   },
 ];
 
-const commandCards = [];
+const commandCards: CommandCard[] = [];
 
 cardTemplates.forEach(template => {
   for (let i = 0; i < template.count; i++) {

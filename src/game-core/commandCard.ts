@@ -1,9 +1,28 @@
 // game-core/commandCard.js
 
+import { UnitType } from "./unit";
+
 class CommandCard {
+    private static counter = 1;
+    id: string;
+    name: string;
+    description: string;
+    maxTotalOrders: number;
+    maxOrdersLeftSection: number;
+    maxOrdersCenterSection: number;
+    maxOrdersRightSection: number;
+    unitType: UnitType | null;
+    numOntheMove: number;
+    closeAssaultAdditionalDice: number;
+    rangeAdditionalDice: number;
+    numFireTimes: number;
+    extraMovement: number;
+    extraPickUpCards: number;
+    unitCosts: object;
+    receiveCombatCoins: number;
     constructor({
-        id,
-        name,
+        id = `command-card-${CommandCard.counter++}`,
+        name = '',
         description = '',
         maxTotalOrders = 0,
         maxOrdersLeftSection = 0,

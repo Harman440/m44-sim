@@ -1,21 +1,23 @@
-import React, { useState } from 'react';
-import Board from './components/Board.js';
+import { useState } from 'react';
+import Board from './components/Board';
 
-import BoardManager from './game-core/BoardManager.js';
-import GameState from './game-core/gameState.js';
+import BoardManager from './game-core/BoardManager';
+import GameState from './game-core/gameState';
 
 import './App.css';
+import { Position } from './data/types/scenario';
+import Unit from './game-core/unit';
 
 const App = () => {
-  const [selectedTile, setSelectedTile] = useState(null);
-  const [boardManager] = useState(() => new BoardManager("forest-blitz", "Allies"));//TODO: selected in main menu
-  const [gameState, setGameState] = useState(() => new GameState({
+  const [selectedTile, setSelectedTile] = useState<Position | null>(null);
+  const [boardManager] = useState<BoardManager>(() => new BoardManager("forest-blitz", "Axis"));//TODO: selected in main menu
+  const [gameState, setGameState] = useState<GameState>(() => new GameState({
     faction: "axis",
     initNumCommandCards: 3
   }));//TODO: change initial state in main menu
 
-  // Main tile click handler - App.js is in complete control
-  const handleTileClick = (row, col) => {
+  // Main tile click handler - App.tsx is in complete control
+  const handleTileClick = (row: number, col: number) => {
     console.log(`Tile clicked: Row ${row}, Column ${col}`);
     
     const hex = boardManager.getHex(row, col);
@@ -34,11 +36,7 @@ const App = () => {
     // Example game logic: Place a unit on empty hex
     //TODO: when clicked show how much unit can move and then click on a hex to move
     if (newSelectedTile && !hex.hasUnit() && hex.canEnter()) {
-      const unit = {
-        id: `unit-${Date.now()}`,
-        name: `Player ${gameState.faction} Unit`,
-        player: gameState.faction,
-      };
+      const unit = new Unit("infantry");
       
       if (boardManager.placeUnit(row, col, unit)) {
         console.log(`Placed unit on ${hex.name} at (${row}, ${col})`);

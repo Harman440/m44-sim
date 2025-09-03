@@ -1,19 +1,22 @@
 // game-core/Hand.js
 
+import CommandCard from "./commandCard";
+
 class Hand {
-  constructor(cards = []) {
+  cards: CommandCard[];
+  constructor(cards: CommandCard[] = []) {
     this.cards = [...cards];
   }
 
-  add(card) {
+  add(card: CommandCard) {
     this.cards.push(card);
   }
 
-  addMultiple(cards) {
+  addMultiple(cards: CommandCard[]) {
     this.cards.push(...cards);
   }
 
-  pickCard(index) {
+  pickCard(index: number) {
     if (index < 0 || index >= this.cards.length) {
       console.warn("pickCard: index out of bounds");
       return null;
@@ -21,7 +24,7 @@ class Hand {
     return this.cards[index];
   }
 
-  remove(cardToRemove) {
+  remove(cardToRemove: CommandCard) {
     this.cards = this.cards.filter((card) => card !== cardToRemove);
   }
 
