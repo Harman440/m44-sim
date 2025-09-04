@@ -26,7 +26,6 @@ const App = () => {
     if (!hex) return;
     
     console.log(`Hex info:`, hex.getDescription());
-    console.log(`Can enter: ${hex.canEnter()}, Must stop: ${hex.mustStop()}`);
     
     // If no tile is currently selected
     if (!selectedTile) {
@@ -40,15 +39,12 @@ const App = () => {
         // Select this hex and highlight possible moves
         setSelectedTile(position);
         
-        // calculate possible moves
-        const maxMovement = unit.maxMove;
-        
         // Calculate all hexes within movement range
         //TODO: Bug found not calculating possible hexes correctly, check if BoardManager functions work better
-        const possibleMoves: Position[] = calculatePossibleMoves(hex, unit);
-        setHighlightedTiles(possibleMoves); // You'll need this state variable
+        const possibleMoves: Position[] = boardManager.calculatePossibleMoves(hex, unit);
+        setHighlightedTiles(possibleMoves);
         
-        console.log(`Selected unit: ${unit.unitType}, Max movement: ${maxMovement}`);
+        console.log(`Selected unit: ${unit.unitType}`);
     } else {
       // A tile is already selected - this is a potential move destination
       const selectedHex = boardManager.getHex(selectedTile);
@@ -73,6 +69,7 @@ const App = () => {
         if (boardManager.moveUnit(selectedTile, position)) {
           console.log(`Moved ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
         } else {
+          //TODO: is this an error? to be thrown
           console.log(`Failed to move ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
         }
         
@@ -84,30 +81,6 @@ const App = () => {
         console.log("Invalid move - hex is out of range or blocked");
       }
     }
-  };
-
-  // Helper function to calculate possible moves using your Hex distance method
-  //TODO: Move to boardManager
-  const calculatePossibleMoves = (startHex: Hex, unit: Unit): Position[] => {
-    const possibleMoves: Position[] = [];
-    
-    // Check all hexes on the board for valid moves
-    const allHexes = boardManager.getAllHexes();
-    
-    for (const targetHex of allHexes) {
-      // Skip the starting position
-      if (targetHex === startHex) continue;
-      
-      const distance = startHex.getDistance(targetHex);
-      
-      // Check if hex is within movement range and can be entered
-      if (distance <= unit.maxMove && targetHex.canEnter(unit) && !targetHex.hasUnit()) {
-        possibleMoves.push(targetHex.position);
-      }
-    }
-    
-    console.log("DEBUG: Possible moves:", possibleMoves);
-    return possibleMoves;
   };
 
   // Get hex data for selected tile

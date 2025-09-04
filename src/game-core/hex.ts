@@ -79,7 +79,7 @@ class Hex {
       return false;
     }
 
-    // Add more complex logic here (unit-specific movement rules, etc.)
+    //TODO: Add more complex logic here (unit-specific movement rules, etc.)
     return true;
   }
 
@@ -136,16 +136,23 @@ class Hex {
     }
   }
 
-  getDistance(otherHex: Hex) {
-    // Simplified hexagonal distance calculation
-    const dx = this.position.col - otherHex.position.col;
-    const dy = this.position.row - otherHex.position.row;
+  getDistance(otherHex: Hex) {//TODO: this works better but pathfinding method must be used to move take into account inpassable hexes
+    // Convert offset coordinates to cube coordinates for accurate hex distance
+    const fromCube = this.offsetToCube(this.position.col, this.position.row);
+    const toCube = this.offsetToCube(otherHex.position.col, otherHex.position.row);
+    
+    // Calculate Manhattan distance in cube coordinates, then divide by 2
+    return (Math.abs(fromCube.x - toCube.x) + 
+            Math.abs(fromCube.y - toCube.y) + 
+            Math.abs(fromCube.z - toCube.z)) / 2;
+  }
 
-    if (Math.sign(dx) === Math.sign(dy)) {
-      return Math.abs(dx + dy);
-    } else {
-      return Math.max(Math.abs(dx), Math.abs(dy));
-    }
+  // Helper method to convert offset coordinates to cube coordinates
+  offsetToCube(col: number, row: number) {
+    const x = col - (row - (row & 1)) / 2;
+    const z = row;
+    const y = -x - z;
+    return { x, y, z };
   }
 
   // Description for UI

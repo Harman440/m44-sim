@@ -49,9 +49,6 @@ function Board({
         const isHighlighted = highlightedTiles.some(tile =>
           tile?.row === row && tile?.col === col
         );
-        if (isHighlighted) {
-          console.log(`DEBUG: row: ${row}, col: ${col}, isSelected: ${isSelected}, isHighlighted: ${isHighlighted}`);
-        }
 
         const hexData = boardManager ? boardManager.getHex(position) : null;
 

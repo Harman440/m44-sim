@@ -119,7 +119,7 @@ class BoardManager {
   }
 
   // Movement validation
-  canMoveTo(fromPosition: Position, toPosition: Position, unit: Unit | null = null): boolean {//TODO: check if it works. Create Possible movement grid
+  canMoveTo(fromPosition: Position, toPosition: Position, unit: Unit | null = null): boolean {
     const fromHex = this.getHex(fromPosition);
     const toHex = this.getHex(toPosition);
     
@@ -128,44 +128,28 @@ class BoardManager {
     const distance = fromHex.getDistance(toHex);
     const maxMovement = unit.maxMove;
 
-    return distance <= maxMovement && toHex.canEnter(unit) && !toHex.hasUnit();
+    return distance <= maxMovement && toHex.canEnter(unit);
   }
 
-  // Get movement cost between adjacent hexes
-  getMovementCost(fromPosition: Position, toPosition: Position, unit = null) {
-    const targetHex = this.getHex(toPosition);
+  // Helper function to calculate possible moves using your Hex distance method
+  calculatePossibleMoves = (startHex: Hex, unit: Unit): Position[] => {
+    const possibleMoves: Position[] = [];
     
-    if (!targetHex || !this.canMoveTo(fromPosition, toPosition, unit)) {
-      return Infinity;
+    // Check all hexes on the board for valid moves
+    const allHexes = this.getAllHexes();//TODO reduce this to movement range
+    
+    for (const targetHex of allHexes) {
+      // Skip the starting position
+      if (targetHex === startHex) continue;
+
+      if (this.canMoveTo(startHex.position, targetHex.position, unit)) {
+        possibleMoves.push(targetHex.position);
+      }
     }
-
-    return targetHex.getMovementCost(unit);
-  }
-
-  // Check if unit must stop on this hex
-  mustStopAt(position: Position): boolean {
-    const hex = this.getHex(position);
-    return hex ? hex.mustStop() : false;
-  }
-
-  // Place unit on hex
-  placeUnit(position: Position, unit: Unit): boolean {
-    const hex = this.getHex(position);
-    if (hex) {
-      return hex.placeUnit(unit);
-    }
-    return false;
-  }
-
-  // Remove unit from hex
-  removeUnit(position: Position) {
-    const hex = this.getHex(position);
-    if (hex) {
-      hex.removeUnit();
-      return true;
-    }
-    return false;
-  }
+    
+    console.log("DEBUG: Possible moves:", possibleMoves);
+    return possibleMoves;
+  };
 
   // Move unit from one hex to another
   moveUnit(fromPosition: Position, toPosition: Position): boolean { //TODO: check if it works
@@ -183,7 +167,8 @@ class BoardManager {
   }
 
   // Get path between two hexes (simple pathfinding)
-  findPath(//TODO: use this to check movement of units!!!
+  //TODO: check if this works
+  findPath(
     fromPosition: Position,
     toPosition: Position,
     unit: Unit | null = null
