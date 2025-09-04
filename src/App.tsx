@@ -5,13 +5,13 @@ import BoardManager from './game-core/BoardManager';
 import GameState from './game-core/gameState';
 
 import './App.css';
-import { Position } from './data/types/scenario';
+import { Position } from './types/scenario';
 import Unit from './game-core/unit';
 import Hex from './game-core/hex';
 
 const App = () => {
-  const [selectedTile, setSelectedTile] = useState<Position | null>(null);
-  const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);
+  const [selectedTile, setSelectedTile] = useState<Position | null>(null);//TODO: changed to selected unit hex position
+  const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);//TODO: change to possible positions + Add fireable positions
   const [boardManager] = useState<BoardManager>(() => new BoardManager("forest-blitz", "Axis"));//TODO: selected in main menu
   const [gameState, setGameState] = useState<GameState>(() => new GameState({
     faction: "axis",
@@ -40,7 +40,6 @@ const App = () => {
         setSelectedTile(position);
         
         // Calculate all hexes within movement range
-        //TODO: Bug found not calculating possible hexes correctly, check if BoardManager functions work better
         const possibleMoves: Position[] = boardManager.calculatePossibleMoves(hex, unit);
         setHighlightedTiles(possibleMoves);
         
@@ -63,14 +62,13 @@ const App = () => {
         return;
       }
       
-      // Check if the clicked hex is a valid move destination
-      if (boardManager.canMoveTo(selectedTile, position, selectedUnit)) {
+      // Check if the clicked hex is a valid move destination (a highlighted tile)
+      if(highlightedTiles.some(pos => pos.row === position.row && pos.col === position.col))  {
         // Move the unit
         if (boardManager.moveUnit(selectedTile, position)) {
           console.log(`Moved ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
         } else {
-          //TODO: is this an error? to be thrown
-          console.log(`Failed to move ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
+          throw new Error(`Failed to move ${selectedUnit.unitType} to highlighted tile`);
         }
         
         // Clear selection and highlights

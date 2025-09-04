@@ -1,8 +1,9 @@
 import Hex from './hex';
 import { scenarios } from '../data/scenarios';
 import Unit from './unit';
-import { Factions, Position, Scenario, UnitType } from '../data/types/scenario.js';
-import { HexType } from '../data/types/hex';
+import { Factions, Position, Scenario, UnitType } from '../types/scenario.js';
+import { AxialCoord, HexType } from '../types/hex';
+import { PathNode } from '../types/boardManager';
 
 class BoardManager {
   width: number;
@@ -80,7 +81,7 @@ class BoardManager {
   }
 
   // Check if position is valid
-  isValidPosition(position: Position): boolean {
+  private isValidPosition(position: Position): boolean {
     return position.row >= 0 && position.row < this.height && position.col >= 0 && position.col < this.width;
   }
 
@@ -94,65 +95,86 @@ class BoardManager {
     return this.getAllHexes().filter(hex => hex.type === type);
   }
 
-  // Get adjacent hexes
-  getAdjacentHexes(position: Position) {//TODO: check if it works. Create Possible movement grid
-    const adjacent: Hex[] = [];
-    const isEvenRow = position.row % 2 === 0;
-    
-    // Hexagonal grid adjacency offsets
-    const offsets: [number, number][] = isEvenRow 
-      ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]]  // Even row
-      : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];   // Odd row
-
-    offsets.forEach(([dr, dc]) => {
-      const newPosition: Position = { row: position.row + dr, col: position.col + dc };
-      
-      if (this.isValidPosition(newPosition)) {
-        const hex = this.getHex(newPosition);
-        if (hex) {
-          adjacent.push(hex);
-        }
-      }
-    });
-
-    return adjacent;
-  }
-
-  // Movement validation
-  canMoveTo(fromPosition: Position, toPosition: Position, unit: Unit | null = null): boolean {
-    const fromHex = this.getHex(fromPosition);
-    const toHex = this.getHex(toPosition);
-    
-    if (!fromHex || !toHex || !unit) return false;
-
-    const distance = fromHex.getDistance(toHex);
-    const maxMovement = unit.maxMove;
-
-    return distance <= maxMovement && toHex.canEnter(unit);
-  }
-
   // Helper function to calculate possible moves using your Hex distance method
   calculatePossibleMoves = (startHex: Hex, unit: Unit): Position[] => {
-    const possibleMoves: Position[] = [];
+    console.log(`Calculating possible moves for unit ${unit.unitType} at hex ${startHex.position}`);
+    const startPos = startHex.position;
+    const maxRange = unit.maxMove;
     
-    // Check all hexes on the board for valid moves
-    const allHexes = this.getAllHexes();//TODO reduce this to movement range
-    
-    for (const targetHex of allHexes) {
-      // Skip the starting position
-      if (targetHex === startHex) continue;
+    //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
+    const queue: PathNode[] = [{
+      position: startPos,
+      cost: 0,
+      canContinue: true
+    }];
 
-      if (this.canMoveTo(startHex.position, targetHex.position, unit)) {
-        possibleMoves.push(targetHex.position);
+    // Track visited positions and their costs
+    const visited = new Map<Hex, number>();
+    const reachablePositions: Position[] = [];
+
+    while (queue.length > 0) {
+      // Sort queue by cost (simple priority queue implementation)
+      queue.sort((a, b) => a.cost - b.cost);
+      const current = queue.shift()!;
+      const currentHex = this.getHex(current.position)!;
+
+      //const currentKey = this.positionToKey(current.position);
+      
+      // Skip if we've already visited this position with a lower cost
+      if (visited.has(currentHex) && visited.get(currentHex)! <= current.cost) {
+        continue;
+      }
+
+      visited.set(currentHex, current.cost);
+
+      // Add to reachable positions if within range (excluding start position)
+      if (current.cost > 0 && current.cost <= maxRange) {
+        reachablePositions.push(current.position);
+      }
+
+      // Don't explore further if this hex stops movement or we're at max range
+      if (!current.canContinue || current.cost >= maxRange) {
+        continue;
+      }
+
+      // Explore neighbors
+      const neighbors: Position[] = currentHex.getNeighbors();
+      
+      for (const neighborPos of neighbors) {
+        const neighborHex = this.getHex(neighborPos);
+
+        // Skip if hex doesn't exist on board or is impassable
+        if (!neighborHex || !neighborHex.isPassable()) {
+          continue;
+        }
+
+        const movementCost = neighborHex.getMovementCost();
+        const newCost = current.cost + movementCost;
+
+        // Skip if this path is more expensive than max range
+        if (newCost > maxRange) {
+          continue;
+        }
+
+        // Skip if we've already found a cheaper path to this neighbor
+        if (visited.has(neighborHex) && visited.get(neighborHex)! <= newCost) {
+          continue;
+        }
+
+        // Add neighbor to queue
+        queue.push({
+          position: neighborPos,
+          cost: newCost,
+          canContinue: neighborHex.canContinueMovement()
+        });
       }
     }
-    
-    console.log("DEBUG: Possible moves:", possibleMoves);
-    return possibleMoves;
+    console.log("DEBUG: Possible moves:", reachablePositions);
+    return reachablePositions;
   };
 
   // Move unit from one hex to another
-  moveUnit(fromPosition: Position, toPosition: Position): boolean { //TODO: check if it works
+  moveUnit(fromPosition: Position, toPosition: Position): boolean {
     const fromHex = this.getHex(fromPosition);
     const toHex = this.getHex(toPosition);
     const unit = fromHex?.unit;
@@ -164,45 +186,6 @@ class BoardManager {
     fromHex.removeUnit();
     toHex.placeUnit(unit);
     return true;
-  }
-
-  // Get path between two hexes (simple pathfinding)
-  //TODO: check if this works
-  findPath(
-    fromPosition: Position,
-    toPosition: Position,
-    unit: Unit | null = null
-  ): Position[] | null {
-    type Node = { position: Position; path: Position[] };
-    const visited = new Set<string>();
-    const queue: Node[] = [{ position: fromPosition, path: [] }];
-
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (!current) continue; // safeguard
-
-      const { position, path } = current;
-      const key = `${position.row}-${position.col}`;
-
-      if (visited.has(key)) continue;
-      visited.add(key);
-
-      if (position.row === toPosition.row && position.col === toPosition.col) {
-        return [...path, position];
-      }
-
-      const adjacent = this.getAdjacentHexes(position);
-      for (const hex of adjacent) {
-        if (!visited.has(hex.getKey()) && hex.canEnter(unit)) {
-          queue.push({
-            position: hex.position,
-            path: [...path, position],
-          });
-        }
-      }
-    }
-
-    return null; // No path found
   }
 
   // Get board statistics

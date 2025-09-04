@@ -1,7 +1,7 @@
 import Hexagon from './Hexagon';
 
 import './Board.css';
-import { Position } from '../data/types/scenario';
+import { Position } from '../types/scenario';
 import BoardManager from '../game-core/BoardManager';
 
 interface BoardProps {

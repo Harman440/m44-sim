@@ -1,9 +1,10 @@
-import { HexType, MovementRule } from "../data/types/hex";
-import { Position } from "../data/types/scenario";
+import { AxialCoord, HexType, MovementRule } from "../types/hex";
+import { Position } from "../types/scenario";
 import Unit from "./unit";
 
 class Hex {
   position: Position;
+  posAxial: AxialCoord;
   type: HexType;
   movementRule: MovementRule;
   movementCost: number;
@@ -27,6 +28,10 @@ class Hex {
     this.color = color;
     this.name = name;
     this.unit = unit; // Unit occupying this hex
+
+    //convert position to axial
+    this.posAxial = this.offsetToAxial(this.position);
+
     // Set properties based on terrain type
     this._setTerrainProperties();
   }
@@ -68,9 +73,13 @@ class Hex {
     }
   }
 
+  getKey() {
+    return `${this.position.row}-${this.position.col}`;
+  }
+
   // Game logic methods
   canEnter(unit: Unit | null = null) {
-    if (this.movementRule === MovementRule.BLOCK) {
+    if (this.movementRule === MovementRule.BLOCK || this.movementCost === Infinity) {
       return false;
     }
 
@@ -83,12 +92,18 @@ class Hex {
     return true;
   }
 
-  mustStop() {
-    return this.movementRule === MovementRule.STOP;
+  // Check if a hex is passable
+  isPassable(): boolean {
+    return this.movementRule !== MovementRule.BLOCK && this.unit === null && this.movementCost < Infinity;
   }
 
-  getMovementCost(unit: Unit | null = null) {
-    // Could be modified based on unit type
+  // Check if a hex allows continued movement
+  canContinueMovement(): boolean {
+    return this.movementRule !== MovementRule.STOP;
+  }
+
+  getMovementCost(unit: Unit | null = null): number {
+    //TODO: Could be modified based on unit type
     return this.movementCost;
   }
 
@@ -118,41 +133,41 @@ class Hex {
     return { row: this.position.row, col: this.position.col };
   }
 
-  getKey() {
-    return `${this.position.row}-${this.position.col}`;
+  // Convert offset coordinates to axial coordinates
+  private offsetToAxial(pos: Position): AxialCoord {
+    const q = pos.col - Math.floor((pos.row - (pos.row & 1)) / 2);
+    const r = pos.row;
+    return { q, r };
   }
 
-  isAdjacent(otherHex: Hex) { //TODO: use to calculate possible paths faster maybe?
-    const dr = Math.abs(this.position.row - otherHex.position.row);
-    const dc = Math.abs(this.position.col - otherHex.position.col);
-
-    // Hexagonal grid adjacency logic
-    if (this.position.row % 2 === 0) {
-      // Even row
-      return (dr === 1 && (dc === 0 || dc === 1)) || (dr === 0 && dc === 1);
-    } else {
-      // Odd row
-      return (dr === 1 && (dc === -1 || dc === 0)) || (dr === 0 && dc === 1);
-    }
+  // Convert axial coordinates back to offset coordinates
+  private axialToOffset(axial: AxialCoord): Position {
+    const row = axial.r;
+    const col = axial.q + Math.floor((axial.r - (axial.r & 1)) / 2);
+    return { row, col };
   }
 
-  getDistance(otherHex: Hex) {//TODO: this works better but pathfinding method must be used to move take into account inpassable hexes
-    // Convert offset coordinates to cube coordinates for accurate hex distance
-    const fromCube = this.offsetToCube(this.position.col, this.position.row);
-    const toCube = this.offsetToCube(otherHex.position.col, otherHex.position.row);
-    
-    // Calculate Manhattan distance in cube coordinates, then divide by 2
-    return (Math.abs(fromCube.x - toCube.x) + 
-            Math.abs(fromCube.y - toCube.y) + 
-            Math.abs(fromCube.z - toCube.z)) / 2;
+  // Get the 6 neighboring hexes in axial coordinates
+  private getAxialNeighbors(): AxialCoord[] {
+    const directions = [
+      { q: 1, r: 0 },   // East
+      { q: 1, r: -1 },  // Northeast
+      { q: 0, r: -1 },  // Northwest
+      { q: -1, r: 0 },  // West
+      { q: -1, r: 1 },  // Southwest
+      { q: 0, r: 1 }    // Southeast
+    ];
+
+    return directions.map(dir => ({
+      q: this.posAxial.q + dir.q,
+      r: this.posAxial.r + dir.r
+    }));
   }
 
-  // Helper method to convert offset coordinates to cube coordinates
-  offsetToCube(col: number, row: number) {
-    const x = col - (row - (row & 1)) / 2;
-    const z = row;
-    const y = -x - z;
-    return { x, y, z };
+  // Get neighboring positions in offset coordinates
+  getNeighbors(): Position[] {
+    const axialNeighbors = this.getAxialNeighbors();
+    return axialNeighbors.map(neighbor => this.axialToOffset(neighbor));
   }
 
   // Description for UI

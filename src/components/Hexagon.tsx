@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import './Hexagon.css';
-import { Position } from '../data/types/scenario';
+import { Position } from '../types/scenario';
 
 interface HexProps {
   x: number;

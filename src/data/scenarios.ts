@@ -1,6 +1,6 @@
 // data/scenarios.js
 
-import { Scenario } from "./types/scenario";
+import { Scenario } from "../types/scenario";
 
 export const scenarios: Scenario[] = [
   {
@@ -28,6 +28,12 @@ export const scenarios: Scenario[] = [
       {
         infantry: [
           { row: 2, col: 1 }, { row: 2, col: 2 }
+        ],
+        tank: [
+          { row: 2, col: 3 }, { row: 2, col: 4 }
+        ],
+        artillery: [
+          { row: 2, col: 5 }, { row: 2, col: 6 }
         ]
       },
       axis:
@@ -35,6 +41,12 @@ export const scenarios: Scenario[] = [
         infantry: [
           { row: 8, col: 4 }, { row: 8, col: 5 }, { row: 8, col: 6 }, { row: 8, col: 7 }
         ],
+        tank: [
+          { row: 8, col: 8 }, { row: 8, col: 9 }
+        ],
+        artillery: [
+          { row: 8, col: 10 }, { row: 8, col: 11 }, { row: 8, col: 12 }
+        ]
       }
     }
   },

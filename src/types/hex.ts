@@ -11,5 +11,11 @@ export enum MovementRule {
   NORMAL = "normal",
   STOP = "stop",
   BLOCK = "block",
-  SLOW = "slow",
+  DIFFICULT = "Difficult",
+}
+
+// Axial coordinate representation for easier hex calculations
+export interface AxialCoord {
+  q: number;
+  r: number;
 }
