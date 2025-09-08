@@ -6,7 +6,7 @@ class Deck {
     originalCards: CommandCard[];//TODO: change to type card
     drawPile: CommandCard[];
     discardPile: CommandCard[];
-    constructor(cards = []) {
+    constructor(cards: CommandCard[] = []) {
         this.originalCards = [...cards]; // in case you want to reset
         this.drawPile = shuffle(cards);
         this.discardPile = [];

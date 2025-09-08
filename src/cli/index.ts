@@ -23,6 +23,9 @@ const turn1 = new TurnState();
 //pick card, 
 turn1.commandCard = gameState.commandCardsPlayer.pickCard(0);
 
+if (!turn1.commandCard) {
+  throw new Error('Failed to pick card');
+}
 //TODO: units will be moved and orders saved in turnState
 
 //print state,

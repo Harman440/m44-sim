@@ -16,12 +16,12 @@ class Hand {
     this.cards.push(...cards);
   }
 
-  pickCard(index: number) {
+  pickCard(index: number): CommandCard | null {
     if (index < 0 || index >= this.cards.length) {
       console.warn("pickCard: index out of bounds");
       return null;
     }
-    return this.cards[index];
+    return this.cards[index] || null;
   }
 
   remove(cardToRemove: CommandCard) {

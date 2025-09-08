@@ -1,27 +1,60 @@
 // game-core/turn.js
+import { TurnPhase } from "../types/gameManager.js";
 import CommandCard from "./commandCard.js";
 import Hex from "./hex.js";
 import Order from "./order.js";
 import Unit from "./unit.js";
 
 class TurnState {
+  phase: TurnPhase;
   commandCard: CommandCard | null; //NOTE: null if card not selected yet
   orders: Order[];
   turnNumber: number;
   turnCoinCost: number;
+  numOrdersLeft: number;
   constructor() {
     this.commandCard = null;
     this.orders = [];
     this.turnNumber = 1;
     this.turnCoinCost = 0;
+    this.phase = TurnPhase.PICK_CARDS;
+    this.numOrdersLeft = 0;
+  }
+
+  startNewTurn() {
+    this.turnNumber++;
+    this.phase = TurnPhase.PICK_CARDS;
+    this.commandCard = null;
+    this.orders = [];
+    this.turnCoinCost = 0;
+    this.numOrdersLeft = 0;
+  }
+
+  setCommandCard(card: CommandCard) {
+    this.commandCard = card;
+    this.numOrdersLeft = card.maxTotalOrders;
+    this.phase = TurnPhase.ORDER_UNITS;
   }
 
   addOrder(unit: Unit, start: Hex, end: Hex, canFire: boolean) {
     this.orders.push(new Order(unit, start, end, canFire));
   }
 
+  clone() {
+    const newState = new TurnState();
+    newState.phase = this.phase;
+    newState.commandCard = this.commandCard;
+    newState.orders = this.orders.map((order) => new Order(order.unit, order.start, order.end, order.canFire));
+    newState.turnNumber = this.turnNumber;
+    newState.turnCoinCost = this.turnCoinCost;
+    newState.numOrdersLeft = this.numOrdersLeft;
+    return newState;
+  }
+
   printTurnInfo() {
     console.log(`Turn ${this.turnNumber} Info:`);
+    console.log(`Phase: ${this.phase}`);
+    console.log(`Num Orders Left: ${this.numOrdersLeft}`);
 
     if (this.commandCard) {
       console.log("Command Card:");
