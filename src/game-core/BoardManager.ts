@@ -2,7 +2,7 @@ import Hex from './hex';
 import { scenarios } from '../data/scenarios';
 import Unit from './unit';
 import { Factions, Position, Scenario, UnitType } from '../types/scenario.js';
-import { AxialCoord, HexType } from '../types/hex';
+import { HexType } from '../types/hex';
 import { PathNode } from '../types/boardManager';
 
 class BoardManager {
@@ -69,7 +69,7 @@ class BoardManager {
           if (!tile) {
             throw new Error(`No hex found at row=${position.row}, col=${position.col}`);
           }
-          tile.placeUnit(unit);
+          tile.placeUnit(unit, true);
         }
       });
     }

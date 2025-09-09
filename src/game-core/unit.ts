@@ -26,6 +26,10 @@ class Unit {
     this.moveAndFire = stats.moveAndFire;
     this.hasOrder = false;
   }
+
+  orderUnit() {
+    this.hasOrder = true;
+  }
 }
 
 export default Unit;

@@ -52,6 +52,11 @@ const App = () => {
     
     // If no tile is currently selected
     if (!selectedTile) {
+      // Check if max orders has been reached
+      if (turnState.noOrdersLeft()) {
+        console.log("Max orders reached");
+        return;
+      }
       // Get the unit
       const unit = hex.getUnit();
       // Check if clicked hex has a unit
@@ -59,14 +64,22 @@ const App = () => {
         console.log("No unit found on clicked hex");
         return;
       }
-        // Select this hex and highlight possible moves
-        setSelectedTile(position);
-        
-        // Calculate all hexes within movement range
-        const possibleMoves: Position[] = boardManager.calculatePossibleMoves(hex, unit);
-        setHighlightedTiles(possibleMoves);
-        
-        console.log(`Selected unit: ${unit.unitType}`);
+
+      // Check if the unit is orderable
+      if (unit.hasOrder) { //TODO: add if unit not of correct type or not in correct side of the map
+        console.log("Unit is not orderable");
+        //TODO: highlight hex red for a second and deselect hex
+        return;
+      }
+
+      // Select this hex and highlight possible moves
+      setSelectedTile(position);
+      
+      // Calculate all hexes within movement range
+      const possibleMoves: Position[] = boardManager.calculatePossibleMoves(hex, unit);
+      setHighlightedTiles(possibleMoves);
+      
+      console.log(`Selected unit: ${unit.unitType}`);
     } else {
       // A tile is already selected - this is a potential move destination
       const selectedHex = boardManager.getHex(selectedTile);
@@ -90,7 +103,7 @@ const App = () => {
         // Move the unit
         if (boardManager.moveUnit(selectedTile, position)) {
 
-          //TODO: add order in turn state and add one to number order left. add max orders.
+          turnState.addOrder(selectedUnit, selectedTile, position, true);
           console.log(`Moved ${selectedUnit.unitType} from (${selectedTile.row}, ${selectedTile.col}) to (${position.row}, ${position.col})`);
         } else {
           throw new Error(`Failed to move ${selectedUnit.unitType} to highlighted tile`);
@@ -105,6 +118,32 @@ const App = () => {
       }
     }
   };
+
+  //Handle Commit Orders
+  const handleCommitOrders = useCallback(() => {
+    setTurnState(prevTurnState => {
+      // Clone the previous state
+      const newTurnState = prevTurnState.clone(); 
+      /*NOTE: If you're using a class-based state management pattern, 
+      make sure your state updates return new instances rather than mutating existing ones. 
+      This is a fundamental React principle - state should be treated as immutable.*/
+      newTurnState.commitOrders();
+      return newTurnState;
+    });
+  }, []);
+
+  //Handle Start Battle
+  const handleStartBattle = useCallback(() => {
+    setTurnState(prevTurnState => {
+      // Clone the previous state
+      const newTurnState = prevTurnState.clone(); 
+      /*NOTE: If you're using a class-based state management pattern, 
+      make sure your state updates return new instances rather than mutating existing ones. 
+      This is a fundamental React principle - state should be treated as immutable.*/
+      newTurnState.startBattlePhase();
+      return newTurnState;
+    });
+  }, []);
 
   // Get hex data for selected tile
   const getSelectedHexInfo = () => {
@@ -172,8 +211,29 @@ const App = () => {
         Terrain: {Object.entries(getBoardStats()).map(([type, count]) => `${type}: ${count}`).join(', ')} |
         Phase: {turnState.phase}
         {turnState.phase === TurnPhase.PICK_CARDS && <div className="text-red-600">Pick a card first</div>}
-        {turnState.phase === TurnPhase.ORDER_UNITS && <div className="text-blue-600">Order your units</div>}
+        {turnState.phase === TurnPhase.ORDER_UNITS && <div className="text-blue-600">Order your units: {turnState.numOrdersLeft}</div>}
       </div>
+
+      {turnState.phase === TurnPhase.ORDER_UNITS && (
+        <div className="mb-4">
+          {turnState.noOrdersLeft() && !turnState.ordersAreCommitted() && (
+            <button
+              onClick={() => handleCommitOrders()}
+              className={` text-white p-2 rounded text-sm hover:opacity-80`}
+            >
+              CONFIRMAR ORDENES
+            </button>
+          )}
+          {turnState.ordersAreCommitted() && (
+            <button
+              onClick={() => handleStartBattle()}
+              className={` text-white p-2 rounded text-sm hover:opacity-80`}
+            >
+              FASE BATALLA
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

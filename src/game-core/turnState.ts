@@ -1,7 +1,7 @@
 // game-core/turn.js
 import { TurnPhase } from "../types/gameManager.js";
+import { Position } from "../types/scenario.js";
 import CommandCard from "./commandCard.js";
-import Hex from "./hex.js";
 import Order from "./order.js";
 import Unit from "./unit.js";
 
@@ -12,6 +12,7 @@ class TurnState {
   turnNumber: number;
   turnCoinCost: number;
   numOrdersLeft: number;
+  ordersCommitted: boolean;
   constructor() {
     this.commandCard = null;
     this.orders = [];
@@ -19,6 +20,7 @@ class TurnState {
     this.turnCoinCost = 0;
     this.phase = TurnPhase.PICK_CARDS;
     this.numOrdersLeft = 0;
+    this.ordersCommitted = false;
   }
 
   startNewTurn() {
@@ -28,6 +30,7 @@ class TurnState {
     this.orders = [];
     this.turnCoinCost = 0;
     this.numOrdersLeft = 0;
+    this.ordersCommitted = false;
   }
 
   setCommandCard(card: CommandCard) {
@@ -36,8 +39,27 @@ class TurnState {
     this.phase = TurnPhase.ORDER_UNITS;
   }
 
-  addOrder(unit: Unit, start: Hex, end: Hex, canFire: boolean) {
+  addOrder(unit: Unit, start: Position, end: Position, canFire: boolean) {
     this.orders.push(new Order(unit, start, end, canFire));
+    this.numOrdersLeft--;
+  }
+
+  noOrdersLeft(): boolean {
+    return this.numOrdersLeft <= 0;
+  }
+
+  commitOrders() {
+    this.ordersCommitted = true;
+  }
+
+  //TODO: If orders commited, clicking on a tile should do nothing, dont show go back button, show moved units (should be done already) and show used cards
+  //TODO: add something visual aswell to show nothing can be done
+  ordersAreCommitted(): boolean {
+    return this.ordersCommitted;
+  }
+
+  startBattlePhase() {
+    this.phase = TurnPhase.BATTLE;
   }
 
   clone() {

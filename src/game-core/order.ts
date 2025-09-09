@@ -1,12 +1,12 @@
-import Hex from "./hex";
+import { Position } from "../types/scenario";
 import Unit from "./unit";
 
 class Order {
     unit: Unit;
-    start: Hex;
-    end: Hex;
+    start: Position;
+    end: Position;
     canFire: boolean;
-    constructor(unit: Unit, start: Hex, end: Hex, canFire: boolean) {
+    constructor(unit: Unit, start: Position, end: Position, canFire: boolean) {
         this.unit = unit;
         this.start = start;
         this.end = end;
