@@ -13,6 +13,7 @@ interface BoardProps {
   boardHeight?: number;
   hexSize?: number;
   showCoordinates?: boolean;
+  faction?: string;
 }
 
 function Board({
@@ -24,6 +25,7 @@ function Board({
   boardHeight = 9,
   hexSize = 50,
   showCoordinates = true,
+  faction = "Allies"
 }: BoardProps) {
 
   // For flat-top hexagons, the spacing calculations
@@ -52,10 +54,14 @@ function Board({
           tile?.row === row && tile?.col === col
         );
 
-        const hexData = boardManager ? boardManager.getHex(position) : null;
+        const hexData = boardManager.getHex(position);
+        if (!hexData) {
+          throw new Error(`Hex not found at ${JSON.stringify(position)}`);
+        }
 
         tiles.push(
           <Hexagon
+            key={`${position.row}-${position.col}`}
             x={x}
             y={y}
             position={position}
@@ -65,6 +71,7 @@ function Board({
             hexSize={hexSize}
             showCoordinates={showCoordinates}
             hexData={hexData}
+            faction={faction}
           />
         );
       }

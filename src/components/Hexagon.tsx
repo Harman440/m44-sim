@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import './Hexagon.css';
 import { Position } from '../types/scenario';
+import Unit from './unit';
+import Hex from '../game-core/hex';
 
 interface HexProps {
   x: number;
@@ -12,7 +14,8 @@ interface HexProps {
   isHighlighted: boolean;
   hexSize?: number;
   showCoordinates?: boolean;
-  hexData?: any;
+  hexData: Hex;
+  faction: string;
 }
 
 function Hexagon({ 
@@ -24,7 +27,8 @@ function Hexagon({
   isHighlighted,
   hexSize = 25,
   showCoordinates = true,
-  hexData = null // Hex class instance
+  hexData,
+  faction
 }: HexProps) {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -94,15 +98,13 @@ function Hexagon({
           {hexData ? hexData.name[0] : `${position.row},${position.col}`}
         </text>
       )}
-      {hexData && hexData.hasUnit() && (//TODO: create Unit Component
-        <circle
-          cx={x}
-          cy={y - 8}
-          r="4"
-          fill="#ff6b6b"
-          stroke="#fff"
-          strokeWidth="1"
-        />
+      {hexData && hexData.hasUnit() && (
+      <Unit
+        x={x}
+        y={y - 8}
+        faction={faction}
+        type={hexData.getUnit()?.unitType}
+      />
       )}
     </g>
   );

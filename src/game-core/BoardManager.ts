@@ -22,13 +22,25 @@ class BoardManager {
   }
 
   // Initialize the board with default terrain
-  initializeBoard(scenarioId: string, faction: string) {//TODO if Axis faction flip scenario
+  initializeBoard(scenarioId: string, faction: string) {
     const scenario: Scenario | undefined = scenarios.find(s => s.id === scenarioId);
     if (!scenario) {
       console.error(`Scenario '${scenarioId}' not found.`);
       throw new Error(`Scenario '${scenarioId}' not found.`);
     }
 
+    // Helper function to flip positions for Axis faction
+    const flipPosition = (position: Position): Position => {
+      if (faction === 'Axis') {
+        return {
+          row: this.height - 1 - position.row,
+          col: position.col // Keep column the same for vertical flip
+        };
+      }
+      return position;
+    };
+
+    // Initialize hexes with default terrain
     for (let row = 0; row < this.height; row++) {
       // Delete hexe if row is odd
       const actualMaxWidth = this.width + (row % 2 === 1 ? -1 : 0);
@@ -39,17 +51,19 @@ class BoardManager {
       }
     }
 
+    // Place scenario tiles (flipped for Axis)
     for (const [tileType, positions] of Object.entries(scenario.tiles)) {
-      positions.forEach(position => {
+      positions.forEach(originalPosition => {
+        const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
-          const hexType = tileType as HexType; // directly cast, since enum values are strings
+          const hexType = tileType as HexType;
           const tile = new Hex(position, hexType);
-          this.hexes.set(tile.getKey(), tile);//NOTE: this will overwrite existing hex
+          this.hexes.set(tile.getKey(), tile);
         }
       });
     }
 
-    //place initial units
+    // Place initial units (flipped for Axis)
     // Validate faction
     if (!['Allies', 'Axis'].includes(faction)) {
       console.error(`Invalid faction: ${faction}`);
@@ -62,7 +76,8 @@ class BoardManager {
 
     for (const [unitType, positions] of Object.entries(unitGroups)) {
       const typedUnitType = unitType as UnitType;
-      positions.forEach(position => {
+      positions.forEach(originalPosition => {
+        const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
           const unit = new Unit(typedUnitType);
           this.units.push(unit);

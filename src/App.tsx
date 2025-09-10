@@ -13,12 +13,13 @@ import Deck from './game-core/deck';
 import commandCards from './data/commandCards';
 
 const App = () => {
+  const BoardSide: string = "Allies"; //TODO: change in main menu. NOTE: this is what is used to render the board
   const [selectedTile, setSelectedTile] = useState<Position | null>(null);//TODO: changed to selected unit hex position
   const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);//TODO: change to possible positions + Add fireable positions
-  const [boardManager] = useState<BoardManager>(() => new BoardManager("forest-blitz", "Axis"));//TODO: selected in main menu
+  const [boardManager] = useState<BoardManager>(() => new BoardManager("forest-blitz", BoardSide));//TODO: selected in main menu
   const [gameState, setGameState] = useState<GameState>(() => new GameState({
     board: boardManager,
-    faction: "axis",
+    faction: "axis", //TODO: this has to be used to add new rules depending on the faction. check if not used anywhere else
     initNumCommandCards: 3,
     commandCardsDeck: new Deck(commandCards),
     phase: GamePhase.PLAYING //TODO: start in setup/main menu
@@ -186,6 +187,7 @@ const App = () => {
           boardHeight={9}
           hexSize={50}
           showCoordinates={true}
+          faction={BoardSide}
         />
       )}
 

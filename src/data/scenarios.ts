@@ -39,13 +39,13 @@ export const scenarios: Scenario[] = [
       axis:
       {
         infantry: [
-          { row: 8, col: 4 }, { row: 8, col: 5 }, { row: 8, col: 6 }, { row: 8, col: 7 }
+          { row: 0, col: 4 }, { row: 0, col: 5 }, { row: 0, col: 6 }, { row: 0, col: 7 }
         ],
         tank: [
-          { row: 8, col: 8 }, { row: 8, col: 9 }
+          { row: 0, col: 8 }, { row: 0, col: 9 }
         ],
         artillery: [
-          { row: 8, col: 10 }, { row: 8, col: 11 }, { row: 8, col: 12 }
+          { row: 0, col: 10 }, { row: 0, col: 11 }, { row: 0, col: 12 }
         ]
       }
     }
