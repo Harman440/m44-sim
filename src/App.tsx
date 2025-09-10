@@ -13,7 +13,7 @@ import Deck from './game-core/deck';
 import commandCards from './data/commandCards';
 
 const App = () => {
-  const BoardSide: string = "Allies"; //TODO: change in main menu. NOTE: this is what is used to render the board
+  const BoardSide: string = "Axis"; //TODO: change in main menu. NOTE: this is what is used to render the board
   const [selectedTile, setSelectedTile] = useState<Position | null>(null);//TODO: changed to selected unit hex position
   const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);//TODO: change to possible positions + Add fireable positions
   const [boardManager] = useState<BoardManager>(() => new BoardManager("forest-blitz", BoardSide));//TODO: selected in main menu

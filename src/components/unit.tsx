@@ -11,13 +11,16 @@ interface UnitProps {
 }
 
 const Unit: React.FC<UnitProps> = ({ x, y, faction }) => {
+  const size = 48;
+  const yOffset = -2;
+  const xOffset = -4;
   return (
     <image
       href={faction === "Allies" ? alliedInfantry : axisInfantry}
-      x={x - 24 / 2} // center the image on (x, y)
-      y={y - 24 / 2}
-      width={24}
-      height={24}
+      x={x - size / 2 - xOffset} // center the image on (x, y)
+      y={y - size / 2 - yOffset}
+      width={size}
+      height={size}
       preserveAspectRatio="xMidYMid meet"
     />
   );
