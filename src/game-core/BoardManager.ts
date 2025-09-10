@@ -11,7 +11,7 @@ class BoardManager {
   hexes: Map<string, Hex>;
   units: Unit[];
 
-  constructor(scenarioId = "forest-blitz", faction = "Allies", width = 13, height = 9) {//TODO: remove hexes from the side on even column
+  constructor(scenarioId = "forest-blitz", faction = "Allies", width = 13, height = 9) {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
@@ -30,7 +30,9 @@ class BoardManager {
     }
 
     for (let row = 0; row < this.height; row++) {
-      for (let col = 0; col < this.width; col++) {
+      // Delete hexe if row is odd
+      const actualMaxWidth = this.width + (row % 2 === 1 ? -1 : 0);
+      for (let col = 0; col < actualMaxWidth; col++) {
         const position: Position = { row, col };
         const hex = new Hex(position, HexType.PLAINS);
         this.hexes.set(hex.getKey(), hex);
@@ -82,7 +84,8 @@ class BoardManager {
 
   // Check if position is valid
   private isValidPosition(position: Position): boolean {
-    return position.row >= 0 && position.row < this.height && position.col >= 0 && position.col < this.width;
+    const actualMaxWidth = this.width + (position.row % 2 === 1 ? -1 : 0);
+    return position.row >= 0 && position.row < this.height && position.col >= 0 && position.col < actualMaxWidth;
   }
 
   // Get all hexes
