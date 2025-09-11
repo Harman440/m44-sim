@@ -9,14 +9,11 @@ class BoardManager {
   width: number;
   height: number;
   hexes: Map<string, Hex>;
-  units: Unit[];
 
   constructor(scenarioId = "forest-blitz", faction = "Allies", width = 13, height = 9) {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
-
-    this.units = [];
     
     this.initializeBoard(scenarioId, faction);
   }
@@ -80,13 +77,12 @@ class BoardManager {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
           const unit = new Unit(typedUnitType);
-          this.units.push(unit);
 
-          const tile: Hex | null = this.getHex(position);
-          if (!tile) {
+          const hex: Hex | null = this.getHex(position);
+          if (!hex) {
             throw new Error(`No hex found at row=${position.row}, col=${position.col}`);
           }
-          tile.placeUnit(unit, true);
+          hex.placeUnit(unit, true);
         }
       });
     }

@@ -146,15 +146,37 @@ const App = () => {
     });
   }, []);
 
+  //Handle Finish Turn
+  //TODO: improve this. update turn phase by phase and then show on app. lastly update game state with turn data
+  const handleFinsihTurn = useCallback(() => {
+    setTurnState(prevTurnState => {
+      // Clone the previous state
+      const newTurnState = prevTurnState.clone(); 
+      /*NOTE: If you're using a class-based state management pattern, 
+      make sure your state updates return new instances rather than mutating existing ones. 
+      This is a fundamental React principle - state should be treated as immutable.*/
+      newTurnState.startNewTurn();
+      return newTurnState;
+    });
+    // Apply all turn changes to game state atomically
+    setGameState(prevGameState => {
+      const newGameState = prevGameState;
+
+      newGameState.currentTurn = turnState.turnNumber;//TODO: turn is not updating correctly
+      newGameState.commandCardsPlayer.remove(turnState.commandCard!); //TODO: remove correctly
+      //TODO: set discard pile correctly if needed
+      newGameState.commandCardsPlayer.add(newGameState.commandCardsDeck.draw(1)[0] ?? null);
+
+      //TODO: units can be ordered again
+
+      return newGameState;
+    })
+  }, []);
+
   // Get hex data for selected tile
   const getSelectedHexInfo = () => {
     if (!selectedTile) return null;
     return boardManager.getHex(selectedTile);
-  };
-
-  // Get board statistics
-  const getBoardStats = () => {
-    return boardManager.getStats();
   };
 
   return (
@@ -178,64 +200,87 @@ const App = () => {
       )}
 
       {turnState.phase === TurnPhase.ORDER_UNITS && (
-        <Board 
-          onTileClick={handleTileClick}
-          selectedTile={selectedTile}
-          highlightedTiles={highlightedTiles}
-          boardManager={boardManager}
-          boardWidth={13}
-          boardHeight={9}
-          hexSize={50}
-          showCoordinates={true}
-          faction={BoardSide}
-        />
-      )}
+        <div>
+          <Board 
+            onTileClick={handleTileClick}
+            selectedTile={selectedTile}
+            highlightedTiles={highlightedTiles}
+            boardManager={boardManager}
+            boardWidth={13}
+            boardHeight={9}
+            hexSize={50}
+            showCoordinates={true}
+            faction={BoardSide}
+          />
 
-      {selectedTile && (
-        <div className="app__selected-info">
-          {(() => {
-            const hexInfo = getSelectedHexInfo();
-            return hexInfo ? (
-              <div>
-                <div>Selected: {hexInfo.getDescription()}</div>
-                <div>Terrain: {hexInfo.name} | Movement Rule: {hexInfo.movementRule}</div>
-              </div>
-            ) : (
-              <div>Selected Tile: Row {selectedTile.row}, Column {selectedTile.col}</div>
-            );
-          })()}
+          {selectedTile && (
+            <div className="app__selected-info">
+              {(() => {
+                const hexInfo = getSelectedHexInfo();
+                return hexInfo ? (
+                  <div>
+                    <div>Selected: {hexInfo.getDescription()}</div>
+                    <div>Terrain: {hexInfo.name} | Movement Rule: {hexInfo.movementRule}</div>
+                  </div>
+                ) : (
+                  <div>Selected Tile: Row {selectedTile.row}, Column {selectedTile.col}</div>
+                );
+              })()}
+            </div>
+          )}
+
+          <div className="mb-4">
+            {turnState.noOrdersLeft() && !turnState.ordersAreCommitted() && (
+              <button
+                onClick={() => handleCommitOrders()}
+                className={` text-white p-2 rounded text-sm hover:opacity-80`}
+              >
+                CONFIRMAR ORDENES
+              </button>
+            )}
+            {turnState.ordersAreCommitted() && (
+              <button
+                onClick={() => handleStartBattle()}
+                className={` text-white p-2 rounded text-sm hover:opacity-80`}
+              >
+                FASE BATALLA
+              </button>
+            )}
+          </div>
         </div>
       )}
-      
+
+      {turnState.phase === TurnPhase.BATTLE && (
+        <div className="mb-4">
+          <h3 className="font-bold mb-2">Fase Batalla</h3>
+            <button
+              onClick={() => handleFinsihTurn()}
+              className={`text-white p-2 rounded text-sm hover:opacity-80`}
+            >
+              Terminar Turno
+            </button>
+            {/*TODO: Add delete units from board*/}
+        </div>
+      )}
+
       <div className="app__instructions">
-        Click on any hexagon to select it | 
-        Turn: {gameState.currentTurn} |
-        Terrain: {Object.entries(getBoardStats()).map(([type, count]) => `${type}: ${count}`).join(', ')} |
-        Phase: {turnState.phase}
-        {turnState.phase === TurnPhase.PICK_CARDS && <div className="text-red-600">Pick a card first</div>}
-        {turnState.phase === TurnPhase.ORDER_UNITS && <div className="text-blue-600">Order your units: {turnState.numOrdersLeft}</div>}
+        {turnState.phase === TurnPhase.PICK_CARDS && 
+          <div className="text-red-600">
+            Pick a card first
+          </div>
+        }
+        {turnState.phase === TurnPhase.ORDER_UNITS && 
+          <div className="text-blue-600">
+            Order your units: {turnState.numOrdersLeft} | 
+            Click on any hexagon to select it | 
+          </div>
+        }
       </div>
 
-      {turnState.phase === TurnPhase.ORDER_UNITS && (
-        <div className="mb-4">
-          {turnState.noOrdersLeft() && !turnState.ordersAreCommitted() && (
-            <button
-              onClick={() => handleCommitOrders()}
-              className={` text-white p-2 rounded text-sm hover:opacity-80`}
-            >
-              CONFIRMAR ORDENES
-            </button>
-          )}
-          {turnState.ordersAreCommitted() && (
-            <button
-              onClick={() => handleStartBattle()}
-              className={` text-white p-2 rounded text-sm hover:opacity-80`}
-            >
-              FASE BATALLA
-            </button>
-          )}
-        </div>
-      )}
+      <div className='app_info'>
+        Turn: {gameState.currentTurn} |
+        Phase: {turnState.phase}
+      </div>
     </div>
   );
 };

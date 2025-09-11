@@ -8,7 +8,8 @@ class Hand {
     this.cards = [...cards];
   }
 
-  add(card: CommandCard) {
+  add(card: CommandCard | null) {
+    if (!card) return;
     this.cards.push(card);
   }
 

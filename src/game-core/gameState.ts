@@ -18,7 +18,7 @@ class GameState {
   combatCardsPlayer: string[];//TODO: change to deck of cards later
   totalCommandCoins: number;
   constructor({
-    board = new BoardManager(),
+    board = new BoardManager(),//TODO: avoid creating a new board here
     faction = "allies", //Default to Allies
     initNumCommandCards = 6,
     playingWithCombatCards = true,

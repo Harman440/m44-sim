@@ -27,13 +27,13 @@ export const scenarios: Scenario[] = [
       allies:
       {
         infantry: [
-          { row: 2, col: 1 }, { row: 2, col: 2 }
+          { row: 7, col: 1 }, { row: 7, col: 2 }
         ],
         tank: [
-          { row: 2, col: 3 }, { row: 2, col: 4 }
+          { row: 7, col: 3 }, { row: 7, col: 4 }
         ],
         artillery: [
-          { row: 2, col: 5 }, { row: 2, col: 6 }
+          { row: 7, col: 5 }, { row: 7, col: 6 }
         ]
       },
       axis:
