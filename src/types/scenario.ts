@@ -26,3 +26,7 @@ export interface Scenario {
   tiles: Tiles;
   units: Factions;
 }
+
+export interface ScenarioSettings { //TODO: init in scenario data and use when setting up
+  initNumCommandCards: number;
+}

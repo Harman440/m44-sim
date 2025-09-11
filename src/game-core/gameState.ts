@@ -6,10 +6,9 @@ import Deck from './deck';
 import Hand from './hand';
 import TurnState from './turnState.js';
 
+//TODO: find a way of storing new unit locations and/or whole board if needed
 class GameState {
   faction: string; //TODO: check if needed, what to store. Will the board change during the game?
-  board: BoardManager;//NOTE: this will store the units position. Board might also change.
-  playingWithCombatCards: boolean; //TODO: check if needed, what to store. Will the board change during the game?
   currentTurn: number;
   phase: GamePhase;
   commandCardsDeck: Deck;
@@ -17,8 +16,8 @@ class GameState {
   commandCardsPlayer: Hand;
   combatCardsPlayer: string[];//TODO: change to deck of cards later
   totalCommandCoins: number;
+
   constructor({
-    board = new BoardManager(),//TODO: avoid creating a new board here
     faction = "allies", //Default to Allies
     initNumCommandCards = 6,
     playingWithCombatCards = true,
@@ -30,8 +29,6 @@ class GameState {
     totalCommandCoins = 0,
   } = {}) {
     this.faction = faction;
-    this.board = board;
-    this.playingWithCombatCards = playingWithCombatCards;
     this.currentTurn = currentTurn;
     this.phase = phase;
     this.commandCardsDeck = commandCardsDeck;
@@ -39,6 +36,11 @@ class GameState {
     this.commandCardsPlayer = new Hand(this.commandCardsDeck.draw(initNumCommandCards));
     this.combatCardsPlayer = combatCardsPlayer;
     this.totalCommandCoins = totalCommandCoins;
+
+    if (playingWithCombatCards) {
+      //TODO: enable combat cards
+      console.log("combat cards enabled");
+    }
   }
 
   update(turnState: TurnState) {

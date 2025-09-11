@@ -10,22 +10,16 @@ class BoardManager {
   height: number;
   hexes: Map<string, Hex>;
 
-  constructor(scenarioId = "forest-blitz", faction = "Allies", width = 13, height = 9) {
+  constructor(scenario: Scenario, faction = "Allies", width = 13, height = 9) {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
     
-    this.initializeBoard(scenarioId, faction);
+    this.initializeBoard(scenario, faction);
   }
 
   // Initialize the board with default terrain
-  initializeBoard(scenarioId: string, faction: string) {
-    const scenario: Scenario | undefined = scenarios.find(s => s.id === scenarioId);
-    if (!scenario) {
-      console.error(`Scenario '${scenarioId}' not found.`);
-      throw new Error(`Scenario '${scenarioId}' not found.`);
-    }
-
+  initializeBoard(scenario: Scenario, faction: string) {
     // Helper function to flip positions for Axis faction
     const flipPosition = (position: Position): Position => {
       if (faction === 'Axis') {
@@ -219,9 +213,9 @@ class BoardManager {
   }
 
   // Reset board to initial state
-  reset(scenarioId = "forest-blitz", faction = "Allies") {
+  reset(scenario: Scenario, faction = "Allies") {
     this.hexes.clear();
-    this.initializeBoard(scenarioId, faction);
+    this.initializeBoard(scenario, faction);
   }
 }
 

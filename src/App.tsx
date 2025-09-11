@@ -5,20 +5,26 @@ import BoardManager from './game-core/BoardManager';
 import GameState from './game-core/gameState';
 
 import './App.css';
-import { Position } from './types/scenario';
+import { Position, Scenario } from './types/scenario';
 import TurnState from './game-core/turnState';
 import { GamePhase, TurnPhase } from './types/gameManager';
 import CommandCard from './game-core/commandCard';
 import Deck from './game-core/deck';
 import commandCards from './data/commandCards';
+import { scenarios } from './data/scenarios';
 
 const App = () => {
   const BoardSide: string = "Axis"; //TODO: change in main menu. NOTE: this is what is used to render the board
+  const scenarioId: string = "forest-blitz";
+  const scenario: Scenario | undefined = scenarios.find(s => s.id === scenarioId);
+    if (!scenario) {
+      console.error(`Scenario '${scenarioId}' not found.`);
+      throw new Error(`Scenario '${scenarioId}' not found.`);
+    }
   const [selectedTile, setSelectedTile] = useState<Position | null>(null);//TODO: changed name to selected unit hex position
   const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);//TODO: change name to possible positions + Add fireable positions
-  const [boardManager] = useState<BoardManager>(() => new BoardManager("forest-blitz", BoardSide));//TODO: selected in main menu
+  const [boardManager] = useState<BoardManager>(() => new BoardManager(scenario, BoardSide));//TODO: selected in main menu
   const [gameState, setGameState] = useState<GameState>(() => new GameState({
-    board: boardManager,
     faction: "axis", //TODO: this has to be used to add new rules depending on the faction. check if not used anywhere else
     initNumCommandCards: 3,
     commandCardsDeck: new Deck(commandCards),
