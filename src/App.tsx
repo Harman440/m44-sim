@@ -12,6 +12,7 @@ import CommandCard from './game-core/commandCard';
 import Deck from './game-core/deck';
 import commandCards from './data/commandCards';
 import { scenarios } from './data/scenarios';
+import CardsView from './components/mainComponents/CardsView';
 
 const App = () => {
   const BoardSide: string = "Axis"; //TODO: change in main menu. NOTE: this is what is used to render the board
@@ -21,6 +22,7 @@ const App = () => {
       console.error(`Scenario '${scenarioId}' not found.`);
       throw new Error(`Scenario '${scenarioId}' not found.`);
     }
+
   const [selectedTile, setSelectedTile] = useState<Position | null>(null);//TODO: changed name to selected unit hex position
   const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);//TODO: change name to possible positions + Add fireable positions
   const [boardManager] = useState<BoardManager>(() => new BoardManager(scenario, BoardSide));//TODO: selected in main menu
@@ -30,7 +32,10 @@ const App = () => {
     commandCardsDeck: new Deck(commandCards),
     phase: GamePhase.PLAYING //TODO: start in setup/main menu
   }));//TODO: change initial state in main menu
-  const [turnState, setTurnState] = useState<TurnState>(() => new TurnState());
+  const [turnState, setTurnState] = useState<TurnState>(() => new TurnState());//TODO: deprecating this. Turn state is used to save and update game State only
+
+  const [turnPhase, setTurnPhase] = useState<TurnPhase>(() => TurnPhase.PICK_CARDS);//TODO this will be set to pickCards initially when the game is set up.
+  const [chosenCommandCard, setChosenCommandCard] = useState<CommandCard | null>(null);
 
   //handle click on card
   const handleCardClick = useCallback((card: CommandCard) => {
@@ -185,24 +190,15 @@ const App = () => {
     return boardManager.getHex(selectedTile);
   };
 
+  //TODO: React, rendering shoudnt depend on game state and turn state. I think
   return (
     <div className="app">
 
       {turnState.phase === TurnPhase.PICK_CARDS && (
-        <div className="mb-4">
-          <h3 className="font-bold mb-2">Choose a Card</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {gameState.commandCardsPlayer.cards.map(card => (
-              <button
-                key={card.id}
-                onClick={() => handleCardClick(card)}
-                className={` text-white p-2 rounded text-sm hover:opacity-80`}
-              >
-                {card.name} ({card.maxTotalOrders} actions)
-              </button>
-            ))}
-          </div>
-        </div>
+        <CardsView
+          commandCardsPlayer={gameState.commandCardsPlayer}
+          onCardClick={handleCardClick}
+        />
       )}
 
       {turnState.phase === TurnPhase.ORDER_UNITS && (
