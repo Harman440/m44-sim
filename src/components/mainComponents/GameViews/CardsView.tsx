@@ -2,9 +2,9 @@
 //TODO: React, rendering shoudnt depend on game state and turn state. I think
 //TODO: this should be shown if gameState is in playing and turnPhase is PICK_CARDS
 
-import CommandCard from "../../game-core/commandCard";
-import Hand from "../../game-core/hand";
-import CommandCardComponent from "../CommandCardComponent";
+import CommandCard from "../../../game-core/commandCard";
+import Hand from "../../../game-core/hand";
+import CommandCardComponent from "../../CommandCardComponent";
 
 interface CardsViewProps {
     commandCardsPlayer: Hand;

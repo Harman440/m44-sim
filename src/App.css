@@ -7,24 +7,3 @@
   align-items: center;
   font-family: Arial, sans-serif;
 }
-
-.app__selected-info {
-  margin-top: 20px;
-  color: #e5e7eb;
-  font-size: 18px;
-  text-align: center;
-}
-
-.app__instructions {
-  margin-top: 15px;
-  color: #9ca3af;
-  font-size: 14px;
-  text-align: center;
-}
-
-.app_info {
-  margin-top: 15px;
-  color: #9ca3af;
-  font-size: 14px;
-  text-align: center;
-}
