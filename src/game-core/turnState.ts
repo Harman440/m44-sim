@@ -5,6 +5,7 @@ import CommandCard from "./commandCard.js";
 import Order from "./order.js";
 import Unit from "./unit.js";
 
+//TODO: Turn state is used to save and update game State only
 class TurnState {
   phase: TurnPhase;
   commandCard: CommandCard | null; //NOTE: null if card not selected yet
@@ -33,34 +34,28 @@ class TurnState {
     this.ordersCommitted = false;
   }
 
-  setCommandCard(card: CommandCard) {
-    this.commandCard = card;
-    this.numOrdersLeft = card.maxTotalOrders;
-    this.phase = TurnPhase.ORDER_UNITS;
-  }
+  // setCommandCard(card: CommandCard) {
+  //   this.commandCard = card;
+  //   this.numOrdersLeft = card.maxTotalOrders;
+  //   this.phase = TurnPhase.ORDER_UNITS;
+  // }
 
-  addOrder(unit: Unit, start: Position, end: Position, canFire: boolean) {
-    this.orders.push(new Order(unit, start, end, canFire));
-    this.numOrdersLeft--;
-  }
+  // addOrder(unit: Unit, start: Position, end: Position, canFire: boolean) {
+  //   this.orders.push(new Order(unit, start, end, canFire));
+  //   this.numOrdersLeft--;
+  // }
 
-  noOrdersLeft(): boolean {
-    return this.numOrdersLeft <= 0;
-  }
+  // commitOrders() {
+  //   this.ordersCommitted = true;
+  // }
 
-  commitOrders() {
-    this.ordersCommitted = true;
-  }
+  // ordersAreCommitted(): boolean {
+  //   return this.ordersCommitted;
+  // }
 
-  //TODO: If orders commited, clicking on a tile should do nothing, dont show go back button, show moved units (should be done already) and show used cards
-  //TODO: add something visual aswell to show nothing can be done
-  ordersAreCommitted(): boolean {
-    return this.ordersCommitted;
-  }
-
-  startBattlePhase() {
-    this.phase = TurnPhase.BATTLE;
-  }
+  // startBattlePhase() {
+  //   this.phase = TurnPhase.BATTLE;
+  // }
 
   clone() {
     const newState = new TurnState();
