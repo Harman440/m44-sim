@@ -1,5 +1,4 @@
 import Hex from './hex';
-import { scenarios } from '../data/scenarios';
 import Unit from './unit';
 import { Factions, Position, Scenario, UnitType } from '../types/scenario.js';
 import { HexType } from '../types/hex';

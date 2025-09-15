@@ -1,6 +1,7 @@
 // data/commandCards.js
 import CommandCard from '../game-core/commandCard.js';
 
+//TODO: Change Id so that all cards have a unique Id
 const cardTemplates = [
   {
     count: 4,

@@ -46,15 +46,21 @@ function GameView({
     //TODO: improve this. update turn phase by phase and then show on app. lastly update game state with turn data
     const handleFinsihTurn = useCallback(() => {
         setTurnPhase(TurnPhase.PICK_CARDS);
-        setChosenCommandCard(null);
-        commandCardsPlayer.remove(chosenCommandCard!); //BUG: remove correctly
+        console.log(`The chosen card was: ${chosenCommandCard?.name}`);
+        
+        if (!chosenCommandCard) {
+            console.warn('No card chosen when finishing turn');
+            return; // Exit early if no card is selected
+        }
+        commandCardsPlayer.remove(chosenCommandCard);
         commandCardsPlayer.add(commandCardsDeck.draw(1)[0] ?? null);//TODO: set discard pile correctly if needed
+        setChosenCommandCard(null);
         console.log(`Cards Left in deck: ${commandCardsDeck.drawPile.length}`);
 
-        //BUG: units shoudnt be able to be ordered again
+        //BUG: units should be able to be ordered again
 
         setCurrentTurn(prevTurn => prevTurn + 1);
-    }, []);
+    }, [chosenCommandCard, commandCardsPlayer, commandCardsDeck]);
 
     return (
         <div>
