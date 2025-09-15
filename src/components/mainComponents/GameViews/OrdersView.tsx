@@ -7,22 +7,22 @@ import Board from "../../Board";
 
 interface OrdersViewProps {
     boardSide: string,
-    scenario: Scenario,
+    boardManager: BoardManager,
     chosenCommandCard: CommandCard,
     setTurnPhase: (turnPhase: TurnPhase) => void
 }
 
 function OrdersView({
     boardSide,
-    scenario,
+    boardManager,
     chosenCommandCard,
     setTurnPhase
 }: OrdersViewProps) {
     const [selectedTile, setSelectedTile] = useState<Position | null>(null);//TODO: changed name to selected unit hex position
     const [highlightedTiles, setHighlightedTiles] = useState<Position[]>([]);//TODO: change name to possible positions + Add fireable positions
-    const [boardManager] = useState<BoardManager>(() => new BoardManager(scenario, boardSide));//TODO: selected in main menu
+
     const [numOrdersLeft, setNumOrdersLeft] = useState<number>(chosenCommandCard.maxTotalOrders);
-    const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false);
+    const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false);//NOTE: this is set to false each time this is rendered??
 
     // Main tile click handler - App.tsx is in complete control
     const handleTileClick = (position: Position) => {
@@ -113,29 +113,11 @@ function OrdersView({
         setOrdersAreCommited(true);
         //TODO: If orders commited, clicking on a tile should do nothing, dont show go back button, show moved units (should be done already) and show used cards
         //TODO: add something visual aswell to show nothing can be done
-        // setTurnState(prevTurnState => {
-        // // Clone the previous state
-        // const newTurnState = prevTurnState.clone(); 
-        // /*NOTE: If you're using a class-based state management pattern, 
-        // make sure your state updates return new instances rather than mutating existing ones. 
-        // This is a fundamental React principle - state should be treated as immutable.*/
-        // newTurnState.commitOrders();
-        // return newTurnState;
-        // });
     };
 
     //Handle Start Battle
     const handleStartBattle = () => {
         setTurnPhase(TurnPhase.BATTLE);
-        // setTurnState(prevTurnState => {
-        // // Clone the previous state
-        // const newTurnState = prevTurnState.clone(); 
-        // /*NOTE: If you're using a class-based state management pattern, 
-        // make sure your state updates return new instances rather than mutating existing ones. 
-        // This is a fundamental React principle - state should be treated as immutable.*/
-        // newTurnState.startBattlePhase();
-        // return newTurnState;
-        // });
     };
 
     return (
