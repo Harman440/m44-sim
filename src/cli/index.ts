@@ -1,8 +1,8 @@
 // cli/index.js
 import commandCards from '../data/commandCards.js';
 import Deck from '../game-core/deck.js';
-import GameState from '../game-core/gameState.js';
-import TurnState from '../game-core/turnState.js';
+import GameState from '../game-core/deprecated/gameState.js';
+import TurnState from '../game-core/deprecated/turnState.js';
 
 const gameState = new GameState({
   commandCardsDeck: new Deck(commandCards),

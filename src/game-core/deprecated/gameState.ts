@@ -1,9 +1,9 @@
 // game-core/gameState.js
-import { GamePhase } from '../types/gameManager.js';
-import BoardManager from './BoardManager.js';
-import CommandCard from './commandCard.js';
-import Deck from './deck';
-import Hand from './hand';
+import { GamePhase } from '../../types/gameManager.js';
+import BoardManager from '../BoardManager.js';
+import CommandCard from '../commandCard.js';
+import Deck from '../deck.js';
+import Hand from '../hand.js';
 import TurnState from './turnState.js';
 
 //TODO: find a way of storing new unit locations and/or whole board if needed

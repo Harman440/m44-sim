@@ -1,9 +1,9 @@
 // game-core/turn.js
-import { TurnPhase } from "../types/gameManager.js";
-import { Position } from "../types/scenario.js";
-import CommandCard from "./commandCard.js";
-import Order from "./order.js";
-import Unit from "./unit.js";
+import { TurnPhase } from "../../types/gameManager.js";
+import { Position } from "../../types/scenario.js";
+import CommandCard from "../commandCard.js";
+import Order from "../order.js";
+import Unit from "../unit.js";
 
 //TODO: Turn state is used to save and update game State only
 class TurnState {
