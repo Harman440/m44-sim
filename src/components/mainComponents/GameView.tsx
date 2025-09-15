@@ -57,7 +57,7 @@ function GameView({
         setChosenCommandCard(null);
         console.log(`Cards Left in deck: ${commandCardsDeck.drawPile.length}`);
 
-        //BUG: units should be able to be ordered again
+        boardManager.removeOrders();
 
         setCurrentTurn(prevTurn => prevTurn + 1);
     }, [chosenCommandCard, commandCardsPlayer, commandCardsDeck]);

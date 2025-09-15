@@ -195,6 +195,14 @@ class BoardManager {
     return true;
   }
 
+  removeOrders() {
+    this.getAllHexes().forEach(hex => {
+      if (hex.unit) {
+        hex.removeOrderFromUnit();
+      }
+    });
+  }
+
   // Get board statistics
   getStats() {
     const stats: Record<HexType, number> = {

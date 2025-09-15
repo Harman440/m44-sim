@@ -112,7 +112,7 @@ class Hex {
     if (this.canEnter(unit)) {
       this.unit = unit;
       //NOTE: unit cant be ordered again when moved
-      if (!isSetup) this.unit.orderUnit();
+      if (!isSetup) this.unit.order();
       return true;
     }
     return false;
@@ -128,6 +128,12 @@ class Hex {
 
   removeUnit() {
     this.unit = null;
+  }
+
+  removeOrderFromUnit() {
+    if (this.unit) {
+      this.unit.hasOrder = false;
+    }
   }
 
   // Utility methods

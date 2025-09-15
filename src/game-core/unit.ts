@@ -27,7 +27,7 @@ class Unit {
     this.hasOrder = false;
   }
 
-  orderUnit() {
+  order() {
     this.hasOrder = true;
   }
 }
