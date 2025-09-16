@@ -6,8 +6,8 @@ import BoardManager from '../game-core/BoardManager';
 
 interface BoardProps {
   onTileClick: (position: Position) => void;
-  selectedTile: Position | null;
-  highlightedTiles: Position[];
+  unitHexPosition: Position | null;
+  possiblePositions: Position[];
   boardManager: BoardManager;
   boardWidth?: number;
   boardHeight?: number;
@@ -18,8 +18,8 @@ interface BoardProps {
 
 function Board({
   onTileClick,
-  selectedTile,
-  highlightedTiles,
+  unitHexPosition,
+  possiblePositions,
   boardManager,
   boardWidth = 13,
   boardHeight = 9,
@@ -47,11 +47,11 @@ function Board({
         const x = 115 + col * offsetX + (row % 2) * (offsetX / 2);
         const y = 100 + row * offsetY;
 
-        const isSelected = selectedTile?.row === row && selectedTile?.col === col;
+        const isSelected = unitHexPosition?.row === row && unitHexPosition?.col === col;
         
-        // Check if this tile is in the highlightedTiles array
-        const isHighlighted = highlightedTiles.some(tile =>
-          tile?.row === row && tile?.col === col
+        // Check if this hex is in the possiblePositions array
+        const isHighlighted = possiblePositions.some(pos =>
+          pos?.row === row && pos?.col === col
         );
 
         const hexData = boardManager.getHex(position);
