@@ -103,11 +103,9 @@ class BoardManager {
   }
 
   // Helper function to calculate possible moves using your Hex distance method
-  calculatePossibleMoves = (startHex: Hex, unit: Unit): Position[] => {
-    console.log(`Calculating possible moves for unit ${unit.unitType} at hex ${startHex.position}`);
+  calculatePossibleMoves = (startHex: Hex, maxRange: number): Position[] => {
     const startPos = startHex.position;
-    const maxRange = unit.maxMove;
-    
+
     //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
     const queue: PathNode[] = [{
       position: startPos,
@@ -181,7 +179,7 @@ class BoardManager {
   };
 
   // Move unit from one hex to another
-  moveUnit(fromPosition: Position, toPosition: Position): boolean {
+  moveUnit(fromPosition: Position, toPosition: Position, canFire: boolean = false): boolean {
     const fromHex = this.getHex(fromPosition);
     const toHex = this.getHex(toPosition);
     const unit = fromHex?.unit;
@@ -192,6 +190,8 @@ class BoardManager {
 
     fromHex.removeUnit();
     toHex.placeUnit(unit);
+
+    if (canFire) toHex.unit?.setCanFire();//TODO: remove fire if next turn
     return true;
   }
 

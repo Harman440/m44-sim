@@ -2,16 +2,17 @@ import { useState } from 'react';
 
 import './Hexagon.css';
 import { Position } from '../types/scenario';
-import Unit from './unit';
 import Hex from '../game-core/hex';
+import UnitComponent from './UnitComponent';
 
 interface HexProps {
   x: number;
   y: number;
   position: Position;
   onClick: (position: Position) => void;
-  isSelected: boolean;
-  isHighlighted: boolean;
+  isSelectedUnit: boolean;
+  isPossibleMove: boolean;
+  isPossibleMoveFirePos: boolean;
   hexSize?: number;
   showCoordinates?: boolean;
   hexData: Hex;
@@ -23,8 +24,9 @@ function Hexagon({
   y, 
   position,
   onClick,
-  isSelected,
-  isHighlighted,
+  isSelectedUnit,
+  isPossibleMove,
+  isPossibleMoveFirePos,
   hexSize = 25,
   showCoordinates = true,
   hexData,
@@ -60,8 +62,9 @@ function Hexagon({
 
   //TODO: simplify naming scheme
   const getTileClass = () => {
-    if (isSelected) return 'hexagon__tile hexagon__tile--selected hexagon__tile-stroke';
-    if (isHighlighted) return 'hexagon__tile hexagon__tile--highlighted hexagon__tile-stroke';
+    if (isSelectedUnit) return 'hexagon__tile hexagon__tile--selected hexagon__tile-stroke';
+    if (isPossibleMoveFirePos) return 'hexagon__tile hexagon__tile--highlighted-red hexagon__tile-stroke';//NOTE: Move and Fire has priority over move
+    if (isPossibleMove) return 'hexagon__tile hexagon__tile--highlighted hexagon__tile-stroke';
     if (isHovered) return 'hexagon__tile hexagon__tile--hover hexagon__tile-stroke';
     return 'hexagon__tile hexagon__tile--default hexagon__tile-stroke';
   };
@@ -71,8 +74,9 @@ function Hexagon({
     if (hexData) {
       return hexData.color;
     }
-    if (isSelected) return '#d94adeff';
-    if (isHighlighted) return '#1565d4ff';
+    if (isSelectedUnit) return '#d94adeff';
+    if (isPossibleMove) return '#1565d4ff';
+    if (isPossibleMoveFirePos) return '#de4a7b';
     if (isHovered) return '#4b5563';
     return '#374151';
   };
@@ -99,11 +103,11 @@ function Hexagon({
         </text>
       )}
       {hexData && hexData.hasUnit() && (
-      <Unit
+      <UnitComponent
         x={x}
         y={y - 8}
         faction={faction}
-        type={hexData.getUnit()?.unitType}
+        unitData={hexData.getUnit()!} //TODO: handle null
       />
       )}
     </g>

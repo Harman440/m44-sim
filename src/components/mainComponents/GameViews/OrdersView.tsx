@@ -19,7 +19,8 @@ function OrdersView({
   setTurnPhase,
 }: OrdersViewProps) {
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
-  const [possiblePositions, setPossiblePosistions] = useState<Position[]>([]); //TODO: Add fireable positions
+  const [possibleMovePositions, setPossibleMovePosistions] = useState<Position[]>([]);
+  const [possibleMoveAndFirePositions, setPossibleMoveAndFiresPositions] = useState<Position[]>([]);
 
   const [numOrdersLeft, setNumOrdersLeft] = useState<number>(
     chosenCommandCard.maxTotalOrders
@@ -58,15 +59,22 @@ function OrdersView({
         return;
       }
 
-      // Select this hex and highlight possible moves
+      // Select this hex
       setUnitHexPosition(position);
+
+      //Calculate all fireable hexes
+      const possibleMoveAndFires: Position[] = boardManager.calculatePossibleMoves(
+        hex,
+        unit.moveAndFire
+      );
+      setPossibleMoveAndFiresPositions(possibleMoveAndFires);
 
       // Calculate all hexes within movement range
       const possibleMoves: Position[] = boardManager.calculatePossibleMoves(
         hex,
-        unit
+        unit.maxMove
       );
-      setPossiblePosistions(possibleMoves);
+      setPossibleMovePosistions(possibleMoves);
 
       console.log(`Selected unit: ${unit.unitType}`);
     } else {
@@ -86,13 +94,35 @@ function OrdersView({
         unitHexPosition.col === position.col
       ) {
         setUnitHexPosition(null);
-        setPossiblePosistions([]); // Clear highlights
+        setPossibleMovePosistions([]); // Clear highlights
+        setPossibleMoveAndFiresPositions([]);
         return;
       }
 
-      // Check if the clicked hex is a valid move destination (a highlighted tile)
+      // Check if the clicked hex is a valid move destination (a highlighted tile) or a valid move and fire destination
       if (
-        possiblePositions.some(
+        possibleMoveAndFirePositions.some(
+          (pos) => pos.row === position.row && pos.col === position.col
+        )
+      ) {
+        // Move the unit and Mark as Possible Fire
+        if (boardManager.moveUnit(unitHexPosition, position, true)) {
+          setNumOrdersLeft(numOrdersLeft - 1);
+          console.log(
+            `Moved ${selectedUnit.unitType} from (${unitHexPosition.row}, ${unitHexPosition.col}) to (${position.row}, ${position.col})`
+          );
+        } else {
+          throw new Error(
+            `Failed to move ${selectedUnit.unitType} to highlighted tile`
+          );
+        }
+
+        // Clear selection and highlights
+        setUnitHexPosition(null);
+        setPossibleMovePosistions([]);
+        setPossibleMoveAndFiresPositions([]);
+      } else if (
+        possibleMovePositions.some(
           (pos) => pos.row === position.row && pos.col === position.col
         )
       ) {
@@ -110,7 +140,8 @@ function OrdersView({
 
         // Clear selection and highlights
         setUnitHexPosition(null);
-        setPossiblePosistions([]);
+        setPossibleMovePosistions([]);
+        setPossibleMoveAndFiresPositions([]);
       } else {
         console.log("Invalid move - hex is out of range or blocked");
       }
@@ -140,7 +171,8 @@ function OrdersView({
       <Board
         onTileClick={handleTileClick}
         unitHexPosition={unitHexPosition}
-        possiblePositions={possiblePositions}
+        possibleMovePositions={possibleMovePositions}
+        possibleMoveAndFirePositions={possibleMoveAndFirePositions}
         boardManager={boardManager}
         boardWidth={13}
         boardHeight={9}

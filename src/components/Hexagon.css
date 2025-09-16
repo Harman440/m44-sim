@@ -20,6 +20,11 @@
   filter: brightness(0.8);
 }
 
+.hexagon__tile--highlighted-red {
+  filter: brightness(0.4);
+}
+
+
 .hexagon__tile--hover {
   fill: #4b5563;
 }

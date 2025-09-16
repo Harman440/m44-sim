@@ -7,7 +7,8 @@ import BoardManager from '../game-core/BoardManager';
 interface BoardProps {
   onTileClick: (position: Position) => void;
   unitHexPosition: Position | null;
-  possiblePositions: Position[];
+  possibleMovePositions: Position[];
+  possibleMoveAndFirePositions: Position[];
   boardManager: BoardManager;
   boardWidth?: number;
   boardHeight?: number;
@@ -19,7 +20,8 @@ interface BoardProps {
 function Board({
   onTileClick,
   unitHexPosition,
-  possiblePositions,
+  possibleMovePositions,
+  possibleMoveAndFirePositions,
   boardManager,
   boardWidth = 13,
   boardHeight = 9,
@@ -47,10 +49,15 @@ function Board({
         const x = 115 + col * offsetX + (row % 2) * (offsetX / 2);
         const y = 100 + row * offsetY;
 
-        const isSelected = unitHexPosition?.row === row && unitHexPosition?.col === col;
+        const isSelectedUnitPos = unitHexPosition?.row === row && unitHexPosition?.col === col;
         
         // Check if this hex is in the possiblePositions array
-        const isHighlighted = possiblePositions.some(pos =>
+        const isPossibleMovePos = possibleMovePositions.some(pos =>
+          pos?.row === row && pos?.col === col
+        );
+
+        // Check if this hex is in the possiblePositions array
+        const isPossibleMoveFirePos = possibleMoveAndFirePositions.some(pos =>
           pos?.row === row && pos?.col === col
         );
 
@@ -66,8 +73,9 @@ function Board({
             y={y}
             position={position}
             onClick={onTileClick}
-            isSelected={isSelected}
-            isHighlighted={isHighlighted}
+            isSelectedUnit={isSelectedUnitPos}
+            isPossibleMove={isPossibleMovePos}
+            isPossibleMoveFirePos={isPossibleMoveFirePos}
             hexSize={hexSize}
             showCoordinates={showCoordinates}
             hexData={hexData}

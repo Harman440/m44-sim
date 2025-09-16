@@ -3,7 +3,7 @@ import CommandCard from './commandCard';
 import { shuffle } from './utils';
 
 class Deck {
-    originalCards: CommandCard[];//TODO: change to type card
+    originalCards: CommandCard[];//TODO: change to type card, to have both comandCards and combatCards
     drawPile: CommandCard[];
     discardPile: CommandCard[];
     constructor(cards: CommandCard[] = []) {

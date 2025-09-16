@@ -17,6 +17,7 @@ class Unit {
   maxMove: number;
   moveAndFire: number;
   hasOrder: boolean;
+  canFire: boolean = false;
 
   constructor(unitType: UnitType = "infantry") {
     const stats = UNIT_STATS[unitType];
@@ -29,6 +30,10 @@ class Unit {
 
   order() {
     this.hasOrder = true;
+  }
+
+  setCanFire() {
+    this.canFire = true;
   }
 }
 
