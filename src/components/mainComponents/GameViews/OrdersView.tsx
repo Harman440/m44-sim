@@ -152,7 +152,7 @@ function OrdersView({
     return boardManager.getHex(unitHexPosition);
   };
 
-  const handleGoBack = () => {
+  const handleGoBack = () => {//BUG: can go back infinitely, Not resseting orders array to 0 at the end of the turn.
     setOrders((prevOrders) => {
       if (prevOrders.length === 0) return prevOrders; // nothing to undo
 
