@@ -14,7 +14,7 @@ class Order {
     }
 
     printOrder() {
-        console.log(`Order: Unit ${this.unit.id}, From (${this.start.col},${this.start.row}) to (${this.end.col},${this.end.row}), Can Fire: ${this.canFire}`);
+        console.log(`Order: Unit ${this.unit.getId()}, From (${this.start.col},${this.start.row}) to (${this.end.col},${this.end.row}), Can Fire: ${this.canFire}`);
     }
 }
 

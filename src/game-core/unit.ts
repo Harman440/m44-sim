@@ -12,12 +12,14 @@ const UNIT_STATS: Record<UnitType, { maxMove: number; moveAndFire: number }> = {
 
 class Unit {
   private static counter = 1;
-  id: string;
-  unitType: UnitType;
-  maxMove: number;
-  moveAndFire: number;
-  hasOrder: boolean;
-  canFire: boolean = false;
+
+  private readonly id: string;
+  private readonly unitType: UnitType;
+  private readonly maxMove: number;
+  private readonly moveAndFire: number;
+
+  private ordered: boolean;
+  private readyToFire: boolean = false;
 
   constructor(unitType: UnitType = "infantry") {
     const stats = UNIT_STATS[unitType];
@@ -25,15 +27,64 @@ class Unit {
     this.unitType = unitType;
     this.maxMove = stats.maxMove;
     this.moveAndFire = stats.moveAndFire;
-    this.hasOrder = false;
+    this.ordered = false;
   }
 
-  order() {
-    this.hasOrder = true;
+  // Static controls for ID counter
+  static resetCounter(): void {
+    Unit.counter = 1;
   }
 
-  setCanFire() {
-    this.canFire = true;
+  static setCounter(value: number): void {
+    if (value < 1) throw new Error("Counter must be >= 1");
+    Unit.counter = value;
+  }
+
+  static getCounter(): number {
+    return Unit.counter;
+  }
+
+  // Public getters (read-only)
+  getId(): string {
+    return this.id;
+  }
+
+  getUnitType(): UnitType {
+    return this.unitType;
+  }
+
+  getMaxMove(): number {
+    return this.maxMove;
+  }
+
+  getMoveAndFire(): number {
+    return this.moveAndFire;
+  }
+
+  isOrdered(): boolean {
+    return this.ordered;
+  }
+
+  isReadyToFire(): boolean {
+    return this.readyToFire;
+  }
+
+  // Controlled state changes
+  giveOrder(): void {
+    this.ordered = true;
+  }
+
+  clearOrder(): void {
+    this.ordered = false;
+    this.readyToFire = false;
+  }
+
+  enableFire(): void {
+    this.readyToFire = true;
+  }
+
+  disableFire(): void {
+    this.readyToFire = false;
   }
 }
 

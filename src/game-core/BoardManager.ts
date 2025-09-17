@@ -191,7 +191,7 @@ class BoardManager {
     fromHex.removeUnit();
     toHex.placeUnit(unit);
 
-    if (canFire) toHex.unit?.setCanFire();//TODO: remove fire if next turn
+    if (canFire) toHex.unit?.enableFire();
     if (deleteOrder) toHex.removeOrderFromUnit();
     return true;
   }

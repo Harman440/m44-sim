@@ -21,7 +21,7 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
 
   return (
     <g>
-      {unitData?.canFire && (
+      {unitData?.isReadyToFire() && (
         <circle
           cx={x}
           cy={y}

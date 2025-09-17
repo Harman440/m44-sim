@@ -112,7 +112,7 @@ class Hex {
     if (this.canEnter(unit)) {
       this.unit = unit;
       //NOTE: unit cant be ordered again when moved
-      if (!isSetup) this.unit.order();
+      if (!isSetup) this.unit.giveOrder();
       return true;
     }
     return false;
@@ -132,8 +132,7 @@ class Hex {
 
   removeOrderFromUnit() {
     if (this.unit) {
-      this.unit.hasOrder = false;
-      this.unit.canFire = false;
+      this.unit.clearOrder();
     }
   }
 
@@ -184,7 +183,7 @@ class Hex {
     let desc = `${this.name} (${this.position.row}, ${this.position.col})`;
 
     if (this.unit) {
-      desc += ` - Occupied by ${this.unit.unitType || "Unit"}`;
+      desc += ` - Occupied by ${this.unit.getUnitType() || "Unit"}`;
     }
 
     return desc;
