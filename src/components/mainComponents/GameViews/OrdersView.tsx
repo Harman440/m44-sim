@@ -4,6 +4,7 @@ import BoardManager from "../../../game-core/BoardManager";
 import CommandCard from "../../../game-core/commandCard";
 import { TurnPhase } from "../../../types/gameManager";
 import Board from "../../Board";
+import Order from "../../../game-core/order";
 
 interface OrdersViewProps {
   boardSide: string;
@@ -19,12 +20,16 @@ function OrdersView({
   setTurnPhase,
 }: OrdersViewProps) {
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
-  const [possibleMovePositions, setPossibleMovePosistions] = useState<Position[]>([]);
-  const [possibleMoveAndFirePositions, setPossibleMoveAndFiresPositions] = useState<Position[]>([]);
+  const [possibleMovePositions, setPossibleMovePosistions] = useState<
+    Position[]
+  >([]);
+  const [possibleMoveAndFirePositions, setPossibleMoveAndFiresPositions] =
+    useState<Position[]>([]);
 
   const [numOrdersLeft, setNumOrdersLeft] = useState<number>(
     chosenCommandCard.maxTotalOrders
   );
+  const [orders, setOrders] = useState<Order[]>([]); //TODO: Move to GameView as the battle phase needs them and the finish phase needs to delete them
   const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false); //NOTE: this is set to false each time this is rendered??
 
   // Main tile click handler - App.tsx is in complete control
@@ -63,10 +68,8 @@ function OrdersView({
       setUnitHexPosition(position);
 
       //Calculate all fireable hexes
-      const possibleMoveAndFires: Position[] = boardManager.calculatePossibleMoves(
-        hex,
-        unit.moveAndFire
-      );
+      const possibleMoveAndFires: Position[] =
+        boardManager.calculatePossibleMoves(hex, unit.moveAndFire);
       setPossibleMoveAndFiresPositions(possibleMoveAndFires);
 
       // Calculate all hexes within movement range
@@ -101,37 +104,29 @@ function OrdersView({
 
       // Check if the clicked hex is a valid move destination (a highlighted tile) or a valid move and fire destination
       if (
-        possibleMoveAndFirePositions.some(
-          (pos) => pos.row === position.row && pos.col === position.col
-        )
-      ) {
-        // Move the unit and Mark as Possible Fire
-        if (boardManager.moveUnit(unitHexPosition, position, true)) {
-          setNumOrdersLeft(numOrdersLeft - 1);
-          console.log(
-            `Moved ${selectedUnit.unitType} from (${unitHexPosition.row}, ${unitHexPosition.col}) to (${position.row}, ${position.col})`
-          );
-        } else {
-          throw new Error(
-            `Failed to move ${selectedUnit.unitType} to highlighted tile`
-          );
-        }
-
-        // Clear selection and highlights
-        setUnitHexPosition(null);
-        setPossibleMovePosistions([]);
-        setPossibleMoveAndFiresPositions([]);
-      } else if (
         possibleMovePositions.some(
           (pos) => pos.row === position.row && pos.col === position.col
         )
       ) {
+        const IsMoveAndFirePos = possibleMoveAndFirePositions.some(
+          (pos) => pos.row === position.row && pos.col === position.col
+        );
         // Move the unit
-        if (boardManager.moveUnit(unitHexPosition, position)) {
+        if (
+          boardManager.moveUnit(unitHexPosition, position, IsMoveAndFirePos)
+        ) {
           setNumOrdersLeft(numOrdersLeft - 1);
-          console.log(
-            `Moved ${selectedUnit.unitType} from (${unitHexPosition.row}, ${unitHexPosition.col}) to (${position.row}, ${position.col})`
+
+          const newOrder = new Order(
+            hex.getUnit()!,
+            unitHexPosition,
+            position,
+            IsMoveAndFirePos
           );
+
+          newOrder.printOrder();
+
+          setOrders((prevOrders) => [...prevOrders, newOrder]);
         } else {
           throw new Error(
             `Failed to move ${selectedUnit.unitType} to highlighted tile`
@@ -152,6 +147,26 @@ function OrdersView({
   const getSelectedHexInfo = () => {
     if (!unitHexPosition) return null;
     return boardManager.getHex(unitHexPosition);
+  };
+
+  const handleGoBack = () => {
+    setOrders((prevOrders) => {
+      if (prevOrders.length === 0) return prevOrders; // nothing to undo
+
+      // Get the last order
+      const lastOrder = prevOrders[prevOrders.length - 1];
+
+      if(!lastOrder) return prevOrders;
+
+      // Move the unit back to its original position
+      boardManager.moveUnit(lastOrder.end, lastOrder.start, lastOrder.canFire, true);
+
+      // Restore one order back to the counter
+      setNumOrdersLeft((prev) => prev + 1);
+
+      // Remove the last order
+      return prevOrders.slice(0, -1);
+    });
   };
 
   //Handle Commit Orders
@@ -195,7 +210,8 @@ function OrdersView({
               </div>
             ) : (
               <div>
-                Selected Tile: Row {unitHexPosition.row}, Column {unitHexPosition.col}
+                Selected Tile: Row {unitHexPosition.row}, Column{" "}
+                {unitHexPosition.col}
               </div>
             );
           })()}
@@ -203,6 +219,14 @@ function OrdersView({
       )}
 
       <div className="mb-4">
+        {orders.length > 0 && (
+          <button
+            onClick={() => handleGoBack()}
+            className={` text-white p-2 rounded text-sm hover:opacity-80`}
+          >
+            VOLVER
+          </button>
+        )}
         {numOrdersLeft <= 0 && !OrdersAreCommited && (
           <button
             onClick={() => handleCommitOrders()}

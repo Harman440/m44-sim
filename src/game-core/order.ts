@@ -12,6 +12,10 @@ class Order {
         this.end = end;
         this.canFire = canFire;//TODO should unit store this or Order?
     }
+
+    printOrder() {
+        console.log(`Order: Unit ${this.unit.id}, From (${this.start.col},${this.start.row}) to (${this.end.col},${this.end.row}), Can Fire: ${this.canFire}`);
+    }
 }
 
 export default Order;

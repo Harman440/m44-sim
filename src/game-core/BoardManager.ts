@@ -179,7 +179,7 @@ class BoardManager {
   };
 
   // Move unit from one hex to another
-  moveUnit(fromPosition: Position, toPosition: Position, canFire: boolean = false): boolean {
+  moveUnit(fromPosition: Position, toPosition: Position, canFire: boolean = false, deleteOrder: boolean = false): boolean {
     const fromHex = this.getHex(fromPosition);
     const toHex = this.getHex(toPosition);
     const unit = fromHex?.unit;
@@ -192,6 +192,7 @@ class BoardManager {
     toHex.placeUnit(unit);
 
     if (canFire) toHex.unit?.setCanFire();//TODO: remove fire if next turn
+    if (deleteOrder) toHex.removeOrderFromUnit();
     return true;
   }
 
