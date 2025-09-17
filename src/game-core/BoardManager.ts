@@ -13,7 +13,7 @@ class BoardManager {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
-    
+
     this.initializeBoard(scenario, faction);
   }
 
@@ -61,7 +61,7 @@ class BoardManager {
     }
 
     // Choose the correct unit positions
-    const factionKey = faction.toLowerCase() as keyof Factions; 
+    const factionKey = faction.toLowerCase() as keyof Factions;
     const unitGroups = scenario.units[factionKey];
 
     for (const [unitType, positions] of Object.entries(unitGroups)) {
@@ -103,7 +103,7 @@ class BoardManager {
   }
 
   // Helper function to calculate possible moves using your Hex distance method
-  calculatePossibleMoves = (startHex: Hex, maxRange: number): Position[] => {
+  calculatePossibleMoves = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): Position[] => {
     const startPos = startHex.position;
 
     //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
@@ -124,7 +124,7 @@ class BoardManager {
       const currentHex = this.getHex(current.position)!;
 
       //const currentKey = this.positionToKey(current.position);
-      
+
       // Skip if we've already visited this position with a lower cost
       if (visited.has(currentHex) && visited.get(currentHex)! <= current.cost) {
         continue;
@@ -133,7 +133,11 @@ class BoardManager {
       visited.set(currentHex, current.cost);
 
       // Add to reachable positions if within range (excluding start position)
-      if (current.cost > 0 && current.cost <= maxRange) {
+      if (
+        current.cost > 0 &&
+        current.cost <= maxRange &&
+        (forFirePositions ? currentHex.getCanMoveAndFire() : true)
+      ) {
         reachablePositions.push(current.position);
       }
 
@@ -144,7 +148,7 @@ class BoardManager {
 
       // Explore neighbors
       const neighbors: Position[] = currentHex.getNeighbors();
-      
+
       for (const neighborPos of neighbors) {
         const neighborHex = this.getHex(neighborPos);
 

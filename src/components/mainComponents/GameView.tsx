@@ -13,6 +13,7 @@ import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BoardManager from "../../game-core/BoardManager";
 import Hand from "../../game-core/hand";
+import Order from "../../game-core/order";
 
 interface GameViewProps {
   boardSide: string;
@@ -38,6 +39,8 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
   const [chosenCommandCard, setChosenCommandCard] =
     useState<CommandCard | null>(null);
   const [currentTurn, setCurrentTurn] = useState<number>(() => 1);
+
+  const [orders, setOrders] = useState<Order[]>([]);
 
   //handle click on card
   const handleCardClick = useCallback((card: CommandCard) => {
@@ -80,6 +83,8 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
           boardManager={boardManager}
           chosenCommandCard={chosenCommandCard!}
           setTurnPhase={setTurnPhase}
+          setOrders={setOrders}
+          orders={orders}
         />
       )}
 

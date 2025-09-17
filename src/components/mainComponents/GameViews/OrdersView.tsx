@@ -10,7 +10,9 @@ interface OrdersViewProps {
   boardSide: string;
   boardManager: BoardManager;
   chosenCommandCard: CommandCard;
-  setTurnPhase: (turnPhase: TurnPhase) => void;
+  setTurnPhase: React.Dispatch<React.SetStateAction<TurnPhase>>;
+  setOrders: React.Dispatch<React.SetStateAction<Order []>>;
+  orders: Order[];
 }
 
 function OrdersView({
@@ -18,6 +20,8 @@ function OrdersView({
   boardManager,
   chosenCommandCard,
   setTurnPhase,
+  setOrders,
+  orders,//TODO: use this to render arrow represneting order
 }: OrdersViewProps) {
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
   const [possibleMovePositions, setPossibleMovePosistions] = useState<
@@ -29,7 +33,6 @@ function OrdersView({
   const [numOrdersLeft, setNumOrdersLeft] = useState<number>(
     chosenCommandCard.maxTotalOrders
   );
-  const [orders, setOrders] = useState<Order[]>([]); //TODO: Move to GameView as the battle phase needs them and the finish phase needs to delete them
   const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false); //NOTE: this is set to false each time this is rendered??
 
   // Main tile click handler - App.tsx is in complete control
@@ -69,7 +72,7 @@ function OrdersView({
 
       //Calculate all fireable hexes
       const possibleMoveAndFires: Position[] =
-        boardManager.calculatePossibleMoves(hex, unit.getMoveAndFire());
+        boardManager.calculatePossibleMoves(hex, unit.getMoveAndFire(), true);
       setPossibleMoveAndFiresPositions(possibleMoveAndFires);
 
       // Calculate all hexes within movement range

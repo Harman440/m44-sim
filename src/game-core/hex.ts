@@ -8,6 +8,7 @@ class Hex {
   type: HexType;
   movementRule: MovementRule;
   movementCost: number;
+  canMoveAndFire: boolean;
   color: string;
   name: string;
   unit: Unit | null;
@@ -17,6 +18,7 @@ class Hex {
     type: HexType = HexType.PLAINS,
     movementRule: MovementRule = MovementRule.NORMAL,
     movementCost: number = 1,
+    canMoveAndFire: boolean = true,
     color: string = "#90EE90",
     name: string = "Plains",
     unit: Unit | null = null
@@ -25,6 +27,7 @@ class Hex {
     this.type = type;
     this.movementRule = movementRule;
     this.movementCost = movementCost;
+    this.canMoveAndFire = canMoveAndFire;
     this.color = color;
     this.name = name;
     this.unit = unit; // Unit occupying this hex
@@ -40,6 +43,7 @@ class Hex {
     switch (this.type) {
       case HexType.PLAINS:
         this.movementRule = MovementRule.NORMAL;
+        this.canMoveAndFire = true;
         this.movementCost = 1;
         this.color = "#90EE90"; // Light green
         this.name = "Plains";
@@ -47,6 +51,7 @@ class Hex {
 
       case HexType.FOREST:
         this.movementRule = MovementRule.STOP;
+        this.canMoveAndFire = false;
         this.movementCost = 1;
         this.color = "#228B22"; // Forest green
         this.name = "Forest";
@@ -54,6 +59,7 @@ class Hex {
 
       case HexType.HILL:
         this.movementRule = MovementRule.NORMAL;
+        this.canMoveAndFire = true;
         this.movementCost = 1;
         this.color = "#8B4513"; // Saddle brown
         this.name = "Hill";
@@ -61,6 +67,7 @@ class Hex {
 
       case HexType.TOWN:
         this.movementRule = MovementRule.STOP;
+        this.canMoveAndFire = false;
         this.movementCost = 1;
         this.color = "#FFD700"; // Gold
         this.name = "Town";
@@ -105,6 +112,10 @@ class Hex {
   getMovementCost(unit: Unit | null = null): number {
     //TODO: Could be modified based on unit type
     return this.movementCost;
+  }
+
+  getCanMoveAndFire(): boolean {
+    return this.canMoveAndFire;
   }
 
   // Unit management
