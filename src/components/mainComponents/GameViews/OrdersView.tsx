@@ -57,7 +57,7 @@ function OrdersView({
       }
 
       // Check if the unit is orderable
-      if (unit.hasOrder) {
+      if (unit.isOrdered()) {
         //TODO: add if unit not of correct type or not in correct side of the map
         console.log("Unit is not orderable");
         //TODO: highlight hex red for a second and deselect hex
@@ -69,17 +69,17 @@ function OrdersView({
 
       //Calculate all fireable hexes
       const possibleMoveAndFires: Position[] =
-        boardManager.calculatePossibleMoves(hex, unit.moveAndFire);
+        boardManager.calculatePossibleMoves(hex, unit.getMoveAndFire());
       setPossibleMoveAndFiresPositions(possibleMoveAndFires);
 
       // Calculate all hexes within movement range
       const possibleMoves: Position[] = boardManager.calculatePossibleMoves(
         hex,
-        unit.maxMove
+        unit.getMaxMove()
       );
       setPossibleMovePosistions(possibleMoves);
 
-      console.log(`Selected unit: ${unit.unitType}`);
+      console.log(`Selected unit: ${unit.getUnitType()}`);
     } else {
       // A tile is already selected - this is a potential move destination
       const selectedHex = boardManager.getHex(unitHexPosition);
@@ -129,7 +129,7 @@ function OrdersView({
           setOrders((prevOrders) => [...prevOrders, newOrder]);
         } else {
           throw new Error(
-            `Failed to move ${selectedUnit.unitType} to highlighted tile`
+            `Failed to move ${selectedUnit.getUnitType()} to highlighted tile`
           );
         }
 
@@ -156,10 +156,15 @@ function OrdersView({
       // Get the last order
       const lastOrder = prevOrders[prevOrders.length - 1];
 
-      if(!lastOrder) return prevOrders;
+      if (!lastOrder) return prevOrders;
 
       // Move the unit back to its original position
-      boardManager.moveUnit(lastOrder.end, lastOrder.start, lastOrder.canFire, true);
+      boardManager.moveUnit(
+        lastOrder.end,
+        lastOrder.start,
+        lastOrder.canFire,
+        true
+      );
 
       // Restore one order back to the counter
       setNumOrdersLeft((prev) => prev + 1);
