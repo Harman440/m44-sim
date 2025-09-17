@@ -133,6 +133,7 @@ class Hex {
   removeOrderFromUnit() {
     if (this.unit) {
       this.unit.hasOrder = false;
+      this.unit.canFire = false;
     }
   }
 
