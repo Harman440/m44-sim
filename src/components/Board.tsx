@@ -12,7 +12,7 @@ interface BoardProps {
   possibleMovePositions: Position[];
   possibleMoveAndFirePositions: Position[];
   boardManager: BoardManager;
-  orders: Order[]; // Orders prop using the imported Order type
+  orders: Order[];
   boardWidth?: number;
   boardHeight?: number;
   hexSize?: number;
@@ -49,7 +49,6 @@ function Board({
     return { x, y };
   };
 
-  //TODO: orders are not deleted for the next turn
   const renderOrders = () => {
     return orders.map((order, index) => (
       <OrderComponent

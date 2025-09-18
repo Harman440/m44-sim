@@ -65,6 +65,8 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
 
     boardManager.removeOrders();
 
+    setOrders([]);
+
     setCurrentTurn((prevTurn) => prevTurn + 1);
   }, [chosenCommandCard, commandCardsPlayer, commandCardsDeck]);
 
