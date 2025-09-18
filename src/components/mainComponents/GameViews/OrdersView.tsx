@@ -153,6 +153,7 @@ function OrdersView({
   };
 
   const handleGoBack = () => {//BUG: can go back infinitely, Not resseting orders array to 0 at the end of the turn.
+    //TODO: dont show Volver if unit pick to order
     setOrders((prevOrders) => {
       if (prevOrders.length === 0) return prevOrders; // nothing to undo
 
@@ -197,6 +198,7 @@ function OrdersView({
         possibleMovePositions={possibleMovePositions}
         possibleMoveAndFirePositions={possibleMoveAndFirePositions}
         boardManager={boardManager}
+        orders={orders}
         boardWidth={13}
         boardHeight={9}
         hexSize={50}

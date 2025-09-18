@@ -3,6 +3,8 @@ import Hexagon from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
 import BoardManager from '../game-core/BoardManager';
+import OrderComponent from './OrderComponent';
+import Order from '../game-core/order';
 
 interface BoardProps {
   onTileClick: (position: Position) => void;
@@ -10,6 +12,7 @@ interface BoardProps {
   possibleMovePositions: Position[];
   possibleMoveAndFirePositions: Position[];
   boardManager: BoardManager;
+  orders: Order[]; // Orders prop using the imported Order type
   boardWidth?: number;
   boardHeight?: number;
   hexSize?: number;
@@ -23,6 +26,7 @@ function Board({
   possibleMovePositions,
   possibleMoveAndFirePositions,
   boardManager,
+  orders,
   boardWidth = 13,
   boardHeight = 9,
   hexSize = 50,
@@ -33,6 +37,28 @@ function Board({
   // For flat-top hexagons, the spacing calculations
   const hexWidth = hexSize * Math.sqrt(3); // Width of flat-top hexagon
   const hexHeight = hexSize * 2; // Height of flat-top hexagon
+
+  // Function to convert hex position to pixel coordinates
+  const getHexCenter = (position: Position) => {
+    const offsetX = hexWidth; // Horizontal spacing between hex centers
+    const offsetY = hexHeight * 0.75; // Vertical spacing between rows
+    
+    const x = 115 + position.col * offsetX + (position.row % 2) * (offsetX / 2);
+    const y = 100 + position.row * offsetY;
+    
+    return { x, y };
+  };
+
+  //TODO: orders are not deleted for the next turn
+  const renderOrders = () => {
+    return orders.map((order, index) => (
+      <OrderComponent
+        order={order}
+        hexSize={hexSize}
+        getHexCenter={getHexCenter}
+      />
+    ));
+  };
 
   const renderBoard = () => {
     const tiles = [];
@@ -98,7 +124,11 @@ function Board({
         height={svgHeight}
         className="board__svg"
       >
+        {/* Render hexagons first (background layer) */}
         {renderBoard()}
+        
+        {/* Render orders on top */}
+        {renderOrders()}
       </svg>
     </div>
   );
