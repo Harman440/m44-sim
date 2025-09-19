@@ -5,15 +5,38 @@ import Order from "../game-core/order";
 interface OrderProps {
   order: Order;
   getHexCenter: (position: Position) => { x: number; y: number };
+  hexSize: number;
 }
 
-function OrderComponent({ order, getHexCenter }: OrderProps) {
+//NOTE: Code mostly generated. First point in path is actually the last
+function OrderComponent({ order, getHexCenter, hexSize }: OrderProps) {
   // If we have a full path, use it; otherwise fall back to direct line
   const pathToRender =
     order.path && order.path.length > 1 ? order.path : [order.start, order.end];
 
   // Convert path positions to screen coordinates
   const pathPoints = pathToRender.map((pos) => getHexCenter(pos));
+
+  // Shorten the first segment to avoid overlapping with the unit/hex center
+  if (pathPoints.length >= 2) {
+    const firstPoint = pathPoints[0];
+    const secondPoint = pathPoints[1];
+
+    // Calculate direction from first to second point
+    const dx = secondPoint!.x - firstPoint!.x;
+    const dy = secondPoint!.y - firstPoint!.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    // Offset the start point towards the second point
+    const offset = hexSize * 0.5; // Adjust this value to control how far from hex center the arrow starts
+    const unitX = dx / length;
+    const unitY = dy / length;
+
+    pathPoints[0] = {
+      x: firstPoint!.x + unitX * offset,
+      y: firstPoint!.y + unitY * offset,
+    };
+  }
 
   // Create SVG path string for the route
   const createPathString = (points: { x: number; y: number }[]) => {

@@ -54,6 +54,7 @@ function Board({
       <OrderComponent
         order={order}
         getHexCenter={getHexCenter}
+        hexSize={hexSize}
       />
     ));
   };
