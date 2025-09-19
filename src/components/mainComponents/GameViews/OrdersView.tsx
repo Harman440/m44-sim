@@ -120,11 +120,21 @@ function OrdersView({
         ) {
           setNumOrdersLeft(numOrdersLeft - 1);
 
+          // Get the full path to the clicked destination
+          const fullPath: Position[] | null = boardManager.getPathToDestination(
+            hex,
+            unitHexPosition,
+            selectedUnit.getMaxMove(),
+          );
+
+          console.log("DEbug: Full path:", fullPath);
+
           const newOrder = new Order(
             hex.getUnit()!,
             unitHexPosition,
             position,
-            IsMoveAndFirePos
+            IsMoveAndFirePos,
+            fullPath
           );
 
           newOrder.printOrder();

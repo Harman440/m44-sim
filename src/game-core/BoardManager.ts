@@ -2,7 +2,7 @@ import Hex from './hex';
 import Unit from './unit';
 import { Factions, Position, Scenario, UnitType } from '../types/scenario.js';
 import { HexType } from '../types/hex';
-import { PathNode } from '../types/boardManager';
+import { PathNode, PathResult } from '../types/boardManager';
 
 class BoardManager {
   width: number;
@@ -103,27 +103,26 @@ class BoardManager {
   }
 
   // Helper function to calculate possible moves using your Hex distance method
-  calculatePossibleMoves = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): Position[] => {
+  calculatePossibleMovesWithPaths = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): PathResult[] => {
     const startPos = startHex.position;
 
     //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
     const queue: PathNode[] = [{
       position: startPos,
       cost: 0,
-      canContinue: true
+      canContinue: true,
+      path: [startPos] // Initialize with start position
     }];
 
     // Track visited positions and their costs
     const visited = new Map<Hex, number>();
-    const reachablePositions: Position[] = [];
+    const reachableResults: PathResult[] = [];
 
     while (queue.length > 0) {
       // Sort queue by cost (simple priority queue implementation)
       queue.sort((a, b) => a.cost - b.cost);
       const current = queue.shift()!;
       const currentHex = this.getHex(current.position)!;
-
-      //const currentKey = this.positionToKey(current.position);
 
       // Skip if we've already visited this position with a lower cost
       if (visited.has(currentHex) && visited.get(currentHex)! <= current.cost) {
@@ -138,7 +137,11 @@ class BoardManager {
         current.cost <= maxRange &&
         (forFirePositions ? currentHex.getCanMoveAndFire() : true)
       ) {
-        reachablePositions.push(current.position);
+        reachableResults.push({
+          position: current.position,
+          cost: current.cost,
+          path: [...current.path] // Copy the path
+        });
       }
 
       // Don't explore further if this hex stops movement or we're at max range
@@ -170,16 +173,49 @@ class BoardManager {
           continue;
         }
 
-        // Add neighbor to queue
+        // Add neighbor to queue with extended path
         queue.push({
           position: neighborPos,
           cost: newCost,
-          canContinue: neighborHex.canContinueMovement()
+          canContinue: neighborHex.canContinueMovement(),
+          path: [...current.path, neighborPos] // Extend the path
         });
       }
     }
-    console.log("DEBUG: Possible moves:", reachablePositions);
-    return reachablePositions;
+
+    return reachableResults;
+  };
+
+  // Helper method to get just the positions (for backward compatibility)
+  calculatePossibleMoves = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): Position[] => {
+    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, forFirePositions);
+    return results.map(result => result.position);
+  };
+
+  // Method to get the path to a specific destination
+  getPathToDestination = (startHex: Hex, destination: Position, maxRange: number): Position[] | null => {
+    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, false);
+    console.log("Debug: Possible moves with paths:", results);
+    const targetResult = results.find(result =>
+      result.position.row === destination.row && result.position.col === destination.col
+    );
+
+    console.log("Debug: Target result:", targetResult);
+
+    return targetResult ? targetResult.path : null;
+  };
+
+  // Method to get all paths as a Map for quick lookup
+  getAllPaths = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): Map<string, Position[]> => {
+    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, forFirePositions);
+    const pathMap = new Map<string, Position[]>();
+
+    results.forEach(result => {
+      const key = `${result.position.row}-${result.position.col}`;
+      pathMap.set(key, result.path);
+    });
+
+    return pathMap;
   };
 
   // Move unit from one hex to another

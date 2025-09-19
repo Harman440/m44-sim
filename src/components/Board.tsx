@@ -53,7 +53,6 @@ function Board({
     return orders.map((order, index) => (
       <OrderComponent
         order={order}
-        hexSize={hexSize}
         getHexCenter={getHexCenter}
       />
     ));

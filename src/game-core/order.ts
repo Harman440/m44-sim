@@ -6,11 +6,13 @@ class Order {
     start: Position;
     end: Position;
     canFire: boolean;
-    constructor(unit: Unit, start: Position, end: Position, canFire: boolean) {
+    path?: Position[] | null;
+    constructor(unit: Unit, start: Position, end: Position, canFire: boolean, path: Position[] | null) {
         this.unit = unit;
         this.start = start;
         this.end = end;
         this.canFire = canFire;//TODO should unit store this or Order?
+        this.path = path;
     }
 
     printOrder() {

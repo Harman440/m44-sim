@@ -1,71 +1,90 @@
-import { Position } from '../types/scenario';
-import Order from '../game-core/order';
+import React from "react";
+import { Position } from "../types/scenario";
+import Order from "../game-core/order";
 
 interface OrderProps {
   order: Order;
-  hexSize: number;
   getHexCenter: (position: Position) => { x: number; y: number };
 }
 
-//TODO: represent arrow with actual hexes it has moved through not start to end
-function OrderComponent({ order, hexSize, getHexCenter }: OrderProps) {
-  const startCenter = getHexCenter(order.start);
-  const endCenter = getHexCenter(order.end);
-  
-  // Calculate arrow direction
-  const dx = endCenter.x - startCenter.x;
-  const dy = endCenter.y - startCenter.y;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  
-  // Normalize direction
-  const unitX = dx / length;
-  const unitY = dy / length;
-  
-  // Offset start and end points to avoid overlapping with hex centers
-  const offset = hexSize * 0.6; // Adjust this value to control how close arrows get to hex edges
-  const adjustedStart = {
-    x: startCenter.x + unitX * offset,
-    y: startCenter.y + unitY * offset
+function OrderComponent({ order, getHexCenter }: OrderProps) {
+  // If we have a full path, use it; otherwise fall back to direct line
+  const pathToRender =
+    order.path && order.path.length > 1 ? order.path : [order.start, order.end];
+
+  // Convert path positions to screen coordinates
+  const pathPoints = pathToRender.map((pos) => getHexCenter(pos));
+
+  // Create SVG path string for the route
+  const createPathString = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return "";
+
+    let pathString = `M ${points[0]?.x} ${points[0]?.y}`;
+    for (let i = 1; i < points.length; i++) {
+      pathString += ` L ${points[i]?.x} ${points[i]?.y}`;
+    }
+    return pathString;
   };
-  const adjustedEnd = {
-    x: endCenter.x - unitX * offset,
-    y: endCenter.y - unitY * offset
+
+  // Calculate arrowhead at the end of the path
+  const getArrowHead = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return null;
+
+    const lastPoint = points[0]; //NOTE: points seem to be backwards
+    const secondLastPoint = points[1];
+
+    // Calculate direction FROM secondLast TO last (forward direction)
+    const dx = lastPoint!.x - secondLastPoint!.x;
+    const dy = lastPoint!.y - secondLastPoint!.y;
+
+    const arrowSize = 12;
+    const arrowAngle = Math.PI / 6; // 30 degrees
+
+    // Calculate the angle of the forward direction
+    const forwardAngle = Math.atan2(dy, dx);
+
+    // Arrowhead points should go backwards from the tip
+    const arrowHead1 = {
+      x: lastPoint!.x - arrowSize * Math.cos(forwardAngle - arrowAngle),
+      y: lastPoint!.y - arrowSize * Math.sin(forwardAngle - arrowAngle),
+    };
+
+    const arrowHead2 = {
+      x: lastPoint!.x - arrowSize * Math.cos(forwardAngle + arrowAngle),
+      y: lastPoint!.y - arrowSize * Math.sin(forwardAngle + arrowAngle),
+    };
+
+    return { lastPoint, arrowHead1, arrowHead2 };
   };
-  
-  // Calculate arrowhead points
-  const arrowSize = 12;
-  const arrowAngle = Math.PI / 6; // 30 degrees
-  
-  const arrowHead1 = {
-    x: adjustedEnd.x - arrowSize * Math.cos(Math.atan2(dy, dx) - arrowAngle),
-    y: adjustedEnd.y - arrowSize * Math.sin(Math.atan2(dy, dx) - arrowAngle)
-  };
-  
-  const arrowHead2 = {
-    x: adjustedEnd.x - arrowSize * Math.cos(Math.atan2(dy, dx) + arrowAngle),
-    y: adjustedEnd.y - arrowSize * Math.sin(Math.atan2(dy, dx) + arrowAngle)
-  };
-    
-  const color = '#ff8800';
+
+  const pathString = createPathString(pathPoints);
+  const arrowHead = getArrowHead(pathPoints);
+
+  const color = "#ff8800";
 
   return (
     <g className="order-arrow">
-      {/* Arrow line */}
-      <line
-        x1={adjustedStart.x}
-        y1={adjustedStart.y}
-        x2={adjustedEnd.x}
-        y2={adjustedEnd.y}
+      {/* Path line */}
+      <path
+        d={pathString}
         stroke={color}
         strokeWidth="3"
         strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
-      
+
       {/* Arrow head */}
-      <polygon
-        points={`${adjustedEnd.x},${adjustedEnd.y} ${arrowHead1.x},${arrowHead1.y} ${arrowHead2.x},${arrowHead2.y}`}
-        fill={color}
-      />
+      {arrowHead && (
+        <polygon
+          points={`${arrowHead.lastPoint!.x},${arrowHead.lastPoint!.y} ${
+            arrowHead.arrowHead1.x
+          },${arrowHead.arrowHead1.y} ${arrowHead.arrowHead2.x},${
+            arrowHead.arrowHead2.y
+          }`}
+          fill={color}
+        />
+      )}
     </g>
   );
 }
