@@ -75,7 +75,7 @@ class BoardManager {
           if (!hex) {
             throw new Error(`No hex found at row=${position.row}, col=${position.col}`);
           }
-          hex.placeUnit(unit, true);
+          hex.placeUnit(unit);
         }
       });
     }
@@ -219,7 +219,7 @@ class BoardManager {
   };
 
   // Move unit from one hex to another
-  moveUnit(fromPosition: Position, toPosition: Position, canFire: boolean = false, deleteOrder: boolean = false): boolean {
+  moveUnit(fromPosition: Position, toPosition: Position): boolean {
     const fromHex = this.getHex(fromPosition);
     const toHex = this.getHex(toPosition);
     const unit = fromHex?.unit;
@@ -230,9 +230,6 @@ class BoardManager {
 
     fromHex.removeUnit();
     toHex.placeUnit(unit);
-
-    if (canFire) toHex.unit?.enableFire();
-    if (deleteOrder) toHex.removeOrderFromUnit();
     return true;
   }
 

@@ -7,7 +7,7 @@ class Order {
     end: Position;
     canFire: boolean;
     path?: Position[] | null;
-    constructor(unit: Unit, start: Position, end: Position, canFire: boolean, path: Position[] | null) {
+    constructor(unit: Unit, start: Position, end: Position, canFire: boolean, path: Position[] | null = null) {
         this.unit = unit;
         this.start = start;
         this.end = end;

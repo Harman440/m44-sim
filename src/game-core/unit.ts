@@ -70,17 +70,14 @@ class Unit {
   }
 
   // Controlled state changes
-  giveOrder(): void {
+  giveOrder(canFire: boolean): void {
     this.ordered = true;
+    this.readyToFire = canFire;
   }
 
   clearOrder(): void {
     this.ordered = false;
     this.readyToFire = false;
-  }
-
-  enableFire(): void {
-    this.readyToFire = true;
   }
 
   disableFire(): void {

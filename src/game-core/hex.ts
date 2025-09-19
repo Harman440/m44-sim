@@ -119,11 +119,9 @@ class Hex {
   }
 
   // Unit management
-  placeUnit(unit: Unit, isSetup: boolean = false): boolean {
+  placeUnit(unit: Unit): boolean {
     if (this.canEnter(unit)) {
       this.unit = unit;
-      //NOTE: unit cant be ordered again when moved
-      if (!isSetup) this.unit.giveOrder();
       return true;
     }
     return false;

@@ -11,7 +11,7 @@ interface OrdersViewProps {
   boardManager: BoardManager;
   chosenCommandCard: CommandCard;
   setTurnPhase: React.Dispatch<React.SetStateAction<TurnPhase>>;
-  setOrders: React.Dispatch<React.SetStateAction<Order []>>;
+  setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   orders: Order[];
 }
 
@@ -21,7 +21,7 @@ function OrdersView({
   chosenCommandCard,
   setTurnPhase,
   setOrders,
-  orders,//TODO: use this to render arrow represneting order
+  orders,
 }: OrdersViewProps) {
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
   const [possibleMovePositions, setPossibleMovePosistions] = useState<
@@ -62,6 +62,7 @@ function OrdersView({
       // Check if the unit is orderable
       if (unit.isOrdered()) {
         //TODO: add if unit not of correct type or not in correct side of the map
+        //TODO: Add shadow to those units that are orderable, update once the card is selected and after a unit is ordered
         console.log("Unit is not orderable");
         //TODO: highlight hex red for a second and deselect hex
         return;
@@ -94,11 +95,23 @@ function OrdersView({
         throw new Error("Selected unit not found");
       }
 
-      // Check if clicking the same tile (deselect)
+      // Check if clicking the same tile. order to fire and not move
       if (
         unitHexPosition.row === position.row &&
         unitHexPosition.col === position.col
       ) {
+        const newOrder = new Order(
+          selectedUnit,
+          unitHexPosition,
+          position,
+          true
+        );
+
+        selectedUnit.giveOrder(true);
+
+        newOrder.printOrder();
+
+        setOrders((prevOrders) => [...prevOrders, newOrder]);
         setUnitHexPosition(null);
         setPossibleMovePosistions([]); // Clear highlights
         setPossibleMoveAndFiresPositions([]);
@@ -116,15 +129,17 @@ function OrdersView({
         );
         // Move the unit
         if (
-          boardManager.moveUnit(unitHexPosition, position, IsMoveAndFirePos)
+          boardManager.moveUnit(unitHexPosition, position)
         ) {
+
+          selectedUnit.giveOrder(IsMoveAndFirePos);
           setNumOrdersLeft(numOrdersLeft - 1);
 
           // Get the full path to the clicked destination
           const fullPath: Position[] | null = boardManager.getPathToDestination(
             hex,
             unitHexPosition,
-            selectedUnit.getMaxMove(),
+            selectedUnit.getMaxMove()
           );
 
           console.log("DEbug: Full path:", fullPath);
@@ -176,9 +191,10 @@ function OrdersView({
       boardManager.moveUnit(
         lastOrder.end,
         lastOrder.start,
-        lastOrder.canFire,
-        true
       );
+
+      // Remove the order from the unit
+      lastOrder.unit.clearOrder();
 
       // Restore one order back to the counter
       setNumOrdersLeft((prev) => prev + 1);
