@@ -14,6 +14,14 @@ export enum MovementRule {
   DIFFICULT = "Difficult",
 }
 
+export interface TerrainProperties {
+  movementRule: MovementRule;
+  movementCost: number;
+  canMoveAndFire: boolean;
+  color: string;
+  name: string;
+}
+
 // Axial coordinate representation for easier hex calculations
 export interface AxialCoord {
   q: number;

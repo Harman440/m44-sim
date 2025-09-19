@@ -52,7 +52,7 @@ function OrdersView({
         return;
       }
       // Get the unit
-      const unit = hex.getUnit();
+      const unit = hex.unit;
       // Check if clicked hex has a unit
       if (!unit) {
         console.log("No unit found on clicked hex");
@@ -90,7 +90,7 @@ function OrdersView({
       if (!selectedHex) {
         throw new Error("Selected hex not found");
       }
-      const selectedUnit = selectedHex.getUnit();
+      const selectedUnit = selectedHex.unit;
       if (!selectedUnit) {
         throw new Error("Selected unit not found");
       }
@@ -145,7 +145,7 @@ function OrdersView({
           console.log("DEbug: Full path:", fullPath);
 
           const newOrder = new Order(
-            hex.getUnit()!,
+            hex.unit!, //TODO: garantee this is not null
             unitHexPosition,
             position,
             IsMoveAndFirePos,
@@ -240,8 +240,8 @@ function OrdersView({
               <div>
                 <div>Selected: {hexInfo.getDescription()}</div>
                 <div>
-                  Terrain: {hexInfo.name} | Movement Rule:{" "}
-                  {hexInfo.movementRule}
+                  Terrain: {hexInfo.getType()} | Movement Rule:{" "}
+                  {hexInfo.getMovementRule()}
                 </div>
               </div>
             ) : (

@@ -1,84 +1,123 @@
-import { AxialCoord, HexType, MovementRule } from "../types/hex";
+import { AxialCoord, HexType, MovementRule, TerrainProperties } from "../types/hex";
 import { Position } from "../types/scenario";
 import Unit from "./unit";
 
 class Hex {
-  position: Position;
-  posAxial: AxialCoord;
-  type: HexType;
-  movementRule: MovementRule;
-  movementCost: number;
-  canMoveAndFire: boolean;
-  color: string;
-  name: string;
-  unit: Unit | null;
+  private readonly position: Position;
+  private readonly posAxial: AxialCoord;
+  private readonly type: HexType;
+  private readonly movementRule: MovementRule;
+  private readonly movementCost: number;
+  private readonly canMoveAndFire: boolean;
+  private readonly color: string;
+  private readonly name: string;
+
+  private _unit: Unit | null;
 
   constructor(
     position: Position,
     type: HexType = HexType.PLAINS,
-    movementRule: MovementRule = MovementRule.NORMAL,
-    movementCost: number = 1,
-    canMoveAndFire: boolean = true,
-    color: string = "#90EE90",
-    name: string = "Plains",
+    overrides?: Partial<TerrainProperties>,
     unit: Unit | null = null
   ) {
     this.position = position;
     this.type = type;
-    this.movementRule = movementRule;
-    this.movementCost = movementCost;
-    this.canMoveAndFire = canMoveAndFire;
-    this.color = color;
-    this.name = name;
-    this.unit = unit; // Unit occupying this hex
+    this._unit = unit;
 
-    //convert position to axial
+    // Convert position to axial
     this.posAxial = this.offsetToAxial(this.position);
 
-    // Set properties based on terrain type
-    this._setTerrainProperties();
+    // Get terrain properties and apply any overrides
+    const terrainProps = this._getTerrainProperties(type);
+    const finalProps = { ...terrainProps, ...overrides };
+
+    // Set readonly properties
+    this.movementRule = finalProps.movementRule;
+    this.movementCost = finalProps.movementCost;
+    this.canMoveAndFire = finalProps.canMoveAndFire;
+    this.color = finalProps.color;
+    this.name = finalProps.name;
   }
 
-  private _setTerrainProperties() {
-    switch (this.type) {
+  private _getTerrainProperties(type: HexType): TerrainProperties {
+    switch (type) {
       case HexType.PLAINS:
-        this.movementRule = MovementRule.NORMAL;
-        this.canMoveAndFire = true;
-        this.movementCost = 1;
-        this.color = "#90EE90"; // Light green
-        this.name = "Plains";
-        break;
+        return {
+          movementRule: MovementRule.NORMAL,
+          canMoveAndFire: true,
+          movementCost: 1,
+          color: "#90EE90", // Light green
+          name: "Plains"
+        };
 
       case HexType.FOREST:
-        this.movementRule = MovementRule.STOP;
-        this.canMoveAndFire = false;
-        this.movementCost = 1;
-        this.color = "#228B22"; // Forest green
-        this.name = "Forest";
-        break;
+        return {
+          movementRule: MovementRule.STOP,
+          canMoveAndFire: false,
+          movementCost: 1,
+          color: "#228B22", // Forest green
+          name: "Forest"
+        };
 
       case HexType.HILL:
-        this.movementRule = MovementRule.NORMAL;
-        this.canMoveAndFire = true;
-        this.movementCost = 1;
-        this.color = "#8B4513"; // Saddle brown
-        this.name = "Hill";
-        break;
+        return {
+          movementRule: MovementRule.NORMAL,
+          canMoveAndFire: true,
+          movementCost: 1,
+          color: "#8B4513", // Saddle brown
+          name: "Hill"
+        };
 
       case HexType.TOWN:
-        this.movementRule = MovementRule.STOP;
-        this.canMoveAndFire = false;
-        this.movementCost = 1;
-        this.color = "#FFD700"; // Gold
-        this.name = "Town";
-        break;
+        return {
+          movementRule: MovementRule.STOP,
+          canMoveAndFire: false,
+          movementCost: 1,
+          color: "#FFD700", // Gold
+          name: "Town"
+        };
 
       default:
-        this.movementCost = 1;
-        this.color = "#90EE90";
-        this.name = "Plains";
+        return {
+          movementRule: MovementRule.NORMAL,
+          canMoveAndFire: true,
+          movementCost: 1,
+          color: "#90EE90",
+          name: "Plains"
+        };
     }
   }
+
+  //TODO: use these to setup hexes
+  // Alternative constructor approach using static factory methods
+  static createPlains(position: Position, overrides?: Partial<TerrainProperties>): Hex {
+    return new Hex(position, HexType.PLAINS, overrides);
+  }
+
+  static createForest(position: Position, overrides?: Partial<TerrainProperties>): Hex {
+    return new Hex(position, HexType.FOREST, overrides);
+  }
+
+  static createHill(position: Position, overrides?: Partial<TerrainProperties>): Hex {
+    return new Hex(position, HexType.HILL, overrides);
+  }
+
+  static createTown(position: Position, overrides?: Partial<TerrainProperties>): Hex {
+    return new Hex(position, HexType.TOWN, overrides);
+  }
+
+  // Getters for readonly properties
+  getPosition(): Position { return this.position; }
+  getPosAxial(): AxialCoord { return this.posAxial; }
+  getType(): HexType { return this.type; }
+  getMovementRule(): MovementRule { return this.movementRule; }
+  getMovementCost(unit: Unit | null = null): number {
+    //TODO: Could be modified based on unit type
+    return this.movementCost;
+  }
+  getCanMoveAndFire(): boolean { return this.canMoveAndFire; }
+  getColor(): string { return this.color; }
+  getName(): string { return this.name; }
 
   getKey() {
     return `${this.position.row}-${this.position.col}`;
@@ -109,40 +148,23 @@ class Hex {
     return this.movementRule !== MovementRule.STOP;
   }
 
-  getMovementCost(unit: Unit | null = null): number {
-    //TODO: Could be modified based on unit type
-    return this.movementCost;
-  }
-
-  getCanMoveAndFire(): boolean {
-    return this.canMoveAndFire;
-  }
+  get unit(): Unit | null { return this._unit; }
 
   // Unit management
   placeUnit(unit: Unit): boolean {
     if (this.canEnter(unit)) {
-      this.unit = unit;
+      this._unit = unit;
       return true;
     }
     return false;
   }
 
   hasUnit(): this is { unit: Unit } {
-    return this.unit !== null;
-  }
-
-  getUnit(): Unit | null {
-    return this.unit;
+    return this._unit !== null;
   }
 
   removeUnit() {
-    this.unit = null;
-  }
-
-  removeOrderFromUnit() {
-    if (this.unit) {
-      this.unit.clearOrder();
-    }
+    this._unit = null;
   }
 
   // Utility methods
@@ -191,8 +213,8 @@ class Hex {
   getDescription() {
     let desc = `${this.name} (${this.position.row}, ${this.position.col})`;
 
-    if (this.unit) {
-      desc += ` - Occupied by ${this.unit.getUnitType() || "Unit"}`;
+    if (this._unit) {
+      desc += ` - Occupied by ${this._unit.getUnitType() || "Unit"}`;
     }
 
     return desc;

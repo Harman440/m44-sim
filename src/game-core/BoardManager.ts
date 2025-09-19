@@ -99,12 +99,12 @@ class BoardManager {
 
   // Get hexes of specific type
   getHexesByType(type: HexType): Hex[] {
-    return this.getAllHexes().filter(hex => hex.type === type);
+    return this.getAllHexes().filter(hex => hex.getType() === type);
   }
 
   // Helper function to calculate possible moves using your Hex distance method
   calculatePossibleMovesWithPaths = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): PathResult[] => {
-    const startPos = startHex.position;
+    const startPos = startHex.getPosition();
 
     //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
     const queue: PathNode[] = [{
@@ -236,7 +236,7 @@ class BoardManager {
   removeOrders() {
     this.getAllHexes().forEach(hex => {
       if (hex.unit) {
-        hex.removeOrderFromUnit();
+        hex.unit.clearOrder();
       }
     });
   }

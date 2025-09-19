@@ -72,8 +72,9 @@ function Hexagon({
   //TODO: it is not reading colors from nor from css
   const getTileColor = () => {
     if (hexData) {
-      return hexData.color;
+      return hexData.getColor();
     }
+    
     if (isSelectedUnit) return '#d94adeff';
     if (isPossibleMove) return '#1565d4ff';
     if (isPossibleMoveFirePos) return '#de4a7b';
@@ -99,7 +100,7 @@ function Hexagon({
           y={y + 4}
           className="hexagon__coordinates"
         >
-          {hexData ? hexData.name[0] : `${position.row},${position.col}`}
+          {hexData ? hexData.getName()[0] : `${position.row},${position.col}`}
         </text>
       )}
       {hexData && hexData.hasUnit() && (
@@ -107,7 +108,7 @@ function Hexagon({
         x={x}
         y={y - 8}
         faction={faction}
-        unitData={hexData.getUnit()!} //TODO: handle null
+        unitData={hexData.unit} //TODO: handle null
       />
       )}
     </g>
