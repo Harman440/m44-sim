@@ -3,13 +3,14 @@ import { Position } from "../types/scenario";
 import Order from "../game-core/order";
 
 interface OrderProps {
+  orderIndex: number;
   order: Order;
   getHexCenter: (position: Position) => { x: number; y: number };
   hexSize: number;
 }
 
 //NOTE: Code mostly generated. First point in path is actually the last
-function OrderComponent({ order, getHexCenter, hexSize }: OrderProps) {
+function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps) {
   // If we have a full path, use it; otherwise fall back to direct line
   const pathToRender =
     order.path && order.path.length > 1 ? order.path : [order.start, order.end];
@@ -83,7 +84,20 @@ function OrderComponent({ order, getHexCenter, hexSize }: OrderProps) {
   const pathString = createPathString(pathPoints);
   const arrowHead = getArrowHead(pathPoints);
 
-  const color = "#ff8800";
+  // Different colors based on order key
+  const orangeShades = [
+    "#992600", // dark reddish-brown orange
+    "#cc3300", // deep burnt orange
+    "#e65c00", // strong vivid orange
+    "#ff6600", // bright orange
+    "#ff884d", // warm amber-orange
+    "#b34700"  // earthy orange-brown
+  ];
+  const getArrowColor = (orderIndex: number = 0) => {
+    return orangeShades[orderIndex % orangeShades.length];
+  };
+
+  const color = getArrowColor(orderIndex);
 
   return (
     <g className="order-arrow">

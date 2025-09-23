@@ -52,6 +52,8 @@ function Board({
   const renderOrders = () => {
     return orders.map((order, index) => (
       <OrderComponent
+        key={index} //NOTE: key is for react internal list
+        orderIndex={index} //TODO: in the future make order class have an index
         order={order}
         getHexCenter={getHexCenter}
         hexSize={hexSize}
