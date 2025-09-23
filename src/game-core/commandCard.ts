@@ -5,6 +5,7 @@ import { UnitType } from "./unit";
 class CommandCard {
     private static counter = 1;
     id: string;
+    type: string;
     name: string;
     description: string;
     maxTotalOrders: number;
@@ -23,6 +24,7 @@ class CommandCard {
     constructor({
         id = `command-card-${CommandCard.counter++}`,
         name = '',
+        type = 'section',
         description = '',
         maxTotalOrders = 0,
         maxOrdersLeftSection = 0,
@@ -41,6 +43,7 @@ class CommandCard {
     }) {
         this.id = id;
         this.name = name;
+        this.type = type;
         this.description = description;
         this.maxTotalOrders = maxTotalOrders;
         this.maxOrdersLeftSection = maxOrdersLeftSection;

@@ -1,7 +1,7 @@
 // Unit.tsx
 import React from "react";
-import alliedInfantry from "../assets//units/allies/infantry.png";
-import axisInfantry from "../assets//units/axis/infantry.png";
+import alliedInfantry from "../assets/units/allies/infantry.png";
+import axisInfantry from "../assets/units/axis/infantry.png";
 import Unit from "../game-core/unit";
 
 interface UnitProps {
