@@ -64,7 +64,7 @@ function OrdersView({
         //TODO: add if unit not of correct type or not in correct side of the map
         //TODO: Add shadow to those units that are orderable, update once the card is selected and after a unit is ordered
         console.log("Unit is not orderable");
-        //TODO: highlight hex red for a second and deselect hex
+        //TODO: highlight hex red for a second and deselect hex if not orderable
         return;
       }
 
@@ -178,7 +178,6 @@ function OrdersView({
   };
 
   const handleGoBack = () => {
-    //TODO: dont show Volver if unit pick to order
     setOrders((prevOrders) => {
       if (prevOrders.length === 0) return prevOrders; // nothing to undo
 
@@ -255,7 +254,7 @@ function OrdersView({
       )}
 
       <div className="mb-4">
-        {orders.length > 0 && (
+        {orders.length > 0 && !unitHexPosition && (
           <button
             onClick={() => handleGoBack()}
             className={` text-white p-2 rounded text-sm hover:opacity-80`}

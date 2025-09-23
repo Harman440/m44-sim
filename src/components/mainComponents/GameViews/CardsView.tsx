@@ -19,7 +19,6 @@ function CardsView({ commandCardsPlayer, onCardClick }: CardsViewProps) {
             onClick={onCardClick}
           />
         ))}
-        {/*TODO: what is the key of the component and how to use it?*/}
       </div>
     </div>
   );
