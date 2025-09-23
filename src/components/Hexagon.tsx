@@ -69,7 +69,7 @@ function Hexagon({
     return 'hexagon__tile hexagon__tile--default hexagon__tile-stroke';
   };
 
-  //TODO: it is not reading colors from nor from css
+  //TODO: it is not reading colors from here nor from css
   const getTileColor = () => {
     if (hexData) {
       return hexData.getColor();
