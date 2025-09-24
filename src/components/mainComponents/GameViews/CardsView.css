@@ -1,8 +1,5 @@
 .cards-view {
-    background-color: #1f2937;
-    border-radius: 20px;
-    padding: 32px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-height: 400px;
 }
 
 .cards-header {
@@ -39,10 +36,31 @@
 
 .cards-grid .grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 20px;
   padding: 0;
-  justify-content: flex-start;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+/*TODO: check all this */
+.cards-grid .grid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.cards-grid .grid::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.3);
+  border-radius: 4px;
+}
+
+.cards-grid .grid::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.cards-grid .grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
 }
 
 .cards-grid .grid > * {
@@ -51,37 +69,11 @@
   max-width: 320px;
 }
 
-/* Responsive adjustments for single row layout */
+/* Mobile adjustments */
 @media (max-width: 768px) {
-  .cards-grid .grid {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 10px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(59, 130, 246, 0.5) rgba(30, 41, 59, 0.3);
-  }
-  
-  .cards-grid .grid::-webkit-scrollbar {
-    height: 8px;
-  }
-  
-  .cards-grid .grid::-webkit-scrollbar-track {
-    background: rgba(30, 41, 59, 0.3);
-    border-radius: 4px;
-  }
-  
-  .cards-grid .grid::-webkit-scrollbar-thumb {
-    background: rgba(59, 130, 246, 0.5);
-    border-radius: 4px;
-    transition: background 0.3s ease;
-  }
-  
-  .cards-grid .grid::-webkit-scrollbar-thumb:hover {
-    background: rgba(59, 130, 246, 0.7);
-  }
-  
   .cards-grid .grid > * {
-    flex: 0 0 260px;
+    min-width: 260px;
+    max-width: 280px;
   }
 }
 

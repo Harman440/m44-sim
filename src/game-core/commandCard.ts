@@ -24,7 +24,7 @@ class CommandCard {
     constructor({
         id = `command-card-${CommandCard.counter++}`,
         name = '',
-        type = 'section',
+        type = 'tactic',
         description = '',
         maxTotalOrders = 0,
         maxOrdersLeftSection = 0,

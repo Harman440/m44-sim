@@ -10,7 +10,7 @@ interface CardsViewProps {
 
 function CardsView({ commandCardsPlayer, onCardClick }: CardsViewProps) {
   return (
-    <div>
+    <div className="cards-view">
       {/* Header */}
       <div className="cards-header">
         <h3>Zona de Mando</h3>
