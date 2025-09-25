@@ -1,0 +1,72 @@
+.cards-view {
+  min-height: 400px;
+}
+
+.cards-header {
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(148, 163, 184, 0.1);
+  margin-bottom: 24px;
+}
+
+.cards-header h3 {
+  color: #f8fafc;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cards-header p {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.5;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.cards-grid {
+  position: relative;
+}
+
+.cards-grid .grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 0;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+/* Compact mode for smaller screens */
+@media (max-width: 768px) {
+  .cards-view {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  .cards-header h3 {
+    font-size: 1.75rem;
+  }
+  
+  .cards-header p {
+    font-size: 0.875rem;
+  }
+  
+  .empty-state {
+    padding: 40px 20px;
+  }
+  
+  .empty-state .text-6xl {
+    font-size: 3rem;
+  }
+  
+  .cards-footer {
+    margin-top: 24px;
+  }
+}
