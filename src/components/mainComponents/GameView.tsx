@@ -103,15 +103,6 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
         </div>
       )}
 
-      <div className="game__instructions">
-        {turnPhase === TurnPhase.ORDER_UNITS && (
-          <div className="text-blue-600">
-            Order your units: {3} | Click on any hexagon to select it |
-          </div>
-        )}
-        {/*TODO: Move this to TurnPhase*/}
-      </div>
-
       <div className="game_info">
         Turn: {currentTurn} | Phase: {turnPhase}
       </div>

@@ -232,7 +232,7 @@ function OrdersView({
       />
 
       {unitHexPosition && (
-        <div className="game__selected-info">
+        <div>
           {(() => {
             const hexInfo = getSelectedHexInfo();
             return hexInfo ? (
@@ -278,6 +278,9 @@ function OrdersView({
             FASE BATALLA
           </button>
         )}
+        <div className="text-blue-600">
+          Order your units: {3} | Click on any hexagon to select it |
+        </div>
       </div>
     </div>
   );
