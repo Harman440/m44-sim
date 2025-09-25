@@ -19,18 +19,18 @@ function CommandCardComponent({
 
     const image = defaultImage;
     const diagram = null;
-    const backgroundImage = `url(${cardTemplate})`;
 
     return (
         <div
             className={`command-card ${cardData.type}`}
             onClick={handleCardClick}
-            style={{
-                backgroundImage: backgroundImage
-            }}
         >
             {/* Background overlay for better text readability */}
-            <div className="card-overlay"></div>
+            <div className="card-overlay">
+                {cardTemplate ? (
+                    <img src={cardTemplate} alt={cardData.name} className="card-image"/>
+                ) : null}
+            </div>
 
             {/* Card Content - layered on top */}
             <div className="card-content">
@@ -46,15 +46,6 @@ function CommandCardComponent({
                             src={image}
                             alt={cardData.name}
                             className="card-image"
-                            onError={(e) => {
-                                // Fallback if image fails to load
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const placeholder = target.parentElement?.querySelector('.card-image-placeholder');
-                                if (placeholder) {
-                                    (placeholder as HTMLElement).style.display = 'flex';
-                                }
-                            }}
                         />
                     ) : null}
                     <div
@@ -72,11 +63,8 @@ function CommandCardComponent({
 
                 {/* Card Diagram/Stats */}
                 <div className="card-diagram">
-                    <div className="diagram-icon">
+                    <div className="diagram">
                         📊
-                    </div>
-                    <div className="diagram-text">
-                        {diagram || `ID: ${cardData.id}`}
                     </div>
                 </div>
             </div>
