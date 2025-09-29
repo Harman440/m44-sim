@@ -245,6 +245,7 @@ class BoardManager {
   //BUG: If no orders left suddenly all units without order show orderable
   //BUG: if unit in CENTER_RIGHT or CENTER_LEFT no orderable by right or left
   //BUG: sometimes no unit can be ordered
+  //BUG: if left flank order 2 units and move one unit. all other units become orderable
   setUnitOrderable(
     unit: Unit,
     hex: Hex,
