@@ -21,15 +21,29 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
 
   return (
     <g>
+      {/* Glow red if ready to fire */}
       {unitData?.isReadyToFire() && (
         <circle
           cx={x}
           cy={y}
           r={half}
           fill="red"
-          opacity={0.3} // makes the unit glow red but still visible
+          opacity={0.3}
         />
       )}
+
+      {/* Glow blue if orderable */}
+      {unitData?.getOrderable() && (
+        <circle
+          cx={x}
+          cy={y}
+          r={half}
+          fill="blue"
+          opacity={0.3}
+        />
+      )}
+
+      {/* Unit image */}
       <image
         href={href}
         x={x - half - xOffset}
@@ -41,6 +55,5 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
     </g>
   );
 };
-
 
 export default UnitComponent;

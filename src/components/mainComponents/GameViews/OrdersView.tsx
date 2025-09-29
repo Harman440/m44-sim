@@ -47,6 +47,14 @@ function OrdersView({
   )
   const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false); //NOTE: this is set to false each time this is rendered??
 
+  //TODO: is this called once here?? check
+  boardManager.setUnitsAreOrderable(
+    chosenCommandCard.unitType,
+    numOrdersLeftLeft,
+    numOrdersLeftCenter,
+    numOrdersLeftRight
+  );
+
   // Main tile click handler - App.tsx is in complete control
   const handleTileClick = (position: Position) => {
     console.log(`Tile clicked: Row ${position.row}, Column ${position.col}`);
@@ -72,7 +80,7 @@ function OrdersView({
       }
 
       // Check if the unit is orderable
-      if (!isUnitOrderable(unit, hex)) {
+      if (!unit.isOrderable()) {
         console.log("Unit is not orderable");
         //TODO: highlight hex red for a second and deselect hex if not orderable
         return;
@@ -135,6 +143,13 @@ function OrdersView({
         } else if (hex.getSide() === Side.RIGHT) {
           setNumOrdersLeftRight(numOrdersLeftRight - 1);
         }
+        //TODO: check this works
+        boardManager.setUnitsAreOrderable(
+          chosenCommandCard.unitType,
+          numOrdersLeftLeft,
+          numOrdersLeftCenter,
+          numOrdersLeftRight
+        );
 
         newOrder.printOrder();
 
@@ -176,6 +191,13 @@ function OrdersView({
           } else if (hex.getSide() === Side.RIGHT) {
             setNumOrdersLeftRight(numOrdersLeftRight - 1);
           }
+          //TODO: check this works
+          boardManager.setUnitsAreOrderable(
+            chosenCommandCard.unitType,
+            numOrdersLeftLeft,
+            numOrdersLeftCenter,
+            numOrdersLeftRight
+          );
 
           // Get the full path to the clicked destination
           const fullPath: Position[] | null = boardManager.getPathToDestination(
@@ -212,40 +234,6 @@ function OrdersView({
       }
     }
   };
-
-  //TODO: Add shadow to those units that are orderable, update once the card is selected and after a unit is ordered
-  //TODO: delete one order on the section when ordered
-  //Helper function check if unit is orderable
-  const isUnitOrderable = (unit: Unit, hex: Hex): boolean => {
-    console.log("DEbug:", chosenCommandCard.unitType, unit.getUnitType());
-    console.log("DEbug: Hex:", hex.getSide());
-    if (unit.isOrdered()) {
-      console.log("DEbug: Unit already ordered");
-      return false;
-    } else if (chosenCommandCard.unitType! && chosenCommandCard.unitType !== unit.getUnitType()) {
-      console.log("DEbug: No orders left for that unit type");
-      return false;
-    } else if (
-      numOrdersLeftLeft === 0 &&
-      (hex.getSide() === Side.LEFT_CENTER || hex.getSide() === Side.LEFT)
-    ) {
-      console.log("Debug: No orders left on the left");
-      return false;
-    } else if (
-      numOrdersLeftCenter === 0 && 
-      (hex.getSide() === Side.LEFT_CENTER || hex.getSide() === Side.CENTER || hex.getSide() === Side.RIGHT_CENTER)
-    ) {
-      console.log("DEbug: No orders left on the center");
-      return false;
-    } else if (
-      numOrdersLeftRight === 0 &&
-      (hex.getSide() === Side.RIGHT_CENTER || hex.getSide() === Side.RIGHT)
-    ) {
-      console.log("Debug: No orders left on the Right");
-      return false;
-    }
-    return true;
-  }
 
   // Get hex data for selected tile
   const getSelectedHexInfo = () => {

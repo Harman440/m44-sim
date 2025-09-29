@@ -1,7 +1,7 @@
 import Hex from './hex';
 import Unit from './unit';
 import { Factions, Position, Scenario, UnitType } from '../types/scenario.js';
-import { HexType } from '../types/hex';
+import { HexType, Side } from '../types/hex';
 import { PathNode, PathResult } from '../types/boardManager';
 
 class BoardManager {
@@ -238,6 +238,71 @@ class BoardManager {
       if (hex.unit) {
         hex.unit.clearOrder();
       }
+    });
+  }
+
+  //TODO: this is called once to set if unit is orderable and thenjust check if unit is orderable when clicking on the hex
+  //BUG: If no orders left suddenly all units without order show orderable
+  //BUG: if unit in CENTER_RIGHT or CENTER_LEFT no orderable by right or left
+  //BUG: sometimes no unit can be ordered
+  setUnitOrderable(
+    unit: Unit,
+    hex: Hex,
+    cardUnitType: UnitType | null,
+    numOrdersLeftLeft: number,
+    numOrdersLeftCenter: number,
+    numOrdersLeftRight: number
+  ) {
+    const side = hex.getSide();
+
+    const isLeftSide = (s: Side) => s === Side.LEFT || s === Side.LEFT_CENTER;
+    const isCenterSide = (s: Side) =>
+      s === Side.LEFT_CENTER || s === Side.CENTER || s === Side.RIGHT_CENTER;
+    const isRightSide = (s: Side) => s === Side.RIGHT || s === Side.RIGHT_CENTER;
+
+    let orderable = true; // assume true, invalidate with checks
+
+    if (unit.isOrdered()) {
+      console.log("Debug: Unit already ordered");
+      orderable = false;
+    }
+    //NOTE: if cardUnitType is null, then not checking for uniType
+    if (cardUnitType && cardUnitType !== unit.getUnitType()) {
+      console.log("Debug: No orders left for that unit type");
+      orderable = false;
+    }
+
+    if (numOrdersLeftLeft === 0 && isLeftSide(side)) {
+      console.log("Debug: No orders left on the left");
+      orderable = false;
+    }
+
+    if (numOrdersLeftCenter === 0 && isCenterSide(side)) {
+      console.log("Debug: No orders left in the center");
+      orderable = false;
+    }
+
+    if (numOrdersLeftRight === 0 && isRightSide(side)) {
+      console.log("Debug: No orders left on the right");
+      orderable = false;
+    }
+
+    unit.setOrderable(orderable);
+  }
+
+  setUnitsAreOrderable(cardUnitType: UnitType | null, numOrdersLeftLeft: number, numOrdersLeftCenter: number, numOrdersLeftRight: number) {
+    this.hexes.forEach((hex) => {
+      const unit = hex.unit;
+      if (!unit) return; // skip empty hexes
+
+      this.setUnitOrderable(
+        unit,
+        hex,
+        cardUnitType,
+        numOrdersLeftLeft,
+        numOrdersLeftCenter,
+        numOrdersLeftRight
+      );
     });
   }
 

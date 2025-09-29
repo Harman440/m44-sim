@@ -18,6 +18,7 @@ class Unit {
   private readonly maxMove: number;
   private readonly moveAndFire: number;
 
+  private orderable: boolean;
   private ordered: boolean;
   private readyToFire: boolean = false;
 
@@ -28,6 +29,7 @@ class Unit {
     this.maxMove = stats.maxMove;
     this.moveAndFire = stats.moveAndFire;
     this.ordered = false;
+    this.orderable = true;
   }
 
   // Static controls for ID counter
@@ -61,6 +63,18 @@ class Unit {
     return this.moveAndFire;
   }
 
+  isOrderable(): boolean {
+    return this.orderable;
+  }
+
+  setOrderable(orderable: boolean): void {
+    this.orderable = orderable;
+  }
+
+  getOrderable(): boolean {
+    return this.orderable;
+  }
+
   isOrdered(): boolean {
     return this.ordered;
   }
@@ -73,6 +87,7 @@ class Unit {
   giveOrder(canFire: boolean): void {
     this.ordered = true;
     this.readyToFire = canFire;
+    this.orderable = false;
   }
 
   clearOrder(): void {
