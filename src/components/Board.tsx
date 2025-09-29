@@ -20,6 +20,7 @@ interface BoardProps {
   faction?: string;
 }
 
+//TODO: add line representing the sections
 function Board({
   onTileClick,
   unitHexPosition,

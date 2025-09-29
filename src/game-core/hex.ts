@@ -1,10 +1,11 @@
-import { AxialCoord, HexType, MovementRule, TerrainProperties } from "../types/hex";
+import { AxialCoord, HexType, MovementRule, Side, TerrainProperties } from "../types/hex";
 import { Position } from "../types/scenario";
 import Unit from "./unit";
 
 class Hex {
   private readonly position: Position;
   private readonly posAxial: AxialCoord;
+  private readonly side: Side;
   private readonly type: HexType;
   private readonly movementRule: MovementRule;
   private readonly movementCost: number;
@@ -27,6 +28,9 @@ class Hex {
     // Convert position to axial
     this.posAxial = this.offsetToAxial(this.position);
 
+    //get the side of the hex
+    this.side = this._setSide(this.position);
+
     // Get terrain properties and apply any overrides
     const terrainProps = this._getTerrainProperties(type);
     const finalProps = { ...terrainProps, ...overrides };
@@ -37,6 +41,21 @@ class Hex {
     this.canMoveAndFire = finalProps.canMoveAndFire;
     this.color = finalProps.color;
     this.name = finalProps.name;
+  }
+
+  private _setSide(pos: Position): Side {
+    switch (true) {
+      case pos.col <= 3 && pos.row % 2 === 0 || pos.col <= 2 && pos.row % 2 === 1:
+        return Side.LEFT;
+      case pos.col === 3 && pos.row % 2 === 1:
+        return Side.LEFT_CENTER;
+      case pos.col <= 8 && pos.row % 2 === 0 || pos.col <= 7 && pos.row % 2 === 1:
+        return Side.CENTER;
+      case pos.col === 8 && pos.row % 2 === 1:
+        return Side.RIGHT_CENTER;
+      default:
+        return Side.RIGHT;
+    }
   }
 
   private _getTerrainProperties(type: HexType): TerrainProperties {
@@ -109,6 +128,7 @@ class Hex {
   // Getters for readonly properties
   getPosition(): Position { return this.position; }
   getPosAxial(): AxialCoord { return this.posAxial; }
+  getSide(): Side { return this.side; }
   getType(): HexType { return this.type; }
   getMovementRule(): MovementRule { return this.movementRule; }
   getMovementCost(unit: Unit | null = null): number {

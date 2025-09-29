@@ -14,6 +14,14 @@ export enum MovementRule {
   DIFFICULT = "Difficult",
 }
 
+export enum Side {
+  LEFT = "left",
+  LEFT_CENTER = "leftcenter",
+  CENTER = "center",
+  RIGHT_CENTER = "rightcenter",
+  RIGHT = "right",
+}
+
 export interface TerrainProperties {
   movementRule: MovementRule;
   movementCost: number;

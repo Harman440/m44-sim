@@ -2,6 +2,26 @@
 
 import { UnitType } from "./unit";
 
+type CommandCardProps = {
+  id?: string;
+  name?: string;
+  type?: string;
+  description?: string;
+  maxTotalOrders?: number;
+  maxOrdersLeftSection?: number;
+  maxOrdersCenterSection?: number;
+  maxOrdersRightSection?: number;
+  unitType?: UnitType | null;
+  numOntheMove?: number;
+  closeAssaultAdditionalDice?: number;
+  rangeAdditionalDice?: number;
+  numFireTimes?: number;
+  extraMovement?: number;
+  extraPickUpCards?: number;
+  unitCosts?: Record<string, number>;
+  receiveCombatCoins?: number;
+};
+
 class CommandCard {
     private static counter = 1;
     id: string;
@@ -27,9 +47,9 @@ class CommandCard {
         type = 'tactic',
         description = '',
         maxTotalOrders = 0,
-        maxOrdersLeftSection = 0,
-        maxOrdersCenterSection = 0,
-        maxOrdersRightSection = 0,
+        maxOrdersLeftSection = 999,
+        maxOrdersCenterSection = 999,
+        maxOrdersRightSection = 999,
         unitType = null,                    // "infantry", "tank", "artillery", or null for all
         numOntheMove = 0,                  // Units that can move and shoot
         closeAssaultAdditionalDice = 0,    // Bonus dice for close combat
@@ -40,7 +60,7 @@ class CommandCard {
         unitCosts = {},                    // e.g. { infantry: 1, tank: 2 }
         receiveCombatCoins = 0             // How many coins earned from playing it
         // TODO: Handle Infantry Assault (choose section on play)
-    }) {
+    }: CommandCardProps) {
         this.id = id;
         this.name = name;
         this.type = type;

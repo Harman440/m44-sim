@@ -1,5 +1,6 @@
 // data/commandCards.js
 import CommandCard from '../game-core/commandCard.js';
+import { UnitType } from "../game-core/unit";
 
 //TODO: Change Id so that all cards have a unique Id
 const cardTemplates = [
@@ -11,6 +12,8 @@ const cardTemplates = [
       description: 'Order 2 units on the left flank.',
       maxTotalOrders: 2,
       maxOrdersLeftSection: 2,
+      maxOrdersCenterSection: 0,
+      maxOrdersRightSection: 0,
     },
   },
   {
@@ -20,6 +23,8 @@ const cardTemplates = [
       name: 'Probe Right Flank',
       description: 'Order 2 units on the right flank.',
       maxTotalOrders: 2,
+      maxOrdersLeftSection: 0,
+      maxOrdersCenterSection: 0,
       maxOrdersRightSection: 2,
     },
   },
@@ -30,7 +35,9 @@ const cardTemplates = [
       name: 'Attack Center',
       description: 'Order 3 units in the center.',
       maxTotalOrders: 3,
+      maxOrdersLeftSection: 0,
       maxOrdersCenterSection: 3,
+      maxOrdersRightSection: 0,
     },
   },
   {
@@ -41,6 +48,8 @@ const cardTemplates = [
       description: 'Order 4 units on the left flank.',
       maxTotalOrders: 4,
       maxOrdersLeftSection: 4,
+      maxOrdersCenterSection: 0,
+      maxOrdersRightSection: 0,
     },
   },
   {
@@ -50,6 +59,8 @@ const cardTemplates = [
       name: 'Assault Right Flank',
       description: 'Order 4 units on the right flank.',
       maxTotalOrders: 4,
+      maxOrdersLeftSection: 0,
+      maxOrdersCenterSection: 0,
       maxOrdersRightSection: 4,
     },
   },
@@ -62,6 +73,16 @@ const cardTemplates = [
       maxTotalOrders: 6,
     },
   },
+  {
+    count: 3,
+    props: {
+      id: 'tank-assault',
+      name: 'Tank Assault',
+      description: 'Order 4 tanks anywhere.',
+      maxTotalOrders: 4,
+      unitType: "tank" as UnitType,
+    },
+  }
 ];
 
 const commandCards: CommandCard[] = [];

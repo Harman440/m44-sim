@@ -5,6 +5,9 @@ import CommandCard from "../../../game-core/commandCard";
 import { TurnPhase } from "../../../types/gameManager";
 import Board from "../../Board";
 import Order from "../../../game-core/order";
+import Unit from "../../../game-core/unit";
+import Hex from "../../../game-core/hex";
+import { Side } from "../../../types/hex";
 
 interface OrdersViewProps {
   boardSide: string;
@@ -33,6 +36,15 @@ function OrdersView({
   const [numOrdersLeft, setNumOrdersLeft] = useState<number>(
     chosenCommandCard.maxTotalOrders
   );
+  const [numOrdersLeftLeft, setNumOrdersLeftLeft] = useState<number>(
+    chosenCommandCard.maxOrdersLeftSection
+  )
+  const [numOrdersLeftCenter, setNumOrdersLeftCenter] = useState<number>(
+    chosenCommandCard.maxOrdersCenterSection
+  )
+  const [numOrdersLeftRight, setNumOrdersLeftRight] = useState<number>(
+    chosenCommandCard.maxOrdersRightSection
+  )
   const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false); //NOTE: this is set to false each time this is rendered??
 
   // Main tile click handler - App.tsx is in complete control
@@ -60,9 +72,7 @@ function OrdersView({
       }
 
       // Check if the unit is orderable
-      if (unit.isOrdered()) {
-        //TODO: add if unit not of correct type or not in correct side of the map
-        //TODO: Add shadow to those units that are orderable, update once the card is selected and after a unit is ordered
+      if (!isUnitOrderable(unit, hex)) {
         console.log("Unit is not orderable");
         //TODO: highlight hex red for a second and deselect hex if not orderable
         return;
@@ -107,7 +117,24 @@ function OrdersView({
           true
         );
 
+        //TODO: add a helper function with all the conditions below, use this fun whnever an order is issued
         selectedUnit.giveOrder(true);
+        setNumOrdersLeft(numOrdersLeft - 1);
+        //TODO: if unit is ordered in LEFT_CENTER or RIGHT_CENTER and multiple sides card is played
+        //set number of orders left of section
+        if (hex.getSide() === Side.LEFT_CENTER) {
+          setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
+          setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
+        } else if (hex.getSide() === Side.CENTER) {
+          setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
+        } else if (hex.getSide() === Side.RIGHT_CENTER) {
+          setNumOrdersLeftRight(numOrdersLeftRight - 1);
+          setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
+        } else if (hex.getSide() === Side.LEFT) {
+          setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
+        } else if (hex.getSide() === Side.RIGHT) {
+          setNumOrdersLeftRight(numOrdersLeftRight - 1);
+        }
 
         newOrder.printOrder();
 
@@ -134,6 +161,21 @@ function OrdersView({
 
           selectedUnit.giveOrder(IsMoveAndFirePos);
           setNumOrdersLeft(numOrdersLeft - 1);
+          //TODO: if unit is ordered in LEFT_CENTER or RIGHT_CENTER and multiple sides card is played
+          //set number of orders left of section
+          if (hex.getSide() === Side.LEFT_CENTER) {
+            setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
+            setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
+          } else if (hex.getSide() === Side.CENTER) {
+            setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
+          } else if (hex.getSide() === Side.RIGHT_CENTER) {
+            setNumOrdersLeftRight(numOrdersLeftRight - 1);
+            setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
+          } else if (hex.getSide() === Side.LEFT) {
+            setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
+          } else if (hex.getSide() === Side.RIGHT) {
+            setNumOrdersLeftRight(numOrdersLeftRight - 1);
+          }
 
           // Get the full path to the clicked destination
           const fullPath: Position[] | null = boardManager.getPathToDestination(
@@ -170,6 +212,40 @@ function OrdersView({
       }
     }
   };
+
+  //TODO: Add shadow to those units that are orderable, update once the card is selected and after a unit is ordered
+  //TODO: delete one order on the section when ordered
+  //Helper function check if unit is orderable
+  const isUnitOrderable = (unit: Unit, hex: Hex): boolean => {
+    console.log("DEbug:", chosenCommandCard.unitType, unit.getUnitType());
+    console.log("DEbug: Hex:", hex.getSide());
+    if (unit.isOrdered()) {
+      console.log("DEbug: Unit already ordered");
+      return false;
+    } else if (chosenCommandCard.unitType! && chosenCommandCard.unitType !== unit.getUnitType()) {
+      console.log("DEbug: No orders left for that unit type");
+      return false;
+    } else if (
+      numOrdersLeftLeft === 0 &&
+      (hex.getSide() === Side.LEFT_CENTER || hex.getSide() === Side.LEFT)
+    ) {
+      console.log("Debug: No orders left on the left");
+      return false;
+    } else if (
+      numOrdersLeftCenter === 0 && 
+      (hex.getSide() === Side.LEFT_CENTER || hex.getSide() === Side.CENTER || hex.getSide() === Side.RIGHT_CENTER)
+    ) {
+      console.log("DEbug: No orders left on the center");
+      return false;
+    } else if (
+      numOrdersLeftRight === 0 &&
+      (hex.getSide() === Side.RIGHT_CENTER || hex.getSide() === Side.RIGHT)
+    ) {
+      console.log("Debug: No orders left on the Right");
+      return false;
+    }
+    return true;
+  }
 
   // Get hex data for selected tile
   const getSelectedHexInfo = () => {
