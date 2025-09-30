@@ -1,10 +1,10 @@
 import Hexagon from './Hexagon';
-
 import './Board.css';
 import { Position } from '../types/scenario';
 import BoardManager from '../game-core/BoardManager';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
+import scenarioImage from '../assets/scenarios/defualt.png';
 
 interface BoardProps {
   onTileClick: (position: Position) => void;
@@ -41,10 +41,10 @@ function Board({
   const getHexCenter = (position: Position) => {
     const offsetX = hexWidth; // Horizontal spacing between hex centers
     const offsetY = hexHeight * 0.75; // Vertical spacing between rows
-    
+
     const x = 115 + position.col * offsetX + (position.row % 2) * (offsetX / 2);
     const y = 100 + position.row * offsetY;
-    
+
     return { x, y };
   };
 
@@ -70,13 +70,13 @@ function Board({
       const actualMaxWidth = boardWidth + (row % 2 === 1 ? -1 : 0);
       for (let col = 0; col < actualMaxWidth; col++) {
         const position: Position = { row, col };
-        
+
         // Calculate position for hexagonal grid with flat-top hexagons
         const x = 115 + col * offsetX + (row % 2) * (offsetX / 2);
         const y = 100 + row * offsetY;
 
         const isSelectedUnitPos = unitHexPosition?.row === row && unitHexPosition?.col === col;
-        
+
         // Check if this hex is in the possiblePositions array
         const isPossibleMovePos = possibleMovePositions.some(pos =>
           pos?.row === row && pos?.col === col
@@ -118,15 +118,28 @@ function Board({
 
   return (
     <div className="board">
-      <svg 
-        width={svgWidth} 
+      <svg
+        width={svgWidth}
         height={svgHeight}
         className="board__svg"
       >
-        {/* Render hexagons first (background layer) */}
+
+        {/* Layer 1: Scenario image */}
+        {scenarioImage && (
+          <image
+            href={scenarioImage}
+            x="50"//TODO: make this values default
+            y="50"
+            width={svgWidth-100}
+            height={svgHeight-100}
+            preserveAspectRatio="xMidYMid meet"
+          />
+        )}
+
+        {/* Layer 2: Hexagon tiles*/}
         {renderBoard()}
-        
-        {/* Render orders on top */}
+
+        {/* Layer 3: Orders (top layer) */}
         {renderOrders()}
       </svg>
     </div>

@@ -1,11 +1,9 @@
 .board {
-  background-color: #111827;
-  border-radius: 8px;
-  padding: 20px;
-  display: inline-block;
+  position: relative;
 }
 
 .board__svg {
+  display: block;
   border: 2px solid #374151;
   border-radius: 8px;
 }

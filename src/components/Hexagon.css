@@ -1,6 +1,7 @@
 .hexagon {
   cursor: pointer;
   stroke: #1f2937;
+  opacity: 0.8;
 }
 
 .hexagon__tile {
