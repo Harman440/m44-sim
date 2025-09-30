@@ -1,43 +1,17 @@
 .hexagon {
   cursor: pointer;
+  stroke: #1f2937;
 }
 
 .hexagon__tile {
   transition: all 0.2s ease;
 }
-
-.hexagon__tile--default {
-  fill: #374151;
-}
-
 .hexagon__tile--selected {
-  fill: #de4a7b;
-  filter: brightness(1.2);
+  filter: brightness(1.4);
 }
-
-.hexagon__tile--highlighted {
-  fill: #1565d4ff;
-  filter: brightness(0.8);
+.hexagon__tile--move-and-fire {
+  filter: brightness(0.3);
 }
-
-.hexagon__tile--highlighted-red {
-  filter: brightness(0.4);
-}
-
-
-.hexagon__tile--hover {
-  fill: #4b5563;
-}
-
-.hexagon__tile-stroke {
-  stroke: #1f2937;
-  stroke-width: 2;
-}
-
-.hexagon__coordinates {
-  fill: #e5e7eb;
-  font-size: 10px;
-  font-family: monospace;
-  text-anchor: middle;
-  pointer-events: none;
+.hexagon__tile--move {
+  filter: brightness(0.7);
 }

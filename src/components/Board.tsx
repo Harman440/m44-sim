@@ -16,7 +16,6 @@ interface BoardProps {
   boardWidth?: number;
   boardHeight?: number;
   hexSize?: number;
-  showCoordinates?: boolean;
   faction?: string;
 }
 
@@ -31,7 +30,6 @@ function Board({
   boardWidth = 13,
   boardHeight = 9,
   hexSize = 50,
-  showCoordinates = true,
   faction = "Allies"
 }: BoardProps) {
 
@@ -105,7 +103,6 @@ function Board({
             isPossibleMove={isPossibleMovePos}
             isPossibleMoveFirePos={isPossibleMoveFirePos}
             hexSize={hexSize}
-            showCoordinates={showCoordinates}
             hexData={hexData}
             faction={faction}
           />

@@ -291,7 +291,6 @@ function OrdersView({
         boardWidth={13}
         boardHeight={9}
         hexSize={50}
-        showCoordinates={true}
         faction={boardSide}
       />
 
