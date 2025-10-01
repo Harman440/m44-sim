@@ -22,9 +22,16 @@ class BoardManager {
     // Helper function to flip positions for Axis faction
     const flipPosition = (position: Position): Position => {
       if (faction === 'Axis') {
+        const flippedRow = this.height - 1 - position.row;
+        const flippedCol = this.width - 1 - position.col;
+
+        // Adjust column depending on row parity after flipping
+        const needsShift =
+          (position.row % 2 !== 0);
+
         return {
-          row: this.height - 1 - position.row,
-          col: position.col // Keep column the same for vertical flip
+          row: flippedRow,
+          col: needsShift ? flippedCol - 1 : flippedCol
         };
       }
       return position;

@@ -242,6 +242,7 @@ function OrdersView({
   };
 
   const handleGoBack = () => {
+    //BUG: Not adding order from side unit was on
     setOrders((prevOrders) => {
       if (prevOrders.length === 0) return prevOrders; // nothing to undo
 

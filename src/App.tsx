@@ -4,8 +4,8 @@ import { scenarios } from './data/scenarios';
 import GameView from './components/mainComponents/GameView';
 
 const App = () => {
-  const BoardSide: string = "Allies"; //TODO: change in main menu. NOTE: this is what is used to render the board
-  const scenarioId: string = "forest-blitz";
+  const BoardSide: string = "Axis"; //TODO: change in main menu. NOTE: this is what is used to render the board
+  const scenarioId: string = "foret-decouves";
   const scenario: Scenario | undefined = scenarios.find(s => s.id === scenarioId);//TODO: set in menu
   if (!scenario) {
     console.error(`Scenario '${scenarioId}' not found.`);

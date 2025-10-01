@@ -4,7 +4,7 @@ import { Position } from '../types/scenario';
 import BoardManager from '../game-core/BoardManager';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
-import scenarioImage from '../assets/scenarios/defualt.png';
+import scenarioImage from '../assets/scenarios/ForetDEcouves.png';//TODO: make this choosable in main menu
 
 interface BoardProps {
   onTileClick: (position: Position) => void;
@@ -19,7 +19,6 @@ interface BoardProps {
   faction?: string;
 }
 
-//TODO: add line representing the sections
 function Board({
   onTileClick,
   unitHexPosition,
@@ -133,6 +132,11 @@ function Board({
             width={svgWidth-100}
             height={svgHeight-100}
             preserveAspectRatio="xMidYMid meet"
+            transform={
+              faction === "Axis"
+                ? `rotate(180 ${(svgWidth / 2)} ${(svgHeight / 2)})`
+                : undefined
+            }
           />
         )}
 

@@ -51,6 +51,7 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
         width={size}
         height={size}
         preserveAspectRatio="xMidYMid meet"
+        style={{ opacity: 1 }}
       />
     </g>
   );
