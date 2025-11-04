@@ -5,8 +5,6 @@ import CommandCard from "../../../game-core/commandCard";
 import { TurnPhase } from "../../../types/gameManager";
 import Board from "../../Board";
 import Order from "../../../game-core/order";
-import Unit from "../../../game-core/unit";
-import Hex from "../../../game-core/hex";
 import { Side } from "../../../types/hex";
 
 interface OrdersViewProps {
@@ -55,12 +53,13 @@ function OrdersView({
     numOrdersLeftRight
   );
 
-  // Main tile click handler - App.tsx is in complete control
+  // Main tile click handler
   const handleTileClick = (position: Position) => {
-    console.log(`Tile clicked: Row ${position.row}, Column ${position.col}`);
-
     const hex = boardManager.getHex(position);
-    if (!hex) return;
+    if (!hex) {
+      console.log("No Hex found")
+      return;
+    }
 
     console.log(`Hex info:`, hex.getDescription());
 
@@ -68,6 +67,7 @@ function OrdersView({
     if (!unitHexPosition) {
       // Check if max orders has been reached
       if (numOrdersLeft <= 0) {
+        //TODO: when no more units can be ordered show button "Confirmar Ordenes"
         console.log("Max orders reached");
         return;
       }
@@ -261,6 +261,7 @@ function OrdersView({
       lastOrder.unit.clearOrder();
 
       // Restore one order back to the counter
+      //BUG: not adding orders left correctly
       setNumOrdersLeft((prev) => prev + 1);
 
       // Remove the last order

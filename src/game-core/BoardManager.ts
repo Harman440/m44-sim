@@ -1,8 +1,8 @@
-import Hex from './hex';
-import Unit from './unit';
-import { Factions, Position, Scenario, UnitType } from '../types/scenario.js';
-import { HexType, Side } from '../types/hex';
-import { PathNode, PathResult } from '../types/boardManager';
+import Hex from "./hex";
+import Unit from "./unit";
+import { Factions, Position, Scenario, UnitType } from "../types/scenario.js";
+import { HexType, Side } from "../types/hex";
+import { PathNode, PathResult } from "../types/boardManager";
 
 class BoardManager {
   width: number;
@@ -21,17 +21,16 @@ class BoardManager {
   initializeBoard(scenario: Scenario, faction: string) {
     // Helper function to flip positions for Axis faction
     const flipPosition = (position: Position): Position => {
-      if (faction === 'Axis') {
+      if (faction === "Axis") {
         const flippedRow = this.height - 1 - position.row;
         const flippedCol = this.width - 1 - position.col;
 
         // Adjust column depending on row parity after flipping
-        const needsShift =
-          (position.row % 2 !== 0);
+        const needsShift = position.row % 2 !== 0;
 
         return {
           row: flippedRow,
-          col: needsShift ? flippedCol - 1 : flippedCol
+          col: needsShift ? flippedCol - 1 : flippedCol,
         };
       }
       return position;
@@ -50,7 +49,7 @@ class BoardManager {
 
     // Place scenario tiles (flipped for Axis)
     for (const [tileType, positions] of Object.entries(scenario.tiles)) {
-      positions.forEach(originalPosition => {
+      positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
           const hexType = tileType as HexType;
@@ -62,7 +61,7 @@ class BoardManager {
 
     // Place initial units (flipped for Axis)
     // Validate faction
-    if (!['Allies', 'Axis'].includes(faction)) {
+    if (!["Allies", "Axis"].includes(faction)) {
       console.error(`Invalid faction: ${faction}`);
       throw new Error(`Invalid faction: ${faction}`);
     }
@@ -73,14 +72,16 @@ class BoardManager {
 
     for (const [unitType, positions] of Object.entries(unitGroups)) {
       const typedUnitType = unitType as UnitType;
-      positions.forEach(originalPosition => {
+      positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
           const unit = new Unit(typedUnitType);
 
           const hex: Hex | null = this.getHex(position);
           if (!hex) {
-            throw new Error(`No hex found at row=${position.row}, col=${position.col}`);
+            throw new Error(
+              `No hex found at row=${position.row}, col=${position.col}`
+            );
           }
           hex.placeUnit(unit);
         }
@@ -96,7 +97,12 @@ class BoardManager {
   // Check if position is valid
   private isValidPosition(position: Position): boolean {
     const actualMaxWidth = this.width + (position.row % 2 === 1 ? -1 : 0);
-    return position.row >= 0 && position.row < this.height && position.col >= 0 && position.col < actualMaxWidth;
+    return (
+      position.row >= 0 &&
+      position.row < this.height &&
+      position.col >= 0 &&
+      position.col < actualMaxWidth
+    );
   }
 
   // Get all hexes
@@ -106,20 +112,26 @@ class BoardManager {
 
   // Get hexes of specific type
   getHexesByType(type: HexType): Hex[] {
-    return this.getAllHexes().filter(hex => hex.getType() === type);
+    return this.getAllHexes().filter((hex) => hex.getType() === type);
   }
 
   // Helper function to calculate possible moves using your Hex distance method
-  calculatePossibleMovesWithPaths = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): PathResult[] => {
+  calculatePossibleMovesWithPaths = (
+    startHex: Hex,
+    maxRange: number,
+    forFirePositions: boolean = false
+  ): PathResult[] => {
     const startPos = startHex.getPosition();
 
     //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
-    const queue: PathNode[] = [{
-      position: startPos,
-      cost: 0,
-      canContinue: true,
-      path: [startPos] // Initialize with start position
-    }];
+    const queue: PathNode[] = [
+      {
+        position: startPos,
+        cost: 0,
+        canContinue: true,
+        path: [startPos], // Initialize with start position
+      },
+    ];
 
     // Track visited positions and their costs
     const visited = new Map<Hex, number>();
@@ -147,7 +159,7 @@ class BoardManager {
         reachableResults.push({
           position: current.position,
           cost: current.cost,
-          path: [...current.path] // Copy the path
+          path: [...current.path], // Copy the path
         });
       }
 
@@ -185,7 +197,7 @@ class BoardManager {
           position: neighborPos,
           cost: newCost,
           canContinue: neighborHex.canContinueMovement(),
-          path: [...current.path, neighborPos] // Extend the path
+          path: [...current.path, neighborPos], // Extend the path
         });
       }
     }
@@ -194,17 +206,35 @@ class BoardManager {
   };
 
   // Helper method to get just the positions (for backward compatibility)
-  calculatePossibleMoves = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): Position[] => {
-    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, forFirePositions);
-    return results.map(result => result.position);
+  calculatePossibleMoves = (
+    startHex: Hex,
+    maxRange: number,
+    forFirePositions: boolean = false
+  ): Position[] => {
+    const results = this.calculatePossibleMovesWithPaths(
+      startHex,
+      maxRange,
+      forFirePositions
+    );
+    return results.map((result) => result.position);
   };
 
   // Method to get the path to a specific destination
-  getPathToDestination = (startHex: Hex, destination: Position, maxRange: number): Position[] | null => {
-    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, false);
+  getPathToDestination = (
+    startHex: Hex,
+    destination: Position,
+    maxRange: number
+  ): Position[] | null => {
+    const results = this.calculatePossibleMovesWithPaths(
+      startHex,
+      maxRange,
+      false
+    );
     console.log("Debug: Possible moves with paths:", results);
-    const targetResult = results.find(result =>
-      result.position.row === destination.row && result.position.col === destination.col
+    const targetResult = results.find(
+      (result) =>
+        result.position.row === destination.row &&
+        result.position.col === destination.col
     );
 
     console.log("Debug: Target result:", targetResult);
@@ -213,11 +243,19 @@ class BoardManager {
   };
 
   // Method to get all paths as a Map for quick lookup
-  getAllPaths = (startHex: Hex, maxRange: number, forFirePositions: boolean = false): Map<string, Position[]> => {
-    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, forFirePositions);
+  getAllPaths = (
+    startHex: Hex,
+    maxRange: number,
+    forFirePositions: boolean = false
+  ): Map<string, Position[]> => {
+    const results = this.calculatePossibleMovesWithPaths(
+      startHex,
+      maxRange,
+      forFirePositions
+    );
     const pathMap = new Map<string, Position[]>();
 
-    results.forEach(result => {
+    results.forEach((result) => {
       const key = `${result.position.row}-${result.position.col}`;
       pathMap.set(key, result.path);
     });
@@ -241,7 +279,7 @@ class BoardManager {
   }
 
   removeOrders() {
-    this.getAllHexes().forEach(hex => {
+    this.getAllHexes().forEach((hex) => {
       if (hex.unit) {
         hex.unit.clearOrder();
       }
@@ -266,7 +304,8 @@ class BoardManager {
     const isLeftSide = (s: Side) => s === Side.LEFT || s === Side.LEFT_CENTER;
     const isCenterSide = (s: Side) =>
       s === Side.LEFT_CENTER || s === Side.CENTER || s === Side.RIGHT_CENTER;
-    const isRightSide = (s: Side) => s === Side.RIGHT || s === Side.RIGHT_CENTER;
+    const isRightSide = (s: Side) =>
+      s === Side.RIGHT || s === Side.RIGHT_CENTER;
 
     let orderable = true; // assume true, invalidate with checks
 
@@ -298,7 +337,12 @@ class BoardManager {
     unit.setOrderable(orderable);
   }
 
-  setUnitsAreOrderable(cardUnitType: UnitType | null, numOrdersLeftLeft: number, numOrdersLeftCenter: number, numOrdersLeftRight: number) {
+  setUnitsAreOrderable(
+    cardUnitType: UnitType | null,
+    numOrdersLeftLeft: number,
+    numOrdersLeftCenter: number,
+    numOrdersLeftRight: number
+  ) {
     this.hexes.forEach((hex) => {
       const unit = hex.unit;
       if (!unit) return; // skip empty hexes
@@ -323,7 +367,7 @@ class BoardManager {
       [HexType.TOWN]: 0,
     };
 
-    Object.values(HexType).forEach(type => {
+    Object.values(HexType).forEach((type) => {
       stats[type] = this.getHexesByType(type).length;
     });
 
