@@ -1,86 +1,76 @@
 // data/commandCards.js
-import CommandCard from '../game-core/commandCard.js';
-import { UnitType } from "../game-core/unit";
+import CommandCard, { CommandCardType } from '../game-core/commandCard.js';
 
 //TODO: Change Id so that all cards have a unique Id
 const cardTemplates = [
   {
-    count: 4,
+    count: 1,
     props: {
       id: 'probe-left',
       name: 'Probe Left Flank',
+      type: CommandCardType.LEFT,
       description: 'Order 2 units on the left flank.',
       maxTotalOrders: 2,
-      maxOrdersLeftSection: 2,
-      maxOrdersCenterSection: 0,
-      maxOrdersRightSection: 0,
     },
   },
   {
-    count: 4,
+    count: 1,
     props: {
       id: 'probe-right',
       name: 'Probe Right Flank',
+      type: CommandCardType.RIGHT,
       description: 'Order 2 units on the right flank.',
       maxTotalOrders: 2,
-      maxOrdersLeftSection: 0,
-      maxOrdersCenterSection: 0,
-      maxOrdersRightSection: 2,
     },
   },
   {
-    count: 4,
+    count: 1,
     props: {
       id: 'attack-center',
       name: 'Attack Center',
+      type: CommandCardType.CENTER,
       description: 'Order 3 units in the center.',
       maxTotalOrders: 3,
-      maxOrdersLeftSection: 0,
-      maxOrdersCenterSection: 3,
-      maxOrdersRightSection: 0,
     },
   },
   {
-    count: 3,
+    count: 1,
     props: {
       id: 'assault-left',
       name: 'Assault Left Flank',
+      type: CommandCardType.LEFT,
       description: 'Order 4 units on the left flank.',
       maxTotalOrders: 4,
-      maxOrdersLeftSection: 4,
-      maxOrdersCenterSection: 0,
-      maxOrdersRightSection: 0,
     },
   },
   {
-    count: 3,
+    count: 1,
     props: {
       id: 'assault-right',
       name: 'Assault Right Flank',
+      type: CommandCardType.RIGHT,
       description: 'Order 4 units on the right flank.',
       maxTotalOrders: 4,
-      maxOrdersLeftSection: 0,
-      maxOrdersCenterSection: 0,
-      maxOrdersRightSection: 4,
     },
   },
   {
-    count: 2,
+    count: 1,
     props: {
       id: 'all-out',
       name: 'All-Out Assault',
+      type: CommandCardType.ALLSIDES,
       description: 'Order 6 units anywhere.',
       maxTotalOrders: 6,
     },
   },
   {
-    count: 3,
+    count: 1,
     props: {
       id: 'tank-assault',
       name: 'Tank Assault',
+      type: CommandCardType.TANK,
       description: 'Order 4 tanks anywhere.',
       maxTotalOrders: 4,
-      unitType: "tank" as UnitType,
     },
   }
 ];

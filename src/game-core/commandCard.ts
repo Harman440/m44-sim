@@ -1,17 +1,12 @@
 // game-core/commandCard.js
-
-import { UnitType } from "./unit";
+export enum CommandCardType {LEFT = "left", CENTER = "center", RIGHT = "right", ALLSIDES = "all-sides", INFANTRY = "infantry", TANK = "tank", ARTILLERY = "artillery", ALL = "all" };
 
 type CommandCardProps = {
   id?: string;
   name?: string;
-  type?: string;
+  type?: CommandCardType;
   description?: string;
   maxTotalOrders?: number;
-  maxOrdersLeftSection?: number;
-  maxOrdersCenterSection?: number;
-  maxOrdersRightSection?: number;
-  unitType?: UnitType | null;
   numOntheMove?: number;
   closeAssaultAdditionalDice?: number;
   rangeAdditionalDice?: number;
@@ -25,14 +20,10 @@ type CommandCardProps = {
 class CommandCard {
     private static counter = 1;
     id: string;
-    type: string;
+    type: CommandCardType;
     name: string;
     description: string;
     maxTotalOrders: number;
-    maxOrdersLeftSection: number;
-    maxOrdersCenterSection: number;
-    maxOrdersRightSection: number;
-    unitType: UnitType | null;
     numOntheMove: number;
     closeAssaultAdditionalDice: number;
     rangeAdditionalDice: number;
@@ -44,13 +35,9 @@ class CommandCard {
     constructor({
         id = `command-card-${CommandCard.counter++}`,
         name = '',
-        type = 'tactic',
+        type = CommandCardType.ALL,
         description = '',
         maxTotalOrders = 0,
-        maxOrdersLeftSection = 999,
-        maxOrdersCenterSection = 999,
-        maxOrdersRightSection = 999,
-        unitType = null,                    // "infantry", "tank", "artillery", or null for all
         numOntheMove = 0,                  // Units that can move and shoot
         closeAssaultAdditionalDice = 0,    // Bonus dice for close combat
         rangeAdditionalDice = 0,           // Bonus dice at range
@@ -66,10 +53,6 @@ class CommandCard {
         this.type = type;
         this.description = description;
         this.maxTotalOrders = maxTotalOrders;
-        this.maxOrdersLeftSection = maxOrdersLeftSection;
-        this.maxOrdersCenterSection = maxOrdersCenterSection;
-        this.maxOrdersRightSection = maxOrdersRightSection;
-        this.unitType = unitType;
         this.numOntheMove = numOntheMove;
         this.closeAssaultAdditionalDice = closeAssaultAdditionalDice;
         this.rangeAdditionalDice = rangeAdditionalDice;

@@ -1,20 +1,24 @@
 import Hex from "./hex";
-import Unit from "./unit";
-import { Factions, Position, Scenario, UnitType } from "../types/scenario.js";
+import Unit, { UnitType } from "./unit";
+import { Factions, Position, Scenario } from "../types/scenario.js";
 import { HexType, Side } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
+import CommandCard, { CommandCardType } from "./commandCard";
 
 class BoardManager {
   width: number;
   height: number;
   hexes: Map<string, Hex>;
+  sideHexes: Map<Side, Hex[]>;
 
   constructor(scenario: Scenario, faction = "Allies", width = 13, height = 9) {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
+    this.sideHexes = new Map();
 
     this.initializeBoard(scenario, faction);
+    this.initializeSideHexes();
   }
 
   // Initialize the board with default terrain
@@ -87,6 +91,27 @@ class BoardManager {
         }
       });
     }
+  }
+
+  // --- initialize side groups at startup
+  private initializeSideHexes(): void {
+    Object.values(Side).forEach((side) => {
+      const hexesForSide = this.getHexesBySide(side);
+      this.sideHexes.set(side, hexesForSide);
+    });
+  }
+
+  // --- get all hexes of a given side
+  private getHexesBySide(side: Side): Hex[] {
+    return Array.from(this.hexes.values()).filter(
+      (hex) => hex.getSide() === side
+    );
+  }
+
+  getHexesForSide(sides: Side | Side[]): Hex[] {
+    const sideArray = Array.isArray(sides) ? sides : [sides];
+
+    return sideArray.flatMap((side) => this.sideHexes.get(side) ?? []);
   }
 
   // Get hex at specific position
@@ -286,75 +311,76 @@ class BoardManager {
     });
   }
 
+  //TODO: check these bugs:
   //TODO: this is called once to set if unit is orderable and thenjust check if unit is orderable when clicking on the hex
   //BUG: If no orders left suddenly all units without order show orderable
   //BUG: if unit in CENTER_RIGHT or CENTER_LEFT no orderable by right or left
   //BUG: sometimes no unit can be ordered
   //BUG: if left flank order 2 units and move one unit. all other units become orderable
-  setUnitOrderable(
-    unit: Unit,
-    hex: Hex,
-    cardUnitType: UnitType | null,
-    numOrdersLeftLeft: number,
-    numOrdersLeftCenter: number,
-    numOrdersLeftRight: number
-  ) {
-    const side = hex.getSide();
+  setOrderableUnits(commandCard: CommandCard): number {
+    let sides: Side[] = [];
+    let filterFn: ((unit: Unit) => boolean) | null = null;
 
-    const isLeftSide = (s: Side) => s === Side.LEFT || s === Side.LEFT_CENTER;
-    const isCenterSide = (s: Side) =>
-      s === Side.LEFT_CENTER || s === Side.CENTER || s === Side.RIGHT_CENTER;
-    const isRightSide = (s: Side) =>
-      s === Side.RIGHT || s === Side.RIGHT_CENTER;
-
-    let orderable = true; // assume true, invalidate with checks
-
-    if (unit.isOrdered()) {
-      console.log("Debug: Unit already ordered");
-      orderable = false;
-    }
-    //NOTE: if cardUnitType is null, then not checking for uniType
-    if (cardUnitType && cardUnitType !== unit.getUnitType()) {
-      console.log("Debug: No orders left for that unit type");
-      orderable = false;
-    }
-
-    if (numOrdersLeftLeft === 0 && isLeftSide(side)) {
-      console.log("Debug: No orders left on the left");
-      orderable = false;
-    }
-
-    if (numOrdersLeftCenter === 0 && isCenterSide(side)) {
-      console.log("Debug: No orders left in the center");
-      orderable = false;
+    switch (commandCard.type) {
+      case CommandCardType.LEFT:
+        sides = [Side.LEFT, Side.LEFT_CENTER];
+        break;
+      case CommandCardType.CENTER:
+        sides = [Side.CENTER, Side.LEFT_CENTER, Side.RIGHT_CENTER];
+        break;
+      case CommandCardType.RIGHT:
+        sides = [Side.RIGHT, Side.RIGHT_CENTER];
+        break;
+      case CommandCardType.ALLSIDES:
+        sides = [Side.LEFT, Side.LEFT_CENTER, Side.CENTER, Side.RIGHT_CENTER, Side.RIGHT];
+        break;
+      case CommandCardType.INFANTRY:
+        filterFn = (u) => u.getUnitType() === UnitType.INFANTRY;
+        break;
+      case CommandCardType.TANK:
+        filterFn = (u) => u.getUnitType() === UnitType.TANK;
+        break;
+      case CommandCardType.ARTILLERY:
+        filterFn = (u) => u.getUnitType() === UnitType.ARTILLERY;
+        break;
+      case CommandCardType.ALL:
+        filterFn = () => true;
+        break;
+      default:
+        return 0;
     }
 
-    if (numOrdersLeftRight === 0 && isRightSide(side)) {
-      console.log("Debug: No orders left on the right");
-      orderable = false;
-    }
+    // Collect hexes based on type
+    const hexes =
+      sides.length > 0 ? this.getHexesForSide(sides) : this.getAllHexes();
 
-    unit.setOrderable(orderable);
+    let count = 0;
+
+    // Iterate and mark orderable
+    hexes.forEach((hex) => {
+      const unit = hex.unit;
+      if (!unit) return;
+
+      if (!filterFn || filterFn(unit)) {
+        unit.setOrderable(true);
+        count++;
+      }
+    });
+
+    var maxTotalOrders: number = commandCard.maxTotalOrders;
+
+    if (count < commandCard.maxTotalOrders) {
+      count = maxTotalOrders;
+    }
+    // Set max orders to the value of the card. If number of possible orders is less than the number in the card set that value to max
+    return maxTotalOrders;
   }
 
-  setUnitsAreOrderable(
-    cardUnitType: UnitType | null,
-    numOrdersLeftLeft: number,
-    numOrdersLeftCenter: number,
-    numOrdersLeftRight: number
-  ) {
-    this.hexes.forEach((hex) => {
-      const unit = hex.unit;
-      if (!unit) return; // skip empty hexes
-
-      this.setUnitOrderable(
-        unit,
-        hex,
-        cardUnitType,
-        numOrdersLeftLeft,
-        numOrdersLeftCenter,
-        numOrdersLeftRight
-      );
+  setUnitsNotOrdable() {
+    this.getAllHexes().forEach((hex) => {
+      if (hex.unit) {
+        hex.unit.setOrderable(false);
+      }
     });
   }
 
