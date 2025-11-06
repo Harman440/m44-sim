@@ -311,12 +311,6 @@ class BoardManager {
     });
   }
 
-  //TODO: check these bugs:
-  //TODO: this is called once to set if unit is orderable and thenjust check if unit is orderable when clicking on the hex
-  //BUG: If no orders left suddenly all units without order show orderable
-  //BUG: if unit in CENTER_RIGHT or CENTER_LEFT no orderable by right or left
-  //BUG: sometimes no unit can be ordered
-  //BUG: if left flank order 2 units and move one unit. all other units become orderable
   setOrderableUnits(commandCard: CommandCard): number {
     let sides: Side[] = [];
     let filterFn: ((unit: Unit) => boolean) | null = null;
@@ -367,12 +361,12 @@ class BoardManager {
       }
     });
 
+    // Set max orders to the value of the card. If number of possible orders is less than the number in the card set that value to max
     var maxTotalOrders: number = commandCard.maxTotalOrders;
 
     if (count < commandCard.maxTotalOrders) {
-      count = maxTotalOrders;
+      maxTotalOrders = count;
     }
-    // Set max orders to the value of the card. If number of possible orders is less than the number in the card set that value to max
     return maxTotalOrders;
   }
 

@@ -183,31 +183,19 @@ function OrdersView({
   };
 
   const handleGoBack = () => {
-    //BUG: Not adding order from side unit was on
-    setOrders((prevOrders) => {
-      if (prevOrders.length === 0) return prevOrders; // nothing to undo
+    if (orders.length === 0) return;
 
-      // Get the last order
-      const lastOrder = prevOrders[prevOrders.length - 1];
+    const lastOrder = orders[orders.length - 1];
+    if (!lastOrder) return;
 
-      if (!lastOrder) return prevOrders;
+    boardManager.moveUnit(lastOrder.end, lastOrder.start);
+    lastOrder.unit.clearOrder();
+    lastOrder.unit.setOrderable(true);
 
-      // Move the unit back to its original position
-      boardManager.moveUnit(
-        lastOrder.end,
-        lastOrder.start,
-      );
+    setOrders((prev) => prev.slice(0, -1));
 
-      // Remove the order from the unit
-      lastOrder.unit.clearOrder();
-
-      // Restore one order back to the counter
-      //BUG: not adding orders left correctly
-      setNumOrdersLeft((prev) => prev + 1);
-
-      // Remove the last order
-      return prevOrders.slice(0, -1);
-    });
+    // Recalculate from board state
+    setNumOrdersLeft((prev) => prev + 1);
   };
 
   //Handle Commit Orders
@@ -287,7 +275,7 @@ function OrdersView({
           </button>
         )}
         <div className="text-blue-600">
-          Order your units: {3} | Click on any hexagon to select it |
+          Order your units, orders left: {numOrdersLeft} | Click on any hexagon to select it |
         </div>
       </div>
     </div>
