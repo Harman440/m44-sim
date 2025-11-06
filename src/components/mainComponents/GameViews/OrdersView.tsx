@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { use, useEffect, useState } from "react";
 import { Position } from "../../../types/scenario";
 import BoardManager from "../../../game-core/BoardManager";
 import CommandCard from "../../../game-core/commandCard";
 import { TurnPhase } from "../../../types/gameManager";
 import Board from "../../Board";
 import Order from "../../../game-core/order";
-import { Side } from "../../../types/hex";
 
 interface OrdersViewProps {
   boardSide: string;
@@ -31,30 +30,23 @@ function OrdersView({
   const [possibleMoveAndFirePositions, setPossibleMoveAndFiresPositions] =
     useState<Position[]>([]);
 
-  const [numOrdersLeft, setNumOrdersLeft] = useState<number>(
-    chosenCommandCard.maxTotalOrders
-  );
-  const [numOrdersLeftLeft, setNumOrdersLeftLeft] = useState<number>(
-    chosenCommandCard.maxOrdersLeftSection
-  )
-  const [numOrdersLeftCenter, setNumOrdersLeftCenter] = useState<number>(
-    chosenCommandCard.maxOrdersCenterSection
-  )
-  const [numOrdersLeftRight, setNumOrdersLeftRight] = useState<number>(
-    chosenCommandCard.maxOrdersRightSection
-  )
-  const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false); //NOTE: this is set to false each time this is rendered??
+  const [numOrdersLeft, setNumOrdersLeft] = useState<number>(0);
+  const [OrdersAreCommited, setOrdersAreCommited] = useState<boolean>(false);
 
-  //TODO: is this called once here?? check
-  boardManager.setUnitsAreOrderable(
-    chosenCommandCard.unitType,
-    numOrdersLeftLeft,
-    numOrdersLeftCenter,
-    numOrdersLeftRight
-  );
+  //NOTE: Init orders
+  useEffect(() => {
+    if (chosenCommandCard) {
+      setNumOrdersLeft(boardManager.setOrderableUnits(chosenCommandCard));
+    }
+  }, [chosenCommandCard]);
 
   // Main tile click handler
   const handleTileClick = (position: Position) => {
+    // Check if max orders has been reached
+    if (numOrdersLeft <= 0) {
+      console.log("Max orders reached");
+      return;
+    }
     const hex = boardManager.getHex(position);
     if (!hex) {
       console.log("No Hex found")
@@ -65,12 +57,6 @@ function OrdersView({
 
     // If no tile is currently selected
     if (!unitHexPosition) {
-      // Check if max orders has been reached
-      if (numOrdersLeft <= 0) {
-        //TODO: when no more units can be ordered show button "Confirmar Ordenes"
-        console.log("Max orders reached");
-        return;
-      }
       // Get the unit
       const unit = hex.unit;
       // Check if clicked hex has a unit
@@ -128,29 +114,6 @@ function OrdersView({
         //TODO: add a helper function with all the conditions below, use this fun whnever an order is issued
         selectedUnit.giveOrder(true);
         setNumOrdersLeft(numOrdersLeft - 1);
-        //TODO: if unit is ordered in LEFT_CENTER or RIGHT_CENTER and multiple sides card is played
-        //set number of orders left of section
-        if (hex.getSide() === Side.LEFT_CENTER) {
-          setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
-          setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
-        } else if (hex.getSide() === Side.CENTER) {
-          setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
-        } else if (hex.getSide() === Side.RIGHT_CENTER) {
-          setNumOrdersLeftRight(numOrdersLeftRight - 1);
-          setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
-        } else if (hex.getSide() === Side.LEFT) {
-          setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
-        } else if (hex.getSide() === Side.RIGHT) {
-          setNumOrdersLeftRight(numOrdersLeftRight - 1);
-        }
-        //TODO: check this works
-        boardManager.setUnitsAreOrderable(
-          chosenCommandCard.unitType,
-          numOrdersLeftLeft,
-          numOrdersLeftCenter,
-          numOrdersLeftRight
-        );
-
         newOrder.printOrder();
 
         setOrders((prevOrders) => [...prevOrders, newOrder]);
@@ -176,28 +139,6 @@ function OrdersView({
 
           selectedUnit.giveOrder(IsMoveAndFirePos);
           setNumOrdersLeft(numOrdersLeft - 1);
-          //TODO: if unit is ordered in LEFT_CENTER or RIGHT_CENTER and multiple sides card is played
-          //set number of orders left of section
-          if (hex.getSide() === Side.LEFT_CENTER) {
-            setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
-            setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
-          } else if (hex.getSide() === Side.CENTER) {
-            setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
-          } else if (hex.getSide() === Side.RIGHT_CENTER) {
-            setNumOrdersLeftRight(numOrdersLeftRight - 1);
-            setNumOrdersLeftCenter(numOrdersLeftCenter - 1);
-          } else if (hex.getSide() === Side.LEFT) {
-            setNumOrdersLeftLeft(numOrdersLeftLeft - 1);
-          } else if (hex.getSide() === Side.RIGHT) {
-            setNumOrdersLeftRight(numOrdersLeftRight - 1);
-          }
-          //TODO: check this works
-          boardManager.setUnitsAreOrderable(
-            chosenCommandCard.unitType,
-            numOrdersLeftLeft,
-            numOrdersLeftCenter,
-            numOrdersLeftRight
-          );
 
           // Get the full path to the clicked destination
           const fullPath: Position[] | null = boardManager.getPathToDestination(
@@ -242,37 +183,27 @@ function OrdersView({
   };
 
   const handleGoBack = () => {
-    //BUG: Not adding order from side unit was on
-    setOrders((prevOrders) => {
-      if (prevOrders.length === 0) return prevOrders; // nothing to undo
+    if (orders.length === 0) return;
 
-      // Get the last order
-      const lastOrder = prevOrders[prevOrders.length - 1];
+    const lastOrder = orders[orders.length - 1];
+    if (!lastOrder) return;
 
-      if (!lastOrder) return prevOrders;
+    boardManager.moveUnit(lastOrder.end, lastOrder.start);
+    lastOrder.unit.clearOrder();
+    lastOrder.unit.setOrderable(true);
 
-      // Move the unit back to its original position
-      boardManager.moveUnit(
-        lastOrder.end,
-        lastOrder.start,
-      );
+    setOrders((prev) => prev.slice(0, -1));
 
-      // Remove the order from the unit
-      lastOrder.unit.clearOrder();
-
-      // Restore one order back to the counter
-      //BUG: not adding orders left correctly
-      setNumOrdersLeft((prev) => prev + 1);
-
-      // Remove the last order
-      return prevOrders.slice(0, -1);
-    });
+    // Recalculate from board state
+    setNumOrdersLeft((prev) => prev + 1);
   };
 
   //Handle Commit Orders
   const handleCommitOrders = () => {
     setOrdersAreCommited(true);
-    //TODO: If orders commited, clicking on a tile should do nothing, dont show go back button, show moved units (should be done already) and show used cards
+    //Set all units to unordable:
+    boardManager.setUnitsNotOrdable();
+    //TODO: If orders commited, clicking on a tile should do nothing, show moved units (should be done already) and show used cards
     //TODO: add something visual aswell to show nothing can be done
   };
 
@@ -319,7 +250,7 @@ function OrdersView({
       )}
 
       <div className="mb-4">
-        {orders.length > 0 && !unitHexPosition && (
+        {orders.length > 0 && !unitHexPosition && !OrdersAreCommited && (
           <button
             onClick={() => handleGoBack()}
             className={` text-white p-2 rounded text-sm hover:opacity-80`}
@@ -344,7 +275,7 @@ function OrdersView({
           </button>
         )}
         <div className="text-blue-600">
-          Order your units: {3} | Click on any hexagon to select it |
+          Order your units, orders left: {numOrdersLeft} | Click on any hexagon to select it |
         </div>
       </div>
     </div>

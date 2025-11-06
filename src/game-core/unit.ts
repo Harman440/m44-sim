@@ -1,7 +1,7 @@
 // game-core/unit.js
 
 // Define valid unit types as a union
-export type UnitType = "infantry" | "tank" | "artillery";
+export enum UnitType {INFANTRY = "infantry", TANK = "tank", ARTILLERY = "artillery"};
 
 // Map unit stats
 const UNIT_STATS: Record<UnitType, { maxMove: number; moveAndFire: number }> = {
@@ -22,14 +22,14 @@ class Unit {
   private ordered: boolean;
   private readyToFire: boolean = false;
 
-  constructor(unitType: UnitType = "infantry") {
+  constructor(unitType: UnitType = UnitType.INFANTRY) {
     const stats = UNIT_STATS[unitType];
     this.id = `unit-${Unit.counter++}`;
     this.unitType = unitType;
     this.maxMove = stats.maxMove;
     this.moveAndFire = stats.moveAndFire;
     this.ordered = false;
-    this.orderable = true;
+    this.orderable = false;
   }
 
   // Static controls for ID counter
