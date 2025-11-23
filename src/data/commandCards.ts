@@ -75,6 +75,8 @@ const cardTemplates = [
   }
 ];
 
+console.log("=== commandCards module loaded ===");
+console.log("cardTemplates length:", cardTemplates.length);
 const commandCards: CommandCard[] = [];
 
 cardTemplates.forEach(template => {

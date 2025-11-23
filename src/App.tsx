@@ -15,7 +15,7 @@ const App = () => {
   //TODO: add to scenario details
   let initCommandCards: number = 0;
   if (BoardSide === "Axis") {
-    initCommandCards = 4;
+    initCommandCards = 3;
   } else {
     initCommandCards = 5;
   }

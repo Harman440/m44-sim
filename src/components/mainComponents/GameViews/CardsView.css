@@ -70,3 +70,152 @@
     margin-top: 24px;
   }
 }
+
+.top-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 3rem;
+}
+
+.deck-section {
+  text-align: center;
+}
+
+.pile-label {
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+.deck-pile {
+  position: relative;
+  width: 8rem;
+  height: 12rem;
+  background: linear-gradient(to bottom right, #92400e, #78350f);
+  border: 4px solid #d97706;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.deck-pile:hover {
+  transform: scale(1.05);
+}
+
+.deck-back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fbbf24;
+  font-weight: bold;
+  font-size: 4rem;
+}
+
+.choice-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.choice-button:hover {
+  background-color: #1d4ed8;
+}
+
+.discard-pile {
+  width: 8rem;
+  height: 12rem;
+  background: linear-gradient(to bottom right, #7f1d1d, #450a0a);
+  border: 4px solid #b91c1c;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.choice-area {
+  margin-bottom: 2rem;
+}
+
+.choice-title {
+  color: white;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.choice-cards {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.choice-card {
+  width: 10rem;
+  height: 14rem;
+  background: linear-gradient(to bottom right, #334155, #1e293b);
+  border: 4px solid #3b82f6;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.choice-card:hover {
+  transform: scale(1.05);
+  border-color: #60a5fa;
+}
+
+.animating-card {
+  position: fixed;
+  width: 10rem;
+  height: 14rem;
+  background: linear-gradient(to bottom right, #334155, #1e293b);
+  border: 4px solid #fbbf24;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+  left: 50%;
+}
+
+.animating-card.hand {
+  animation: slideUp 0.5s ease-out;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.animating-card.deck,
+.animating-card.choice {
+  animation: slideDown 0.5s ease-out;
+  top: 20%;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 100%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translate(-50%, -200%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+}

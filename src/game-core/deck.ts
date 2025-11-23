@@ -14,6 +14,7 @@ class Deck {
 
     draw(n = 1): CommandCard[] {
         //If there are less than n cards in the draw pile, reshuffle the discard pile
+        console.log("[DECK] drawing", n, "cards. Before draw:", this.drawPile.length);
         if (this.drawPile.length < n) {
             this.shuffleDiscardIntoDraw();
         }
@@ -22,6 +23,7 @@ class Deck {
             // throw new Error("Cannot draw: the draw pile is empty.");
         }
         const drawn = this.drawPile.splice(0, n);
+        console.log("[DECK] after draw:", this.drawPile.length);
         return drawn;
     }
 

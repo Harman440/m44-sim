@@ -3,7 +3,7 @@ make sure your state updates return new instances rather than mutating existing 
 This is a fundamental React principle - state should be treated as immutable.
 I am not using class-based state for now. */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Scenario } from "../../types/scenario";
 import Deck from "../../game-core/deck";
 import commandCards from "../../data/commandCards";
@@ -26,12 +26,18 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
     () => new BoardManager(scenario, boardSide)
   );
 
-  const [commandCardsDeck, setCommandCardsDeck] = useState<Deck>(
-    () => new Deck(commandCards)
-  );
-  const [commandCardsPlayer, setCommandCardsPlayer] = useState<Hand>(
-    () => new Hand(commandCardsDeck.draw(initCommandCards))
-  );
+  const [commandCardsDeck] = useState(() => new Deck(commandCards));
+  const [commandCardsPlayer, setCommandCardsPlayer] = useState<Hand>(() => new Hand([]));
+
+  const hasDrawnInitialHand  = useRef(false); //NOTE: added so that the draw card function is not called twice
+
+  useEffect(() => {
+    if (!hasDrawnInitialHand.current) {
+      const hand = commandCardsDeck.draw(initCommandCards);
+      setCommandCardsPlayer(new Hand(hand));
+      hasDrawnInitialHand.current = true;
+    }
+  }, []);
 
   const [turnPhase, setTurnPhase] = useState<TurnPhase>(
     () => TurnPhase.PICK_CARDS
@@ -74,6 +80,7 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
     <div>
       {turnPhase === TurnPhase.PICK_CARDS && (
         <CardsView
+          commandCardsDeck={commandCardsDeck}
           commandCardsPlayer={commandCardsPlayer}
           onCardClick={handleCardClick}
         />
