@@ -53,7 +53,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - Animations use `motion` (`motion/react`); `App` wraps everything in `MotionConfig reducedMotion="user"`.
 
 ## Roadmap
-The step-by-step plan and the list of known issues are in [docs/PLAN.md](docs/PLAN.md). Work through it one step at a time and tick items off when they're done.
+The step-by-step plan is in [docs/PLAN.md](docs/PLAN.md). Work through it one step at a time and tick items off when they're done. The player's house rules, which most of the later steps come from, are in [docs/house-rules.md](docs/house-rules.md): they were written for pen and paper and may change, so confirm a rule with the player before building it.
 
 ## MCP servers (`.mcp.json`)
 - `playwright`: drive the dev server, click through a turn and take screenshots to check UI changes. It runs headless Chromium (`--browser chromium --headless`); if the browser is missing, run `npx playwright install chromium`.
