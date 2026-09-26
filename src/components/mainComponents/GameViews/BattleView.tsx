@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
-import { summarizeOrders } from "../../../game-core/turnSummary";
+import { OrderSummary, summarizeOrders } from "../../../game-core/turnSummary";
 import TurnSummary from "../../TurnSummary";
 import DiceRoller from "../../DiceRoller";
+import FireDialog from "../../FireDialog";
 import BattleMap from "./BattleMap";
 
 interface BattleViewProps {
@@ -20,6 +21,7 @@ interface BattleViewProps {
  */
 function BattleView({ boardSide, session, game, onFinishTurn }: BattleViewProps) {
   const [showMap, setShowMap] = useState(false);
+  const [firingUnit, setFiringUnit] = useState<OrderSummary | null>(null);
   const summaries = summarizeOrders(game.orders, session.board);
 
   return (
@@ -71,10 +73,19 @@ function BattleView({ boardSide, session, game, onFinishTurn }: BattleViewProps)
             alignItems: "start",
           }}
         >
-          <TurnSummary card={game.chosenCard} summaries={summaries} />
+          <TurnSummary card={game.chosenCard} summaries={summaries} onFire={setFiringUnit} />
           <DiceRoller faction={boardSide} />
         </Box>
       </Stack>
+
+      {/* Keyed by unit so every shot starts a fresh questionnaire */}
+      <FireDialog
+        key={firingUnit?.index ?? "closed"}
+        unit={firingUnit}
+        card={game.chosenCard}
+        faction={boardSide}
+        onClose={() => setFiringUnit(null)}
+      />
     </>
   );
 }

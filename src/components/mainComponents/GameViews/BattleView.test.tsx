@@ -98,6 +98,15 @@ describe("BattleView summary screen", () => {
     expect(screen.getByTestId("dice-result")).toBeInTheDocument();
   });
 
+  it("opens the fire questionnaire from a unit that can fire", () => {
+    setup({ openMap: false });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[1]!);
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Disparo: Tanque");
+    expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
+  });
+
   it("finishes the turn straight from the summary", () => {
     const { onFinishTurn } = setup({ openMap: false });
 

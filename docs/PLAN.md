@@ -116,6 +116,17 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] Tests: `dice.test.ts`, `turnSummary.test.ts`, `DiceRoller.test.tsx`, `BattleView.test.tsx` (summary, switching views, dice kept, sync reflected in the summary)
 - [x] Before Step 6: bigger board on tablets (the view is cropped to the board image, the side panel is 220px, less page padding). Landscape board width went from ~851px to 1032px, portrait from ~700px to 784px.
 
+### Step 6.5: Dice from the situation
+- [x] "Disparar" on each unit that can fire opens a questionnaire (`FireDialog`), one question per screen:
+  - distance to the target (options follow the unit's range)
+  - the target's terrain (open ground, forest, town or hill)
+- [x] Shows the calculation step by step, then rolls exactly that many dice; 0 dice says the shot has no effect
+- [x] Command card bonuses (`closeAssaultAdditionalDice`, `rangeAdditionalDice`) are added automatically
+- [x] The situations live in `src/data/fireQuestions.ts` (text, options, `appliesTo`, dice `effect`). Add new questions there; the engine is `game-core/fireRules.ts`.
+- [x] The free dice roller stays as "Tirada libre"
+- [ ] **Decide:** the dice numbers are the official M44 values for now (infantry 3/2/1, tank 3, artillery 3/3/2/2/1/1; forest and town −1 infantry and −2 tank, hill −1; artillery ignores terrain). Adjust them to the house rules.
+- [ ] Ideas for more situations: the target is in a bunker or behind sandbags, the firing unit is on a hill, line of sight is blocked, and more
+
 ### Step 7: Menu and polish (Q5)
 - [ ] Scenario and faction picker (`Menu.tsx`)
 - [ ] All UI text in Spanish

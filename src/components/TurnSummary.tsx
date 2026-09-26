@@ -1,4 +1,4 @@
-import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { orderColor } from "./OrderComponent";
@@ -7,6 +7,8 @@ import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS } from "./labels";
 interface TurnSummaryProps {
   card: CommandCard | null;
   summaries: readonly OrderSummary[];
+  /** Open the fire questionnaire for a unit that can fire */
+  onFire?: (summary: OrderSummary) => void;
 }
 
 const describeMove = (summary: OrderSummary) =>
@@ -17,7 +19,7 @@ const describeMove = (summary: OrderSummary) =>
       }`;
 
 /** This turn's orders, written for carrying them out on the physical table */
-function TurnSummary({ card, summaries }: TurnSummaryProps) {
+function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
   const firing = summaries.filter((s) => s.canFire && !s.removed).length;
   const notFiring = summaries.filter((s) => !s.canFire && !s.removed).length;
 
@@ -79,6 +81,10 @@ function TurnSummary({ card, summaries }: TurnSummaryProps) {
                 </Box>
                 {summary.removed ? (
                   <Chip label="Eliminada" variant="outlined" />
+                ) : summary.canFire && onFire ? (
+                  <Button color="success" onClick={() => onFire(summary)}>
+                    Disparar
+                  </Button>
                 ) : summary.canFire ? (
                   <Chip label="Dispara" color="success" />
                 ) : (
