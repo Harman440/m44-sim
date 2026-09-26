@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
-import Board, { HexFlash } from "../../Board";
+import Board from "../../Board";
+import { useHexFlash } from "../../useHexFlash";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
-import "./OrdersView.css";
-
-// Must be at least the hexagon-flash-invalid animation in Hexagon.css
-export const INVALID_FLASH_MS = 450;
+import "./PhaseLayout.css";
 
 interface OrdersViewProps {
   boardSide: string;
@@ -25,19 +23,7 @@ function OrdersView({ boardSide, session, game }: OrdersViewProps) {
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
   const [moveOptions, setMoveOptions] = useState<MoveOptions | null>(null);
 
-  const [invalidFlash, setInvalidFlash] = useState<HexFlash | null>(null);
-  const flashCounter = useRef(0);
-
-  useEffect(() => {
-    if (!invalidFlash) return;
-    const timer = setTimeout(() => setInvalidFlash(null), INVALID_FLASH_MS);
-    return () => clearTimeout(timer);
-  }, [invalidFlash]);
-
-  const flashInvalid = (position: Position) => {
-    flashCounter.current += 1;
-    setInvalidFlash({ position, id: flashCounter.current });
-  };
+  const { flash: invalidFlash, flashInvalid } = useHexFlash();
 
   const clearSelection = () => {
     setUnitHexPosition(null);
@@ -95,8 +81,8 @@ function OrdersView({ boardSide, session, game }: OrdersViewProps) {
   };
 
   return (
-    <div className="orders-layout">
-      <div className="orders-layout__board">
+    <div className="phase-layout">
+      <div className="phase-layout__board">
         <Board
           onTileClick={handleTileClick}
           unitHexPosition={unitHexPosition}
@@ -104,6 +90,7 @@ function OrdersView({ boardSide, session, game }: OrdersViewProps) {
           possibleMoveAndFirePositions={moveOptions?.moveAndFire ?? []}
           boardManager={boardManager}
           orders={orders}
+          backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
           locked={ordersCommitted}
           boardWidth={13}
@@ -113,7 +100,7 @@ function OrdersView({ boardSide, session, game }: OrdersViewProps) {
         />
       </div>
 
-      <div className="orders-layout__controls">
+      <div className="phase-layout__controls">
         {ordersCommitted ? (
           <Alert severity="success" sx={{ width: "100%" }}>
             Órdenes confirmadas. Ya no se pueden cambiar.

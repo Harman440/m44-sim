@@ -12,17 +12,9 @@ const App = () => {
     throw new Error(`Scenario '${scenarioId}' not found.`);
   }
 
-  //TODO: add to scenario details
-  let initCommandCards: number = 0;
-  if (BoardSide === "Axis") {
-    initCommandCards = 3;
-  } else {
-    initCommandCards = 5;
-  }
-
   return (
     <div className="app">
-      <GameView boardSide={BoardSide} scenario={scenario} initCommandCards={initCommandCards}/>
+      <GameView boardSide={BoardSide} scenario={scenario} />
     </div>
   );
 };

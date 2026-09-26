@@ -19,13 +19,13 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `src/game-core/`: plain TypeScript game logic with **no React imports**:
   - `BoardManager`: hex grid, Axis flip, pathfinding (`calculatePossibleMovesWithPaths`), orderable units
   - `Hex`: terrain properties, board section (`_setSide`), neighbors (offset↔axial coordinates)
-  - `GameSession`: owns one player's game (board, deck, hand, turn flow) and is the only place game rules run. Actions (`pickCard`, `issueOrder`, `undoLastOrder`, `commitOrders`, `startBattle`, `endTurn`) return `false` and change nothing when they aren't allowed. After each change it publishes an immutable `GameSnapshot`.
+  - `GameSession`: owns one player's game (board, deck, hand, turn flow) and is the only place game rules run. Actions (`pickCard`, `issueOrder`, `undoLastOrder`, `commitOrders`, `startBattle`, `endTurn`, plus the battle-sync actions `removeUnit`, `relocateUnit` and `undoBattleEdit`) return `false` and change nothing when they aren't allowed. After each change it publishes an immutable `GameSnapshot`.
   - `Unit`, `Order`, `Deck`, `Hand`, `CommandCard`
-- `src/data/`: scenarios and command-card templates (data only)
+- `src/data/`: scenarios (terrain, units, board image, starting hand size per side) and command-card templates (data only)
 - `src/types/`: shared types and enums (`TurnPhase`, `HexType`, `Side`, `Position`, …)
 - `src/theme.ts`: MUI theme (dark, orange primary)
 - `src/components/`: rendering (SVG board: `Board` → `Hexagon` → `UnitComponent`, plus `OrderComponent` arrows; `CommandCardComponent`)
-- `src/components/mainComponents/GameView.tsx`: creates the `GameSession` and subscribes with `useSyncExternalStore`, then renders one view per phase (PICK_CARDS → ORDER_UNITS → BATTLE) from `GameViews/`. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
+- `src/components/mainComponents/GameView.tsx`: creates the `GameSession` and subscribes with `useSyncExternalStore`, then renders one view per phase from `GameViews/`: `CardsView` (PICK_CARDS), `OrdersView` (ORDER_UNITS) and `BattleView` (BATTLE, where the player mirrors the physical battle by removing destroyed units and moving retreating ones). The two board screens share `PhaseLayout.css`. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
 - Tests live next to the code as `*.test.ts`. The Vitest setup is in `src/test/setup.ts` (jsdom + jest-dom).
 
 ## Conventions
@@ -36,6 +36,8 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - Board: 13×9 offset grid with pointy-top hexes; odd rows have one fewer column and are shifted half a hex. Positions are `{row, col}` and map keys are `"row-col"`. For Axis, positions are flipped and the board image is rotated 180°.
 - Sections: left/center/right plus the shared left-center/right-center border hexes (`Hex._setSide`).
 - Rules are a loose variant: when a rule is ambiguous, ask instead of assuming official M44.
+- The physical table is the source of truth after battle. The app tracks whole units only (no figure counts), and a unit can be moved to any empty hex to mirror a retreat or taking ground.
+- Unit sprites live in `src/assets/units/<allies|axis>/<unit type>` and are mapped in `UnitComponent`. Tank and artillery are placeholder SVGs until real art replaces them.
 - Remove debug `console.log` calls before committing.
 
 ## Roadmap

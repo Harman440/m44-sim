@@ -300,6 +300,19 @@ class BoardManager {
     return true;
   }
 
+  /** Take the unit off a hex (e.g. destroyed in battle); returns it, or null if the hex was empty */
+  removeUnitAt(position: Position): Unit | null {
+    const hex = this.getHex(position);
+    const unit = hex?.unit ?? null;
+    if (unit) hex!.removeUnit();
+    return unit;
+  }
+
+  /** Put a unit back on an empty hex */
+  placeUnitAt(position: Position, unit: Unit): boolean {
+    return this.getHex(position)?.placeUnit(unit) ?? false;
+  }
+
   removeOrders() {
     this.getAllHexes().forEach((hex) => {
       if (hex.unit) {

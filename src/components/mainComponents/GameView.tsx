@@ -1,5 +1,5 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { Scenario } from "../../types/scenario";
 import commandCards from "../../data/commandCards";
 import { TurnPhase } from "../../types/gameManager";
@@ -7,21 +7,21 @@ import CommandCard from "../../game-core/commandCard";
 import GameSession from "../../game-core/gameSession";
 import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
+import BattleView from "./GameViews/BattleView";
 
 interface GameViewProps {
   boardSide: string;
   scenario: Scenario;
-  initCommandCards: number;
 }
 
-function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
+function GameView({ boardSide, scenario }: GameViewProps) {
   // All game rules live in the session; React re-renders when it publishes a new snapshot
   const [session] = useState(
     () =>
       new GameSession({
         scenario,
         faction: boardSide,
-        initialHandSize: initCommandCards,
+        initialHandSize: scenario.initialHandSize[boardSide === "Axis" ? "axis" : "allies"],
         commandCards,
       })
   );
@@ -68,11 +68,12 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
       )}
 
       {game.phase === TurnPhase.BATTLE && (
-        <Stack spacing={1} sx={{ alignItems: "center", my: 2 }}>
-          <Typography variant="h6">Fase Batalla</Typography>
-          <Button onClick={handleFinishTurn}>Terminar Turno</Button>
-          {/*TODO: Add delete units from board*/}
-        </Stack>
+        <BattleView
+          boardSide={boardSide}
+          session={session}
+          game={game}
+          onFinishTurn={handleFinishTurn}
+        />
       )}
 
       <Typography

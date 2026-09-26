@@ -11,6 +11,7 @@ const makeSession = (cardNames: string[], initialHandSize: number) =>
       id: "test",
       name: "Test",
       description: "",
+      initialHandSize: { allies: 3, axis: 3 },
       tiles: {},
       units: { allies: {}, axis: {} },
     },

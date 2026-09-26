@@ -12,6 +12,12 @@ const flatten = (groups: Partial<Record<string, Position[]>>) =>
 // BoardManager silently drops off-board positions and units placed on an
 // occupied hex, so typos in scenario data would otherwise go unnoticed
 describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, scenario) => {
+  it("has board art and a starting hand for each side", () => {
+    expect(scenario.image).toBeTruthy();
+    expect(scenario.initialHandSize.allies).toBeGreaterThan(0);
+    expect(scenario.initialHandSize.axis).toBeGreaterThan(0);
+  });
+
   it("only uses positions that are on the board", () => {
     const positions = [
       ...flatten(scenario.tiles),

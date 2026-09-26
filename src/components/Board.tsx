@@ -6,7 +6,6 @@ import BoardManager from '../game-core/BoardManager';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
-import scenarioImage from '../assets/scenarios/ForetDEcouves.png';//TODO: make this choosable in main menu
 
 /** A hex to flash red; a new `id` restarts the animation on the same hex */
 export interface HexFlash {
@@ -21,6 +20,8 @@ interface BoardProps {
   possibleMoveAndFirePositions: Position[];
   boardManager: BoardManager;
   orders: readonly Order[];
+  /** Scenario artwork drawn under the hexes */
+  backgroundImage?: string;
   invalidFlash?: HexFlash | null;
   /** Orders are committed: dim the board and stop showing it as clickable */
   locked?: boolean;
@@ -40,6 +41,7 @@ function Board({
   possibleMoveAndFirePositions,
   boardManager,
   orders,
+  backgroundImage,
   invalidFlash = null,
   locked = false,
   boardWidth = 13,
@@ -112,9 +114,9 @@ function Board({
       >
 
         {/* Layer 1: Scenario image */}
-        {scenarioImage && (
+        {backgroundImage && (
           <image
-            href={scenarioImage}
+            href={backgroundImage}
             x={imageMargin}
             y={imageMargin}
             width={width - 2 * imageMargin}

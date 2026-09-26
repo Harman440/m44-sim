@@ -4,6 +4,7 @@ import CommandCard from "./commandCard";
 import Deck from "./deck";
 import Hand from "./hand";
 import Order from "./order";
+import Unit from "./unit";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
@@ -17,6 +18,8 @@ export interface GameSnapshot {
   orders: readonly Order[];
   ordersLeft: number;
   ordersCommitted: boolean;
+  /** Board changes made to mirror the physical battle this turn (undoable) */
+  battleEdits: number;
   drawPileCount: number;
   discardPileCount: number;
 }
@@ -33,6 +36,11 @@ interface GameSessionOptions {
   commandCards: CommandCard[];
 }
 
+/** A change made during BATTLE to match what happened on the physical table */
+type BattleEdit =
+  | { kind: "remove"; position: Position; unit: Unit }
+  | { kind: "move"; from: Position; to: Position };
+
 const samePosition = (a: Position, b: Position) => a.row === b.row && a.col === b.col;
 const positionKey = (p: Position) => `${p.row}-${p.col}`;
 
@@ -46,6 +54,7 @@ const positionKey = (p: Position) => `${p.row}-${p.col}`;
  * nothing when they aren't allowed.
  */
 class GameSession {
+  readonly scenario: Scenario;
   readonly board: BoardManager;
   private readonly deck: Deck;
   private hand: Hand;
@@ -57,11 +66,13 @@ class GameSession {
   private orders: Order[] = [];
   private ordersLeft = 0;
   private ordersCommitted = false;
+  private battleEdits: BattleEdit[] = [];
 
   private readonly listeners = new Set<() => void>();
   private snapshot: GameSnapshot;
 
   constructor({ scenario, faction, initialHandSize, commandCards }: GameSessionOptions) {
+    this.scenario = scenario;
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
     this.hand = new Hand(this.deck.draw(initialHandSize));
@@ -190,6 +201,42 @@ class GameSession {
     return this.publish();
   }
 
+  // The battle is fought on the physical table; these keep the app's board in sync
+
+  /** Remove a unit destroyed on the table */
+  removeUnit(position: Position): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    const unit = this.board.removeUnitAt(position);
+    if (!unit) return false;
+
+    this.battleEdits = [...this.battleEdits, { kind: "remove", position, unit }];
+    return this.publish();
+  }
+
+  /** Move a unit to any empty hex, to mirror a retreat or taking ground */
+  relocateUnit(from: Position, to: Position): boolean {
+    if (this.phase !== TurnPhase.BATTLE || samePosition(from, to)) return false;
+    if (!this.board.getHex(to)?.isPassable()) return false;
+    if (!this.board.moveUnit(from, to)) return false;
+
+    this.battleEdits = [...this.battleEdits, { kind: "move", from, to }];
+    return this.publish();
+  }
+
+  undoBattleEdit(): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    const edit = this.battleEdits.at(-1);
+    if (!edit) return false;
+
+    if (edit.kind === "remove") {
+      this.board.placeUnitAt(edit.position, edit.unit);
+    } else {
+      this.board.moveUnit(edit.to, edit.from);
+    }
+    this.battleEdits = this.battleEdits.slice(0, -1);
+    return this.publish();
+  }
+
   endTurn(): boolean {
     if (this.phase !== TurnPhase.BATTLE || !this.chosenCard) return false;
 
@@ -204,6 +251,7 @@ class GameSession {
     this.orders = [];
     this.ordersLeft = 0;
     this.ordersCommitted = false;
+    this.battleEdits = [];
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
@@ -221,6 +269,7 @@ class GameSession {
       orders: this.orders,
       ordersLeft: this.ordersLeft,
       ordersCommitted: this.ordersCommitted,
+      battleEdits: this.battleEdits.length,
       drawPileCount: this.deck.getDrawPileCount(),
       discardPileCount: this.deck.getDiscardPileCount(),
     };

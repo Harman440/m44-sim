@@ -25,11 +25,11 @@ The current loop is **PICK_CARDS** (CardsView) â†’ **ORDER_UNITS** (OrdersView â
 
 ### Architecture / quality
 - [x] **Q1. Mutable class instances live inside React state.** `Hand.add` and `Deck.draw` mutate in place, and Board re-reads `boardManager` directly. The UI only updates because some other setState happens to fire at the same time. Replace this with a single GameState plus a `useReducer`.
-- [ ] **Q2. Every unit uses the infantry sprite.** Showing only your own faction's units is intended: this is a companion tool.
+- [x] **Q2. Every unit uses the infantry sprite.** Showing only your own faction's units is intended: this is a companion tool.
 - [ ] **Q3. Code is duplicated:**
   - [x] the hex-to-pixel math appears in both `Board.getHexCenter` and `renderBoard` (now `components/boardGeometry.ts`)
-  - [ ] there is a `UnitType` string union in `types/scenario.ts` and a `UnitType` enum in `game-core/unit.ts`
-  - [ ] the per-faction initial hand size is hardcoded in `App.tsx`, although `ScenarioSettings` exists for it
+  - [x] there is a `UnitType` string union in `types/scenario.ts` and a `UnitType` enum in `game-core/unit.ts`
+  - [x] the per-faction initial hand size is hardcoded in `App.tsx`, although `ScenarioSettings` exists for it
 - [ ] **Q4. Leftover cruft:**
   - [ ] `console.log` calls everywhere
   - [ ] CSS classes that look like Tailwind but aren't backed by Tailwind
@@ -96,9 +96,13 @@ The current loop is **PICK_CARDS** (CardsView) â†’ **ORDER_UNITS** (OrdersView â
 - [x] Tests: `OrdersView.test.tsx` (select, deselect, switch, cancel, move, hold, invalid flashes, locked board)
 
 ### Step 5: Units and board (Q2, Q3)
-- [ ] Sprites for each unit type (infantry, tank, artillery)
-- [ ] Move initial hand sizes and the scenario image into scenario data
-- [ ] Sync the board back to the physical table: tap to remove a unit when it's killed, and tap to move a unit after a retreat
+- [x] Sprites for each unit type (infantry, tank, artillery); tank and artillery are placeholder SVGs in each faction's colour, to be replaced with real art
+- [x] Move initial hand sizes and the scenario image into scenario data; `UnitType` is now one enum
+- [x] Sync the board back to the physical table (`BattleView` + `GameSession.removeUnit`, `relocateUnit`, `undoBattleEdit`):
+  - tap a unit, then "Eliminar unidad" to remove it, or tap any empty hex to move it
+  - "Deshacer" undoes the last change
+  - decided: whole units only (no figure counts), and moves can go to any empty hex
+- [x] Tests: battle sync in `gameSession.test.ts`, `BattleView.test.tsx`, `UnitComponent.test.tsx`, and scenario data checks
 
 ### Step 6: Battle-phase helper
 - [ ] Decide the scope together first

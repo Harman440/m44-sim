@@ -10,6 +10,7 @@ const scenario: Scenario = {
   id: "test",
   name: "Test",
   description: "",
+  initialHandSize: { allies: 3, axis: 3 },
   tiles: { forest: [{ row: 4, col: 7 }] },
   units: {
     allies: {
@@ -301,5 +302,76 @@ describe("GameSession draw-2-keep-1 (debug placeholder)", () => {
 
     const snapshot = session.getSnapshot();
     expect(snapshot.hand.length + snapshot.drawPileCount + snapshot.discardPileCount).toBe(4);
+  });
+});
+
+describe("GameSession syncing the battle with the table", () => {
+  const inBattle = () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    return session;
+  };
+
+  it("only allows board edits during the battle phase", () => {
+    const { session, card } = sessionWithAllCards();
+
+    expect(session.removeUnit(TANK)).toBe(false);
+    session.pickCard(card("left"));
+    expect(session.relocateUnit(TANK, { row: 3, col: 3 })).toBe(false);
+    expect(unitAt(session, TANK)).not.toBeNull();
+  });
+
+  it("removes a destroyed unit and can undo it", () => {
+    const session = inBattle();
+    const tank = unitAt(session, TANK);
+
+    expect(session.removeUnit(TANK)).toBe(true);
+    expect(unitAt(session, TANK)).toBeNull();
+    expect(session.getSnapshot().battleEdits).toBe(1);
+    expect(session.removeUnit(TANK)).toBe(false); // nothing left there
+
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(unitAt(session, TANK)).toBe(tank);
+    expect(session.getSnapshot().battleEdits).toBe(0);
+  });
+
+  it("moves a unit to any empty hex, however far, and can undo it", () => {
+    const session = inBattle();
+    const tank = unitAt(session, TANK);
+    const farAway = { row: 0, col: 0 };
+
+    expect(session.relocateUnit(TANK, farAway)).toBe(true);
+    expect(unitAt(session, farAway)).toBe(tank);
+
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(unitAt(session, TANK)).toBe(tank);
+    expect(unitAt(session, farAway)).toBeNull();
+  });
+
+  it("won't move a unit onto another unit or from an empty hex", () => {
+    const session = inBattle();
+
+    expect(session.relocateUnit(TANK, LEFT_INF)).toBe(false);
+    expect(session.relocateUnit({ row: 0, col: 0 }, { row: 0, col: 1 })).toBe(false);
+    expect(session.getSnapshot().battleEdits).toBe(0);
+  });
+
+  it("keeps the changes into the next turn and clears the undo history", () => {
+    const session = inBattle();
+    session.removeUnit(TANK);
+    session.relocateUnit(LEFT_INF, { row: 6, col: 1 });
+
+    session.endTurn();
+
+    expect(session.getSnapshot().battleEdits).toBe(0);
+    expect(unitAt(session, TANK)).toBeNull();
+    expect(unitAt(session, { row: 6, col: 1 })).not.toBeNull();
+    expect(session.undoBattleEdit()).toBe(false);
+    // A card that would have ordered the tank now finds nothing to order
+    // (the whole deck is in hand, so the tank card is always there)
+    const tankCard = session.getSnapshot().hand.find((c) => c.type === CommandCardType.TANK)!;
+    session.pickCard(tankCard);
+    expect(session.getSnapshot().ordersLeft).toBe(0);
   });
 });

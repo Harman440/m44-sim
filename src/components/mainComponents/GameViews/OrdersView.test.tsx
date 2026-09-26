@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import OrdersView, { INVALID_FLASH_MS } from "./OrdersView";
+import OrdersView from "./OrdersView";
+import { INVALID_FLASH_MS } from "../../useHexFlash";
 import GameSession from "../../../game-core/gameSession";
 import CommandCard, { CommandCardType } from "../../../game-core/commandCard";
 import { Position } from "../../../types/scenario";
@@ -17,6 +18,7 @@ const makeSession = () => {
       id: "test",
       name: "Test",
       description: "",
+      initialHandSize: { allies: 3, axis: 3 },
       tiles: {},
       units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
     },

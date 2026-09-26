@@ -1,12 +1,15 @@
 // data/scenarios.js
 
 import { Scenario } from "../types/scenario";
+import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.png";
 
 export const scenarios: Scenario[] = [
   {
     id: 'foret-decouves',
     name: 'Foret DEcouves',
     description: 'A dense forest scenario with scattered patches.',
+    image: foretDEcouvesImage,
+    initialHandSize: { allies: 5, axis: 3 },
     "tiles": {
       "forest": [
         { "row": 1, "col": 3 }, { "row": 1, "col": 7 },

@@ -1,4 +1,4 @@
-.orders-layout {
+.phase-layout {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -6,11 +6,11 @@
   width: 100%;
 }
 
-.orders-layout__board {
+.phase-layout__board {
   width: 100%;
 }
 
-.orders-layout__controls {
+.phase-layout__controls {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -22,22 +22,22 @@
 /* Short landscape screens (tablets, laptops): fit the board to the screen
    height and put the controls beside it, so nothing needs scrolling */
 @media (orientation: landscape) and (max-height: 900px) {
-  .orders-layout {
+  .phase-layout {
     flex-direction: row;
     align-items: flex-start;
   }
 
-  .orders-layout__board {
+  .phase-layout__board {
     flex: 1 1 auto;
     min-width: 0;
   }
 
-  .orders-layout__board .board__svg {
+  .phase-layout__board .board__svg {
     /* width follows from the available height; --board-aspect is set by Board */
     width: min(100%, calc((100dvh - 80px) * var(--board-aspect)));
   }
 
-  .orders-layout__controls {
+  .phase-layout__controls {
     flex: 0 0 300px;
     align-items: stretch;
   }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Placeholder artillery silhouette; replace with real art when available -->
+  <g fill="#1a6fa0">
+    <path d="M4 54 L28 41 L31 46 L7 58 Z"/>
+    <rect x="24" y="33" width="37" height="6" rx="2" transform="rotate(-24 26 36)"/>
+    <path d="M23 27 L34 24 L37 42 L26 45 Z"/>
+    <circle cx="31" cy="48" r="10"/>
+  </g>
+  <circle cx="31" cy="48" r="3.5" fill="#4a9ccc"/>
+</svg>
