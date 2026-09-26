@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearSavedGame, loadLastSetup, loadSavedGame, saveGame, saveLastSetup } from "./storage";
+import {
+  clearSavedGame,
+  loadLastSetup,
+  loadSavedGame,
+  loadSettings,
+  saveGame,
+  saveLastSetup,
+  saveSettings,
+} from "./storage";
+import { DEFAULT_SETTINGS } from "./settings";
 import GameSession from "./game-core/gameSession";
 import CommandCard, { CommandCardType } from "./game-core/commandCard";
 import { TurnPhase } from "./types/gameManager";
@@ -46,6 +55,22 @@ describe("last setup", () => {
     localStorage.setItem("m44-sim:last-setup", "{not json");
 
     expect(loadLastSetup()).toBeUndefined();
+  });
+});
+
+describe("settings", () => {
+  it("remembers the look and sound, with defaults until something is saved", () => {
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
+
+    saveSettings({ look: "field", sound: true });
+
+    expect(loadSettings()).toEqual({ look: "field", sound: true });
+  });
+
+  it("uses the defaults when the saved settings can't be read", () => {
+    localStorage.setItem("m44-sim:settings", "{oops");
+
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
   });
 });
 

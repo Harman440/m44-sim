@@ -1,0 +1,22 @@
+.stamp {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 4px double var(--m44-accent);
+  color: var(--m44-accent);
+  background: color-mix(in srgb, var(--m44-paper) 80%, transparent);
+  font-family: var(--m44-font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.stamp--small {
+  font-size: 1rem;
+}
+
+.stamp--large {
+  padding: 6px 18px;
+  font-size: clamp(1.1rem, 2.6vw, 1.8rem);
+  border-width: 6px;
+}

@@ -1,90 +1,105 @@
+/* Command card, drawn like the game's cards; colours and fonts come from the look (--m44-*) */
 .command-card {
-  background: #ffffff;
-  padding: 10px;
-  color: rgb(22, 22, 22);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
+  all: unset;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  max-width: 170px;
-  max-height: 280px
+  width: 170px;
+  height: 250px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--m44-paper);
+  color: var(--m44-ink);
+  border: calc(var(--m44-border-width) + 1px) solid var(--m44-border);
+  border-radius: var(--m44-radius);
+  box-shadow: var(--m44-shadow);
+  font-family: var(--m44-font-body);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
 }
 
-.command-card:hover {
-  transform: translateY(-4px);
+.command-card:active {
+  transform: translateY(2px);
 }
 
-.card-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-  pointer-events: none;
+.command-card:focus-visible {
+  outline: 3px solid var(--m44-primary);
+  outline-offset: 3px;
 }
 
-.card-overlay img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.3;
+.command-card__band {
+  display: block;
+  padding: 8px 10px;
+  background: var(--m44-primary);
+  color: var(--m44-on-primary);
 }
 
-.card-content {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 10px;
-}
-
-.card-header {
-  display: flex;
-  margin-top: 8px;
-  margin-bottom: 8px;
+.command-card--tactic .command-card__band {
+  background: var(--m44-accent);
+  color: var(--m44-on-accent);
 }
 
 .card-title {
-  font-size: 1rem;
-  font-weight: 700;
   margin: 0;
-  text-align: center;
-  flex: 1;
+  font-family: var(--m44-font-display);
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
-.card-image-container {
-  margin-bottom: 12px;
+.command-card__body {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  padding: 10px;
 }
 
-.card-image {
+.command-card__flanks {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
+}
+
+.command-card__flank {
+  fill: transparent;
+  stroke: var(--m44-border);
+  stroke-width: 2;
+}
+
+.command-card__flank--on {
+  fill: var(--m44-primary);
+}
+
+.command-card--tactic .command-card__flank--on {
+  fill: var(--m44-accent);
+}
+
+.command-card__unit {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border: 1px solid var(--m44-border);
+  border-radius: var(--m44-radius);
+  font-size: 0.85rem;
+}
+
+.command-card__orders {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.command-card__count {
+  font-family: var(--m44-font-display);
+  font-size: 2.6rem;
+  line-height: 1;
 }
 
 .card-description {
-  font-size: 0.875rem;
-  line-height: 1.4;
-  flex: 1;
-  margin-bottom: 12px;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .command-card {
-    min-height: 180px;
-    padding: 14px;
-  }
-  
-  .card-title {
-    font-size: 1.125rem;
-  }
+  font-size: 0.9rem;
+  line-height: 1.3;
+  color: var(--m44-muted);
 }

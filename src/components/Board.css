@@ -9,8 +9,9 @@
   width: 100%;
   height: auto;
   margin: 0 auto;
-  border: 2px solid #374151;
-  border-radius: 8px;
+  border: calc(var(--m44-border-width, 2px) + 1px) solid var(--m44-border, #374151);
+  border-radius: var(--m44-radius, 8px);
+  box-shadow: var(--m44-shadow, none);
   transition: filter 0.3s ease;
 }
 
@@ -21,4 +22,14 @@
 
 .board__svg--locked .hexagon {
   cursor: default;
+}
+
+/* "Órdenes confirmadas" stamped over the locked board */
+.board__stamp {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }

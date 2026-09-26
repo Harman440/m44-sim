@@ -6,9 +6,29 @@ import CommandCard from "./game-core/commandCard";
 import GameSession, { SavedGame } from "./game-core/gameSession";
 import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
+import { Settings, normalizeSettings } from "./settings";
 
 const LAST_SETUP_KEY = "m44-sim:last-setup";
 const SAVED_GAME_KEY = "m44-sim:saved-game";
+const SETTINGS_KEY = "m44-sim:settings";
+
+/** Look and sound for this device; defaults for anything missing or unreadable */
+export const loadSettings = (): Settings => {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    return normalizeSettings(saved ? JSON.parse(saved) : undefined);
+  } catch {
+    return normalizeSettings(undefined);
+  }
+};
+
+export const saveSettings = (settings: Settings) => {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // The choice just won't be remembered
+  }
+};
 
 /** The last scenario and side, so the next game on this device starts one tap away */
 export const loadLastSetup = (): Partial<GameSetup> | undefined => {

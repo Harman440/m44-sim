@@ -7,6 +7,7 @@ import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
 import { describeHex } from "../../../labels";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
+import GameIcon from "../../GameIcon";
 import "./PhaseLayout.css";
 
 interface BattleMapProps {
@@ -52,6 +53,10 @@ function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: Batt
   };
 
   const selectedHex = selected ? boardManager.getHex(selected) : null;
+  // Units that have used all their shots get a check badge on the map
+  const firedUnits = new Set(
+    game.orders.filter((_, i) => game.shots.filter((s) => s.orderIndex === i).length >= game.firesPerUnit).map((o) => o.unit)
+  );
 
   return (
     <div className="phase-layout">
@@ -65,6 +70,7 @@ function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: Batt
           orders={game.orders}
           backgroundImage={session.scenario.image}
           invalidFlash={flash}
+          firedUnits={firedUnits}
           faction={faction}
         />
       </div>
@@ -85,7 +91,7 @@ function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: Batt
               Seleccionado: {describeHex(selectedHex)}
             </Typography>
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-              <Button color="error" onClick={handleRemove}>
+              <Button color="error" onClick={handleRemove} startIcon={<GameIcon name="cancel" />}>
                 Eliminar unidad
               </Button>
               <Button variant="outlined" onClick={() => setSelected(null)}>
@@ -97,14 +103,16 @@ function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: Batt
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
           {game.battleEdits > 0 && !selected && (
-            <Button variant="outlined" onClick={() => session.undoBattleEdit()}>
+            <Button variant="outlined" onClick={() => session.undoBattleEdit()} startIcon={<GameIcon name="undo" />}>
               Deshacer
             </Button>
           )}
           <Button variant="outlined" onClick={onShowSummary}>
             Volver al resumen
           </Button>
-          <Button onClick={onFinishTurn}>Terminar Turno</Button>
+          <Button onClick={onFinishTurn} startIcon={<GameIcon name="endTurn" />}>
+            Terminar Turno
+          </Button>
         </Stack>
       </div>
     </div>

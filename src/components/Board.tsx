@@ -8,6 +8,8 @@ import BoardManager from '../game-core/BoardManager';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
+import Unit from '../game-core/unit';
+import Stamp from './Stamp';
 
 /** A hex to flash red; a new `id` restarts the animation on the same hex */
 export interface HexFlash {
@@ -25,8 +27,10 @@ interface BoardProps {
   /** Scenario artwork drawn under the hexes */
   backgroundImage?: string;
   invalidFlash?: HexFlash | null;
-  /** Orders are committed: dim the board and stop showing it as clickable */
+  /** Orders are committed: dim the board, stamp it and stop showing it as clickable */
   locked?: boolean;
+  /** Units that have used their shots this turn */
+  firedUnits?: ReadonlySet<Unit>;
   hexSize?: number;
   faction: Faction;
 }
@@ -41,6 +45,7 @@ function Board({
   backgroundImage,
   invalidFlash = null,
   locked = false,
+  firedUnits,
   hexSize = 50,
   faction
 }: BoardProps) {
@@ -94,6 +99,7 @@ function Board({
             onClick={onTileClick}
             highlight={highlightAt(position)}
             unitReadyToFire={hexData.unit !== null && unitsReadyToFire.has(hexData.unit)}
+            unitFired={hexData.unit !== null && (firedUnits?.has(hexData.unit) ?? false)}
             invalidFlashId={flashesInvalid ? invalidFlash.id : null}
             hexSize={hexSize}
             hexData={hexData}
@@ -120,6 +126,14 @@ function Board({
         className={`board__svg${locked ? ' board__svg--locked' : ''}`}
       >
 
+        <defs>
+          {/* Wobble for order arrows, like grease pencil on a map */}
+          <filter id="board-pencil" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="3" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" />
+          </filter>
+        </defs>
+
         {/* Layer 1: Scenario image */}
         {backgroundImage && (
           <image
@@ -143,6 +157,11 @@ function Board({
         {/* Layer 3: Orders (top layer) */}
         {renderOrders()}
       </svg>
+      {locked && (
+        <div className="board__stamp">
+          <Stamp size="large" angle={-9}>Órdenes confirmadas</Stamp>
+        </div>
+      )}
     </div>
   );
 };

@@ -131,4 +131,39 @@ describe("App menu and game flow", () => {
     expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
     expect(localStorage.getItem("m44-sim:saved-game")).toBeNull();
   });
+
+});
+
+describe("App settings", () => {
+  const look = (container: HTMLElement) => container.querySelector(".app")!.getAttribute("data-look");
+
+  it("switches the look from Ajustes straight away and remembers it", async () => {
+    const first = render(<App />);
+    expect(look(first.container)).toBe("tent");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ajustes" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Caja del juego/ }));
+
+    expect(look(first.container)).toBe("box");
+    expect(screen.getByRole("radio", { name: /Caja del juego/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    first.unmount();
+
+    const { container } = render(<App />);
+    expect(look(container)).toBe("box");
+  });
+
+  it("turns sound on and off from the game header, and remembers it", () => {
+    const first = render(<App />);
+    start("Aliados");
+
+    const toggle = screen.getByRole("button", { name: "Activar sonidos" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Silenciar sonidos" })).toHaveAttribute("aria-pressed", "true");
+    first.unmount();
+
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Silenciar sonidos" })).toBeInTheDocument();
+  });
 });

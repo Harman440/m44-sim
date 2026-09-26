@@ -4,6 +4,7 @@ import {
   Button,
   Chip,
   Dialog,
+  IconButton,
   DialogActions,
   DialogContent,
   DialogContentText,
@@ -19,6 +20,10 @@ import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
 import { FACTION_LABELS } from "../../labels";
+import { useSettings } from "../../settings";
+import { useSound } from "../../sound";
+import FactionInsignia from "../FactionInsignia";
+import GameIcon from "../GameIcon";
 
 interface GameViewProps {
   /** Owns all game rules; React re-renders when it publishes a new snapshot */
@@ -37,6 +42,8 @@ const PHASE_STEPS: { phase: TurnPhase; label: string }[] = [
 
 function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const { scenario, faction } = session;
+  const { settings, updateSettings } = useSettings();
+  const play = useSound();
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -75,27 +82,41 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           justifyContent: "space-between",
           gap: 1,
           mb: 1.5,
+          pb: 1,
+          borderBottom: "3px double",
+          borderColor: "divider",
         }}
       >
-        <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1.25, flexWrap: "wrap" }}>
+          <FactionInsignia faction={faction} size={34} decorative />
+          <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
             {scenario.name} · {FACTION_LABELS[faction]}
           </Typography>
-          <Chip label={`Turno ${game.turn}`} size="small" />
+          <Chip label={`Turno ${game.turn}`} color="secondary" />
           {PHASE_STEPS.map(({ phase, label }, i) => (
             <Chip
               key={phase}
               label={`${i + 1}. ${label}`}
-              size="small"
               color={phase === game.phase ? "primary" : "default"}
               variant={phase === game.phase ? "filled" : "outlined"}
               aria-current={phase === game.phase ? "step" : undefined}
+              sx={{ fontFamily: "var(--m44-font-display)", letterSpacing: "0.05em", borderRadius: 0.5 }}
             />
           ))}
         </Stack>
-        <Button variant="text" onClick={() => setConfirmingExit(true)}>
-          Menú
-        </Button>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+          <IconButton
+            aria-label={settings.sound ? "Silenciar sonidos" : "Activar sonidos"}
+            aria-pressed={settings.sound}
+            onClick={() => updateSettings({ sound: !settings.sound })}
+            sx={{ color: "text.primary" }}
+          >
+            <GameIcon name={settings.sound ? "soundOn" : "soundOff"} size={26} />
+          </IconButton>
+          <Button variant="text" startIcon={<GameIcon name="exit" />} onClick={() => setConfirmingExit(true)}>
+            Menú
+          </Button>
+        </Stack>
       </Box>
 
       {game.phase === TurnPhase.PICK_CARDS && (
@@ -108,7 +129,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           onCardDealt={handleCardDealt}
           onDrawChoice={() => session.drawChoice()}
           onChooseCard={(card) => session.chooseCard(card)}
-          onCardClick={(card) => session.pickCard(card)}
+          onCardClick={(card) => session.pickCard(card) && play("cardPlay")}
         />
       )}
 

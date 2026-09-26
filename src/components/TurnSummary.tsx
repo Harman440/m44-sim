@@ -3,10 +3,16 @@ import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { orderColor } from "./OrderComponent";
 import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces } from "../labels";
+import { Faction } from "../types/faction";
+import { FACTION_COLORS } from "../looks/looks";
+import { unitSprite } from "./UnitComponent";
+import GameIcon from "./GameIcon";
+import Stamp from "./Stamp";
 
 interface TurnSummaryProps {
   card: CommandCard | null;
   summaries: readonly OrderSummary[];
+  faction: Faction;
   /** Open the fire dialog for a unit: to fire, or to see the shot it fired */
   onFire?: (summary: OrderSummary) => void;
 }
@@ -19,14 +25,14 @@ const describeMove = (summary: OrderSummary) =>
       }`;
 
 /** This turn's orders, written for carrying them out on the physical table */
-function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
+function TurnSummary({ card, summaries, faction, onFire }: TurnSummaryProps) {
   const toFire = summaries.filter((s) => s.shots.length === 0 && s.shotsLeft > 0).length;
   const fired = summaries.filter((s) => s.shots.length > 0).length;
   const notFiring = summaries.filter((s) => !s.canFire && !s.removed).length;
 
   return (
     <Paper variant="outlined" sx={{ p: 2, width: "100%" }}>
-      <Typography variant="h6">Resumen del turno</Typography>
+      <Typography variant="h5" component="h3">Parte de combate</Typography>
       {card && (
         <Box sx={{ mb: 1.5 }}>
           <Typography variant="body1">Carta jugada: {card.name}</Typography>
@@ -62,16 +68,24 @@ function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
                   opacity: summary.removed ? 0.6 : 1,
                 }}
               >
-                {/* Same colour as this order's arrow on the map */}
+                {/* The unit's token, ringed in the colour of its arrow on the map */}
                 <Box
                   sx={{
-                    width: 14,
-                    height: 14,
+                    width: 52,
+                    height: 52,
                     borderRadius: "50%",
                     flexShrink: 0,
-                    bgcolor: orderColor(summary.index),
+                    bgcolor: "#f1ead6",
+                    border: "4px solid",
+                    borderColor: orderColor(summary.index),
+                    boxShadow: `inset 0 0 0 2px ${FACTION_COLORS[faction]}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                />
+                >
+                  <Box component="img" src={unitSprite(faction, summary.unitType)} alt="" sx={{ width: 36, height: 36 }} />
+                </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body1">
                     {UNIT_LABELS[summary.unitType]} · {SECTION_LABELS[summary.section]}
@@ -86,12 +100,13 @@ function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
                   )}
                 </Box>
                 {summary.removed && <Chip label="Eliminada" variant="outlined" />}
+                {summary.shots.length > 0 && <Stamp angle={-7}>Disparó</Stamp>}
                 {summary.shots.length > 0 && onFire ? (
-                  <Button variant="outlined" onClick={() => onFire(summary)}>
+                  <Button variant="outlined" onClick={() => onFire(summary)} startIcon={<GameIcon name="dice" />}>
                     Ver tirada
                   </Button>
                 ) : summary.removed ? null : summary.shotsLeft > 0 && onFire ? (
-                  <Button color="success" onClick={() => onFire(summary)}>
+                  <Button color="success" onClick={() => onFire(summary)} startIcon={<GameIcon name="fire" />}>
                     Disparar
                   </Button>
                 ) : summary.canFire ? (

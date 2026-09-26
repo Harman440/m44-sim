@@ -6,9 +6,10 @@ Each turn:
 1. **Carta:** pick a command card from your hand.
 2. **Órdenes:** order the units that card activates on a digital copy of the map: move them (with the path drawn as an arrow) or hold and fire. Then confirm.
 3. **Batalla:** the map is hidden, because the battle is played on the physical table. The screen shows a summary of this turn's orders and a dice roller:
-   - "Disparar" on a unit asks about the situation (distance, the target's terrain) and works out how many dice to roll.
-   - "Tirada libre" rolls any number of dice.
+   - "Disparar" on a unit asks about the situation (distance, the target's terrain) and works out how many dice to roll, or takes the number straight away ("Tirada rápida"). The roll is final; only a confirmed "Anular disparo" takes it back.
    - "Ver mapa" brings the map back to record casualties and retreats so the app matches the table.
+
+"Ajustes" on the start menu picks one of three looks (field map, board-game box or command tent) and turns sound effects on or off.
 
 The UI is in Spanish.
 
@@ -41,4 +42,11 @@ Run `npm run dev -- --host` and open `http://<your computer's IP>:3000` in Chrom
 
 ## Tech
 
-React 19, TypeScript, Vite, MUI 9, Vitest + Testing Library.
+React 19, TypeScript, Vite, MUI 9, motion, Vitest + Testing Library.
+
+## Credits
+
+- Icons: [game-icons.net](https://game-icons.net), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/): *cog*, *treasure map*, *hourglass* and *bugle call* by Lorc; *speaker*, *speaker off*, *crosshair*, *rolling dices*, *anticlockwise rotation*, *check mark* and *exit door* by Delapouite; *card draw* by Faithtoken; *cancel* by Sbed. The background of each icon was removed so it takes the text colour.
+- Textures: [ambientCG](https://ambientcg.com) (Paper002, Paper003, Fabric045), CC0.
+- Sounds: [Kenney](https://kenney.nl) Casino Audio and Impact Sounds, CC0.
+- Fonts (SIL Open Font License, via Fontsource): Stardos Stencil, Special Elite, Black Ops One, Barlow Condensed, Allerta Stencil, IBM Plex Sans Condensed.

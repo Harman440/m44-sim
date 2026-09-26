@@ -16,6 +16,8 @@ interface HexProps {
   highlight: HexHighlight;
   /** The unit here has an order that lets it fire this turn */
   unitReadyToFire: boolean;
+  /** The unit here has used its shots this turn */
+  unitFired?: boolean;
   /** Set to flash the hex red; a new value restarts the flash */
   invalidFlashId?: number | null;
   hexSize?: number;
@@ -30,6 +32,7 @@ function Hexagon({
   onClick,
   highlight,
   unitReadyToFire,
+  unitFired = false,
   invalidFlashId = null,
   hexSize = 25,
   hexData,
@@ -63,10 +66,11 @@ function Hexagon({
       {hexData.unit && (
         <UnitComponent
           x={x}
-          y={y - 8}
+          y={y}
           faction={faction}
           unitData={hexData.unit}
           readyToFire={unitReadyToFire}
+          fired={unitFired}
         />
       )}
       {/* Keyed so each new flash remounts the path and replays the animation */}

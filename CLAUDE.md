@@ -29,7 +29,9 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `src/App.tsx`: creates the `GameSession` and shows `Menu` (scenario and side picker) or `GameView`. It saves the session after every change and resumes it on load, so a reload or the tablet dropping the tab doesn't lose the game; "Salir" forgets the save.
 - `src/storage.ts`: everything kept in `localStorage` (the last setup and the game in progress). Reads and writes fail quietly, and an unreadable save is dropped.
 - Saving: `GameSession.save()` returns a plain-JSON `SavedGame` (cards by id, units by index so orders and battle edits keep their references) and `GameSession.restore()` rebuilds it, throwing on anything it can't match. **When you add state to `GameSession`, add it to `SavedGame` too**, and bump `SAVE_VERSION` if old saves can no longer be read.
-- `src/theme.ts`: MUI theme (dark, orange primary)
+- `src/looks/`: the three visual looks the player picks in "Ajustes" (`looks.ts`: colours, fonts, shape, texture per look) and `theme.ts`, which builds the MUI theme and the `--m44-*` CSS variables from a look. **Style custom CSS with the `--m44-*` variables, never fixed colours**, so it works in every look. Bundled fonts are imported in `looks/fonts.ts`.
+- `src/settings.ts`: per-device settings (look, sound) and `SettingsContext`; `src/sound.ts`: `useSound()` plays the short effects only when sound is on
+- `src/components/GameIcon.tsx` (game-icons.net icons as a colour-following mask), `Stamp.tsx` (the rubber stamp that slams in), `FactionInsignia.tsx`
 - `src/components/`: rendering (SVG board: `Board` → `Hexagon` → `UnitComponent`, plus `OrderComponent` arrows; `CommandCardComponent`)
 - `src/components/mainComponents/GameView.tsx`: header (scenario, side, turn and phase steps, "Menú" with an exit confirmation); gets the `GameSession` from `App` and subscribes with `useSyncExternalStore`, then renders one view per phase from `GameViews/`: `CardsView` (PICK_CARDS), `OrdersView` (ORDER_UNITS) and `BattleView` (BATTLE). The battle screen hides the map by default, since the player is looking at the physical board, and shows `TurnSummary` full screen. "Disparar" on a unit opens `FireDialog`, which asks the fire questions (or takes a number of dice straight away, "Tirada rápida"), shows the calculation and has the session roll once; the shot then stands, and only a confirmed "Anular disparo" takes it back. "Ver mapa" opens `BattleMap`, where the player mirrors the physical battle by removing destroyed units and moving retreating ones. The board screens share `PhaseLayout.css`.
 - `src/labels.ts`: Spanish labels for game enums (units, terrain, sections, die faces). Use it rather than showing enum values. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
@@ -37,7 +39,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 
 ## Conventions
 - UI text is in **Spanish**. Code, identifiers and comments are in English.
-- UI uses **MUI 9** (`@mui/material`, Emotion) with the dark theme in `src/theme.ts`. Use MUI components (`Button`, `Stack`, `Typography`, …) for new UI and style them with `sx`: MUI 9 removed the style-shorthand props on layout components. The SVG board and the card art stay custom.
+- UI uses **MUI 9** (`@mui/material`, Emotion) with the theme of the chosen look (`src/looks/`). Use MUI components (`Button`, `Stack`, `Typography`, …) for new UI and style them with `sx`: MUI 9 removed the style-shorthand props on layout components. The SVG board and the card art stay custom.
 - Keep rules logic in `game-core/` and cover it with Vitest tests. Components only render and call into game-core.
 - Game objects are mutable class instances. Only `GameSession` may change them, and every change must end with it publishing a snapshot; that's what re-renders React. Don't mutate game objects from components. Don't move game logic into a React reducer either: React runs reducers twice in StrictMode, so side effects like `deck.draw()` would happen twice.
 - Board: 13×9 offset grid with pointy-top hexes; odd rows have one fewer column and are shifted half a hex. Positions are `{row, col}` and map keys are `"row-col"`. For Axis, positions are flipped and the board image is rotated 180°.
@@ -47,6 +49,8 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - Unit sprites live in `src/assets/units/<allies|axis>/<unit type>.webp|svg` and are mapped in `UnitComponent`. Tank and artillery are placeholder SVGs until real art replaces them.
 - Remove debug `console.log` calls before committing.
 - Images: use WebP, sized to a few times their display size. Convert new art with `npm run optimize-image -- <file> [maxWidth]`.
+- New third-party assets (icons, textures, sounds, fonts) need a licence that allows it, and a line under Credits in the README.
+- Animations use `motion` (`motion/react`); `App` wraps everything in `MotionConfig reducedMotion="user"`.
 
 ## Roadmap
 The step-by-step plan and the list of known issues are in [docs/PLAN.md](docs/PLAN.md). Work through it one step at a time and tick items off when they're done.

@@ -16,6 +16,8 @@ import { summarizeOrders } from "../../../game-core/turnSummary";
 import TurnSummary from "../../TurnSummary";
 import FireDialog from "../../FireDialog";
 import BattleMap from "./BattleMap";
+import GameIcon from "../../GameIcon";
+import { useSound } from "../../../sound";
 
 interface BattleViewProps {
   faction: Faction;
@@ -36,6 +38,13 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
   const summaries = summarizeOrders(game.orders, session.board, game.shots, game.firesPerUnit);
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
+  const play = useSound();
+
+  /** After a shot: the dice sound, or the stamp for a shot with no dice */
+  const withSound = (fired: boolean) => {
+    if (fired) play((session.getSnapshot().shots.at(-1)?.dice ?? 0) > 0 ? "dice" : "stamp");
+    return fired;
+  };
 
   const requestFinishTurn = () => setConfirmingEnd(true);
 
@@ -72,16 +81,19 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
               </Typography>
             </Box>
             <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-              <Button variant="outlined" onClick={() => setShowMap(true)}>
+              <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
                 Ver mapa
               </Button>
-              <Button onClick={requestFinishTurn}>Terminar Turno</Button>
+              <Button onClick={requestFinishTurn} startIcon={<GameIcon name="endTurn" />}>
+                Terminar Turno
+              </Button>
             </Stack>
           </Box>
 
           <TurnSummary
             card={game.chosenCard}
             summaries={summaries}
+            faction={faction}
             onFire={(summary) => setFiringIndex(summary.index)}
           />
         </Stack>
@@ -93,8 +105,8 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
         summary={firing}
         card={game.chosenCard}
         faction={faction}
-        onFire={(answers) => firingIndex !== null && session.fire(firingIndex, answers)}
-        onQuickFire={(dice) => firingIndex !== null && session.fireQuick(firingIndex, dice)}
+        onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
+        onQuickFire={(dice) => withSound(firingIndex !== null && session.fireQuick(firingIndex, dice))}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onClose={() => setFiringIndex(null)}
       />

@@ -1,35 +1,26 @@
 .dice-result {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
 }
 
+/* Tumbles in with motion (see DiceResult); MotionConfig honours "reduce motion" */
 .dice-result__die {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  animation: dice-roll 0.35s ease-out;
 }
 
 .die {
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
+  overflow: visible;
+  filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--m44-ink, #333) 55%, transparent));
 }
 
-@keyframes dice-roll {
-  from {
-    transform: rotate(-25deg) scale(0.6);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dice-result__die {
-    animation: none;
-  }
+.die__face {
+  fill: var(--m44-die, #f5f0e6);
+  stroke: var(--m44-ink, #9ca3af);
+  stroke-width: 2.5;
 }

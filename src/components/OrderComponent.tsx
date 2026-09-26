@@ -56,7 +56,7 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
   // Arrowhead at the (shortened) tip, pointing along the last segment
   const getArrowHead = (points: { x: number; y: number }[]) => {
     const lastPoint = points[points.length - 1]!;
-    const arrowSize = 12;
+    const arrowSize = 16;
     const arrowAngle = Math.PI / 6; // 30 degrees
     const forwardAngle = Math.atan2(dy, dx);
 
@@ -78,12 +78,20 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
   const color = orderColor(orderIndex);
 
   return (
-    <g className="order-arrow">
-      {/* Path line */}
+    <g className="order-arrow" filter="url(#board-pencil)">
+      {/* Dark underline so the arrow reads on any terrain */}
+      <path
+        d={pathString}
+        stroke="rgba(20, 16, 10, 0.55)"
+        strokeWidth="9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
       <path
         d={pathString}
         stroke={color}
-        strokeWidth="3"
+        strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -97,6 +105,9 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
           arrowHead.arrowHead2.y
         }`}
         fill={color}
+        stroke="rgba(20, 16, 10, 0.55)"
+        strokeWidth="2"
+        strokeLinejoin="round"
       />
     </g>
   );

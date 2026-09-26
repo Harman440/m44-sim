@@ -110,7 +110,7 @@ describe("OrdersView giving orders", () => {
     expect(order!.start).toEqual(LEFT_A);
     expect(order!.end).toEqual(LEFT_A);
     expect(order!.canFire).toBe(true);
-    expect(container.querySelector('[data-position="7-1"] .unit__glow--fire')).not.toBeNull();
+    expect(container.querySelector('[data-position="7-1"] .unit__badge--fire')).not.toBeNull();
     expect(container.querySelectorAll("g.order-arrow")).toHaveLength(0);
   });
 });
@@ -161,7 +161,8 @@ describe("OrdersView after committing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
 
     expect(container.querySelector(".board__svg--locked")).not.toBeNull();
-    expect(screen.getByText(/Órdenes confirmadas/)).toBeInTheDocument();
+    expect(container.querySelector(".board__stamp")).toHaveTextContent("Órdenes confirmadas");
+    expect(screen.getByText(/Ya no se pueden cambiar/)).toBeInTheDocument();
     tap(LEFT_A);
     expect(isSelected(LEFT_A)).toBe(false);
     expect(screen.queryByRole("button", { name: "Volver" })).not.toBeInTheDocument();

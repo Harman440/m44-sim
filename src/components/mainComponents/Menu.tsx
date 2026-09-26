@@ -1,4 +1,7 @@
 import { useState } from "react";
+import SettingsDialog from "../SettingsDialog";
+import FactionInsignia from "../FactionInsignia";
+import GameIcon from "../GameIcon";
 import {
   Box,
   Button,
@@ -34,19 +37,28 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
     isFaction(initialSetup?.faction) ? initialSetup.faction : null
   );
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scenario = scenarios.find((s) => s.id === scenarioId);
   const handSize = scenario && faction ? scenario.initialHandSize[faction === "Axis" ? "axis" : "allies"] : null;
 
   return (
     <Stack spacing={3} sx={{ width: "100%", maxWidth: 900, py: 2 }}>
-      <Box>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-          Memoir '44 · Turnos simultáneos
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Cada jugador usa su propio dispositivo junto al tablero: elige carta, da órdenes y
-          resuelve la batalla en la mesa.
-        </Typography>
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+        <Box sx={{ flexGrow: 1, borderBottom: "3px double", borderColor: "divider", pb: 1.5 }}>
+          <Typography variant="overline" color="text.secondary">
+            Orden de operaciones
+          </Typography>
+          <Typography variant="h3" component="h1">
+            Memoir '44 · Turnos simultáneos
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Cada jugador usa su propio dispositivo junto al tablero: elige carta, da órdenes y
+            resuelve la batalla en la mesa.
+          </Typography>
+        </Box>
+        <Button variant="outlined" startIcon={<GameIcon name="settings" />} onClick={() => setSettingsOpen(true)}>
+          Ajustes
+        </Button>
       </Box>
 
       <Box>
@@ -90,7 +102,8 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           aria-label="Bando"
         >
           {FACTIONS.map((f) => (
-            <ToggleButton key={f} value={f} sx={{ minWidth: 140, minHeight: 56, fontSize: "1.1rem" }}>
+            <ToggleButton key={f} value={f} sx={{ minWidth: 160, minHeight: 56, fontSize: "1.1rem", gap: 1.5 }}>
+              <FactionInsignia faction={f} size={30} decorative />
               {FACTION_LABELS[f]}
             </ToggleButton>
           ))}
@@ -106,10 +119,13 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
         size="large"
         disabled={!scenarioId || !faction}
         onClick={() => scenarioId && faction && onStart({ scenarioId, faction })}
-        sx={{ alignSelf: "flex-start", minWidth: 240 }}
+        startIcon={<GameIcon name="battle" />}
+        sx={{ alignSelf: "flex-start", minWidth: 240, fontSize: "1.2rem" }}
       >
         Empezar partida
       </Button>
+
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </Stack>
   );
 }

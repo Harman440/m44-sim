@@ -45,8 +45,31 @@ describe("UnitComponent", () => {
     expect(spriteFor("Allies").getAttribute("href")).toBe(alliedInfantry);
   });
 
-  it("glows red only when its order lets it fire", () => {
-    expect(renderUnit("Allies", UnitType.TANK, true).querySelector(".unit__glow--fire")).not.toBeNull();
-    expect(renderUnit("Allies", UnitType.TANK).querySelector(".unit__glow--fire")).toBeNull();
+  it("shows a crosshair badge only when its order lets it fire", () => {
+    expect(renderUnit("Allies", UnitType.TANK, true).querySelector(".unit__badge--fire")).not.toBeNull();
+    expect(renderUnit("Allies", UnitType.TANK).querySelector(".unit__badge--fire")).toBeNull();
+  });
+
+  it("swaps the crosshair for a check once the unit has fired", () => {
+    const container = render(
+      <svg>
+        <UnitComponent x={0} y={0} faction="Axis" unitData={new Unit(UnitType.TANK)} readyToFire fired />
+      </svg>
+    ).container;
+
+    expect(container.querySelector(".unit__badge--fired")).not.toBeNull();
+    expect(container.querySelector(".unit__badge--fire")).toBeNull();
+  });
+
+  it("rings a unit that can be ordered", () => {
+    const unit = new Unit(UnitType.INFANTRY);
+    unit.setOrderable(true);
+    const container = render(
+      <svg>
+        <UnitComponent x={0} y={0} faction="Allies" unitData={unit} />
+      </svg>
+    ).container;
+
+    expect(container.querySelector(".unit__ring--orderable")).not.toBeNull();
   });
 });

@@ -1,4 +1,5 @@
 import { Box, Chip, Stack, Typography } from "@mui/material";
+import { motion } from "motion/react";
 import { DieFace, countFaces } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
@@ -41,7 +42,7 @@ export function DieFaceIcon({ face, faction }: { face: DieFace; faction: Faction
 
   return (
     <svg viewBox="0 0 48 48" className="die" role="img" aria-label={DIE_FACE_LABELS[face]}>
-      <rect x="1" y="1" width="46" height="46" rx="8" fill="#f5f0e6" stroke="#9ca3af" strokeWidth="2" />
+      <rect className="die__face" x="2" y="2" width="44" height="44" rx="9" />
       {symbol}
     </svg>
   );
@@ -62,10 +63,16 @@ function DiceResult({ roll, faction }: { roll: DiceRoll; faction: Faction }) {
       {/* Keyed by roll so every roll replays the animation */}
       <div key={roll.id} className="dice-result" data-testid="dice-result">
         {roll.faces.map((face, i) => (
-          <div key={i} className="dice-result__die">
+          <motion.div
+            key={i}
+            className="dice-result__die"
+            initial={{ rotate: -220, y: -36, scale: 0.4, opacity: 0 }}
+            animate={{ rotate: 0, y: 0, scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 320, damping: 18, delay: i * 0.08 }}
+          >
             <DieFaceIcon face={face} faction={faction} />
             <Typography variant="caption">{DIE_FACE_LABELS[face]}</Typography>
-          </div>
+          </motion.div>
         ))}
       </div>
       <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1.5 }}>

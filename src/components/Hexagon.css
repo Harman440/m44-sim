@@ -4,26 +4,26 @@
 }
 
 .hexagon__tile {
-  transition: all 0.2s ease;
-  /* opacity: 0.5; */
+  transition: fill 0.2s ease, stroke 0.2s ease;
   fill: transparent;
 }
 .hexagon__tile--selected {
   fill: rgba(255, 255, 255, 0.25);
-  stroke: #ffb300;
+  stroke: #ffd54f;
   stroke-width: 4;
 }
 /* Can move here and still fire */
 .hexagon__tile--move-and-fire {
-  fill: rgba(67, 160, 71, 0.45);
-  stroke: #66bb6a;
-  stroke-width: 2;
+  fill: color-mix(in srgb, var(--m44-move-fire, #43a047) 50%, transparent);
+  stroke: var(--m44-move-fire, #43a047);
+  stroke-width: 3;
 }
 /* Can move here but won't be able to fire */
 .hexagon__tile--move {
-  fill: rgba(255, 179, 0, 0.4);
-  stroke: #ffca28;
-  stroke-width: 2;
+  fill: color-mix(in srgb, var(--m44-move-only, #ffb300) 45%, transparent);
+  stroke: var(--m44-move-only, #ffb300);
+  stroke-width: 3;
+  stroke-dasharray: 6 4;
 }
 
 /* Red flash for a tap that can't be ordered or reached */

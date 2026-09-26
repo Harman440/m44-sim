@@ -7,6 +7,8 @@ import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
 import { describeHex, describeMovement } from "../../../labels";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
+import GameIcon from "../../GameIcon";
+import { useSound } from "../../../sound";
 import "./PhaseLayout.css";
 
 interface OrdersViewProps {
@@ -19,7 +21,7 @@ interface OrdersViewProps {
 function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-      <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: color, flexShrink: 0 }} />
+      <Box sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: color, flexShrink: 0, border: 1, borderColor: "divider" }} />
       <Typography variant="body2">{label}</Typography>
     </Stack>
   );
@@ -35,6 +37,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   const [moveOptions, setMoveOptions] = useState<MoveOptions | null>(null);
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
+  const play = useSound();
 
   const clearSelection = () => {
     setUnitHexPosition(null);
@@ -111,7 +114,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       <div className="phase-layout__controls">
         {ordersCommitted ? (
           <Alert severity="success" sx={{ width: "100%" }}>
-            Órdenes confirmadas. Ya no se pueden cambiar.
+            Ya no se pueden cambiar. Pasa a la fase de batalla.
           </Alert>
         ) : (
           <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
@@ -129,12 +132,14 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             )}
             {/* Legend for the highlighted hexes (no hover on tablets) */}
             <Stack sx={{ gap: 0.5, mb: 1.5 }}>
-              <LegendItem color="rgba(67, 160, 71, 0.8)" label="Mover y disparar" />
-              <LegendItem color="rgba(255, 179, 0, 0.8)" label="Solo mover (no podrá disparar)" />
+              <LegendItem color="var(--m44-move-fire)" label="Mover y disparar" />
+              <LegendItem color="var(--m44-move-only)" label="Solo mover (no podrá disparar)" />
             </Stack>
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-              <Button onClick={handleHoldAndFire}>Mantener y disparar</Button>
-              <Button variant="outlined" onClick={clearSelection}>
+              <Button onClick={handleHoldAndFire} startIcon={<GameIcon name="fire" />}>
+                Mantener y disparar
+              </Button>
+              <Button variant="outlined" onClick={clearSelection} startIcon={<GameIcon name="cancel" />}>
                 Cancelar
               </Button>
             </Stack>
@@ -143,15 +148,22 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
           {!ordersCommitted && orders.length > 0 && !unitHexPosition && (
-            <Button variant="outlined" onClick={() => session.undoLastOrder()}>
+            <Button variant="outlined" onClick={() => session.undoLastOrder()} startIcon={<GameIcon name="undo" />}>
               Volver
             </Button>
           )}
           {!ordersCommitted && ordersLeft <= 0 && (
-            <Button onClick={() => session.commitOrders()}>Confirmar Órdenes</Button>
+            <Button
+              onClick={() => session.commitOrders() && play("stamp")}
+              startIcon={<GameIcon name="confirm" />}
+            >
+              Confirmar Órdenes
+            </Button>
           )}
           {ordersCommitted && (
-            <Button onClick={() => session.startBattle()}>Fase Batalla</Button>
+            <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
+              Fase Batalla
+            </Button>
           )}
         </Stack>
       </div>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import CommandCard from "../../../game-core/commandCard";
+import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
+import { useSound } from "../../../sound";
 import "./CardsView.css";
 
 // Must be at least the 0.5s slideDown animation in CardsView.css
@@ -37,6 +39,7 @@ function CardsView({
 }: CardsViewProps) {
   const [message, setMessage] = useState('Selecciona una carta para jugarla');
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
+  const play = useSound();
 
   const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
   const nextCardToDeal = handCards.find((card) => !dealtCardIds.has(card.id));
@@ -57,6 +60,10 @@ function CardsView({
     const timer = setTimeout(() => setAnimatingCard(nextCardToDeal), DEAL_GAP_MS);
     return () => clearTimeout(timer);
   }, [animatingCard, nextCardToDeal, onCardDealt]);
+
+  useEffect(() => {
+    if (animatingCard) play("cardDeal");
+  }, [animatingCard, play]);
 
   const drawChoice = () => {
     setMessage(
@@ -88,10 +95,11 @@ function CardsView({
           textAlign: "center",
           pb: 2.5,
           mb: 3,
-          borderBottom: "2px solid rgba(148, 163, 184, 0.1)",
+          borderBottom: "3px double",
+          borderColor: "divider",
         }}
       >
-        <Typography variant="h4" component="h3" sx={{ fontWeight: 700, mb: 1 }}>
+        <Typography variant="h4" component="h3" sx={{ mb: 1 }}>
           Zona de Mando
         </Typography>
         <Typography variant="body2" color="text.secondary">
@@ -122,7 +130,7 @@ function CardsView({
             Cartas ({drawPileCount})
           </Typography>
           <div className="deck-pile">
-            <div className="deck-back">?</div>
+            <div className="deck-back">M'44</div>
           </div>
           {showDrawChoice && (
             <Button onClick={drawChoice} disabled={isChoosing} sx={{ mt: 2 }}>
@@ -137,7 +145,7 @@ function CardsView({
           </Typography>
           <div className="discard-pile">
             {discardPileCount > 0 && (
-              <div className="deck-back">?</div>
+              <div className="deck-back">M'44</div>
             )}
           </div>
         </Stack>
@@ -153,10 +161,18 @@ function CardsView({
       </div>
 
       {/* Animating Card Overlay */}
+      {/* Flies from the deck into the hand; keyed so each card gets its own flight */}
       {animatingCard && (
-        <div className="animating-card deck" data-testid="animating-card">
+        <motion.div
+          key={animatingCard.id}
+          className="animating-card"
+          data-testid="animating-card"
+          initial={{ x: "-50%", y: "-160%", rotate: -14, scale: 0.85, opacity: 0 }}
+          animate={{ x: "-50%", y: "-50%", rotate: 0, scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        >
           <CommandCardComponent cardData={animatingCard} onClick={() => {}} />
-        </div>
+        </motion.div>
       )}
     </div>
   );

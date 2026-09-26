@@ -61,52 +61,38 @@ Nothing here changes how the game plays. It was done before the visual work so t
 - [x] **Q8.** `TARGET_TERRAIN_MODIFIERS` is keyed by `HexType` (the answer for open ground is now `plains`)
 - [x] Checks: typecheck with no unused locals, 175 tests, and a full turn for each side in Chromium at 1280×800 and 800×1280 with touch, with a reload in every phase. No console errors or warnings, and no sideways scroll.
 
-## Step 10: War-room look (new)
+## Step 10: War-room look
 
-The app currently looks like a generic dark MUI dashboard. It should feel like part of the board game: a WWII field-HQ / command-post look with more character. Keep it readable on a tablet next to a real table, keep 48px tap targets, and keep enough contrast (check text against textured backgrounds).
+The app should feel like part of the board game rather than a generic dark dashboard. It must stay readable on a tablet next to a real table, with 48px tap targets and enough contrast over the textures.
 
-- [ ] **Decide: where the art comes from.** Nothing has to be downloaded except what you pick here:
-  - **Fonts:**
-    - (recommended) the `@fontsource/black-ops-one`, `@fontsource/stardos-stencil` and `@fontsource/special-elite` npm packages. They are bundled into the app, work offline and are ~20–60 KB each.
-    - or a Google Fonts `<link>`, which needs internet on the tablet
-  - **Paper / canvas texture:**
-    - generated in code (SVG `feTurbulence` noise or CSS gradients), with no download
-    - or one free-licence (CC0) photo texture (ambientCG, Poly Haven), converted to WebP with `npm run optimize-image`
-  - **Insignia, card flank diagrams, dice and stamps:** hand-drawn inline SVG in the repo, with no download. Claude can draw these.
-  - **Icons:**
-    - none
-    - `@mui/icons-material` (generic)
-    - a few SVGs from game-icons.net (free, but the site must be credited in the README)
-  - **Animation:**
-    - CSS keyframes, as today
-    - or the `motion` library (~35 KB) for smoother card dealing and dice tumbling. It isn't needed.
-  - **Sound (optional):** plain browser audio plus a few CC0 clips from freesound
-  - **Real unit and card art:** painted or photographic art can't be generated in code. You supply it or pick free-licence sources, or we stay with the SVG placeholders.
-- [ ] **Art direction first.** Make a one-page mock of 2–3 directions and pick one before restyling everything. For example:
-  - (a) *Field map & dossier*: olive and khaki, parchment panels, typewriter text, rubber stamps
-  - (b) *Board-game box*: the Memoir '44 look, with bold sand and red, card-like panels and chunky dice
-  - (c) *Command-tent night*: dark canvas, lamp-lit amber accents, stencil type
-- [ ] **Theme (`src/theme.ts`):**
-  - palette: olive drab, khaki or sand, rust red, brass, off-white paper
-  - Allied and Axis accent colours used consistently: the header, unit bases and the dice faces
-  - square-ish corners, and a subtle paper or canvas texture on `body` and panels (CSS gradients or a small tiled WebP)
-- [ ] **Typography.** A stencil or military display font for headings (e.g. *Black Ops One*, *Stardos Stencil* or *Allerta Stencil*) and a typewriter font for briefing text (*Special Elite*). Keep a plain sans font for dense text. Self-host the fonts with `@fontsource/*`, so they work offline and in a future PWA.
-- [ ] **Header**: a mission-briefing strip with the scenario name, the faction insignia or flag, "TURNO 3", and phase steps styled like stamped tabs.
-- [ ] **Menu**: a mission-briefing screen. The scenario cards look like dossiers, and the side picker shows Allied and Axis insignia.
-- [ ] **Command cards**: redesign `CommandCardComponent` to look like real M44 command cards:
-  - a section diagram (which flanks) drawn in SVG from `card.type`, instead of the 📊 placeholder
-  - the order count in large type, and a colour band by card kind (section, tactic)
-  - deck and discard piles drawn as card backs, not a "?"
-- [ ] **Board**:
-  - faint hex outlines on top of the art, so the grid reads clearly
-  - unit tokens with a faction-coloured base disc. Replace the flat red and blue `circle` glows with a ring or badge for "orderable" and a crosshair badge for "ready to fire" (the red and blue glows clash with the art today).
-  - order arrows styled like grease-pencil map arrows (thicker, rough ends)
-  - "Órdenes confirmadas" as a stamp over the locked board
-- [ ] **Battle screen**: the turn summary styled as a combat report. A fired unit gets a "DISPARÓ" stamp (ties in with Step 8).
-- [ ] **Dice**: chunkier ivory or wood dice with a short tumble animation. Respect `prefers-reduced-motion`, which is already handled for the current animation.
-- [ ] **Optional sound**: dice rattle, stamp thud and card deal, off by default, with a mute toggle in the header. Tablets are often used in quiet rooms.
-- [ ] **Real art**: replace the placeholder tank and artillery SVGs (`npm run optimize-image -- <file> 192`) and the generic card image.
-- [ ] Check at 1280×800 and 800×1280 with touch, and on desktop. Screenshot every screen before and after with Playwright.
+- [x] **Decided: art directions.** Three were mocked up side by side (design canvas "m44-sim art directions"). All three were kept: the player picks one in **Ajustes** on the start menu, and it is remembered on the device.
+  - *Mapa de campaña* (`field`): parchment, olive and rust, Stardos Stencil and Special Elite
+  - *Caja del juego* (`box`): sand, red and navy, chunky borders, Black Ops One and Barlow Condensed
+  - *Tienda de mando* (`tent`, the default): dark canvas, lamp amber and olive, Allerta Stencil and IBM Plex Sans Condensed
+- [x] **Decided: art sources.**
+  - fonts: bundled `@fontsource/*` packages (work offline)
+  - textures: CC0 photos from ambientCG (Paper003, Paper002, Fabric045) as 512px grayscale WebP tiles, 55 KB in total
+  - icons: game-icons.net (CC BY 3.0, credited in the README)
+  - animation: the `motion` library
+  - sound: Kenney's CC0 Casino Audio and Impact Sounds
+- [x] **Looks:** each look is plain data in `src/looks/looks.ts`. `looks/theme.ts` turns it into the MUI theme plus `--m44-*` CSS variables that the custom CSS (board, cards, dice, stamps) uses. Settings (`look`, `sound`) live in `src/settings.ts`, are stored by `storage.ts`, and reach components through `SettingsContext`.
+- [x] **Header:** a briefing strip with the faction insignia (Allied star / Balkenkreuz), the turn, the phase steps as stamped tabs, a sound toggle and "Menú"
+- [x] **Menu:** a briefing title, "Ajustes" (look and sound, with a live sample of each look), and the insignia on the side picker
+- [x] **Command cards:** a coloured title band (primary for section cards, accent for tactic cards), the sections drawn in SVG from `card.type`, the order count in large type, and "Solo tanques" on tactic cards. The deck and discard are card backs. The card is a real `<button>`. The old generic card images are gone.
+- [x] **Board:**
+  - units are round tokens ringed in their side's colour
+  - a dashed gold ring for "can be ordered", a crosshair badge for "will fire" and a check badge for "has fired" (the check also appears on the battle map, closing the Step 8 leftover)
+  - order arrows look like grease pencil: thicker, dark underline, displacement filter
+  - an "Órdenes confirmadas" stamp slams onto the locked board
+  - **decided:** no extra hex outlines, since the scenario art already draws the grid
+- [x] **Battle screen:** "Parte de combate", each row shows the unit's token ringed in its arrow colour, and a fired unit gets a "Disparó" stamp
+- [x] **Dice:** chunkier, coloured by the look, tumbling in one after another. `MotionConfig reducedMotion="user"` respects "reduce motion".
+- [x] **Sound** (off by default; toggle in the header or in Ajustes): card dealt, card played, orders confirmed (stamp), dice rolled (or the stamp for a 0-dice shot)
+- [x] Icons on the main action buttons (fire, dice, map, undo, confirm, end turn, battle, cancel, exit)
+- [x] Tests: `settings.test.ts`, settings in `storage.test.ts`, unit badges in `UnitComponent.test.tsx`, look and sound in `App.test.tsx`
+- [x] Checked every screen in all three looks at 1280×800 and 800×1280 with touch: no console errors, no sideways scroll
+- [ ] **Real art:** the tank and artillery sprites are still placeholder SVGs (`npm run optimize-image -- <file> 192`)
+- [ ] Ideas: a card-back emblem per look, and changing the look from inside a game (today it's only on the start menu)
 
 ## Step 11: Rules and firing situations
 
@@ -123,7 +109,8 @@ The app currently looks like a generic dark MUI dashboard. It should feel like p
 ## Ideas for later
 - [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (these replace the "Coge 2 Cartas" debug button)
 - [ ] More scenarios, with a scenario data check for each (the old unused `defualt.png` board art is in git history before Step 9)
-- [ ] Install to the tablet's home screen as a PWA (manifest, icons, offline cache), for full screen with no browser bar. Do this after Step 10 so the icons match the new look.
+- [ ] Install to the tablet's home screen as a PWA (manifest, icons, offline cache), for full screen with no browser bar. The fonts are already bundled, so the app can work fully offline.
+- [ ] Split the JS bundle (610 KB, 195 KB gzipped after Step 10) if load time on the tablet becomes a problem
 - [ ] Turn log: a short history of past turns (card played, units that fired, casualties), useful when the two players compare notes
 
 ---

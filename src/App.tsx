@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { MotionConfig } from 'motion/react';
 import './App.css';
 import { scenarios } from './data/scenarios';
 import commandCards from './data/commandCards';
@@ -6,7 +9,18 @@ import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/GameView';
 import Menu from './components/mainComponents/Menu';
 import { GameSetup } from './types/faction';
-import { clearSavedGame, loadLastSetup, loadSavedGame, saveGame, saveLastSetup } from './storage';
+import {
+  clearSavedGame,
+  loadLastSetup,
+  loadSavedGame,
+  loadSettings,
+  saveGame,
+  saveLastSetup,
+  saveSettings,
+} from './storage';
+import { Settings, SettingsContext } from './settings';
+import { LOOKS } from './looks/looks';
+import { createLookTheme } from './looks/theme';
 
 interface CurrentGame {
   session: GameSession;
@@ -17,6 +31,23 @@ interface CurrentGame {
 }
 
 const App = () => {
+  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const updateSettings = useCallback((changes: Partial<Settings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...changes };
+      saveSettings(next);
+      return next;
+    });
+  }, []);
+  const settingsContext = useMemo(() => ({ settings, updateSettings }), [settings, updateSettings]);
+  const look = LOOKS[settings.look];
+  const theme = useMemo(() => createLookTheme(look), [look]);
+
+  // Match the Android browser bar to the look
+  useEffect(() => {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', look.colors.bg);
+  }, [look]);
+
   const [game, setGame] = useState<CurrentGame | null>(() => {
     const session = loadSavedGame(scenarios, commandCards);
     return session && { session, resumed: true, number: 0 };
@@ -49,13 +80,21 @@ const App = () => {
   };
 
   return (
-    <div className="app">
-      {game ? (
-        <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
-      ) : (
-        <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
-      )}
-    </div>
+    <SettingsContext.Provider value={settingsContext}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {/* Animations follow the device's "reduce motion" setting */}
+        <MotionConfig reducedMotion="user">
+          <div className="app" data-look={look.id}>
+            {game ? (
+              <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
+            ) : (
+              <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
+            )}
+          </div>
+        </MotionConfig>
+      </ThemeProvider>
+    </SettingsContext.Provider>
   );
 };
 
