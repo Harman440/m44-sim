@@ -1,7 +1,7 @@
 import CommandCard from "../game-core/commandCard";
 import "./CommandCard.css";
-import defaultImage from "../assets/cards/default.png";
-import cardTemplate from "../assets/cards/template.jpg";
+import defaultImage from "../assets/cards/default.webp";
+import cardTemplate from "../assets/cards/template.webp";
 
 interface CommandCardProps {
     cardData: CommandCard;

@@ -1,7 +1,7 @@
 // data/scenarios.js
 
 import { Scenario } from "../types/scenario";
-import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.png";
+import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
 
 export const scenarios: Scenario[] = [
   {

@@ -40,7 +40,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - Sections: left/center/right plus the shared left-center/right-center border hexes (`Hex._setSide`).
 - Rules are a loose variant: when a rule is ambiguous, ask instead of assuming official M44.
 - The physical table is the source of truth after battle. The app tracks whole units only (no figure counts), and a unit can be moved to any empty hex to mirror a retreat or taking ground.
-- Unit sprites live in `src/assets/units/<allies|axis>/<unit type>` and are mapped in `UnitComponent`. Tank and artillery are placeholder SVGs until real art replaces them.
+- Unit sprites live in `src/assets/units/<allies|axis>/<unit type>.webp|svg` and are mapped in `UnitComponent`. Tank and artillery are placeholder SVGs until real art replaces them.
 - Remove debug `console.log` calls before committing.
 
 ## Roadmap

@@ -1,9 +1,9 @@
 // Unit.tsx
 import React from "react";
-import alliedInfantry from "../assets/units/allies/infantry.png";
+import alliedInfantry from "../assets/units/allies/infantry.webp";
 import alliedTank from "../assets/units/allies/tank.svg";
 import alliedArtillery from "../assets/units/allies/artillery.svg";
-import axisInfantry from "../assets/units/axis/infantry.png";
+import axisInfantry from "../assets/units/axis/infantry.webp";
 import axisTank from "../assets/units/axis/tank.svg";
 import axisArtillery from "../assets/units/axis/artillery.svg";
 import Unit, { UnitType } from "../game-core/unit";
