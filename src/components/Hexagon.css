@@ -1,5 +1,6 @@
 .hexagon {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent; /* no grey box on Android taps */
 }
 
 .hexagon__tile {
@@ -18,4 +19,15 @@
 .hexagon__tile--move {
   filter: brightness(0.7);
   fill: rgba(0, 255, 0, 0.2);
+}
+/* Red flash for a tap that can't be ordered or reached */
+.hexagon__flash-invalid {
+  fill: rgba(220, 38, 38, 0.55);
+  pointer-events: none;
+  animation: hexagon-flash-invalid 0.45s ease-out forwards;
+}
+
+@keyframes hexagon-flash-invalid {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }

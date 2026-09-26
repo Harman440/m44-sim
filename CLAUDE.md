@@ -2,6 +2,13 @@
 
 A companion web app for playing Memoir '44 with **simultaneous** turns, using a loose house variant rather than the official rules. Each player runs the app for their own faction next to the physical board. They pick a command card, give orders to their units on a digital copy of the map, and then carry out the result on the table. The app does not simulate the opponent or play as an AI.
 
+## Target devices
+The app has to work in desktop browsers **and on Android tablets** (Chrome), in landscape and portrait:
+- Touch first: every action works with a single tap. Nothing depends on hover, right-click, double-tap or long-press, and no information is shown only on hover.
+- Tap targets are at least 48px (the MUI theme sets `minHeight: 48` on buttons).
+- The board SVG scales to the available width (`viewBox`); never give it a fixed pixel size. The page must not scroll sideways.
+- Check UI changes at a tablet viewport with touch enabled, e.g. 1280×800 landscape and 800×1280 portrait, as well as desktop.
+
 ## Commands
 - `npm run dev`: Vite dev server on http://localhost:3000 (polling watcher, because the repo lives on WSL)
 - `npm run typecheck`: `tsc --noEmit` (must report 0 errors)

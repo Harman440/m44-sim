@@ -1,10 +1,18 @@
+import type React from 'react';
 import Hexagon from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
 import BoardManager from '../game-core/BoardManager';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
+import { createBoardGeometry } from './boardGeometry';
 import scenarioImage from '../assets/scenarios/ForetDEcouves.png';//TODO: make this choosable in main menu
+
+/** A hex to flash red; a new `id` restarts the animation on the same hex */
+export interface HexFlash {
+  position: Position;
+  id: number;
+}
 
 interface BoardProps {
   onTileClick: (position: Position) => void;
@@ -13,11 +21,17 @@ interface BoardProps {
   possibleMoveAndFirePositions: Position[];
   boardManager: BoardManager;
   orders: readonly Order[];
+  invalidFlash?: HexFlash | null;
+  /** Orders are committed: dim the board and stop showing it as clickable */
+  locked?: boolean;
   boardWidth?: number;
   boardHeight?: number;
   hexSize?: number;
   faction?: string;
 }
+
+const includesPosition = (positions: Position[], row: number, col: number) =>
+  positions.some((pos) => pos.row === row && pos.col === col);
 
 function Board({
   onTileClick,
@@ -26,26 +40,14 @@ function Board({
   possibleMoveAndFirePositions,
   boardManager,
   orders,
+  invalidFlash = null,
+  locked = false,
   boardWidth = 13,
   boardHeight = 9,
   hexSize = 50,
   faction = "Allies"
 }: BoardProps) {
-
-  // For flat-top hexagons, the spacing calculations
-  const hexWidth = hexSize * Math.sqrt(3); // Width of flat-top hexagon
-  const hexHeight = hexSize * 2; // Height of flat-top hexagon
-
-  // Function to convert hex position to pixel coordinates
-  const getHexCenter = (position: Position) => {
-    const offsetX = hexWidth; // Horizontal spacing between hex centers
-    const offsetY = hexHeight * 0.75; // Vertical spacing between rows
-
-    const x = 115 + position.col * offsetX + (position.row % 2) * (offsetX / 2);
-    const y = 100 + position.row * offsetY;
-
-    return { x, y };
-  };
+  const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
 
   const renderOrders = () => {
     return orders.map((order, index) => (
@@ -53,7 +55,7 @@ function Board({
         key={index} //NOTE: key is for react internal list
         orderIndex={index} //TODO: in the future make order class have an index
         order={order}
-        getHexCenter={getHexCenter}
+        getHexCenter={geometry.hexCenter}
         hexSize={hexSize}
       />
     ));
@@ -61,35 +63,21 @@ function Board({
 
   const renderBoard = () => {
     const tiles = [];
-    const offsetX = hexWidth; // Horizontal spacing between hex centers
-    const offsetY = hexHeight * 0.75; // Vertical spacing between rows
 
     for (let row = 0; row < boardHeight; row++) {
-      // Delete hexe if row is odd
+      // Odd rows have one hex fewer
       const actualMaxWidth = boardWidth + (row % 2 === 1 ? -1 : 0);
       for (let col = 0; col < actualMaxWidth; col++) {
         const position: Position = { row, col };
-
-        // Calculate position for hexagonal grid with flat-top hexagons
-        const x = 115 + col * offsetX + (row % 2) * (offsetX / 2);
-        const y = 100 + row * offsetY;
-
-        const isSelectedUnitPos = unitHexPosition?.row === row && unitHexPosition?.col === col;
-
-        // Check if this hex is in the possiblePositions array
-        const isPossibleMovePos = possibleMovePositions.some(pos =>
-          pos?.row === row && pos?.col === col
-        );
-
-        // Check if this hex is in the possiblePositions array
-        const isPossibleMoveFirePos = possibleMoveAndFirePositions.some(pos =>
-          pos?.row === row && pos?.col === col
-        );
+        const { x, y } = geometry.hexCenter(position);
 
         const hexData = boardManager.getHex(position);
         if (!hexData) {
           throw new Error(`Hex not found at ${JSON.stringify(position)}`);
         }
+
+        const flashesInvalid =
+          invalidFlash?.position.row === row && invalidFlash.position.col === col;
 
         tiles.push(
           <Hexagon
@@ -98,9 +86,10 @@ function Board({
             y={y}
             position={position}
             onClick={onTileClick}
-            isSelectedUnit={isSelectedUnitPos}
-            isPossibleMove={isPossibleMovePos}
-            isPossibleMoveFirePos={isPossibleMoveFirePos}
+            isSelectedUnit={unitHexPosition?.row === row && unitHexPosition?.col === col}
+            isPossibleMove={includesPosition(possibleMovePositions, row, col)}
+            isPossibleMoveFirePos={includesPosition(possibleMoveAndFirePositions, row, col)}
+            invalidFlashId={flashesInvalid ? invalidFlash.id : null}
             hexSize={hexSize}
             hexData={hexData}
             faction={faction}
@@ -111,30 +100,29 @@ function Board({
     return tiles;
   };
 
-  // Calculate SVG dimensions for flat-top hexagons
-  const svgWidth = boardWidth * hexWidth + hexWidth / 2 + 100;
-  const svgHeight = boardHeight * hexHeight * 0.75 + hexHeight * 0.25 + 100;
+  const { width, height, imageMargin } = geometry;
 
   return (
     <div className="board">
+      {/* viewBox + CSS width lets the board scale down to fit tablets */}
       <svg
-        width={svgWidth}
-        height={svgHeight}
-        className="board__svg"
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ maxWidth: width, '--board-aspect': width / height } as React.CSSProperties}
+        className={`board__svg${locked ? ' board__svg--locked' : ''}`}
       >
 
         {/* Layer 1: Scenario image */}
         {scenarioImage && (
           <image
             href={scenarioImage}
-            x="50"//TODO: make this values default
-            y="50"
-            width={svgWidth-100}
-            height={svgHeight-100}
+            x={imageMargin}
+            y={imageMargin}
+            width={width - 2 * imageMargin}
+            height={height - 2 * imageMargin}
             preserveAspectRatio="xMidYMid meet"
             transform={
               faction === "Axis"
-                ? `rotate(180 ${(svgWidth / 2)} ${(svgHeight / 2)})`
+                ? `rotate(180 ${(width / 2)} ${(height / 2)})`
                 : undefined
             }
           />

@@ -14,7 +14,7 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] **B3. The whole hand is dealt again every turn.** CardsView unmounts during ORDER_UNITS, so on remount `visibleHand` and `hasDealtInitialCards` reset and every card animates in again. Only the newly drawn card should animate.
 - [x] **B4. You can click "Coge 2 Cartas" repeatedly.** Each click draws 2 more cards, and the previous choice cards are lost from the deck for good.
 - [x] **B5. The order path is computed backwards, after the move.** OrdersView calls `getPathToDestination(hex /*dest*/, unitHexPosition /*start*/)` after `moveUnit`. That is why OrderComponent has the note "points seem to be backwards". It will break once terrain costs become asymmetric. Compute the path from start to destination *before* moving.
-- [ ] **B6. Once a unit is selected, it can't be deselected.** Clicking the same hex issues a "stay and fire" order, and clicking anywhere else does nothing.
+- [x] **B6. Once a unit is selected, it can't be deselected.** Clicking the same hex issues a "stay and fire" order, and clicking anywhere else does nothing.
 - [x] **B8. `BoardManager.reset()` didn't rebuild the section groups**, so section cards marked units on the old board. Fixed in Step 1.
 - [x] **B9. `setOrderableUnits` never clears earlier orderable flags.** Playing a second card without committing leaves the first card's units orderable too. Fix it with the reducer in Step 3.
 - [x] **B10. A "hold and fire" order draws a NaN arrow.** Start and end are the same hex, so the direction vector has length 0 and the console fills with SVG `NaN` errors. Draw a marker instead of an arrow. Belongs to Step 4.
@@ -27,7 +27,7 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] **Q1. Mutable class instances live inside React state.** `Hand.add` and `Deck.draw` mutate in place, and Board re-reads `boardManager` directly. The UI only updates because some other setState happens to fire at the same time. Replace this with a single GameState plus a `useReducer`.
 - [ ] **Q2. Every unit uses the infantry sprite.** Showing only your own faction's units is intended: this is a companion tool.
 - [ ] **Q3. Code is duplicated:**
-  - [ ] the hex-to-pixel math appears in both `Board.getHexCenter` and `renderBoard`
+  - [x] the hex-to-pixel math appears in both `Board.getHexCenter` and `renderBoard` (now `components/boardGeometry.ts`)
   - [ ] there is a `UnitType` string union in `types/scenario.ts` and a `UnitType` enum in `game-core/unit.ts`
   - [ ] the per-faction initial hand size is hardcoded in `App.tsx`, although `ScenarioSettings` exists for it
 - [ ] **Q4. Leftover cruft:**
@@ -84,10 +84,16 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 
 ### Step 4: Ordering UX (B5, B6, Q3)
 - [x] Compute the path before moving and remove the "backwards" workarounds in OrderComponent (done in Step 3)
-- [ ] Deselect/cancel a selected unit, with a separate "hold and fire" action
-- [ ] Flash a hex on an invalid click
-- [ ] Lock the board after orders are committed, with a visible indicator
-- [ ] Merge the duplicated hex-to-pixel math into one helper
+- [x] Deselect/cancel a selected unit, with a separate "hold and fire" action: tap the selected unit again (or "Cancelar") to deselect, tap another orderable unit to switch, and "Mantener y disparar" for hold orders
+- [x] Flash a hex red on an invalid tap (a unit that can't be ordered, or a hex out of reach)
+- [x] Lock the board after orders are committed: the board dims, taps are ignored and a confirmation banner shows
+- [x] Merge the duplicated hex-to-pixel math into one helper (`boardGeometry.ts`, with tests)
+- [x] Android tablet support for the orders screen:
+  - the board scales with `viewBox`
+  - short landscape screens put the controls beside the board, so nothing needs scrolling
+  - 48px buttons, no double-tap zoom, no tap highlight
+  - checked with touch at 1280×800, 800×1280 and on a 1920×1080 desktop
+- [x] Tests: `OrdersView.test.tsx` (select, deselect, switch, cancel, move, hold, invalid flashes, locked board)
 
 ### Step 5: Units and board (Q2, Q3)
 - [ ] Sprites for each unit type (infantry, tank, artillery)
@@ -102,7 +108,7 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 ### Step 7: Menu and polish (Q5)
 - [ ] Scenario and faction picker (`Menu.tsx`)
 - [ ] All UI text in Spanish
-- [ ] Visual polish, with the layout sized for a phone or tablet next to the board
+- [ ] Visual polish, with the layout sized for an Android tablet next to the board (landscape and portrait)
 - [ ] Shrink or convert the large PNG assets (1.8–2.7 MB each) to WebP
 
 ---

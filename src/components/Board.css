@@ -1,9 +1,24 @@
 .board {
   position: relative;
+  width: 100%;
+  touch-action: manipulation; /* taps fire immediately, no double-tap zoom */
 }
 
 .board__svg {
   display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
   border: 2px solid #374151;
   border-radius: 8px;
+  transition: filter 0.3s ease;
+}
+
+/* Orders committed: the board is read-only until the battle phase */
+.board__svg--locked {
+  filter: saturate(0.4) brightness(0.8);
+}
+
+.board__svg--locked .hexagon {
+  cursor: default;
 }

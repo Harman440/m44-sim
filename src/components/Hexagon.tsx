@@ -11,6 +11,8 @@ interface HexProps {
   isSelectedUnit: boolean;
   isPossibleMove: boolean;
   isPossibleMoveFirePos: boolean;
+  /** Set to flash the hex red; a new value restarts the flash */
+  invalidFlashId?: number | null;
   hexSize?: number;
   hexData: Hex;
   faction: string;
@@ -24,6 +26,7 @@ function Hexagon({
   isSelectedUnit,
   isPossibleMove,
   isPossibleMoveFirePos,
+  invalidFlashId = null,
   hexSize = 25,
   hexData,
   faction
@@ -65,6 +68,7 @@ function Hexagon({
   return (
     <g
       className="hexagon"
+      data-position={`${position.row}-${position.col}`}
       onClick={handleClick}
       style={{ fill: getTileColor() }}
     >
@@ -79,6 +83,10 @@ function Hexagon({
           faction={faction}
           unitData={hexData.unit}
         />
+      )}
+      {/* Keyed so each new flash remounts the path and replays the animation */}
+      {invalidFlashId !== null && (
+        <path key={invalidFlashId} d={pathData} className="hexagon__flash-invalid" />
       )}
     </g>
   );

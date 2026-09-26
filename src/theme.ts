@@ -14,6 +14,8 @@ const theme = createTheme({
   components: {
     MuiButton: {
       defaultProps: { variant: "contained", disableElevation: true },
+      // Comfortable tap target on Android tablets
+      styleOverrides: { root: { minHeight: 48 } },
     },
   },
 });

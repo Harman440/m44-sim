@@ -1,5 +1,5 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
-import { Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
 import { Scenario } from "../../types/scenario";
 import commandCards from "../../data/commandCards";
 import { TurnPhase } from "../../types/gameManager";
@@ -48,7 +48,7 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
   };
 
   return (
-    <div>
+    <Box sx={{ width: "100%", maxWidth: 1400 }}>
       {game.phase === TurnPhase.PICK_CARDS && (
         <CardsView
           handCards={game.hand}
@@ -82,7 +82,7 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
       >
         Turno: {game.turn} | Fase: {TurnPhase[game.phase]}
       </Typography>
-    </div>
+    </Box>
   );
 }
 
