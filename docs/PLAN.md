@@ -39,8 +39,8 @@ Two decisions shape the rest of the plan (Steps 15 and 27):
 - [ ] Check on the real tablet: install from Chrome, then play a turn in airplane mode
 
 ### Step 13: Small polish
-- [ ] Change the look and sound during a game ("Ajustes" in the in-game menu, not only on the start menu)
-- [ ] Split the JS bundle (610 KB, 195 KB gzipped) so the first screen loads faster on the tablet
+- [x] Change the look and sound during a game ("Ajustes" in the in-game menu, not only on the start menu)
+- [x] Split the JS bundle (610 KB, 195 KB gzipped) so the first screen loads faster on the tablet: the game screen is lazy-loaded and preloaded from the menu, and react, MUI and motion are separate chunks. The menu now loads 151 KB gzipped (entry 20, react 59, MUI 72); the game screen adds 52 KB (game code 11, motion 41)
 - [ ] Real art for the tank and artillery sprites (placeholder SVGs today). **Decide:** where the art comes from (you supply it, or a free-licence source)
 
 ### Step 14: Turn log and turn data as JSON

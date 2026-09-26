@@ -1,11 +1,17 @@
 import { act, fireEvent, render, screen, waitForElementToBeRemoved } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import GameView from "./components/mainComponents/LazyGameView";
 import { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./components/mainComponents/GameViews/CardsView";
 
 const start = (faction: "Aliados" | "Eje") => {
   fireEvent.click(screen.getByRole("button", { name: faction }));
   fireEvent.click(screen.getByRole("button", { name: "Empezar partida" }));
+};
+
+const openExitDialog = () => {
+  fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Salir al menú" }));
 };
 
 const handTitles = (container: HTMLElement) =>
@@ -22,6 +28,11 @@ const dealHand = (cards: number) => {
     });
   }
 };
+
+// The game screen is its own chunk; load it up front so starting a game renders straight away
+beforeAll(async () => {
+  await GameView.preload();
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -57,13 +68,13 @@ describe("App menu and game flow", () => {
     render(<App />);
     start("Eje");
 
-    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Seguir jugando" }));
     // The dialog animates out; the page is inert until it's gone
     await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
     expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Salir" }));
     expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
   });
@@ -71,7 +82,7 @@ describe("App menu and game flow", () => {
   it("remembers the last side chosen on this device", () => {
     const { unmount } = render(<App />);
     start("Eje");
-    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Salir" }));
     unmount();
 
@@ -114,7 +125,7 @@ describe("App menu and game flow", () => {
   it("forgets the game in progress when leaving to the menu", () => {
     const { unmount } = render(<App />);
     start("Aliados");
-    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Salir" }));
     unmount();
 
@@ -151,6 +162,21 @@ describe("App settings", () => {
 
     const { container } = render(<App />);
     expect(look(container)).toBe("box");
+  });
+
+  it("changes the look during a game from Ajustes in the game menu, keeping the game", async () => {
+    const { container } = render(<App />);
+    start("Aliados");
+
+    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ajustes" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Mapa de campaña/ }));
+    expect(look(container)).toBe("field");
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+
+    expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
+    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
   });
 
   it("turns sound on and off from the game header, and remembers it", () => {

@@ -32,6 +32,20 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Libraries in their own chunks: they load in parallel, and an app
+        // update only replaces the app's own chunks in the tablet's cache
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
+          if (/node_modules\/(@mui|@emotion|stylis)/.test(id)) return "mui";
+          if (/node_modules\/(motion|framer-motion|motion-dom|motion-utils)\//.test(id)) return "motion";
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     watch: {

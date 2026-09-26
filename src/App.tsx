@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { MotionConfig } from 'motion/react';
+import CircularProgress from '@mui/material/CircularProgress';
 import './App.css';
 import { scenarios } from './data/scenarios';
 import commandCards from './data/commandCards';
 import GameSession from './game-core/gameSession';
-import GameView from './components/mainComponents/GameView';
+import GameView from './components/mainComponents/LazyGameView';
 import Menu from './components/mainComponents/Menu';
 import UpdatePrompt from './components/UpdatePrompt';
 import { GameSetup } from './types/faction';
@@ -62,6 +62,11 @@ const App = () => {
     return session.subscribe(() => saveGame(session));
   }, [game]);
 
+  // The menu shows first; load the game screen while the player picks a side
+  useEffect(() => {
+    if (!game) void GameView.preload();
+  }, [game]);
+
   const handleStart = (setup: GameSetup) => {
     const scenario = scenarios.find((s) => s.id === setup.scenarioId);
     if (!scenario) return;
@@ -84,17 +89,16 @@ const App = () => {
     <SettingsContext.Provider value={settingsContext}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {/* Animations follow the device's "reduce motion" setting */}
-        <MotionConfig reducedMotion="user">
-          <div className="app" data-look={look.id}>
-            {game ? (
+        <div className="app" data-look={look.id}>
+          {game ? (
+            <Suspense fallback={<CircularProgress aria-label="Cargando partida" sx={{ m: 'auto' }} />}>
               <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
-            ) : (
-              <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
-            )}
-          </div>
-          <UpdatePrompt />
-        </MotionConfig>
+            </Suspense>
+          ) : (
+            <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
+          )}
+        </div>
+        <UpdatePrompt />
       </ThemeProvider>
     </SettingsContext.Provider>
   );
