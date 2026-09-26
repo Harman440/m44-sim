@@ -1,4 +1,3 @@
-import React from "react";
 import { Position } from "../types/scenario";
 import Order from "../game-core/order";
 
@@ -9,8 +8,13 @@ interface OrderProps {
   hexSize: number;
 }
 
-//NOTE: Code mostly generated. First point in path is actually the last
+// Draws an order as an arrow along the unit's path, from start to destination
 function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps) {
+  // Hold-and-fire orders have no movement; the unit's ready-to-fire glow shows them
+  if (order.start.row === order.end.row && order.start.col === order.end.col) {
+    return null;
+  }
+
   // If we have a full path, use it; otherwise fall back to direct line
   const pathToRender =
     order.path && order.path.length > 1 ? order.path : [order.start, order.end];
@@ -18,64 +22,36 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
   // Convert path positions to screen coordinates
   const pathPoints = pathToRender.map((pos) => getHexCenter(pos));
 
-  // Shorten the first segment to avoid overlapping with the unit/hex center
-  if (pathPoints.length >= 2) {
-    const firstPoint = pathPoints[0];
-    const secondPoint = pathPoints[1];
-
-    // Calculate direction from first to second point
-    const dx = secondPoint!.x - firstPoint!.x;
-    const dy = secondPoint!.y - firstPoint!.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-
-    // Offset the start point towards the second point
-    const offset = hexSize * 0.5; // Adjust this value to control how far from hex center the arrow starts
-    const unitX = dx / length;
-    const unitY = dy / length;
-
-    pathPoints[0] = {
-      x: firstPoint!.x + unitX * offset,
-      y: firstPoint!.y + unitY * offset,
-    };
-  }
-
-  // Create SVG path string for the route
-  const createPathString = (points: { x: number; y: number }[]) => {
-    if (points.length < 2) return "";
-
-    let pathString = `M ${points[0]?.x} ${points[0]?.y}`;
-    for (let i = 1; i < points.length; i++) {
-      pathString += ` L ${points[i]?.x} ${points[i]?.y}`;
-    }
-    return pathString;
+  // Pull the tip back from the destination centre so it doesn't cover the unit
+  const tip = pathPoints[pathPoints.length - 1]!;
+  const beforeTip = pathPoints[pathPoints.length - 2]!;
+  const dx = tip.x - beforeTip.x;
+  const dy = tip.y - beforeTip.y;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const offset = hexSize * 0.5;
+  pathPoints[pathPoints.length - 1] = {
+    x: tip.x - (dx / length) * offset,
+    y: tip.y - (dy / length) * offset,
   };
 
-  // Calculate arrowhead at the end of the path
+  // Create SVG path string for the route
+  const createPathString = (points: { x: number; y: number }[]) =>
+    points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+  // Arrowhead at the (shortened) tip, pointing along the last segment
   const getArrowHead = (points: { x: number; y: number }[]) => {
-    if (points.length < 2) return null;
-
-    const lastPoint = points[0]; //NOTE: points seem to be backwards
-    const secondLastPoint = points[1];
-
-    // Calculate direction FROM secondLast TO last (forward direction)
-    const dx = lastPoint!.x - secondLastPoint!.x;
-    const dy = lastPoint!.y - secondLastPoint!.y;
-
+    const lastPoint = points[points.length - 1]!;
     const arrowSize = 12;
     const arrowAngle = Math.PI / 6; // 30 degrees
-
-    // Calculate the angle of the forward direction
     const forwardAngle = Math.atan2(dy, dx);
 
-    // Arrowhead points should go backwards from the tip
     const arrowHead1 = {
-      x: lastPoint!.x - arrowSize * Math.cos(forwardAngle - arrowAngle),
-      y: lastPoint!.y - arrowSize * Math.sin(forwardAngle - arrowAngle),
+      x: lastPoint.x - arrowSize * Math.cos(forwardAngle - arrowAngle),
+      y: lastPoint.y - arrowSize * Math.sin(forwardAngle - arrowAngle),
     };
-
     const arrowHead2 = {
-      x: lastPoint!.x - arrowSize * Math.cos(forwardAngle + arrowAngle),
-      y: lastPoint!.y - arrowSize * Math.sin(forwardAngle + arrowAngle),
+      x: lastPoint.x - arrowSize * Math.cos(forwardAngle + arrowAngle),
+      y: lastPoint.y - arrowSize * Math.sin(forwardAngle + arrowAngle),
     };
 
     return { lastPoint, arrowHead1, arrowHead2 };
@@ -112,16 +88,14 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
       />
 
       {/* Arrow head */}
-      {arrowHead && (
-        <polygon
-          points={`${arrowHead.lastPoint!.x},${arrowHead.lastPoint!.y} ${
-            arrowHead.arrowHead1.x
-          },${arrowHead.arrowHead1.y} ${arrowHead.arrowHead2.x},${
-            arrowHead.arrowHead2.y
-          }`}
-          fill={color}
-        />
-      )}
+      <polygon
+        points={`${arrowHead.lastPoint.x},${arrowHead.lastPoint.y} ${
+          arrowHead.arrowHead1.x
+        },${arrowHead.arrowHead1.y} ${arrowHead.arrowHead2.x},${
+          arrowHead.arrowHead2.y
+        }`}
+        fill={color}
+      />
     </g>
   );
 }

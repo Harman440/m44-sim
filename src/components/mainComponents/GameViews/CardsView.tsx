@@ -3,32 +3,37 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import CommandCard from "../../../game-core/commandCard";
 import CommandCardComponent from "../../CommandCardComponent";
 import "./CardsView.css";
-import Deck from "../../../game-core/deck";
 
 // Must be at least the 0.5s slideDown animation in CardsView.css
 export const DEAL_ANIMATION_MS = 600;
 export const DEAL_GAP_MS = 150;
 
 interface CardsViewProps {
-  commandCardsDeck: Deck;
-  handCards: CommandCard[];
+  handCards: readonly CommandCard[];
+  choiceCards: readonly CommandCard[];
+  drawPileCount: number;
+  discardPileCount: number;
   dealtCardIds: ReadonlySet<string>;
   onCardDealt: (card: CommandCard) => void;
-  onAddCardToHand: (card: CommandCard) => void;
+  /** Returns false when the deck doesn't have 2 cards */
+  onDrawChoice: () => boolean;
+  onChooseCard: (card: CommandCard) => void;
   onCardClick: (card: CommandCard) => void;
 }
 
 function CardsView({
-  commandCardsDeck,
   handCards,
+  choiceCards,
+  drawPileCount,
+  discardPileCount,
   dealtCardIds,
   onCardDealt,
-  onAddCardToHand,
+  onDrawChoice,
+  onChooseCard,
   onCardClick,
 }: CardsViewProps) {
   const [message, setMessage] = useState('Selecciona una carta para jugarla');
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
-  const [choiceCards, setChoiceCards] = useState<CommandCard[]>([]);
 
   const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
   const nextCardToDeal = handCards.find((card) => !dealtCardIds.has(card.id));
@@ -51,23 +56,15 @@ function CardsView({
   }, [animatingCard, nextCardToDeal, onCardDealt]);
 
   const drawChoice = () => {
-    const drawnCards = commandCardsDeck.draw(2);
-    if (drawnCards.length < 2) {
-      drawnCards.forEach((card) => commandCardsDeck.discard(card));
-      setMessage('No hay suficientes cartas en el mazo!');
-      return;
-    }
-
-    setChoiceCards(drawnCards);
-    setMessage('Elige una carta para añadirla a tu mano');
+    setMessage(
+      onDrawChoice()
+        ? 'Elige una carta para añadirla a tu mano'
+        : 'No hay suficientes cartas en el mazo!'
+    );
   };
 
   const chooseCard = (card: CommandCard) => {
-    choiceCards
-      .filter((c) => c !== card)
-      .forEach((otherCard) => commandCardsDeck.discard(otherCard));
-    setChoiceCards([]);
-    onAddCardToHand(card); // dealt into the hand by the effect above
+    onChooseCard(card); // the card is then dealt into the hand by the effect above
     setMessage('Carta elegida, selecciona una carta para jugarla');
   };
 
@@ -118,7 +115,7 @@ function CardsView({
       <div className="top-area">
         <Stack sx={{ alignItems: "center" }}>
           <Typography sx={{ mb: 1 }}>
-            Cartas ({commandCardsDeck.getDrawPileCount()})
+            Cartas ({drawPileCount})
           </Typography>
           <div className="deck-pile">
             <div className="deck-back">?</div>
@@ -130,10 +127,10 @@ function CardsView({
 
         <Stack sx={{ alignItems: "center" }}>
           <Typography sx={{ mb: 1 }}>
-            Descarte ({commandCardsDeck.getDiscardPileCount()})
+            Descarte ({discardPileCount})
           </Typography>
           <div className="discard-pile">
-            {commandCardsDeck.getDiscardPileCount() > 0 && (
+            {discardPileCount > 0 && (
               <div className="deck-back">?</div>
             )}
           </div>

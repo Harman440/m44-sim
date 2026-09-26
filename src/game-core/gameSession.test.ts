@@ -1,0 +1,305 @@
+import { describe, expect, it, vi } from "vitest";
+import GameSession from "./gameSession";
+import CommandCard, { CommandCardType } from "./commandCard";
+import { TurnPhase } from "../types/gameManager";
+import { Position, Scenario } from "../types/scenario";
+
+// Allies (no flip): infantry left (7,1), left-center (7,3), right (8,11);
+// tank in the open center at (4,6) with forest to its east at (4,7)
+const scenario: Scenario = {
+  id: "test",
+  name: "Test",
+  description: "",
+  tiles: { forest: [{ row: 4, col: 7 }] },
+  units: {
+    allies: {
+      infantry: [{ row: 7, col: 1 }, { row: 7, col: 3 }, { row: 8, col: 11 }],
+      tank: [{ row: 4, col: 6 }],
+    },
+    axis: {},
+  },
+};
+
+const TANK: Position = { row: 4, col: 6 };
+const LEFT_INF: Position = { row: 7, col: 1 };
+
+const cards = () => [
+  new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
+  new CommandCard({ id: "right", type: CommandCardType.RIGHT, maxTotalOrders: 2 }),
+  new CommandCard({ id: "all", type: CommandCardType.ALLSIDES, maxTotalOrders: 6 }),
+  new CommandCard({ id: "tank", type: CommandCardType.TANK, maxTotalOrders: 4 }),
+];
+
+/** Session with the 4 test cards shuffled; `deckSize` of them stay in the deck, the rest are in hand */
+const makeSession = (deckSize = 1) => {
+  const commandCards = cards();
+  return new GameSession({
+    scenario,
+    faction: "Allies",
+    initialHandSize: commandCards.length - deckSize,
+    commandCards,
+  });
+};
+
+/** Session whose whole deck is in hand, so tests can pick any card */
+const sessionWithAllCards = () => {
+  const session = makeSession(0);
+  const card = (id: string) => session.getSnapshot().hand.find((c) => c.id === id)!;
+  return { session, card };
+};
+
+const unitAt = (session: GameSession, p: Position) => session.board.getHex(p)!.unit;
+
+const orderablePositions = (session: GameSession) =>
+  session.board
+    .getAllHexes()
+    .filter((h) => h.unit?.isOrderable())
+    .map((h) => `${h.getPosition().row}-${h.getPosition().col}`)
+    .sort();
+
+/** Give hold orders until none are left, then commit and go to battle */
+const orderAllAndFight = (session: GameSession) => {
+  while (session.getSnapshot().ordersLeft > 0) {
+    const hex = session.board.getAllHexes().find((h) => h.unit?.isOrderable())!;
+    expect(session.issueOrder(hex.getPosition(), hex.getPosition())).toBe(true);
+  }
+  expect(session.commitOrders()).toBe(true);
+  expect(session.startBattle()).toBe(true);
+};
+
+describe("GameSession setup", () => {
+  it("starts on turn 1 picking cards, with the initial hand drawn", () => {
+    const snapshot = makeSession(1).getSnapshot();
+
+    expect(snapshot.turn).toBe(1);
+    expect(snapshot.phase).toBe(TurnPhase.PICK_CARDS);
+    expect(snapshot.hand).toHaveLength(3);
+    expect(snapshot.drawPileCount).toBe(1);
+    expect(snapshot.discardPileCount).toBe(0);
+  });
+
+  it("returns the same snapshot until something changes (required by useSyncExternalStore)", () => {
+    const { session, card } = sessionWithAllCards();
+    const before = session.getSnapshot();
+
+    expect(session.getSnapshot()).toBe(before);
+
+    session.pickCard(card("left"));
+    expect(session.getSnapshot()).not.toBe(before);
+  });
+
+  it("notifies subscribers on changes but not on rejected actions", () => {
+    const { session, card } = sessionWithAllCards();
+    const listener = vi.fn();
+    const unsubscribe = session.subscribe(listener);
+
+    session.startBattle(); // not allowed while picking cards
+    expect(listener).not.toHaveBeenCalled();
+
+    session.pickCard(card("left"));
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    session.issueOrder(LEFT_INF, LEFT_INF);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GameSession picking a card", () => {
+  it("moves to ordering with the orders left capped at the units available", () => {
+    const { session, card } = sessionWithAllCards();
+
+    expect(session.pickCard(card("all"))).toBe(true);
+
+    const snapshot = session.getSnapshot();
+    expect(snapshot.phase).toBe(TurnPhase.ORDER_UNITS);
+    expect(snapshot.chosenCard?.id).toBe("all");
+    expect(snapshot.ordersLeft).toBe(4); // card allows 6, only 4 units
+  });
+
+  it("sets orders left straight away, so the orders screen never starts at 0 (B11)", () => {
+    const { session, card } = sessionWithAllCards();
+
+    session.pickCard(card("left"));
+
+    expect(session.getSnapshot().ordersLeft).toBe(2);
+  });
+
+  it("rejects a card that isn't in the hand, or a second card", () => {
+    const { session, card } = sessionWithAllCards();
+
+    expect(session.pickCard(new CommandCard({ id: "stranger" }))).toBe(false);
+    expect(session.pickCard(card("left"))).toBe(true);
+    expect(session.pickCard(card("right"))).toBe(false);
+    expect(session.getSnapshot().chosenCard?.id).toBe("left");
+  });
+});
+
+describe("GameSession giving orders", () => {
+  it("only offers moves for units the card lets you order", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+
+    expect(session.getMoveOptions({ row: 8, col: 11 })).toBeNull(); // right flank
+    expect(session.getMoveOptions({ row: 0, col: 0 })).toBeNull(); // empty hex
+    expect(session.getMoveOptions(LEFT_INF)?.moves.length).toBeGreaterThan(0);
+  });
+
+  it("moves a unit and records the path from start to destination (B5)", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    const tank = unitAt(session, TANK);
+    const destination = { row: 5, col: 6 };
+
+    expect(session.issueOrder(TANK, destination)).toBe(true);
+
+    const [order] = session.getSnapshot().orders;
+    expect(order!.path).toEqual([TANK, destination]);
+    expect(order!.canFire).toBe(true);
+    expect(unitAt(session, destination)).toBe(tank);
+    expect(unitAt(session, TANK)).toBeNull();
+    expect(tank!.isReadyToFire()).toBe(true);
+    expect(session.getSnapshot().ordersLeft).toBe(3);
+  });
+
+  it("can't fire after moving into forest", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+
+    session.issueOrder(TANK, { row: 4, col: 7 });
+
+    expect(session.getSnapshot().orders[0]!.canFire).toBe(false);
+  });
+
+  it("orders a unit to hold and fire when its own hex is chosen", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+
+    const [order] = session.getSnapshot().orders;
+    expect(order!.canFire).toBe(true);
+    expect(unitAt(session, LEFT_INF)!.isReadyToFire()).toBe(true);
+    expect(session.getMoveOptions(LEFT_INF)).toBeNull(); // already ordered
+  });
+
+  it("rejects a destination out of range without changing anything", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    const before = session.getSnapshot();
+
+    expect(session.issueOrder(LEFT_INF, { row: 7, col: 6 })).toBe(false);
+
+    expect(session.getSnapshot()).toBe(before);
+    expect(unitAt(session, LEFT_INF)).not.toBeNull();
+  });
+
+  it("undoes the last order, putting the unit back", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    const tank = unitAt(session, TANK);
+    session.issueOrder(TANK, { row: 5, col: 6 });
+
+    expect(session.undoLastOrder()).toBe(true);
+
+    expect(unitAt(session, TANK)).toBe(tank);
+    expect(tank!.isOrderable()).toBe(true);
+    expect(tank!.isOrdered()).toBe(false);
+    expect(session.getSnapshot().orders).toHaveLength(0);
+    expect(session.getSnapshot().ordersLeft).toBe(4);
+  });
+
+  it("only commits once every order is given, then locks the board", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    session.issueOrder(LEFT_INF, LEFT_INF);
+
+    expect(session.commitOrders()).toBe(false);
+    expect(session.startBattle()).toBe(false);
+
+    session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
+    expect(session.commitOrders()).toBe(true);
+
+    expect(orderablePositions(session)).toEqual([]);
+    expect(session.undoLastOrder()).toBe(false);
+    expect(session.getMoveOptions(TANK)).toBeNull();
+  });
+});
+
+describe("GameSession ending the turn", () => {
+  it("discards the played card, draws a new one and clears the orders", () => {
+    const session = makeSession(1);
+    const played = session.getSnapshot().hand[0]!;
+    session.pickCard(played);
+    orderAllAndFight(session);
+
+    expect(session.endTurn()).toBe(true);
+
+    const snapshot = session.getSnapshot();
+    expect(snapshot.turn).toBe(2);
+    expect(snapshot.phase).toBe(TurnPhase.PICK_CARDS);
+    expect(snapshot.hand).toHaveLength(3);
+    expect(snapshot.hand).not.toContain(played);
+    expect(snapshot.discardPileCount).toBe(1);
+    expect(snapshot.drawPileCount).toBe(0);
+    expect(snapshot.orders).toEqual([]);
+    expect(snapshot.chosenCard).toBeNull();
+    const units = session.board.getAllHexes().flatMap((h) => (h.unit ? [h.unit] : []));
+    expect(units.some((u) => u.isOrdered() || u.isReadyToFire())).toBe(false);
+  });
+
+  it("only ends the turn from the battle phase", () => {
+    const { session, card } = sessionWithAllCards();
+
+    expect(session.endTurn()).toBe(false);
+    session.pickCard(card("left"));
+    expect(session.endTurn()).toBe(false);
+  });
+
+  it("never loses or duplicates a card over many turns, reshuffles included", () => {
+    const session = makeSession(1);
+    const totalCards = 4;
+
+    for (let turn = 1; turn <= 30; turn++) {
+      const before = session.getSnapshot();
+      expect(before.hand.length + before.drawPileCount + before.discardPileCount).toBe(totalCards);
+      expect(new Set(before.hand.map((c) => c.id)).size).toBe(before.hand.length);
+
+      session.pickCard(before.hand[0]!);
+      orderAllAndFight(session);
+      expect(session.endTurn()).toBe(true);
+    }
+    expect(session.getSnapshot().turn).toBe(31);
+  });
+});
+
+describe("GameSession draw-2-keep-1 (debug placeholder)", () => {
+  it("keeps the chosen card, discards the other and blocks playing until then", () => {
+    const session = makeSession(2); // 2 in hand, 2 in the deck
+    const handCard = session.getSnapshot().hand[0]!;
+
+    expect(session.drawChoice()).toBe(true);
+    const [kept, other] = session.getSnapshot().choiceCards;
+    expect(session.drawChoice()).toBe(false);
+    expect(session.pickCard(handCard)).toBe(false);
+
+    expect(session.chooseCard(kept!)).toBe(true);
+
+    const snapshot = session.getSnapshot();
+    expect(snapshot.hand).toContain(kept);
+    expect(snapshot.hand).toHaveLength(3);
+    expect(snapshot.choiceCards).toEqual([]);
+    expect(snapshot.discardPileCount).toBe(1);
+    expect(session.chooseCard(other!)).toBe(false);
+    expect(session.pickCard(handCard)).toBe(true);
+  });
+
+  it("doesn't lose cards when there aren't 2 to draw", () => {
+    const session = makeSession(0); // everything in hand, nothing to draw
+
+    expect(session.drawChoice()).toBe(false);
+
+    const snapshot = session.getSnapshot();
+    expect(snapshot.hand.length + snapshot.drawPileCount + snapshot.discardPileCount).toBe(4);
+  });
+});

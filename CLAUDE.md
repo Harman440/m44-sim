@@ -12,20 +12,20 @@ A companion web app for playing Memoir '44 with **simultaneous** turns, using a 
 - `src/game-core/`: plain TypeScript game logic with **no React imports**:
   - `BoardManager`: hex grid, Axis flip, pathfinding (`calculatePossibleMovesWithPaths`), orderable units
   - `Hex`: terrain properties, board section (`_setSide`), neighbors (offset↔axial coordinates)
+  - `GameSession`: owns one player's game (board, deck, hand, turn flow) and is the only place game rules run. Actions (`pickCard`, `issueOrder`, `undoLastOrder`, `commitOrders`, `startBattle`, `endTurn`) return `false` and change nothing when they aren't allowed. After each change it publishes an immutable `GameSnapshot`.
   - `Unit`, `Order`, `Deck`, `Hand`, `CommandCard`
-  - `deprecated/`: an old GameState/TurnState sketch that the Step 3 reducer will replace
 - `src/data/`: scenarios and command-card templates (data only)
 - `src/types/`: shared types and enums (`TurnPhase`, `HexType`, `Side`, `Position`, …)
 - `src/theme.ts`: MUI theme (dark, orange primary)
 - `src/components/`: rendering (SVG board: `Board` → `Hexagon` → `UnitComponent`, plus `OrderComponent` arrows; `CommandCardComponent`)
-- `src/components/mainComponents/GameView.tsx`: turn flow PICK_CARDS → ORDER_UNITS → BATTLE, with one view per phase in `GameViews/`
+- `src/components/mainComponents/GameView.tsx`: creates the `GameSession` and subscribes with `useSyncExternalStore`, then renders one view per phase (PICK_CARDS → ORDER_UNITS → BATTLE) from `GameViews/`. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
 - Tests live next to the code as `*.test.ts`. The Vitest setup is in `src/test/setup.ts` (jsdom + jest-dom).
 
 ## Conventions
 - UI text is in **Spanish**. Code, identifiers and comments are in English.
 - UI uses **MUI 9** (`@mui/material`, Emotion) with the dark theme in `src/theme.ts`. Use MUI components (`Button`, `Stack`, `Typography`, …) for new UI and style them with `sx`: MUI 9 removed the style-shorthand props on layout components. The SVG board and the card art stay custom.
 - Keep rules logic in `game-core/` and cover it with Vitest tests. Components only render and call into game-core.
-- Game objects are mutable class instances. Mutating them does **not** re-render React by itself, so every change must go through a state update. The Step 3 reducer will make this explicit.
+- Game objects are mutable class instances. Only `GameSession` may change them, and every change must end with it publishing a snapshot; that's what re-renders React. Don't mutate game objects from components. Don't move game logic into a React reducer either: React runs reducers twice in StrictMode, so side effects like `deck.draw()` would happen twice.
 - Board: 13×9 offset grid with pointy-top hexes; odd rows have one fewer column and are shifted half a hex. Positions are `{row, col}` and map keys are `"row-col"`. For Axis, positions are flipped and the board image is rotated 180°.
 - Sections: left/center/right plus the shared left-center/right-center border hexes (`Hex._setSide`).
 - Rules are a loose variant: when a rule is ambiguous, ask instead of assuming official M44.

@@ -12,7 +12,7 @@ interface BoardProps {
   possibleMovePositions: Position[];
   possibleMoveAndFirePositions: Position[];
   boardManager: BoardManager;
-  orders: Order[];
+  orders: readonly Order[];
   boardWidth?: number;
   boardHeight?: number;
   hexSize?: number;

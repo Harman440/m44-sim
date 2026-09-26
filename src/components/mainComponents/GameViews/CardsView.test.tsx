@@ -1,40 +1,54 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CardsView, { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./CardsView";
 import CommandCard from "../../../game-core/commandCard";
-import Deck from "../../../game-core/deck";
+import GameSession from "../../../game-core/gameSession";
 
-const card = (name: string) => new CommandCard({ id: name, name });
+const makeSession = (cardNames: string[], initialHandSize: number) =>
+  new GameSession({
+    scenario: {
+      id: "test",
+      name: "Test",
+      description: "",
+      tiles: {},
+      units: { allies: {}, axis: {} },
+    },
+    faction: "Allies",
+    initialHandSize,
+    commandCards: cardNames.map((name) => new CommandCard({ id: name, name })),
+  });
 
-// Holds the hand and dealt ids the way GameView does
+const nameOf = (card: CommandCard) => card.name;
+
+// Wires CardsView to a real session the way GameView does
 function Harness({
-  deck,
-  initialHand,
+  session,
   initialDealt = [],
-  onCardClick = () => {},
+  onCardClick,
 }: {
-  deck: Deck;
-  initialHand: CommandCard[];
+  session: GameSession;
   initialDealt?: string[];
   onCardClick?: (card: CommandCard) => void;
 }) {
-  const [hand, setHand] = useState(initialHand);
+  const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [dealt, setDealt] = useState<ReadonlySet<string>>(() => new Set(initialDealt));
   const onCardDealt = useCallback(
     (c: CommandCard) => setDealt((prev) => new Set(prev).add(c.id)),
     []
   );
-  const onAddCardToHand = useCallback((c: CommandCard) => setHand((prev) => [...prev, c]), []);
 
   return (
     <CardsView
-      commandCardsDeck={deck}
-      handCards={hand}
+      handCards={game.hand}
+      choiceCards={game.choiceCards}
+      drawPileCount={game.drawPileCount}
+      discardPileCount={game.discardPileCount}
       dealtCardIds={dealt}
       onCardDealt={onCardDealt}
-      onAddCardToHand={onAddCardToHand}
-      onCardClick={onCardClick}
+      onDrawChoice={() => session.drawChoice()}
+      onChooseCard={(card) => session.chooseCard(card)}
+      onCardClick={onCardClick ?? ((card) => session.pickCard(card))}
     />
   );
 }
@@ -62,62 +76,61 @@ afterEach(() => {
 
 describe("CardsView dealing", () => {
   it("deals cards that haven't been shown yet, one at a time", () => {
-    const { container } = render(
-      <Harness deck={new Deck([])} initialHand={[card("A"), card("B")]} />
-    );
+    const session = makeSession(["A", "B"], 2);
+    const [first, second] = session.getSnapshot().hand.map(nameOf);
+    const { container } = render(<Harness session={session} />);
 
     expect(handNames(container)).toEqual([]);
 
     act(() => {
       vi.advanceTimersByTime(DEAL_GAP_MS);
     });
-    expect(screen.getByTestId("animating-card")).toHaveTextContent("A");
+    expect(screen.getByTestId("animating-card")).toHaveTextContent(first!);
 
     act(() => {
       vi.advanceTimersByTime(DEAL_ANIMATION_MS);
     });
-    expect(handNames(container)).toEqual(["A"]);
+    expect(handNames(container)).toEqual([first]);
 
     dealOneCard();
-    expect(handNames(container)).toEqual(["A", "B"]);
+    expect(handNames(container)).toEqual([first, second]);
     expect(screen.queryByTestId("animating-card")).not.toBeInTheDocument();
   });
 
   it("shows already dealt cards straight away and only animates the new one", () => {
+    const session = makeSession(["A", "B", "C"], 3);
+    const hand = session.getSnapshot().hand.map(nameOf);
     const { container } = render(
-      <Harness
-        deck={new Deck([])}
-        initialHand={[card("A"), card("B"), card("New")]}
-        initialDealt={["A", "B"]}
-      />
+      <Harness session={session} initialDealt={hand.slice(0, 2)} />
     );
 
-    expect(handNames(container)).toEqual(["A", "B"]);
+    expect(handNames(container)).toEqual(hand.slice(0, 2));
 
     dealOneCard();
-    expect(handNames(container)).toEqual(["A", "B", "New"]);
+    expect(handNames(container)).toEqual(hand);
   });
 });
 
 describe("CardsView choosing between 2 cards", () => {
   const setup = (onCardClick = vi.fn()) => {
-    const deck = new Deck([card("X"), card("Y"), card("Z")]);
+    const session = makeSession(["A", "X", "Y", "Z"], 1);
+    const [handCard] = session.getSnapshot().hand.map(nameOf);
     const utils = render(
-      <Harness deck={deck} initialHand={[card("A")]} initialDealt={["A"]} onCardClick={onCardClick} />
+      <Harness session={session} initialDealt={[handCard!]} onCardClick={onCardClick} />
     );
     fireEvent.click(screen.getByRole("button", { name: "Coge 2 Cartas" }));
-    return { deck, onCardClick, ...utils };
+    return { session, handCard: handCard!, onCardClick, ...utils };
   };
 
   it("locks the button while a choice is open", () => {
-    const { deck } = setup();
+    const { session } = setup();
 
     expect(screen.getByRole("button", { name: "Coge 2 Cartas" })).toBeDisabled();
-    expect(deck.getDrawPileCount()).toBe(1);
+    expect(session.getSnapshot().drawPileCount).toBe(1);
   });
 
   it("adds the chosen card to the hand and discards the other", () => {
-    const { deck, container } = setup();
+    const { session, handCard, container } = setup();
     const choiceArea = container.querySelector(".choice-area") as HTMLElement;
     const [chosen, other] = Array.from(choiceArea.querySelectorAll(".card-title")).map(
       (el) => el.textContent!
@@ -126,16 +139,19 @@ describe("CardsView choosing between 2 cards", () => {
     fireEvent.click(within(choiceArea).getByText(chosen!));
     dealOneCard();
 
-    expect(handNames(container)).toEqual(["A", chosen]);
-    expect(deck.discardPile.map((c) => c.name)).toEqual([other]);
-    expect(container.querySelector(".choice-area")).toBeNull();
+    expect(handNames(container)).toEqual([handCard, chosen]);
+    expect(session.getSnapshot().discardPileCount).toBe(1);
+    expect(screen.getByText("Descarte (1)")).toBeInTheDocument();
+    expect(screen.queryByText(other!)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Coge 2 Cartas" })).toBeEnabled();
   });
 
   it("doesn't let you play a card until you have chosen", () => {
-    const { onCardClick, container } = setup();
+    const { onCardClick, handCard, container } = setup();
 
-    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText("A"));
+    fireEvent.click(
+      within(container.querySelector(".cards-grid") as HTMLElement).getByText(handCard)
+    );
 
     expect(onCardClick).not.toHaveBeenCalled();
     expect(screen.getByText("Primero elige una de las dos cartas")).toBeInTheDocument();

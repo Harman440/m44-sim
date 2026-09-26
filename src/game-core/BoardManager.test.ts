@@ -147,6 +147,15 @@ describe("BoardManager.setOrderableUnits", () => {
     }
   );
 
+  it("clears the previous card's orderable units (B9)", () => {
+    const board = new BoardManager(scenario);
+    board.setOrderableUnits(card(CommandCardType.LEFT, 2));
+
+    board.setOrderableUnits(card(CommandCardType.RIGHT, 2));
+
+    expect(orderablePositions(board)).toEqual(["7-8", "8-11"]);
+  });
+
   it("setUnitsNotOrdable clears every orderable flag", () => {
     const board = new BoardManager(scenario);
     board.setOrderableUnits(card(CommandCardType.ALLSIDES, 6));

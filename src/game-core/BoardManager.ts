@@ -255,14 +255,11 @@ class BoardManager {
       maxRange,
       false
     );
-    console.log("Debug: Possible moves with paths:", results);
     const targetResult = results.find(
       (result) =>
         result.position.row === destination.row &&
         result.position.col === destination.col
     );
-
-    console.log("Debug: Target result:", targetResult);
 
     return targetResult ? targetResult.path : null;
   };
@@ -312,6 +309,9 @@ class BoardManager {
   }
 
   setOrderableUnits(commandCard: CommandCard): number {
+    // Start from a clean slate so a previous card's units don't stay orderable
+    this.setUnitsNotOrdable();
+
     let sides: Side[] = [];
     let filterFn: ((unit: Unit) => boolean) | null = null;
 
