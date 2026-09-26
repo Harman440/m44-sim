@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -15,6 +16,7 @@ import { Faction } from "../../../types/faction";
 import { summarizeOrders } from "../../../game-core/turnSummary";
 import TurnSummary from "../../TurnSummary";
 import FireDialog from "../../FireDialog";
+import CollisionDialog from "../../CollisionDialog";
 import BattleMap from "./BattleMap";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
@@ -35,9 +37,12 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
   const [showMap, setShowMap] = useState(false);
   const [firingIndex, setFiringIndex] = useState<number | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const [collisionOpen, setCollisionOpen] = useState(false);
   const summaries = summarizeOrders(game.orders, session.board, game.shots, game.firesPerUnit);
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
+  // Only units that moved (and are still on the board) can have collided with an enemy unit
+  const anyMoved = summaries.some((s) => !s.hold && !s.removed);
   const play = useSound();
 
   /** After a shot: the dice sound, or the stamp for a shot with no dice */
@@ -90,6 +95,21 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             </Stack>
           </Box>
 
+          {anyMoved && (
+            <Alert
+              severity="warning"
+              icon={<GameIcon name="battle" />}
+              action={
+                <Button color="warning" onClick={() => setCollisionOpen(true)}>
+                  ¿Ha habido un choque?
+                </Button>
+              }
+              sx={{ alignItems: "center", flexWrap: "wrap", "& .MuiAlert-action": { pl: 0, ml: "auto" } }}
+            >
+              Resuelve los choques antes que cualquier otro disparo.
+            </Alert>
+          )}
+
           <TurnSummary
             card={game.chosenCard}
             summaries={summaries}
@@ -109,6 +129,15 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         onQuickFire={(dice) => withSound(firingIndex !== null && session.fireQuick(firingIndex, dice))}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onClose={() => setFiringIndex(null)}
+      />
+
+      <CollisionDialog
+        open={collisionOpen}
+        summaries={summaries}
+        card={game.chosenCard}
+        faction={faction}
+        onRoll={(orderIndex) => withSound(session.fireCollision(orderIndex))}
+        onClose={() => setCollisionOpen(false)}
       />
 
       <Dialog open={confirmingEnd} onClose={() => setConfirmingEnd(false)}>

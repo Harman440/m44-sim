@@ -118,6 +118,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(shot.order) }}
                     >
                       {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
+                      {shot.collision && " en un choque"}
                       {shot.steps.length === 0 && " (tirada rápida)"} → {describeFaces(shot.faces)}
                       {shot.notes.map((note) => ` · ${note}`).join("")}
                     </Typography>

@@ -621,6 +621,80 @@ describe("GameSession attacker's extra first turn", () => {
   });
 });
 
+describe("GameSession collisions", () => {
+  const MOVED_TO: Position = { row: 4, col: 4 };
+
+  /** The tank moves 2 hexes west (it can still fire); the card may add close-assault dice */
+  const tankMoved = (closeAssaultAdditionalDice = 0) => {
+    const commandCards = [
+      new CommandCard({ id: "tank", name: "Blindados", type: CommandCardType.TANK, maxTotalOrders: 1, closeAssaultAdditionalDice }),
+    ];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0 });
+    session.pickCard(session.getSnapshot().hand[0]!);
+    expect(session.issueOrder(TANK, MOVED_TO)).toBe(true);
+    orderAllAndFight(session);
+    return session;
+  };
+
+  it("rolls close assault dice minus 1, ignoring terrain, and uses up the unit's shot", () => {
+    const session = tankMoved();
+
+    expect(session.fireCollision(0)).toBe(true);
+
+    const [shot] = session.getSnapshot().shots;
+    expect(shot).toMatchObject({ orderIndex: 0, dice: 2, collision: true });
+    expect(shot!.steps.map((step) => step.dice)).toEqual([3, -1]);
+    expect(shot!.faces).toHaveLength(2);
+    expect(shot!.notes[0]).toMatch(/retiradas no se pueden ignorar/);
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.fireQuick(0, 3)).toBe(false);
+    expect(session.fireCollision(0)).toBe(false);
+  });
+
+  it("adds the card's close-assault bonus", () => {
+    const session = tankMoved(1);
+
+    session.fireCollision(0);
+
+    expect(session.getSnapshot().shots[0]!.dice).toBe(3);
+    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: "Carta Blindados", dice: 1 });
+  });
+
+  it("only lets a unit that moved, can fire and hasn't fired yet roll a collision", () => {
+    // Holding units didn't move, so they can't have collided
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    expect(session.fireCollision(0)).toBe(false);
+
+    // Infantry that moved 2 hexes can't fire this turn, so it doesn't roll either
+    const { session: moved, card: movedCard } = sessionWithAllCards();
+    moved.pickCard(movedCard("left"));
+    moved.issueOrder(LEFT_INF, { row: 5, col: 1 });
+    orderAllAndFight(moved);
+    expect(moved.getSnapshot().orders[0]!.canFire).toBe(false);
+    expect(moved.fireCollision(0)).toBe(false);
+
+    // A unit that already fired normally
+    const fired = tankMoved();
+    fired.fireQuick(0, 3);
+    expect(fired.fireCollision(0)).toBe(false);
+  });
+
+  it("keeps the collision flag after a reload and in the turn log", () => {
+    const session = tankMoved();
+    session.fireCollision(0);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
+      new CommandCard({ id: "tank", name: "Blindados", type: CommandCardType.TANK, maxTotalOrders: 1 }),
+    ]);
+    expect(restored.getSnapshot().shots[0]!.collision).toBe(true);
+
+    finishTurn(session);
+    expect(session.getSnapshot().log[0]!.shots[0]!.collision).toBe(true);
+  });
+});
+
 describe("GameSession turn log", () => {
   it("records each finished turn as plain JSON: card, orders, shots and map edits", () => {
     const { session, card } = sessionWithAllCards();
@@ -644,7 +718,7 @@ describe("GameSession turn log", () => {
     expect(record!.orders).toHaveLength(4);
     expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true });
     expect(record!.shots).toEqual([
-      { order: tankOrder, unit: "tank", dice: 2, steps: [], faces: expect.any(Array), notes: [] },
+      { order: tankOrder, unit: "tank", dice: 2, steps: [], faces: expect.any(Array), notes: [], collision: false },
     ]);
     expect(record!.shots[0]!.faces).toHaveLength(2);
     expect(record!.battleEdits).toEqual([

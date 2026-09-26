@@ -16,7 +16,7 @@ Done so far (details in git history):
 - Step 10: three selectable looks (Mapa de campaña, Caja del juego, Tienda de mando), icons, sound, motion
 - Step 11: bunker, line of sight and sandbags in the fire questionnaire; official dice values kept
 - Steps 12–14: installable offline app, Ajustes in game, smaller first download, turn log with "Historial" and JSON export
-- Steps 16–17: the attacker's extra first turn, and the Movimiento and Fase final phases
+- Steps 16–18: the attacker's extra first turn, the Movimiento and Fase final phases, and collisions
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -88,14 +88,16 @@ The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase f
 
 ### Step 18: Collisions
 When two units cross the same hex, or land on the same one, they battle at once, before the normal battle.
-- [ ] A "¿Ha habido un choque?" button at the top of the battle phase, with the reminder "Resuelve los choques antes que cualquier otro disparo"
-- [ ] It opens the fire dialog preset for a collision:
+- [x] A "¿Ha habido un choque?" button at the top of the battle phase (when a unit moved), with the reminder "Resuelve los choques antes que cualquier otro disparo"
+- [x] It opens a collision dialog (`CollisionDialog`): pick the unit, see the dice, roll (`GameSession.fireCollision`, dice in `collisionSteps` in `fireQuestions.ts`):
   - close assault dice −1 (normally 3 − 1 = 2)
   - terrain ignored, both for battle restrictions and dice reductions
-  - retreats can't be ignored
-- [ ] Explain the outcome after the roll:
+  - retreats can't be ignored (a reminder kept with the roll)
+- [x] Explain the outcome after the roll:
   - the loser retreats or is eliminated; the winner stays, or keeps moving to its destination
   - if nobody retreats, both units move one hex back along their path (which may be blocked)
+- [x] **Decided:** only units that moved and can fire this turn roll; a unit that moved too far to fire doesn't roll (the dialog still explains the outcome)
+- [x] **Decided:** the card's close-assault bonus dice are added to a collision roll
 - [x] **Decided:** a collision roll uses up the unit's shot for the turn
 
 ### Step 19: Battle order and retreats

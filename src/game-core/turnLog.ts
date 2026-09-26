@@ -34,6 +34,8 @@ export interface TurnRecord {
     steps: DiceStep[];
     faces: DieFace[];
     notes: string[];
+    /** Rolled for a collision in the movement phase */
+    collision: boolean;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -71,6 +73,7 @@ export function recordTurn({ turn, card, orders, shots, battleEdits, board }: Tu
       steps: shot.steps.map((step) => ({ ...step })),
       faces: [...shot.faces],
       notes: [...shot.notes],
+      collision: shot.collision,
     })),
     battleEdits: editedUnits(battleEdits, board).map((unit, i) => {
       const edit = battleEdits[i]!;

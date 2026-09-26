@@ -6,7 +6,7 @@ import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { DieFace, rollDice } from "./dice";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
-import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
+import { COLLISION_NOTES, FIRE_QUESTIONS, collisionSteps, fireBonusSteps } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -49,10 +49,12 @@ export interface Shot {
   faces: readonly DieFace[];
   /** Reminders for resolving the hits (e.g. sandbags ignore 1 flag) */
   notes: readonly string[];
+  /** Rolled for a collision in the movement phase, before the normal battle */
+  collision: boolean;
 }
 
-/** Saves from before notes existed have none */
-type SavedShot = Omit<Shot, "notes"> & { notes?: string[] };
+/** Saves from before notes or collisions existed have neither */
+type SavedShot = Omit<Shot, "notes" | "collision"> & { notes?: string[]; collision?: boolean };
 
 export interface MoveOptions {
   moves: Position[];
@@ -397,6 +399,22 @@ class GameSession {
     return this.recordShot(orderIndex, dice, [], []);
   }
 
+  /**
+   * Roll for a collision: the unit crossed or landed on a hex with an enemy
+   * unit during the movement phase. Only a unit that moved, may fire and
+   * hasn't fired yet; the roll uses up its shot.
+   */
+  fireCollision(orderIndex: number): boolean {
+    if (this.shotsLeft(orderIndex) <= 0) return false;
+    const order = this.orders[orderIndex]!;
+    if (samePosition(order.start, order.end)) return false;
+    if (this.shots.some((shot) => shot.orderIndex === orderIndex)) return false;
+
+    const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.chosenCard });
+    const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
+    return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], true);
+  }
+
   /** Take back this unit's last shot, for a shot recorded by mistake */
   undoShot(orderIndex: number): boolean {
     if (this.phase !== TurnPhase.BATTLE) return false;
@@ -407,8 +425,8 @@ class GameSession {
     return this.publish();
   }
 
-  private recordShot(orderIndex: number, dice: number, steps: DiceStep[], notes: string[]): true {
-    const shot: Shot = { orderIndex, steps, dice, faces: rollDice(dice, this.random), notes };
+  private recordShot(orderIndex: number, dice: number, steps: DiceStep[], notes: string[], collision = false): true {
+    const shot: Shot = { orderIndex, steps, dice, faces: rollDice(dice, this.random), notes, collision };
     this.shots = [...this.shots, shot];
     return this.publish();
   }
@@ -591,7 +609,7 @@ class GameSession {
     session.shots = (saved.version === 1 ? [] : saved.shots).map((shot) => {
       if (!session.orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
       if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
-      return { ...shot, notes: shot.notes ?? [] };
+      return { ...shot, notes: shot.notes ?? [], collision: shot.collision ?? false };
     });
     const log = saved.version === 1 || saved.version === 2 ? [] : saved.log;
     if (!Array.isArray(log)) throw new Error("Turn log is not a list");

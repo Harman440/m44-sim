@@ -97,3 +97,18 @@ export const fireBonusSteps = ({ card }: FireContext, answers: FireAnswers): Dic
   const bonus = closeAssault ? card.closeAssaultAdditionalDice : card.rangeAdditionalDice;
   return [{ label: `Carta ${card.name}`, dice: bonus }];
 };
+
+/**
+ * A collision in the movement phase (two units cross or land on the same hex):
+ * close assault dice − 1, plus the card's close-assault bonus. Terrain is ignored.
+ */
+export const collisionSteps = ({ unitType, card }: FireContext): DiceStep[] => [
+  { label: `Base: ${UNIT_LABELS[unitType]} en choque`, dice: BASE_DICE_BY_DISTANCE[unitType][0] ?? 0 },
+  { label: "Choque", dice: -1 },
+  ...(card?.closeAssaultAdditionalDice ? [{ label: `Carta ${card.name}`, dice: card.closeAssaultAdditionalDice }] : []),
+];
+
+/** Reminders kept with every collision roll */
+export const COLLISION_NOTES: readonly string[] = [
+  "Choque: el terreno no cuenta y las retiradas no se pueden ignorar.",
+];

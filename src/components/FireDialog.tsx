@@ -60,9 +60,9 @@ function ShotNotes({ notes }: { notes: readonly string[] }) {
 function ShotResult({ shot, number, faction }: { shot: Shot; number: number | null; faction: Faction }) {
   return (
     <Box data-testid="shot-result">
-      {number !== null && (
+      {(number !== null || shot.collision) && (
         <Typography variant="overline" color="text.secondary">
-          Disparo {number}
+          {[number !== null && `Disparo ${number}`, shot.collision && "Choque"].filter(Boolean).join(" · ")}
         </Typography>
       )}
       <Typography variant="body2" color="text.secondary">
