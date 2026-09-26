@@ -16,18 +16,19 @@ import {
   Typography,
 } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
+import { Faction } from "../types/faction";
 import { Shot } from "../game-core/gameSession";
 import { FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "../game-core/fireRules";
 import { OrderSummary } from "../game-core/turnSummary";
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import DiceResult from "./DiceResult";
-import { SECTION_LABELS, UNIT_LABELS } from "./labels";
+import { SECTION_LABELS, UNIT_LABELS } from "../labels";
 
 interface FireDialogProps {
   /** The firing unit's order; the dialog is closed when null */
   summary: OrderSummary | null;
   card: CommandCard | null;
-  faction: string;
+  faction: Faction;
   /** Fire using the questionnaire's answers; the session rolls the dice */
   onFire: (answers: FireAnswers) => boolean;
   /** Fire a number of dice the player worked out themselves */
@@ -42,7 +43,7 @@ const QUICK_DICE = [1, 2, 3, 4, 5, 6];
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 const diceText = (dice: number) => `${dice} ${dice === 1 ? "dado" : "dados"}`;
 
-function ShotResult({ shot, number, faction }: { shot: Shot; number: number | null; faction: string }) {
+function ShotResult({ shot, number, faction }: { shot: Shot; number: number | null; faction: Faction }) {
   return (
     <Box data-testid="shot-result">
       {number !== null && (

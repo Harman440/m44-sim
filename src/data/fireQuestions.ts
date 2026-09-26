@@ -7,12 +7,8 @@
 // the house rules.
 import { DiceStep, FireAnswers, FireContext, FireQuestion } from "../game-core/fireRules";
 import { UnitType } from "../game-core/unit";
-
-const UNIT_NAMES: Record<UnitType, string> = {
-  [UnitType.INFANTRY]: "Infantería",
-  [UnitType.TANK]: "Tanque",
-  [UnitType.ARTILLERY]: "Artillería",
-};
+import { HexType } from "../types/hex";
+import { UNIT_LABELS } from "../labels";
 
 /** Base dice by distance to the target (index 0 = adjacent); its length is the unit's range */
 export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
@@ -21,9 +17,9 @@ export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
   [UnitType.ARTILLERY]: [3, 3, 2, 2, 1, 1],
 };
 
-/** Dice lost when the target is in this terrain, by the firing unit's type */
-export const TARGET_TERRAIN_MODIFIERS: Record<string, { label: string; dice: Record<UnitType, number> }> = {
-  open: { label: "Campo abierto", dice: { infantry: 0, tank: 0, artillery: 0 } },
+/** Dice lost when the target is in this terrain, by the firing unit's type; answers are HexType values */
+export const TARGET_TERRAIN_MODIFIERS: Record<HexType, { label: string; dice: Record<UnitType, number> }> = {
+  plains: { label: "Campo abierto", dice: { infantry: 0, tank: 0, artillery: 0 } },
   forest: { label: "Bosque", dice: { infantry: -1, tank: -2, artillery: 0 } },
   town: { label: "Pueblo", dice: { infantry: -1, tank: -2, artillery: 0 } },
   hill: { label: "Colina", dice: { infantry: -1, tank: -1, artillery: 0 } },
@@ -41,7 +37,7 @@ const distanceQuestion: FireQuestion = {
     const distance = Number(answer);
     const dice = BASE_DICE_BY_DISTANCE[unitType][distance - 1] ?? 0;
     const hexes = distance === 1 ? "casilla" : "casillas";
-    return { label: `Base: ${UNIT_NAMES[unitType]} a ${distance} ${hexes}`, dice };
+    return { label: `Base: ${UNIT_LABELS[unitType]} a ${distance} ${hexes}`, dice };
   },
 };
 
@@ -51,7 +47,7 @@ const targetTerrainQuestion: FireQuestion = {
   options: () =>
     Object.entries(TARGET_TERRAIN_MODIFIERS).map(([value, { label }]) => ({ value, label })),
   effect: ({ unitType }, answer) => {
-    const terrain = TARGET_TERRAIN_MODIFIERS[answer];
+    const terrain = TARGET_TERRAIN_MODIFIERS[answer as HexType];
     if (!terrain) return null;
     return { label: `Objetivo en ${terrain.label.toLowerCase()}`, dice: terrain.dice[unitType] };
   },

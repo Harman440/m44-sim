@@ -18,6 +18,7 @@ import GameSession from "../../game-core/gameSession";
 import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
+import { FACTION_LABELS } from "../../labels";
 
 interface GameViewProps {
   /** Owns all game rules; React re-renders when it publishes a new snapshot */
@@ -35,7 +36,7 @@ const PHASE_STEPS: { phase: TurnPhase; label: string }[] = [
 ];
 
 function GameView({ session, resumed = false, onExit }: GameViewProps) {
-  const { scenario, faction: boardSide } = session;
+  const { scenario, faction } = session;
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -78,7 +79,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
       >
         <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>
-            {scenario.name} · {boardSide === "Axis" ? "Eje" : "Aliados"}
+            {scenario.name} · {FACTION_LABELS[faction]}
           </Typography>
           <Chip label={`Turno ${game.turn}`} size="small" />
           {PHASE_STEPS.map(({ phase, label }, i) => (
@@ -112,12 +113,12 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
       )}
 
       {game.phase === TurnPhase.ORDER_UNITS && (
-        <OrdersView boardSide={boardSide} session={session} game={game} />
+        <OrdersView faction={faction} session={session} game={game} />
       )}
 
       {game.phase === TurnPhase.BATTLE && (
         <BattleView
-          boardSide={boardSide}
+          faction={faction}
           session={session}
           game={game}
           onFinishTurn={handleFinishTurn}

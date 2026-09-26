@@ -11,7 +11,6 @@ export enum MovementRule {
   NORMAL = "normal",
   STOP = "stop",
   BLOCK = "block",
-  DIFFICULT = "Difficult",
 }
 
 export enum Side {
@@ -26,8 +25,6 @@ export interface TerrainProperties {
   movementRule: MovementRule;
   movementCost: number;
   canMoveAndFire: boolean;
-  color: string;
-  name: string;
 }
 
 // Axial coordinate representation for easier hex calculations

@@ -4,7 +4,7 @@
 // is allowed to fail quietly.
 import CommandCard from "./game-core/commandCard";
 import GameSession, { SavedGame } from "./game-core/gameSession";
-import { GameSetup } from "./components/mainComponents/Menu";
+import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
 
 const LAST_SETUP_KEY = "m44-sim:last-setup";

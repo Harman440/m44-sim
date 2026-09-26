@@ -1,12 +1,13 @@
 import { Box, Chip, Stack, Typography } from "@mui/material";
 import { DieFace, countFaces } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
+import { Faction } from "../types/faction";
 import { unitSprite } from "./UnitComponent";
-import { DIE_FACE_LABELS } from "./labels";
+import { DIE_FACE_LABELS } from "../labels";
 import "./DiceResult.css";
 
 /** One die showing `face`; infantry and tank faces reuse the player's unit art */
-export function DieFaceIcon({ face, faction }: { face: DieFace; faction: string }) {
+export function DieFaceIcon({ face, faction }: { face: DieFace; faction: Faction }) {
   const symbol = (() => {
     switch (face) {
       case DieFace.INFANTRY:
@@ -53,7 +54,7 @@ export interface DiceRoll {
 }
 
 /** The faces of a roll, plus how many of each symbol came up */
-function DiceResult({ roll, faction }: { roll: DiceRoll; faction: string }) {
+function DiceResult({ roll, faction }: { roll: DiceRoll; faction: Faction }) {
   const counts = countFaces(roll.faces);
 
   return (

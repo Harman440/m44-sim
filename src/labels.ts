@@ -1,9 +1,12 @@
-// components/labels.ts
+// labels.ts
 // Spanish UI text for game enums (code identifiers stay in English)
-import Hex from "../game-core/hex";
-import Unit, { UnitType } from "../game-core/unit";
-import { DieFace, countFaces } from "../game-core/dice";
-import { HexType, Side } from "../types/hex";
+import Hex from "./game-core/hex";
+import Unit, { UnitType } from "./game-core/unit";
+import { DieFace, countFaces } from "./game-core/dice";
+import { HexType, Side } from "./types/hex";
+import { Faction } from "./types/faction";
+
+export const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
 
 export const UNIT_LABELS: Record<UnitType, string> = {
   [UnitType.INFANTRY]: "Infantería",

@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
 import CommandCard, { CommandCardType } from "./commandCard";
 import { HexType, Side } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
+import { Faction } from "../types/faction";
+import { positionKey as key, samePosition } from "./position";
 
 const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   id: "test",
@@ -14,8 +16,6 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   ...overrides,
 });
 
-const key = (p: Position) => `${p.row}-${p.col}`;
-
 const unitPositions = (board: BoardManager) =>
   board.getAllHexes().filter((h) => h.hasUnit()).map((h) => key(h.getPosition()));
 
@@ -26,16 +26,17 @@ const orderablePositions = (board: BoardManager) =>
     .map((h) => key(h.getPosition()))
     .sort();
 
+/** Destinations only, sorted by key */
+const destinations = (board: BoardManager, range: number, forFire = false) =>
+  board
+    .calculatePossibleMovesWithPaths(board.getHex({ row: 4, col: 6 })!, range, forFire)
+    .map((r) => key(r.position));
+
 const card = (type: CommandCardType, maxTotalOrders: number) =>
   new CommandCard({ type, maxTotalOrders });
 
 const isAdjacent = (a: Position, b: Position, board: BoardManager) =>
-  board.getHex(a)!.getNeighbors().some((n) => n.row === b.row && n.col === b.col);
-
-beforeEach(() => {
-  // BoardManager logs while pathfinding; keep test output readable
-  vi.spyOn(console, "log").mockImplementation(() => {});
-});
+  board.getHex(a)!.getNeighbors().some((n) => samePosition(n, b));
 
 describe("BoardManager setup", () => {
   it("builds a 13x9 board where odd rows have one fewer hex", () => {
@@ -78,26 +79,12 @@ describe("BoardManager setup", () => {
 
     const board = new BoardManager(scenario, "Axis");
 
-    expect(board.getHexesByType(HexType.FOREST)).toHaveLength(everyHex.length);
+    const forests = board.getAllHexes().filter((h) => h.getType() === HexType.FOREST);
+    expect(forests).toHaveLength(everyHex.length);
   });
 
-  it("rejects an unknown faction", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-
-    expect(() => new BoardManager(makeScenario(), "Soviets")).toThrow("Invalid faction");
-  });
-
-  it("counts hexes by terrain", () => {
-    const scenario = makeScenario({
-      tiles: { forest: [{ row: 2, col: 2 }], town: [{ row: 3, col: 3 }, { row: 4, col: 4 }] },
-    });
-
-    expect(new BoardManager(scenario).getStats()).toEqual({
-      plains: 113 - 3,
-      forest: 1,
-      hill: 0,
-      town: 2,
-    });
+  it("rejects an unknown faction (e.g. from a tampered save)", () => {
+    expect(() => new BoardManager(makeScenario(), "Soviets" as Faction)).toThrow("Invalid faction");
   });
 });
 
@@ -157,23 +144,13 @@ describe("BoardManager.setOrderableUnits", () => {
     expect(orderablePositions(board)).toEqual(["7-8", "8-11"]);
   });
 
-  it("setUnitsNotOrdable clears every orderable flag", () => {
+  it("setUnitsNotOrderable clears every orderable flag", () => {
     const board = new BoardManager(scenario);
     board.setOrderableUnits(card(CommandCardType.ALLSIDES, 6));
 
-    board.setUnitsNotOrdable();
+    board.setUnitsNotOrderable();
 
     expect(orderablePositions(board)).toEqual([]);
-  });
-
-  it("still finds units by section after reset()", () => {
-    const board = new BoardManager(scenario);
-
-    board.reset(scenario);
-    const orders = board.setOrderableUnits(card(CommandCardType.LEFT, 2));
-
-    expect(orders).toBe(2);
-    expect(orderablePositions(board)).toEqual(["7-1", "7-3"]);
   });
 });
 
@@ -203,7 +180,7 @@ describe("BoardManager pathfinding", () => {
     });
     const board = new BoardManager(scenario);
 
-    const moves = board.calculatePossibleMoves(board.getHex(start)!, 2).map(key);
+    const moves = destinations(board, 2);
 
     expect(moves).not.toContain("4-7");
     // (4,8) is two hexes east; its only shortest route goes through (4,7)
@@ -231,19 +208,17 @@ describe("BoardManager pathfinding", () => {
     });
     const board = new BoardManager(scenario);
 
-    const firePositions = board.calculatePossibleMoves(board.getHex(start)!, 1, true).map(key);
+    const firePositions = destinations(board, 1, true);
 
     expect(firePositions.sort()).toEqual(["3-5", "4-5", "5-5", "5-6"]);
   });
 
-  it("returns the path from start to destination, or null when unreachable", () => {
+  it("looks up the path from start to each destination by key", () => {
     const board = new BoardManager(makeScenario());
-    const startHex = board.getHex(start)!;
+    const paths = board.getAllPaths(board.getHex(start)!, 2);
 
-    const path = board.getPathToDestination(startHex, { row: 4, col: 8 }, 2);
-
-    expect(path).toEqual([start, { row: 4, col: 7 }, { row: 4, col: 8 }]);
-    expect(board.getPathToDestination(startHex, { row: 4, col: 10 }, 2)).toBeNull();
+    expect(paths.get("4-8")).toEqual([start, { row: 4, col: 7 }, { row: 4, col: 8 }]);
+    expect(paths.has("4-10")).toBe(false); // out of range
   });
 });
 
@@ -269,14 +244,13 @@ describe("BoardManager.moveUnit", () => {
     expect(unitPositions(board).sort()).toEqual(["4-6", "4-8"]);
   });
 
-  it("removeOrders clears ordered and ready-to-fire flags", () => {
+  it("removeOrders clears the ordered flags", () => {
     const board = new BoardManager(scenario);
     const unit = board.getHex({ row: 4, col: 6 })!.unit!;
-    unit.giveOrder(true);
+    unit.giveOrder();
 
     board.removeOrders();
 
     expect(unit.isOrdered()).toBe(false);
-    expect(unit.isReadyToFire()).toBe(false);
   });
 });

@@ -2,7 +2,6 @@
 import BoardManager from "./BoardManager";
 import CommandCard from "./commandCard";
 import Deck from "./deck";
-import Hand from "./hand";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { DieFace, rollDice } from "./dice";
@@ -10,6 +9,8 @@ import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fi
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
+import { Faction } from "../types/faction";
+import { positionKey, samePosition } from "./position";
 
 export interface GameSnapshot {
   turn: number;
@@ -55,7 +56,6 @@ interface SavedUnit {
   position: Position | null;
   orderable: boolean;
   ordered: boolean;
-  readyToFire: boolean;
 }
 
 /**
@@ -65,7 +65,7 @@ interface SavedUnit {
 export interface SavedGame {
   version: typeof SAVE_VERSION;
   scenarioId: string;
-  faction: string;
+  faction: Faction;
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -89,7 +89,7 @@ type SavedGameV1 = Omit<SavedGame, "version" | "shots"> & { version: 1 };
 
 interface GameSessionOptions {
   scenario: Scenario;
-  faction: string;
+  faction: Faction;
   initialHandSize: number;
   commandCards: CommandCard[];
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
@@ -100,9 +100,6 @@ interface GameSessionOptions {
 type BattleEdit =
   | { kind: "remove"; position: Position; unit: Unit }
   | { kind: "move"; from: Position; to: Position };
-
-const samePosition = (a: Position, b: Position) => a.row === b.row && a.col === b.col;
-const positionKey = (p: Position) => `${p.row}-${p.col}`;
 
 /**
  * Owns one player's game: board, command cards and the turn flow
@@ -115,10 +112,10 @@ const positionKey = (p: Position) => `${p.row}-${p.col}`;
  */
 class GameSession {
   readonly scenario: Scenario;
-  readonly faction: string;
+  readonly faction: Faction;
   readonly board: BoardManager;
   private readonly deck: Deck;
-  private hand: Hand;
+  private hand: CommandCard[];
 
   private turn = 1;
   private phase = TurnPhase.PICK_CARDS;
@@ -146,7 +143,7 @@ class GameSession {
     this.faction = faction;
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
-    this.hand = new Hand(this.deck.draw(initialHandSize));
+    this.hand = this.deck.draw(initialHandSize);
     this.snapshot = this.createSnapshot();
   }
 
@@ -164,7 +161,7 @@ class GameSession {
   pickCard(card: CommandCard): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (this.choiceCards.length > 0) return false;
-    if (!this.hand.cards.includes(card)) return false;
+    if (!this.hand.includes(card)) return false;
 
     this.chosenCard = card;
     this.ordersLeft = this.board.setOrderableUnits(card);
@@ -192,7 +189,7 @@ class GameSession {
 
     this.choiceCards.filter((c) => c !== card).forEach((c) => this.deck.discard(c));
     this.choiceCards = [];
-    this.hand = new Hand([...this.hand.cards, card]);
+    this.hand = [...this.hand, card];
     return this.publish();
   }
 
@@ -209,9 +206,11 @@ class GameSession {
     const unit = hex?.unit;
     if (!hex || !unit?.isOrderable()) return null;
 
+    const destinations = (range: number, forFire = false) =>
+      this.board.calculatePossibleMovesWithPaths(hex, range, forFire).map((result) => result.position);
     return {
-      moves: this.board.calculatePossibleMoves(hex, unit.getMaxMove()),
-      moveAndFire: this.board.calculatePossibleMoves(hex, unit.getMoveAndFire(), true),
+      moves: destinations(unit.getMaxMove()),
+      moveAndFire: destinations(unit.getMoveAndFire(), true),
     };
   }
 
@@ -233,7 +232,7 @@ class GameSession {
       order = new Order(unit, from, to, canFire, path);
     }
 
-    unit.giveOrder(order.canFire);
+    unit.giveOrder();
     this.orders = [...this.orders, order];
     this.ordersLeft--;
     return this.publish();
@@ -259,7 +258,7 @@ class GameSession {
     if (this.ordersLeft > 0) return false;
 
     this.ordersCommitted = true;
-    this.board.setUnitsNotOrdable();
+    this.board.setUnitsNotOrderable();
     return this.publish();
   }
 
@@ -371,7 +370,7 @@ class GameSession {
     const playedCard = this.chosenCard;
     this.deck.discard(playedCard);
     const drawn = this.deck.draw(1);
-    this.hand = new Hand([...this.hand.cards.filter((c) => c !== playedCard), ...drawn]);
+    this.hand = [...this.hand.filter((c) => c !== playedCard), ...drawn];
 
     this.board.removeOrders();
     this.chosenCard = null;
@@ -397,7 +396,6 @@ class GameSession {
         position,
         orderable: unit.isOrderable(),
         ordered: unit.isOrdered(),
-        readyToFire: unit.isReadyToFire(),
       });
     };
     const unitIndex = (unit: Unit) => {
@@ -408,7 +406,7 @@ class GameSession {
       if (hex.unit) addUnit(hex.unit, hex.getPosition());
     });
 
-    const ids = (cards: CommandCard[]) => cards.map((card) => card.id);
+    const ids = (cards: readonly CommandCard[]) => cards.map((card) => card.id);
     return {
       version: SAVE_VERSION,
       scenarioId: this.scenario.id,
@@ -417,7 +415,7 @@ class GameSession {
       phase: this.phase,
       drawPile: ids(this.deck.drawPile),
       discardPile: ids(this.deck.discardPile),
-      hand: ids(this.hand.cards),
+      hand: ids(this.hand),
       choiceCards: ids(this.choiceCards),
       chosenCard: this.chosenCard?.id ?? null,
       // Orders and edits first, so units they reference get indexes; the list is read after
@@ -475,7 +473,7 @@ class GameSession {
     session.board.getAllHexes().forEach((hex) => hex.removeUnit());
     const units = saved.units.map((savedUnit) => {
       const unit = new Unit(savedUnit.type);
-      if (savedUnit.ordered) unit.giveOrder(savedUnit.readyToFire);
+      if (savedUnit.ordered) unit.giveOrder();
       unit.setOrderable(savedUnit.orderable);
       if (savedUnit.position && !session.board.placeUnitAt(savedUnit.position, unit)) {
         throw new Error(`Can't place unit at ${positionKey(savedUnit.position)}`);
@@ -488,7 +486,7 @@ class GameSession {
     };
 
     session.deck.restorePiles(cards(saved.drawPile), cards(saved.discardPile));
-    session.hand = new Hand(cards(saved.hand));
+    session.hand = cards(saved.hand);
     session.choiceCards = cards(saved.choiceCards);
     session.chosenCard = saved.chosenCard === null ? null : card(saved.chosenCard);
     session.turn = saved.turn;
@@ -517,7 +515,7 @@ class GameSession {
     return {
       turn: this.turn,
       phase: this.phase,
-      hand: [...this.hand.cards],
+      hand: [...this.hand],
       choiceCards: [...this.choiceCards],
       chosenCard: this.chosenCard,
       orders: this.orders,

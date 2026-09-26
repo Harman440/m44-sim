@@ -159,7 +159,6 @@ describe("GameSession giving orders", () => {
     expect(order!.canFire).toBe(true);
     expect(unitAt(session, destination)).toBe(tank);
     expect(unitAt(session, TANK)).toBeNull();
-    expect(tank!.isReadyToFire()).toBe(true);
     expect(session.getSnapshot().ordersLeft).toBe(3);
   });
 
@@ -180,7 +179,6 @@ describe("GameSession giving orders", () => {
 
     const [order] = session.getSnapshot().orders;
     expect(order!.canFire).toBe(true);
-    expect(unitAt(session, LEFT_INF)!.isReadyToFire()).toBe(true);
     expect(session.getMoveOptions(LEFT_INF)).toBeNull(); // already ordered
   });
 
@@ -246,7 +244,7 @@ describe("GameSession ending the turn", () => {
     expect(snapshot.orders).toEqual([]);
     expect(snapshot.chosenCard).toBeNull();
     const units = session.board.getAllHexes().flatMap((h) => (h.unit ? [h.unit] : []));
-    expect(units.some((u) => u.isOrdered() || u.isReadyToFire())).toBe(false);
+    expect(units.some((u) => u.isOrdered())).toBe(false);
   });
 
   it("only ends the turn from the battle phase", () => {
@@ -392,13 +390,13 @@ describe("GameSession firing", () => {
   it("works out the dice from the answers, rolls them once and keeps the result", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "2", targetTerrain: "open" })).toBe(true);
+    expect(session.fire(0, { distance: "2", targetTerrain: "plains" })).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
     expect(shot).toMatchObject({ orderIndex: 0, dice: 2, faces: ["infantry", "infantry"] });
     expect(shot!.steps.map((s) => s.dice)).toEqual([2]);
     expect(session.shotsLeft(0)).toBe(0);
-    expect(session.fire(0, { distance: "1", targetTerrain: "open" })).toBe(false);
+    expect(session.fire(0, { distance: "1", targetTerrain: "plains" })).toBe(false);
     expect(session.fireQuick(0, 3)).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(1);
   });

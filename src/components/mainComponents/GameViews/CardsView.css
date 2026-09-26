@@ -36,13 +36,7 @@
   background: linear-gradient(to bottom right, #92400e, #78350f);
   border: 4px solid #d97706;
   border-radius: 0.5rem;
-  cursor: pointer;
-  transition: transform 0.2s;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-.deck-pile:hover {
-  transform: scale(1.05);
 }
 
 .deck-back {

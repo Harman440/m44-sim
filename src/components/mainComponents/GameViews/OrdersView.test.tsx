@@ -32,7 +32,7 @@ const makeSession = () => {
 
 function Harness({ session }: { session: GameSession }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  return <OrdersView boardSide="Allies" session={session} game={game} />;
+  return <OrdersView faction="Allies" session={session} game={game} />;
 }
 
 const setup = () => {
@@ -109,7 +109,8 @@ describe("OrdersView giving orders", () => {
     const [order] = session.getSnapshot().orders;
     expect(order!.start).toEqual(LEFT_A);
     expect(order!.end).toEqual(LEFT_A);
-    expect(session.board.getHex(LEFT_A)!.unit!.isReadyToFire()).toBe(true);
+    expect(order!.canFire).toBe(true);
+    expect(container.querySelector('[data-position="7-1"] .unit__glow--fire')).not.toBeNull();
     expect(container.querySelectorAll("g.order-arrow")).toHaveLength(0);
   });
 });

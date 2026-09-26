@@ -1,7 +1,9 @@
 import type React from 'react';
-import Hexagon from './Hexagon';
+import Hexagon, { HexHighlight } from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
+import { Faction } from '../types/faction';
+import { includesPosition, positionKey, samePosition } from '../game-core/position';
 import BoardManager from '../game-core/BoardManager';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
@@ -25,14 +27,9 @@ interface BoardProps {
   invalidFlash?: HexFlash | null;
   /** Orders are committed: dim the board and stop showing it as clickable */
   locked?: boolean;
-  boardWidth?: number;
-  boardHeight?: number;
   hexSize?: number;
-  faction?: string;
+  faction: Faction;
 }
-
-const includesPosition = (positions: Position[], row: number, col: number) =>
-  positions.some((pos) => pos.row === row && pos.col === col);
 
 function Board({
   onTileClick,
@@ -44,18 +41,26 @@ function Board({
   backgroundImage,
   invalidFlash = null,
   locked = false,
-  boardWidth = 13,
-  boardHeight = 9,
   hexSize = 50,
-  faction = "Allies"
+  faction
 }: BoardProps) {
+  const { width: boardWidth, height: boardHeight } = boardManager;
   const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
+  const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
+
+  const highlightAt = (position: Position): HexHighlight => {
+    if (unitHexPosition && samePosition(unitHexPosition, position)) return 'selected';
+    // Move-and-fire wins over move-only: every move-and-fire hex is also a move hex
+    if (includesPosition(possibleMoveAndFirePositions, position)) return 'move-and-fire';
+    if (includesPosition(possibleMovePositions, position)) return 'move';
+    return null;
+  };
 
   const renderOrders = () => {
     return orders.map((order, index) => (
       <OrderComponent
-        key={index} //NOTE: key is for react internal list
-        orderIndex={index} //TODO: in the future make order class have an index
+        key={index} // an order's index identifies it for the whole turn (see Order)
+        orderIndex={index}
         order={order}
         getHexCenter={geometry.hexCenter}
         hexSize={hexSize}
@@ -78,19 +83,17 @@ function Board({
           throw new Error(`Hex not found at ${JSON.stringify(position)}`);
         }
 
-        const flashesInvalid =
-          invalidFlash?.position.row === row && invalidFlash.position.col === col;
+        const flashesInvalid = invalidFlash !== null && samePosition(invalidFlash.position, position);
 
         tiles.push(
           <Hexagon
-            key={`${position.row}-${position.col}`}
+            key={positionKey(position)}
             x={x}
             y={y}
             position={position}
             onClick={onTileClick}
-            isSelectedUnit={unitHexPosition?.row === row && unitHexPosition?.col === col}
-            isPossibleMove={includesPosition(possibleMovePositions, row, col)}
-            isPossibleMoveFirePos={includesPosition(possibleMoveAndFirePositions, row, col)}
+            highlight={highlightAt(position)}
+            unitReadyToFire={hexData.unit !== null && unitsReadyToFire.has(hexData.unit)}
             invalidFlashId={flashesInvalid ? invalidFlash.id : null}
             hexSize={hexSize}
             hexData={hexData}

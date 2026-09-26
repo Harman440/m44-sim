@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import UnitComponent from "./UnitComponent";
 import Unit, { UnitType } from "../game-core/unit";
+import { Faction } from "../types/faction";
 import alliedInfantry from "../assets/units/allies/infantry.webp";
 import alliedTank from "../assets/units/allies/tank.svg";
 import alliedArtillery from "../assets/units/allies/artillery.svg";
@@ -9,14 +10,21 @@ import axisInfantry from "../assets/units/axis/infantry.webp";
 import axisTank from "../assets/units/axis/tank.svg";
 import axisArtillery from "../assets/units/axis/artillery.svg";
 
-const spriteFor = (faction: string, unitType?: UnitType) => {
-  const { container } = render(
+const renderUnit = (faction: Faction, unitType?: UnitType, readyToFire?: boolean) =>
+  render(
     <svg>
-      <UnitComponent x={0} y={0} faction={faction} unitData={unitType && new Unit(unitType)} />
+      <UnitComponent
+        x={0}
+        y={0}
+        faction={faction}
+        unitData={unitType && new Unit(unitType)}
+        readyToFire={readyToFire}
+      />
     </svg>
-  );
-  return container.querySelector("image")!;
-};
+  ).container;
+
+const spriteFor = (faction: Faction, unitType?: UnitType) =>
+  renderUnit(faction, unitType).querySelector("image")!;
 
 describe("UnitComponent", () => {
   it.each([
@@ -26,7 +34,7 @@ describe("UnitComponent", () => {
     ["Axis", UnitType.INFANTRY, axisInfantry],
     ["Axis", UnitType.TANK, axisTank],
     ["Axis", UnitType.ARTILLERY, axisArtillery],
-  ])("draws the %s %s sprite", (faction, unitType, asset) => {
+  ] as const)("draws the %s %s sprite", (faction, unitType, asset) => {
     const image = spriteFor(faction, unitType);
 
     expect(image.getAttribute("href")).toBe(asset);
@@ -35,5 +43,10 @@ describe("UnitComponent", () => {
 
   it("falls back to infantry without unit data", () => {
     expect(spriteFor("Allies").getAttribute("href")).toBe(alliedInfantry);
+  });
+
+  it("glows red only when its order lets it fire", () => {
+    expect(renderUnit("Allies", UnitType.TANK, true).querySelector(".unit__glow--fire")).not.toBeNull();
+    expect(renderUnit("Allies", UnitType.TANK).querySelector(".unit__glow--fire")).toBeNull();
   });
 });

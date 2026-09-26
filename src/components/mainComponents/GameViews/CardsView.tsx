@@ -19,6 +19,8 @@ interface CardsViewProps {
   onDrawChoice: () => boolean;
   onChooseCard: (card: CommandCard) => void;
   onCardClick: (card: CommandCard) => void;
+  /** Show the "Coge 2 Cartas" debug button (a stand-in for the planned special cards) */
+  showDrawChoice?: boolean;
 }
 
 function CardsView({
@@ -31,6 +33,7 @@ function CardsView({
   onDrawChoice,
   onChooseCard,
   onCardClick,
+  showDrawChoice = import.meta.env.DEV,
 }: CardsViewProps) {
   const [message, setMessage] = useState('Selecciona una carta para jugarla');
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
@@ -121,9 +124,11 @@ function CardsView({
           <div className="deck-pile">
             <div className="deck-back">?</div>
           </div>
-          <Button onClick={drawChoice} disabled={isChoosing} sx={{ mt: 2 }}>
-            Coge 2 Cartas
-          </Button>
+          {showDrawChoice && (
+            <Button onClick={drawChoice} disabled={isChoosing} sx={{ mt: 2 }}>
+              Coge 2 Cartas
+            </Button>
+          )}
         </Stack>
 
         <Stack sx={{ alignItems: "center" }}>

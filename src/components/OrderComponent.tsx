@@ -1,5 +1,6 @@
 import { Position } from "../types/scenario";
 import Order from "../game-core/order";
+import { samePosition } from "../game-core/position";
 
 interface OrderProps {
   orderIndex: number;
@@ -25,7 +26,7 @@ export const orderColor = (orderIndex: number = 0): string =>
 // Draws an order as an arrow along the unit's path, from start to destination
 function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps) {
   // Hold-and-fire orders have no movement; the unit's ready-to-fire glow shows them
-  if (order.start.row === order.end.row && order.start.col === order.end.col) {
+  if (samePosition(order.start, order.end)) {
     return null;
   }
 

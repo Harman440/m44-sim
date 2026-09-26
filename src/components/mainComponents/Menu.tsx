@@ -12,13 +12,8 @@ import {
   Typography,
 } from "@mui/material";
 import { Scenario } from "../../types/scenario";
-
-export type Faction = "Allies" | "Axis";
-
-export interface GameSetup {
-  scenarioId: string;
-  faction: Faction;
-}
+import { FACTIONS, Faction, GameSetup, isFaction } from "../../types/faction";
+import { FACTION_LABELS } from "../../labels";
 
 interface MenuProps {
   scenarios: readonly Scenario[];
@@ -27,8 +22,6 @@ interface MenuProps {
   onStart: (setup: GameSetup) => void;
 }
 
-const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
-
 /** Start screen: pick a scenario and which side this device plays */
 function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
   const [scenarioId, setScenarioId] = useState(
@@ -36,7 +29,10 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
       ? initialSetup.scenarioId
       : scenarios[0]?.id
   );
-  const [faction, setFaction] = useState<Faction | null>(initialSetup?.faction ?? null);
+  // The remembered setup comes from storage, so check it's still a real side
+  const [faction, setFaction] = useState<Faction | null>(
+    isFaction(initialSetup?.faction) ? initialSetup.faction : null
+  );
 
   const scenario = scenarios.find((s) => s.id === scenarioId);
   const handSize = scenario && faction ? scenario.initialHandSize[faction === "Axis" ? "axis" : "allies"] : null;
@@ -93,7 +89,7 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           onChange={(_, value: Faction | null) => value && setFaction(value)}
           aria-label="Bando"
         >
-          {(Object.keys(FACTION_LABELS) as Faction[]).map((f) => (
+          {FACTIONS.map((f) => (
             <ToggleButton key={f} value={f} sx={{ minWidth: 140, minHeight: 56, fontSize: "1.1rem" }}>
               {FACTION_LABELS[f]}
             </ToggleButton>

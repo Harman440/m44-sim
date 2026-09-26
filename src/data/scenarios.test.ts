@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { scenarios } from "./scenarios";
 import BoardManager from "../game-core/BoardManager";
 import { Position, UnitGroup } from "../types/scenario";
@@ -32,7 +32,6 @@ describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, sce
     ["Allies", "allies"],
     ["Axis", "axis"],
   ] as const)("places every %s unit on its own hex", (faction, factionKey) => {
-    vi.spyOn(console, "log").mockImplementation(() => {});
     const expected = flatten(scenario.units[factionKey] as UnitGroup).length;
 
     const board = new BoardManager(scenario, faction);

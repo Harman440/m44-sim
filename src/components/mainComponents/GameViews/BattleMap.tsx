@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { Button, Paper, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
+import { Faction } from "../../../types/faction";
+import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { describeHex } from "../../labels";
+import { describeHex } from "../../../labels";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import "./PhaseLayout.css";
 
 interface BattleMapProps {
-  boardSide: string;
+  faction: Faction;
   session: GameSession;
   game: GameSnapshot;
   onShowSummary: () => void;
   onFinishTurn: () => void;
 }
 
-const samePosition = (a: Position, b: Position) => a.row === b.row && a.col === b.col;
 
 /**
  * Map view of the battle phase. The battle is fought on the physical table;
@@ -23,7 +24,7 @@ const samePosition = (a: Position, b: Position) => a.row === b.row && a.col === 
  * units that retreated or took ground (to any empty hex; the table is the
  * source of truth).
  */
-function BattleMap({ boardSide, session, game, onShowSummary, onFinishTurn }: BattleMapProps) {
+function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: BattleMapProps) {
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
   const { flash, flashInvalid } = useHexFlash();
@@ -64,10 +65,7 @@ function BattleMap({ boardSide, session, game, onShowSummary, onFinishTurn }: Ba
           orders={game.orders}
           backgroundImage={session.scenario.image}
           invalidFlash={flash}
-          boardWidth={13}
-          boardHeight={9}
-          hexSize={50}
-          faction={boardSide}
+          faction={faction}
         />
       </div>
 

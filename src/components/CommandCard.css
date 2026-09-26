@@ -77,30 +77,6 @@
   margin-bottom: 12px;
 }
 
-.card-diagram {
-  margin-top: auto;
-  padding-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diagram {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-
-/*TODO: add here extra text needed to describe card*/
-.diagram-text {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.8);
-  flex: 1;
-}
-
 /* Responsive design */
 @media (max-width: 768px) {
   .command-card {

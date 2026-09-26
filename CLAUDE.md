@@ -20,18 +20,19 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
   - `BoardManager`: hex grid, Axis flip, pathfinding (`calculatePossibleMovesWithPaths`), orderable units
   - `Hex`: terrain properties, board section (`_setSide`), neighbors (offset↔axial coordinates)
   - `GameSession`: owns one player's game (board, deck, hand, turn flow) and is the only place game rules run. Actions (`pickCard`, `issueOrder`, `undoLastOrder`, `commitOrders`, `startBattle`, `endTurn`, plus the battle-sync actions `removeUnit`, `relocateUnit` and `undoBattleEdit`, and firing: `fire`, `fireQuick`, `undoShot`) return `false` and change nothing when they aren't allowed. After each change it publishes an immutable `GameSnapshot`.
-  - `Unit`, `Order`, `Deck`, `Hand`, `CommandCard`
+  - `Unit`, `Order` (whether the unit fires lives on the order; an order's index identifies it for the turn), `Deck`, `CommandCard`
+  - `position.ts`: `samePosition`, `positionKey` ("row-col") and `includesPosition`; use them rather than comparing rows and columns by hand
   - `dice.ts` (Memoir '44 battle dice: 2 infantry, tank, grenade, star, flag) and `turnSummary.ts` (what each order means for the battle)
   - `fireRules.ts`: engine for the "how many dice?" questionnaire (next question, adding up the dice)
 - `src/data/`: scenarios (terrain, units, board image, starting hand size per side), command-card templates, and `fireQuestions.ts`. **`fireQuestions.ts` is where the firing situations live:** each question has its text, options, when it applies (`appliesTo`) and how each answer changes the dice (`effect`), plus the base-dice and terrain tables. Add new situations there. The numbers start from the official M44 values and are meant to be tuned to the house rules.
-- `src/types/`: shared types and enums (`TurnPhase`, `HexType`, `Side`, `Position`, …)
+- `src/types/`: shared types and enums (`TurnPhase`, `HexType`, `Side`, `Position`, `Faction`/`GameSetup`, …)
 - `src/App.tsx`: creates the `GameSession` and shows `Menu` (scenario and side picker) or `GameView`. It saves the session after every change and resumes it on load, so a reload or the tablet dropping the tab doesn't lose the game; "Salir" forgets the save.
 - `src/storage.ts`: everything kept in `localStorage` (the last setup and the game in progress). Reads and writes fail quietly, and an unreadable save is dropped.
 - Saving: `GameSession.save()` returns a plain-JSON `SavedGame` (cards by id, units by index so orders and battle edits keep their references) and `GameSession.restore()` rebuilds it, throwing on anything it can't match. **When you add state to `GameSession`, add it to `SavedGame` too**, and bump `SAVE_VERSION` if old saves can no longer be read.
 - `src/theme.ts`: MUI theme (dark, orange primary)
 - `src/components/`: rendering (SVG board: `Board` → `Hexagon` → `UnitComponent`, plus `OrderComponent` arrows; `CommandCardComponent`)
 - `src/components/mainComponents/GameView.tsx`: header (scenario, side, turn and phase steps, "Menú" with an exit confirmation); gets the `GameSession` from `App` and subscribes with `useSyncExternalStore`, then renders one view per phase from `GameViews/`: `CardsView` (PICK_CARDS), `OrdersView` (ORDER_UNITS) and `BattleView` (BATTLE). The battle screen hides the map by default, since the player is looking at the physical board, and shows `TurnSummary` full screen. "Disparar" on a unit opens `FireDialog`, which asks the fire questions (or takes a number of dice straight away, "Tirada rápida"), shows the calculation and has the session roll once; the shot then stands, and only a confirmed "Anular disparo" takes it back. "Ver mapa" opens `BattleMap`, where the player mirrors the physical battle by removing destroyed units and moving retreating ones. The board screens share `PhaseLayout.css`.
-- `src/components/labels.ts`: Spanish labels for game enums (units, terrain, sections, die faces). Use it rather than showing enum values or the English names in `Hex`. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
+- `src/labels.ts`: Spanish labels for game enums (units, terrain, sections, die faces). Use it rather than showing enum values. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
 - Tests live next to the code as `*.test.ts`. The Vitest setup is in `src/test/setup.ts` (jsdom + jest-dom).
 
 ## Conventions

@@ -50,14 +50,14 @@ describe("fire questions (house rules)", () => {
   });
 
   it.each([
-    [UnitType.INFANTRY, "1", "open", 3],
-    [UnitType.INFANTRY, "3", "open", 1],
+    [UnitType.INFANTRY, "1", "plains", 3],
+    [UnitType.INFANTRY, "3", "plains", 1],
     [UnitType.INFANTRY, "2", "forest", 1],
     [UnitType.INFANTRY, "3", "town", 0],
-    [UnitType.TANK, "2", "open", 3],
+    [UnitType.TANK, "2", "plains", 3],
     [UnitType.TANK, "1", "forest", 1],
     [UnitType.TANK, "3", "hill", 2],
-    [UnitType.ARTILLERY, "5", "open", 1],
+    [UnitType.ARTILLERY, "5", "plains", 1],
     [UnitType.ARTILLERY, "2", "town", 3], // artillery ignores terrain
   ])("%s at %s hexes, target in %s: %i dice", (unitType, distance, targetTerrain, expected) => {
     expect(dice(unitType, { distance, targetTerrain })).toBe(expected);
@@ -68,14 +68,14 @@ describe("fire questions (house rules)", () => {
 
     expect(nextFireQuestion(FIRE_QUESTIONS, ctx, {})?.id).toBe("distance");
     expect(nextFireQuestion(FIRE_QUESTIONS, ctx, { distance: "1" })?.id).toBe("targetTerrain");
-    expect(nextFireQuestion(FIRE_QUESTIONS, ctx, { distance: "1", targetTerrain: "open" })).toBeNull();
+    expect(nextFireQuestion(FIRE_QUESTIONS, ctx, { distance: "1", targetTerrain: "plains" })).toBeNull();
   });
 
   it("adds the command card's close assault or ranged bonus", () => {
     const card = new CommandCard({ name: "Test", closeAssaultAdditionalDice: 1, rangeAdditionalDice: 2 });
 
-    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "open" }, card)).toBe(4);
-    expect(dice(UnitType.INFANTRY, { distance: "2", targetTerrain: "open" }, card)).toBe(4);
+    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, card)).toBe(4);
+    expect(dice(UnitType.INFANTRY, { distance: "2", targetTerrain: "plains" }, card)).toBe(4);
   });
 
   it("explains the calculation step by step, leaving out zero changes", () => {

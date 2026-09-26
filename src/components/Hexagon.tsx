@@ -1,21 +1,26 @@
 import './Hexagon.css';
 import { Position } from '../types/scenario';
+import { Faction } from '../types/faction';
 import Hex from '../game-core/hex';
+import { positionKey } from '../game-core/position';
 import UnitComponent from './UnitComponent';
+
+/** How a hex is highlighted: the selected unit, or a destination for it */
+export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | null;
 
 interface HexProps {
   x: number;
   y: number;
   position: Position;
   onClick: (position: Position) => void;
-  isSelectedUnit: boolean;
-  isPossibleMove: boolean;
-  isPossibleMoveFirePos: boolean;
+  highlight: HexHighlight;
+  /** The unit here has an order that lets it fire this turn */
+  unitReadyToFire: boolean;
   /** Set to flash the hex red; a new value restarts the flash */
   invalidFlashId?: number | null;
   hexSize?: number;
   hexData: Hex;
-  faction: string;
+  faction: Faction;
 }
 
 function Hexagon({
@@ -23,19 +28,17 @@ function Hexagon({
   y,
   position,
   onClick,
-  isSelectedUnit,
-  isPossibleMove,
-  isPossibleMoveFirePos,
+  highlight,
+  unitReadyToFire,
   invalidFlashId = null,
   hexSize = 25,
   hexData,
   faction
 }: HexProps) {
 
-  // Create hexagon path with 90-degree rotation (flat top)
+  // Pointy-top hexagon: corners start at 90 degrees
   const points: number[][] = [];
   for (let i = 0; i < 6; i++) {
-    // Add π/2 (90 degrees) to rotate the hexagon
     const angle = (i * Math.PI) / 3 + Math.PI / 2;
     points.push([
       x + hexSize * Math.cos(angle),
@@ -46,42 +49,24 @@ function Hexagon({
   const pathData = `M ${points[0]![0]},${points[0]![1]} ` + // the `!` is safe because loop guarantees 6 points
     points.slice(1).map(p => `L ${p[0]},${p[1]}`).join(' ') + ' Z';
 
-  const handleClick = () => {
-    onClick(position);
-  };
-
-  //TODO: simplify naming scheme
-  const getTileClass = () => {
-    if (isSelectedUnit) return 'hexagon__tile hexagon__tile--selected';
-    if (isPossibleMoveFirePos) return 'hexagon__tile hexagon__tile--move-and-fire';//NOTE: Move and Fire has priority over move
-    if (isPossibleMove) return 'hexagon__tile hexagon__tile--move';
-    return 'hexagon__tile';
-  };
-
-  const getTileColor = () => {
-    if (hexData) {
-      return hexData.getColor();
-    }
-    return '#374151';
-  };
-
   return (
     <g
       className="hexagon"
-      data-position={`${position.row}-${position.col}`}
-      onClick={handleClick}
-      style={{ fill: getTileColor() }}
+      data-position={positionKey(position)}
+      onClick={() => onClick(position)}
     >
+      {/* Transparent unless highlighted: the scenario art shows the terrain */}
       <path
         d={pathData}
-        className={getTileClass()}
+        className={highlight ? `hexagon__tile hexagon__tile--${highlight}` : 'hexagon__tile'}
       />
-      {hexData && hexData.hasUnit() && (
+      {hexData.unit && (
         <UnitComponent
           x={x}
           y={y - 8}
           faction={faction}
           unitData={hexData.unit}
+          readyToFire={unitReadyToFire}
         />
       )}
       {/* Keyed so each new flash remounts the path and replays the animation */}

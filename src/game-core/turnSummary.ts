@@ -1,6 +1,7 @@
 // game-core/turnSummary.ts
 import BoardManager from "./BoardManager";
 import Order from "./order";
+import { samePosition } from "./position";
 import { Shot } from "./gameSession";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
@@ -34,7 +35,7 @@ export function summarizeOrders(
 
   return orders.map((order, index) => {
     const destination = board.getHex(order.end)!;
-    const hold = order.start.row === order.end.row && order.start.col === order.end.col;
+    const hold = samePosition(order.start, order.end);
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
     return {

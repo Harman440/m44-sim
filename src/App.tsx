@@ -4,7 +4,8 @@ import { scenarios } from './data/scenarios';
 import commandCards from './data/commandCards';
 import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/GameView';
-import Menu, { GameSetup } from './components/mainComponents/Menu';
+import Menu from './components/mainComponents/Menu';
+import { GameSetup } from './types/faction';
 import { clearSavedGame, loadLastSetup, loadSavedGame, saveGame, saveLastSetup } from './storage';
 
 interface CurrentGame {

@@ -2,7 +2,7 @@ import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { orderColor } from "./OrderComponent";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces } from "./labels";
+import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces } from "../labels";
 
 interface TurnSummaryProps {
   card: CommandCard | null;

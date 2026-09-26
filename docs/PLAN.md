@@ -31,43 +31,57 @@ A shot works like the table: once the dice are rolled, that unit has fired this 
 
 ## Step 9: Refactor and cleanup
 
-Nothing here changes behaviour. Do it before the visual work so the restyle touches less code.
+Nothing here changes how the game plays. It was done before the visual work so the restyle touches less code.
 
 ### Shared types and helpers
-- [ ] **R1. `Faction` type.** A faction is a bare `string` ("Allies"/"Axis") in `BoardManager`, `GameSession`, `Board`, `UnitComponent` and every view, while `type Faction` lives in `Menu.tsx`. Move it to `src/types/` and use it everywhere. `BoardManager` then no longer needs its runtime check with `console.error`.
-- [ ] **R2. Position helpers.** `samePosition` is copied in `gameSession.ts`, `OrdersView.tsx` and `BattleMap.tsx`, and the same comparison is written inline in `Board`, `turnSummary.ts` and `OrderComponent`. `"row-col"` keys are built in `hex.ts`, `BoardManager` and `gameSession.ts`. Put `samePosition`, `positionKey` and `includesPosition` in one module (e.g. `src/game-core/position.ts`).
-- [ ] **R3. Labels layering.** `storage.ts` (plain code) imports `GameSetup` from the `Menu` component, and `data/fireQuestions.ts` has its own `UNIT_NAMES`, which copies `UNIT_LABELS`. Move `GameSetup` to `src/types/` and move `labels.ts` out of `components/` (e.g. `src/labels.ts`) so both data and components use it.
-- [ ] **R4. Order identity.** `Board` uses the array index as the order's key and colour (`TODO: in the future make order class have an index`), and Step 8 keys shots by order too. Decide on one: an `index`/`id` on `Order`, or document that the index is stable during a turn (orders can't change after commit).
-- [ ] **R5. `canFire` is stored twice**: in `Order.canFire` and `Unit.readyToFire` (see the TODO in `order.ts`). Keep one source (the order) and derive the unit's glow from it, or document why both exist.
-- [ ] **R6. Board size constants.** Every view passes `boardWidth={13} boardHeight={9} hexSize={50}` to `Board`. Read the size from `BoardManager` (`width`/`height`) and keep `hexSize` as a default.
+- [x] **R1.** `Faction` and `GameSetup` live in `src/types/faction.ts`, with `FACTIONS` and `isFaction`. The faction is typed everywhere, and the views' `boardSide` prop is now `faction`. `BoardManager` still throws on an unknown faction, since saves come from storage, but no longer logs. The menu ignores a remembered side that isn't valid.
+- [x] **R2.** `samePosition`, `positionKey` and `includesPosition` live in `src/game-core/position.ts` and replace the copies and inline comparisons in game-core and the board components
+- [x] **R3.** `labels.ts` moved to `src/labels.ts` (with `FACTION_LABELS`), and `fireQuestions.ts` uses `UNIT_LABELS` instead of its own copy. `storage.ts` no longer imports from `Menu`.
+- [x] **R4.** Decided: an order's index is its identity for the turn (orders are append-only and frozen on commit), documented on `Order`
+- [x] **R5.** Whether a unit fires is only stored in `Order.canFire`. `Unit.readyToFire` is gone; `Board` derives the red glow from the orders. Old saves still load (the extra field is ignored).
+- [x] **R6.** `Board` reads its size from `BoardManager`; `hexSize` defaults to 50. `Hexagon` takes a single `highlight` prop (`selected` / `move-and-fire` / `move`).
 
-### Dead code (delete, or wire up if a later step needs it)
-- [ ] `BoardManager`: `getStats`, `getHexesByType`, `getPathToDestination`, `calculatePossibleMoves` (only a wrapper), `reset` (sessions are rebuilt instead) and the priority-queue TODO (117 hexes don't need one)
-- [ ] `Hex`:
-  - the unused static factories (`createPlains` …) and their TODO
-  - `getDescription`, `getCoordinates` and `toString`
-  - the English `name` and the `color` that `Hexagon` sets but the transparent tile class hides
-  - the unused `unit` parameter of `getMovementCost`
-- [ ] `types/`: `GamePhase`, `TurnPhase.END_TURN`, `MovementRule.DIFFICULT`, `types/GameSettings.ts` and `game-core/combatCard.ts` (combat cards aren't planned; add them back when they are)
-- [ ] `Unit`: `disableFire`, `getOrderable` (duplicates `isOrderable`), the static counter controls and `id` if nothing reads it
-- [ ] `Hand`: `pickCard` (with its `console.warn`), `addMultiple`, `printHand`, `add`, `remove`. `GameSession` builds new `Hand`s, so a `readonly CommandCard[]` may be enough and `Hand` can go.
-- [ ] `Deck`: `printDeck`, `reset` and `originalCards` (and its TODO). `Order`: `printOrder`.
-- [ ] `CommandCard`: fields no card or rule uses (`numOntheMove`, `extraMovement`, `unitCosts`, `receiveCombatCoins`). Keep `numFireTimes`, `extraPickUpCards` and the dice bonuses if Step 8 or the special-card idea uses them.
-- [ ] `CommandCardComponent`: the unused `variant` prop, `diagram = null`, the 📊 and ⚔️ placeholders, and the `.diagram-text` TODO in `CommandCard.css`. These go away in the card redesign in Step 10.
-- [ ] `utils.shuffle(array: any[])` → generic `shuffle<T>(array: readonly T[]): T[]`
-- [ ] `src/assets/scenarios/defualt.png` (1.9 MB, unused): delete it, or convert it to WebP under a correct name when a second scenario uses it
-- [ ] Hover-only affordances on non-clickable elements: `.deck-pile:hover` scales and has `cursor: pointer`, but it does nothing
+### Dead code removed
+- [x] `BoardManager`: `getStats`, `getHexesByType`, `getPathToDestination`, `calculatePossibleMoves`, `reset` and the priority-queue TODO. `setUnitsNotOrdable` is now spelled `setUnitsNotOrderable`.
+- [x] `Hex`: the static factories, `getDescription`, `getCoordinates`, `toString`, the English `name` and `color`, and the unused constructor/`getMovementCost` parameters
+- [x] `types/`: `GamePhase`, `TurnPhase.END_TURN`, `MovementRule.DIFFICULT`, `GameSettings.ts`; `game-core/combatCard.ts`
+- [x] `Unit`: `id`, the counter controls, `disableFire`, `getOrderable` and `readyToFire`
+- [x] `Hand` is gone: the session keeps the hand as a card list
+- [x] `Deck`: `printDeck`, `reset`, `originalCards`. `Order`: `printOrder`.
+- [x] `CommandCard`: `numOntheMove`, `extraMovement`, `unitCosts`, `receiveCombatCoins` (kept `numFireTimes`, `extraPickUpCards` and the dice bonuses)
+- [x] `CommandCardComponent`: the `variant` prop, the placeholders (📊, ⚔️, `diagram`) and the `.diagram-text` TODO
+- [x] `shuffle<T>` is generic
+- [x] `src/assets/scenarios/defualt.png` (1.9 MB, unused), deleted; it is still in git history
+- [x] `.deck-pile` no longer pretends to be tappable (hover scale, pointer cursor)
+- [x] The last `console` calls in app code
 
 ### Other quality
-- [ ] **Q6. The "Coge 2 Cartas" debug button** is visible to players. Hide it behind a dev flag (`import.meta.env.DEV`) until the special cards exist.
-- [ ] **Q7. `storage.ts` has no tests.** Cover a corrupt save being dropped, an unknown scenario, storage throwing, and the last-setup round trip.
-- [ ] **Q8.** `TARGET_TERRAIN_MODIFIERS` is keyed by free strings (`open`, `forest` …). Key it by `HexType` (plus `open` for plains) so terrain lists can't drift apart.
-- [ ] Check after the cleanup: typecheck, tests, and one full turn in the browser, including a reload in each phase.
+- [x] **Q6.** "Coge 2 Cartas" only shows in development (`import.meta.env.DEV`, `CardsView.showDrawChoice`)
+- [x] **Q7.** `storage.test.ts`: round trips, unreadable and outdated saves, unknown scenario, storage throwing
+- [x] **Q8.** `TARGET_TERRAIN_MODIFIERS` is keyed by `HexType` (the answer for open ground is now `plains`)
+- [x] Checks: typecheck with no unused locals, 175 tests, and a full turn for each side in Chromium at 1280×800 and 800×1280 with touch, with a reload in every phase. No console errors or warnings, and no sideways scroll.
 
 ## Step 10: War-room look (new)
 
 The app currently looks like a generic dark MUI dashboard. It should feel like part of the board game: a WWII field-HQ / command-post look with more character. Keep it readable on a tablet next to a real table, keep 48px tap targets, and keep enough contrast (check text against textured backgrounds).
 
+- [ ] **Decide: where the art comes from.** Nothing has to be downloaded except what you pick here:
+  - **Fonts:**
+    - (recommended) the `@fontsource/black-ops-one`, `@fontsource/stardos-stencil` and `@fontsource/special-elite` npm packages. They are bundled into the app, work offline and are ~20–60 KB each.
+    - or a Google Fonts `<link>`, which needs internet on the tablet
+  - **Paper / canvas texture:**
+    - generated in code (SVG `feTurbulence` noise or CSS gradients), with no download
+    - or one free-licence (CC0) photo texture (ambientCG, Poly Haven), converted to WebP with `npm run optimize-image`
+  - **Insignia, card flank diagrams, dice and stamps:** hand-drawn inline SVG in the repo, with no download. Claude can draw these.
+  - **Icons:**
+    - none
+    - `@mui/icons-material` (generic)
+    - a few SVGs from game-icons.net (free, but the site must be credited in the README)
+  - **Animation:**
+    - CSS keyframes, as today
+    - or the `motion` library (~35 KB) for smoother card dealing and dice tumbling. It isn't needed.
+  - **Sound (optional):** plain browser audio plus a few CC0 clips from freesound
+  - **Real unit and card art:** painted or photographic art can't be generated in code. You supply it or pick free-licence sources, or we stay with the SVG placeholders.
 - [ ] **Art direction first.** Make a one-page mock of 2–3 directions and pick one before restyling everything. For example:
   - (a) *Field map & dossier*: olive and khaki, parchment panels, typewriter text, rubber stamps
   - (b) *Board-game box*: the Memoir '44 look, with bold sand and red, card-like panels and chunky dice
@@ -103,12 +117,12 @@ The app currently looks like a generic dark MUI dashboard. It should feel like p
   - line of sight is blocked
   - the unit moved before firing (if the house rules give a penalty)
 - [ ] Pre-answer what the app already knows. The firing unit's own terrain and whether it moved are in the order, so skip those questions (`appliesTo` plus a richer `FireContext`).
-- [ ] **Decide:** `Hex.getMovementCost` and `canEnter` have "unit-specific movement" TODOs. Are there any, e.g. tanks can't enter towns, or forest costs more for tanks? If not, delete the TODOs.
+- [ ] **Decide:** is there any unit-specific movement, e.g. tanks can't enter towns, or forest costs more for tanks? Today every unit moves the same (`Hex.getMovementCost`, `canEnter`).
 - [ ] **Decide:** "Infantry Assault"-style cards (a TODO in `commandCard.ts`: choose the section on play). Do we want them?
 
 ## Ideas for later
 - [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (these replace the "Coge 2 Cartas" debug button)
-- [ ] More scenarios, with a scenario data check for each
+- [ ] More scenarios, with a scenario data check for each (the old unused `defualt.png` board art is in git history before Step 9)
 - [ ] Install to the tablet's home screen as a PWA (manifest, icons, offline cache), for full screen with no browser bar. Do this after Step 10 so the icons match the new look.
 - [ ] Turn log: a short history of past turns (card played, units that fired, casualties), useful when the two players compare notes
 

@@ -1,9 +1,11 @@
 import Hex from "./hex";
 import Unit, { UnitType } from "./unit";
-import { Factions, Position, Scenario } from "../types/scenario.js";
+import { Factions, Position, Scenario } from "../types/scenario";
+import { Faction, isFaction } from "../types/faction";
 import { HexType, Side } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
 import CommandCard, { CommandCardType } from "./commandCard";
+import { positionKey } from "./position";
 
 class BoardManager {
   width: number;
@@ -11,7 +13,7 @@ class BoardManager {
   hexes: Map<string, Hex>;
   sideHexes: Map<Side, Hex[]>;
 
-  constructor(scenario: Scenario, faction = "Allies", width = 13, height = 9) {
+  constructor(scenario: Scenario, faction: Faction = "Allies", width = 13, height = 9) {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
@@ -22,7 +24,10 @@ class BoardManager {
   }
 
   // Initialize the board with default terrain
-  initializeBoard(scenario: Scenario, faction: string) {
+  private initializeBoard(scenario: Scenario, faction: Faction) {
+    // Factions can come from a saved game, so check even though the type says so
+    if (!isFaction(faction)) throw new Error(`Invalid faction: ${faction}`);
+
     // Helper function to flip positions for Axis faction
     const flipPosition = (position: Position): Position => {
       if (faction === "Axis") {
@@ -64,13 +69,6 @@ class BoardManager {
     }
 
     // Place initial units (flipped for Axis)
-    // Validate faction
-    if (!["Allies", "Axis"].includes(faction)) {
-      console.error(`Invalid faction: ${faction}`);
-      throw new Error(`Invalid faction: ${faction}`);
-    }
-
-    // Choose the correct unit positions
     const factionKey = faction.toLowerCase() as keyof Factions;
     const unitGroups = scenario.units[factionKey];
 
@@ -116,7 +114,7 @@ class BoardManager {
 
   // Get hex at specific position
   getHex(position: Position): Hex | null {
-    return this.hexes.get(`${position.row}-${position.col}`) || null;
+    return this.hexes.get(positionKey(position)) || null;
   }
 
   // Check if position is valid
@@ -135,12 +133,11 @@ class BoardManager {
     return Array.from(this.hexes.values());
   }
 
-  // Get hexes of specific type
-  getHexesByType(type: HexType): Hex[] {
-    return this.getAllHexes().filter((hex) => hex.getType() === type);
-  }
-
-  // Helper function to calculate possible moves using your Hex distance method
+  /**
+   * Every hex a unit at `startHex` can reach within `maxRange`, with the
+   * cheapest path to each (Dijkstra). Stop terrain ends movement; with
+   * `forFirePositions`, only destinations the unit can still fire from.
+   */
   calculatePossibleMovesWithPaths = (
     startHex: Hex,
     maxRange: number,
@@ -148,7 +145,7 @@ class BoardManager {
   ): PathResult[] => {
     const startPos = startHex.getPosition();
 
-    //TODO: Priority queue implemented with array (for simplicity). In production, consider using a proper priority queue for better performance
+    // A sorted array is plenty for a 117-hex board
     const queue: PathNode[] = [
       {
         position: startPos,
@@ -230,40 +227,6 @@ class BoardManager {
     return reachableResults;
   };
 
-  // Helper method to get just the positions (for backward compatibility)
-  calculatePossibleMoves = (
-    startHex: Hex,
-    maxRange: number,
-    forFirePositions: boolean = false
-  ): Position[] => {
-    const results = this.calculatePossibleMovesWithPaths(
-      startHex,
-      maxRange,
-      forFirePositions
-    );
-    return results.map((result) => result.position);
-  };
-
-  // Method to get the path to a specific destination
-  getPathToDestination = (
-    startHex: Hex,
-    destination: Position,
-    maxRange: number
-  ): Position[] | null => {
-    const results = this.calculatePossibleMovesWithPaths(
-      startHex,
-      maxRange,
-      false
-    );
-    const targetResult = results.find(
-      (result) =>
-        result.position.row === destination.row &&
-        result.position.col === destination.col
-    );
-
-    return targetResult ? targetResult.path : null;
-  };
-
   // Method to get all paths as a Map for quick lookup
   getAllPaths = (
     startHex: Hex,
@@ -277,10 +240,7 @@ class BoardManager {
     );
     const pathMap = new Map<string, Position[]>();
 
-    results.forEach((result) => {
-      const key = `${result.position.row}-${result.position.col}`;
-      pathMap.set(key, result.path);
-    });
+    results.forEach((result) => pathMap.set(positionKey(result.position), result.path));
 
     return pathMap;
   };
@@ -323,7 +283,7 @@ class BoardManager {
 
   setOrderableUnits(commandCard: CommandCard): number {
     // Start from a clean slate so a previous card's units don't stay orderable
-    this.setUnitsNotOrdable();
+    this.setUnitsNotOrderable();
 
     let sides: Side[] = [];
     let filterFn: ((unit: Unit) => boolean) | null = null;
@@ -374,44 +334,16 @@ class BoardManager {
       }
     });
 
-    // Set max orders to the value of the card. If number of possible orders is less than the number in the card set that value to max
-    var maxTotalOrders: number = commandCard.maxTotalOrders;
-
-    if (count < commandCard.maxTotalOrders) {
-      maxTotalOrders = count;
-    }
-    return maxTotalOrders;
+    // The card's order count, capped at the units it can actually order
+    return Math.min(commandCard.maxTotalOrders, count);
   }
 
-  setUnitsNotOrdable() {
+  setUnitsNotOrderable() {
     this.getAllHexes().forEach((hex) => {
       if (hex.unit) {
         hex.unit.setOrderable(false);
       }
     });
-  }
-
-  // Get board statistics
-  getStats() {
-    const stats: Record<HexType, number> = {
-      [HexType.PLAINS]: 0,
-      [HexType.FOREST]: 0,
-      [HexType.HILL]: 0,
-      [HexType.TOWN]: 0,
-    };
-
-    Object.values(HexType).forEach((type) => {
-      stats[type] = this.getHexesByType(type).length;
-    });
-
-    return stats;
-  }
-
-  // Reset board to initial state
-  reset(scenario: Scenario, faction = "Allies") {
-    this.hexes.clear();
-    this.initializeBoard(scenario, faction);
-    this.initializeSideHexes(); // side groups hold Hex references, so rebuild them too
   }
 }
 

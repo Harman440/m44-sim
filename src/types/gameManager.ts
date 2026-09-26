@@ -1,3 +1,2 @@
-export enum GamePhase { SETUP, PLAYING, END};
-
-export enum TurnPhase { PICK_CARDS, ORDER_UNITS, BATTLE, END_TURN};
+// Values are stored in saves: append new phases, don't reorder
+export enum TurnPhase { PICK_CARDS, ORDER_UNITS, BATTLE }

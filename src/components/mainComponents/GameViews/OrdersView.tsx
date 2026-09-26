@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
+import { Faction } from "../../../types/faction";
+import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { describeHex, describeMovement } from "../../labels";
+import { describeHex, describeMovement } from "../../../labels";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import "./PhaseLayout.css";
 
 interface OrdersViewProps {
-  boardSide: string;
+  faction: Faction;
   session: GameSession;
   game: GameSnapshot;
 }
 
-const samePosition = (a: Position, b: Position) => a.row === b.row && a.col === b.col;
 
 function LegendItem({ color, label }: { color: string; label: string }) {
   return (
@@ -24,7 +25,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-function OrdersView({ boardSide, session, game }: OrdersViewProps) {
+function OrdersView({ faction, session, game }: OrdersViewProps) {
   const boardManager = session.board;
   const { orders, ordersLeft, ordersCommitted } = game;
   const canGiveOrders = !ordersCommitted && ordersLeft > 0;
@@ -103,10 +104,7 @@ function OrdersView({ boardSide, session, game }: OrdersViewProps) {
           backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
           locked={ordersCommitted}
-          boardWidth={13}
-          boardHeight={9}
-          hexSize={50}
-          faction={boardSide}
+          faction={faction}
         />
       </div>
 

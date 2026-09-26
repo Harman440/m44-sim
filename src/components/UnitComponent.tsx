@@ -7,9 +7,10 @@ import axisInfantry from "../assets/units/axis/infantry.webp";
 import axisTank from "../assets/units/axis/tank.svg";
 import axisArtillery from "../assets/units/axis/artillery.svg";
 import Unit, { UnitType } from "../game-core/unit";
+import { Faction } from "../types/faction";
 
 // Tank and artillery are placeholder SVGs; drop real art in the same folders to replace them
-const SPRITES: Record<"Allies" | "Axis", Record<UnitType, string>> = {
+const SPRITES: Record<Faction, Record<UnitType, string>> = {
   Allies: {
     [UnitType.INFANTRY]: alliedInfantry,
     [UnitType.TANK]: alliedTank,
@@ -22,18 +23,18 @@ const SPRITES: Record<"Allies" | "Axis", Record<UnitType, string>> = {
   },
 };
 
-/** Sprite for a unit type; anything other than "Allies" uses the Axis art */
-export const unitSprite = (faction: string, unitType: UnitType): string =>
-  SPRITES[faction === "Allies" ? "Allies" : "Axis"][unitType];
+export const unitSprite = (faction: Faction, unitType: UnitType): string => SPRITES[faction][unitType];
 
 interface UnitProps {
   x: number;
   y: number;
-  faction: string;
+  faction: Faction;
   unitData?: Unit; // without data, an infantry sprite is drawn
+  /** Its order lets it fire this turn */
+  readyToFire?: boolean;
 }
 
-const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
+const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData, readyToFire = false }) => {
   const size = 48;
   const yOffset = -2;
   const xOffset = -4;
@@ -45,8 +46,9 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
   return (
     <g>
       {/* Glow red if ready to fire */}
-      {unitData?.isReadyToFire() && (
+      {readyToFire && (
         <circle
+          className="unit__glow unit__glow--fire"
           cx={x}
           cy={y}
           r={half}
@@ -56,8 +58,9 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
       )}
 
       {/* Glow blue if orderable */}
-      {unitData?.getOrderable() && (
+      {unitData?.isOrderable() && (
         <circle
+          className="unit__glow unit__glow--orderable"
           cx={x}
           cy={y}
           r={half}

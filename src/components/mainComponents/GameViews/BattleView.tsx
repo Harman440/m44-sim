@@ -11,13 +11,14 @@ import {
   Typography,
 } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
+import { Faction } from "../../../types/faction";
 import { summarizeOrders } from "../../../game-core/turnSummary";
 import TurnSummary from "../../TurnSummary";
 import FireDialog from "../../FireDialog";
 import BattleMap from "./BattleMap";
 
 interface BattleViewProps {
-  boardSide: string;
+  faction: Faction;
   session: GameSession;
   game: GameSnapshot;
   onFinishTurn: () => void;
@@ -28,7 +29,7 @@ interface BattleViewProps {
  * map is hidden and the whole screen shows the turn summary, where each unit
  * fires. The map is one tap away for syncing casualties and retreats.
  */
-function BattleView({ boardSide, session, game, onFinishTurn }: BattleViewProps) {
+function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
   const [showMap, setShowMap] = useState(false);
   const [firingIndex, setFiringIndex] = useState<number | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
@@ -42,7 +43,7 @@ function BattleView({ boardSide, session, game, onFinishTurn }: BattleViewProps)
     <>
       {showMap && (
         <BattleMap
-          boardSide={boardSide}
+          faction={faction}
           session={session}
           game={game}
           onShowSummary={() => setShowMap(false)}
@@ -91,7 +92,7 @@ function BattleView({ boardSide, session, game, onFinishTurn }: BattleViewProps)
         key={firingIndex ?? "closed"}
         summary={firing}
         card={game.chosenCard}
-        faction={boardSide}
+        faction={faction}
         onFire={(answers) => firingIndex !== null && session.fire(firingIndex, answers)}
         onQuickFire={(dice) => firingIndex !== null && session.fireQuick(firingIndex, dice)}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}

@@ -27,10 +27,12 @@ function Harness({
   session,
   initialDealt = [],
   onCardClick,
+  showDrawChoice,
 }: {
   session: GameSession;
   initialDealt?: string[];
   onCardClick?: (card: CommandCard) => void;
+  showDrawChoice?: boolean;
 }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [dealt, setDealt] = useState<ReadonlySet<string>>(() => new Set(initialDealt));
@@ -50,6 +52,7 @@ function Harness({
       onDrawChoice={() => session.drawChoice()}
       onChooseCard={(card) => session.chooseCard(card)}
       onCardClick={onCardClick ?? ((card) => session.pickCard(card))}
+      showDrawChoice={showDrawChoice}
     />
   );
 }
@@ -156,5 +159,11 @@ describe("CardsView choosing between 2 cards", () => {
 
     expect(onCardClick).not.toHaveBeenCalled();
     expect(screen.getByText("Primero elige una de las dos cartas")).toBeInTheDocument();
+  });
+
+  it("hides the debug draw-2 button outside development", () => {
+    render(<Harness session={makeSession(["A", "B", "C"], 2)} showDrawChoice={false} />);
+
+    expect(screen.queryByRole("button", { name: "Coge 2 Cartas" })).not.toBeInTheDocument();
   });
 });

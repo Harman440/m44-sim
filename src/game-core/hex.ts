@@ -1,5 +1,6 @@
 import { AxialCoord, HexType, MovementRule, Side, TerrainProperties } from "../types/hex";
 import { Position } from "../types/scenario";
+import { positionKey } from "./position";
 import Unit from "./unit";
 
 class Hex {
@@ -10,20 +11,12 @@ class Hex {
   private readonly movementRule: MovementRule;
   private readonly movementCost: number;
   private readonly canMoveAndFire: boolean;
-  private readonly color: string;
-  private readonly name: string;
 
-  private _unit: Unit | null;
+  private _unit: Unit | null = null;
 
-  constructor(
-    position: Position,
-    type: HexType = HexType.PLAINS,
-    overrides?: Partial<TerrainProperties>,
-    unit: Unit | null = null
-  ) {
+  constructor(position: Position, type: HexType = HexType.PLAINS, overrides?: Partial<TerrainProperties>) {
     this.position = position;
     this.type = type;
-    this._unit = unit;
 
     // Convert position to axial
     this.posAxial = this.offsetToAxial(this.position);
@@ -39,8 +32,6 @@ class Hex {
     this.movementRule = finalProps.movementRule;
     this.movementCost = finalProps.movementCost;
     this.canMoveAndFire = finalProps.canMoveAndFire;
-    this.color = finalProps.color;
-    this.name = finalProps.name;
   }
 
   private _setSide(pos: Position): Side {
@@ -64,65 +55,37 @@ class Hex {
         return {
           movementRule: MovementRule.NORMAL,
           canMoveAndFire: true,
-          movementCost: 1,
-          color: "#90EE90", // Light green
-          name: "Plains"
+          movementCost: 1
         };
 
       case HexType.FOREST:
         return {
           movementRule: MovementRule.STOP,
           canMoveAndFire: false,
-          movementCost: 1,
-          color: "#228B22", // Forest green
-          name: "Forest"
+          movementCost: 1
         };
 
       case HexType.HILL:
         return {
           movementRule: MovementRule.NORMAL,
           canMoveAndFire: true,
-          movementCost: 1,
-          color: "#8B4513", // Saddle brown
-          name: "Hill"
+          movementCost: 1
         };
 
       case HexType.TOWN:
         return {
           movementRule: MovementRule.STOP,
           canMoveAndFire: false,
-          movementCost: 1,
-          color: "#FFD700", // Gold
-          name: "Town"
+          movementCost: 1
         };
 
       default:
         return {
           movementRule: MovementRule.NORMAL,
           canMoveAndFire: true,
-          movementCost: 1,
-          color: "#90EE90",
-          name: "Plains"
+          movementCost: 1
         };
     }
-  }
-
-  //TODO: use these to setup hexes
-  // Alternative constructor approach using static factory methods
-  static createPlains(position: Position, overrides?: Partial<TerrainProperties>): Hex {
-    return new Hex(position, HexType.PLAINS, overrides);
-  }
-
-  static createForest(position: Position, overrides?: Partial<TerrainProperties>): Hex {
-    return new Hex(position, HexType.FOREST, overrides);
-  }
-
-  static createHill(position: Position, overrides?: Partial<TerrainProperties>): Hex {
-    return new Hex(position, HexType.HILL, overrides);
-  }
-
-  static createTown(position: Position, overrides?: Partial<TerrainProperties>): Hex {
-    return new Hex(position, HexType.TOWN, overrides);
   }
 
   // Getters for readonly properties
@@ -131,16 +94,11 @@ class Hex {
   getSide(): Side { return this.side; }
   getType(): HexType { return this.type; }
   getMovementRule(): MovementRule { return this.movementRule; }
-  getMovementCost(unit: Unit | null = null): number {
-    //TODO: Could be modified based on unit type
-    return this.movementCost;
-  }
+  getMovementCost(): number { return this.movementCost; }
   getCanMoveAndFire(): boolean { return this.canMoveAndFire; }
-  getColor(): string { return this.color; }
-  getName(): string { return this.name; }
 
   getKey() {
-    return `${this.position.row}-${this.position.col}`;
+    return positionKey(this.position);
   }
 
   // Game logic methods
@@ -154,7 +112,6 @@ class Hex {
       return false;
     }
 
-    //TODO: Add more complex logic here (unit-specific movement rules, etc.)
     return true;
   }
 
@@ -185,11 +142,6 @@ class Hex {
 
   removeUnit() {
     this._unit = null;
-  }
-
-  // Utility methods
-  getCoordinates() {
-    return { row: this.position.row, col: this.position.col };
   }
 
   // Convert offset coordinates to axial coordinates
@@ -227,22 +179,6 @@ class Hex {
   getNeighbors(): Position[] {
     const axialNeighbors = this.getAxialNeighbors();
     return axialNeighbors.map(neighbor => this.axialToOffset(neighbor));
-  }
-
-  // Description for UI
-  getDescription() {
-    let desc = `${this.name} (${this.position.row}, ${this.position.col})`;
-
-    if (this._unit) {
-      desc += ` - Occupied by ${this._unit.getUnitType() || "Unit"}`;
-    }
-
-    return desc;
-  }
-
-  // For debugging
-  toString() {
-    return `Hex[${this.position.row},${this.position.col}]:${this.type}`;
   }
 }
 

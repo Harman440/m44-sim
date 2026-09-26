@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { describeFaces, describeHex, describeMovement } from "./labels";
-import { DieFace } from "../game-core/dice";
-import Hex from "../game-core/hex";
-import Unit, { UnitType } from "../game-core/unit";
-import { HexType } from "../types/hex";
+import { DieFace } from "./game-core/dice";
+import Hex from "./game-core/hex";
+import Unit, { UnitType } from "./game-core/unit";
+import { HexType } from "./types/hex";
 
 describe("Spanish descriptions", () => {
   it("describes a hex by its unit and terrain", () => {

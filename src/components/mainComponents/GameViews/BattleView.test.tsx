@@ -35,7 +35,7 @@ const makeBattleSession = () => {
 
 function Harness({ session, onFinishTurn }: { session: GameSession; onFinishTurn: () => void }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  return <BattleView boardSide="Allies" session={session} game={game} onFinishTurn={onFinishTurn} />;
+  return <BattleView faction="Allies" session={session} game={game} onFinishTurn={onFinishTurn} />;
 }
 
 const setup = ({ openMap = true } = {}) => {
