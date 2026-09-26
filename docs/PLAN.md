@@ -52,7 +52,7 @@ The house rules' programming note says to start from the turn data as JSON; the 
 - [x] **Decided:** no sharing or connection between the tablets. Each app knows only its own side; the opponent's actions happen at the table.
 - [x] **Decided:** alternating fire is done at the table (Step 19 only reminds the player)
 - [x] **Decided:** collisions get a "¿Ha habido un choque?" button in the battle phase (Step 18)
-- [x] **Decided:** cards that act on the opponent are deleted or reduced (Step 26)
+- [x] **Decided:** cards that act on the opponent: Counter Attack is removed; Out of Ammo, Out of Fuel and Shells Shortage are reaction cards (Step 24); the cards about the opponent's hand or orders come last (Step 33); the rest are worked out in Step 26
 
 ---
 
@@ -87,7 +87,7 @@ When two units cross the same hex, or land on the same one, they battle at once,
 - [ ] Explain the outcome after the roll:
   - the loser retreats or is eliminated; the winner stays, or keeps moving to its destination
   - if nobody retreats, both units move one hex back along their path (which may be blocked)
-- [ ] **Decide:** does a collision roll use up the unit's normal shot this turn?
+- [x] **Decided:** a collision roll uses up the unit's shot for the turn
 
 ### Step 19: Battle order and retreats
 - [ ] Split the battle summary into "Sin mover" (fire first) and "Movidas" (fire after)
@@ -130,10 +130,10 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
     - Close Assault card +1
   - a card with no orders (Close Assault: all units in close assault fire after the enemy moves)
   - Direct from HQ, Move Out
+- [x] **Decided:** Counter Attack is not in the game
 - [ ] **Decide:**
   - what "on the move" means in this variant (units that may move and still fire?) and the "1 less on standard maps" rule
   - which sections Pincer uses
-  - Counter Attack: delete it, or play it at the table on the honour system (see Step 26)
   - the final deck counts (the notes have several "(−1)" changes)
 
 ### Step 22: Drawing cards
@@ -161,6 +161,8 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 - [ ] Combat deck; start with 2 cards; hand of at most 3 (swap one when drawing a fourth)
 - [ ] Order combat cards: one per turn, chosen with the command card (face down), targets recorded on the map, paid in the movement phase
 - [ ] Reaction (battle) cards: one per player per battle phase, paid immediately
+  - the battle screen shows the reaction cards in your hand, and you can play one at any time while it's the opponent's turn to fire
+  - Ambush, Out of Ammo, Out of Fuel and Shells Shortage work this way (the last three are reaction cards: the enemy unit can't fire, and with Out of Ammo/Out of Fuel it also moves; done at the table)
 - [ ] End of turn: combat card or 2 coins (with Step 23)
 - [ ] **Decide:**
   - the final card list, costs and counts (the notes list extra copies in brackets, and medic variants)
@@ -195,11 +197,7 @@ Several cards need you to mark hexes on your map during orders.
   - Behind Enemy Lines: fire and move before other attacks, with the move done in the retreat phase
   - Close Assault: fire after the enemy has moved
 - [ ] Battle: Not a Step Back (ignore retreats), Heat of Battle (infantry overrun)
-- [ ] **Decide:** cards that act on the opponent, since the tablets aren't connected (Step 15). For each: delete it, or keep a reduced version that is played at the table and only shows a reminder in the app.
-  - act on the opponent's orders or cards: Lost Message, Counter Attack (command card), Spies, HQ Distraction, Message Interception
-  - stop an enemy unit from firing or move it: Out of Ammo, Out of Fuel, Shells Shortage
-  - change the opponent's roll: Personal Armor
-  - change the firing order at the table: Rifles Up!, Behind Enemy Lines
+- [ ] **Decide when we get here:** a way to play Personal Armor (ignore 1 infantry the opponent rolled), Rifles Up! (fire before anyone else) and Behind Enemy Lines (fire and move before other attacks) without connecting the tablets
 
 ---
 
@@ -255,6 +253,16 @@ Large; split it into smaller steps when we get here.
 - [ ] Bigger units: infantry with 5 figures, tanks with 4 (a table rule; the app only needs changes if it affects dice)
 - [ ] Fewer cards (more predictable) with more orders per card
 - [ ] A deck-probability view: how likely each card type is to be drawn, for balancing (the probability notes in house-rules.md)
+
+---
+
+## Part I: Last
+
+### Step 33: Cards about the opponent's hand and orders
+Not important for gameplay, so they come last: Lost Message (the opponent loses 2 orders), Spies, HQ Distraction and Message Interception.
+- [ ] A "Mostrar cartas al rival" button: shows your hand (or the cards you'll use) full screen, for the opponent to look at
+- [ ] A "Perder cartas" / "Perder órdenes" button: discard the cards or give up the orders the opponent's card takes away
+- [ ] Add these cards to the combat deck (Step 24)
 
 ---
 
