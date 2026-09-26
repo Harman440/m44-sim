@@ -84,6 +84,9 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
                   <Typography variant="body2" color="text.secondary">
                     {s.description}
                   </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Ataca: {FACTION_LABELS[s.attacker]}
+                  </Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
@@ -108,9 +111,12 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
-        {handSize !== null && (
+        {scenario && faction && handSize !== null && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Empiezas con {handSize} cartas de mando.
+            Empiezas con {handSize} cartas de mando.{" "}
+            {scenario.attacker === faction
+              ? "Atacas: juegas un turno extra al empezar, antes de que el rival pueda responder."
+              : "Defiendes: el rival juega primero un turno extra y tú empiezas en el turno 2."}
           </Typography>
         )}
       </Box>

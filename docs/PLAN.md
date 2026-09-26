@@ -66,10 +66,11 @@ The house rules' programming note says to start from the turn data as JSON; the 
 ## Part C: Simultaneous turn structure
 
 ### Step 16: Attacking side and the extra first turn
-- [ ] Scenario data: which side attacks (the side that normally starts)
-- [ ] The attacking side plays one extra turn at the start, played normally, but it can't take combat cards or coins
-- [ ] Show who is attacking in the header and the menu
-- [ ] **Decide:** what the defender's app shows during that extra turn (wait screen, or it simply starts at turn 2)
+- [x] Scenario data: which side attacks (`Scenario.attacker`; Forêt d'Écouves: Allies, who start with 5 cards to 3)
+- [x] The attacking side plays one extra turn at the start (turn 1), played normally; the snapshot's `extraTurn` marks it
+- [ ] No combat cards or coins in the extra turn: enforce with `extraTurn` once Part E exists
+- [x] Show who is attacking in the header ("Atacante"/"Defensor", "Turno 1 · extra") and the menu ("Ataca: …" on the scenario, and what it means for the chosen side)
+- [x] **Decided:** the defender's app starts on a waiting screen (`TurnPhase.AWAIT_ATTACKER`, `WaitingView`) with an "Empezar turno 2" button
 
 ### Step 17: Movement and last phases
 The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase final**.
@@ -270,6 +271,9 @@ Not important for gameplay, so they come last: Lost Message (the opponent loses 
 - [ ] A "Mostrar cartas al rival" button: shows your hand (or the cards you'll use) full screen, for the opponent to look at
 - [ ] A "Perder cartas" / "Perder órdenes" button: discard the cards or give up the orders the opponent's card takes away
 - [ ] Add these cards to the combat deck (Step 24)
+
+### Step 34: Import a game
+- [ ] "Importar partida" on the start menu: load a JSON file exported with "Exportar partida" (Step 14), check it with `GameSession.restore` and carry on from it
 
 ---
 

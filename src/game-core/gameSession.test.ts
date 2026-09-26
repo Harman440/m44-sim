@@ -11,6 +11,7 @@ const scenario: Scenario = {
   name: "Test",
   description: "",
   initialHandSize: { allies: 3, axis: 3 },
+  attacker: "Allies",
   tiles: { forest: [{ row: 4, col: 7 }] },
   units: {
     allies: {
@@ -494,6 +495,50 @@ describe("GameSession firing", () => {
   });
 });
 
+describe("GameSession attacker's extra first turn", () => {
+  const defenderSession = () =>
+    new GameSession({ scenario: { ...scenario, attacker: "Axis" }, faction: "Allies", initialHandSize: 2, commandCards: cards() });
+
+  it("lets the attacker play turn 1 as an extra turn, and only turn 1", () => {
+    const { session, card } = sessionWithAllCards();
+    expect(session.attacking).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ turn: 1, phase: TurnPhase.PICK_CARDS, extraTurn: true });
+
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    session.endTurn();
+
+    expect(session.getSnapshot()).toMatchObject({ turn: 2, extraTurn: false });
+  });
+
+  it("makes the defender wait, then start at turn 2 with its hand", () => {
+    const session = defenderSession();
+    const hand = session.getSnapshot().hand;
+    expect(session.attacking).toBe(false);
+    expect(session.getSnapshot()).toMatchObject({ turn: 1, phase: TurnPhase.AWAIT_ATTACKER, extraTurn: false });
+    expect(session.pickCard(hand[0]!)).toBe(false);
+
+    expect(session.startFirstTurn()).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ turn: 2, phase: TurnPhase.PICK_CARDS, hand, extraTurn: false });
+    expect(session.startFirstTurn()).toBe(false);
+    expect(session.pickCard(hand[0]!)).toBe(true);
+  });
+
+  it("only waits for the defender", () => {
+    expect(makeSession().startFirstTurn()).toBe(false);
+  });
+
+  it("keeps waiting after a reload", () => {
+    const saved = JSON.parse(JSON.stringify(defenderSession().save()));
+
+    const restored = GameSession.restore(saved, { ...scenario, attacker: "Axis" }, cards());
+
+    expect(restored.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+    expect(restored.startFirstTurn()).toBe(true);
+  });
+});
+
 describe("GameSession turn log", () => {
   it("records each finished turn as plain JSON: card, orders, shots and map edits", () => {
     const { session, card } = sessionWithAllCards();
@@ -679,6 +724,8 @@ describe("GameSession saving and restoring", () => {
 
     expect(broken({ version: 4 as 3 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
+    expect(broken({ phase: 9 as TurnPhase })).toThrow();
+    expect(broken({ phase: "BATTLE" as never })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
     expect(broken({ shots: [{ orderIndex: 5, steps: [], dice: 1, faces: ["infantry" as never] }] })).toThrow();
     expect(broken({ units: [{ ...saved.units[0]!, position: { row: 40, col: 0 } }] })).toThrow();

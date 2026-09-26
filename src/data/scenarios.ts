@@ -10,6 +10,7 @@ export const scenarios: Scenario[] = [
     description: 'Bosque denso con claros dispersos y pueblos que disputar.',
     image: foretDEcouvesImage,
     initialHandSize: { allies: 5, axis: 3 },
+    attacker: 'Allies',
     "tiles": {
       "forest": [
         { "row": 1, "col": 3 }, { "row": 1, "col": 7 },

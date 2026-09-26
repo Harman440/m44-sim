@@ -18,6 +18,7 @@ const playedSession = () => {
       name: "Test",
       description: "",
       initialHandSize: { allies: 2, axis: 2 },
+      attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY] }, axis: {} },
     },

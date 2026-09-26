@@ -21,6 +21,7 @@ const scenario: Scenario = {
   name: "Test",
   description: "",
   initialHandSize: { allies: 2, axis: 2 },
+  attacker: "Axis",
   tiles: {},
   units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },
 };

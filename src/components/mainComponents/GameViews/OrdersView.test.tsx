@@ -19,6 +19,7 @@ const makeSession = () => {
       name: "Test",
       description: "",
       initialHandSize: { allies: 3, axis: 3 },
+      attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
     },

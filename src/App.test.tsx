@@ -48,9 +48,9 @@ describe("App menu and game flow", () => {
 
     expect(screen.getByRole("button", { name: "Empezar partida" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Eje" }));
-    expect(screen.getByText("Empiezas con 3 cartas de mando.")).toBeInTheDocument();
+    expect(screen.getByText(/^Empiezas con 3 cartas de mando\. Defiendes/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
-    expect(screen.getByText("Empiezas con 5 cartas de mando.")).toBeInTheDocument();
+    expect(screen.getByText(/^Empiezas con 5 cartas de mando\. Atacas/)).toBeInTheDocument();
   });
 
   it("starts a game for the chosen side, with the turn and phase in the header", () => {
@@ -59,14 +59,29 @@ describe("App menu and game flow", () => {
     start("Aliados");
 
     expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
-    expect(screen.getByText("Turno 1")).toBeInTheDocument();
+    expect(screen.getByText("Atacante")).toBeInTheDocument();
+    expect(screen.getByText("Turno 1 · extra")).toBeInTheDocument();
     expect(screen.getByText("1. Carta").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+  });
+
+  it("shows the defender a waiting screen during the attacker's extra turn, then starts at turn 2", () => {
+    render(<App />);
+    start("Eje");
+
+    expect(screen.getByText("Defensor")).toBeInTheDocument();
+    expect(screen.getByText("Los Aliados atacan primero")).toBeInTheDocument();
+    expect(screen.queryByText("Zona de Mando")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Empezar turno 2" }));
+
+    expect(screen.getByText("Turno 2")).toBeInTheDocument();
     expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
   });
 
   it("asks before leaving a game, and goes back to the menu on Salir", async () => {
     render(<App />);
-    start("Eje");
+    start("Aliados");
 
     openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Seguir jugando" }));

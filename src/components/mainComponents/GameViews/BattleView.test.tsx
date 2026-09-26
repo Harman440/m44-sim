@@ -18,6 +18,7 @@ const makeBattleSession = () => {
       name: "Test",
       description: "",
       initialHandSize: { allies: 1, axis: 1 },
+      attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
     },

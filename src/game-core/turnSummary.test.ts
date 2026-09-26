@@ -17,6 +17,7 @@ const playTurn = () => {
       name: "Test",
       description: "",
       initialHandSize: { allies: 1, axis: 1 },
+      attacker: "Allies",
       tiles: { forest: [FOREST] },
       units: { allies: { tank: [TANK], infantry: [INFANTRY] }, axis: {} },
     },

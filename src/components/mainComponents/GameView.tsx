@@ -24,6 +24,7 @@ import GameSession from "../../game-core/gameSession";
 import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
+import WaitingView from "./GameViews/WaitingView";
 import { FACTION_LABELS } from "../../labels";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
@@ -105,7 +106,8 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
               {scenario.name} · {FACTION_LABELS[faction]}
             </Typography>
-            <Chip label={`Turno ${game.turn}`} color="secondary" />
+            <Chip label={session.attacking ? "Atacante" : "Defensor"} variant="outlined" />
+            <Chip label={game.extraTurn ? "Turno 1 · extra" : `Turno ${game.turn}`} color="secondary" />
             {PHASE_STEPS.map(({ phase, label }, i) => (
               <Chip
                 key={phase}
@@ -182,6 +184,10 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             </MenuItem>
           </Menu>
         </Box>
+
+        {game.phase === TurnPhase.AWAIT_ATTACKER && (
+          <WaitingView attacker={scenario.attacker} onStart={() => session.startFirstTurn()} />
+        )}
 
         {game.phase === TurnPhase.PICK_CARDS && (
           <CardsView

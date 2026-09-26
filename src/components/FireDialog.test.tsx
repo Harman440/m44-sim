@@ -18,6 +18,7 @@ const makeSession = (unitType: UnitType, numFireTimes = 1) => {
       name: "Test",
       description: "",
       initialHandSize: { allies: 1, axis: 1 },
+      attacker: "Allies",
       tiles: {},
       units: { allies: { [unitType]: [UNIT] }, axis: {} },
     },

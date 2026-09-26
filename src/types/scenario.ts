@@ -1,5 +1,6 @@
 import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
+import { Faction } from "./faction";
 
 // src/types/scenario.ts
 export interface Position {
@@ -25,6 +26,8 @@ export interface Scenario {
   image?: string;
   /** Command cards each side starts with */
   initialHandSize: { allies: number; axis: number };
+  /** The side that normally starts; it plays one extra turn before the defender joins in */
+  attacker: Faction;
   tiles: Tiles;
   units: Factions;
 }

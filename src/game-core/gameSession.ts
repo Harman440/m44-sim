@@ -33,6 +33,8 @@ export interface GameSnapshot {
   firesPerUnit: number;
   /** Finished turns, oldest first */
   log: readonly TurnRecord[];
+  /** The attacker's extra first turn, before the defender plays (no combat cards or coins) */
+  extraTurn: boolean;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -114,7 +116,8 @@ export type BattleEdit =
 
 /**
  * Owns one player's game: board, command cards and the turn flow
- * PICK_CARDS -> ORDER_UNITS -> BATTLE -> (next turn).
+ * PICK_CARDS -> ORDER_UNITS -> BATTLE -> (next turn). The attacking side
+ * plays turn 1 alone; the defender waits in AWAIT_ATTACKER and starts at turn 2.
  *
  * Game objects are mutable, so instead of a React reducer (which React may run
  * twice) every action mutates them here and publishes a new immutable snapshot.
@@ -124,12 +127,14 @@ export type BattleEdit =
 class GameSession {
   readonly scenario: Scenario;
   readonly faction: Faction;
+  /** This device's side attacks: it plays the extra first turn */
+  readonly attacking: boolean;
   readonly board: BoardManager;
   private readonly deck: Deck;
   private hand: CommandCard[];
 
   private turn = 1;
-  private phase = TurnPhase.PICK_CARDS;
+  private phase: TurnPhase;
   private choiceCards: CommandCard[] = [];
   private chosenCard: CommandCard | null = null;
   private orders: Order[] = [];
@@ -153,6 +158,8 @@ class GameSession {
     this.scenario = scenario;
     this.random = random;
     this.faction = faction;
+    this.attacking = scenario.attacker === faction;
+    this.phase = this.attacking ? TurnPhase.PICK_CARDS : TurnPhase.AWAIT_ATTACKER;
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
     this.hand = this.deck.draw(initialHandSize);
@@ -167,6 +174,17 @@ class GameSession {
   };
 
   getSnapshot = (): GameSnapshot => this.snapshot;
+
+  // --- AWAIT_ATTACKER
+
+  /** The attacker has finished the extra turn at the table: the defender joins in at turn 2 */
+  startFirstTurn(): boolean {
+    if (this.phase !== TurnPhase.AWAIT_ATTACKER) return false;
+
+    this.turn = 2;
+    this.phase = TurnPhase.PICK_CARDS;
+    return this.publish();
+  }
 
   // --- PICK_CARDS
 
@@ -478,7 +496,7 @@ class GameSession {
       throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
     }
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
-    if (![TurnPhase.PICK_CARDS, TurnPhase.ORDER_UNITS, TurnPhase.BATTLE].includes(saved.phase)) {
+    if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
       throw new Error(`Unknown phase ${saved.phase}`);
     }
 
@@ -564,6 +582,7 @@ class GameSession {
       shots: this.shots,
       firesPerUnit: this.firesPerUnit,
       log: this.log,
+      extraTurn: this.attacking && this.turn === 1,
     };
   }
 
