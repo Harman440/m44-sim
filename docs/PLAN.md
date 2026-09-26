@@ -41,7 +41,7 @@ Two decisions shape the rest of the plan (Steps 15 and 27):
 ### Step 13: Small polish
 - [x] Change the look and sound during a game ("Ajustes" in the in-game menu, not only on the start menu)
 - [x] Split the JS bundle (610 KB, 195 KB gzipped) so the first screen loads faster on the tablet: the game screen is lazy-loaded and preloaded from the menu, and react, MUI and motion are separate chunks. The menu now loads 151 KB gzipped (entry 20, react 59, MUI 72); the game screen adds 52 KB (game code 11, motion 41)
-- [ ] Real art for the tank and artillery sprites (placeholder SVGs today). **Decide:** where the art comes from (you supply it, or a free-licence source)
+- [x] **Decided:** keep the placeholder SVGs for the tank and artillery sprites for now; real art can come later (from the player, or a free-licence source)
 
 ### Step 14: Turn log and turn data as JSON
 The house rules' programming note says to start from the turn data as JSON; the save format already is JSON, so this builds on it.
