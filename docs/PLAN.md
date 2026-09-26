@@ -25,12 +25,18 @@ Two decisions shape the rest of the plan (Steps 15 and 27):
 ## Part A: App polish
 
 ### Step 12: Install on the tablet (PWA)
-- [ ] Web app manifest (name, icons, `display: fullscreen`/`standalone`, landscape and portrait) so Chrome on Android offers "Instalar aplicación"
-- [ ] Offline cache of the app and its assets (fonts, textures, sounds, board art) with a service worker
-- [ ] An app icon in the war-room style
-- [ ] "Nueva versión disponible" prompt when an update is deployed
-- [ ] **Decide:** add `vite-plugin-pwa` (generates the service worker), or write a small service worker by hand
-- [ ] Check: install from Chrome on Android, then play a turn in airplane mode
+- [x] **Decided:** `vite-plugin-pwa` generates the service worker and manifest (`vite.config.ts`)
+- [x] Web app manifest: name, `display: fullscreen`, any orientation, dark theme colour, icons (including a maskable one) so Chrome on Android offers "Instalar aplicación"
+- [x] Offline: the service worker precaches everything the game uses: code, fonts (woff2), textures, sounds, icons and board art (45 files, 1.4 MB)
+- [x] App icon in the war-room style (`public/icons/icon.svg`; `npm run icons` renders the PNGs)
+- [x] "prompt" updates: "Nueva versión disponible" with "Actualizar" / "Más tarde", so the app never reloads mid-game (the game is saved anyway), plus "Lista para jugar sin conexión" once cached (`UpdatePrompt`)
+- [x] `npm run tablet` builds and serves the real app on the network (port 4173); the README explains installing it
+- [x] Checked in Chromium on the production build:
+  - the service worker installs
+  - offline reload: fonts, textures and board art load from the cache, and a game starts normally
+  - deploying a changed build shows "Nueva versión disponible", and "Actualizar" loads it
+- [ ] **Found:** service workers only run on HTTPS or `localhost`, so on `http://<IP>` the tablet needs a Chrome flag (README). **Decide:** keep the flag, or host the app on HTTPS (e.g. GitHub Pages, from the GitHub repo) so installing needs no flag
+- [ ] Check on the real tablet: install from Chrome, then play a turn in airplane mode
 
 ### Step 13: Small polish
 - [ ] Change the look and sound during a game ("Ajustes" in the in-game menu, not only on the start menu)

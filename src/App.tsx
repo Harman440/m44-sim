@@ -8,6 +8,7 @@ import commandCards from './data/commandCards';
 import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/GameView';
 import Menu from './components/mainComponents/Menu';
+import UpdatePrompt from './components/UpdatePrompt';
 import { GameSetup } from './types/faction';
 import {
   clearSavedGame,
@@ -92,6 +93,7 @@ const App = () => {
               <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
             )}
           </div>
+          <UpdatePrompt />
         </MotionConfig>
       </ThemeProvider>
     </SettingsContext.Provider>

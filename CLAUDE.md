@@ -13,7 +13,9 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `npm run dev`: Vite dev server on http://localhost:3000 (polling watcher, because the repo lives on WSL)
 - `npm run typecheck`: `tsc --noEmit` (must report 0 errors)
 - `npm test`: Vitest in watch mode; use `npx vitest run` for a single run
-- `npm run build`: production build to `dist/`
+- `npm run build`: production build to `dist/`, with the service worker (`vite-plugin-pwa`, config in `vite.config.ts`)
+- `npm run tablet`: build and serve the production app on the network (port 4173); the only way to test install and offline, since the service worker doesn't run in `npm run dev`. Service workers need HTTPS or localhost; see the README for the tablet.
+- `npm run icons`: regenerate the app icon PNGs from `public/icons/icon.svg`
 
 ## Architecture
 - `src/game-core/`: plain TypeScript game logic with **no React imports**:

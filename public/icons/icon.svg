@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background so the icon also works as "maskable" (badge kept inside the central 80%) -->
+  <rect width="512" height="512" fill="#1f2413"/>
+  <circle cx="256" cy="256" r="178" fill="#3d4622" stroke="#e3a72f" stroke-width="18"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#e3a72f" stroke-width="4" stroke-dasharray="14 10"/>
+  <polygon fill="#f1ead6" points="256,132 285.4,215.6 374,218.2 303.6,272.4 329,357.4 256,307.2 183,357.4 208.4,272.4 138,218.2 226.6,215.6"/>
+</svg>
