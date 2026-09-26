@@ -8,6 +8,20 @@ interface OrderProps {
   hexSize: number;
 }
 
+// Different colors based on order index
+const orangeShades = [
+  "#992600", // dark reddish-brown orange
+  "#cc3300", // deep burnt orange
+  "#e65c00", // strong vivid orange
+  "#ff6600", // bright orange
+  "#ff884d", // warm amber-orange
+  "#b34700"  // earthy orange-brown
+];
+
+/** Arrow colour for the order at `orderIndex`; the battle summary uses it too */
+export const orderColor = (orderIndex: number = 0): string =>
+  orangeShades[orderIndex % orangeShades.length]!;
+
 // Draws an order as an arrow along the unit's path, from start to destination
 function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps) {
   // Hold-and-fire orders have no movement; the unit's ready-to-fire glow shows them
@@ -60,20 +74,7 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
   const pathString = createPathString(pathPoints);
   const arrowHead = getArrowHead(pathPoints);
 
-  // Different colors based on order key
-  const orangeShades = [
-    "#992600", // dark reddish-brown orange
-    "#cc3300", // deep burnt orange
-    "#e65c00", // strong vivid orange
-    "#ff6600", // bright orange
-    "#ff884d", // warm amber-orange
-    "#b34700"  // earthy orange-brown
-  ];
-  const getArrowColor = (orderIndex: number = 0) => {
-    return orangeShades[orderIndex % orangeShades.length];
-  };
-
-  const color = getArrowColor(orderIndex);
+  const color = orderColor(orderIndex);
 
   return (
     <g className="order-arrow">

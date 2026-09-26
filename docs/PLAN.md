@@ -105,9 +105,16 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] Tests: battle sync in `gameSession.test.ts`, `BattleView.test.tsx`, `UnitComponent.test.tsx`, and scenario data checks
 
 ### Step 6: Battle-phase helper
-- [ ] Decide the scope together first
-- [ ] Show a summary of this turn's orders (who fires, and whether after a move) to carry out on the table
-- [ ] Dice roller (optional)
+- [x] Scope agreed: pressing "Fase Batalla" hides the map and shows the summary and helpers full screen, because the player is looking at the physical board. "Ver mapa" opens the map on demand.
+- [x] Turn summary (`TurnSummary`, `game-core/turnSummary.ts`):
+  - the card played, and how many units fire or can't
+  - one row per order: unit, section, hold or "advances N hexes → terrain", Dispara / No dispara / Eliminada
+  - a colour swatch matching the order's arrow on the map
+- [x] Dice roller (`DiceRoller`, `game-core/dice.ts`): choose 1–6 dice and roll Memoir '44 faces, shown as icons with counts; the last roll survives opening the map
+- [x] Map view (`BattleMap`) keeps the Step 5 sync tools, with "Volver al resumen"; "Terminar Turno" is available from both views
+- [x] Tablet layout: two columns in landscape, stacked in portrait
+- [x] Tests: `dice.test.ts`, `turnSummary.test.ts`, `DiceRoller.test.tsx`, `BattleView.test.tsx` (summary, switching views, dice kept, sync reflected in the summary)
+- [x] Before Step 6: bigger board on tablets (the view is cropped to the board image, the side panel is 220px, less page padding). Landscape board width went from ~851px to 1032px, portrait from ~700px to 784px.
 
 ### Step 7: Menu and polish (Q5)
 - [ ] Scenario and faction picker (`Menu.tsx`)

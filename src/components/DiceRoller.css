@@ -1,0 +1,35 @@
+.dice-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dice-result__die {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  animation: dice-roll 0.35s ease-out;
+}
+
+.die {
+  width: 64px;
+  height: 64px;
+}
+
+@keyframes dice-roll {
+  from {
+    transform: rotate(-25deg) scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-result__die {
+    animation: none;
+  }
+}

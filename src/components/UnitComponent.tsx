@@ -22,6 +22,10 @@ const SPRITES: Record<"Allies" | "Axis", Record<UnitType, string>> = {
   },
 };
 
+/** Sprite for a unit type; anything other than "Allies" uses the Axis art */
+export const unitSprite = (faction: string, unitType: UnitType): string =>
+  SPRITES[faction === "Allies" ? "Allies" : "Axis"][unitType];
+
 interface UnitProps {
   x: number;
   y: number;
@@ -35,9 +39,8 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData }) => {
   const xOffset = -4;
   const half = size / 2;
 
-  const sprites = SPRITES[faction === "Allies" ? "Allies" : "Axis"];
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
-  const href = sprites[unitType];
+  const href = unitSprite(faction, unitType);
 
   return (
     <g>

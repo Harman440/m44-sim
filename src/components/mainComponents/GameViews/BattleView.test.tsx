@@ -38,19 +38,76 @@ function Harness({ session, onFinishTurn }: { session: GameSession; onFinishTurn
   return <BattleView boardSide="Allies" session={session} game={game} onFinishTurn={onFinishTurn} />;
 }
 
-const setup = () => {
+const setup = ({ openMap = true } = {}) => {
   const session = makeBattleSession();
   const onFinishTurn = vi.fn();
   const { container } = render(<Harness session={session} onFinishTurn={onFinishTurn} />);
+  if (openMap) fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
   const hex = (p: Position) =>
     container.querySelector(`[data-position="${p.row}-${p.col}"]`) as SVGGElement;
   const tap = (p: Position) => fireEvent.click(hex(p));
   const isSelected = (p: Position) => hex(p).querySelector(".hexagon__tile--selected") !== null;
   const hasUnit = (p: Position) => session.board.getHex(p)!.hasUnit();
-  return { session, onFinishTurn, tap, isSelected, hasUnit };
+  return { session, container, onFinishTurn, tap, isSelected, hasUnit };
 };
 
-describe("BattleView", () => {
+describe("BattleView summary screen", () => {
+  it("hides the map and summarises the turn's orders", () => {
+    const { container } = setup({ openMap: false });
+
+    expect(container.querySelector("svg.board__svg")).toBeNull();
+    const rows = screen.getAllByTestId("order-summary");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Infantería");
+    expect(rows[0]).toHaveTextContent("Mantiene posición");
+    expect(rows[0]).toHaveTextContent("Dispara");
+    expect(rows[1]).toHaveTextContent("Tanque");
+    expect(screen.getByText("2 unidades disparan · 0 no pueden disparar")).toBeInTheDocument();
+  });
+
+  it("opens the map on demand and comes back to the summary", () => {
+    const { container } = setup({ openMap: false });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
+    expect(container.querySelector("svg.board__svg")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
+    expect(container.querySelector("svg.board__svg")).toBeNull();
+    expect(screen.getAllByTestId("order-summary")).toHaveLength(2);
+  });
+
+  it("marks units removed on the map as eliminated in the summary", () => {
+    const { tap } = setup();
+
+    tap(INFANTRY);
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar unidad" }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
+
+    expect(screen.getAllByTestId("order-summary")[0]).toHaveTextContent("Eliminada");
+    expect(screen.getByText("1 unidad dispara · 0 no pueden disparar")).toBeInTheDocument();
+  });
+
+  it("keeps the last dice roll after a trip to the map", () => {
+    setup({ openMap: false });
+    fireEvent.click(screen.getByRole("button", { name: /^Tirar/ }));
+    expect(screen.getByTestId("dice-result")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
+
+    expect(screen.getByTestId("dice-result")).toBeInTheDocument();
+  });
+
+  it("finishes the turn straight from the summary", () => {
+    const { onFinishTurn } = setup({ openMap: false });
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+
+    expect(onFinishTurn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("BattleView map", () => {
   it("removes a destroyed unit and undoes it", () => {
     const { tap, hasUnit } = setup();
 
