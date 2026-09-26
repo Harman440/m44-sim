@@ -3,6 +3,7 @@ import GameSession, { SavedGame } from "./gameSession";
 import CommandCard, { CommandCardType } from "./commandCard";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
+import { samePosition } from "./position";
 
 // Allies (no flip): infantry left (7,1), left-center (7,3), right (8,11);
 // tank in the open center at (4,6) with forest to its east at (4,7)
@@ -70,9 +71,9 @@ const orderAllAndFight = (session: GameSession) => {
   expect(session.startBattle()).toBe(true);
 };
 
-/** From battle to the next turn: final phase, draw, end */
+/** From battle (or the final phase) to the next turn: final phase, draw, end */
 const finishTurn = (session: GameSession) => {
-  expect(session.endBattle()).toBe(true);
+  if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
   expect(session.drawCard()).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
@@ -250,10 +251,11 @@ describe("GameSession movement and final phases", () => {
     expect(session.endBattle()).toBe(false);
 
     expect(session.startBattle()).toBe(true);
+    expect(session.removeUnit(LEFT_INF)).toBe(false); // the map is updated after the battle
     expect(session.endBattle()).toBe(true);
     expect(session.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
     expect(session.fireQuick(0, 2)).toBe(false); // units that didn't fire have lost the shot
-    expect(session.removeUnit(LEFT_INF)).toBe(false);
+    expect(session.removeUnit(LEFT_INF)).toBe(true);
   });
 
   it("draws the command card once in the final phase, and only then ends the turn", () => {
@@ -386,25 +388,29 @@ describe("GameSession draw-2-keep-1 (debug placeholder)", () => {
   });
 });
 
-describe("GameSession syncing the battle with the table", () => {
-  const inBattle = () => {
+describe("GameSession syncing the table in the final phase", () => {
+  const inFinalPhase = () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
     orderAllAndFight(session);
+    session.endBattle();
     return session;
   };
 
-  it("only allows board edits during the battle phase", () => {
+  it("only allows board edits in the final phase, after the battle", () => {
     const { session, card } = sessionWithAllCards();
 
     expect(session.removeUnit(TANK)).toBe(false);
     session.pickCard(card("left"));
     expect(session.relocateUnit(TANK, { row: 3, col: 3 })).toBe(false);
+    orderAllAndFight(session);
+    expect(session.removeUnit(TANK)).toBe(false); // retreats are made after the battle
+    expect(session.relocateUnit(TANK, { row: 3, col: 3 })).toBe(false);
     expect(unitAt(session, TANK)).not.toBeNull();
   });
 
   it("removes a destroyed unit and can undo it", () => {
-    const session = inBattle();
+    const session = inFinalPhase();
     const tank = unitAt(session, TANK);
 
     expect(session.removeUnit(TANK)).toBe(true);
@@ -418,7 +424,7 @@ describe("GameSession syncing the battle with the table", () => {
   });
 
   it("moves a unit to any empty hex, however far, and can undo it", () => {
-    const session = inBattle();
+    const session = inFinalPhase();
     const tank = unitAt(session, TANK);
     const farAway = { row: 0, col: 0 };
 
@@ -431,7 +437,7 @@ describe("GameSession syncing the battle with the table", () => {
   });
 
   it("won't move a unit onto another unit or from an empty hex", () => {
-    const session = inBattle();
+    const session = inFinalPhase();
 
     expect(session.relocateUnit(TANK, LEFT_INF)).toBe(false);
     expect(session.relocateUnit({ row: 0, col: 0 }, { row: 0, col: 1 })).toBe(false);
@@ -439,7 +445,7 @@ describe("GameSession syncing the battle with the table", () => {
   });
 
   it("keeps the changes into the next turn and clears the undo history", () => {
-    const session = inBattle();
+    const session = inFinalPhase();
     session.removeUnit(TANK);
     session.relocateUnit(LEFT_INF, { row: 6, col: 1 });
 
@@ -530,7 +536,7 @@ describe("GameSession firing", () => {
     expect(session.getSnapshot().shots[0]!.faces).toHaveLength(4);
   });
 
-  it("only fires in battle, with a unit that can fire and is still on the board", () => {
+  it("only fires in battle, with a unit that can fire", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("all"));
     session.issueOrder(TANK, { row: 4, col: 7 }); // into forest: can't fire
@@ -539,9 +545,6 @@ describe("GameSession firing", () => {
 
     expect(session.fireQuick(0, 3)).toBe(false);
     expect(session.fireQuick(99, 3)).toBe(false);
-    session.removeUnit(LEFT_INF);
-    const removedOrder = session.getSnapshot().orders.findIndex((o) => o.start.row === 7 && o.start.col === 1);
-    expect(session.fireQuick(removedOrder, 3)).toBe(false);
   });
 
   it("lets a unit fire as many times as the card says", () => {
@@ -695,6 +698,81 @@ describe("GameSession collisions", () => {
   });
 });
 
+describe("GameSession firing order", () => {
+  const OTHER_INF: Position = { row: 7, col: 3 };
+
+  /** Order 0 holds; order 1 moves one hex and can still fire */
+  const oneHeldOneMoved = () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    session.issueOrder(LEFT_INF, LEFT_INF);
+    const to = session.getMoveOptions(OTHER_INF)!.moveAndFire.find((p) => !samePosition(p, OTHER_INF))!;
+    expect(session.issueOrder(OTHER_INF, to)).toBe(true);
+    orderAllAndFight(session);
+    return session;
+  };
+
+  it("keeps the moved units waiting until the units that didn't move have fired", () => {
+    const session = oneHeldOneMoved();
+
+    expect(session.shotsLeft(1)).toBe(1);
+    expect(session.fireQuick(1, 2)).toBe(false);
+    expect(session.fire(1, { distance: "1", targetTerrain: "plains", sandbags: "no" })).toBe(false);
+
+    expect(session.fireQuick(0, 2)).toBe(true);
+    expect(session.fireQuick(1, 2)).toBe(true);
+  });
+
+  it("lets a moved unit roll a collision straight away: collisions come first", () => {
+    const session = oneHeldOneMoved();
+
+    expect(session.fireCollision(1)).toBe(true);
+  });
+
+  it("skips the unfired units that didn't move, so the moved units can fire", () => {
+    const session = oneHeldOneMoved();
+
+    expect(session.skipUnmovedFire()).toBe(true);
+
+    expect(session.getSnapshot().unmovedFireSkipped).toBe(true);
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.fireQuick(0, 2)).toBe(false);
+    expect(session.fireQuick(1, 2)).toBe(true);
+    expect(session.skipUnmovedFire()).toBe(false); // nothing left to skip
+  });
+
+  it("only skips in battle while a unit that didn't move still has a shot", () => {
+    const session = oneHeldOneMoved();
+    session.fireQuick(0, 2);
+    expect(session.skipUnmovedFire()).toBe(false);
+
+    const early = sessionWithAllCards().session;
+    expect(early.skipUnmovedFire()).toBe(false);
+  });
+
+  it("keeps the skip after a reload and forgets it at the next turn", () => {
+    const session = oneHeldOneMoved();
+    session.skipUnmovedFire();
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+    expect(restored.getSnapshot().unmovedFireSkipped).toBe(true);
+    expect(restored.fireQuick(0, 2)).toBe(false);
+
+    finishTurn(restored);
+    expect(restored.getSnapshot().unmovedFireSkipped).toBe(false);
+  });
+
+  it("reads a version 4 save as a battle where nothing was skipped", () => {
+    const session = oneHeldOneMoved();
+    const { unmovedFireSkipped: _, ...v4 } = { ...session.save(), version: 4 as const };
+
+    const restored = GameSession.restore(v4, scenario, cards());
+
+    expect(restored.getSnapshot().unmovedFireSkipped).toBe(false);
+    expect(restored.fireQuick(0, 2)).toBe(true);
+  });
+});
+
 describe("GameSession turn log", () => {
   it("records each finished turn as plain JSON: card, orders, shots and map edits", () => {
     const { session, card } = sessionWithAllCards();
@@ -702,6 +780,7 @@ describe("GameSession turn log", () => {
     orderAllAndFight(session);
     const tankOrder = session.getSnapshot().orders.findIndex((o) => o.unit.getUnitType() === "tank");
     session.fireQuick(tankOrder, 2);
+    session.endBattle();
     // The tank is destroyed, then an infantry takes its hex and moves on:
     // the log must still tell which unit each move was
     session.removeUnit(TANK);
@@ -734,6 +813,7 @@ describe("GameSession turn log", () => {
     orderAllAndFight(session);
     session.fireQuick(0, 1);
     session.undoShot(0);
+    session.endBattle();
     session.removeUnit(LEFT_INF);
     session.undoBattleEdit();
     finishTurn(session);
@@ -796,12 +876,13 @@ describe("GameSession saving and restoring", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
     orderAllAndFight(session);
+    session.endBattle();
     session.removeUnit(LEFT_INF);
     session.relocateUnit(TANK, { row: 3, col: 3 });
 
     const restored = reload(session);
 
-    expect(restored.getSnapshot().phase).toBe(TurnPhase.BATTLE);
+    expect(restored.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
     expect(restored.getSnapshot().battleEdits).toBe(2);
     expect(restored.undoBattleEdit()).toBe(true);
     expect(unitAt(restored, TANK)).not.toBeNull();
@@ -878,7 +959,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 5 as 4 })).toThrow();
+    expect(broken({ version: 6 as 5 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();

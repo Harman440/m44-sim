@@ -220,6 +220,8 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
 
         {game.phase === TurnPhase.END_OF_TURN && (
           <EndOfTurnView
+            faction={faction}
+            session={session}
             game={game}
             attacking={session.attacking}
             onDrawCard={handleDrawCard}

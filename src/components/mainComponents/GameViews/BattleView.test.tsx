@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import BattleView from "./BattleView";
 import GameSession from "../../../game-core/gameSession";
@@ -9,9 +9,10 @@ import { Position } from "../../../types/scenario";
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
 const EMPTY: Position = { row: 2, col: 2 };
+const TANK_MOVED: Position = { row: 5, col: 3 };
 
-// A session already in the battle phase, with both units given hold orders
-const makeBattleSession = () => {
+// A session already in the battle phase, with both units given hold orders (or the tank moving)
+const makeBattleSession = ({ moveTank = false } = {}) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -28,7 +29,7 @@ const makeBattleSession = () => {
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(INFANTRY, INFANTRY);
-  session.issueOrder(TANK, TANK);
+  if (!session.issueOrder(TANK, moveTank ? TANK_MOVED : TANK)) throw new Error("Tank order failed");
   session.commitOrders();
   session.startMovement();
   session.startBattle();
@@ -40,8 +41,8 @@ function Harness({ session, onEndBattle }: { session: GameSession; onEndBattle: 
   return <BattleView faction="Allies" session={session} game={game} onEndBattle={onEndBattle} />;
 }
 
-const setup = ({ openMap = true } = {}) => {
-  const session = makeBattleSession();
+const setup = ({ openMap = true, moveTank = false } = {}) => {
+  const session = makeBattleSession({ moveTank });
   const onEndBattle = vi.fn();
   const { container } = render(<Harness session={session} onEndBattle={onEndBattle} />);
   if (openMap) fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
@@ -79,17 +80,6 @@ describe("BattleView summary screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
     expect(container.querySelector("svg.board__svg")).toBeNull();
     expect(screen.getAllByTestId("order-summary")).toHaveLength(2);
-  });
-
-  it("marks units removed on the map as eliminated in the summary", () => {
-    const { tap } = setup();
-
-    tap(INFANTRY);
-    fireEvent.click(screen.getByRole("button", { name: "Eliminar unidad" }));
-    fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
-
-    expect(screen.getAllByTestId("order-summary")[0]).toHaveTextContent("Eliminada");
-    expect(screen.getByTestId("fire-count")).toHaveTextContent("1 por disparar · 0 dispararon");
   });
 
   it("marks a unit that fired, keeps its roll after a trip to the map and won't fire it again", () => {
@@ -147,57 +137,76 @@ describe("BattleView summary screen", () => {
   });
 });
 
+describe("BattleView firing order", () => {
+  it("says who fires first", () => {
+    setup({ openMap: false });
+
+    expect(screen.getByTestId("fire-order")).toHaveTextContent("Eres el bando atacante: disparas primero.");
+  });
+
+  it("groups the units that didn't move, which fire first, and the units that moved", () => {
+    setup({ openMap: false, moveTank: true });
+
+    const unmoved = screen.getByTestId("group-unmoved");
+    const moved = screen.getByTestId("group-moved");
+    expect(unmoved).toHaveTextContent("Sin mover");
+    expect(unmoved).toHaveTextContent("Infantería");
+    expect(moved).toHaveTextContent("Movidas");
+    expect(moved).toHaveTextContent("Tanque");
+    expect(within(moved).getByText("Espera")).toBeInTheDocument();
+    expect(within(moved).queryByRole("button", { name: "Disparar" })).not.toBeInTheDocument();
+  });
+
+  it("lets the moved units fire once the units that didn't move have fired", () => {
+    const { session } = setup({ openMap: false, moveTank: true });
+
+    act(() => {
+      session.fireQuick(0, 1);
+    });
+
+    const moved = screen.getByTestId("group-moved");
+    expect(within(moved).getByRole("button", { name: "Disparar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pasar a las unidades movidas" })).not.toBeInTheDocument();
+  });
+
+  it("skips the unfired units that didn't move, after confirming", async () => {
+    const { session } = setup({ openMap: false, moveTank: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Pasar a las unidades movidas" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("La unidad sin mover que no ha disparado pierde el disparo.");
+    fireEvent.click(screen.getByRole("button", { name: "Pasar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    expect(session.getSnapshot().unmovedFireSkipped).toBe(true);
+    expect(within(screen.getByTestId("group-unmoved")).getByText("Sin disparo")).toBeInTheDocument();
+    expect(within(screen.getByTestId("group-moved")).getByRole("button", { name: "Disparar" })).toBeInTheDocument();
+  });
+
+  it("tells the player the opponent fires next after a roll", () => {
+    setup({ openMap: false });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /Tirada rápida/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+
+    expect(screen.getByTestId("opponent-turn")).toHaveTextContent("Ahora dispara el rival.");
+  });
+});
+
 describe("BattleView map", () => {
-  it("removes a destroyed unit and undoes it", () => {
-    const { tap, hasUnit } = setup();
-
-    tap(INFANTRY);
-    fireEvent.click(screen.getByRole("button", { name: "Eliminar unidad" }));
-    expect(hasUnit(INFANTRY)).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
-    expect(hasUnit(INFANTRY)).toBe(true);
-    expect(screen.queryByRole("button", { name: "Deshacer" })).not.toBeInTheDocument();
-  });
-
-  it("moves the selected unit to the empty hex tapped next", () => {
-    const { tap, hasUnit, isSelected } = setup();
-
-    tap(TANK);
-    tap(EMPTY);
-
-    expect(hasUnit(EMPTY)).toBe(true);
-    expect(hasUnit(TANK)).toBe(false);
-    expect(isSelected(EMPTY)).toBe(false);
-  });
-
-  it("switches the selection to another unit instead of moving onto it", () => {
-    const { tap, hasUnit, isSelected } = setup();
-
-    tap(TANK);
-    tap(INFANTRY);
-
-    expect(isSelected(INFANTRY)).toBe(true);
-    expect(isSelected(TANK)).toBe(false);
-    expect(hasUnit(TANK)).toBe(true);
-  });
-
-  it("deselects on a second tap or Cancelar, and ignores empty hexes with nothing selected", () => {
+  it("is read-only: tapping a unit selects nothing and offers no edits", () => {
     const { tap, isSelected, session } = setup();
 
     tap(TANK);
-    tap(TANK);
-    expect(isSelected(TANK)).toBe(false);
-
-    tap(TANK);
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(isSelected(TANK)).toBe(false);
-
     tap(EMPTY);
+
+    expect(isSelected(TANK)).toBe(false);
+    expect(screen.queryByRole("button", { name: "Eliminar unidad" })).not.toBeInTheDocument();
+    expect(session.board.getHex(TANK)!.hasUnit()).toBe(true);
     expect(session.getSnapshot().battleEdits).toBe(0);
   });
 
-  it("finishes the turn from the Terminar Turno button, after confirming", () => {
+  it("finishes the battle from the map, after confirming", () => {
     const { onEndBattle } = setup();
 
     fireEvent.click(screen.getByRole("button", { name: "Terminar batalla" }));

@@ -2,7 +2,7 @@
 import BoardManager from "./BoardManager";
 import Order from "./order";
 import { samePosition } from "./position";
-import { Shot } from "./gameSession";
+import type { Shot } from "./gameSession";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
 
@@ -21,16 +21,38 @@ export interface OrderSummary {
   removed: boolean;
   /** Shots this unit has fired this turn */
   shots: readonly Shot[];
-  /** Shots it may still fire (0 when it can't fire, is removed or has used them all) */
+  /** Shots it may still fire (0 when it can't fire, is removed, has used them all or was skipped) */
   shotsLeft: number;
+  /** It didn't move and lost its unfired shot when the player moved on to the moved units */
+  skipped: boolean;
+  /** It moved, so it must wait until every unit that didn't move has fired (or been skipped) */
+  waiting: boolean;
 }
 
+/**
+ * Battle order: the units that didn't move fire first, then the units that
+ * moved. At the table the two sides alternate one unit at a time within each
+ * group, starting with the attacking side.
+ */
 export function summarizeOrders(
   orders: readonly Order[],
   board: BoardManager,
   shots: readonly Shot[] = [],
-  firesPerUnit = 1
+  firesPerUnit = 1,
+  unmovedFireSkipped = false
 ): OrderSummary[] {
+  const summaries = summarizeEach(orders, board, shots, firesPerUnit, unmovedFireSkipped);
+  const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
+  return summaries.map((s) => ({ ...s, waiting: !s.hold && s.shotsLeft > 0 && unmovedLeft }));
+}
+
+function summarizeEach(
+  orders: readonly Order[],
+  board: BoardManager,
+  shots: readonly Shot[],
+  firesPerUnit: number,
+  unmovedFireSkipped: boolean
+): Omit<OrderSummary, "waiting">[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
 
   return orders.map((order, index) => {
@@ -38,6 +60,7 @@ export function summarizeOrders(
     const hold = samePosition(order.start, order.end);
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
+    const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < firesPerUnit;
     return {
       index,
       unitType: order.unit.getUnitType(),
@@ -48,7 +71,8 @@ export function summarizeOrders(
       canFire: order.canFire,
       removed,
       shots: unitShots,
-      shotsLeft: order.canFire && !removed ? Math.max(0, firesPerUnit - unitShots.length) : 0,
+      skipped,
+      shotsLeft: order.canFire && !removed && !skipped ? Math.max(0, firesPerUnit - unitShots.length) : 0,
     };
   });
 }

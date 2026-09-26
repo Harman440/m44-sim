@@ -79,8 +79,14 @@ describe("Collisions in the battle phase", () => {
   });
 
   it("only offers collisions when a unit on the board moved", () => {
-    const session = makeSession({ tankHolds: true });
-    session.removeUnit(session.getSnapshot().orders[0]!.end);
+    // Saves from before Step 19 could remove units during the battle: drop the moved infantry
+    const played = makeSession({ tankHolds: true });
+    const saved = played.save();
+    const moved = played.getSnapshot().orders[0]!.end;
+    saved.units = saved.units.map((u) => (u.position && samePosition(u.position, moved) ? { ...u, position: null } : u));
+    const session = GameSession.restore(saved, played.scenario, [
+      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
+    ]);
     render(<Harness session={session} />);
 
     expect(screen.queryByRole("button", { name: "¿Ha habido un choque?" })).not.toBeInTheDocument();

@@ -96,13 +96,16 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
   const [firingAgain, setFiringAgain] = useState(false);
   const [confirmingUndo, setConfirmingUndo] = useState(false);
   const [undoChecked, setUndoChecked] = useState(false);
+  /** A shot was just rolled here: the opponent fires next */
+  const [justFired, setJustFired] = useState(false);
 
   if (!summary) return null;
 
   const context: FireContext = { unitType: summary.unitType, card };
   const question = nextFireQuestion(FIRE_QUESTIONS, context, answers);
   const result = question ? null : calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-  const aiming = summary.shotsLeft > 0 && (summary.shots.length === 0 || firingAgain);
+  const canFire = summary.shotsLeft > 0 && !summary.waiting;
+  const aiming = canFire && (summary.shots.length === 0 || firingAgain);
 
   const resetAim = () => {
     setAnswers({});
@@ -132,17 +135,22 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
   };
 
   const handleFire = () => {
-    if (onFire(answers)) resetAim();
+    if (!onFire(answers)) return;
+    resetAim();
+    setJustFired(true);
   };
 
   const handleQuickFire = () => {
-    if (onQuickFire(quickDice)) resetAim();
+    if (!onQuickFire(quickDice)) return;
+    resetAim();
+    setJustFired(true);
   };
 
   const handleUndo = () => {
     if (!onUndoShot()) return;
     setConfirmingUndo(false);
     setUndoChecked(false);
+    setJustFired(false);
     resetAim();
   };
 
@@ -179,8 +187,21 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
           {summary.shots.map((shot, i) => (
             <ShotResult key={i} shot={shot} number={numbered ? i + 1 : null} faction={faction} />
           ))}
-          {summary.shotsLeft > 0 && (
-            <Button fullWidth size="large" onClick={() => setFiringAgain(true)}>
+          {justFired && (
+            <Alert severity="warning" data-testid="opponent-turn">
+              <strong>Ahora dispara el rival.</strong> Si no le quedan unidades por disparar en este grupo,
+              vuelves a disparar tú.
+            </Alert>
+          )}
+          {canFire && (
+            <Button
+              fullWidth
+              size="large"
+              onClick={() => {
+                setFiringAgain(true);
+                setJustFired(false);
+              }}
+            >
               Disparar otra vez (queda{summary.shotsLeft === 1 ? "" : "n"} {summary.shotsLeft})
             </Button>
           )}

@@ -38,9 +38,17 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
   const [firingIndex, setFiringIndex] = useState<number | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [collisionOpen, setCollisionOpen] = useState(false);
-  const summaries = summarizeOrders(game.orders, session.board, game.shots, game.firesPerUnit);
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
+  const summaries = summarizeOrders(
+    game.orders,
+    session.board,
+    game.shots,
+    game.firesPerUnit,
+    game.unmovedFireSkipped
+  );
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
+  const unmovedUnfired = summaries.filter((s) => s.hold && s.shotsLeft > 0).length;
   // Only units that moved (and are still on the board) can have collided with an enemy unit
   const anyMoved = summaries.some((s) => !s.hold && !s.removed);
   const play = useSound();
@@ -81,8 +89,9 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
                 Batalla
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Dispara con cada unidad y resuelve la batalla en el tablero físico. Si hay bajas o
-                retiradas, actualízalas en el mapa.
+                Dispara con cada unidad y resuelve la batalla en el tablero físico. Marca las retiradas
+                en la mesa: se hacen en la fase final, y hasta entonces la unidad marcada puede
+                disparar pero no tomar terreno.
               </Typography>
             </Box>
             <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
@@ -110,11 +119,20 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             </Alert>
           )}
 
+          <Alert severity="info" icon={<GameIcon name="fire" />} data-testid="fire-order">
+            {session.attacking
+              ? "Eres el bando atacante: disparas primero."
+              : "Dispara primero el rival: es el bando atacante."}{" "}
+            Después alternáis, una unidad cada uno. Primero disparan todas las unidades que no se han
+            movido (de los dos bandos) y luego las que se movieron.
+          </Alert>
+
           <TurnSummary
             card={game.chosenCard}
             summaries={summaries}
             faction={faction}
             onFire={(summary) => setFiringIndex(summary.index)}
+            onSkipUnmoved={() => setConfirmingSkip(true)}
           />
         </Stack>
       )}
@@ -140,13 +158,39 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         onClose={() => setCollisionOpen(false)}
       />
 
+      <Dialog open={confirmingSkip} onClose={() => setConfirmingSkip(false)}>
+        <DialogTitle>¿Pasar a las unidades movidas?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {unmovedUnfired === 1
+              ? "La unidad sin mover que no ha disparado pierde el disparo."
+              : `Las ${unmovedUnfired} unidades sin mover que no han disparado pierden el disparo.`}{" "}
+            No se puede deshacer.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setConfirmingSkip(false)}>
+            Seguir con las sin mover
+          </Button>
+          <Button
+            color="warning"
+            onClick={() => {
+              setConfirmingSkip(false);
+              session.skipUnmovedFire();
+            }}
+          >
+            Pasar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={confirmingEnd} onClose={() => setConfirmingEnd(false)}>
         <DialogTitle>¿Terminar la batalla?</DialogTitle>
         <DialogContent>
           <DialogContentText>
             {unfired > 0
               ? `${unfired === 1 ? "Queda 1 unidad" : `Quedan ${unfired} unidades`} sin disparar. Si terminas, pierden el disparo.`
-              : "Pasarás a la fase final. No se puede deshacer."}
+              : "Pasarás a la fase final, donde reflejarás en el mapa las bajas y retiradas. No se puede deshacer."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>

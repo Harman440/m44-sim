@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
-import { GameSnapshot } from "../../../game-core/gameSession";
+import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
+import { Faction } from "../../../types/faction";
 import CommandCardComponent from "../../CommandCardComponent";
 import GameIcon from "../../GameIcon";
+import EndOfTurnMap from "./EndOfTurnMap";
 
 interface EndOfTurnViewProps {
+  faction: Faction;
+  session: GameSession;
   game: GameSnapshot;
   /** This device's side attacks, so it draws first */
   attacking: boolean;
@@ -11,9 +16,17 @@ interface EndOfTurnViewProps {
   onEndTurn: () => void;
 }
 
-/** Fase final: finish the retreats on the table, then draw a command card */
-function EndOfTurnView({ game, attacking, onDrawCard, onEndTurn }: EndOfTurnViewProps) {
+/**
+ * Fase final: make the retreats marked in battle on the table and mirror the
+ * casualties, retreats and ground taken on the map, then draw a command card
+ */
+function EndOfTurnView({ faction, session, game, attacking, onDrawCard, onEndTurn }: EndOfTurnViewProps) {
   const { drawnCard } = game;
+  const [showMap, setShowMap] = useState(false);
+
+  if (showMap) {
+    return <EndOfTurnMap faction={faction} session={session} game={game} onDone={() => setShowMap(false)} />;
+  }
 
   return (
     <Stack spacing={2} sx={{ width: "100%", maxWidth: 640, mx: "auto" }}>
@@ -23,9 +36,22 @@ function EndOfTurnView({ game, attacking, onDrawCard, onEndTurn }: EndOfTurnView
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="h6" component="h3">
-          1. Retiradas
+          1. Retiradas y bajas
         </Typography>
-        <Typography variant="body1">Termina en la mesa las retiradas de la batalla.</Typography>
+        <Typography variant="body1">
+          Haz en la mesa las retiradas marcadas en la batalla. Después refleja en el mapa las unidades
+          eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.
+        </Typography>
+        <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
+          <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+            Actualizar mapa
+          </Button>
+          {game.battleEdits > 0 && (
+            <Typography variant="body2" color="text.secondary" data-testid="map-edits">
+              {game.battleEdits === 1 ? "1 cambio" : `${game.battleEdits} cambios`} en el mapa
+            </Typography>
+          )}
+        </Stack>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>

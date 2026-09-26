@@ -43,6 +43,8 @@ function Harness({ session }: { session: GameSession }) {
   if (game.phase === TurnPhase.MOVEMENT) return <MovementView faction="Allies" session={session} game={game} />;
   return (
     <EndOfTurnView
+      faction="Allies"
+      session={session}
       game={game}
       attacking={session.attacking}
       onDrawCard={() => session.drawCard()}

@@ -7,7 +7,7 @@ The house rules these steps come from are in [house-rules.md](house-rules.md). T
 ## Where we are
 
 The full turn loop works on each player's device and survives reloads:
-**Menu** → **Carta** (pick a command card) → **Órdenes** (move or hold units on the map, confirm) → **Movimiento** (show the map to the opponent, move the pieces) → **Batalla** (turn summary, fire questionnaire, dice, map sync) → **Final** (draw a card) → next turn. The attacking side plays turn 1 alone while the defender waits.
+**Menu** → **Carta** (pick a command card) → **Órdenes** (move or hold units on the map, confirm) → **Movimiento** (show the map to the opponent, move the pieces) → **Batalla** (turn summary in firing order, fire questionnaire, dice) → **Final** (mirror casualties and retreats on the map, draw a card) → next turn. The attacking side plays turn 1 alone while the defender waits.
 
 Done so far (details in git history):
 - Steps 0–7: foundations, MUI, game-core tests, card flow, the `GameSession` store, ordering UX, unit sprites, battle helper, fire questionnaire, menu, Spanish UI, save/resume
@@ -17,6 +17,7 @@ Done so far (details in git history):
 - Step 11: bunker, line of sight and sandbags in the fire questionnaire; official dice values kept
 - Steps 12–14: installable offline app, Ajustes in game, smaller first download, turn log with "Historial" and JSON export
 - Steps 16–18: the attacker's extra first turn, the Movimiento and Fase final phases, and collisions
+- Step 19: firing order (units that didn't move first, enforced) and the map updated in the final phase
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -80,7 +81,7 @@ The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase f
   - [ ] pay coins for combat cards (Part E)
   - [x] move the pieces on the table (a checklist beside the read-only map, with the number of units that fire)
 - [x] **Fase final** (`EndOfTurnView`):
-  - [ ] apply the retreats marked in battle (Step 19); for now a reminder to finish them on the table
+  - [x] apply the retreats marked in battle (Step 19): made on the table, then mirrored on the map ("Actualizar mapa")
   - [x] draw the command card ("Robar carta" shows the card drawn), with a reminder that the attacking side draws first; then "Empezar turno N"
   - [ ] choose a combat card or 2 coins (Part E)
 - [x] Add the phases to `TurnPhase` (`MOVEMENT`, `END_OF_TURN`, appended) and to the header steps (Carta, Órdenes, Movimiento, Batalla, Final). "Terminar batalla" leads to the final phase; the card is drawn with `drawCard()` there instead of in `endTurn()`
@@ -101,15 +102,12 @@ When two units cross the same hex, or land on the same one, they battle at once,
 - [x] **Decided:** a collision roll uses up the unit's shot for the turn
 
 ### Step 19: Battle order and retreats
-- [ ] Split the battle summary into "Sin mover" (fire first) and "Movidas" (fire after)
-- [ ] Show who shoots first: the attacking side, then alternating one unit at a time (done at the table)
-- [ ] After each roll, tell the player it's the opponent's turn to fire ("Ahora dispara el rival")
-- [ ] Retreats:
-  - mark a retreat on a unit ("Retirada pendiente") instead of moving it straight away
-  - apply all marked retreats at the end of the battle (Fase final)
-  - a unit marked to retreat can't take ground
-- [ ] Close assault that rolls a retreat: ask whether the attacker takes ground (armor overrun); only then is the retreat applied at once, and the attacker must take ground
-- [ ] The unit forced to retreat may still battle from its new hex
+- [x] Split the battle summary into "Sin mover" (fire first) and "Movidas" (fire after)
+- [x] Show who shoots first: the attacking side, then alternating one unit at a time (done at the table)
+- [x] After each roll, tell the player it's the opponent's turn to fire ("Ahora dispara el rival")
+- [x] **Decided:** the order is enforced: moved units wait ("Espera") until every unit that didn't move has fired; "Pasar a las unidades movidas" gives up the remaining shots (`GameSession.skipUnmovedFire`, saved; `SAVE_VERSION` 5). Collisions don't wait: they come before any other shot
+- [x] **Decided:** retreats aren't tracked in the app. The tablets aren't connected and flags hit enemy units, so the retreat markers, the overrun question and taking ground all happen at the table; the battle screen reminds the player (a marked unit may still fire but can't take ground)
+- [x] **Decided:** removing and moving units moved from the battle to the Fase final ("Actualizar mapa", `EndOfTurnMap`), after the retreats are made on the table; the battle map ("Ver mapa") is read-only
 
 ### Step 20: Reading the roll (hits, retreats, coins)
 Today the app shows the faces; the player works out what they mean.

@@ -12,6 +12,7 @@ import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { positionKey, samePosition } from "./position";
 import { TurnRecord, recordTurn } from "./turnLog";
+import { summarizeOrders } from "./turnSummary";
 
 export interface GameSnapshot {
   turn: number;
@@ -25,7 +26,7 @@ export interface GameSnapshot {
   orders: readonly Order[];
   ordersLeft: number;
   ordersCommitted: boolean;
-  /** Board changes made to mirror the physical battle this turn (undoable) */
+  /** Board changes made in the final phase to mirror the table after the battle (undoable) */
   battleEdits: number;
   drawPileCount: number;
   discardPileCount: number;
@@ -33,6 +34,8 @@ export interface GameSnapshot {
   shots: readonly Shot[];
   /** How many times each unit that can fire may fire this turn (from the card) */
   firesPerUnit: number;
+  /** The player gave up the unfired shots of the units that didn't move, so the moved units can fire */
+  unmovedFireSkipped: boolean;
   /** Finished turns, oldest first */
   log: readonly TurnRecord[];
   /** The attacker's extra first turn, before the defender plays (no combat cards or coins) */
@@ -62,7 +65,7 @@ export interface MoveOptions {
 }
 
 /** Bump when SavedGame changes shape; older saves are then migrated or dropped instead of misread */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 interface SavedUnit {
   type: UnitType;
@@ -92,6 +95,7 @@ export interface SavedGame {
   orders: { unit: number; start: Position; end: Position; canFire: boolean; path: Position[] | null }[];
   ordersLeft: number;
   ordersCommitted: boolean;
+  unmovedFireSkipped: boolean;
   battleEdits: (
     | { kind: "remove"; position: Position; unit: number }
     | { kind: "move"; from: Position; to: Position }
@@ -100,8 +104,10 @@ export interface SavedGame {
   log: TurnRecord[];
 }
 
+/** Version 4 saves had no firing order, so no unit's shot was ever skipped */
+type SavedGameV4 = Omit<SavedGame, "version" | "unmovedFireSkipped"> & { version: 4 };
 /** Version 3 saves drew the new card as the turn ended, so none is ever pending */
-type SavedGameV3 = Omit<SavedGame, "version" | "drawnCard"> & { version: 3 };
+type SavedGameV3 = Omit<SavedGameV4, "version" | "drawnCard"> & { version: 3 };
 /** Version 2 saves had no turn log either; they are read as a game with no history */
 type SavedGameV2 = Omit<SavedGameV3, "version" | "log"> & { version: 2 };
 /** Version 1 saves had no shots either; they are read as a turn where nobody has fired yet */
@@ -116,7 +122,7 @@ interface GameSessionOptions {
   random?: () => number;
 }
 
-/** A change made during BATTLE to match what happened on the physical table */
+/** A change made in END_OF_TURN to match the physical table after the battle */
 export type BattleEdit =
   | { kind: "remove"; position: Position; unit: Unit }
   | { kind: "move"; from: Position; to: Position };
@@ -150,6 +156,7 @@ class GameSession {
   private ordersCommitted = false;
   private battleEdits: BattleEdit[] = [];
   private shots: Shot[] = [];
+  private unmovedFireSkipped = false;
   private log: TurnRecord[] = [];
   private readonly random: () => number;
 
@@ -326,39 +333,14 @@ class GameSession {
     return this.publish();
   }
 
-  // The battle is fought on the physical table; these keep the app's board in sync
+  /**
+   * The units that didn't move fire first, then the ones that moved. Give up
+   * the unfired shots of the units that didn't move, so the moved ones can fire.
+   */
+  skipUnmovedFire(): boolean {
+    if (this.phase !== TurnPhase.BATTLE || this.unmovedFireDone()) return false;
 
-  /** Remove a unit destroyed on the table */
-  removeUnit(position: Position): boolean {
-    if (this.phase !== TurnPhase.BATTLE) return false;
-    const unit = this.board.removeUnitAt(position);
-    if (!unit) return false;
-
-    this.battleEdits = [...this.battleEdits, { kind: "remove", position, unit }];
-    return this.publish();
-  }
-
-  /** Move a unit to any empty hex, to mirror a retreat or taking ground */
-  relocateUnit(from: Position, to: Position): boolean {
-    if (this.phase !== TurnPhase.BATTLE || samePosition(from, to)) return false;
-    if (!this.board.getHex(to)?.isPassable()) return false;
-    if (!this.board.moveUnit(from, to)) return false;
-
-    this.battleEdits = [...this.battleEdits, { kind: "move", from, to }];
-    return this.publish();
-  }
-
-  undoBattleEdit(): boolean {
-    if (this.phase !== TurnPhase.BATTLE) return false;
-    const edit = this.battleEdits.at(-1);
-    if (!edit) return false;
-
-    if (edit.kind === "remove") {
-      this.board.placeUnitAt(edit.position, edit.unit);
-    } else {
-      this.board.moveUnit(edit.to, edit.from);
-    }
-    this.battleEdits = this.battleEdits.slice(0, -1);
+    this.unmovedFireSkipped = true;
     return this.publish();
   }
 
@@ -368,13 +350,25 @@ class GameSession {
     return Math.max(1, this.chosenCard?.numFireTimes ?? 1);
   }
 
+  private summaries() {
+    return summarizeOrders(this.orders, this.board, this.shots, this.firesPerUnit, this.unmovedFireSkipped);
+  }
+
+  /** No unit that didn't move has a shot left (or the player skipped them) */
+  private unmovedFireDone(): boolean {
+    return this.summaries().every((summary) => !summary.hold || summary.shotsLeft === 0);
+  }
+
   /** Shots the unit of this order may still fire this turn (0 if it can't fire at all) */
   shotsLeft(orderIndex: number): number {
     if (this.phase !== TurnPhase.BATTLE) return 0;
-    const order = this.orders[orderIndex];
-    if (!order?.canFire || !this.isOnBoard(order.unit)) return 0;
-    const fired = this.shots.filter((shot) => shot.orderIndex === orderIndex).length;
-    return Math.max(0, this.firesPerUnit - fired);
+    return this.summaries()[orderIndex]?.shotsLeft ?? 0;
+  }
+
+  /** The unit may fire now: it has a shot left and, if it moved, the units that didn't move are done */
+  private canFireNow(orderIndex: number): boolean {
+    if (this.shotsLeft(orderIndex) <= 0) return false;
+    return !this.summaries()[orderIndex]!.waiting;
   }
 
   /**
@@ -383,7 +377,7 @@ class GameSession {
    * dice is still recorded: the unit has used its fire.
    */
   fire(orderIndex: number, answers: FireAnswers): boolean {
-    if (this.shotsLeft(orderIndex) <= 0) return false;
+    if (!this.canFireNow(orderIndex)) return false;
     const context = { unitType: this.orders[orderIndex]!.unit.getUnitType(), card: this.chosenCard };
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
 
@@ -395,14 +389,15 @@ class GameSession {
   /** Fire with a number of dice the player worked out themselves */
   fireQuick(orderIndex: number, dice: number): boolean {
     if (!Number.isInteger(dice) || dice < 1) return false;
-    if (this.shotsLeft(orderIndex) <= 0) return false;
+    if (!this.canFireNow(orderIndex)) return false;
     return this.recordShot(orderIndex, dice, [], []);
   }
 
   /**
    * Roll for a collision: the unit crossed or landed on a hex with an enemy
    * unit during the movement phase. Only a unit that moved, may fire and
-   * hasn't fired yet; the roll uses up its shot.
+   * hasn't fired yet; the roll uses up its shot. Collisions come before any
+   * other shot, so they don't wait for the units that didn't move.
    */
   fireCollision(orderIndex: number): boolean {
     if (this.shotsLeft(orderIndex) <= 0) return false;
@@ -431,11 +426,44 @@ class GameSession {
     return this.publish();
   }
 
-  private isOnBoard(unit: Unit): boolean {
-    return this.board.getAllHexes().some((hex) => hex.unit === unit);
+  // --- END_OF_TURN
+
+  // The battle is fought on the physical table and the retreats are made
+  // after it; these then bring the app's board in line with the table
+
+  /** Remove a unit destroyed on the table */
+  removeUnit(position: Position): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN) return false;
+    const unit = this.board.removeUnitAt(position);
+    if (!unit) return false;
+
+    this.battleEdits = [...this.battleEdits, { kind: "remove", position, unit }];
+    return this.publish();
   }
 
-  // --- END_OF_TURN
+  /** Move a unit to any empty hex, to mirror a retreat or taking ground */
+  relocateUnit(from: Position, to: Position): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || samePosition(from, to)) return false;
+    if (!this.board.getHex(to)?.isPassable()) return false;
+    if (!this.board.moveUnit(from, to)) return false;
+
+    this.battleEdits = [...this.battleEdits, { kind: "move", from, to }];
+    return this.publish();
+  }
+
+  undoBattleEdit(): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN) return false;
+    const edit = this.battleEdits.at(-1);
+    if (!edit) return false;
+
+    if (edit.kind === "remove") {
+      this.board.placeUnitAt(edit.position, edit.unit);
+    } else {
+      this.board.moveUnit(edit.to, edit.from);
+    }
+    this.battleEdits = this.battleEdits.slice(0, -1);
+    return this.publish();
+  }
 
   /** Discard the played card and draw a new command card (once per turn) */
   drawCard(): boolean {
@@ -474,6 +502,7 @@ class GameSession {
     this.ordersCommitted = false;
     this.battleEdits = [];
     this.shots = [];
+    this.unmovedFireSkipped = false;
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
@@ -529,6 +558,7 @@ class GameSession {
       ),
       ordersLeft: this.ordersLeft,
       ordersCommitted: this.ordersCommitted,
+      unmovedFireSkipped: this.unmovedFireSkipped,
       shots: this.shots.map((shot) => ({
         ...shot,
         steps: [...shot.steps],
@@ -543,12 +573,12 @@ class GameSession {
 
   /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
   static restore(
-    saved: SavedGame | SavedGameV3 | SavedGameV2 | SavedGameV1,
+    saved: SavedGame | SavedGameV4 | SavedGameV3 | SavedGameV2 | SavedGameV1,
     scenario: Scenario,
     commandCards: CommandCard[],
     random?: () => number
   ): GameSession {
-    if (![1, 2, 3, SAVE_VERSION].includes(saved.version)) {
+    if (![1, 2, 3, 4, SAVE_VERSION].includes(saved.version)) {
       throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
     }
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
@@ -592,7 +622,7 @@ class GameSession {
     session.hand = cards(saved.hand);
     session.choiceCards = cards(saved.choiceCards);
     session.chosenCard = saved.chosenCard === null ? null : card(saved.chosenCard);
-    const drawnCard = saved.version === SAVE_VERSION ? saved.drawnCard : null;
+    const drawnCard = saved.version === SAVE_VERSION || saved.version === 4 ? saved.drawnCard : null;
     session.drawnCard = drawnCard === null ? null : card(drawnCard);
     if (session.drawnCard && !session.hand.includes(session.drawnCard)) throw new Error("Drawn card not in hand");
     session.turn = saved.turn;
@@ -602,6 +632,7 @@ class GameSession {
     );
     session.ordersLeft = saved.ordersLeft;
     session.ordersCommitted = saved.ordersCommitted;
+    session.unmovedFireSkipped = saved.version === SAVE_VERSION ? saved.unmovedFireSkipped === true : false;
     session.battleEdits = saved.battleEdits.map((edit) =>
       edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unit(edit.unit) } : edit
     );
@@ -641,6 +672,7 @@ class GameSession {
       discardPileCount: this.deck.getDiscardPileCount(),
       shots: this.shots,
       firesPerUnit: this.firesPerUnit,
+      unmovedFireSkipped: this.unmovedFireSkipped,
       log: this.log,
       extraTurn: this.attacking && this.turn === 1,
     };

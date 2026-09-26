@@ -51,6 +51,8 @@ describe("summarizeOrders", () => {
       removed: false,
       shots: [],
       shotsLeft: 0,
+      skipped: false,
+      waiting: false,
     });
     expect(infantry).toMatchObject({
       index: 1,
@@ -75,8 +77,9 @@ describe("summarizeOrders", () => {
     expect(summarizeOrders(orders, session.board, shots, 1)[1]!.shotsLeft).toBe(0);
   });
 
-  it("marks units removed during the battle", () => {
+  it("marks units removed after the battle", () => {
     const session = playTurn();
+    session.endBattle();
     session.removeUnit(INFANTRY);
 
     const summaries = summarizeOrders(session.getSnapshot().orders, session.board);
@@ -87,8 +90,27 @@ describe("summarizeOrders", () => {
 
   it("still finds a unit that was moved after battle", () => {
     const session = playTurn();
+    session.endBattle();
     session.relocateUnit(FOREST, { row: 0, col: 0 });
 
     expect(summarizeOrders(session.getSnapshot().orders, session.board)[0]!.removed).toBe(false);
+  });
+
+  it("keeps a unit that moved waiting while a unit that didn't move has a shot left", () => {
+    const session = playTurn();
+    const { orders } = session.getSnapshot();
+    // Pretend the tank could fire from the forest: a moved unit that fires
+    orders[0]!.canFire = true;
+
+    expect(summarizeOrders(orders, session.board)[0]!.waiting).toBe(true);
+
+    const skipped = summarizeOrders(orders, session.board, [], 1, true);
+    expect(skipped[0]!.waiting).toBe(false);
+    expect(skipped[1]).toMatchObject({ skipped: true, shotsLeft: 0 });
+
+    session.fireQuick(1, 2);
+    const afterShot = summarizeOrders(orders, session.board, session.getSnapshot().shots);
+    expect(afterShot[0]!.waiting).toBe(false);
+    expect(afterShot[1]!.skipped).toBe(false);
   });
 });

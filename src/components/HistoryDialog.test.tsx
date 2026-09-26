@@ -30,7 +30,7 @@ const playedSession = () => {
     ],
     random: () => 0.5, // grenade
   });
-  const playTurn = (battle: () => void) => {
+  const playTurn = (battle: () => void, final: () => void = () => {}) => {
     session.pickCard(session.getSnapshot().hand[0]!);
     session.issueOrder(INFANTRY, INFANTRY);
     session.commitOrders();
@@ -38,11 +38,15 @@ const playedSession = () => {
     session.startBattle();
     battle();
     session.endBattle();
+    final();
     session.drawCard();
     session.endTurn();
   };
   playTurn(() => session.fireQuick(0, 2));
-  playTurn(() => session.removeUnit(INFANTRY));
+  playTurn(
+    () => {},
+    () => session.removeUnit(INFANTRY)
+  );
   return session;
 };
 
