@@ -7,7 +7,7 @@ The house rules these steps come from are in [house-rules.md](house-rules.md). T
 ## Where we are
 
 The full turn loop works on each player's device and survives reloads:
-**Menu** → **Carta** (pick a command card) → **Órdenes** (move or hold units on the map, confirm) → **Batalla** (turn summary, fire questionnaire, dice, map sync) → next turn.
+**Menu** → **Carta** (pick a command card) → **Órdenes** (move or hold units on the map, confirm) → **Movimiento** (show the map to the opponent, move the pieces) → **Batalla** (turn summary, fire questionnaire, dice, map sync) → **Final** (draw a card) → next turn. The attacking side plays turn 1 alone while the defender waits.
 
 Done so far (details in git history):
 - Steps 0–7: foundations, MUI, game-core tests, card flow, the `GameSession` store, ordering UX, unit sprites, battle helper, fire questionnaire, menu, Spanish UI, save/resume
@@ -16,6 +16,7 @@ Done so far (details in git history):
 - Step 10: three selectable looks (Mapa de campaña, Caja del juego, Tienda de mando), icons, sound, motion
 - Step 11: bunker, line of sight and sandbags in the fire questionnaire; official dice values kept
 - Steps 12–14: installable offline app, Ajustes in game, smaller first download, turn log with "Historial" and JSON export
+- Steps 16–17: the attacker's extra first turn, and the Movimiento and Fase final phases
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -74,16 +75,16 @@ The house rules' programming note says to start from the turn data as JSON; the 
 
 ### Step 17: Movement and last phases
 The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase final**.
-- [ ] **Movimiento:**
-  - a full-screen "Mostrar al rival" map with the orders (arrows and fire markers), to show the opponent
-  - pay coins for combat cards (Part E)
-  - move the pieces on the table
-- [ ] **Fase final:**
-  - apply the retreats marked in battle (Step 19)
-  - draw the command card, attacking side first
-  - choose a combat card or 2 coins (Part E)
-- [ ] Add the phases to `TurnPhase` (append only; the values are saved) and to the header steps
-- [ ] Tests for the new phase flow and for saves from before the change
+- [x] **Movimiento** (`MovementView`):
+  - [x] a full-screen "Mostrar al rival" map with the orders (arrows and fire markers), to show the opponent (`OpponentMap`)
+  - [ ] pay coins for combat cards (Part E)
+  - [x] move the pieces on the table (a checklist beside the read-only map, with the number of units that fire)
+- [x] **Fase final** (`EndOfTurnView`):
+  - [ ] apply the retreats marked in battle (Step 19); for now a reminder to finish them on the table
+  - [x] draw the command card ("Robar carta" shows the card drawn), with a reminder that the attacking side draws first; then "Empezar turno N"
+  - [ ] choose a combat card or 2 coins (Part E)
+- [x] Add the phases to `TurnPhase` (`MOVEMENT`, `END_OF_TURN`, appended) and to the header steps (Carta, Órdenes, Movimiento, Batalla, Final). "Terminar batalla" leads to the final phase; the card is drawn with `drawCard()` there instead of in `endTurn()`
+- [x] Tests for the new phase flow and for saves from before the change (`SAVE_VERSION` 4 adds the drawn card; version 3 saves carry on through the new phases)
 
 ### Step 18: Collisions
 When two units cross the same hex, or land on the same one, they battle at once, before the normal battle.
@@ -282,8 +283,8 @@ Not important for gameplay, so they come last: Lost Message (the opponent loses 
 - `npm run dev` (port 3000), then check the flow by hand or with Playwright, at 1280×800 and 800×1280 with touch, and on desktop, in at least one look:
   1. Menu → start a game; the initial hand deals in.
   2. Picking a card highlights the right units.
-  3. Issue orders, then undo, then commit, then battle.
+  3. Issue orders, then undo, then commit, then movement (open "Mostrar al rival"), then battle.
   4. Fire with a unit: the dice roll once, the unit shows as fired, and a reload doesn't bring the roll back.
-  5. Sync a casualty on the map, then end the turn.
+  5. Sync a casualty on the map, end the battle, draw a card and start the next turn.
   6. Only the one new card animates in, and the deck and discard counts add up.
   7. Reload in each phase: the game resumes where it was.

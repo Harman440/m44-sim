@@ -5,7 +5,8 @@ import "./CommandCard.css";
 
 interface CommandCardProps {
     cardData: CommandCard;
-    onClick: (card: CommandCard) => void;
+    /** Without it the card is only shown, not a button */
+    onClick?: (card: CommandCard) => void;
 }
 
 /** Sections (left, center, right) a card orders units in */
@@ -52,11 +53,11 @@ function FlankDiagram({ type }: { type: CommandCardType }) {
 /** A command card, drawn like the game's: title band, sections diagram, order count */
 function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
     const tacticUnit = TACTIC_UNIT[cardData.type];
+    const Root = onClick ? "button" : "div";
     return (
-        <button
-            type="button"
-            className={`command-card command-card--${tacticUnit ? "tactic" : "section"}`}
-            onClick={() => onClick(cardData)}
+        <Root
+            {...(onClick ? { type: "button", onClick: () => onClick(cardData) } : {})}
+            className={`command-card command-card--${tacticUnit ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
         >
             <span className="command-card__band">
                 <h3 className="card-title">{cardData.name}</h3>
@@ -70,7 +71,7 @@ function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
                 </span>
                 <span className="card-description">{cardData.description}</span>
             </span>
-        </button>
+        </Root>
     );
 }
 

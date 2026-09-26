@@ -17,6 +17,8 @@ export interface GameSnapshot {
   turn: number;
   phase: TurnPhase;
   hand: readonly CommandCard[];
+  /** The command card drawn in the final phase, once drawn (it is already in the hand) */
+  drawnCard: CommandCard | null;
   /** Debug placeholder for cards that let you keep 1 of 2 drawn cards */
   choiceCards: readonly CommandCard[];
   chosenCard: CommandCard | null;
@@ -58,7 +60,7 @@ export interface MoveOptions {
 }
 
 /** Bump when SavedGame changes shape; older saves are then migrated or dropped instead of misread */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 interface SavedUnit {
   type: UnitType;
@@ -83,6 +85,7 @@ export interface SavedGame {
   hand: string[];
   choiceCards: string[];
   chosenCard: string | null;
+  drawnCard: string | null;
   units: SavedUnit[];
   orders: { unit: number; start: Position; end: Position; canFire: boolean; path: Position[] | null }[];
   ordersLeft: number;
@@ -95,8 +98,10 @@ export interface SavedGame {
   log: TurnRecord[];
 }
 
-/** Version 2 saves had no turn log; they are read as a game with no history */
-type SavedGameV2 = Omit<SavedGame, "version" | "log"> & { version: 2 };
+/** Version 3 saves drew the new card as the turn ended, so none is ever pending */
+type SavedGameV3 = Omit<SavedGame, "version" | "drawnCard"> & { version: 3 };
+/** Version 2 saves had no turn log either; they are read as a game with no history */
+type SavedGameV2 = Omit<SavedGameV3, "version" | "log"> & { version: 2 };
 /** Version 1 saves had no shots either; they are read as a turn where nobody has fired yet */
 type SavedGameV1 = Omit<SavedGameV2, "version" | "shots"> & { version: 1 };
 
@@ -116,7 +121,7 @@ export type BattleEdit =
 
 /**
  * Owns one player's game: board, command cards and the turn flow
- * PICK_CARDS -> ORDER_UNITS -> BATTLE -> (next turn). The attacking side
+ * PICK_CARDS -> ORDER_UNITS -> MOVEMENT -> BATTLE -> END_OF_TURN -> (next turn). The attacking side
  * plays turn 1 alone; the defender waits in AWAIT_ATTACKER and starts at turn 2.
  *
  * Game objects are mutable, so instead of a React reducer (which React may run
@@ -137,6 +142,7 @@ class GameSession {
   private phase: TurnPhase;
   private choiceCards: CommandCard[] = [];
   private chosenCard: CommandCard | null = null;
+  private drawnCard: CommandCard | null = null;
   private orders: Order[] = [];
   private ordersLeft = 0;
   private ordersCommitted = false;
@@ -292,12 +298,29 @@ class GameSession {
     return this.publish();
   }
 
+  // --- MOVEMENT: the orders are shown to the opponent and carried out on the table
+
+  startMovement(): boolean {
+    if (this.phase !== TurnPhase.ORDER_UNITS || !this.ordersCommitted) return false;
+
+    this.phase = TurnPhase.MOVEMENT;
+    return this.publish();
+  }
+
   // --- BATTLE
 
   startBattle(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS || !this.ordersCommitted) return false;
+    if (this.phase !== TurnPhase.MOVEMENT) return false;
 
     this.phase = TurnPhase.BATTLE;
+    return this.publish();
+  }
+
+  /** Move on to the final phase; units that haven't fired lose their shot */
+  endBattle(): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+
+    this.phase = TurnPhase.END_OF_TURN;
     return this.publish();
   }
 
@@ -394,10 +417,26 @@ class GameSession {
     return this.board.getAllHexes().some((hex) => hex.unit === unit);
   }
 
-  endTurn(): boolean {
-    if (this.phase !== TurnPhase.BATTLE || !this.chosenCard) return false;
+  // --- END_OF_TURN
 
-    // Discard first so a reshuffle on an empty deck can bring the card back
+  /** Discard the played card and draw a new command card (once per turn) */
+  drawCard(): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || this.drawnCard) return false;
+
+    // Discard first so a reshuffle on an empty deck can bring the card back,
+    // so there is always a card to draw
+    const playedCard = this.chosenCard;
+    this.deck.discard(playedCard);
+    const [drawn] = this.deck.draw(1);
+    if (!drawn) throw new Error("No command card to draw");
+    this.hand = [...this.hand.filter((c) => c !== playedCard), drawn];
+    this.drawnCard = drawn;
+    return this.publish();
+  }
+
+  endTurn(): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || !this.drawnCard) return false;
+
     const playedCard = this.chosenCard;
     const record = recordTurn({
       turn: this.turn,
@@ -408,12 +447,10 @@ class GameSession {
       board: this.board,
     });
     this.log = [...this.log, record];
-    this.deck.discard(playedCard);
-    const drawn = this.deck.draw(1);
-    this.hand = [...this.hand.filter((c) => c !== playedCard), ...drawn];
 
     this.board.removeOrders();
     this.chosenCard = null;
+    this.drawnCard = null;
     this.orders = [];
     this.ordersLeft = 0;
     this.ordersCommitted = false;
@@ -458,6 +495,7 @@ class GameSession {
       hand: ids(this.hand),
       choiceCards: ids(this.choiceCards),
       chosenCard: this.chosenCard?.id ?? null,
+      drawnCard: this.drawnCard?.id ?? null,
       // Orders and edits first, so units they reference get indexes; the list is read after
       orders: this.orders.map((order) => ({
         unit: unitIndex(order.unit),
@@ -487,12 +525,12 @@ class GameSession {
 
   /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
   static restore(
-    saved: SavedGame | SavedGameV2 | SavedGameV1,
+    saved: SavedGame | SavedGameV3 | SavedGameV2 | SavedGameV1,
     scenario: Scenario,
     commandCards: CommandCard[],
     random?: () => number
   ): GameSession {
-    if (![1, 2, SAVE_VERSION].includes(saved.version)) {
+    if (![1, 2, 3, SAVE_VERSION].includes(saved.version)) {
       throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
     }
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
@@ -536,6 +574,9 @@ class GameSession {
     session.hand = cards(saved.hand);
     session.choiceCards = cards(saved.choiceCards);
     session.chosenCard = saved.chosenCard === null ? null : card(saved.chosenCard);
+    const drawnCard = saved.version === SAVE_VERSION ? saved.drawnCard : null;
+    session.drawnCard = drawnCard === null ? null : card(drawnCard);
+    if (session.drawnCard && !session.hand.includes(session.drawnCard)) throw new Error("Drawn card not in hand");
     session.turn = saved.turn;
     session.phase = saved.phase;
     session.orders = saved.orders.map(
@@ -552,7 +593,7 @@ class GameSession {
       if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
       return { ...shot, notes: shot.notes ?? [] };
     });
-    const log = saved.version === SAVE_VERSION ? saved.log : [];
+    const log = saved.version === 1 || saved.version === 2 ? [] : saved.log;
     if (!Array.isArray(log)) throw new Error("Turn log is not a list");
     log.forEach((record) => {
       if (!record.shots.every((shot) => shot.faces.every((face) => faces.has(face)))) {
@@ -573,6 +614,7 @@ class GameSession {
       hand: [...this.hand],
       choiceCards: [...this.choiceCards],
       chosenCard: this.chosenCard,
+      drawnCard: this.drawnCard,
       orders: this.orders,
       ordersLeft: this.ordersLeft,
       ordersCommitted: this.ordersCommitted,

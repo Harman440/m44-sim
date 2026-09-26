@@ -30,6 +30,7 @@ const makeSession = (unitType: UnitType, numFireTimes = 1) => {
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(UNIT, UNIT);
   session.commitOrders();
+  session.startMovement();
   session.startBattle();
   return session;
 };

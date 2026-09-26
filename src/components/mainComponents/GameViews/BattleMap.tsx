@@ -15,7 +15,7 @@ interface BattleMapProps {
   session: GameSession;
   game: GameSnapshot;
   onShowSummary: () => void;
-  onFinishTurn: () => void;
+  onEndBattle: () => void;
 }
 
 
@@ -25,7 +25,7 @@ interface BattleMapProps {
  * units that retreated or took ground (to any empty hex; the table is the
  * source of truth).
  */
-function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: BattleMapProps) {
+function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: BattleMapProps) {
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
   const { flash, flashInvalid } = useHexFlash();
@@ -110,8 +110,8 @@ function BattleMap({ faction, session, game, onShowSummary, onFinishTurn }: Batt
           <Button variant="outlined" onClick={onShowSummary}>
             Volver al resumen
           </Button>
-          <Button onClick={onFinishTurn} startIcon={<GameIcon name="endTurn" />}>
-            Terminar Turno
+          <Button onClick={onEndBattle} startIcon={<GameIcon name="endTurn" />}>
+            Terminar batalla
           </Button>
         </Stack>
       </div>

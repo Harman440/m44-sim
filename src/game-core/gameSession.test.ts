@@ -66,7 +66,15 @@ const orderAllAndFight = (session: GameSession) => {
     expect(session.issueOrder(hex.getPosition(), hex.getPosition())).toBe(true);
   }
   expect(session.commitOrders()).toBe(true);
+  expect(session.startMovement()).toBe(true);
   expect(session.startBattle()).toBe(true);
+};
+
+/** From battle to the next turn: final phase, draw, end */
+const finishTurn = (session: GameSession) => {
+  expect(session.endBattle()).toBe(true);
+  expect(session.drawCard()).toBe(true);
+  expect(session.endTurn()).toBe(true);
 };
 
 describe("GameSession setup", () => {
@@ -215,7 +223,7 @@ describe("GameSession giving orders", () => {
     session.issueOrder(LEFT_INF, LEFT_INF);
 
     expect(session.commitOrders()).toBe(false);
-    expect(session.startBattle()).toBe(false);
+    expect(session.startMovement()).toBe(false);
 
     session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
     expect(session.commitOrders()).toBe(true);
@@ -226,6 +234,78 @@ describe("GameSession giving orders", () => {
   });
 });
 
+describe("GameSession movement and final phases", () => {
+  it("goes orders -> movement -> battle -> final phase, one step at a time", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    session.issueOrder(LEFT_INF, LEFT_INF);
+    session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
+
+    expect(session.startMovement()).toBe(false); // orders not confirmed yet
+    session.commitOrders();
+    expect(session.startBattle()).toBe(false); // the pieces move on the table first
+    expect(session.startMovement()).toBe(true);
+    expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
+    expect(session.removeUnit(LEFT_INF)).toBe(false);
+    expect(session.endBattle()).toBe(false);
+
+    expect(session.startBattle()).toBe(true);
+    expect(session.endBattle()).toBe(true);
+    expect(session.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
+    expect(session.fireQuick(0, 2)).toBe(false); // units that didn't fire have lost the shot
+    expect(session.removeUnit(LEFT_INF)).toBe(false);
+  });
+
+  it("draws the command card once in the final phase, and only then ends the turn", () => {
+    const session = makeSession(1);
+    const played = session.getSnapshot().hand[0]!;
+    session.pickCard(played);
+    orderAllAndFight(session);
+    expect(session.drawCard()).toBe(false); // still in battle
+    session.endBattle();
+
+    expect(session.endTurn()).toBe(false); // nothing drawn yet
+    expect(session.drawCard()).toBe(true);
+    const { drawnCard, hand, turn, phase } = session.getSnapshot();
+    expect(drawnCard).not.toBeNull();
+    expect(hand).toContain(drawnCard);
+    expect(hand).not.toContain(played);
+    expect({ turn, phase }).toEqual({ turn: 1, phase: TurnPhase.END_OF_TURN });
+    expect(session.drawCard()).toBe(false);
+
+    expect(session.endTurn()).toBe(true);
+    expect(session.getSnapshot().drawnCard).toBeNull();
+  });
+
+  it("keeps the phase and the drawn card after a reload", () => {
+    const session = makeSession(1);
+    session.pickCard(session.getSnapshot().hand[0]!);
+    orderAllAndFight(session);
+    session.endBattle();
+    session.drawCard();
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+
+    expect(restored.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
+    expect(restored.getSnapshot().drawnCard?.id).toBe(session.getSnapshot().drawnCard?.id);
+    expect(restored.drawCard()).toBe(false);
+    expect(restored.endTurn()).toBe(true);
+  });
+
+  it("carries on a version 3 save from the battle phase through the new final phase", () => {
+    const session = makeSession(1);
+    session.pickCard(session.getSnapshot().hand[0]!);
+    orderAllAndFight(session);
+    const { drawnCard: _, ...v3 } = { ...session.save(), version: 3 as const };
+
+    const restored = GameSession.restore(v3, scenario, cards());
+
+    expect(restored.getSnapshot().drawnCard).toBeNull();
+    finishTurn(restored);
+    expect(restored.getSnapshot().turn).toBe(2);
+  });
+});
+
 describe("GameSession ending the turn", () => {
   it("discards the played card, draws a new one and clears the orders", () => {
     const session = makeSession(1);
@@ -233,7 +313,7 @@ describe("GameSession ending the turn", () => {
     session.pickCard(played);
     orderAllAndFight(session);
 
-    expect(session.endTurn()).toBe(true);
+    finishTurn(session);
 
     const snapshot = session.getSnapshot();
     expect(snapshot.turn).toBe(2);
@@ -248,11 +328,13 @@ describe("GameSession ending the turn", () => {
     expect(units.some((u) => u.isOrdered())).toBe(false);
   });
 
-  it("only ends the turn from the battle phase", () => {
+  it("only ends the turn from the final phase", () => {
     const { session, card } = sessionWithAllCards();
 
     expect(session.endTurn()).toBe(false);
     session.pickCard(card("left"));
+    expect(session.endTurn()).toBe(false);
+    orderAllAndFight(session);
     expect(session.endTurn()).toBe(false);
   });
 
@@ -267,7 +349,7 @@ describe("GameSession ending the turn", () => {
 
       session.pickCard(before.hand[0]!);
       orderAllAndFight(session);
-      expect(session.endTurn()).toBe(true);
+      finishTurn(session);
     }
     expect(session.getSnapshot().turn).toBe(31);
   });
@@ -361,7 +443,7 @@ describe("GameSession syncing the battle with the table", () => {
     session.removeUnit(TANK);
     session.relocateUnit(LEFT_INF, { row: 6, col: 1 });
 
-    session.endTurn();
+    finishTurn(session);
 
     expect(session.getSnapshot().battleEdits).toBe(0);
     expect(unitAt(session, TANK)).toBeNull();
@@ -488,7 +570,7 @@ describe("GameSession firing", () => {
     const session = battle();
     session.fireQuick(0, 2);
 
-    session.endTurn();
+    finishTurn(session);
 
     expect(session.getSnapshot().shots).toEqual([]);
     expect(session.undoShot(0)).toBe(false);
@@ -506,7 +588,7 @@ describe("GameSession attacker's extra first turn", () => {
 
     session.pickCard(card("left"));
     orderAllAndFight(session);
-    session.endTurn();
+    finishTurn(session);
 
     expect(session.getSnapshot()).toMatchObject({ turn: 2, extraTurn: false });
   });
@@ -553,7 +635,7 @@ describe("GameSession turn log", () => {
     session.relocateUnit(TANK, { row: 3, col: 3 });
 
     expect(session.getSnapshot().log).toEqual([]);
-    session.endTurn();
+    finishTurn(session);
 
     const [record] = session.getSnapshot().log;
     expect(record).toEqual(JSON.parse(JSON.stringify(record)));
@@ -580,7 +662,7 @@ describe("GameSession turn log", () => {
     session.undoShot(0);
     session.removeUnit(LEFT_INF);
     session.undoBattleEdit();
-    session.endTurn();
+    finishTurn(session);
 
     const [record] = session.getSnapshot().log;
     expect(record!.shots).toEqual([]);
@@ -592,7 +674,7 @@ describe("GameSession turn log", () => {
     for (let turn = 1; turn <= 3; turn++) {
       session.pickCard(session.getSnapshot().hand[0]!);
       orderAllAndFight(session);
-      session.endTurn();
+      finishTurn(session);
     }
 
     expect(session.getSnapshot().log.map((r) => r.turn)).toEqual([1, 2, 3]);
@@ -686,7 +768,7 @@ describe("GameSession saving and restoring", () => {
     session.pickCard(card("left"));
     orderAllAndFight(session);
     session.fireQuick(0, 2);
-    session.endTurn();
+    finishTurn(session);
 
     const restored = reload(session);
 
@@ -698,7 +780,7 @@ describe("GameSession saving and restoring", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
     orderAllAndFight(session);
-    session.endTurn();
+    finishTurn(session);
     const { log: _, ...v2 } = { ...session.save(), version: 2 as const };
 
     const restored = GameSession.restore(v2, scenario, cards());
@@ -722,7 +804,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 4 as 3 })).toThrow();
+    expect(broken({ version: 5 as 4 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();

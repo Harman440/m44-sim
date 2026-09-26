@@ -23,6 +23,14 @@
   transform: translateY(2px);
 }
 
+.command-card--static {
+  cursor: default;
+}
+
+.command-card--static:active {
+  transform: none;
+}
+
 .command-card:focus-visible {
   outline: 3px solid var(--m44-primary);
   outline-offset: 3px;

@@ -55,3 +55,21 @@
     padding: 12px;
   }
 }
+
+/* "Mostrar al rival": the whole board on screen, below a one-line header */
+.opponent-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.opponent-map .board {
+  display: flex;
+  justify-content: center;
+}
+
+.opponent-map .board__svg {
+  width: min(100%, calc((100dvh - 110px) * var(--board-aspect)));
+}

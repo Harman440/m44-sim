@@ -25,6 +25,8 @@ import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
 import WaitingView from "./GameViews/WaitingView";
+import MovementView from "./GameViews/MovementView";
+import EndOfTurnView from "./GameViews/EndOfTurnView";
 import { FACTION_LABELS } from "../../labels";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
@@ -45,7 +47,9 @@ export interface GameViewProps {
 const PHASE_STEPS: { phase: TurnPhase; label: string }[] = [
   { phase: TurnPhase.PICK_CARDS, label: "Carta" },
   { phase: TurnPhase.ORDER_UNITS, label: "Órdenes" },
+  { phase: TurnPhase.MOVEMENT, label: "Movimiento" },
   { phase: TurnPhase.BATTLE, label: "Batalla" },
+  { phase: TurnPhase.END_OF_TURN, label: "Final" },
 ];
 
 function GameView({ session, resumed = false, onExit }: GameViewProps) {
@@ -70,9 +74,10 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
     setDealtCardIds((prev) => new Set(prev).add(card.id));
   }, []);
 
-  const handleFinishTurn = () => {
+  const handleDrawCard = () => {
     const playedCard = game.chosenCard;
-    if (!playedCard || !session.endTurn()) return;
+    if (!playedCard || !session.drawCard()) return;
+    play("cardPlay");
 
     // A discarded card can be drawn again later and should animate in again
     setDealtCardIds((prev) => {
@@ -207,12 +212,18 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           <OrdersView faction={faction} session={session} game={game} />
         )}
 
+        {game.phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}
+
         {game.phase === TurnPhase.BATTLE && (
-          <BattleView
-            faction={faction}
-            session={session}
+          <BattleView faction={faction} session={session} game={game} onEndBattle={() => session.endBattle()} />
+        )}
+
+        {game.phase === TurnPhase.END_OF_TURN && (
+          <EndOfTurnView
             game={game}
-            onFinishTurn={handleFinishTurn}
+            attacking={session.attacking}
+            onDrawCard={handleDrawCard}
+            onEndTurn={() => session.endTurn()}
           />
         )}
 

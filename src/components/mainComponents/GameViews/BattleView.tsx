@@ -23,7 +23,7 @@ interface BattleViewProps {
   faction: Faction;
   session: GameSession;
   game: GameSnapshot;
-  onFinishTurn: () => void;
+  onEndBattle: () => void;
 }
 
 /**
@@ -31,7 +31,7 @@ interface BattleViewProps {
  * map is hidden and the whole screen shows the turn summary, where each unit
  * fires. The map is one tap away for syncing casualties and retreats.
  */
-function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
+function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
   const [showMap, setShowMap] = useState(false);
   const [firingIndex, setFiringIndex] = useState<number | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
@@ -46,7 +46,7 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
     return fired;
   };
 
-  const requestFinishTurn = () => setConfirmingEnd(true);
+  const requestEndBattle = () => setConfirmingEnd(true);
 
   return (
     <>
@@ -56,7 +56,7 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
           session={session}
           game={game}
           onShowSummary={() => setShowMap(false)}
-          onFinishTurn={requestFinishTurn}
+          onEndBattle={requestEndBattle}
         />
       )}
 
@@ -84,8 +84,8 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
               <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
                 Ver mapa
               </Button>
-              <Button onClick={requestFinishTurn} startIcon={<GameIcon name="endTurn" />}>
-                Terminar Turno
+              <Button onClick={requestEndBattle} startIcon={<GameIcon name="endTurn" />}>
+                Terminar batalla
               </Button>
             </Stack>
           </Box>
@@ -112,12 +112,12 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
       />
 
       <Dialog open={confirmingEnd} onClose={() => setConfirmingEnd(false)}>
-        <DialogTitle>¿Terminar el turno?</DialogTitle>
+        <DialogTitle>¿Terminar la batalla?</DialogTitle>
         <DialogContent>
           <DialogContentText>
             {unfired > 0
               ? `${unfired === 1 ? "Queda 1 unidad" : `Quedan ${unfired} unidades`} sin disparar. Si terminas, pierden el disparo.`
-              : "No se puede deshacer."}
+              : "Pasarás a la fase final. No se puede deshacer."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -128,10 +128,10 @@ function BattleView({ faction, session, game, onFinishTurn }: BattleViewProps) {
             color={unfired > 0 ? "warning" : "primary"}
             onClick={() => {
               setConfirmingEnd(false);
-              onFinishTurn();
+              onEndBattle();
             }}
           >
-            {unfired > 0 ? "Terminar igualmente" : "Terminar Turno"}
+            {unfired > 0 ? "Terminar igualmente" : "Terminar batalla"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -29,6 +29,7 @@ const playTurn = () => {
   session.issueOrder(TANK, FOREST);
   session.issueOrder(INFANTRY, INFANTRY);
   session.commitOrders();
+  session.startMovement();
   session.startBattle();
   return session;
 };

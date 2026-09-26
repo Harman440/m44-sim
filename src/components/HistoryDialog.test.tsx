@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import HistoryDialog from "./HistoryDialog";
-import GameSession from "../game-core/gameSession";
+import GameSession, { SAVE_VERSION } from "../game-core/gameSession";
 import CommandCard, { CommandCardType } from "../game-core/commandCard";
 import { Position } from "../types/scenario";
 import { downloadJson } from "../download";
@@ -34,8 +34,11 @@ const playedSession = () => {
     session.pickCard(session.getSnapshot().hand[0]!);
     session.issueOrder(INFANTRY, INFANTRY);
     session.commitOrders();
+    session.startMovement();
     session.startBattle();
     battle();
+    session.endBattle();
+    session.drawCard();
     session.endTurn();
   };
   playTurn(() => session.fireQuick(0, 2));
@@ -75,7 +78,7 @@ describe("HistoryDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Exportar partida" }));
     expect(downloadJson).toHaveBeenLastCalledWith(
       "m44-test-aliados-partida-turno-3.json",
-      expect.objectContaining({ version: 3, log })
+      expect.objectContaining({ version: SAVE_VERSION, log })
     );
   });
 });

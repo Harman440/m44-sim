@@ -114,7 +114,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       <div className="phase-layout__controls">
         {ordersCommitted ? (
           <Alert severity="success" sx={{ width: "100%" }}>
-            Ya no se pueden cambiar. Pasa a la fase de batalla.
+            Ya no se pueden cambiar. Pasa a la fase de movimiento.
           </Alert>
         ) : (
           <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
@@ -161,8 +161,8 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             </Button>
           )}
           {ordersCommitted && (
-            <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
-              Fase Batalla
+            <Button onClick={() => session.startMovement()} startIcon={<GameIcon name="map" />}>
+              Fase Movimiento
             </Button>
           )}
         </Stack>

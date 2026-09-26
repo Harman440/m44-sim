@@ -30,26 +30,27 @@ const makeBattleSession = () => {
   session.issueOrder(INFANTRY, INFANTRY);
   session.issueOrder(TANK, TANK);
   session.commitOrders();
+  session.startMovement();
   session.startBattle();
   return session;
 };
 
-function Harness({ session, onFinishTurn }: { session: GameSession; onFinishTurn: () => void }) {
+function Harness({ session, onEndBattle }: { session: GameSession; onEndBattle: () => void }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  return <BattleView faction="Allies" session={session} game={game} onFinishTurn={onFinishTurn} />;
+  return <BattleView faction="Allies" session={session} game={game} onEndBattle={onEndBattle} />;
 }
 
 const setup = ({ openMap = true } = {}) => {
   const session = makeBattleSession();
-  const onFinishTurn = vi.fn();
-  const { container } = render(<Harness session={session} onFinishTurn={onFinishTurn} />);
+  const onEndBattle = vi.fn();
+  const { container } = render(<Harness session={session} onEndBattle={onEndBattle} />);
   if (openMap) fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
   const hex = (p: Position) =>
     container.querySelector(`[data-position="${p.row}-${p.col}"]`) as SVGGElement;
   const tap = (p: Position) => fireEvent.click(hex(p));
   const isSelected = (p: Position) => hex(p).querySelector(".hexagon__tile--selected") !== null;
   const hasUnit = (p: Position) => session.board.getHex(p)!.hasUnit();
-  return { session, container, onFinishTurn, tap, isSelected, hasUnit };
+  return { session, container, onEndBattle, tap, isSelected, hasUnit };
 };
 
 describe("BattleView summary screen", () => {
@@ -119,30 +120,30 @@ describe("BattleView summary screen", () => {
     expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
   });
 
-  it("asks before finishing the turn and warns about units that haven't fired", async () => {
-    const { onFinishTurn } = setup({ openMap: false });
+  it("asks before ending the battle and warns about units that haven't fired", async () => {
+    const { onEndBattle } = setup({ openMap: false });
 
-    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(screen.getByRole("button", { name: "Terminar batalla" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Quedan 2 unidades sin disparar");
     fireEvent.click(screen.getByRole("button", { name: "Seguir en batalla" }));
-    expect(onFinishTurn).not.toHaveBeenCalled();
+    expect(onEndBattle).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(screen.getByRole("button", { name: "Terminar batalla" }));
     fireEvent.click(screen.getByRole("button", { name: "Terminar igualmente" }));
-    expect(onFinishTurn).toHaveBeenCalledTimes(1);
+    expect(onEndBattle).toHaveBeenCalledTimes(1);
   });
 
-  it("just confirms the end of the turn once every unit has fired", () => {
-    const { session, onFinishTurn } = setup({ openMap: false });
+  it("just confirms the end of the battle once every unit has fired", () => {
+    const { session, onEndBattle } = setup({ openMap: false });
     session.fireQuick(0, 1);
     session.fireQuick(1, 1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(screen.getByRole("button", { name: "Terminar batalla" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("No se puede deshacer.");
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Terminar batalla" }));
 
-    expect(onFinishTurn).toHaveBeenCalledTimes(1);
+    expect(onEndBattle).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -197,11 +198,11 @@ describe("BattleView map", () => {
   });
 
   it("finishes the turn from the Terminar Turno button, after confirming", () => {
-    const { onFinishTurn } = setup();
+    const { onEndBattle } = setup();
 
-    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(screen.getByRole("button", { name: "Terminar batalla" }));
     fireEvent.click(screen.getByRole("button", { name: "Terminar igualmente" }));
 
-    expect(onFinishTurn).toHaveBeenCalledTimes(1);
+    expect(onEndBattle).toHaveBeenCalledTimes(1);
   });
 });
