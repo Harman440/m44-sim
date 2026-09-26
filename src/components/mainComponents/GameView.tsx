@@ -4,6 +4,7 @@ This is a fundamental React principle - state should be treated as immutable.
 I am not using class-based state for now. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Stack, Typography } from "@mui/material";
 import { Scenario } from "../../types/scenario";
 import Deck from "../../game-core/deck";
 import commandCards from "../../data/commandCards";
@@ -98,21 +99,20 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
       )}
 
       {turnPhase === TurnPhase.BATTLE && (
-        <div className="mb-4">
-          <h3 className="font-bold mb-2">Fase Batalla</h3>
-          <button
-            onClick={() => handleFinsihTurn()}
-            className={`text-white p-2 rounded text-sm hover:opacity-80`}
-          >
-            Terminar Turno
-          </button>
+        <Stack spacing={1} sx={{ alignItems: "center", my: 2 }}>
+          <Typography variant="h6">Fase Batalla</Typography>
+          <Button onClick={() => handleFinsihTurn()}>Terminar Turno</Button>
           {/*TODO: Add delete units from board*/}
-        </div>
+        </Stack>
       )}
 
-      <div className="game_info">
-        Turn: {currentTurn} | Phase: {turnPhase}
-      </div>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mt: 2, textAlign: "center" }}
+      >
+        Turno: {currentTurn} | Fase: {TurnPhase[turnPhase]}
+      </Typography>
     </div>
   );
 }

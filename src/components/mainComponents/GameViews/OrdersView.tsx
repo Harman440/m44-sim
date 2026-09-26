@@ -1,4 +1,5 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Box, Button, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
 import BoardManager from "../../../game-core/BoardManager";
 import CommandCard from "../../../game-core/commandCard";
@@ -228,56 +229,50 @@ function OrdersView({
       />
 
       {unitHexPosition && (
-        <div>
+        <Box sx={{ mt: 1 }}>
           {(() => {
             const hexInfo = getSelectedHexInfo();
             return hexInfo ? (
-              <div>
-                <div>Selected: {hexInfo.getDescription()}</div>
-                <div>
-                  Terrain: {hexInfo.getType()} | Movement Rule:{" "}
+              <>
+                <Typography variant="body2">
+                  Seleccionado: {hexInfo.getDescription()}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Terreno: {hexInfo.getType()} | Regla de movimiento:{" "}
                   {hexInfo.getMovementRule()}
-                </div>
-              </div>
+                </Typography>
+              </>
             ) : (
-              <div>
-                Selected Tile: Row {unitHexPosition.row}, Column{" "}
+              <Typography variant="body2">
+                Casilla seleccionada: fila {unitHexPosition.row}, columna{" "}
                 {unitHexPosition.col}
-              </div>
+              </Typography>
             );
           })()}
-        </div>
+        </Box>
       )}
 
-      <div className="mb-4">
-        {orders.length > 0 && !unitHexPosition && !OrdersAreCommited && (
-          <button
-            onClick={() => handleGoBack()}
-            className={` text-white p-2 rounded text-sm hover:opacity-80`}
-          >
-            VOLVER
-          </button>
-        )}
-        {numOrdersLeft <= 0 && !OrdersAreCommited && (
-          <button
-            onClick={() => handleCommitOrders()}
-            className={` text-white p-2 rounded text-sm hover:opacity-80`}
-          >
-            CONFIRMAR ORDENES
-          </button>
-        )}
-        {OrdersAreCommited && (
-          <button
-            onClick={() => handleStartBattle()}
-            className={` text-white p-2 rounded text-sm hover:opacity-80`}
-          >
-            FASE BATALLA
-          </button>
-        )}
-        <div className="text-blue-600">
-          Order your units, orders left: {numOrdersLeft} | Click on any hexagon to select it |
-        </div>
-      </div>
+      <Stack spacing={1} sx={{ alignItems: "center", my: 2 }}>
+        <Stack direction="row" spacing={1}>
+          {orders.length > 0 && !unitHexPosition && !OrdersAreCommited && (
+            <Button variant="outlined" onClick={() => handleGoBack()}>
+              Volver
+            </Button>
+          )}
+          {numOrdersLeft <= 0 && !OrdersAreCommited && (
+            <Button onClick={() => handleCommitOrders()}>
+              Confirmar Órdenes
+            </Button>
+          )}
+          {OrdersAreCommited && (
+            <Button onClick={() => handleStartBattle()}>Fase Batalla</Button>
+          )}
+        </Stack>
+        <Typography variant="body2" color="primary">
+          Da órdenes a tus unidades, órdenes restantes: {numOrdersLeft} | Haz
+          clic en un hexágono para seleccionarlo
+        </Typography>
+      </Stack>
     </div>
   );
 }

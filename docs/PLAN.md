@@ -44,6 +44,12 @@ The current loop is **PICK_CARDS** (CardsView) â†’ **ORDER_UNITS** (OrdersView â
 - [x] Remove the dead `cli` script and add `/dist` to `.gitignore`
 - [ ] Rewrite the README, fix `index.html` (title, favicon) and delete `src/board.html` (Q4)
 
+### Step 0.5: MUI
+- [x] Install MUI 9 + Emotion; add the dark theme (`src/theme.ts`) with `ThemeProvider` and `CssBaseline`
+- [x] Convert the GameView and OrdersView buttons and text to MUI (Spanish text)
+- [x] Remove the dead `GameView.css`
+- [ ] Convert the CardsView controls ("Coge 2 Cartas", header, pile labels) to MUI during Step 2
+
 ### Step 1: Tests for game-core, before refactoring
 - [ ] `Hand`: add, remove, getCards
 - [ ] `Hex`: neighbors on even and odd rows, section assignment, terrain rules (forest and town stop movement and block move-and-fire)
