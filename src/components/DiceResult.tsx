@@ -3,7 +3,7 @@ import { DieFace, countFaces } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
 import { unitSprite } from "./UnitComponent";
 import { DIE_FACE_LABELS } from "./labels";
-import "./DiceRoller.css";
+import "./DiceResult.css";
 
 /** One die showing `face`; infantry and tank faces reuse the player's unit art */
 export function DieFaceIcon({ face, faction }: { face: DieFace; faction: string }) {

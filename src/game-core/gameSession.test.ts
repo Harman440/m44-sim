@@ -376,6 +376,107 @@ describe("GameSession syncing the battle with the table", () => {
   });
 });
 
+describe("GameSession firing", () => {
+  // Left card: the infantry at (7,1) and (7,3) hold and fire; orders 0 and 1
+  const battle = (options: { numFireTimes?: number } = {}) => {
+    const commandCards = [
+      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2, ...options }),
+    ];
+    // Always rolls the first face: infantry
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0 });
+    session.pickCard(session.getSnapshot().hand[0]!);
+    orderAllAndFight(session);
+    return session;
+  };
+
+  it("works out the dice from the answers, rolls them once and keeps the result", () => {
+    const session = battle();
+
+    expect(session.fire(0, { distance: "2", targetTerrain: "open" })).toBe(true);
+
+    const [shot] = session.getSnapshot().shots;
+    expect(shot).toMatchObject({ orderIndex: 0, dice: 2, faces: ["infantry", "infantry"] });
+    expect(shot!.steps.map((s) => s.dice)).toEqual([2]);
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.fire(0, { distance: "1", targetTerrain: "open" })).toBe(false);
+    expect(session.fireQuick(0, 3)).toBe(false);
+    expect(session.getSnapshot().shots).toHaveLength(1);
+  });
+
+  it("won't fire before the questionnaire is complete", () => {
+    const session = battle();
+
+    expect(session.fire(0, { distance: "2" })).toBe(false);
+    expect(session.getSnapshot().shots).toHaveLength(0);
+  });
+
+  it("records a 0-dice shot without rolling: the unit has used its fire", () => {
+    const session = battle();
+
+    expect(session.fire(0, { distance: "3", targetTerrain: "town" })).toBe(true);
+
+    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [] });
+    expect(session.shotsLeft(0)).toBe(0);
+  });
+
+  it("rolls the number of dice the player chose for a quick shot", () => {
+    const session = battle();
+
+    expect(session.fireQuick(1, 0)).toBe(false);
+    expect(session.fireQuick(1, 1.5)).toBe(false);
+    expect(session.fireQuick(1, 4)).toBe(true);
+
+    expect(session.getSnapshot().shots[0]).toMatchObject({ orderIndex: 1, dice: 4, steps: [] });
+    expect(session.getSnapshot().shots[0]!.faces).toHaveLength(4);
+  });
+
+  it("only fires in battle, with a unit that can fire and is still on the board", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    session.issueOrder(TANK, { row: 4, col: 7 }); // into forest: can't fire
+    expect(session.fireQuick(0, 3)).toBe(false); // not in battle yet
+    orderAllAndFight(session);
+
+    expect(session.fireQuick(0, 3)).toBe(false);
+    expect(session.fireQuick(99, 3)).toBe(false);
+    session.removeUnit(LEFT_INF);
+    const removedOrder = session.getSnapshot().orders.findIndex((o) => o.start.row === 7 && o.start.col === 1);
+    expect(session.fireQuick(removedOrder, 3)).toBe(false);
+  });
+
+  it("lets a unit fire as many times as the card says", () => {
+    const session = battle({ numFireTimes: 2 });
+
+    expect(session.getSnapshot().firesPerUnit).toBe(2);
+    expect(session.fireQuick(0, 2)).toBe(true);
+    expect(session.shotsLeft(0)).toBe(1);
+    expect(session.fireQuick(0, 2)).toBe(true);
+    expect(session.fireQuick(0, 2)).toBe(false);
+  });
+
+  it("undoes a unit's last shot so it can fire again", () => {
+    const session = battle();
+    session.fireQuick(0, 2);
+    session.fireQuick(1, 3);
+
+    expect(session.undoShot(0)).toBe(true);
+
+    expect(session.getSnapshot().shots.map((s) => s.orderIndex)).toEqual([1]);
+    expect(session.shotsLeft(0)).toBe(1);
+    expect(session.undoShot(0)).toBe(false);
+  });
+
+  it("clears the shots when the turn ends", () => {
+    const session = battle();
+    session.fireQuick(0, 2);
+
+    session.endTurn();
+
+    expect(session.getSnapshot().shots).toEqual([]);
+    expect(session.undoShot(0)).toBe(false);
+  });
+});
+
 describe("GameSession saving and restoring", () => {
   /** Save to JSON and back, the way a page reload goes through localStorage */
   const reload = (session: GameSession) =>
@@ -433,6 +534,31 @@ describe("GameSession saving and restoring", () => {
     expect(restored.getSnapshot().orders.some((o) => o.unit === infantry)).toBe(true);
   });
 
+  it("keeps the shots, so a reload can't be used to roll again", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    session.fireQuick(0, 3);
+
+    const restored = reload(session);
+
+    expect(restored.getSnapshot().shots).toEqual(session.getSnapshot().shots);
+    expect(restored.fireQuick(0, 3)).toBe(false);
+    expect(restored.undoShot(0)).toBe(true);
+  });
+
+  it("reads a version 1 save (before shots) as a turn where nobody has fired", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    const { shots: _, ...v1 } = { ...session.save(), version: 1 as const };
+
+    const restored = GameSession.restore(v1, scenario, cards());
+
+    expect(restored.getSnapshot().shots).toEqual([]);
+    expect(restored.shotsLeft(0)).toBe(1);
+  });
+
   it("restores a pending draw-2 choice", () => {
     const session = makeSession(2);
     session.drawChoice();
@@ -448,9 +574,10 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 2 as 1 })).toThrow();
+    expect(broken({ version: 3 as 2 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
+    expect(broken({ shots: [{ orderIndex: 5, steps: [], dice: 1, faces: ["infantry" as never] }] })).toThrow();
     expect(broken({ units: [{ ...saved.units[0]!, position: { row: 40, col: 0 } }] })).toThrow();
   });
 });

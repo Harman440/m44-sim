@@ -5,6 +5,9 @@ import Deck from "./deck";
 import Hand from "./hand";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
+import { DieFace, rollDice } from "./dice";
+import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
+import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
@@ -22,6 +25,20 @@ export interface GameSnapshot {
   battleEdits: number;
   drawPileCount: number;
   discardPileCount: number;
+  /** Shots fired this turn, in the order they were rolled */
+  shots: readonly Shot[];
+  /** How many times each unit that can fire may fire this turn (from the card) */
+  firesPerUnit: number;
+}
+
+/** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
+export interface Shot {
+  /** Index of the firing unit's order in this turn's orders */
+  orderIndex: number;
+  /** How the dice were worked out; empty for a quick roll where the player chose the dice */
+  steps: readonly DiceStep[];
+  dice: number;
+  faces: readonly DieFace[];
 }
 
 export interface MoveOptions {
@@ -29,8 +46,8 @@ export interface MoveOptions {
   moveAndFire: Position[];
 }
 
-/** Bump when SavedGame changes shape; older saves are then dropped instead of misread */
-export const SAVE_VERSION = 1;
+/** Bump when SavedGame changes shape; older saves are then migrated or dropped instead of misread */
+export const SAVE_VERSION = 2;
 
 interface SavedUnit {
   type: UnitType;
@@ -64,13 +81,19 @@ export interface SavedGame {
     | { kind: "remove"; position: Position; unit: number }
     | { kind: "move"; from: Position; to: Position }
   )[];
+  shots: Shot[];
 }
+
+/** Version 1 saves had no shots; they are read as a turn where nobody has fired yet */
+type SavedGameV1 = Omit<SavedGame, "version" | "shots"> & { version: 1 };
 
 interface GameSessionOptions {
   scenario: Scenario;
   faction: string;
   initialHandSize: number;
   commandCards: CommandCard[];
+  /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
+  random?: () => number;
 }
 
 /** A change made during BATTLE to match what happened on the physical table */
@@ -105,12 +128,21 @@ class GameSession {
   private ordersLeft = 0;
   private ordersCommitted = false;
   private battleEdits: BattleEdit[] = [];
+  private shots: Shot[] = [];
+  private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
   private snapshot: GameSnapshot;
 
-  constructor({ scenario, faction, initialHandSize, commandCards }: GameSessionOptions) {
+  constructor({
+    scenario,
+    faction,
+    initialHandSize,
+    commandCards,
+    random = () => Math.random(),
+  }: GameSessionOptions) {
     this.scenario = scenario;
+    this.random = random;
     this.faction = faction;
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
@@ -276,6 +308,62 @@ class GameSession {
     return this.publish();
   }
 
+  // Firing: the dice are rolled here, once, and the result is kept
+
+  private get firesPerUnit(): number {
+    return Math.max(1, this.chosenCard?.numFireTimes ?? 1);
+  }
+
+  /** Shots the unit of this order may still fire this turn (0 if it can't fire at all) */
+  shotsLeft(orderIndex: number): number {
+    if (this.phase !== TurnPhase.BATTLE) return 0;
+    const order = this.orders[orderIndex];
+    if (!order?.canFire || !this.isOnBoard(order.unit)) return 0;
+    const fired = this.shots.filter((shot) => shot.orderIndex === orderIndex).length;
+    return Math.max(0, this.firesPerUnit - fired);
+  }
+
+  /**
+   * Fire with the unit of this order, using the answers to the fire questions
+   * to work out the dice. The questionnaire must be complete. A shot worth 0
+   * dice is still recorded: the unit has used its fire.
+   */
+  fire(orderIndex: number, answers: FireAnswers): boolean {
+    if (this.shotsLeft(orderIndex) <= 0) return false;
+    const context = { unitType: this.orders[orderIndex]!.unit.getUnitType(), card: this.chosenCard };
+    if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
+
+    const { dice, steps } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
+    return this.recordShot(orderIndex, dice, steps);
+  }
+
+  /** Fire with a number of dice the player worked out themselves */
+  fireQuick(orderIndex: number, dice: number): boolean {
+    if (!Number.isInteger(dice) || dice < 1) return false;
+    if (this.shotsLeft(orderIndex) <= 0) return false;
+    return this.recordShot(orderIndex, dice, []);
+  }
+
+  /** Take back this unit's last shot, for a shot recorded by mistake */
+  undoShot(orderIndex: number): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
+    if (index === -1) return false;
+
+    this.shots = this.shots.filter((_, i) => i !== index);
+    return this.publish();
+  }
+
+  private recordShot(orderIndex: number, dice: number, steps: DiceStep[]): true {
+    const shot: Shot = { orderIndex, steps, dice, faces: rollDice(dice, this.random) };
+    this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
+  private isOnBoard(unit: Unit): boolean {
+    return this.board.getAllHexes().some((hex) => hex.unit === unit);
+  }
+
   endTurn(): boolean {
     if (this.phase !== TurnPhase.BATTLE || !this.chosenCard) return false;
 
@@ -291,6 +379,7 @@ class GameSession {
     this.ordersLeft = 0;
     this.ordersCommitted = false;
     this.battleEdits = [];
+    this.shots = [];
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
@@ -346,19 +435,33 @@ class GameSession {
       ),
       ordersLeft: this.ordersLeft,
       ordersCommitted: this.ordersCommitted,
+      shots: this.shots.map((shot) => ({ ...shot, steps: [...shot.steps], faces: [...shot.faces] })),
       units: savedUnits,
     };
   }
 
   /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
-  static restore(saved: SavedGame, scenario: Scenario, commandCards: CommandCard[]): GameSession {
-    if (saved.version !== SAVE_VERSION) throw new Error(`Unsupported save version ${saved.version}`);
+  static restore(
+    saved: SavedGame | SavedGameV1,
+    scenario: Scenario,
+    commandCards: CommandCard[],
+    random?: () => number
+  ): GameSession {
+    if (saved.version !== SAVE_VERSION && saved.version !== 1) {
+      throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
+    }
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
     if (![TurnPhase.PICK_CARDS, TurnPhase.ORDER_UNITS, TurnPhase.BATTLE].includes(saved.phase)) {
       throw new Error(`Unknown phase ${saved.phase}`);
     }
 
-    const session = new GameSession({ scenario, faction: saved.faction, initialHandSize: 0, commandCards });
+    const session = new GameSession({
+      scenario,
+      faction: saved.faction,
+      initialHandSize: 0,
+      commandCards,
+      random,
+    });
 
     const cardsById = new Map(commandCards.map((card) => [card.id, card]));
     const card = (id: string) => {
@@ -398,6 +501,12 @@ class GameSession {
     session.battleEdits = saved.battleEdits.map((edit) =>
       edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unit(edit.unit) } : edit
     );
+    const faces = new Set<string>(Object.values(DieFace));
+    session.shots = (saved.version === 1 ? [] : saved.shots).map((shot) => {
+      if (!session.orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
+      if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
+      return shot;
+    });
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -417,6 +526,8 @@ class GameSession {
       battleEdits: this.battleEdits.length,
       drawPileCount: this.deck.getDrawPileCount(),
       discardPileCount: this.deck.getDiscardPileCount(),
+      shots: this.shots,
+      firesPerUnit: this.firesPerUnit,
     };
   }
 

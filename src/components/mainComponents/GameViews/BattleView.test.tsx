@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import BattleView from "./BattleView";
 import GameSession from "../../../game-core/gameSession";
@@ -62,7 +62,10 @@ describe("BattleView summary screen", () => {
     expect(rows[0]).toHaveTextContent("Mantiene posición");
     expect(rows[0]).toHaveTextContent("Dispara");
     expect(rows[1]).toHaveTextContent("Tanque");
-    expect(screen.getByText("2 unidades disparan · 0 no pueden disparar")).toBeInTheDocument();
+    expect(screen.getByTestId("fire-count")).toHaveTextContent(
+      "2 por disparar · 0 dispararon · 0 no pueden disparar"
+    );
+    expect(screen.queryByText("Tirada libre")).not.toBeInTheDocument();
   });
 
   it("opens the map on demand and comes back to the summary", () => {
@@ -84,18 +87,26 @@ describe("BattleView summary screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
 
     expect(screen.getAllByTestId("order-summary")[0]).toHaveTextContent("Eliminada");
-    expect(screen.getByText("1 unidad dispara · 0 no pueden disparar")).toBeInTheDocument();
+    expect(screen.getByTestId("fire-count")).toHaveTextContent("1 por disparar · 0 dispararon");
   });
 
-  it("keeps the last dice roll after a trip to the map", () => {
-    setup({ openMap: false });
-    fireEvent.click(screen.getByRole("button", { name: /^Tirar/ }));
-    expect(screen.getByTestId("dice-result")).toBeInTheDocument();
+  it("marks a unit that fired, keeps its roll after a trip to the map and won't fire it again", () => {
+    const { session } = setup({ openMap: false });
+    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[1]!);
+    fireEvent.click(screen.getByRole("button", { name: /Tirada rápida/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
     fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
 
+    const tankRow = screen.getAllByTestId("order-summary")[1]!;
+    expect(tankRow).toHaveTextContent(/Disparó: \d × /);
+    expect(screen.getByTestId("fire-count")).toHaveTextContent("1 por disparar · 1 disparó");
+    fireEvent.click(screen.getByRole("button", { name: "Ver tirada" }));
     expect(screen.getByTestId("dice-result")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Disparar/ })).not.toBeInTheDocument();
+    expect(session.getSnapshot().shots).toHaveLength(1);
   });
 
   it("opens the fire questionnaire from a unit that can fire", () => {
@@ -107,10 +118,28 @@ describe("BattleView summary screen", () => {
     expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
   });
 
-  it("finishes the turn straight from the summary", () => {
+  it("asks before finishing the turn and warns about units that haven't fired", async () => {
     const { onFinishTurn } = setup({ openMap: false });
 
     fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Quedan 2 unidades sin disparar");
+    fireEvent.click(screen.getByRole("button", { name: "Seguir en batalla" }));
+    expect(onFinishTurn).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(screen.getByRole("button", { name: "Terminar igualmente" }));
+    expect(onFinishTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("just confirms the end of the turn once every unit has fired", () => {
+    const { session, onFinishTurn } = setup({ openMap: false });
+    session.fireQuick(0, 1);
+    session.fireQuick(1, 1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("No se puede deshacer.");
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Terminar Turno" }));
 
     expect(onFinishTurn).toHaveBeenCalledTimes(1);
   });
@@ -166,10 +195,11 @@ describe("BattleView map", () => {
     expect(session.getSnapshot().battleEdits).toBe(0);
   });
 
-  it("finishes the turn from the Terminar Turno button", () => {
+  it("finishes the turn from the Terminar Turno button, after confirming", () => {
     const { onFinishTurn } = setup();
 
     fireEvent.click(screen.getByRole("button", { name: "Terminar Turno" }));
+    fireEvent.click(screen.getByRole("button", { name: "Terminar igualmente" }));
 
     expect(onFinishTurn).toHaveBeenCalledTimes(1);
   });

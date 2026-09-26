@@ -1,163 +1,126 @@
 # m44-sim roadmap
 
-We work through this one step at a time. Each step is its own commit on `main`. Tick items off (`[x]`) when they're done.
+We work through this one step at a time. Each step is its own commit on `main`. Tick items off (`[x]`) when they're done. Items marked **Decide** need an answer from the player before they are built: the rules are a house variant, so don't assume official M44.
 
-The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView → Board / Hexagon / Unit / Order) → **BATTLE** (placeholder).
+## Where we are
 
----
+The full turn loop works and is saved across reloads:
+**Menu** → **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView) → **BATTLE** (BattleView: turn summary, fire questionnaire, free dice, map sync) → next turn.
 
-## Known issues
-
-### Bugs
-- [x] **B1. Command cards leak out of the game.** `GameView.handleFinsihTurn` removes the played card from the hand but never calls `deck.discard()`. The 8-card deck runs dry after about 6 turns, and reshuffling then finds nothing to reshuffle.
-- [x] **B2. Cards from "Coge 2 Cartas" never show up.** `chooseCard` and `drawCard` in CardsView call `commandCardsPlayer.add()`, but the hand now renders `visibleHand`, which only the mount effect fills. This was introduced by the uncommitted deal animation.
-- [x] **B3. The whole hand is dealt again every turn.** CardsView unmounts during ORDER_UNITS, so on remount `visibleHand` and `hasDealtInitialCards` reset and every card animates in again. Only the newly drawn card should animate.
-- [x] **B4. You can click "Coge 2 Cartas" repeatedly.** Each click draws 2 more cards, and the previous choice cards are lost from the deck for good.
-- [x] **B5. The order path is computed backwards, after the move.** OrdersView calls `getPathToDestination(hex /*dest*/, unitHexPosition /*start*/)` after `moveUnit`. That is why OrderComponent has the note "points seem to be backwards". It will break once terrain costs become asymmetric. Compute the path from start to destination *before* moving.
-- [x] **B6. Once a unit is selected, it can't be deselected.** Clicking the same hex issues a "stay and fire" order, and clicking anywhere else does nothing.
-- [x] **B8. `BoardManager.reset()` didn't rebuild the section groups**, so section cards marked units on the old board. Fixed in Step 1.
-- [x] **B9. `setOrderableUnits` never clears earlier orderable flags.** Playing a second card without committing leaves the first card's units orderable too. Fix it with the reducer in Step 3.
-- [x] **B10. A "hold and fire" order draws a NaN arrow.** Start and end are the same hex, so the direction vector has length 0 and the console fills with SVG `NaN` errors. Draw a marker instead of an arrow. Belongs to Step 4.
-- [x] **B11. The orders screen briefly shows "órdenes restantes: 0"** before its effect sets the real count, so "Confirmar Órdenes" flashes on entry. Initialize the count directly. Belongs to Step 3 or 4.
-- [x] **B12. Once the discard pile had a card, its "?" overlay covered the whole page** (`.discard-pile` had no `position: relative`) and blocked "Coge 2 Cartas". Fixed in Step 2.
-- [x] **B13. The choice cards overflowed their fixed-size frames** and covered the deck label. Fixed in Step 2.
-- [x] **B7. Card ids collide when `count > 1`**, which gives duplicate React keys. The choice-card `<div>` wrapper in CardsView is also missing its `key`.
-
-### Architecture / quality
-- [x] **Q1. Mutable class instances live inside React state.** `Hand.add` and `Deck.draw` mutate in place, and Board re-reads `boardManager` directly. The UI only updates because some other setState happens to fire at the same time. Replace this with a single GameState plus a `useReducer`.
-- [x] **Q2. Every unit uses the infantry sprite.** Showing only your own faction's units is intended: this is a companion tool.
-- [ ] **Q3. Code is duplicated:**
-  - [x] the hex-to-pixel math appears in both `Board.getHexCenter` and `renderBoard` (now `components/boardGeometry.ts`)
-  - [x] there is a `UnitType` string union in `types/scenario.ts` and a `UnitType` enum in `game-core/unit.ts`
-  - [x] the per-faction initial hand size is hardcoded in `App.tsx`, although `ScenarioSettings` exists for it
-- [x] **Q4. Leftover cruft:**
-  - [x] `console.log` calls everywhere (only the explicit `print*` debug helpers are left)
-  - [x] CSS classes that look like Tailwind but aren't backed by Tailwind
-  - [x] an unused `use` import in OrdersView
-  - [x] an empty `Menu.tsx` and a stray `src/board.html`
-  - [x] a CRA boilerplate README, `<title>My App</title>` and a missing `/vite.svg` favicon
-- [x] **Q5. UI text mixes Spanish and English.** The target is all Spanish.
+Health at the time of writing: `npm run typecheck` reports 0 errors, and `npx vitest run` passes 156 tests in 19 files. Steps 0–7 of the previous plan (foundations, MUI, game-core tests, card flow, `GameSession` store, ordering UX, unit sprites, battle helper, fire questionnaire, menu, Spanish UI, save/resume) are done. See the git history for details.
 
 ---
 
-## Steps
+## Step 8: Firing is a commitment
 
-### Step 0: Foundations
-- [x] Add `CLAUDE.md`, `docs/PLAN.md` and `.mcp.json` (playwright, context7, chrome-devtools)
-- [x] Delete the `aiCardgame/` prototype, which caused all 15 `tsc` errors
-- [x] Add the `typecheck` and `test` scripts; add Vitest + jsdom; move testing-library to devDependencies
-- [x] Add a first smoke test (`src/game-core/deck.test.ts`)
-- [x] Remove the dead `cli` script and add `/dist` to `.gitignore`
-- [x] Rewrite the README, fix `index.html` (title, favicon) and delete `src/board.html` (Q4); done in Step 7
+A shot works like the table: once the dice are rolled, that unit has fired this turn and the result stands.
 
-### Step 0.5: MUI
-- [x] Install MUI 9 + Emotion; add the dark theme (`src/theme.ts`) with `ThemeProvider` and `CssBaseline`
-- [x] Convert the GameView and OrdersView buttons and text to MUI (Spanish text)
-- [x] Remove the dead `GameView.css`
-- [x] Convert the CardsView controls ("Coge 2 Cartas", header, pile labels) to MUI during Step 2
+- [x] **game-core:** `GameSession.fire(orderIndex, answers)` works out the dice from the questionnaire and rolls them; `fireQuick(orderIndex, dice)` rolls a number the player chose. Both refuse outside BATTLE, for an order that can't fire, for a removed unit, or once the unit has used its shots (`shotsLeft`). The random source is a constructor option (`random`).
+- [x] Snapshot: `shots` (order index, calculation steps, dice, faces) and `firesPerUnit`, cleared by `endTurn`
+- [x] Saving: shots are in `SavedGame`, and `SAVE_VERSION` is 2. Version 1 saves are read as "nobody has fired yet".
+- [x] `FireDialog`:
+  - the calculation ends with "Disparar N dados" (or "Registrar disparo sin efecto" for 0 dice) and the line "No se puede repetir la tirada."
+  - after rolling it shows the result only; reopening the unit shows the stored shot
+- [x] **Decided:** the free roll belongs to the unit. "Tirada rápida" in the fire dialog lets a player who already knows the count pick 1–6 dice; it counts as that unit's shot. The standalone "Tirada libre" panel is gone.
+- [x] **Decided:** a shot can be undone, but only deliberately: "Anular disparo" (a small link in the result), then a confirmation screen where "Anular disparo" stays disabled until "Confirmo que fue un error" is ticked (`GameSession.undoShot`)
+- [x] **Decided:** a card with `numFireTimes` > 1 lets each unit fire that many times ("Disparar otra vez (queda N)")
+- [x] `TurnSummary`: "N por disparar · M dispararon · K no pueden disparar"; a fired unit shows "Disparó: 2 × Infantería · 1 × Granada" and "Ver tirada"
+- [x] "Terminar Turno" asks for confirmation and warns "Quedan N unidades sin disparar"
+- [x] Tests: `gameSession.test.ts` (firing rules, illegal cases, undo, `numFireTimes`, save/restore, version 1 saves), `FireDialog.test.tsx`, `BattleView.test.tsx`, `turnSummary.test.ts`, `labels.test.ts`
+- [ ] Later (Step 10): show "fired" on the map too. The unit's red ready-to-fire glow stays on after it fires.
 
-### Step 1: Tests for game-core, before refactoring
-- [x] `Hand`: add, remove, getCards (`hand.test.ts`)
-- [x] `Hex`: neighbors on even and odd rows (plus symmetry across the whole board), section assignment, terrain rules (`hex.test.ts`)
-- [x] `BoardManager`: Axis flip (a one-to-one mapping of the board onto itself), `setOrderableUnits` for each card type with the cap, pathfinding around units and stop terrain, move-and-fire destinations, `moveUnit`, `reset` (`BoardManager.test.ts`)
-- [x] Scenario data: every position is on the board and every unit gets its own hex (`src/data/scenarios.test.ts`)
-- [x] Fixed B8, found by these tests
+## Step 9: Refactor and cleanup
 
-### Step 2: Finish the card-selection work (B1–B4, B7)
-- [x] Deal only newly added cards (GameView keeps `dealtCardIds`, so it survives a remount)
-- [x] Make choose and draw add to what's rendered (drawing at end of turn now animates too)
-- [x] Disable the choice button while a choice is pending; block playing a card until you've chosen
-- [x] Discard played cards at end of turn (a full 8-turn run in the browser keeps hand + deck + discard = 8 and reshuffles correctly)
-- [x] Make card ids unique and fix the missing keys
-- [x] Remove the debug logs in CardsView, GameView, Deck and commandCards
-- [x] Tests: `CardsView.test.tsx` (dealing, choice flow) and `commandCards.test.ts` (unique ids)
-- [x] Fixed B12 and B13, found in the browser
-- [x] **Decided:** "Coge 2 Cartas" is a debug placeholder. The real rule: some special cards let you draw 2 at the end of your turn and keep 1. Build it when those cards are added.
+Nothing here changes behaviour. Do it before the visual work so the restyle touches less code.
 
-### Step 3: Game state refactor (Q1)
-- [x] `game-core/gameSession.ts`: `pickCard`, `issueOrder`, `undoLastOrder`, `commitOrders`, `startBattle`, `endTurn` (plus the debug `drawChoice` and `chooseCard`), each checking its rules
-  - Changed from the plan: this is a store published through `useSyncExternalStore`, not a pure `useReducer`. The game objects are mutable, and React runs reducers twice in StrictMode, which would draw cards twice.
-- [x] GameView subscribes to the session; views get the snapshot plus session methods (selection, animations and messages stay in React)
-- [x] Delete `game-core/deprecated/`
-- [x] Tests: `gameSession.test.ts` (every action, the illegal cases, a 30-turn run checking no card is lost), plus a B9 test in `BoardManager.test.ts`
-- [x] Also fixed B5 (the path is computed forward, before moving; OrderComponent draws it forward), B9, B10 (no arrow for hold orders) and B11
+### Shared types and helpers
+- [ ] **R1. `Faction` type.** A faction is a bare `string` ("Allies"/"Axis") in `BoardManager`, `GameSession`, `Board`, `UnitComponent` and every view, while `type Faction` lives in `Menu.tsx`. Move it to `src/types/` and use it everywhere. `BoardManager` then no longer needs its runtime check with `console.error`.
+- [ ] **R2. Position helpers.** `samePosition` is copied in `gameSession.ts`, `OrdersView.tsx` and `BattleMap.tsx`, and the same comparison is written inline in `Board`, `turnSummary.ts` and `OrderComponent`. `"row-col"` keys are built in `hex.ts`, `BoardManager` and `gameSession.ts`. Put `samePosition`, `positionKey` and `includesPosition` in one module (e.g. `src/game-core/position.ts`).
+- [ ] **R3. Labels layering.** `storage.ts` (plain code) imports `GameSetup` from the `Menu` component, and `data/fireQuestions.ts` has its own `UNIT_NAMES`, which copies `UNIT_LABELS`. Move `GameSetup` to `src/types/` and move `labels.ts` out of `components/` (e.g. `src/labels.ts`) so both data and components use it.
+- [ ] **R4. Order identity.** `Board` uses the array index as the order's key and colour (`TODO: in the future make order class have an index`), and Step 8 keys shots by order too. Decide on one: an `index`/`id` on `Order`, or document that the index is stable during a turn (orders can't change after commit).
+- [ ] **R5. `canFire` is stored twice**: in `Order.canFire` and `Unit.readyToFire` (see the TODO in `order.ts`). Keep one source (the order) and derive the unit's glow from it, or document why both exist.
+- [ ] **R6. Board size constants.** Every view passes `boardWidth={13} boardHeight={9} hexSize={50}` to `Board`. Read the size from `BoardManager` (`width`/`height`) and keep `hexSize` as a default.
 
-### Step 4: Ordering UX (B5, B6, Q3)
-- [x] Compute the path before moving and remove the "backwards" workarounds in OrderComponent (done in Step 3)
-- [x] Deselect/cancel a selected unit, with a separate "hold and fire" action: tap the selected unit again (or "Cancelar") to deselect, tap another orderable unit to switch, and "Mantener y disparar" for hold orders
-- [x] Flash a hex red on an invalid tap (a unit that can't be ordered, or a hex out of reach)
-- [x] Lock the board after orders are committed: the board dims, taps are ignored and a confirmation banner shows
-- [x] Merge the duplicated hex-to-pixel math into one helper (`boardGeometry.ts`, with tests)
-- [x] Android tablet support for the orders screen:
-  - the board scales with `viewBox`
-  - short landscape screens put the controls beside the board, so nothing needs scrolling
-  - 48px buttons, no double-tap zoom, no tap highlight
-  - checked with touch at 1280×800, 800×1280 and on a 1920×1080 desktop
-- [x] Tests: `OrdersView.test.tsx` (select, deselect, switch, cancel, move, hold, invalid flashes, locked board)
+### Dead code (delete, or wire up if a later step needs it)
+- [ ] `BoardManager`: `getStats`, `getHexesByType`, `getPathToDestination`, `calculatePossibleMoves` (only a wrapper), `reset` (sessions are rebuilt instead) and the priority-queue TODO (117 hexes don't need one)
+- [ ] `Hex`:
+  - the unused static factories (`createPlains` …) and their TODO
+  - `getDescription`, `getCoordinates` and `toString`
+  - the English `name` and the `color` that `Hexagon` sets but the transparent tile class hides
+  - the unused `unit` parameter of `getMovementCost`
+- [ ] `types/`: `GamePhase`, `TurnPhase.END_TURN`, `MovementRule.DIFFICULT`, `types/GameSettings.ts` and `game-core/combatCard.ts` (combat cards aren't planned; add them back when they are)
+- [ ] `Unit`: `disableFire`, `getOrderable` (duplicates `isOrderable`), the static counter controls and `id` if nothing reads it
+- [ ] `Hand`: `pickCard` (with its `console.warn`), `addMultiple`, `printHand`, `add`, `remove`. `GameSession` builds new `Hand`s, so a `readonly CommandCard[]` may be enough and `Hand` can go.
+- [ ] `Deck`: `printDeck`, `reset` and `originalCards` (and its TODO). `Order`: `printOrder`.
+- [ ] `CommandCard`: fields no card or rule uses (`numOntheMove`, `extraMovement`, `unitCosts`, `receiveCombatCoins`). Keep `numFireTimes`, `extraPickUpCards` and the dice bonuses if Step 8 or the special-card idea uses them.
+- [ ] `CommandCardComponent`: the unused `variant` prop, `diagram = null`, the 📊 and ⚔️ placeholders, and the `.diagram-text` TODO in `CommandCard.css`. These go away in the card redesign in Step 10.
+- [ ] `utils.shuffle(array: any[])` → generic `shuffle<T>(array: readonly T[]): T[]`
+- [ ] `src/assets/scenarios/defualt.png` (1.9 MB, unused): delete it, or convert it to WebP under a correct name when a second scenario uses it
+- [ ] Hover-only affordances on non-clickable elements: `.deck-pile:hover` scales and has `cursor: pointer`, but it does nothing
 
-### Step 5: Units and board (Q2, Q3)
-- [x] Sprites for each unit type (infantry, tank, artillery); tank and artillery are placeholder SVGs in each faction's colour, to be replaced with real art
-- [x] Move initial hand sizes and the scenario image into scenario data; `UnitType` is now one enum
-- [x] Sync the board back to the physical table (`BattleView` + `GameSession.removeUnit`, `relocateUnit`, `undoBattleEdit`):
-  - tap a unit, then "Eliminar unidad" to remove it, or tap any empty hex to move it
-  - "Deshacer" undoes the last change
-  - decided: whole units only (no figure counts), and moves can go to any empty hex
-- [x] Tests: battle sync in `gameSession.test.ts`, `BattleView.test.tsx`, `UnitComponent.test.tsx`, and scenario data checks
+### Other quality
+- [ ] **Q6. The "Coge 2 Cartas" debug button** is visible to players. Hide it behind a dev flag (`import.meta.env.DEV`) until the special cards exist.
+- [ ] **Q7. `storage.ts` has no tests.** Cover a corrupt save being dropped, an unknown scenario, storage throwing, and the last-setup round trip.
+- [ ] **Q8.** `TARGET_TERRAIN_MODIFIERS` is keyed by free strings (`open`, `forest` …). Key it by `HexType` (plus `open` for plains) so terrain lists can't drift apart.
+- [ ] Check after the cleanup: typecheck, tests, and one full turn in the browser, including a reload in each phase.
 
-### Step 6: Battle-phase helper
-- [x] Scope agreed: pressing "Fase Batalla" hides the map and shows the summary and helpers full screen, because the player is looking at the physical board. "Ver mapa" opens the map on demand.
-- [x] Turn summary (`TurnSummary`, `game-core/turnSummary.ts`):
-  - the card played, and how many units fire or can't
-  - one row per order: unit, section, hold or "advances N hexes → terrain", Dispara / No dispara / Eliminada
-  - a colour swatch matching the order's arrow on the map
-- [x] Dice roller (`DiceRoller`, `game-core/dice.ts`): choose 1–6 dice and roll Memoir '44 faces, shown as icons with counts; the last roll survives opening the map
-- [x] Map view (`BattleMap`) keeps the Step 5 sync tools, with "Volver al resumen"; "Terminar Turno" is available from both views
-- [x] Tablet layout: two columns in landscape, stacked in portrait
-- [x] Tests: `dice.test.ts`, `turnSummary.test.ts`, `DiceRoller.test.tsx`, `BattleView.test.tsx` (summary, switching views, dice kept, sync reflected in the summary)
-- [x] Before Step 6: bigger board on tablets (the view is cropped to the board image, the side panel is 220px, less page padding). Landscape board width went from ~851px to 1032px, portrait from ~700px to 784px.
+## Step 10: War-room look (new)
 
-### Step 6.5: Dice from the situation
-- [x] "Disparar" on each unit that can fire opens a questionnaire (`FireDialog`), one question per screen:
-  - distance to the target (options follow the unit's range)
-  - the target's terrain (open ground, forest, town or hill)
-- [x] Shows the calculation step by step, then rolls exactly that many dice; 0 dice says the shot has no effect
-- [x] Command card bonuses (`closeAssaultAdditionalDice`, `rangeAdditionalDice`) are added automatically
-- [x] The situations live in `src/data/fireQuestions.ts` (text, options, `appliesTo`, dice `effect`). Add new questions there; the engine is `game-core/fireRules.ts`.
-- [x] The free dice roller stays as "Tirada libre"
+The app currently looks like a generic dark MUI dashboard. It should feel like part of the board game: a WWII field-HQ / command-post look with more character. Keep it readable on a tablet next to a real table, keep 48px tap targets, and keep enough contrast (check text against textured backgrounds).
+
+- [ ] **Art direction first.** Make a one-page mock of 2–3 directions and pick one before restyling everything. For example:
+  - (a) *Field map & dossier*: olive and khaki, parchment panels, typewriter text, rubber stamps
+  - (b) *Board-game box*: the Memoir '44 look, with bold sand and red, card-like panels and chunky dice
+  - (c) *Command-tent night*: dark canvas, lamp-lit amber accents, stencil type
+- [ ] **Theme (`src/theme.ts`):**
+  - palette: olive drab, khaki or sand, rust red, brass, off-white paper
+  - Allied and Axis accent colours used consistently: the header, unit bases and the dice faces
+  - square-ish corners, and a subtle paper or canvas texture on `body` and panels (CSS gradients or a small tiled WebP)
+- [ ] **Typography.** A stencil or military display font for headings (e.g. *Black Ops One*, *Stardos Stencil* or *Allerta Stencil*) and a typewriter font for briefing text (*Special Elite*). Keep a plain sans font for dense text. Self-host the fonts with `@fontsource/*`, so they work offline and in a future PWA.
+- [ ] **Header**: a mission-briefing strip with the scenario name, the faction insignia or flag, "TURNO 3", and phase steps styled like stamped tabs.
+- [ ] **Menu**: a mission-briefing screen. The scenario cards look like dossiers, and the side picker shows Allied and Axis insignia.
+- [ ] **Command cards**: redesign `CommandCardComponent` to look like real M44 command cards:
+  - a section diagram (which flanks) drawn in SVG from `card.type`, instead of the 📊 placeholder
+  - the order count in large type, and a colour band by card kind (section, tactic)
+  - deck and discard piles drawn as card backs, not a "?"
+- [ ] **Board**:
+  - faint hex outlines on top of the art, so the grid reads clearly
+  - unit tokens with a faction-coloured base disc. Replace the flat red and blue `circle` glows with a ring or badge for "orderable" and a crosshair badge for "ready to fire" (the red and blue glows clash with the art today).
+  - order arrows styled like grease-pencil map arrows (thicker, rough ends)
+  - "Órdenes confirmadas" as a stamp over the locked board
+- [ ] **Battle screen**: the turn summary styled as a combat report. A fired unit gets a "DISPARÓ" stamp (ties in with Step 8).
+- [ ] **Dice**: chunkier ivory or wood dice with a short tumble animation. Respect `prefers-reduced-motion`, which is already handled for the current animation.
+- [ ] **Optional sound**: dice rattle, stamp thud and card deal, off by default, with a mute toggle in the header. Tablets are often used in quiet rooms.
+- [ ] **Real art**: replace the placeholder tank and artillery SVGs (`npm run optimize-image -- <file> 192`) and the generic card image.
+- [ ] Check at 1280×800 and 800×1280 with touch, and on desktop. Screenshot every screen before and after with Playwright.
+
+## Step 11: Rules and firing situations
+
 - [ ] **Decide:** the dice numbers are the official M44 values for now (infantry 3/2/1, tank 3, artillery 3/3/2/2/1/1; forest and town −1 infantry and −2 tank, hill −1; artillery ignores terrain). Adjust them to the house rules.
-- [ ] Ideas for more situations: the target is in a bunker or behind sandbags, the firing unit is on a hill, line of sight is blocked, and more
-
-### Step 7: Menu and polish (Q5)
-- [x] Scenario and faction picker (`Menu.tsx`):
-  - remembers the last choice on the device
-  - in-game header with the scenario, side, turn and phase steps (Carta › Órdenes › Batalla)
-  - "Menú" asks for confirmation before leaving the game
-- [x] All UI text in Spanish:
-  - card names and descriptions, scenario, selection panels (the orders panel now explains how the unit moves and fires), and the phase labels
-  - `index.html` has `lang="es"` and a title
-- [x] Visual polish:
-  - clear move highlights (green: move and fire; amber: move only) with a legend
-  - gold outline on the selected unit
-  - the card screen fits a landscape tablet without scrolling
-- [x] Images converted to WebP (8.7 MB → 390 KB), with `npm run optimize-image` for new art
-- [x] Cleanup: README rewritten; removed `board.html`, `logo.svg`, the CRA logos, `web-vitals` and the CRA-only `package.json` fields
-- [x] Tests: `App.test.tsx` (menu → game → exit flow, remembered side) and `labels.test.ts`
+- [ ] More situations in `src/data/fireQuestions.ts`:
+  - the target is in a bunker or behind sandbags
+  - the firing unit is on a hill
+  - line of sight is blocked
+  - the unit moved before firing (if the house rules give a penalty)
+- [ ] Pre-answer what the app already knows. The firing unit's own terrain and whether it moved are in the order, so skip those questions (`appliesTo` plus a richer `FireContext`).
+- [ ] **Decide:** `Hex.getMovementCost` and `canEnter` have "unit-specific movement" TODOs. Are there any, e.g. tanks can't enter towns, or forest costs more for tanks? If not, delete the TODOs.
+- [ ] **Decide:** "Infantry Assault"-style cards (a TODO in `commandCard.ts`: choose the section on play). Do we want them?
 
 ## Ideas for later
-- [x] Keep a game in progress across a page reload or the tablet sleeping (`GameSession.save`/`restore`, stored by `src/storage.ts`; "Salir" forgets it)
-- [ ] Real tank and artillery art (`npm run optimize-image -- <file> 192`)
-- [ ] More scenarios (the unused `src/assets/scenarios/defualt.png` could be a starting point)
-- [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (replacing the "Coge 2 Cartas" debug button)
-- [ ] More firing situations in `src/data/fireQuestions.ts`
-- [ ] Install to the tablet's home screen as a PWA (manifest + icons), for full screen with no browser bar
+- [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (these replace the "Coge 2 Cartas" debug button)
+- [ ] More scenarios, with a scenario data check for each
+- [ ] Install to the tablet's home screen as a PWA (manifest, icons, offline cache), for full screen with no browser bar. Do this after Step 10 so the icons match the new look.
+- [ ] Turn log: a short history of past turns (card played, units that fired, casualties), useful when the two players compare notes
 
 ---
 
 ## Checks for every step
 - `npm run typecheck` reports 0 errors, and `npx vitest run` passes.
-- `npm run dev` (port 3000), then check the flow by hand or with Playwright MCP:
-  1. The initial hand deals in.
+- `npm run dev` (port 3000), then check the flow by hand or with Playwright MCP, at 1280×800 and 800×1280 with touch, and on desktop:
+  1. Menu → start a game; the initial hand deals in.
   2. Picking a card highlights the right units.
-  3. Issue orders, then undo, then commit, then battle, then end turn.
-  4. Only the one new card animates in.
-  5. The deck and discard counts add up to the total number of cards minus the hand.
+  3. Issue orders, then undo, then commit, then battle.
+  4. Fire with a unit: the dice roll once, the unit shows as fired, and a reload doesn't bring the roll back.
+  5. Sync a casualty on the map, then end the turn.
+  6. Only the one new card animates in, and the deck and discard counts add up.
+  7. Reload in each phase: the game resumes where it was.

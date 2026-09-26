@@ -47,6 +47,8 @@ describe("summarizeOrders", () => {
       destinationTerrain: HexType.FOREST,
       canFire: false, // moved into forest
       removed: false,
+      shots: [],
+      shotsLeft: 0,
     });
     expect(infantry).toMatchObject({
       index: 1,
@@ -55,7 +57,20 @@ describe("summarizeOrders", () => {
       hold: true,
       hexesMoved: 0,
       canFire: true,
+      shotsLeft: 1,
     });
+  });
+
+  it("attaches each unit's shots and counts the shots it has left", () => {
+    const session = playTurn();
+    session.fireQuick(1, 2);
+    const { orders, shots } = session.getSnapshot();
+
+    const [, infantry] = summarizeOrders(orders, session.board, shots, 2);
+
+    expect(infantry!.shots).toHaveLength(1);
+    expect(infantry!.shotsLeft).toBe(1);
+    expect(summarizeOrders(orders, session.board, shots, 1)[1]!.shotsLeft).toBe(0);
   });
 
   it("marks units removed during the battle", () => {
@@ -65,6 +80,7 @@ describe("summarizeOrders", () => {
     const summaries = summarizeOrders(session.getSnapshot().orders, session.board);
 
     expect(summaries.map((s) => s.removed)).toEqual([false, true]);
+    expect(summaries[1]!.shotsLeft).toBe(0); // a destroyed unit can't fire
   });
 
   it("still finds a unit that was moved after battle", () => {

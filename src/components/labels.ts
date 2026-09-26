@@ -2,7 +2,7 @@
 // Spanish UI text for game enums (code identifiers stay in English)
 import Hex from "../game-core/hex";
 import Unit, { UnitType } from "../game-core/unit";
-import { DieFace } from "../game-core/dice";
+import { DieFace, countFaces } from "../game-core/dice";
 import { HexType, Side } from "../types/hex";
 
 export const UNIT_LABELS: Record<UnitType, string> = {
@@ -48,4 +48,13 @@ export const describeMovement = (unit: Unit): string => {
       ? "si se mueve no puede disparar"
       : `puede disparar si mueve hasta ${hexes(unit.getMoveAndFire())}`;
   return `Mueve hasta ${hexes(unit.getMaxMove())}; ${fire}`;
+};
+
+/** "2 × Infantería · 1 × Granada", or "sin efecto" when no dice were rolled */
+export const describeFaces = (faces: readonly DieFace[]): string => {
+  const counts = countFaces(faces);
+  const parts = Object.values(DieFace)
+    .filter((face) => counts[face] > 0)
+    .map((face) => `${counts[face]} × ${DIE_FACE_LABELS[face]}`);
+  return parts.length > 0 ? parts.join(" · ") : "sin efecto";
 };

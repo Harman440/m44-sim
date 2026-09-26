@@ -1,6 +1,7 @@
 // game-core/turnSummary.ts
 import BoardManager from "./BoardManager";
 import Order from "./order";
+import { Shot } from "./gameSession";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
 
@@ -17,14 +18,25 @@ export interface OrderSummary {
   canFire: boolean;
   /** The unit has since been removed from the board (destroyed in battle) */
   removed: boolean;
+  /** Shots this unit has fired this turn */
+  shots: readonly Shot[];
+  /** Shots it may still fire (0 when it can't fire, is removed or has used them all) */
+  shotsLeft: number;
 }
 
-export function summarizeOrders(orders: readonly Order[], board: BoardManager): OrderSummary[] {
+export function summarizeOrders(
+  orders: readonly Order[],
+  board: BoardManager,
+  shots: readonly Shot[] = [],
+  firesPerUnit = 1
+): OrderSummary[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
 
   return orders.map((order, index) => {
     const destination = board.getHex(order.end)!;
     const hold = order.start.row === order.end.row && order.start.col === order.end.col;
+    const removed = !unitsOnBoard.has(order.unit);
+    const unitShots = shots.filter((shot) => shot.orderIndex === index);
     return {
       index,
       unitType: order.unit.getUnitType(),
@@ -33,7 +45,9 @@ export function summarizeOrders(orders: readonly Order[], board: BoardManager): 
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
-      removed: !unitsOnBoard.has(order.unit),
+      removed,
+      shots: unitShots,
+      shotsLeft: order.canFire && !removed ? Math.max(0, firesPerUnit - unitShots.length) : 0,
     };
   });
 }

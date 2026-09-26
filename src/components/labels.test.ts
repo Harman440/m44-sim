@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { describeHex, describeMovement } from "./labels";
+import { describeFaces, describeHex, describeMovement } from "./labels";
+import { DieFace } from "../game-core/dice";
 import Hex from "../game-core/hex";
 import Unit, { UnitType } from "../game-core/unit";
 import { HexType } from "../types/hex";
@@ -19,5 +20,11 @@ describe("Spanish descriptions", () => {
     [UnitType.ARTILLERY, "Mueve hasta 1 casilla; si se mueve no puede disparar"],
   ])("explains how %s moves and fires", (unitType, text) => {
     expect(describeMovement(new Unit(unitType))).toBe(text);
+  });
+
+  it("sums up a roll by face, or says it had no effect", () => {
+    const { INFANTRY, GRENADE } = DieFace;
+    expect(describeFaces([GRENADE, INFANTRY, INFANTRY])).toBe("2 × Infantería · 1 × Granada");
+    expect(describeFaces([])).toBe("sin efecto");
   });
 });

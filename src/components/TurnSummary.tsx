@@ -2,12 +2,12 @@ import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { orderColor } from "./OrderComponent";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS } from "./labels";
+import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces } from "./labels";
 
 interface TurnSummaryProps {
   card: CommandCard | null;
   summaries: readonly OrderSummary[];
-  /** Open the fire questionnaire for a unit that can fire */
+  /** Open the fire dialog for a unit: to fire, or to see the shot it fired */
   onFire?: (summary: OrderSummary) => void;
 }
 
@@ -20,7 +20,8 @@ const describeMove = (summary: OrderSummary) =>
 
 /** This turn's orders, written for carrying them out on the physical table */
 function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
-  const firing = summaries.filter((s) => s.canFire && !s.removed).length;
+  const toFire = summaries.filter((s) => s.shots.length === 0 && s.shotsLeft > 0).length;
+  const fired = summaries.filter((s) => s.shots.length > 0).length;
   const notFiring = summaries.filter((s) => !s.canFire && !s.removed).length;
 
   return (
@@ -41,8 +42,8 @@ function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
         </Typography>
       ) : (
         <>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            {firing} {firing === 1 ? "unidad dispara" : "unidades disparan"} · {notFiring}{" "}
+          <Typography variant="body2" sx={{ mb: 1 }} data-testid="fire-count">
+            {toFire} por disparar · {fired} {fired === 1 ? "disparó" : "dispararon"} · {notFiring}{" "}
             {notFiring === 1 ? "no puede disparar" : "no pueden disparar"}
           </Typography>
           <Stack component="ol" sx={{ listStyle: "none", p: 0, m: 0, gap: 1 }}>
@@ -78,10 +79,18 @@ function TurnSummary({ card, summaries, onFire }: TurnSummaryProps) {
                   <Typography variant="body2" color="text.secondary">
                     {describeMove(summary)}
                   </Typography>
+                  {summary.shots.length > 0 && (
+                    <Typography variant="body2" color="success.main">
+                      Disparó: {summary.shots.map((shot) => describeFaces(shot.faces)).join(" / ")}
+                    </Typography>
+                  )}
                 </Box>
-                {summary.removed ? (
-                  <Chip label="Eliminada" variant="outlined" />
-                ) : summary.canFire && onFire ? (
+                {summary.removed && <Chip label="Eliminada" variant="outlined" />}
+                {summary.shots.length > 0 && onFire ? (
+                  <Button variant="outlined" onClick={() => onFire(summary)}>
+                    Ver tirada
+                  </Button>
+                ) : summary.removed ? null : summary.shotsLeft > 0 && onFire ? (
                   <Button color="success" onClick={() => onFire(summary)}>
                     Disparar
                   </Button>
