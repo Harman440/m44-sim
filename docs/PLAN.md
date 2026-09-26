@@ -15,6 +15,7 @@ Done so far (details in git history):
 - Step 9: refactor and dead-code cleanup
 - Step 10: three selectable looks (Mapa de campaña, Caja del juego, Tienda de mando), icons, sound, motion
 - Step 11: bunker, line of sight and sandbags in the fire questionnaire; official dice values kept
+- Steps 12–14: installable offline app, Ajustes in game, smaller first download, turn log with "Historial" and JSON export
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -45,10 +46,10 @@ Two decisions shape the rest of the plan (Steps 15 and 27):
 
 ### Step 14: Turn log and turn data as JSON
 The house rules' programming note says to start from the turn data as JSON; the save format already is JSON, so this builds on it.
-- [ ] Record each finished turn as plain JSON: card played, orders (paths), shots (dice and faces), map edits (casualties, retreats)
-- [ ] "Historial" screen: past turns, newest first
-- [ ] Export the game or a single turn as a JSON file (for backups)
-- [ ] Keep it in the save (bump `SAVE_VERSION`)
+- [x] Record each finished turn as plain JSON (`game-core/turnLog.ts`, `TurnRecord`): card played, orders (paths), shots (dice, steps and faces), map edits (casualties, retreats) with the unit type of each
+- [x] "Historial" screen (in-game "Menú"): past turns, newest first
+- [x] Export the game (the full save) or a single turn as a JSON file (for backups)
+- [x] Keep it in the save (`SAVE_VERSION` 3; version 2 saves load with an empty history)
 
 ---
 

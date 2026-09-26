@@ -494,6 +494,66 @@ describe("GameSession firing", () => {
   });
 });
 
+describe("GameSession turn log", () => {
+  it("records each finished turn as plain JSON: card, orders, shots and map edits", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    orderAllAndFight(session);
+    const tankOrder = session.getSnapshot().orders.findIndex((o) => o.unit.getUnitType() === "tank");
+    session.fireQuick(tankOrder, 2);
+    // The tank is destroyed, then an infantry takes its hex and moves on:
+    // the log must still tell which unit each move was
+    session.removeUnit(TANK);
+    session.relocateUnit(LEFT_INF, TANK);
+    session.relocateUnit(TANK, { row: 3, col: 3 });
+
+    expect(session.getSnapshot().log).toEqual([]);
+    session.endTurn();
+
+    const [record] = session.getSnapshot().log;
+    expect(record).toEqual(JSON.parse(JSON.stringify(record)));
+    expect(record!.turn).toBe(1);
+    expect(record!.card.id).toBe("all");
+    expect(record!.orders).toHaveLength(4);
+    expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true });
+    expect(record!.shots).toEqual([
+      { order: tankOrder, unit: "tank", dice: 2, steps: [], faces: expect.any(Array), notes: [] },
+    ]);
+    expect(record!.shots[0]!.faces).toHaveLength(2);
+    expect(record!.battleEdits).toEqual([
+      { kind: "remove", unit: "tank", position: TANK },
+      { kind: "move", unit: "infantry", from: LEFT_INF, to: TANK },
+      { kind: "move", unit: "infantry", from: TANK, to: { row: 3, col: 3 } },
+    ]);
+  });
+
+  it("leaves out orders, shots and edits that were undone", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    session.fireQuick(0, 1);
+    session.undoShot(0);
+    session.removeUnit(LEFT_INF);
+    session.undoBattleEdit();
+    session.endTurn();
+
+    const [record] = session.getSnapshot().log;
+    expect(record!.shots).toEqual([]);
+    expect(record!.battleEdits).toEqual([]);
+  });
+
+  it("adds one record per turn, oldest first", () => {
+    const session = makeSession(0);
+    for (let turn = 1; turn <= 3; turn++) {
+      session.pickCard(session.getSnapshot().hand[0]!);
+      orderAllAndFight(session);
+      session.endTurn();
+    }
+
+    expect(session.getSnapshot().log.map((r) => r.turn)).toEqual([1, 2, 3]);
+  });
+});
+
 describe("GameSession saving and restoring", () => {
   /** Save to JSON and back, the way a page reload goes through localStorage */
   const reload = (session: GameSession) =>
@@ -576,6 +636,32 @@ describe("GameSession saving and restoring", () => {
     expect(restored.shotsLeft(0)).toBe(1);
   });
 
+  it("keeps the turn log", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    session.fireQuick(0, 2);
+    session.endTurn();
+
+    const restored = reload(session);
+
+    expect(restored.getSnapshot().log).toEqual(session.getSnapshot().log);
+    expect(restored.getSnapshot().log).toHaveLength(1);
+  });
+
+  it("reads a version 2 save (before the turn log) as a game with no history", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    session.endTurn();
+    const { log: _, ...v2 } = { ...session.save(), version: 2 as const };
+
+    const restored = GameSession.restore(v2, scenario, cards());
+
+    expect(restored.getSnapshot().log).toEqual([]);
+    expect(restored.getSnapshot().turn).toBe(2);
+  });
+
   it("restores a pending draw-2 choice", () => {
     const session = makeSession(2);
     session.drawChoice();
@@ -591,7 +677,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 3 as 2 })).toThrow();
+    expect(broken({ version: 4 as 3 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
     expect(broken({ shots: [{ orderIndex: 5, steps: [], dice: 1, faces: ["infantry" as never] }] })).toThrow();

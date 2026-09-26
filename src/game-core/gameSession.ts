@@ -11,6 +11,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { positionKey, samePosition } from "./position";
+import { TurnRecord, recordTurn } from "./turnLog";
 
 export interface GameSnapshot {
   turn: number;
@@ -30,6 +31,8 @@ export interface GameSnapshot {
   shots: readonly Shot[];
   /** How many times each unit that can fire may fire this turn (from the card) */
   firesPerUnit: number;
+  /** Finished turns, oldest first */
+  log: readonly TurnRecord[];
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -53,7 +56,7 @@ export interface MoveOptions {
 }
 
 /** Bump when SavedGame changes shape; older saves are then migrated or dropped instead of misread */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 interface SavedUnit {
   type: UnitType;
@@ -87,10 +90,13 @@ export interface SavedGame {
     | { kind: "move"; from: Position; to: Position }
   )[];
   shots: SavedShot[];
+  log: TurnRecord[];
 }
 
-/** Version 1 saves had no shots; they are read as a turn where nobody has fired yet */
-type SavedGameV1 = Omit<SavedGame, "version" | "shots"> & { version: 1 };
+/** Version 2 saves had no turn log; they are read as a game with no history */
+type SavedGameV2 = Omit<SavedGame, "version" | "log"> & { version: 2 };
+/** Version 1 saves had no shots either; they are read as a turn where nobody has fired yet */
+type SavedGameV1 = Omit<SavedGameV2, "version" | "shots"> & { version: 1 };
 
 interface GameSessionOptions {
   scenario: Scenario;
@@ -102,7 +108,7 @@ interface GameSessionOptions {
 }
 
 /** A change made during BATTLE to match what happened on the physical table */
-type BattleEdit =
+export type BattleEdit =
   | { kind: "remove"; position: Position; unit: Unit }
   | { kind: "move"; from: Position; to: Position };
 
@@ -131,6 +137,7 @@ class GameSession {
   private ordersCommitted = false;
   private battleEdits: BattleEdit[] = [];
   private shots: Shot[] = [];
+  private log: TurnRecord[] = [];
   private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
@@ -374,6 +381,15 @@ class GameSession {
 
     // Discard first so a reshuffle on an empty deck can bring the card back
     const playedCard = this.chosenCard;
+    const record = recordTurn({
+      turn: this.turn,
+      card: playedCard,
+      orders: this.orders,
+      shots: this.shots,
+      battleEdits: this.battleEdits,
+      board: this.board,
+    });
+    this.log = [...this.log, record];
     this.deck.discard(playedCard);
     const drawn = this.deck.draw(1);
     this.hand = [...this.hand.filter((c) => c !== playedCard), ...drawn];
@@ -445,18 +461,20 @@ class GameSession {
         faces: [...shot.faces],
         notes: [...shot.notes],
       })),
+      // Records are plain data that is never mutated, so they can be shared
+      log: [...this.log],
       units: savedUnits,
     };
   }
 
   /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
   static restore(
-    saved: SavedGame | SavedGameV1,
+    saved: SavedGame | SavedGameV2 | SavedGameV1,
     scenario: Scenario,
     commandCards: CommandCard[],
     random?: () => number
   ): GameSession {
-    if (saved.version !== SAVE_VERSION && saved.version !== 1) {
+    if (![1, 2, SAVE_VERSION].includes(saved.version)) {
       throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
     }
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
@@ -516,6 +534,14 @@ class GameSession {
       if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
       return { ...shot, notes: shot.notes ?? [] };
     });
+    const log = saved.version === SAVE_VERSION ? saved.log : [];
+    if (!Array.isArray(log)) throw new Error("Turn log is not a list");
+    log.forEach((record) => {
+      if (!record.shots.every((shot) => shot.faces.every((face) => faces.has(face)))) {
+        throw new Error(`Unknown die face in turn ${record.turn}`);
+      }
+    });
+    session.log = log;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -537,6 +563,7 @@ class GameSession {
       discardPileCount: this.deck.getDiscardPileCount(),
       shots: this.shots,
       firesPerUnit: this.firesPerUnit,
+      log: this.log,
     };
   }
 

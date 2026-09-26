@@ -30,6 +30,7 @@ import { useSound } from "../../sound";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import SettingsDialog from "../SettingsDialog";
+import HistoryDialog from "../HistoryDialog";
 
 export interface GameViewProps {
   /** Owns all game rules; React re-renders when it publishes a new snapshot */
@@ -52,6 +53,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const play = useSound();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -145,6 +147,18 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);
+                setHistoryOpen(true);
+              }}
+              sx={{ minHeight: 48 }}
+            >
+              <ListItemIcon sx={{ color: "inherit" }}>
+                <GameIcon name="history" />
+              </ListItemIcon>
+              <ListItemText>Historial</ListItemText>
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchor(null);
                 setSettingsOpen(true);
               }}
               sx={{ minHeight: 48 }}
@@ -205,6 +219,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
         />
 
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
 
         <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>
           <DialogTitle>¿Salir al menú?</DialogTitle>

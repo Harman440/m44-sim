@@ -1,0 +1,109 @@
+// game-core/turnLog.ts
+import BoardManager from "./BoardManager";
+import CommandCard from "./commandCard";
+import Order from "./order";
+import Unit, { UnitType } from "./unit";
+import { DieFace } from "./dice";
+import { DiceStep } from "./fireRules";
+import { positionKey } from "./position";
+import { Position } from "../types/scenario";
+import type { BattleEdit, Shot } from "./gameSession";
+
+/**
+ * One finished turn as plain JSON: what was played, ordered, rolled and
+ * changed on the map. Positions are the app's own (flipped for Axis), like
+ * the save. Units are named by type, since the log outlives the unit objects.
+ */
+export interface TurnRecord {
+  turn: number;
+  card: { id: string; name: string };
+  orders: {
+    unit: UnitType;
+    start: Position;
+    end: Position;
+    /** Hexes crossed, start and end included */
+    path: Position[];
+    canFire: boolean;
+  }[];
+  shots: {
+    /** Index into this record's orders */
+    order: number;
+    unit: UnitType;
+    dice: number;
+    /** How the dice were worked out; empty for a quick roll */
+    steps: DiceStep[];
+    faces: DieFace[];
+    notes: string[];
+  }[];
+  /** Casualties and retreats mirrored from the table, in the order they were made */
+  battleEdits: (
+    | { kind: "remove"; unit: UnitType; position: Position }
+    | { kind: "move"; unit: UnitType; from: Position; to: Position }
+  )[];
+}
+
+interface TurnState {
+  turn: number;
+  card: CommandCard;
+  orders: readonly Order[];
+  shots: readonly Shot[];
+  battleEdits: readonly BattleEdit[];
+  /** The board after the battle edits, to find which unit each move was */
+  board: BoardManager;
+}
+
+/** Record a turn at its end, before the orders and edits are cleared */
+export function recordTurn({ turn, card, orders, shots, battleEdits, board }: TurnState): TurnRecord {
+  return {
+    turn,
+    card: { id: card.id, name: card.name },
+    orders: orders.map((order) => ({
+      unit: order.unit.getUnitType(),
+      start: { ...order.start },
+      end: { ...order.end },
+      path: (order.path ?? [order.start, order.end]).map((p) => ({ ...p })),
+      canFire: order.canFire,
+    })),
+    shots: shots.map((shot) => ({
+      order: shot.orderIndex,
+      unit: orders[shot.orderIndex]!.unit.getUnitType(),
+      dice: shot.dice,
+      steps: shot.steps.map((step) => ({ ...step })),
+      faces: [...shot.faces],
+      notes: [...shot.notes],
+    })),
+    battleEdits: editedUnits(battleEdits, board).map((unit, i) => {
+      const edit = battleEdits[i]!;
+      return edit.kind === "remove"
+        ? { kind: "remove", unit, position: { ...edit.position } }
+        : { kind: "move", unit, from: { ...edit.from }, to: { ...edit.to } };
+    }),
+  };
+}
+
+/**
+ * The unit type each edit applied to. A move only knows its hexes, so the
+ * edits are undone one by one, newest first, on a copy of the board.
+ */
+function editedUnits(edits: readonly BattleEdit[], board: BoardManager): UnitType[] {
+  const units = new Map<string, Unit>();
+  board.getAllHexes().forEach((hex) => {
+    if (hex.unit) units.set(positionKey(hex.getPosition()), hex.unit);
+  });
+
+  const types: UnitType[] = [];
+  for (let i = edits.length - 1; i >= 0; i--) {
+    const edit = edits[i]!;
+    if (edit.kind === "remove") {
+      units.set(positionKey(edit.position), edit.unit);
+      types[i] = edit.unit.getUnitType();
+    } else {
+      const unit = units.get(positionKey(edit.to));
+      if (!unit) throw new Error(`No unit at ${positionKey(edit.to)} to undo a move`);
+      units.delete(positionKey(edit.to));
+      units.set(positionKey(edit.from), unit);
+      types[i] = unit.getUnitType();
+    }
+  }
+  return types;
+}

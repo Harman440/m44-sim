@@ -14,6 +14,8 @@ import checkMark from "../assets/icons/check-mark.svg";
 import cancel from "../assets/icons/cancel.svg";
 import exitDoor from "../assets/icons/exit-door.svg";
 import bugleCall from "../assets/icons/bugle-call.svg";
+import scroll from "../assets/icons/scroll-unfurled.svg";
+import save from "../assets/icons/save.svg";
 
 const ICONS = {
   settings: cog,
@@ -29,6 +31,8 @@ const ICONS = {
   cancel,
   exit: exitDoor,
   battle: bugleCall,
+  history: scroll,
+  download: save,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;
