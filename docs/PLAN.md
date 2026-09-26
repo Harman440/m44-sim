@@ -16,7 +16,9 @@ Done so far (details in git history):
 - Step 10: three selectable looks (Mapa de campaña, Caja del juego, Tienda de mando), icons, sound, motion
 - Step 11: bunker, line of sight and sandbags in the fire questionnaire; official dice values kept
 
-The app currently tracks **whole units only** (no figure counts), and each device knows **only its own side**. Several steps below depend on changing one or both of these; they are flagged.
+Two decisions shape the rest of the plan (Steps 15 and 27):
+- **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
+- **No figure counts.** The app keeps tracking whole units. When a rule reduces a unit's firepower, the player picks how many of the rolled results to apply.
 
 ---
 
@@ -39,20 +41,18 @@ The app currently tracks **whole units only** (no figure counts), and each devic
 The house rules' programming note says to start from the turn data as JSON; the save format already is JSON, so this builds on it.
 - [ ] Record each finished turn as plain JSON: card played, orders (paths), shots (dice and faces), map edits (casualties, retreats)
 - [ ] "Historial" screen: past turns, newest first
-- [ ] Export the game or a single turn as a JSON file (for backups and for Step 15)
+- [ ] Export the game or a single turn as a JSON file (for backups)
 - [ ] Keep it in the save (bump `SAVE_VERSION`)
 
 ---
 
 ## Part B: How the two devices relate
 
-### Step 15: Decide how the two tablets share information
-Many house rules need both sides at once: who fires first, collisions when units cross, coins spent, effects on the opponent's cards. Each device only knows its own side today.
-- [ ] **Decide** one of:
-  - **Independent** (as now): each app guides its player and asks about the opponent when needed ("¿El rival disparó ya?")
-  - **Swap after orders**: at the movement phase each tablet shows a QR code (or file) with its orders, and the other scans it. That's the digital version of "show your opponent your map".
-  - **Live connection** between the two tablets (local network or WebRTC). The most automatic option, but it needs a small server or pairing step.
-- [ ] Record which later steps become automatic with the chosen option (collisions in Step 18, fire order in Step 19, opponent-card effects in Step 26)
+### Step 15: The two tablets stay independent
+- [x] **Decided:** no sharing or connection between the tablets. Each app knows only its own side; the opponent's actions happen at the table.
+- [x] **Decided:** alternating fire is done at the table (Step 19 only reminds the player)
+- [x] **Decided:** collisions get a "¿Ha habido un choque?" button in the battle phase (Step 18)
+- [x] **Decided:** cards that act on the opponent are deleted or reduced (Step 26)
 
 ---
 
@@ -77,21 +77,22 @@ The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase f
 - [ ] Add the phases to `TurnPhase` (append only; the values are saved) and to the header steps
 - [ ] Tests for the new phase flow and for saves from before the change
 
-### Step 18: Collisions during movement
-When two units cross the same hex, or land on the same one, they battle at once.
-- [ ] A "Choque" action on a unit in the movement phase that opens the fire dialog preset for this case:
+### Step 18: Collisions
+When two units cross the same hex, or land on the same one, they battle at once, before the normal battle.
+- [ ] A "¿Ha habido un choque?" button at the top of the battle phase, with the reminder "Resuelve los choques antes que cualquier otro disparo"
+- [ ] It opens the fire dialog preset for a collision:
   - close assault dice −1 (normally 3 − 1 = 2)
   - terrain ignored, both for battle restrictions and dice reductions
   - retreats can't be ignored
-- [ ] Guide the outcome:
+- [ ] Explain the outcome after the roll:
   - the loser retreats or is eliminated; the winner stays, or keeps moving to its destination
   - if nobody retreats, both units move one hex back along their path (which may be blocked)
-- [ ] Detect collisions automatically if Step 15 chose "swap" or "live"
+- [ ] **Decide:** does a collision roll use up the unit's normal shot this turn?
 
 ### Step 19: Battle order and retreats
 - [ ] Split the battle summary into "Sin mover" (fire first) and "Movidas" (fire after)
-- [ ] Show who shoots first: the attacking side, then alternating one unit at a time
-- [ ] **Decide:** how the app tracks alternating shots without the opponent's device (a "Turno del rival" prompt, or nothing)
+- [ ] Show who shoots first: the attacking side, then alternating one unit at a time (done at the table)
+- [ ] After each roll, tell the player it's the opponent's turn to fire ("Ahora dispara el rival")
 - [ ] Retreats:
   - mark a retreat on a unit ("Retirada pendiente") instead of moving it straight away
   - apply all marked retreats at the end of the battle (Fase final)
@@ -132,7 +133,7 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 - [ ] **Decide:**
   - what "on the move" means in this variant (units that may move and still fire?) and the "1 less on standard maps" rule
   - which sections Pincer uses
-  - how Counter Attack works without the opponent's card (honour system, or Step 15 sharing)
+  - Counter Attack: delete it, or play it at the table on the honour system (see Step 26)
   - the final deck counts (the notes have several "(−1)" changes)
 
 ### Step 22: Drawing cards
@@ -194,33 +195,32 @@ Several cards need you to mark hexes on your map during orders.
   - Behind Enemy Lines: fire and move before other attacks, with the move done in the retreat phase
   - Close Assault: fire after the enemy has moved
 - [ ] Battle: Not a Step Back (ignore retreats), Heat of Battle (infantry overrun)
-- [ ] Cards that act on the opponent show as reminders unless Step 15 connects the devices: Lost Message, Out of Ammo, Out of Fuel, Shells Shortage, Personal Armor, Spies, HQ Distraction, Message Interception
+- [ ] **Decide:** cards that act on the opponent, since the tablets aren't connected (Step 15). For each: delete it, or keep a reduced version that is played at the table and only shows a reminder in the app.
+  - act on the opponent's orders or cards: Lost Message, Counter Attack (command card), Spies, HQ Distraction, Message Interception
+  - stop an enemy unit from firing or move it: Out of Ammo, Out of Fuel, Shells Shortage
+  - change the opponent's roll: Personal Armor
+  - change the firing order at the table: Rifles Up!, Behind Enemy Lines
 
 ---
 
 ## Part F: Figures and new units
 
-### Step 27: Decide whether to track figures
-Today the app tracks whole units, and the physical table is the source of truth. Several house rules need figure counts: one-figure infantry, limited damages, Medic, Mechanic, Return to Duty, Tiger hits, and the unit sizes of the new units.
-- [ ] **Decide:** track figures per unit on your own side (yes / no)
-- [ ] If yes:
-  - figures on `Unit`, with defaults per type from scenario data
-  - "−1 figura / +1 figura" on the battle map
-  - figure pips on the tokens
-  - saved with the game
-  - update the "whole units only" convention in CLAUDE.md
+### Step 27: No figure counts
+- [x] **Decided:** figures aren't stored; the app keeps tracking whole units, and the table is the source of truth
+- [x] **Decided:** Medic, Mechanic and Return to Duty are resolved at the table
 
-### Step 28: Firepower limited by figures
-- [ ] Infantry with one figure left fires at most 2 dice, after all modifiers
-- [ ] Limited damages: after the roll, a unit keeps at most as many results as it has figures (+1 when a card gave bonus dice); the player picks which results to keep
-- [ ] **Decide:** confirm both rules; they need Step 27
+### Step 28: Apply fewer results than were rolled
+Covers the rules that reduce firepower because of figures (one-figure infantry fires at most 2 dice; limited damages: a unit keeps at most as many results as it has figures, +1 with a bonus-dice card).
+- [ ] After a roll, "Aplicar menos resultados": the player taps the dice to keep, and the rest are shown as discarded
+- [ ] The kept results are what the shot records, and what counts for hits and coins (Steps 20 and 23)
+- [ ] The full roll stays visible for reference
 
 ### Step 29: New unit types
 - [ ] Mobile artillery: 3 figures, hit like tanks, fires 3-3-2-2
-- [ ] Tiger: 3-3-3-2 if it didn't move; a reroll hits on tank or grenade; after the first hit it moves only 1 hex; the second hit destroys it
 - [ ] Jeep: 2 figures, fires 3-2, only grenades hit it
 - [ ] Half-track: fires 3-2, moves 3 hexes
 - [ ] For each: `UnitType`, movement, fire table, target-type hit rules (Step 20), sprites and scenario data
+- [x] **Decided:** no Tigers
 - [ ] **Decide:** anything the notes leave open (e.g. how far mobile artillery and jeeps move, whether half-tracks carry infantry)
 
 ---
@@ -252,7 +252,7 @@ Large; split it into smaller steps when we get here.
 
 ### Step 32: Experiments (decide later)
 - [ ] An 8-sided long-range die: tank, grenade, 3× infantry, retreat, 2× miss (the grenade doesn't count for infantry firing on a tank). Make sure one side gives a coin and one a retreat.
-- [ ] Bigger units: infantry with 5 figures, tanks with 4
+- [ ] Bigger units: infantry with 5 figures, tanks with 4 (a table rule; the app only needs changes if it affects dice)
 - [ ] Fewer cards (more predictable) with more orders per card
 - [ ] A deck-probability view: how likely each card type is to be drawn, for balancing (the probability notes in house-rules.md)
 
