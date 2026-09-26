@@ -9,15 +9,19 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 ## Known issues
 
 ### Bugs
-- [ ] **B1. Command cards leak out of the game.** `GameView.handleFinsihTurn` removes the played card from the hand but never calls `deck.discard()`. The 9-card deck runs dry after about 6 turns, and reshuffling then finds nothing to reshuffle.
-- [ ] **B2. Cards from "Coge 2 Cartas" never show up.** `chooseCard` and `drawCard` in CardsView call `commandCardsPlayer.add()`, but the hand now renders `visibleHand`, which only the mount effect fills. This was introduced by the uncommitted deal animation.
-- [ ] **B3. The whole hand is dealt again every turn.** CardsView unmounts during ORDER_UNITS, so on remount `visibleHand` and `hasDealtInitialCards` reset and every card animates in again. Only the newly drawn card should animate.
-- [ ] **B4. You can click "Coge 2 Cartas" repeatedly.** Each click draws 2 more cards, and the previous choice cards are lost from the deck for good.
+- [x] **B1. Command cards leak out of the game.** `GameView.handleFinsihTurn` removes the played card from the hand but never calls `deck.discard()`. The 8-card deck runs dry after about 6 turns, and reshuffling then finds nothing to reshuffle.
+- [x] **B2. Cards from "Coge 2 Cartas" never show up.** `chooseCard` and `drawCard` in CardsView call `commandCardsPlayer.add()`, but the hand now renders `visibleHand`, which only the mount effect fills. This was introduced by the uncommitted deal animation.
+- [x] **B3. The whole hand is dealt again every turn.** CardsView unmounts during ORDER_UNITS, so on remount `visibleHand` and `hasDealtInitialCards` reset and every card animates in again. Only the newly drawn card should animate.
+- [x] **B4. You can click "Coge 2 Cartas" repeatedly.** Each click draws 2 more cards, and the previous choice cards are lost from the deck for good.
 - [ ] **B5. The order path is computed backwards, after the move.** OrdersView calls `getPathToDestination(hex /*dest*/, unitHexPosition /*start*/)` after `moveUnit`. That is why OrderComponent has the note "points seem to be backwards". It will break once terrain costs become asymmetric. Compute the path from start to destination *before* moving.
 - [ ] **B6. Once a unit is selected, it can't be deselected.** Clicking the same hex issues a "stay and fire" order, and clicking anywhere else does nothing.
 - [x] **B8. `BoardManager.reset()` didn't rebuild the section groups**, so section cards marked units on the old board. Fixed in Step 1.
 - [ ] **B9. `setOrderableUnits` never clears earlier orderable flags.** Playing a second card without committing leaves the first card's units orderable too. Fix it with the reducer in Step 3.
-- [ ] **B7. Card ids collide when `count > 1`**, which gives duplicate React keys. The choice-card `<div>` wrapper in CardsView is also missing its `key`.
+- [ ] **B10. A "hold and fire" order draws a NaN arrow.** Start and end are the same hex, so the direction vector has length 0 and the console fills with SVG `NaN` errors. Draw a marker instead of an arrow. Belongs to Step 4.
+- [ ] **B11. The orders screen briefly shows "órdenes restantes: 0"** before its effect sets the real count, so "Confirmar Órdenes" flashes on entry. Initialize the count directly. Belongs to Step 3 or 4.
+- [x] **B12. Once the discard pile had a card, its "?" overlay covered the whole page** (`.discard-pile` had no `position: relative`) and blocked "Coge 2 Cartas". Fixed in Step 2.
+- [x] **B13. The choice cards overflowed their fixed-size frames** and covered the deck label. Fixed in Step 2.
+- [x] **B7. Card ids collide when `count > 1`**, which gives duplicate React keys. The choice-card `<div>` wrapper in CardsView is also missing its `key`.
 
 ### Architecture / quality
 - [ ] **Q1. Mutable class instances live inside React state.** `Hand.add` and `Deck.draw` mutate in place, and Board re-reads `boardManager` directly. The UI only updates because some other setState happens to fire at the same time. Replace this with a single GameState plus a `useReducer`.
@@ -50,7 +54,7 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] Install MUI 9 + Emotion; add the dark theme (`src/theme.ts`) with `ThemeProvider` and `CssBaseline`
 - [x] Convert the GameView and OrdersView buttons and text to MUI (Spanish text)
 - [x] Remove the dead `GameView.css`
-- [ ] Convert the CardsView controls ("Coge 2 Cartas", header, pile labels) to MUI during Step 2
+- [x] Convert the CardsView controls ("Coge 2 Cartas", header, pile labels) to MUI during Step 2
 
 ### Step 1: Tests for game-core, before refactoring
 - [x] `Hand`: add, remove, getCards (`hand.test.ts`)
@@ -60,12 +64,15 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] Fixed B8, found by these tests
 
 ### Step 2: Finish the card-selection work (B1–B4, B7)
-- [ ] Deal only newly added cards (keep track of which card ids have already been dealt at GameView level, so it survives a remount)
-- [ ] Make choose and draw add to what's rendered
-- [ ] Disable the choice button while a choice is pending
-- [ ] Discard played cards at end of turn
-- [ ] Make card ids unique and fix the missing keys
-- [ ] Remove the debug logs in CardsView, GameView and Deck
+- [x] Deal only newly added cards (GameView keeps `dealtCardIds`, so it survives a remount)
+- [x] Make choose and draw add to what's rendered (drawing at end of turn now animates too)
+- [x] Disable the choice button while a choice is pending; block playing a card until you've chosen
+- [x] Discard played cards at end of turn (a full 8-turn run in the browser keeps hand + deck + discard = 8 and reshuffles correctly)
+- [x] Make card ids unique and fix the missing keys
+- [x] Remove the debug logs in CardsView, GameView, Deck and commandCards
+- [x] Tests: `CardsView.test.tsx` (dealing, choice flow) and `commandCards.test.ts` (unique ids)
+- [x] Fixed B12 and B13, found in the browser
+- [ ] **Decide:** can "Coge 2 Cartas" be used any number of times per turn? Right now it can, so the hand keeps growing
 
 ### Step 3: Game state refactor (Q1)
 - [ ] `game-core/gameState.ts` with a pure reducer: `PICK_CARD`, `ISSUE_ORDER`, `UNDO_ORDER`, `COMMIT`, `START_BATTLE`, `END_TURN`

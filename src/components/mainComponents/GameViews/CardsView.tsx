@@ -1,86 +1,113 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Box, Button, Stack, Typography } from "@mui/material";
 import CommandCard from "../../../game-core/commandCard";
-import Hand from "../../../game-core/hand";
 import CommandCardComponent from "../../CommandCardComponent";
 import "./CardsView.css";
 import Deck from "../../../game-core/deck";
 
-type CardSource = 'deck' | 'hand' | 'discard' | 'choice';
+// Must be at least the 0.5s slideDown animation in CardsView.css
+export const DEAL_ANIMATION_MS = 600;
+export const DEAL_GAP_MS = 150;
 
 interface CardsViewProps {
   commandCardsDeck: Deck;
-  commandCardsPlayer: Hand;
+  handCards: CommandCard[];
+  dealtCardIds: ReadonlySet<string>;
+  onCardDealt: (card: CommandCard) => void;
+  onAddCardToHand: (card: CommandCard) => void;
   onCardClick: (card: CommandCard) => void;
 }
 
-function CardsView({ commandCardsDeck, commandCardsPlayer, onCardClick }: CardsViewProps) {
+function CardsView({
+  commandCardsDeck,
+  handCards,
+  dealtCardIds,
+  onCardDealt,
+  onAddCardToHand,
+  onCardClick,
+}: CardsViewProps) {
   const [message, setMessage] = useState('Selecciona una carta para jugarla');
-  const [animatingCard, setAnimatingCard] = useState<(CommandCard & { from: CardSource }) | null>(null);
+  const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
   const [choiceCards, setChoiceCards] = useState<CommandCard[]>([]);
 
-  //TODO: add this animation when finishing turn and drawing card
-  const drawCard = () => {
-    const [drawnCard] = commandCardsDeck.draw(); //TODO: Check if calling this functions updates react component
+  const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
+  const nextCardToDeal = handCards.find((card) => !dealtCardIds.has(card.id));
+  const isChoosing = choiceCards.length > 0;
 
-    if (!drawnCard) {
-      setMessage('Mazo esta vacio!');//TODO: barajar
-      return;
+  // Deal hand cards that haven't been shown yet, one at a time. The dealt ids
+  // live in GameView, so remounting this view each turn only deals new cards.
+  useEffect(() => {
+    if (animatingCard) {
+      const timer = setTimeout(() => {
+        onCardDealt(animatingCard);
+        setAnimatingCard(null);
+      }, DEAL_ANIMATION_MS);
+      return () => clearTimeout(timer);
     }
-    setAnimatingCard({ ...drawnCard, from: 'deck' });
 
-    setTimeout(() => {
-      commandCardsPlayer.add(drawnCard);
-      setAnimatingCard(null);
-      setMessage('Nueva Carta, Selecciona una carta para jugarla');
-    }, 500);
-  };
+    if (!nextCardToDeal) return;
+    const timer = setTimeout(() => setAnimatingCard(nextCardToDeal), DEAL_GAP_MS);
+    return () => clearTimeout(timer);
+  }, [animatingCard, nextCardToDeal, onCardDealt]);
 
   const drawChoice = () => {
-    const drawnCards = commandCardsDeck.draw();
+    const drawnCards = commandCardsDeck.draw(2);
     if (drawnCards.length < 2) {
-      setMessage('No hay suficientes cartas en el mazo!');//TODO: barajar
+      drawnCards.forEach((card) => commandCardsDeck.discard(card));
+      setMessage('No hay suficientes cartas en el mazo!');
       return;
     }
 
     setChoiceCards(drawnCards);
-    setMessage('Eleige una Carta para añadirla a tu mano');
+    setMessage('Elige una carta para añadirla a tu mano');
   };
 
   const chooseCard = (card: CommandCard) => {
-    setAnimatingCard({ ...card, from: 'choice' });
-
-    const otherCard = choiceCards.find(c => c.id !== card.id);
-
-    commandCardsDeck.discard(otherCard!);
+    choiceCards
+      .filter((c) => c !== card)
+      .forEach((otherCard) => commandCardsDeck.discard(otherCard));
     setChoiceCards([]);
+    onAddCardToHand(card); // dealt into the hand by the effect above
+    setMessage('Carta elegida, selecciona una carta para jugarla');
+  };
 
-    setTimeout(() => {
-      commandCardsPlayer.add(card);
-      setAnimatingCard(null);
-      setMessage('Carta Elegida, Selecciona una carta para jugarla');
-    }, 500);
+  const playCard = (card: CommandCard) => {
+    if (isChoosing) {
+      setMessage('Primero elige una de las dos cartas');
+      return;
+    }
+    onCardClick(card);
   };
 
   return (
     <div className="cards-view">
       {/* Header */}
-      <div className="cards-header">
-        <h3>Zona de Mando</h3>
-        <p>{message}</p>
-      </div>
+      <Box
+        sx={{
+          textAlign: "center",
+          pb: 2.5,
+          mb: 3,
+          borderBottom: "2px solid rgba(148, 163, 184, 0.1)",
+        }}
+      >
+        <Typography variant="h4" component="h3" sx={{ fontWeight: 700, mb: 1 }}>
+          Zona de Mando
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {message}
+        </Typography>
+      </Box>
 
       {/* Choice Cards Area */}
-      {choiceCards.length > 0 && (
+      {isChoosing && (
         <div className="choice-area">
-          <p className="choice-title">Elige una Carta:</p>
+          <Typography variant="h6" sx={{ textAlign: "center", mb: 2 }}>
+            Elige una carta:
+          </Typography>
           <div className="choice-cards">
-            {choiceCards.map(card => (
-              <div className="choice-card">
-                <CommandCardComponent
-                  key={card.id}
-                  cardData={card}
-                  onClick={() => chooseCard(card)}
-                />
+            {choiceCards.map((card) => (
+              <div key={card.id} className="choice-card">
+                <CommandCardComponent cardData={card} onClick={chooseCard} />
               </div>
             ))}
           </div>
@@ -89,49 +116,43 @@ function CardsView({ commandCardsDeck, commandCardsPlayer, onCardClick }: CardsV
 
       {/* Top Area - Deck and Discard */}
       <div className="top-area">
-        <div className="deck-section">
-          <p className="pile-label">Cartas ({commandCardsDeck.drawPile.length})</p>
+        <Stack sx={{ alignItems: "center" }}>
+          <Typography sx={{ mb: 1 }}>
+            Cartas ({commandCardsDeck.getDrawPileCount()})
+          </Typography>
           <div className="deck-pile">
             <div className="deck-back">?</div>
           </div>
-          <button onClick={drawChoice} className="choice-button">
+          <Button onClick={drawChoice} disabled={isChoosing} sx={{ mt: 2 }}>
             Coge 2 Cartas
-          </button>
-        </div>
+          </Button>
+        </Stack>
 
-        <div className="deck-section">
-          <p className="pile-label">Descarte ({commandCardsDeck.discardPile.length})</p>
+        <Stack sx={{ alignItems: "center" }}>
+          <Typography sx={{ mb: 1 }}>
+            Descarte ({commandCardsDeck.getDiscardPileCount()})
+          </Typography>
           <div className="discard-pile">
-            {commandCardsDeck.discardPile.length > 0 && (
+            {commandCardsDeck.getDiscardPileCount() > 0 && (
               <div className="deck-back">?</div>
             )}
           </div>
-        </div>
+        </Stack>
       </div>
 
-      {/* Cards Grid */}
-      <div className="cards-grid"> {/* TODO: assuming there are always cards available*/}
+      {/* Hand */}
+      <div className="cards-grid">
         <div className="grid">
-          {commandCardsPlayer.cards.map((card) => (
-            <CommandCardComponent
-              key={card.id}
-              cardData={card}
-              onClick={onCardClick}
-            />
+          {visibleHand.map((card) => (
+            <CommandCardComponent key={card.id} cardData={card} onClick={playCard} />
           ))}
         </div>
       </div>
 
       {/* Animating Card Overlay */}
       {animatingCard && (
-        <div
-          className={`animating-card ${animatingCard.from}`}
-        >
-          <CommandCardComponent
-            key={999}
-            cardData={animatingCard}
-            onClick={() => { }}
-          />
+        <div className="animating-card deck" data-testid="animating-card">
+          <CommandCardComponent cardData={animatingCard} onClick={() => {}} />
         </div>
       )}
     </div>

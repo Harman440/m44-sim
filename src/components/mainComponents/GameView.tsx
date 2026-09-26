@@ -29,8 +29,11 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
 
   const [commandCardsDeck] = useState(() => new Deck(commandCards));
   const [commandCardsPlayer, setCommandCardsPlayer] = useState<Hand>(() => new Hand([]));
+  // Cards already animated into the hand. Kept here so it survives CardsView
+  // unmounting during the other phases.
+  const [dealtCardIds, setDealtCardIds] = useState<ReadonlySet<string>>(() => new Set());
 
-  const hasDrawnInitialHand  = useRef(false); //NOTE: added so that the draw card function is not called twice
+  const hasDrawnInitialHand = useRef(false); //NOTE: added so that the draw card function is not called twice
 
   useEffect(() => {
     if (!hasDrawnInitialHand.current) {
@@ -38,6 +41,14 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
       setCommandCardsPlayer(new Hand(hand));
       hasDrawnInitialHand.current = true;
     }
+  }, []);
+
+  const handleCardDealt = useCallback((card: CommandCard) => {
+    setDealtCardIds((prev) => new Set(prev).add(card.id));
+  }, []);
+
+  const handleAddCardToHand = useCallback((card: CommandCard) => {
+    setCommandCardsPlayer((prev) => new Hand([...prev.cards, card]));
   }, []);
 
   const [turnPhase, setTurnPhase] = useState<TurnPhase>(
@@ -51,38 +62,52 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
 
   //handle click on card
   const handleCardClick = useCallback((card: CommandCard) => {
-    console.log(`Card clicked: ${card.name}`);
     setChosenCommandCard(card);
     setTurnPhase(TurnPhase.ORDER_UNITS);
   }, []); // No dependencies needed with the functional update
 
   //Handle Finish Turn
-  const handleFinsihTurn = useCallback(() => {
+  const handleFinishTurn = useCallback(() => {
     setTurnPhase(TurnPhase.PICK_CARDS);
-    console.log(`The chosen card was: ${chosenCommandCard?.name}`);
 
     if (!chosenCommandCard) {
       console.warn("No card chosen when finishing turn");
       return;
     }
-    commandCardsPlayer.remove(chosenCommandCard);
-    commandCardsPlayer.add(commandCardsDeck.draw(1)[0] ?? null); //TODO: set discard pile correctly if needed
+
+    // Discard first so a reshuffle on an empty deck can bring the card back
+    commandCardsDeck.discard(chosenCommandCard);
+    const drawnCards = commandCardsDeck.draw(1);
+    setCommandCardsPlayer((prev) => {
+      const next = new Hand(prev.cards);
+      next.remove(chosenCommandCard);
+      next.addMultiple(drawnCards);
+      return next;
+    });
+    // A discarded card can be drawn again later and should animate in again
+    setDealtCardIds((prev) => {
+      const next = new Set(prev);
+      next.delete(chosenCommandCard.id);
+      return next;
+    });
     setChosenCommandCard(null);
-    console.log(`Cards Left in deck: ${commandCardsDeck.drawPile.length}`);
 
     boardManager.removeOrders();
 
     setOrders([]);
 
     setCurrentTurn((prevTurn) => prevTurn + 1);
-  }, [chosenCommandCard, commandCardsPlayer, commandCardsDeck]);
+  }, [chosenCommandCard, commandCardsDeck, boardManager]);
 
   return (
     <div>
       {turnPhase === TurnPhase.PICK_CARDS && (
         <CardsView
           commandCardsDeck={commandCardsDeck}
-          commandCardsPlayer={commandCardsPlayer}
+          handCards={commandCardsPlayer.cards}
+          dealtCardIds={dealtCardIds}
+          onCardDealt={handleCardDealt}
+          onAddCardToHand={handleAddCardToHand}
           onCardClick={handleCardClick}
         />
       )}
@@ -101,7 +126,7 @@ function GameView({ boardSide, scenario, initCommandCards }: GameViewProps) {
       {turnPhase === TurnPhase.BATTLE && (
         <Stack spacing={1} sx={{ alignItems: "center", my: 2 }}>
           <Typography variant="h6">Fase Batalla</Typography>
-          <Button onClick={() => handleFinsihTurn()}>Terminar Turno</Button>
+          <Button onClick={() => handleFinishTurn()}>Terminar Turno</Button>
           {/*TODO: Add delete units from board*/}
         </Stack>
       )}

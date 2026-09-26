@@ -1,7 +1,6 @@
 // data/commandCards.js
 import CommandCard, { CommandCardType } from '../game-core/commandCard.js';
 
-//TODO: Change Id so that all cards have a unique Id
 const cardTemplates = [
   {
     count: 1,
@@ -20,6 +19,16 @@ const cardTemplates = [
       name: 'Probe Right Flank',
       type: CommandCardType.RIGHT,
       description: 'Order 2 units on the right flank.',
+      maxTotalOrders: 2,
+    },
+  },
+  {
+    count: 1,
+    props: {
+      id: 'probe-center',
+      name: 'Probe Center',
+      type: CommandCardType.CENTER,
+      description: 'Order 2 units in the center.',
       maxTotalOrders: 2,
     },
   },
@@ -75,13 +84,12 @@ const cardTemplates = [
   }
 ];
 
-console.log("=== commandCards module loaded ===");
-console.log("cardTemplates length:", cardTemplates.length);
 const commandCards: CommandCard[] = [];
 
 cardTemplates.forEach(template => {
   for (let i = 0; i < template.count; i++) {
-    commandCards.push(new CommandCard({ ...template.props }));
+    // Suffix each copy so ids stay unique when a template has count > 1
+    commandCards.push(new CommandCard({ ...template.props, id: `${template.props.id}-${i + 1}` }));
   }
 });
 

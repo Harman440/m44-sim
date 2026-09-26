@@ -24,3 +24,6 @@ yarn-error.log*
 
 # vite build output
 /dist
+
+# Playwright MCP snapshots, screenshots and console logs
+/.playwright-mcp
