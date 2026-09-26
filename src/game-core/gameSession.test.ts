@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import GameSession from "./gameSession";
+import GameSession, { SavedGame } from "./gameSession";
 import CommandCard, { CommandCardType } from "./commandCard";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
@@ -373,5 +373,84 @@ describe("GameSession syncing the battle with the table", () => {
     const tankCard = session.getSnapshot().hand.find((c) => c.type === CommandCardType.TANK)!;
     session.pickCard(tankCard);
     expect(session.getSnapshot().ordersLeft).toBe(0);
+  });
+});
+
+describe("GameSession saving and restoring", () => {
+  /** Save to JSON and back, the way a page reload goes through localStorage */
+  const reload = (session: GameSession) =>
+    GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+
+  const ids = (cards: readonly CommandCard[]) => cards.map((c) => c.id);
+
+  it("restores the cards: hand, piles in order, and the card being played", () => {
+    const session = makeSession(2);
+    const played = session.getSnapshot().hand[0]!;
+    session.pickCard(played);
+
+    const restored = reload(session).getSnapshot();
+    const original = session.getSnapshot();
+
+    expect(ids(restored.hand)).toEqual(ids(original.hand));
+    expect(restored.chosenCard?.id).toBe(played.id);
+    expect(restored.drawPileCount).toBe(original.drawPileCount);
+    expect(restored.phase).toBe(TurnPhase.ORDER_UNITS);
+    expect(restored.ordersLeft).toBe(original.ordersLeft);
+  });
+
+  it("carries on giving orders where it left off, including undoing a move", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    session.issueOrder(TANK, { row: 5, col: 6 });
+
+    const restored = reload(session);
+
+    expect(unitAt(restored, TANK)).toBeNull();
+    expect(unitAt(restored, { row: 5, col: 6 })?.isOrdered()).toBe(true);
+    expect(unitAt(restored, LEFT_INF)?.isOrderable()).toBe(true);
+    expect(restored.getSnapshot().orders[0]!.path).toEqual(session.getSnapshot().orders[0]!.path);
+    expect(restored.undoLastOrder()).toBe(true);
+    expect(unitAt(restored, TANK)?.getUnitType()).toBe("tank");
+  });
+
+  it("keeps battle edits undoable, even for a unit that was destroyed", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("left"));
+    orderAllAndFight(session);
+    session.removeUnit(LEFT_INF);
+    session.relocateUnit(TANK, { row: 3, col: 3 });
+
+    const restored = reload(session);
+
+    expect(restored.getSnapshot().phase).toBe(TurnPhase.BATTLE);
+    expect(restored.getSnapshot().battleEdits).toBe(2);
+    expect(restored.undoBattleEdit()).toBe(true);
+    expect(unitAt(restored, TANK)).not.toBeNull();
+    expect(restored.undoBattleEdit()).toBe(true);
+    const infantry = unitAt(restored, LEFT_INF);
+    expect(infantry).not.toBeNull();
+    // The restored order still points at the same unit, now back on the board
+    expect(restored.getSnapshot().orders.some((o) => o.unit === infantry)).toBe(true);
+  });
+
+  it("restores a pending draw-2 choice", () => {
+    const session = makeSession(2);
+    session.drawChoice();
+
+    const restored = reload(session);
+
+    expect(ids(restored.getSnapshot().choiceCards)).toEqual(ids(session.getSnapshot().choiceCards));
+    expect(restored.chooseCard(restored.getSnapshot().choiceCards[0]!)).toBe(true);
+  });
+
+  it("rejects a save it can't trust", () => {
+    const saved = makeSession().save();
+    const broken = (changes: Partial<SavedGame>) => () =>
+      GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
+
+    expect(broken({ version: 2 as 1 })).toThrow();
+    expect(broken({ scenarioId: "other" })).toThrow();
+    expect(broken({ hand: ["no-such-card"] })).toThrow();
+    expect(broken({ units: [{ ...saved.units[0]!, position: { row: 40, col: 0 } }] })).toThrow();
   });
 });

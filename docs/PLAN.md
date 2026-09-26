@@ -144,7 +144,7 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] Tests: `App.test.tsx` (menu → game → exit flow, remembered side) and `labels.test.ts`
 
 ## Ideas for later
-- [ ] Keep a game in progress across a page reload or the tablet sleeping (save the session to `localStorage`)
+- [x] Keep a game in progress across a page reload or the tablet sleeping (`GameSession.save`/`restore`, stored by `src/storage.ts`; "Salir" forgets it)
 - [ ] Real tank and artillery art (`npm run optimize-image -- <file> 192`)
 - [ ] More scenarios (the unused `src/assets/scenarios/defualt.png` could be a starting point)
 - [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (replacing the "Coge 2 Cartas" debug button)

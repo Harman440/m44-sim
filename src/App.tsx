@@ -1,50 +1,56 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { scenarios } from './data/scenarios';
+import commandCards from './data/commandCards';
+import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/GameView';
 import Menu, { GameSetup } from './components/mainComponents/Menu';
+import { clearSavedGame, loadLastSetup, loadSavedGame, saveGame, saveLastSetup } from './storage';
 
-const LAST_SETUP_KEY = "m44-sim:last-setup";
-
-// Remember the last scenario and side so the next game on this device starts one tap away
-const loadLastSetup = (): Partial<GameSetup> | undefined => {
-  try {
-    const saved = localStorage.getItem(LAST_SETUP_KEY);
-    return saved ? JSON.parse(saved) : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const saveLastSetup = (setup: GameSetup) => {
-  try {
-    localStorage.setItem(LAST_SETUP_KEY, JSON.stringify(setup));
-  } catch {
-    // Storage can be unavailable (private mode); the menu just won't pre-select
-  }
-};
+interface CurrentGame {
+  session: GameSession;
+  /** Picked back up from a save rather than started from the menu */
+  resumed: boolean;
+  /** Keys GameView so every game starts with fresh UI state */
+  number: number;
+}
 
 const App = () => {
-  const [setup, setSetup] = useState<GameSetup | null>(null);
-  const [gameNumber, setGameNumber] = useState(0);
-  const scenario = setup && scenarios.find((s) => s.id === setup.scenarioId);
+  const [game, setGame] = useState<CurrentGame | null>(() => {
+    const session = loadSavedGame(scenarios, commandCards);
+    return session && { session, resumed: true, number: 0 };
+  });
 
-  const handleStart = (newSetup: GameSetup) => {
-    saveLastSetup(newSetup);
-    setSetup(newSetup);
-    setGameNumber((n) => n + 1);
+  // Save after every change, so a reload or the tablet dropping the tab resumes here
+  useEffect(() => {
+    if (!game) return;
+    const { session } = game;
+    saveGame(session);
+    return session.subscribe(() => saveGame(session));
+  }, [game]);
+
+  const handleStart = (setup: GameSetup) => {
+    const scenario = scenarios.find((s) => s.id === setup.scenarioId);
+    if (!scenario) return;
+    saveLastSetup(setup);
+    const session = new GameSession({
+      scenario,
+      faction: setup.faction,
+      initialHandSize: scenario.initialHandSize[setup.faction === "Axis" ? "axis" : "allies"],
+      commandCards,
+    });
+    setGame((prev) => ({ session, resumed: false, number: (prev?.number ?? 0) + 1 }));
+  };
+
+  const handleExit = () => {
+    clearSavedGame();
+    setGame(null);
   };
 
   return (
     <div className="app">
-      {scenario && setup ? (
-        // Keyed so every new game starts from a fresh session
-        <GameView
-          key={gameNumber}
-          boardSide={setup.faction}
-          scenario={scenario}
-          onExit={() => setSetup(null)}
-        />
+      {game ? (
+        <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
       ) : (
         <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
       )}

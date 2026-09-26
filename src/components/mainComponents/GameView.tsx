@@ -8,11 +8,10 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
-import { Scenario } from "../../types/scenario";
-import commandCards from "../../data/commandCards";
 import { TurnPhase } from "../../types/gameManager";
 import CommandCard from "../../game-core/commandCard";
 import GameSession from "../../game-core/gameSession";
@@ -21,8 +20,10 @@ import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
 
 interface GameViewProps {
-  boardSide: string;
-  scenario: Scenario;
+  /** Owns all game rules; React re-renders when it publishes a new snapshot */
+  session: GameSession;
+  /** The game was restored from a save (e.g. after a reload) */
+  resumed?: boolean;
   /** Leave the game and go back to the menu */
   onExit: () => void;
 }
@@ -33,23 +34,18 @@ const PHASE_STEPS: { phase: TurnPhase; label: string }[] = [
   { phase: TurnPhase.BATTLE, label: "Batalla" },
 ];
 
-function GameView({ boardSide, scenario, onExit }: GameViewProps) {
+function GameView({ session, resumed = false, onExit }: GameViewProps) {
+  const { scenario, faction: boardSide } = session;
   const [confirmingExit, setConfirmingExit] = useState(false);
-  // All game rules live in the session; React re-renders when it publishes a new snapshot
-  const [session] = useState(
-    () =>
-      new GameSession({
-        scenario,
-        faction: boardSide,
-        initialHandSize: scenario.initialHandSize[boardSide === "Axis" ? "axis" : "allies"],
-        commandCards,
-      })
-  );
+  const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
 
   // Cards already animated into the hand. Kept here (UI state, not game state)
   // so it survives CardsView unmounting during the other phases.
-  const [dealtCardIds, setDealtCardIds] = useState<ReadonlySet<string>>(() => new Set());
+  // A resumed game's hand was already dealt before the reload.
+  const [dealtCardIds, setDealtCardIds] = useState<ReadonlySet<string>>(
+    () => new Set(resumed ? session.getSnapshot().hand.map((card) => card.id) : [])
+  );
 
   const handleCardDealt = useCallback((card: CommandCard) => {
     setDealtCardIds((prev) => new Set(prev).add(card.id));
@@ -127,6 +123,14 @@ function GameView({ boardSide, scenario, onExit }: GameViewProps) {
           onFinishTurn={handleFinishTurn}
         />
       )}
+
+      <Snackbar
+        open={showResumed}
+        autoHideDuration={3000}
+        onClose={() => setShowResumed(false)}
+        message={`Partida recuperada · Turno ${game.turn}`}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
 
       <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>
         <DialogTitle>¿Salir al menú?</DialogTitle>

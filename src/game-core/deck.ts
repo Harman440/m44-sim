@@ -34,6 +34,12 @@ class Deck {
         this.discardPile = [];
     }
 
+    /** Put back piles from a saved game, in their saved order */
+    restorePiles(drawPile: CommandCard[], discardPile: CommandCard[]) {
+        this.drawPile = [...drawPile];
+        this.discardPile = [...discardPile];
+    }
+
     reset() {
         this.drawPile = shuffle([...this.originalCards]);
         this.discardPile = [];

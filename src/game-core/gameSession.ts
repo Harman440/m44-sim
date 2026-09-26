@@ -4,7 +4,7 @@ import CommandCard from "./commandCard";
 import Deck from "./deck";
 import Hand from "./hand";
 import Order from "./order";
-import Unit from "./unit";
+import Unit, { UnitType } from "./unit";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
@@ -27,6 +27,43 @@ export interface GameSnapshot {
 export interface MoveOptions {
   moves: Position[];
   moveAndFire: Position[];
+}
+
+/** Bump when SavedGame changes shape; older saves are then dropped instead of misread */
+export const SAVE_VERSION = 1;
+
+interface SavedUnit {
+  type: UnitType;
+  /** null for a unit removed in this turn's battle (an undo can bring it back) */
+  position: Position | null;
+  orderable: boolean;
+  ordered: boolean;
+  readyToFire: boolean;
+}
+
+/**
+ * The whole game as plain JSON, so it survives a page reload or the tablet
+ * dropping the tab. Cards are saved by id, units by their index in `units`.
+ */
+export interface SavedGame {
+  version: typeof SAVE_VERSION;
+  scenarioId: string;
+  faction: string;
+  turn: number;
+  phase: TurnPhase;
+  drawPile: string[];
+  discardPile: string[];
+  hand: string[];
+  choiceCards: string[];
+  chosenCard: string | null;
+  units: SavedUnit[];
+  orders: { unit: number; start: Position; end: Position; canFire: boolean; path: Position[] | null }[];
+  ordersLeft: number;
+  ordersCommitted: boolean;
+  battleEdits: (
+    | { kind: "remove"; position: Position; unit: number }
+    | { kind: "move"; from: Position; to: Position }
+  )[];
 }
 
 interface GameSessionOptions {
@@ -55,6 +92,7 @@ const positionKey = (p: Position) => `${p.row}-${p.col}`;
  */
 class GameSession {
   readonly scenario: Scenario;
+  readonly faction: string;
   readonly board: BoardManager;
   private readonly deck: Deck;
   private hand: Hand;
@@ -73,6 +111,7 @@ class GameSession {
 
   constructor({ scenario, faction, initialHandSize, commandCards }: GameSessionOptions) {
     this.scenario = scenario;
+    this.faction = faction;
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
     this.hand = new Hand(this.deck.draw(initialHandSize));
@@ -255,6 +294,112 @@ class GameSession {
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
+  }
+
+  // --- saving
+
+  save(): SavedGame {
+    const units: Unit[] = [];
+    const savedUnits: SavedUnit[] = [];
+    const addUnit = (unit: Unit, position: Position | null) => {
+      units.push(unit);
+      savedUnits.push({
+        type: unit.getUnitType(),
+        position,
+        orderable: unit.isOrderable(),
+        ordered: unit.isOrdered(),
+        readyToFire: unit.isReadyToFire(),
+      });
+    };
+    const unitIndex = (unit: Unit) => {
+      if (!units.includes(unit)) addUnit(unit, null);
+      return units.indexOf(unit);
+    };
+    this.board.getAllHexes().forEach((hex) => {
+      if (hex.unit) addUnit(hex.unit, hex.getPosition());
+    });
+
+    const ids = (cards: CommandCard[]) => cards.map((card) => card.id);
+    return {
+      version: SAVE_VERSION,
+      scenarioId: this.scenario.id,
+      faction: this.faction,
+      turn: this.turn,
+      phase: this.phase,
+      drawPile: ids(this.deck.drawPile),
+      discardPile: ids(this.deck.discardPile),
+      hand: ids(this.hand.cards),
+      choiceCards: ids(this.choiceCards),
+      chosenCard: this.chosenCard?.id ?? null,
+      // Orders and edits first, so units they reference get indexes; the list is read after
+      orders: this.orders.map((order) => ({
+        unit: unitIndex(order.unit),
+        start: order.start,
+        end: order.end,
+        canFire: order.canFire,
+        path: order.path ?? null,
+      })),
+      battleEdits: this.battleEdits.map((edit) =>
+        edit.kind === "remove"
+          ? { kind: "remove", position: edit.position, unit: unitIndex(edit.unit) }
+          : edit
+      ),
+      ordersLeft: this.ordersLeft,
+      ordersCommitted: this.ordersCommitted,
+      units: savedUnits,
+    };
+  }
+
+  /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
+  static restore(saved: SavedGame, scenario: Scenario, commandCards: CommandCard[]): GameSession {
+    if (saved.version !== SAVE_VERSION) throw new Error(`Unsupported save version ${saved.version}`);
+    if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
+    if (![TurnPhase.PICK_CARDS, TurnPhase.ORDER_UNITS, TurnPhase.BATTLE].includes(saved.phase)) {
+      throw new Error(`Unknown phase ${saved.phase}`);
+    }
+
+    const session = new GameSession({ scenario, faction: saved.faction, initialHandSize: 0, commandCards });
+
+    const cardsById = new Map(commandCards.map((card) => [card.id, card]));
+    const card = (id: string) => {
+      const found = cardsById.get(id);
+      if (!found) throw new Error(`Unknown card ${id}`);
+      return found;
+    };
+    const cards = (ids: string[]) => ids.map(card);
+
+    // Replace the scenario's starting units with the saved ones
+    session.board.getAllHexes().forEach((hex) => hex.removeUnit());
+    const units = saved.units.map((savedUnit) => {
+      const unit = new Unit(savedUnit.type);
+      if (savedUnit.ordered) unit.giveOrder(savedUnit.readyToFire);
+      unit.setOrderable(savedUnit.orderable);
+      if (savedUnit.position && !session.board.placeUnitAt(savedUnit.position, unit)) {
+        throw new Error(`Can't place unit at ${positionKey(savedUnit.position)}`);
+      }
+      return unit;
+    });
+    const unit = (index: number) => {
+      if (!units[index]) throw new Error(`Unknown unit ${index}`);
+      return units[index];
+    };
+
+    session.deck.restorePiles(cards(saved.drawPile), cards(saved.discardPile));
+    session.hand = new Hand(cards(saved.hand));
+    session.choiceCards = cards(saved.choiceCards);
+    session.chosenCard = saved.chosenCard === null ? null : card(saved.chosenCard);
+    session.turn = saved.turn;
+    session.phase = saved.phase;
+    session.orders = saved.orders.map(
+      (order) => new Order(unit(order.unit), order.start, order.end, order.canFire, order.path)
+    );
+    session.ordersLeft = saved.ordersLeft;
+    session.ordersCommitted = saved.ordersCommitted;
+    session.battleEdits = saved.battleEdits.map((edit) =>
+      edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unit(edit.unit) } : edit
+    );
+    session.snapshot = session.createSnapshot();
+    return session;
   }
 
   // --- internals

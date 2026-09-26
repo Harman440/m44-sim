@@ -1,14 +1,34 @@
-import { fireEvent, render, screen, waitForElementToBeRemoved } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitForElementToBeRemoved } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./components/mainComponents/GameViews/CardsView";
 
 const start = (faction: "Aliados" | "Eje") => {
   fireEvent.click(screen.getByRole("button", { name: faction }));
   fireEvent.click(screen.getByRole("button", { name: "Empezar partida" }));
 };
 
+const handTitles = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll(".cards-grid .card-title"));
+
+// Each step's timer is only scheduled after React re-renders, so advance them separately
+const dealHand = (cards: number) => {
+  for (let i = 0; i < cards; i++) {
+    act(() => {
+      vi.advanceTimersByTime(DEAL_GAP_MS);
+    });
+    act(() => {
+      vi.advanceTimersByTime(DEAL_ANIMATION_MS);
+    });
+  }
+};
+
 beforeEach(() => {
   localStorage.clear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("App menu and game flow", () => {
@@ -51,11 +71,64 @@ describe("App menu and game flow", () => {
   it("remembers the last side chosen on this device", () => {
     const { unmount } = render(<App />);
     start("Eje");
+    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salir" }));
     unmount();
 
     render(<App />);
 
     expect(screen.getByRole("button", { name: "Eje" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Empezar partida" })).toBeEnabled();
+  });
+
+  it("shows a resumed hand straight away, without dealing it again", () => {
+    vi.useFakeTimers();
+    const first = render(<App />);
+    start("Aliados");
+    dealHand(5);
+    const hand = handTitles(first.container).map((el) => el.textContent);
+    expect(hand).toHaveLength(5);
+    first.unmount();
+
+    const { container } = render(<App />);
+
+    expect(handTitles(container).map((el) => el.textContent)).toEqual(hand);
+  });
+
+  it("picks the game back up after a reload, at the same turn and phase", () => {
+    vi.useFakeTimers();
+    const { container, unmount } = render(<App />);
+    start("Aliados");
+    dealHand(5);
+    fireEvent.click(handTitles(container)[0]!);
+    expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
+    unmount();
+
+    render(<App />);
+
+    expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
+    expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText("Partida recuperada · Turno 1")).toBeInTheDocument();
+  });
+
+  it("forgets the game in progress when leaving to the menu", () => {
+    const { unmount } = render(<App />);
+    start("Aliados");
+    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salir" }));
+    unmount();
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
+  });
+
+  it("starts from the menu when the saved game can't be read", () => {
+    localStorage.setItem("m44-sim:saved-game", JSON.stringify({ version: 999 }));
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
+    expect(localStorage.getItem("m44-sim:saved-game")).toBeNull();
   });
 });
