@@ -1,70 +1,44 @@
-# Getting Started with Create React App
+# m44-sim
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A companion web app for playing [Memoir '44](https://www.daysofwonder.com/memoir44/) with **simultaneous turns**, using a loose house variant rather than the official rules. Each player runs the app on their own device, a desktop browser or an Android tablet, next to the physical board.
 
-## Available Scripts
+Each turn:
+1. **Carta:** pick a command card from your hand.
+2. **Órdenes:** order the units that card activates on a digital copy of the map: move them (with the path drawn as an arrow) or hold and fire. Then confirm.
+3. **Batalla:** the map is hidden, because the battle is played on the physical table. The screen shows a summary of this turn's orders and a dice roller:
+   - "Disparar" on a unit asks about the situation (distance, the target's terrain) and works out how many dice to roll.
+   - "Tirada libre" rolls any number of dice.
+   - "Ver mapa" brings the map back to record casualties and retreats so the app matches the table.
 
-In the project directory, you can run:
+The UI is in Spanish.
 
-### `npm start`
+## Getting started
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+npm install
+npm run dev        # http://localhost:3000
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server on port 3000 |
+| `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
+| `npm test` | Vitest in watch mode (`npx vitest run` for a single run) |
+| `npm run build` | Production build to `dist/` |
+| `npm run optimize-image -- <file> [maxWidth]` | Convert an image to WebP, scaled down, next to the original |
 
-### `npm test`
+### Playing on an Android tablet
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Run `npm run dev -- --host` and open `http://<your computer's IP>:3000` in Chrome on the tablet (both on the same network). On WSL2, enable mirrored networking (`networkingMode=mirrored` under `[wsl2]` in `%UserProfile%\.wslconfig`) and allow port 3000 through the Windows firewall.
 
-### `npm run build`
+## Project layout
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- `src/game-core/`: game logic in plain TypeScript: board and pathfinding, units, cards, `GameSession` (the turn flow), dice and the fire-dice engine
+- `src/data/`: scenarios, command cards, and `fireQuestions.ts` (the firing situations and their dice effects, the place to tune house rules)
+- `src/components/`: React + MUI UI; the board is an SVG
+- `docs/PLAN.md`: roadmap and known issues
+- `CLAUDE.md`: conventions for working on the code
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Tech
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+React 19, TypeScript, Vite, MUI 9, Vitest + Testing Library.

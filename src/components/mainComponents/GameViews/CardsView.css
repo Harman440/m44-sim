@@ -118,3 +118,25 @@
     opacity: 1;
   }
 }
+/* Short landscape screens (tablets): tighten so the hand fits without scrolling */
+@media (orientation: landscape) and (max-height: 900px) {
+  .cards-header {
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .cards-header h3 {
+    font-size: 1.6rem;
+    margin-bottom: 0;
+  }
+
+  .top-area {
+    margin-bottom: 16px;
+  }
+
+  .deck-pile,
+  .discard-pile {
+    width: 6.5rem;
+    height: 9rem;
+  }
+}

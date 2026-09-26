@@ -30,13 +30,13 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
   - [x] the hex-to-pixel math appears in both `Board.getHexCenter` and `renderBoard` (now `components/boardGeometry.ts`)
   - [x] there is a `UnitType` string union in `types/scenario.ts` and a `UnitType` enum in `game-core/unit.ts`
   - [x] the per-faction initial hand size is hardcoded in `App.tsx`, although `ScenarioSettings` exists for it
-- [ ] **Q4. Leftover cruft:**
-  - [ ] `console.log` calls everywhere
-  - [ ] CSS classes that look like Tailwind but aren't backed by Tailwind
-  - [ ] an unused `use` import in OrdersView
-  - [ ] an empty `Menu.tsx` and a stray `src/board.html`
-  - [ ] a CRA boilerplate README, `<title>My App</title>` and a missing `/vite.svg` favicon
-- [ ] **Q5. UI text mixes Spanish and English.** The target is all Spanish.
+- [x] **Q4. Leftover cruft:**
+  - [x] `console.log` calls everywhere (only the explicit `print*` debug helpers are left)
+  - [x] CSS classes that look like Tailwind but aren't backed by Tailwind
+  - [x] an unused `use` import in OrdersView
+  - [x] an empty `Menu.tsx` and a stray `src/board.html`
+  - [x] a CRA boilerplate README, `<title>My App</title>` and a missing `/vite.svg` favicon
+- [x] **Q5. UI text mixes Spanish and English.** The target is all Spanish.
 
 ---
 
@@ -48,7 +48,7 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [x] Add the `typecheck` and `test` scripts; add Vitest + jsdom; move testing-library to devDependencies
 - [x] Add a first smoke test (`src/game-core/deck.test.ts`)
 - [x] Remove the dead `cli` script and add `/dist` to `.gitignore`
-- [ ] Rewrite the README, fix `index.html` (title, favicon) and delete `src/board.html` (Q4)
+- [x] Rewrite the README, fix `index.html` (title, favicon) and delete `src/board.html` (Q4); done in Step 7
 
 ### Step 0.5: MUI
 - [x] Install MUI 9 + Emotion; add the dark theme (`src/theme.ts`) with `ThemeProvider` and `CssBaseline`
@@ -128,10 +128,28 @@ The current loop is **PICK_CARDS** (CardsView) → **ORDER_UNITS** (OrdersView �
 - [ ] Ideas for more situations: the target is in a bunker or behind sandbags, the firing unit is on a hill, line of sight is blocked, and more
 
 ### Step 7: Menu and polish (Q5)
-- [ ] Scenario and faction picker (`Menu.tsx`)
-- [ ] All UI text in Spanish
-- [ ] Visual polish, with the layout sized for an Android tablet next to the board (landscape and portrait)
-- [ ] Shrink or convert the large PNG assets (1.8–2.7 MB each) to WebP
+- [x] Scenario and faction picker (`Menu.tsx`):
+  - remembers the last choice on the device
+  - in-game header with the scenario, side, turn and phase steps (Carta › Órdenes › Batalla)
+  - "Menú" asks for confirmation before leaving the game
+- [x] All UI text in Spanish:
+  - card names and descriptions, scenario, selection panels (the orders panel now explains how the unit moves and fires), and the phase labels
+  - `index.html` has `lang="es"` and a title
+- [x] Visual polish:
+  - clear move highlights (green: move and fire; amber: move only) with a legend
+  - gold outline on the selected unit
+  - the card screen fits a landscape tablet without scrolling
+- [x] Images converted to WebP (8.7 MB → 390 KB), with `npm run optimize-image` for new art
+- [x] Cleanup: README rewritten; removed `board.html`, `logo.svg`, the CRA logos, `web-vitals` and the CRA-only `package.json` fields
+- [x] Tests: `App.test.tsx` (menu → game → exit flow, remembered side) and `labels.test.ts`
+
+## Ideas for later
+- [ ] Keep a game in progress across a page reload or the tablet sleeping (save the session to `localStorage`)
+- [ ] Real tank and artillery art (`npm run optimize-image -- <file> 192`)
+- [ ] More scenarios (the unused `src/assets/scenarios/defualt.png` could be a starting point)
+- [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (replacing the "Coge 2 Cartas" debug button)
+- [ ] More firing situations in `src/data/fireQuestions.ts`
+- [ ] Install to the tablet's home screen as a PWA (manifest + icons), for full screen with no browser bar
 
 ---
 

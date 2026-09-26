@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
+import { describeHex, describeMovement } from "../../labels";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import "./PhaseLayout.css";
 
@@ -13,6 +14,15 @@ interface OrdersViewProps {
 }
 
 const samePosition = (a: Position, b: Position) => a.row === b.row && a.col === b.col;
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+      <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: color, flexShrink: 0 }} />
+      <Typography variant="body2">{label}</Typography>
+    </Stack>
+  );
+}
 
 function OrdersView({ boardSide, session, game }: OrdersViewProps) {
   const boardManager = session.board;
@@ -113,11 +123,17 @@ function OrdersView({ boardSide, session, game }: OrdersViewProps) {
 
         {selectedHex && (
           <Paper variant="outlined" sx={{ p: 2, width: "100%" }}>
-            <Typography variant="body2">Seleccionado: {selectedHex.getDescription()}</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Terreno: {selectedHex.getType()} | Regla de movimiento:{" "}
-              {selectedHex.getMovementRule()}
-            </Typography>
+            <Typography variant="body2">Seleccionado: {describeHex(selectedHex)}</Typography>
+            {selectedHex.unit && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {describeMovement(selectedHex.unit)}
+              </Typography>
+            )}
+            {/* Legend for the highlighted hexes (no hover on tablets) */}
+            <Stack sx={{ gap: 0.5, mb: 1.5 }}>
+              <LegendItem color="rgba(67, 160, 71, 0.8)" label="Mover y disparar" />
+              <LegendItem color="rgba(255, 179, 0, 0.8)" label="Solo mover (no podrá disparar)" />
+            </Stack>
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
               <Button onClick={handleHoldAndFire}>Mantener y disparar</Button>
               <Button variant="outlined" onClick={clearSelection}>

@@ -1,6 +1,7 @@
 // components/labels.ts
 // Spanish UI text for game enums (code identifiers stay in English)
-import { UnitType } from "../game-core/unit";
+import Hex from "../game-core/hex";
+import Unit, { UnitType } from "../game-core/unit";
 import { DieFace } from "../game-core/dice";
 import { HexType, Side } from "../types/hex";
 
@@ -31,4 +32,20 @@ export const DIE_FACE_LABELS: Record<DieFace, string> = {
   [DieFace.GRENADE]: "Granada",
   [DieFace.STAR]: "Estrella",
   [DieFace.FLAG]: "Bandera",
+};
+
+/** "Tanque en bosque", or just the terrain for an empty hex */
+export const describeHex = (hex: Hex): string => {
+  const terrain = TERRAIN_LABELS[hex.getType()];
+  return hex.unit ? `${UNIT_LABELS[hex.unit.getUnitType()]} en ${terrain}` : terrain;
+};
+
+/** How far a unit may move, and how far it may move and still fire */
+export const describeMovement = (unit: Unit): string => {
+  const hexes = (n: number) => `${n} ${n === 1 ? "casilla" : "casillas"}`;
+  const fire =
+    unit.getMoveAndFire() === 0
+      ? "si se mueve no puede disparar"
+      : `puede disparar si mueve hasta ${hexes(unit.getMoveAndFire())}`;
+  return `Mueve hasta ${hexes(unit.getMaxMove())}; ${fire}`;
 };

@@ -58,7 +58,7 @@ function CommandCardComponent({
 
                 {/* Card Description */}
                 <div className="card-description">
-                    {cardData.description || "A powerful command card that can change the tide of battle."}
+                    {cardData.description || "Una carta de mando que puede cambiar el curso de la batalla."}
                 </div>
 
                 {/* Card Diagram/Stats */}

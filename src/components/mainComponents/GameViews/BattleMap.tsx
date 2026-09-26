@@ -3,6 +3,7 @@ import { Button, Paper, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
+import { describeHex } from "../../labels";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import "./PhaseLayout.css";
 
@@ -83,7 +84,7 @@ function BattleMap({ boardSide, session, game, onShowSummary, onFinishTurn }: Ba
         {selectedHex && (
           <Paper variant="outlined" sx={{ p: 2, width: "100%" }}>
             <Typography variant="body2" sx={{ mb: 1.5 }}>
-              Seleccionado: {selectedHex.getDescription()}
+              Seleccionado: {describeHex(selectedHex)}
             </Typography>
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
               <Button color="error" onClick={handleRemove}>

@@ -25,9 +25,10 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
   - `fireRules.ts`: engine for the "how many dice?" questionnaire (next question, adding up the dice)
 - `src/data/`: scenarios (terrain, units, board image, starting hand size per side), command-card templates, and `fireQuestions.ts`. **`fireQuestions.ts` is where the firing situations live:** each question has its text, options, when it applies (`appliesTo`) and how each answer changes the dice (`effect`), plus the base-dice and terrain tables. Add new situations there. The numbers start from the official M44 values and are meant to be tuned to the house rules.
 - `src/types/`: shared types and enums (`TurnPhase`, `HexType`, `Side`, `Position`, …)
+- `src/App.tsx`: shows `Menu` (scenario and side picker; the last choice is remembered in `localStorage`) or `GameView`
 - `src/theme.ts`: MUI theme (dark, orange primary)
 - `src/components/`: rendering (SVG board: `Board` → `Hexagon` → `UnitComponent`, plus `OrderComponent` arrows; `CommandCardComponent`)
-- `src/components/mainComponents/GameView.tsx`: creates the `GameSession` and subscribes with `useSyncExternalStore`, then renders one view per phase from `GameViews/`: `CardsView` (PICK_CARDS), `OrdersView` (ORDER_UNITS) and `BattleView` (BATTLE). The battle screen hides the map by default, since the player is looking at the physical board, and shows `TurnSummary` and `DiceRoller` ("Tirada libre") full screen. "Disparar" on a unit opens `FireDialog`, which asks the fire questions, shows the dice calculation and rolls. "Ver mapa" opens `BattleMap`, where the player mirrors the physical battle by removing destroyed units and moving retreating ones. The board screens share `PhaseLayout.css`.
+- `src/components/mainComponents/GameView.tsx`: header (scenario, side, turn and phase steps, "Menú" with an exit confirmation); creates the `GameSession` and subscribes with `useSyncExternalStore`, then renders one view per phase from `GameViews/`: `CardsView` (PICK_CARDS), `OrdersView` (ORDER_UNITS) and `BattleView` (BATTLE). The battle screen hides the map by default, since the player is looking at the physical board, and shows `TurnSummary` and `DiceRoller` ("Tirada libre") full screen. "Disparar" on a unit opens `FireDialog`, which asks the fire questions, shows the dice calculation and rolls. "Ver mapa" opens `BattleMap`, where the player mirrors the physical battle by removing destroyed units and moving retreating ones. The board screens share `PhaseLayout.css`.
 - `src/components/labels.ts`: Spanish labels for game enums (units, terrain, sections, die faces). Use it rather than showing enum values or the English names in `Hex`. Views read the snapshot and call session methods; only UI state (selection, animations, messages) lives in React.
 - Tests live next to the code as `*.test.ts`. The Vitest setup is in `src/test/setup.ts` (jsdom + jest-dom).
 
@@ -42,6 +43,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - The physical table is the source of truth after battle. The app tracks whole units only (no figure counts), and a unit can be moved to any empty hex to mirror a retreat or taking ground.
 - Unit sprites live in `src/assets/units/<allies|axis>/<unit type>.webp|svg` and are mapped in `UnitComponent`. Tank and artillery are placeholder SVGs until real art replaces them.
 - Remove debug `console.log` calls before committing.
+- Images: use WebP, sized to a few times their display size. Convert new art with `npm run optimize-image -- <file> [maxWidth]`.
 
 ## Roadmap
 The step-by-step plan and the list of known issues are in [docs/PLAN.md](docs/PLAN.md). Work through it one step at a time and tick items off when they're done.

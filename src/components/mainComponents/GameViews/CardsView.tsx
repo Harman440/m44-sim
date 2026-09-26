@@ -80,6 +80,7 @@ function CardsView({
     <div className="cards-view">
       {/* Header */}
       <Box
+        className="cards-header"
         sx={{
           textAlign: "center",
           pb: 2.5,

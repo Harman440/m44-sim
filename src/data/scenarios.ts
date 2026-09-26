@@ -1,4 +1,4 @@
-// data/scenarios.js
+// data/scenarios.ts
 
 import { Scenario } from "../types/scenario";
 import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
@@ -6,8 +6,8 @@ import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
 export const scenarios: Scenario[] = [
   {
     id: 'foret-decouves',
-    name: 'Foret DEcouves',
-    description: 'A dense forest scenario with scattered patches.',
+    name: "Forêt d'Écouves",
+    description: 'Bosque denso con claros dispersos y pueblos que disputar.',
     image: foretDEcouvesImage,
     initialHandSize: { allies: 5, axis: 3 },
     "tiles": {

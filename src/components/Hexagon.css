@@ -9,17 +9,23 @@
   fill: transparent;
 }
 .hexagon__tile--selected {
-  filter: brightness(1.4);
-  fill: rgba(255, 255, 255, 0.1);
+  fill: rgba(255, 255, 255, 0.25);
+  stroke: #ffb300;
+  stroke-width: 4;
 }
+/* Can move here and still fire */
 .hexagon__tile--move-and-fire {
-  filter: brightness(0.3);
-  fill: rgba(255, 0, 0, 0.2);
+  fill: rgba(67, 160, 71, 0.45);
+  stroke: #66bb6a;
+  stroke-width: 2;
 }
+/* Can move here but won't be able to fire */
 .hexagon__tile--move {
-  filter: brightness(0.7);
-  fill: rgba(0, 255, 0, 0.2);
+  fill: rgba(255, 179, 0, 0.4);
+  stroke: #ffca28;
+  stroke-width: 2;
 }
+
 /* Red flash for a tap that can't be ordered or reached */
 .hexagon__flash-invalid {
   fill: rgba(220, 38, 38, 0.55);

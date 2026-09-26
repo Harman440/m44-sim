@@ -49,7 +49,7 @@ function BattleView({ boardSide, session, game, onFinishTurn }: BattleViewProps)
         >
           <Box>
             <Typography variant="h5" component="h2">
-              Fase Batalla
+              Batalla
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Resuelve la batalla en el tablero físico. Si hay bajas o retiradas, actualízalas en el
