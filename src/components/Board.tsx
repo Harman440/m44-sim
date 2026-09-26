@@ -103,13 +103,17 @@ function Board({
   };
 
   const { width, height, imageMargin } = geometry;
+  // Crop the view to the board image: the hexes all lie inside it, so the
+  // dark margin around it would only waste screen space on tablets
+  const viewWidth = width - 2 * imageMargin;
+  const viewHeight = height - 2 * imageMargin;
 
   return (
     <div className="board">
       {/* viewBox + CSS width lets the board scale down to fit tablets */}
       <svg
-        viewBox={`0 0 ${width} ${height}`}
-        style={{ maxWidth: width, '--board-aspect': width / height } as React.CSSProperties}
+        viewBox={`${imageMargin} ${imageMargin} ${viewWidth} ${viewHeight}`}
+        style={{ maxWidth: width, '--board-aspect': viewWidth / viewHeight } as React.CSSProperties}
         className={`board__svg${locked ? ' board__svg--locked' : ''}`}
       >
 

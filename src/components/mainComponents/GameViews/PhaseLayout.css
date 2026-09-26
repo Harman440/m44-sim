@@ -25,6 +25,7 @@
   .phase-layout {
     flex-direction: row;
     align-items: flex-start;
+    gap: 12px;
   }
 
   .phase-layout__board {
@@ -34,11 +35,23 @@
 
   .phase-layout__board .board__svg {
     /* width follows from the available height; --board-aspect is set by Board */
-    width: min(100%, calc((100dvh - 80px) * var(--board-aspect)));
+    width: min(100%, calc((100dvh - 64px) * var(--board-aspect)));
   }
 
+  /* Narrow column so the board gets most of the width */
   .phase-layout__controls {
-    flex: 0 0 300px;
+    flex: 0 0 220px;
     align-items: stretch;
+    gap: 12px;
+  }
+
+  .phase-layout__controls .MuiButton-root {
+    width: 100%;
+    padding-inline: 8px;
+    white-space: nowrap;
+  }
+
+  .phase-layout__controls .MuiPaper-root {
+    padding: 12px;
   }
 }
