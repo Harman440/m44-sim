@@ -96,17 +96,20 @@ The app should feel like part of the board game rather than a generic dark dashb
 
 ## Step 11: Rules and firing situations
 
-- [ ] **Decide:** the dice numbers are the official M44 values for now (infantry 3/2/1, tank 3, artillery 3/3/2/2/1/1; forest and town −1 infantry and −2 tank, hill −1; artillery ignores terrain). Adjust them to the house rules.
-- [ ] More situations in `src/data/fireQuestions.ts`:
-  - the target is in a bunker or behind sandbags
-  - the firing unit is on a hill
-  - line of sight is blocked
-  - the unit moved before firing (if the house rules give a penalty)
-- [ ] Pre-answer what the app already knows. The firing unit's own terrain and whether it moved are in the order, so skip those questions (`appliesTo` plus a richer `FireContext`).
-- [ ] **Decide:** is there any unit-specific movement, e.g. tanks can't enter towns, or forest costs more for tanks? Today every unit moves the same (`Hex.getMovementCost`, `canEnter`).
-- [ ] **Decide:** "Infantry Assault"-style cards (a TODO in `commandCard.ts`: choose the section on play). Do we want them?
+- [x] **Decided:** keep the official dice values: infantry 3/2/1, tank 3/3/3, artillery 3/3/2/2/1/1. Forest and town −1 for infantry and −2 for tanks, hill −1 for both, and artillery ignores terrain.
+- [x] New situations in `src/data/fireQuestions.ts`. The questions are now distance → line of sight (2+ hexes only) → target terrain → sandbags.
+  - **Búnker** is a target-terrain answer: −1 for infantry, −2 for tanks, 0 for artillery (same as town)
+  - **Línea de visión:** "No" blocks the shot. The dialog says to pick another target and offers no roll, the unit keeps its fire, and `GameSession.fire` refuses it.
+  - **Sacos terreros:** no dice change. The reminder "el objetivo ignora 1 bandera" shows with the calculation and is kept with the shot (`Shot.notes`, saved; older saves read as no notes).
+  - Engine: a question can now `block` the shot or add a `note` (`game-core/fireRules.ts`)
+- [x] **Decided:** no bonus for firing from a hill, and no penalty for moving before firing beyond what the orders already allow
+- [x] **Dropped:** pre-answering from the order. With no hill bonus or move penalty, no question depends on what the app knows about the firing unit.
+- [x] **Decided:** every unit moves the same (forest and towns stop movement, hills don't). The unit-specific movement hooks stay unused.
+- [x] **Decided:** "Infantry Assault"-style cards (choose the section on play): not now; moved to Ideas for later
+- [x] Tests: engine blocking and notes, the new question order, bunker values and sandbags notes (`fireRules.test.ts`); blocked shots and saved notes (`gameSession.test.ts`); out-of-sight and sandbags flows (`FireDialog.test.tsx`)
 
 ## Ideas for later
+- [ ] Cards that let you choose which section to activate when you play them ("Infantry Assault" style)
 - [ ] Special cards that let you draw 2 and keep 1 at the end of the turn (these replace the "Coge 2 Cartas" debug button)
 - [ ] More scenarios, with a scenario data check for each (the old unused `defualt.png` board art is in git history before Step 9)
 - [ ] Install to the tablet's home screen as a PWA (manifest, icons, offline cache), for full screen with no browser bar. The fonts are already bundled, so the app can work fully offline.

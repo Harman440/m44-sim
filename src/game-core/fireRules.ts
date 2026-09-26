@@ -34,22 +34,43 @@ export interface FireQuestion {
   appliesTo?: (context: FireContext, answers: FireAnswers) => boolean;
   /** How the chosen answer changes the dice (null for no change) */
   effect: (context: FireContext, answer: string, answers: FireAnswers) => DiceStep | null;
+  /** Why this answer means the unit can't fire at this target (e.g. no line of sight), or null */
+  blocks?: (context: FireContext, answer: string) => string | null;
+  /** A reminder shown with the result that doesn't change the dice (e.g. "ignores 1 flag"), or null */
+  note?: (context: FireContext, answer: string) => string | null;
 }
 
 export interface FireDiceResult {
   dice: number;
   steps: DiceStep[];
+  /** Reminders for resolving the hits on the table */
+  notes: string[];
+  /** The unit can't fire at this target, and why; the shot shouldn't be taken */
+  blocked: string | null;
 }
 
 const applies = (question: FireQuestion, context: FireContext, answers: FireAnswers) =>
   question.appliesTo?.(context, answers) ?? true;
 
-/** The next question still to answer, or null when the questionnaire is complete */
+const answered = (questions: readonly FireQuestion[], context: FireContext, answers: FireAnswers) =>
+  questions.filter((q) => q.id in answers && applies(q, context, answers));
+
+/** Why the answers so far rule the shot out, or null */
+function blockedBy(questions: readonly FireQuestion[], context: FireContext, answers: FireAnswers): string | null {
+  for (const q of answered(questions, context, answers)) {
+    const reason = q.blocks?.(context, answers[q.id]!);
+    if (reason) return reason;
+  }
+  return null;
+}
+
+/** The next question still to answer, or null when the questionnaire is complete (or the shot is blocked) */
 export function nextFireQuestion(
   questions: readonly FireQuestion[],
   context: FireContext,
   answers: FireAnswers
 ): FireQuestion | null {
+  if (blockedBy(questions, context, answers)) return null;
   return (
     questions.find((q) => !(q.id in answers) && applies(q, context, answers)) ?? null
   );
@@ -65,12 +86,18 @@ export function calculateFireDice(
   answers: FireAnswers,
   extraSteps: (context: FireContext, answers: FireAnswers) => DiceStep[] = () => []
 ): FireDiceResult {
-  const steps = questions
-    .filter((q) => q.id in answers && applies(q, context, answers))
+  const blocked = blockedBy(questions, context, answers);
+  if (blocked) return { dice: 0, steps: [], notes: [], blocked };
+
+  const relevant = answered(questions, context, answers);
+  const steps = relevant
     .map((q) => q.effect(context, answers[q.id]!, answers))
     .filter((step): step is DiceStep => step !== null && step.dice !== 0)
     .concat(extraSteps(context, answers).filter((step) => step.dice !== 0));
+  const notes = relevant
+    .map((q) => q.note?.(context, answers[q.id]!) ?? null)
+    .filter((note): note is string => note !== null);
 
   const total = steps.reduce((sum, step) => sum + step.dice, 0);
-  return { dice: Math.max(0, total), steps };
+  return { dice: Math.max(0, total), steps, notes, blocked: null };
 }

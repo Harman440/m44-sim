@@ -390,15 +390,34 @@ describe("GameSession firing", () => {
   it("works out the dice from the answers, rolls them once and keeps the result", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "2", targetTerrain: "plains" })).toBe(true);
+    expect(session.fire(0, { distance: "2", lineOfSight: "yes", targetTerrain: "plains", sandbags: "no" })).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
     expect(shot).toMatchObject({ orderIndex: 0, dice: 2, faces: ["infantry", "infantry"] });
     expect(shot!.steps.map((s) => s.dice)).toEqual([2]);
     expect(session.shotsLeft(0)).toBe(0);
-    expect(session.fire(0, { distance: "1", targetTerrain: "plains" })).toBe(false);
+    expect(session.fire(0, { distance: "1", targetTerrain: "plains", sandbags: "no" })).toBe(false);
     expect(session.fireQuick(0, 3)).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(1);
+  });
+
+  it("won't take a shot the questionnaire ruled out (no line of sight)", () => {
+    const session = battle();
+
+    expect(session.fire(0, { distance: "2", lineOfSight: "no" })).toBe(false);
+    expect(session.shotsLeft(0)).toBe(1);
+  });
+
+  it("keeps the questionnaire's reminders with the shot, also after a reload", () => {
+    const session = battle();
+    session.fire(0, { distance: "1", targetTerrain: "plains", sandbags: "yes" });
+
+    const [shot] = session.getSnapshot().shots;
+    expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
+      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
+    ]);
+    expect(restored.getSnapshot().shots[0]!.notes).toEqual(shot!.notes);
   });
 
   it("won't fire before the questionnaire is complete", () => {
@@ -411,7 +430,7 @@ describe("GameSession firing", () => {
   it("records a 0-dice shot without rolling: the unit has used its fire", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "3", targetTerrain: "town" })).toBe(true);
+    expect(session.fire(0, { distance: "3", lineOfSight: "yes", targetTerrain: "town", sandbags: "no" })).toBe(true);
 
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [] });
     expect(session.shotsLeft(0)).toBe(0);

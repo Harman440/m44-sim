@@ -43,6 +43,20 @@ const QUICK_DICE = [1, 2, 3, 4, 5, 6];
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 const diceText = (dice: number) => `${dice} ${dice === 1 ? "dado" : "dados"}`;
 
+/** Reminders for resolving the hits on the table, e.g. sandbags */
+function ShotNotes({ notes }: { notes: readonly string[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <Stack sx={{ gap: 1, mt: 1.5 }} data-testid="shot-notes">
+      {notes.map((note) => (
+        <Alert key={note} severity="info">
+          {note}
+        </Alert>
+      ))}
+    </Stack>
+  );
+}
+
 function ShotResult({ shot, number, faction }: { shot: Shot; number: number | null; faction: Faction }) {
   return (
     <Box data-testid="shot-result">
@@ -60,6 +74,7 @@ function ShotResult({ shot, number, faction }: { shot: Shot; number: number | nu
         {shot.dice > 0 ? diceText(shot.dice) : "0 dados: el disparo no tuvo efecto"}
       </Typography>
       {shot.dice > 0 && <DiceResult roll={{ faces: [...shot.faces], id: number ?? 1 }} faction={faction} />}
+      <ShotNotes notes={shot.notes} />
     </Box>
   );
 }
@@ -229,6 +244,14 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
       );
     }
 
+    if (result?.blocked) {
+      return (
+        <Alert severity="warning" data-testid="fire-blocked">
+          {result.blocked}
+        </Alert>
+      );
+    }
+
     return (
       result && (
         <>
@@ -246,6 +269,7 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
               ? `Total: ${diceText(result.dice)}`
               : "Total: 0 dados. Este disparo no tiene efecto."}
           </Typography>
+          <ShotNotes notes={result.notes} />
           <Button fullWidth size="large" onClick={handleFire} sx={{ mt: 2 }}>
             {result.dice > 0 ? `Disparar ${diceText(result.dice)}` : "Registrar disparo sin efecto"}
           </Button>

@@ -70,8 +70,11 @@ describe("FireDialog", () => {
 
     expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
     choose("2");
+    expect(screen.getByText("¿Tiene línea de visión al objetivo?")).toBeInTheDocument();
+    choose("Sí");
     expect(screen.getByText("¿En qué terreno está el objetivo?")).toBeInTheDocument();
     choose("Bosque");
+    choose("No");
 
     const breakdown = screen.getByTestId("fire-breakdown");
     expect(breakdown).toHaveTextContent("Base: Infantería a 2 casillas+2");
@@ -91,6 +94,7 @@ describe("FireDialog", () => {
     open(UnitType.INFANTRY);
     choose("1 (adyacente)");
     choose("Campo abierto");
+    choose("No");
     choose("Disparar 3 dados");
     choose("Cerrar");
 
@@ -127,6 +131,30 @@ describe("FireDialog", () => {
     expect(screen.queryByRole("button", { name: "Atrás" })).not.toBeInTheDocument();
   });
 
+  it("says a target out of sight can't be shot, and offers no roll", () => {
+    const session = open(UnitType.INFANTRY);
+    choose("2");
+    choose("No");
+
+    expect(screen.getByTestId("fire-blocked")).toHaveTextContent("Sin línea de visión");
+    expect(screen.queryByRole("button", { name: /^Disparar|Registrar/ })).not.toBeInTheDocument();
+    choose("Atrás");
+    expect(screen.getByText("¿Tiene línea de visión al objetivo?")).toBeInTheDocument();
+    expect(session.getSnapshot().shots).toHaveLength(0);
+  });
+
+  it("reminds about sandbags before and after the roll", () => {
+    open(UnitType.INFANTRY);
+    choose("1 (adyacente)");
+    choose("Campo abierto");
+    choose("Sí");
+
+    expect(screen.getByTestId("shot-notes")).toHaveTextContent("ignora 1 bandera");
+    choose("Disparar 3 dados");
+
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("ignora 1 bandera");
+  });
+
   it("offers artillery its full range of 6 hexes", () => {
     open(UnitType.ARTILLERY);
 
@@ -138,7 +166,9 @@ describe("FireDialog", () => {
   it("records a shot with no dice as fired, without rolling", () => {
     const session = open(UnitType.INFANTRY);
     choose("3");
+    choose("Sí");
     choose("Pueblo");
+    choose("No");
 
     expect(screen.getByTestId("fire-total")).toHaveTextContent("no tiene efecto");
     choose("Registrar disparo sin efecto");

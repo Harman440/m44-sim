@@ -40,7 +40,12 @@ export interface Shot {
   steps: readonly DiceStep[];
   dice: number;
   faces: readonly DieFace[];
+  /** Reminders for resolving the hits (e.g. sandbags ignore 1 flag) */
+  notes: readonly string[];
 }
+
+/** Saves from before notes existed have none */
+type SavedShot = Omit<Shot, "notes"> & { notes?: string[] };
 
 export interface MoveOptions {
   moves: Position[];
@@ -81,7 +86,7 @@ export interface SavedGame {
     | { kind: "remove"; position: Position; unit: number }
     | { kind: "move"; from: Position; to: Position }
   )[];
-  shots: Shot[];
+  shots: SavedShot[];
 }
 
 /** Version 1 saves had no shots; they are read as a turn where nobody has fired yet */
@@ -332,15 +337,16 @@ class GameSession {
     const context = { unitType: this.orders[orderIndex]!.unit.getUnitType(), card: this.chosenCard };
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
 
-    const { dice, steps } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-    return this.recordShot(orderIndex, dice, steps);
+    const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
+    if (blocked) return false;
+    return this.recordShot(orderIndex, dice, steps, notes);
   }
 
   /** Fire with a number of dice the player worked out themselves */
   fireQuick(orderIndex: number, dice: number): boolean {
     if (!Number.isInteger(dice) || dice < 1) return false;
     if (this.shotsLeft(orderIndex) <= 0) return false;
-    return this.recordShot(orderIndex, dice, []);
+    return this.recordShot(orderIndex, dice, [], []);
   }
 
   /** Take back this unit's last shot, for a shot recorded by mistake */
@@ -353,8 +359,8 @@ class GameSession {
     return this.publish();
   }
 
-  private recordShot(orderIndex: number, dice: number, steps: DiceStep[]): true {
-    const shot: Shot = { orderIndex, steps, dice, faces: rollDice(dice, this.random) };
+  private recordShot(orderIndex: number, dice: number, steps: DiceStep[], notes: string[]): true {
+    const shot: Shot = { orderIndex, steps, dice, faces: rollDice(dice, this.random), notes };
     this.shots = [...this.shots, shot];
     return this.publish();
   }
@@ -433,7 +439,12 @@ class GameSession {
       ),
       ordersLeft: this.ordersLeft,
       ordersCommitted: this.ordersCommitted,
-      shots: this.shots.map((shot) => ({ ...shot, steps: [...shot.steps], faces: [...shot.faces] })),
+      shots: this.shots.map((shot) => ({
+        ...shot,
+        steps: [...shot.steps],
+        faces: [...shot.faces],
+        notes: [...shot.notes],
+      })),
       units: savedUnits,
     };
   }
@@ -503,7 +514,7 @@ class GameSession {
     session.shots = (saved.version === 1 ? [] : saved.shots).map((shot) => {
       if (!session.orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
       if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
-      return shot;
+      return { ...shot, notes: shot.notes ?? [] };
     });
     session.snapshot = session.createSnapshot();
     return session;

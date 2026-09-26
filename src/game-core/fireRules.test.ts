@@ -36,7 +36,29 @@ describe("fire questionnaire engine", () => {
         { label: "a", dice: 2 },
         { label: "b", dice: -5 },
       ],
+      notes: [],
+      blocked: null,
     });
+  });
+
+  it("stops asking and rolls nothing once an answer blocks the shot", () => {
+    const blocking: FireQuestion[] = [
+      { id: "see", text: "See?", options: () => [], effect: () => null, blocks: (_, a) => (a === "no" ? "Can't see" : null) },
+      { id: "c", text: "C?", options: () => [], effect: () => ({ label: "c", dice: 3 }) },
+    ];
+
+    expect(nextFireQuestion(blocking, ctx, { see: "no" })).toBeNull();
+    expect(calculateFireDice(blocking, ctx, { see: "no" })).toEqual({ dice: 0, steps: [], notes: [], blocked: "Can't see" });
+    expect(nextFireQuestion(blocking, ctx, { see: "yes" })?.id).toBe("c");
+  });
+
+  it("collects notes from the answers without changing the dice", () => {
+    const noted: FireQuestion[] = [
+      { id: "a", text: "A?", options: () => [], effect: () => ({ label: "a", dice: 2 }), note: (_, a) => (a === "yes" ? "Remember" : null) },
+    ];
+
+    expect(calculateFireDice(noted, ctx, { a: "yes" })).toMatchObject({ dice: 2, notes: ["Remember"] });
+    expect(calculateFireDice(noted, ctx, { a: "no" }).notes).toEqual([]);
   });
 });
 
@@ -59,16 +81,38 @@ describe("fire questions (house rules)", () => {
     [UnitType.TANK, "3", "hill", 2],
     [UnitType.ARTILLERY, "5", "plains", 1],
     [UnitType.ARTILLERY, "2", "town", 3], // artillery ignores terrain
+    [UnitType.INFANTRY, "1", "bunker", 2],
+    [UnitType.TANK, "1", "bunker", 1],
+    [UnitType.ARTILLERY, "3", "bunker", 2],
   ])("%s at %s hexes, target in %s: %i dice", (unitType, distance, targetTerrain, expected) => {
     expect(dice(unitType, { distance, targetTerrain })).toBe(expected);
   });
 
-  it("asks distance then target terrain, then is complete", () => {
+  it("asks distance, terrain and sandbags; line of sight only beyond adjacent hexes", () => {
     const ctx = context(UnitType.TANK);
+    const next = (answers: Record<string, string>) => nextFireQuestion(FIRE_QUESTIONS, ctx, answers)?.id ?? null;
 
-    expect(nextFireQuestion(FIRE_QUESTIONS, ctx, {})?.id).toBe("distance");
-    expect(nextFireQuestion(FIRE_QUESTIONS, ctx, { distance: "1" })?.id).toBe("targetTerrain");
-    expect(nextFireQuestion(FIRE_QUESTIONS, ctx, { distance: "1", targetTerrain: "plains" })).toBeNull();
+    expect(next({})).toBe("distance");
+    expect(next({ distance: "1" })).toBe("targetTerrain");
+    expect(next({ distance: "2" })).toBe("lineOfSight");
+    expect(next({ distance: "2", lineOfSight: "yes" })).toBe("targetTerrain");
+    expect(next({ distance: "2", lineOfSight: "yes", targetTerrain: "plains" })).toBe("sandbags");
+    expect(next({ distance: "2", lineOfSight: "yes", targetTerrain: "plains", sandbags: "no" })).toBeNull();
+  });
+
+  it("rules out a target out of sight, so the unit keeps its fire", () => {
+    const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), { distance: "2", lineOfSight: "no" });
+
+    expect(result.blocked).toMatch(/Sin línea de visión/);
+    expect(nextFireQuestion(FIRE_QUESTIONS, context(UnitType.INFANTRY), { distance: "2", lineOfSight: "no" })).toBeNull();
+  });
+
+  it("reminds that sandbags ignore a flag, without changing the dice", () => {
+    const answers = { distance: "1", targetTerrain: "plains", sandbags: "yes" };
+    const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps);
+
+    expect(result.dice).toBe(3);
+    expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
   it("adds the command card's close assault or ranged bonus", () => {
