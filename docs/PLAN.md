@@ -15,6 +15,8 @@ The current loop is **PICK_CARDS** (CardsView) â†’ **ORDER_UNITS** (OrdersView â
 - [ ] **B4. You can click "Coge 2 Cartas" repeatedly.** Each click draws 2 more cards, and the previous choice cards are lost from the deck for good.
 - [ ] **B5. The order path is computed backwards, after the move.** OrdersView calls `getPathToDestination(hex /*dest*/, unitHexPosition /*start*/)` after `moveUnit`. That is why OrderComponent has the note "points seem to be backwards". It will break once terrain costs become asymmetric. Compute the path from start to destination *before* moving.
 - [ ] **B6. Once a unit is selected, it can't be deselected.** Clicking the same hex issues a "stay and fire" order, and clicking anywhere else does nothing.
+- [x] **B8. `BoardManager.reset()` didn't rebuild the section groups**, so section cards marked units on the old board. Fixed in Step 1.
+- [ ] **B9. `setOrderableUnits` never clears earlier orderable flags.** Playing a second card without committing leaves the first card's units orderable too. Fix it with the reducer in Step 3.
 - [ ] **B7. Card ids collide when `count > 1`**, which gives duplicate React keys. The choice-card `<div>` wrapper in CardsView is also missing its `key`.
 
 ### Architecture / quality
@@ -51,9 +53,11 @@ The current loop is **PICK_CARDS** (CardsView) â†’ **ORDER_UNITS** (OrdersView â
 - [ ] Convert the CardsView controls ("Coge 2 Cartas", header, pile labels) to MUI during Step 2
 
 ### Step 1: Tests for game-core, before refactoring
-- [ ] `Hand`: add, remove, getCards
-- [ ] `Hex`: neighbors on even and odd rows, section assignment, terrain rules (forest and town stop movement and block move-and-fire)
-- [ ] `BoardManager`: Axis flip, `setOrderableUnits` for each card type (including the cap when fewer units are available), pathfinding around units and stop terrain, `moveUnit`
+- [x] `Hand`: add, remove, getCards (`hand.test.ts`)
+- [x] `Hex`: neighbors on even and odd rows (plus symmetry across the whole board), section assignment, terrain rules (`hex.test.ts`)
+- [x] `BoardManager`: Axis flip (a one-to-one mapping of the board onto itself), `setOrderableUnits` for each card type with the cap, pathfinding around units and stop terrain, move-and-fire destinations, `moveUnit`, `reset` (`BoardManager.test.ts`)
+- [x] Scenario data: every position is on the board and every unit gets its own hex (`src/data/scenarios.test.ts`)
+- [x] Fixed B8, found by these tests
 
 ### Step 2: Finish the card-selection work (B1â€“B4, B7)
 - [ ] Deal only newly added cards (keep track of which card ids have already been dealt at GameView level, so it survives a remount)

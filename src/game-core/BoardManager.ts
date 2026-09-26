@@ -398,6 +398,7 @@ class BoardManager {
   reset(scenario: Scenario, faction = "Allies") {
     this.hexes.clear();
     this.initializeBoard(scenario, faction);
+    this.initializeSideHexes(); // side groups hold Hex references, so rebuild them too
   }
 }
 
