@@ -4,6 +4,7 @@ import CommandCard from "./commandCard";
 import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
+import { ShotTarget } from "../data/hitRules";
 import { DieFace, rollDice } from "./dice";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { COLLISION_NOTES, FIRE_QUESTIONS, collisionSteps, fireBonusSteps } from "../data/fireQuestions";
@@ -54,10 +55,16 @@ export interface Shot {
   notes: readonly string[];
   /** Rolled for a collision in the movement phase, before the normal battle */
   collision: boolean;
+  /** What it was rolled against, to read the hits; null for shots from before targets were asked */
+  target: ShotTarget | null;
 }
 
-/** Saves from before notes or collisions existed have neither */
-type SavedShot = Omit<Shot, "notes" | "collision"> & { notes?: string[]; collision?: boolean };
+/** Saves from before notes, collisions or targets existed have none of them */
+type SavedShot = Omit<Shot, "notes" | "collision" | "target"> & {
+  notes?: string[];
+  collision?: boolean;
+  target?: ShotTarget | null;
+};
 
 export interface MoveOptions {
   moves: Position[];
@@ -137,6 +144,9 @@ export type BattleEdit =
  * React reads it with useSyncExternalStore. Actions return false and change
  * nothing when they aren't allowed.
  */
+const isUnitType = (value: unknown): value is UnitType =>
+  Object.values(UnitType).includes(value as UnitType);
+
 class GameSession {
   readonly scenario: Scenario;
   readonly faction: Faction;
@@ -383,14 +393,18 @@ class GameSession {
 
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
     if (blocked) return false;
-    return this.recordShot(orderIndex, dice, steps, notes);
+    const unitType = answers.targetType as UnitType;
+    if (!isUnitType(unitType)) return false;
+    const target = { unitType, closeAssault: answers.distance === "1" };
+    return this.recordShot(orderIndex, dice, steps, notes, target);
   }
 
   /** Fire with a number of dice the player worked out themselves */
-  fireQuick(orderIndex: number, dice: number): boolean {
+  fireQuick(orderIndex: number, dice: number, target: ShotTarget): boolean {
     if (!Number.isInteger(dice) || dice < 1) return false;
+    if (!isUnitType(target.unitType)) return false;
     if (!this.canFireNow(orderIndex)) return false;
-    return this.recordShot(orderIndex, dice, [], []);
+    return this.recordShot(orderIndex, dice, [], [], { ...target });
   }
 
   /**
@@ -399,7 +413,8 @@ class GameSession {
    * hasn't fired yet; the roll uses up its shot. Collisions come before any
    * other shot, so they don't wait for the units that didn't move.
    */
-  fireCollision(orderIndex: number): boolean {
+  fireCollision(orderIndex: number, targetType: UnitType): boolean {
+    if (!isUnitType(targetType)) return false;
     if (this.shotsLeft(orderIndex) <= 0) return false;
     const order = this.orders[orderIndex]!;
     if (samePosition(order.start, order.end)) return false;
@@ -407,7 +422,8 @@ class GameSession {
 
     const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.chosenCard });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
-    return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], true);
+    const target = { unitType: targetType, closeAssault: true };
+    return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true);
   }
 
   /** Take back this unit's last shot, for a shot recorded by mistake */
@@ -420,8 +436,16 @@ class GameSession {
     return this.publish();
   }
 
-  private recordShot(orderIndex: number, dice: number, steps: DiceStep[], notes: string[], collision = false): true {
-    const shot: Shot = { orderIndex, steps, dice, faces: rollDice(dice, this.random), notes, collision };
+  private recordShot(
+    orderIndex: number,
+    dice: number,
+    steps: DiceStep[],
+    notes: string[],
+    target: ShotTarget,
+    collision = false
+  ): true {
+    const faces = rollDice(dice, this.random);
+    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target };
     this.shots = [...this.shots, shot];
     return this.publish();
   }
@@ -564,6 +588,7 @@ class GameSession {
         steps: [...shot.steps],
         faces: [...shot.faces],
         notes: [...shot.notes],
+        target: shot.target && { ...shot.target },
       })),
       // Records are plain data that is never mutated, so they can be shared
       log: [...this.log],
@@ -640,7 +665,9 @@ class GameSession {
     session.shots = (saved.version === 1 ? [] : saved.shots).map((shot) => {
       if (!session.orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
       if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
-      return { ...shot, notes: shot.notes ?? [], collision: shot.collision ?? false };
+      const target = shot.target ?? null;
+      if (target && !isUnitType(target.unitType)) throw new Error(`Unknown target ${target.unitType}`);
+      return { ...shot, notes: shot.notes ?? [], collision: shot.collision ?? false, target };
     });
     const log = saved.version === 1 || saved.version === 2 ? [] : saved.log;
     if (!Array.isArray(log)) throw new Error("Turn log is not a list");

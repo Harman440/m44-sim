@@ -1,3 +1,4 @@
+import { UnitType } from "../../../game-core/unit";
 import { useSyncExternalStore } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -5,6 +6,9 @@ import BattleView from "./BattleView";
 import GameSession from "../../../game-core/gameSession";
 import CommandCard, { CommandCardType } from "../../../game-core/commandCard";
 import { Position } from "../../../types/scenario";
+
+/** Default target for shots whose reading the test doesn't check */
+const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -86,6 +90,8 @@ describe("BattleView summary screen", () => {
     const { session } = setup({ openMap: false });
     fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[1]!);
     fireEvent.click(screen.getByRole("button", { name: /Tirada rápida/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
     fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
@@ -126,8 +132,8 @@ describe("BattleView summary screen", () => {
 
   it("just confirms the end of the battle once every unit has fired", () => {
     const { session, onEndBattle } = setup({ openMap: false });
-    session.fireQuick(0, 1);
-    session.fireQuick(1, 1);
+    session.fireQuick(0, 1, AT_INFANTRY);
+    session.fireQuick(1, 1, AT_INFANTRY);
 
     fireEvent.click(screen.getByRole("button", { name: "Terminar batalla" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("No se puede deshacer.");
@@ -161,7 +167,7 @@ describe("BattleView firing order", () => {
     const { session } = setup({ openMap: false, moveTank: true });
 
     act(() => {
-      session.fireQuick(0, 1);
+      session.fireQuick(0, 1, AT_INFANTRY);
     });
 
     const moved = screen.getByTestId("group-moved");
@@ -187,6 +193,8 @@ describe("BattleView firing order", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[0]!);
     fireEvent.click(screen.getByRole("button", { name: /Tirada rápida/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
     fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
 
     expect(screen.getByTestId("opponent-turn")).toHaveTextContent("Ahora dispara el rival.");

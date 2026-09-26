@@ -1,7 +1,8 @@
 import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces } from "../labels";
+import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces, describeRoll } from "../labels";
+import { readRoll } from "../game-core/rollResult";
 import { Faction } from "../types/faction";
 import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
@@ -13,6 +14,8 @@ interface TurnSummaryProps {
   faction: Faction;
   /** Open the fire dialog for a unit: to fire, or to see the shot it fired */
   onFire?: (summary: OrderSummary) => void;
+  /** Rolls earn coins this turn (not in the attacker's extra first turn) */
+  withCoins?: boolean;
   /** Give up the unfired shots of the units that didn't move, so the moved units can fire */
   onSkipUnmoved?: () => void;
 }
@@ -31,7 +34,7 @@ const describeMove = (summary: OrderSummary) =>
       }`;
 
 /** This turn's orders, written for carrying them out on the physical table */
-function TurnSummary({ card, summaries, faction, onFire, onSkipUnmoved }: TurnSummaryProps) {
+function TurnSummary({ card, summaries, faction, onFire, withCoins = true, onSkipUnmoved }: TurnSummaryProps) {
   const toFire = summaries.filter((s) => s.shots.length === 0 && s.shotsLeft > 0).length;
   const fired = summaries.filter((s) => s.shots.length > 0).length;
   const notFiring = summaries.filter((s) => !s.canFire && !s.removed).length;
@@ -66,7 +69,12 @@ function TurnSummary({ card, summaries, faction, onFire, onSkipUnmoved }: TurnSu
           <Typography variant="body2" color="success.main">
             Disparó:{" "}
             {summary.shots
-              .map((shot) => `${shot.collision ? "choque, " : ""}${describeFaces(shot.faces)}`)
+              .map(
+                (shot) =>
+                  `${shot.collision ? "choque, " : ""}${describeFaces(shot.faces)}${
+                    shot.target && shot.dice > 0 ? ` → ${describeRoll(readRoll(shot.faces, shot.target), withCoins)}` : ""
+                  }`
+              )
               .join(" / ")}
           </Typography>
         )}

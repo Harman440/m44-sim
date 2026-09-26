@@ -57,14 +57,20 @@ describe("Collisions in the battle phase", () => {
     const dialog = openCollision();
     fireEvent.click(within(dialog).getByRole("button", { name: /^Tanque/ }));
     expect(within(dialog).getByTestId("collision-breakdown")).toHaveTextContent("Choque-1");
+    expect(within(dialog).getByRole("button", { name: "Tirar 2 dados" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Artillería" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Tirar 2 dados" }));
 
     expect(session.getSnapshot().shots).toEqual([expect.objectContaining({ orderIndex: 1, dice: 2, collision: true })]);
     expect(within(dialog).getByTestId("collision-result")).toHaveTextContent("2 dados");
+    // Grenades hit artillery; the attacker's extra first turn earns no coins
+    expect(within(dialog).getByTestId("roll-reading")).toHaveTextContent("Contra artillería · asalto cercano");
+    expect(within(dialog).getByTestId("roll-hits")).toHaveTextContent("2Impactos");
+    expect(within(dialog).queryByTestId("roll-coins")).not.toBeInTheDocument();
     expect(within(dialog).getByTestId("collision-outcome")).toHaveTextContent("retroceden una casilla");
     // The roll is the tank's shot for the turn
     const [, tankRow] = screen.getAllByTestId("order-summary");
-    expect(tankRow).toHaveTextContent("Disparó: choque, 2 × Granada");
+    expect(tankRow).toHaveTextContent("Disparó: choque, 2 × Granada → 2 impactos · 0 retiradas");
   });
 
   it("doesn't roll for a unit that can't fire this turn, but still explains the outcome", () => {

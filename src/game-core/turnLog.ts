@@ -8,6 +8,7 @@ import { DiceStep } from "./fireRules";
 import { positionKey } from "./position";
 import { Position } from "../types/scenario";
 import type { BattleEdit, Shot } from "./gameSession";
+import type { ShotTarget } from "../data/hitRules";
 
 /**
  * One finished turn as plain JSON: what was played, ordered, rolled and
@@ -36,6 +37,8 @@ export interface TurnRecord {
     notes: string[];
     /** Rolled for a collision in the movement phase */
     collision: boolean;
+    /** What it was rolled against; missing or null in turns from before targets were asked */
+    target?: ShotTarget | null;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -74,6 +77,7 @@ export function recordTurn({ turn, card, orders, shots, battleEdits, board }: Tu
       faces: [...shot.faces],
       notes: [...shot.notes],
       collision: shot.collision,
+      target: shot.target && { ...shot.target },
     })),
     battleEdits: editedUnits(battleEdits, board).map((unit, i) => {
       const edit = battleEdits[i]!;

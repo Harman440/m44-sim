@@ -12,7 +12,8 @@ import {
 import GameSession from "../game-core/gameSession";
 import { TurnRecord } from "../game-core/turnLog";
 import { Position } from "../types/scenario";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces } from "../labels";
+import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces, describeRoll, describeTarget } from "../labels";
+import { readRoll } from "../game-core/rollResult";
 import { downloadJson } from "../download";
 import { orderColor } from "./OrderComponent";
 import GameIcon from "./GameIcon";
@@ -120,6 +121,13 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
                       {shot.collision && " en un choque"}
                       {shot.steps.length === 0 && " (tirada rápida)"} → {describeFaces(shot.faces)}
+                      {shot.target &&
+                        shot.dice > 0 &&
+                        ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
+                          readRoll(shot.faces, shot.target),
+                          // The attacker's extra first turn earns no coins
+                          !(session.attacking && record.turn === 1)
+                        )})`}
                       {shot.notes.map((note) => ` · ${note}`).join("")}
                     </Typography>
                   ))}

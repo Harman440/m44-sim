@@ -6,6 +6,9 @@ import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
 import { Position } from "../types/scenario";
 
+/** Default target for shots whose reading the test doesn't check */
+const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
+
 const TANK: Position = { row: 4, col: 6 };
 const FOREST: Position = { row: 4, col: 7 };
 const INFANTRY: Position = { row: 7, col: 1 };
@@ -67,7 +70,7 @@ describe("summarizeOrders", () => {
 
   it("attaches each unit's shots and counts the shots it has left", () => {
     const session = playTurn();
-    session.fireQuick(1, 2);
+    session.fireQuick(1, 2, AT_INFANTRY);
     const { orders, shots } = session.getSnapshot();
 
     const [, infantry] = summarizeOrders(orders, session.board, shots, 2);
@@ -108,7 +111,7 @@ describe("summarizeOrders", () => {
     expect(skipped[0]!.waiting).toBe(false);
     expect(skipped[1]).toMatchObject({ skipped: true, shotsLeft: 0 });
 
-    session.fireQuick(1, 2);
+    session.fireQuick(1, 2, AT_INFANTRY);
     const afterShot = summarizeOrders(orders, session.board, session.getSnapshot().shots);
     expect(afterShot[0]!.waiting).toBe(false);
     expect(afterShot[1]!.skipped).toBe(false);

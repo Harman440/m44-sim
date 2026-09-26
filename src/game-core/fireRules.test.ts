@@ -88,16 +88,19 @@ describe("fire questions (house rules)", () => {
     expect(dice(unitType, { distance, targetTerrain })).toBe(expected);
   });
 
-  it("asks distance, terrain and sandbags; line of sight only beyond adjacent hexes", () => {
+  it("asks distance, target type, terrain and sandbags; line of sight only beyond adjacent hexes", () => {
     const ctx = context(UnitType.TANK);
     const next = (answers: Record<string, string>) => nextFireQuestion(FIRE_QUESTIONS, ctx, answers)?.id ?? null;
 
     expect(next({})).toBe("distance");
-    expect(next({ distance: "1" })).toBe("targetTerrain");
+    expect(next({ distance: "1" })).toBe("targetType");
     expect(next({ distance: "2" })).toBe("lineOfSight");
-    expect(next({ distance: "2", lineOfSight: "yes" })).toBe("targetTerrain");
-    expect(next({ distance: "2", lineOfSight: "yes", targetTerrain: "plains" })).toBe("sandbags");
-    expect(next({ distance: "2", lineOfSight: "yes", targetTerrain: "plains", sandbags: "no" })).toBeNull();
+    expect(next({ distance: "2", lineOfSight: "yes" })).toBe("targetType");
+    expect(next({ distance: "2", lineOfSight: "yes", targetType: "tank" })).toBe("targetTerrain");
+    expect(next({ distance: "2", lineOfSight: "yes", targetType: "tank", targetTerrain: "plains" })).toBe("sandbags");
+    expect(
+      next({ distance: "2", lineOfSight: "yes", targetType: "tank", targetTerrain: "plains", sandbags: "no" })
+    ).toBeNull();
   });
 
   it("rules out a target out of sight, so the unit keeps its fire", () => {

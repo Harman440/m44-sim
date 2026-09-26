@@ -50,6 +50,14 @@ const distanceQuestion: FireQuestion = {
   },
 };
 
+/** Doesn't change the dice: the target's type decides which faces hit (data/hitRules.ts) */
+export const targetTypeQuestion: FireQuestion = {
+  id: "targetType",
+  text: "¿Qué tipo de unidad es el objetivo?",
+  options: () => Object.values(UnitType).map((value) => ({ value, label: UNIT_LABELS[value] })),
+  effect: () => null,
+};
+
 const targetTerrainQuestion: FireQuestion = {
   id: "targetTerrain",
   text: "¿En qué terreno está el objetivo?",
@@ -86,6 +94,7 @@ const sandbagsQuestion: FireQuestion = {
 export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   distanceQuestion,
   lineOfSightQuestion,
+  targetTypeQuestion,
   targetTerrainQuestion,
   sandbagsQuestion,
 ];

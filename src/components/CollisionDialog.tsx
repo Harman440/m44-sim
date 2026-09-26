@@ -9,8 +9,12 @@ import {
   DialogTitle,
   Divider,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import { UnitType } from "../game-core/unit";
+import RollReading from "./RollReading";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { COLLISION_NOTES, collisionSteps } from "../data/fireQuestions";
@@ -25,8 +29,10 @@ interface CollisionDialogProps {
   summaries: readonly OrderSummary[];
   card: CommandCard | null;
   faction: Faction;
-  /** Roll the collision for this order's unit; the session rolls the dice */
-  onRoll: (orderIndex: number) => boolean;
+  /** Roll the collision for this order's unit against the unit it met; the session rolls the dice */
+  onRoll: (orderIndex: number, targetType: UnitType) => boolean;
+  /** Rolls earn coins this turn (not in the attacker's extra first turn) */
+  withCoins: boolean;
   onClose: () => void;
 }
 
@@ -63,13 +69,19 @@ function Outcome() {
  * phase. They battle at once, before any other shot, with close assault dice
  * − 1 and no terrain. The roll uses up the unit's shot.
  */
-function CollisionDialog({ open, summaries, card, faction, onRoll, onClose }: CollisionDialogProps) {
+function CollisionDialog({ open, summaries, card, faction, onRoll, withCoins, onClose }: CollisionDialogProps) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [targetType, setTargetType] = useState<UnitType | null>(null);
   const moved = summaries.filter((s) => !s.hold && !s.removed);
   const summary = selected === null ? null : (summaries[selected] ?? null);
 
+  const select = (index: number | null) => {
+    setSelected(index);
+    setTargetType(null);
+  };
+
   const close = () => {
-    setSelected(null);
+    select(null);
     onClose();
   };
 
@@ -89,7 +101,7 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, onClose }: Co
                 key={s.index}
                 variant="outlined"
                 size="large"
-                onClick={() => setSelected(s.index)}
+                onClick={() => select(s.index)}
                 aria-label={`${UNIT_LABELS[s.unitType]} · ${SECTION_LABELS[s.section]} · ${describeMove(s)}`}
                 sx={{ justifyContent: "flex-start", textAlign: "left", textTransform: "none", gap: 1.5, py: 1 }}
               >
@@ -117,6 +129,9 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, onClose }: Co
             {collisionShot.dice > 0 ? diceText(collisionShot.dice) : "0 dados: el choque no tuvo efecto"}
           </Typography>
           {collisionShot.dice > 0 && <DiceResult roll={{ faces: [...collisionShot.faces], id: 1 }} faction={faction} />}
+          {collisionShot.dice > 0 && collisionShot.target && (
+            <RollReading faces={collisionShot.faces} target={collisionShot.target} withCoins={withCoins} />
+          )}
           <Alert severity="warning" sx={{ mt: 1.5 }}>
             {collisionShot.notes.join(" ")}
           </Alert>
@@ -170,7 +185,29 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, onClose }: Co
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
           La tirada del choque cuenta como el disparo de la unidad este turno.
         </Typography>
-        <Button fullWidth size="large" onClick={() => onRoll(summary.index)} sx={{ mt: 2 }}>
+        <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+          ¿Con qué tipo de unidad ha chocado?
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          value={targetType}
+          onChange={(_, value: UnitType | null) => value && setTargetType(value)}
+          aria-label="Tipo de unidad rival"
+          sx={{ flexWrap: "wrap" }}
+        >
+          {Object.values(UnitType).map((type) => (
+            <ToggleButton key={type} value={type} sx={{ minHeight: 48 }}>
+              {UNIT_LABELS[type]}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <Button
+          fullWidth
+          size="large"
+          disabled={targetType === null}
+          onClick={() => targetType && onRoll(summary.index, targetType)}
+          sx={{ mt: 2 }}
+        >
           Tirar {diceText(dice)}
         </Button>
         <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
@@ -186,7 +223,7 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, onClose }: Co
       <DialogContent>{content()}</DialogContent>
       <DialogActions>
         {summary && moved.length > 1 && (
-          <Button variant="outlined" onClick={() => setSelected(null)}>
+          <Button variant="outlined" onClick={() => select(null)}>
             Otra unidad
           </Button>
         )}

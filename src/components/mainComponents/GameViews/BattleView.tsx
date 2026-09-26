@@ -132,6 +132,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             summaries={summaries}
             faction={faction}
             onFire={(summary) => setFiringIndex(summary.index)}
+            withCoins={!game.extraTurn}
             onSkipUnmoved={() => setConfirmingSkip(true)}
           />
         </Stack>
@@ -144,7 +145,10 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         card={game.chosenCard}
         faction={faction}
         onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
-        onQuickFire={(dice) => withSound(firingIndex !== null && session.fireQuick(firingIndex, dice))}
+        onQuickFire={(dice, target) =>
+          withSound(firingIndex !== null && session.fireQuick(firingIndex, dice, target))
+        }
+        withCoins={!game.extraTurn}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onClose={() => setFiringIndex(null)}
       />
@@ -154,7 +158,8 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         summaries={summaries}
         card={game.chosenCard}
         faction={faction}
-        onRoll={(orderIndex) => withSound(session.fireCollision(orderIndex))}
+        onRoll={(orderIndex, targetType) => withSound(session.fireCollision(orderIndex, targetType))}
+        withCoins={!game.extraTurn}
         onClose={() => setCollisionOpen(false)}
       />
 

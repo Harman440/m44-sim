@@ -22,7 +22,10 @@ import { FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from ".
 import { OrderSummary } from "../game-core/turnSummary";
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import DiceResult from "./DiceResult";
+import RollReading from "./RollReading";
 import { SECTION_LABELS, UNIT_LABELS } from "../labels";
+import { UnitType } from "../game-core/unit";
+import { ShotTarget } from "../data/hitRules";
 
 interface FireDialogProps {
   /** The firing unit's order; the dialog is closed when null */
@@ -31,8 +34,10 @@ interface FireDialogProps {
   faction: Faction;
   /** Fire using the questionnaire's answers; the session rolls the dice */
   onFire: (answers: FireAnswers) => boolean;
-  /** Fire a number of dice the player worked out themselves */
-  onQuickFire: (dice: number) => boolean;
+  /** Fire a number of dice the player worked out themselves, at this target */
+  onQuickFire: (dice: number, target: ShotTarget) => boolean;
+  /** Rolls earn coins this turn (not in the attacker's extra first turn) */
+  withCoins: boolean;
   /** Take back the unit's last shot (a mistake) */
   onUndoShot: () => boolean;
   onClose: () => void;
@@ -57,7 +62,14 @@ function ShotNotes({ notes }: { notes: readonly string[] }) {
   );
 }
 
-function ShotResult({ shot, number, faction }: { shot: Shot; number: number | null; faction: Faction }) {
+interface ShotResultProps {
+  shot: Shot;
+  number: number | null;
+  faction: Faction;
+  withCoins: boolean;
+}
+
+export function ShotResult({ shot, number, faction, withCoins }: ShotResultProps) {
   return (
     <Box data-testid="shot-result">
       {(number !== null || shot.collision) && (
@@ -74,6 +86,7 @@ function ShotResult({ shot, number, faction }: { shot: Shot; number: number | nu
         {shot.dice > 0 ? diceText(shot.dice) : "0 dados: el disparo no tuvo efecto"}
       </Typography>
       {shot.dice > 0 && <DiceResult roll={{ faces: [...shot.faces], id: number ?? 1 }} faction={faction} />}
+      {shot.dice > 0 && shot.target && <RollReading faces={shot.faces} target={shot.target} withCoins={withCoins} />}
       <ShotNotes notes={shot.notes} />
     </Box>
   );
@@ -86,12 +99,14 @@ function ShotResult({ shot, number, faction }: { shot: Shot; number: number | nu
  * the unit again shows the result, and only a deliberate "Anular disparo"
  * takes it back. Questions and their dice effects live in data/fireQuestions.ts.
  */
-function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, onClose }: FireDialogProps) {
+function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, onUndoShot, onClose }: FireDialogProps) {
   // Answer order is kept so "Atrás" can undo the last one
   const [answerOrder, setAnswerOrder] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quick, setQuick] = useState(false);
   const [quickDice, setQuickDice] = useState(3);
+  const [quickTarget, setQuickTarget] = useState<UnitType | null>(null);
+  const [quickCloseAssault, setQuickCloseAssault] = useState<boolean | null>(null);
   /** Aiming a further shot at a unit that already fired (cards with numFireTimes > 1) */
   const [firingAgain, setFiringAgain] = useState(false);
   const [confirmingUndo, setConfirmingUndo] = useState(false);
@@ -111,6 +126,8 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
     setAnswers({});
     setAnswerOrder([]);
     setQuick(false);
+    setQuickTarget(null);
+    setQuickCloseAssault(null);
     setFiringAgain(false);
   };
 
@@ -141,7 +158,8 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
   };
 
   const handleQuickFire = () => {
-    if (!onQuickFire(quickDice)) return;
+    if (quickTarget === null || quickCloseAssault === null) return;
+    if (!onQuickFire(quickDice, { unitType: quickTarget, closeAssault: quickCloseAssault })) return;
     resetAim();
     setJustFired(true);
   };
@@ -185,7 +203,7 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
       return (
         <Stack sx={{ gap: 2 }}>
           {summary.shots.map((shot, i) => (
-            <ShotResult key={i} shot={shot} number={numbered ? i + 1 : null} faction={faction} />
+            <ShotResult key={i} shot={shot} number={numbered ? i + 1 : null} faction={faction} withCoins={withCoins} />
           ))}
           {justFired && (
             <Alert severity="warning" data-testid="opponent-turn">
@@ -228,7 +246,45 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, onUndoShot, o
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
-          <Button fullWidth size="large" onClick={handleQuickFire}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            ¿Qué tipo de unidad es el objetivo?
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            value={quickTarget}
+            onChange={(_, value: UnitType | null) => value && setQuickTarget(value)}
+            aria-label="Tipo de objetivo"
+            sx={{ mb: 2, flexWrap: "wrap" }}
+          >
+            {Object.values(UnitType).map((type) => (
+              <ToggleButton key={type} value={type} sx={{ minHeight: 48 }}>
+                {UNIT_LABELS[type]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            ¿Está adyacente (asalto cercano)?
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            value={quickCloseAssault}
+            onChange={(_, value: boolean | null) => value !== null && setQuickCloseAssault(value)}
+            aria-label="Asalto cercano"
+            sx={{ mb: 2 }}
+          >
+            <ToggleButton value={true} sx={{ minWidth: 64, minHeight: 48 }}>
+              Sí
+            </ToggleButton>
+            <ToggleButton value={false} sx={{ minWidth: 64, minHeight: 48 }}>
+              No
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button
+            fullWidth
+            size="large"
+            onClick={handleQuickFire}
+            disabled={quickTarget === null || quickCloseAssault === null}
+          >
             Disparar {diceText(quickDice)}
           </Button>
           {noRepeat}

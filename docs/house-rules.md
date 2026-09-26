@@ -229,7 +229,7 @@ With a dice roll a unit can't keep more results than the number of figures in th
 Exception: cards that give bonus dice allow keeping one more die result. Example: an infantry unit of 2 figures attacks in close assault an enemy unit in a plain hex with the CLOSE ASSAULT card, so it rolls 4 dice and can keep 3 results.
 
 ### Grenades
-A grenade is only a hit in close assault.
+~~A grenade is only a hit in close assault.~~ Changed (Step 20): a grenade is a hit at any range, as in official M44.
 
 ### Dice probability (design notes)
 Close assault:

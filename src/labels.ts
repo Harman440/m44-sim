@@ -5,6 +5,8 @@ import Unit, { UnitType } from "./game-core/unit";
 import { DieFace, countFaces } from "./game-core/dice";
 import { HexType, Side } from "./types/hex";
 import { Faction } from "./types/faction";
+import { ShotTarget } from "./data/hitRules";
+import { RollResult } from "./game-core/rollResult";
 
 export const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
 
@@ -61,3 +63,17 @@ export const describeFaces = (faces: readonly DieFace[]): string => {
     .map((face) => `${counts[face]} × ${DIE_FACE_LABELS[face]}`);
   return parts.length > 0 ? parts.join(" · ") : "sin efecto";
 };
+
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "Contra tanque · asalto cercano" */
+export const describeTarget = ({ unitType, closeAssault }: ShotTarget): string =>
+  `Contra ${UNIT_LABELS[unitType].toLowerCase()} · ${closeAssault ? "asalto cercano" : "a distancia"}`;
+
+/** "2 impactos · 1 retirada · +1 moneda"; coins are left out when the turn earns none */
+export const describeRoll = ({ hits, retreats, coins }: RollResult, withCoins = true): string =>
+  [
+    count(hits, "impacto", "impactos"),
+    count(retreats, "retirada", "retiradas"),
+    ...(withCoins && coins > 0 ? [`+${count(coins, "moneda", "monedas")}`] : []),
+  ].join(" · ");

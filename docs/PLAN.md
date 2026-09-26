@@ -18,6 +18,7 @@ Done so far (details in git history):
 - Steps 12–14: installable offline app, Ajustes in game, smaller first download, turn log with "Historial" and JSON export
 - Steps 16–18: the attacker's extra first turn, the Movimiento and Fase final phases, and collisions
 - Step 19: firing order (units that didn't move first, enforced) and the map updated in the final phase
+- Step 20: each roll is read against its target: hits, retreats and coins
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -110,13 +111,12 @@ When two units cross the same hex, or land on the same one, they battle at once,
 - [x] **Decided:** removing and moving units moved from the battle to the Fase final ("Actualizar mapa", `EndOfTurnMap`), after the retreats are made on the table; the battle map ("Ver mapa") is read-only
 
 ### Step 20: Reading the roll (hits, retreats, coins)
-Today the app shows the faces; the player works out what they mean.
-- [ ] Ask the target's type (infantry, tank, artillery; more types in Step 29)
-- [ ] After the roll, show the result:
-  - hits: the matching unit symbol hits; a **grenade only hits in close assault** (house rule); **stars hit artillery in close assault**
+- [x] Ask the target's type (infantry, tank, artillery; more types in Step 29): a fire question (`targetType`), on the quick roll (with "¿Está adyacente?") and in a collision. The shot keeps its target (`Shot.target`; older shots have none and show only the faces)
+- [x] After the roll, show the result (`RollReading`, `readRoll` in `game-core/rollResult.ts`, rules in `data/hitRules.ts`), also in the battle summary and the Historial:
+  - hits: the matching unit symbol hits; a grenade hits any unit; stars hit artillery in close assault (a collision counts as close assault)
   - retreats: the flags
-  - coins: +1 per star (Part E), but not for a star that counted as a hit
-- [ ] **Decide:** confirm the hit rules, since the grenade rule differs from official M44
+  - coins: +1 per star, but not for a star that counted as a hit; not shown in the attacker's extra first turn. Only shown for now: Part E keeps the count
+- [x] **Decided:** a grenade is a hit at any range, as in official M44 (the house note "only in close assault" is dropped)
 
 ---
 

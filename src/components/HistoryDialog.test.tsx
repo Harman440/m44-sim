@@ -1,3 +1,4 @@
+import { UnitType } from "../game-core/unit";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import HistoryDialog from "./HistoryDialog";
@@ -5,6 +6,9 @@ import GameSession, { SAVE_VERSION } from "../game-core/gameSession";
 import CommandCard, { CommandCardType } from "../game-core/commandCard";
 import { Position } from "../types/scenario";
 import { downloadJson } from "../download";
+
+/** Default target for shots whose reading the test doesn't check */
+const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
 
 vi.mock("../download", () => ({ downloadJson: vi.fn() }));
 
@@ -42,7 +46,7 @@ const playedSession = () => {
     session.drawCard();
     session.endTurn();
   };
-  playTurn(() => session.fireQuick(0, 2));
+  playTurn(() => session.fireQuick(0, 2, AT_INFANTRY));
   playTurn(
     () => {},
     () => session.removeUnit(INFANTRY)
@@ -61,6 +65,7 @@ describe("HistoryDialog", () => {
     expect(second).toHaveTextContent("Nadie disparó.");
     expect(first).toHaveTextContent("Infantería · mantiene posición");
     expect(first).toHaveTextContent("Infantería: 2 dados (tirada rápida) → 2 × Granada");
+    expect(first).toHaveTextContent("(contra infantería · a distancia: 2 impactos · 0 retiradas)");
     expect(first).toHaveTextContent("Sin bajas ni retiradas.");
   });
 
