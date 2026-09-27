@@ -3,7 +3,15 @@ import BoardManager from "./BoardManager";
 import CommandCard, { CommandCardProps, Section } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
-import { OrderContext, moveLimits, orderSlots, orderablePositions, ordersLeft, sectionsOf } from "./orderRules";
+import {
+  OrderContext,
+  fallbackCard,
+  moveLimits,
+  orderSlots,
+  orderablePositions,
+  ordersLeft,
+  sectionsOf,
+} from "./orderRules";
 import { positionKey as key } from "./position";
 import { Side } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
@@ -172,6 +180,50 @@ describe("units on the move", () => {
     const oneUnit = makeScenario({ infantry: [LEFT] });
 
     expect(ordersLeft(context(probe, { board: new BoardManager(oneUnit) }))).toBe(1);
+  });
+});
+
+describe("order costs (Finest Hour)", () => {
+  const TANK = { row: 8, col: 4 };
+  const finestHour: CommandCardProps = { orders: 4, orderCost: { [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 } };
+
+  it("counts the most units the points pay for, cheapest first", () => {
+    expect(ordersLeft(context(finestHour))).toBe(4);
+  });
+
+  it("takes each unit's cost from the points left", () => {
+    const board = new BoardManager(scenario);
+    const ctx = context(finestHour, { board, orders: [holdAt(board, TANK)] });
+
+    expect(ordersLeft(ctx)).toBe(2);
+  });
+
+  it("leaves out units that cost more than the points left", () => {
+    const board = new BoardManager(scenario);
+    const orders = [holdAt(board, LEFT), holdAt(board, LEFT_CENTER), holdAt(board, CENTER)];
+    const ctx = context(finestHour, { board, orders });
+
+    expect(orderable(ctx)).toEqual(["7-8", "8-11"]);
+    expect(ordersLeft(ctx)).toBe(1);
+  });
+});
+
+describe("fallbackCard", () => {
+  it("orders 1 unit of any type when none of the card's unit types are on the board", () => {
+    const board = new BoardManager(scenario);
+    const artillery = new CommandCard({ id: "arty", name: "Artillería", unitTypes: [UnitType.ARTILLERY], orders: "all", holdShots: 2 });
+
+    const fallback = fallbackCard(artillery, board)!;
+
+    expect(fallback).toMatchObject({ id: "arty", name: "Artillería", orders: 1, unitTypes: null, holdShots: 1 });
+    expect(ordersLeft({ card: fallback, board, orders: [], chosenSection: null })).toBe(1);
+  });
+
+  it("keeps the card when a unit of its type is on the board, or it isn't a unit-type card", () => {
+    const board = new BoardManager(scenario);
+
+    expect(fallbackCard(new CommandCard({ unitTypes: [UnitType.TANK], orders: 4 }), board)).toBeNull();
+    expect(fallbackCard(new CommandCard({ orders: 4 }), board)).toBeNull();
   });
 });
 

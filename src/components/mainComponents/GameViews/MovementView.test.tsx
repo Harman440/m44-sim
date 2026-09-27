@@ -47,7 +47,6 @@ function Harness({ session }: { session: GameSession }) {
       faction="Allies"
       session={session}
       game={game}
-      attacking={session.attacking}
       onDrawCard={() => session.drawCard()}
       onEndTurn={() => session.endTurn()}
     />
@@ -94,7 +93,7 @@ describe("EndOfTurnView", () => {
 
   it("draws the command card, shows it, and only then offers the next turn", () => {
     const session = finalPhase();
-    expect(screen.getByText("Robas primero: eres el bando atacante.")).toBeInTheDocument();
+    expect(screen.getByText("Roba una carta de tu mazo.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Empezar turno 2" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));

@@ -168,3 +168,43 @@ describe("CardsView choosing between 2 cards", () => {
     expect(screen.queryByRole("button", { name: "Coge 2 Cartas" })).not.toBeInTheDocument();
   });
 });
+
+describe("CardsView playing a card in a section of the player's choice", () => {
+  const render1 = (onCardClick = vi.fn()) => {
+    const card = new CommandCard({ id: "assault", name: "Asalto de infantería", sections: "chosen", orders: "all" });
+    const utils = render(
+      <CardsView
+        handCards={[card]}
+        choiceCards={[]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onDrawChoice={() => false}
+        onChooseCard={() => {}}
+        onCardClick={onCardClick}
+        needsSection={(c) => c.choosesSection}
+        showDrawChoice={false}
+      />
+    );
+    fireEvent.click(within(utils.container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    return { card, onCardClick };
+  };
+
+  it("asks for the section, then plays the card in it", () => {
+    const { card, onCardClick } = render1();
+
+    expect(onCardClick).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "centro" }));
+
+    expect(onCardClick).toHaveBeenCalledWith(card, "center");
+  });
+
+  it("can be cancelled", () => {
+    const { onCardClick } = render1();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(onCardClick).not.toHaveBeenCalled();
+  });
+});

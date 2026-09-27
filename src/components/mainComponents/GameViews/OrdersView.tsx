@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Alert, Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
 import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { describeHex, describeMovement } from "../../../labels";
+import { SECTION_LABELS, describeHex, describeMovement } from "../../../labels";
+import { OrderSlot, sameSlot } from "../../../game-core/orderRules";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
@@ -27,6 +28,26 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
+/** What an order slot means, for picking one */
+const slotLabel = (slot: OrderSlot) => {
+  if (slot.onTheMove) return "En movimiento (no dispara)";
+  return slot.section ? `Orden del ${SECTION_LABELS[slot.section]}` : "Orden de la carta";
+};
+
+const slotKey = (slot: OrderSlot) => `${slot.section ?? "card"}-${slot.onTheMove}`;
+
+/** The slot used when the player doesn't pick: the card's only order, else on the move; null when they must pick */
+function defaultSlot(slots: readonly OrderSlot[]): OrderSlot | null {
+  const cardSlots = slots.filter((slot) => !slot.onTheMove);
+  if (cardSlots.length > 1) return null;
+  return cardSlots[0] ?? slots[0] ?? null;
+}
+
+const holdLabel = (shots: number) => {
+  if (shots === 0) return "Mantener (no dispara)";
+  return shots === 1 ? "Mantener y disparar" : `Mantener y disparar ${shots} veces`;
+};
+
 function OrdersView({ faction, session, game }: OrdersViewProps) {
   const boardManager = session.board;
   const { orders, ordersLeft, ordersCommitted } = game;
@@ -35,6 +56,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   // Selected unit and its highlighted destinations (UI state only)
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
   const [moveOptions, setMoveOptions] = useState<MoveOptions | null>(null);
+  /** Which of the card's orders the selected unit takes, when it could take more than one */
+  const [slot, setSlot] = useState<OrderSlot | null>(null);
+  const [slotHint, setSlotHint] = useState(false);
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
   const play = useSound();
@@ -42,6 +66,28 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   const clearSelection = () => {
     setUnitHexPosition(null);
     setMoveOptions(null);
+    setSlot(null);
+    setSlotHint(false);
+  };
+
+  const choosingSlot = (moveOptions?.slots.length ?? 0) > 1;
+
+  /** Give the order, once the player has picked the slot where there's a choice */
+  const order = (from: Position, to: Position) => {
+    if (choosingSlot && !slot) {
+      setSlotHint(true);
+      flashInvalid(to);
+      return;
+    }
+    if (session.issueOrder(from, to, slot ?? undefined)) clearSelection();
+  };
+
+  const pickSlot = (key: string | null) => {
+    const picked = moveOptions?.slots.find((s) => slotKey(s) === key);
+    if (!picked || !unitHexPosition) return;
+    setSlot(picked);
+    setSlotHint(false);
+    setMoveOptions(session.getMoveOptions(unitHexPosition, picked));
   };
 
   // One tap per action so it works the same with a mouse or on a tablet
@@ -56,7 +102,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       }
       // Tapping a highlighted hex moves the selected unit there
       if (moveOptions?.moves.some((p) => samePosition(p, position))) {
-        if (session.issueOrder(unitHexPosition, position)) clearSelection();
+        order(unitHexPosition, position);
         return;
       }
     }
@@ -66,6 +112,8 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     if (options) {
       setUnitHexPosition(position);
       setMoveOptions(options);
+      setSlot(defaultSlot(options.slots));
+      setSlotHint(false);
       return;
     }
 
@@ -75,16 +123,17 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     }
   };
 
-  const handleHoldAndFire = () => {
-    if (unitHexPosition && session.issueOrder(unitHexPosition, unitHexPosition)) {
-      clearSelection();
-    }
+  const handleHold = () => {
+    if (unitHexPosition) order(unitHexPosition, unitHexPosition);
   };
 
   const selectedHex = unitHexPosition ? boardManager.getHex(unitHexPosition) : null;
 
   const instructions = () => {
     if (ordersCommitted) return null;
+    if (game.activeCard?.closeAssaultOnly) {
+      return "Esta carta no da órdenes: confírmalas. En la batalla marcarás las unidades en asalto cercano";
+    }
     if (ordersLeft <= 0) {
       return "No quedan órdenes: confirma las órdenes o deshaz la última";
     }
@@ -113,6 +162,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       </div>
 
       <div className="phase-layout__controls">
+        {game.activeCard && !ordersCommitted && (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            <strong>{game.activeCard.name}:</strong> {game.activeCard.description}
+          </Typography>
+        )}
         {ordersCommitted ? (
           <Alert severity="success" sx={{ width: "100%" }}>
             Ya no se pueden cambiar. Pasa a la fase de movimiento.
@@ -126,19 +180,41 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         {selectedHex && (
           <Paper variant="outlined" sx={{ p: 2, width: "100%" }}>
             <Typography variant="body2">Seleccionado: {describeHex(selectedHex)}</Typography>
-            {selectedHex.unit && (
+            {moveOptions && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {describeMovement(selectedHex.unit)}
+                {describeMovement(moveOptions.limits)}
               </Typography>
             )}
             {/* Legend for the highlighted hexes (no hover on tablets) */}
             <Stack sx={{ gap: 0.5, mb: 1.5 }}>
-              <LegendItem color="var(--m44-move-fire)" label="Mover y disparar" />
+              {(moveOptions?.moveAndFire.length ?? 0) > 0 && (
+                <LegendItem color="var(--m44-move-fire)" label="Mover y disparar" />
+              )}
               <LegendItem color="var(--m44-move-only)" label="Solo mover (no podrá disparar)" />
             </Stack>
+            {choosingSlot && moveOptions && (
+              <Box sx={{ mb: 1.5 }}>
+                <Typography variant="body2" color={slotHint ? "error" : "text.primary"} sx={{ mb: 0.5 }}>
+                  ¿Qué orden usa esta unidad?
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  value={slot ? slotKey(slot) : null}
+                  onChange={(_, key: string | null) => pickSlot(key)}
+                  aria-label="Orden que usa la unidad"
+                  sx={{ flexWrap: "wrap" }}
+                >
+                  {moveOptions.slots.map((s) => (
+                    <ToggleButton key={slotKey(s)} value={slotKey(s)} sx={{ minHeight: 48 }}>
+                      {slotLabel(s)}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Box>
+            )}
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-              <Button onClick={handleHoldAndFire} startIcon={<GameIcon name="fire" />}>
-                Mantener y disparar
+              <Button onClick={handleHold} startIcon={<GameIcon name={moveOptions?.limits.holdShots ? "fire" : "confirm"} />}>
+                {holdLabel(moveOptions?.limits.holdShots ?? 1)}
               </Button>
               <Button variant="outlined" onClick={clearSelection} startIcon={<GameIcon name="cancel" />}>
                 Cancelar

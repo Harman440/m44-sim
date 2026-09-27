@@ -10,8 +10,6 @@ interface EndOfTurnViewProps {
   faction: Faction;
   session: GameSession;
   game: GameSnapshot;
-  /** This device's side attacks, so it draws first */
-  attacking: boolean;
   onDrawCard: () => void;
   onEndTurn: () => void;
 }
@@ -20,7 +18,7 @@ interface EndOfTurnViewProps {
  * Fase final: make the retreats marked in battle on the table and mirror the
  * casualties, retreats and ground taken on the map, then draw a command card
  */
-function EndOfTurnView({ faction, session, game, attacking, onDrawCard, onEndTurn }: EndOfTurnViewProps) {
+function EndOfTurnView({ faction, session, game, onDrawCard, onEndTurn }: EndOfTurnViewProps) {
   const { drawnCard } = game;
   const [showMap, setShowMap] = useState(false);
 
@@ -59,11 +57,7 @@ function EndOfTurnView({ faction, session, game, attacking, onDrawCard, onEndTur
           <Typography variant="h6" component="h3">
             2. Carta de mando
           </Typography>
-          <Typography variant="body1">
-            {attacking
-              ? "Robas primero: eres el bando atacante."
-              : "Roba después del rival: el bando atacante roba primero."}
-          </Typography>
+          <Typography variant="body1">Roba una carta de tu mazo.</Typography>
         </Box>
         {drawnCard ? (
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>

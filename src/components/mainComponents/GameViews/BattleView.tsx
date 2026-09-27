@@ -18,6 +18,7 @@ import TurnSummary from "../../TurnSummary";
 import FireDialog from "../../FireDialog";
 import CollisionDialog from "../../CollisionDialog";
 import BattleMap from "./BattleMap";
+import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
 
@@ -39,6 +40,8 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [collisionOpen, setCollisionOpen] = useState(false);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
+  const [markingCloseAssault, setMarkingCloseAssault] = useState(false);
+  const closeAssaultCard = game.activeCard?.closeAssaultOnly ?? false;
   const summaries = summarizeOrders(
     game.orders,
     session.board,
@@ -62,7 +65,16 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
 
   return (
     <>
-      {showMap && (
+      {markingCloseAssault && (
+        <CloseAssaultMap
+          faction={faction}
+          session={session}
+          game={game}
+          onDone={() => setMarkingCloseAssault(false)}
+        />
+      )}
+
+      {showMap && !markingCloseAssault && (
         <BattleMap
           faction={faction}
           session={session}
@@ -72,7 +84,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         />
       )}
 
-      {!showMap && (
+      {!showMap && !markingCloseAssault && (
         <Stack spacing={2} sx={{ width: "100%", maxWidth: 900, mx: "auto" }}>
           <Box
             sx={{
@@ -103,6 +115,21 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             </Stack>
           </Box>
 
+          {closeAssaultCard && (
+            <Alert
+              severity="warning"
+              icon={<GameIcon name="battle" />}
+              action={
+                <Button color="warning" onClick={() => setMarkingCloseAssault(true)}>
+                  Marcar unidades
+                </Button>
+              }
+              sx={{ alignItems: "center", flexWrap: "wrap", "& .MuiAlert-action": { pl: 0, ml: "auto" } }}
+            >
+              Asalto cercano: marca en el mapa cada unidad tuya adyacente a una unidad enemiga.
+            </Alert>
+          )}
+
           {anyMoved && (
             <Alert
               severity="warning"
@@ -127,7 +154,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
           </Alert>
 
           <TurnSummary
-            card={game.chosenCard}
+            card={game.activeCard}
             summaries={summaries}
             faction={faction}
             onFire={(summary) => setFiringIndex(summary.index)}
@@ -141,7 +168,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
       <FireDialog
         key={firingIndex ?? "closed"}
         summary={firing}
-        card={game.chosenCard}
+        card={game.activeCard}
         faction={faction}
         onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
         onQuickFire={(dice, target) =>
@@ -155,7 +182,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
       <CollisionDialog
         open={collisionOpen}
         summaries={summaries}
-        card={game.chosenCard}
+        card={game.activeCard}
         faction={faction}
         onRoll={(orderIndex, targetType) => withSound(session.fireCollision(orderIndex, targetType))}
         withCoins={!game.extraTurn}

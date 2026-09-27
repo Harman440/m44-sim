@@ -204,7 +204,8 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             onCardDealt={handleCardDealt}
             onDrawChoice={() => session.drawChoice()}
             onChooseCard={(card) => session.chooseCard(card)}
-            onCardClick={(card) => session.pickCard(card) && play("cardPlay")}
+            onCardClick={(card, section) => session.pickCard(card, section) && play("cardPlay")}
+            needsSection={(card) => session.cardNeedsSection(card)}
           />
         )}
 
@@ -223,7 +224,6 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             faction={faction}
             session={session}
             game={game}
-            attacking={session.attacking}
             onDrawCard={handleDrawCard}
             onEndTurn={() => session.endTurn()}
           />

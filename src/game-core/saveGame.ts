@@ -15,7 +15,7 @@ import type { BattleEdit, Shot } from "./gameSession";
 import type { TurnRecord } from "./turnLog";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 interface SavedUnit {
   type: UnitType;
@@ -45,6 +45,7 @@ export interface SavedGame {
     shots: number;
     section: Section | null;
     onTheMove: boolean;
+    closeAssaultOnly: boolean;
   }[];
   ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
@@ -113,6 +114,7 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
       shots: order.shots,
       section: order.section,
       onTheMove: order.onTheMove,
+      closeAssaultOnly: order.closeAssaultOnly,
     })),
     battleEdits: state.battleEdits.map((edit) =>
       edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unitIndex(edit.unit) } : edit
@@ -184,6 +186,7 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
         shots: order.shots,
         section: section(order.section),
         onTheMove: order.onTheMove,
+        closeAssaultOnly: order.closeAssaultOnly,
       })
   );
 

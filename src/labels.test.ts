@@ -4,6 +4,10 @@ import { DieFace } from "./game-core/dice";
 import Hex from "./game-core/hex";
 import Unit, { UnitType } from "./game-core/unit";
 import { HexType } from "./types/hex";
+import CommandCard from "./game-core/commandCard";
+import { moveLimits } from "./game-core/orderRules";
+
+const CARD_ORDER = { section: null, onTheMove: false };
 
 describe("Spanish descriptions", () => {
   it("describes a hex by its unit and terrain", () => {
@@ -19,7 +23,19 @@ describe("Spanish descriptions", () => {
     [UnitType.TANK, "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
     [UnitType.ARTILLERY, "Mueve hasta 1 casilla; si se mueve no puede disparar"],
   ])("explains how %s moves and fires", (unitType, text) => {
-    expect(describeMovement(new Unit(unitType))).toBe(text);
+    const limits = moveLimits(new CommandCard({}), new Unit(unitType), CARD_ORDER);
+    expect(describeMovement(limits)).toBe(text);
+  });
+
+  it("explains a card that stops units moving, or a unit on the move", () => {
+    const infantry = new Unit(UnitType.INFANTRY);
+
+    expect(describeMovement(moveLimits(new CommandCard({ noMove: true }), infantry, CARD_ORDER))).toBe(
+      "No puede moverse con esta carta"
+    );
+    expect(describeMovement(moveLimits(new CommandCard({}), infantry, { section: null, onTheMove: true }))).toBe(
+      "Mueve hasta 2 casillas; no puede disparar"
+    );
   });
 
   it("sums up a roll by face, or says it had no effect", () => {

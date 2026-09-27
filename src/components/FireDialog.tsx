@@ -116,7 +116,7 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, on
 
   if (!summary) return null;
 
-  const context: FireContext = { unitType: summary.unitType, card };
+  const context: FireContext = { unitType: summary.unitType, card, closeAssaultOnly: summary.closeAssaultOnly };
   const question = nextFireQuestion(FIRE_QUESTIONS, context, answers);
   const result = question ? null : calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
@@ -158,8 +158,9 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, on
   };
 
   const handleQuickFire = () => {
-    if (quickTarget === null || quickCloseAssault === null) return;
-    if (!onQuickFire(quickDice, { unitType: quickTarget, closeAssault: quickCloseAssault })) return;
+    const closeAssault = summary.closeAssaultOnly || quickCloseAssault;
+    if (quickTarget === null || closeAssault === null) return;
+    if (!onQuickFire(quickDice, { unitType: quickTarget, closeAssault })) return;
     resetAim();
     setJustFired(true);
   };
@@ -262,28 +263,33 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, on
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            ¿Está adyacente (asalto cercano)?
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            value={quickCloseAssault}
-            onChange={(_, value: boolean | null) => value !== null && setQuickCloseAssault(value)}
-            aria-label="Asalto cercano"
-            sx={{ mb: 2 }}
-          >
-            <ToggleButton value={true} sx={{ minWidth: 64, minHeight: 48 }}>
-              Sí
-            </ToggleButton>
-            <ToggleButton value={false} sx={{ minWidth: 64, minHeight: 48 }}>
-              No
-            </ToggleButton>
-          </ToggleButtonGroup>
+          {/* A unit marked for a Close Assault card only fires at an adjacent enemy */}
+          {!summary.closeAssaultOnly && (
+            <>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                ¿Está adyacente (asalto cercano)?
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                value={quickCloseAssault}
+                onChange={(_, value: boolean | null) => value !== null && setQuickCloseAssault(value)}
+                aria-label="Asalto cercano"
+                sx={{ mb: 2 }}
+              >
+                <ToggleButton value={true} sx={{ minWidth: 64, minHeight: 48 }}>
+                  Sí
+                </ToggleButton>
+                <ToggleButton value={false} sx={{ minWidth: 64, minHeight: 48 }}>
+                  No
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </>
+          )}
           <Button
             fullWidth
             size="large"
             onClick={handleQuickFire}
-            disabled={quickTarget === null || quickCloseAssault === null}
+            disabled={quickTarget === null || (!summary.closeAssaultOnly && quickCloseAssault === null)}
           >
             Disparar {diceText(quickDice)}
           </Button>

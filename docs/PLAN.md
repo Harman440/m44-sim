@@ -19,6 +19,7 @@ Done so far (details in git history):
 - Steps 16–18: the attacker's extra first turn, the Movimiento and Fase final phases, and collisions
 - Step 19: firing order (units that didn't move first, enforced) and the map updated in the final phase
 - Step 20: each roll is read against its target: hits, retreats and coins
+- Step 21: the house command deck (57 cards) with its card rules: sections chosen on play, quotas per section, units on the move, points, no-move and close-assault cards
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -83,7 +84,7 @@ The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase f
   - [x] move the pieces on the table (a checklist beside the read-only map, with the number of units that fire)
 - [x] **Fase final** (`EndOfTurnView`):
   - [x] apply the retreats marked in battle (Step 19): made on the table, then mirrored on the map ("Actualizar mapa")
-  - [x] draw the command card ("Robar carta" shows the card drawn), with a reminder that the attacking side draws first; then "Empezar turno N"
+  - [x] draw the command card ("Robar carta" shows the card drawn); then "Empezar turno N"
   - [ ] choose a combat card or 2 coins (Part E)
 - [x] Add the phases to `TurnPhase` (`MOVEMENT`, `END_OF_TURN`, appended) and to the header steps (Carta, Órdenes, Movimiento, Batalla, Final). "Terminar batalla" leads to the final phase; the card is drawn with `drawCard()` there instead of in `endTurn()`
 - [x] Tests for the new phase flow and for saves from before the change (`SAVE_VERSION` 4 adds the drawn card; version 3 saves carry on through the new phases)
@@ -124,36 +125,34 @@ When two units cross the same hex, or land on the same one, they battle at once,
 
 ### Step 21: The house command-card deck
 Replace today's 8 test cards with the house deck ("Breakthrough" counts in house-rules.md).
-- [ ] Card database: every original, changed and new card with its count, text, and art or diagram
-- [ ] Engine support for the new card shapes:
-  - quotas per section (General Advance: 2 each; Recon in Force: 1 each; Pincer: 2 each)
-  - all units in one section, chosen on play (Assault, Infantry Assault; this also covers the "Infantry Assault-style" idea)
-  - unit-type cards with a section choice
-  - orders that can't move (Firefight)
-  - extra movement (Infantry Assault +1 hex)
-  - "fire twice or move 3" (Artillery Bombardment)
-  - dice modifiers:
-    - Armor Assault +1 in close assault
-    - Firefight: +1 at range, −1 in close assault; the general rule says one less with an adjacent enemy
-    - Finest Hour +1
-    - Close Assault card +1
-  - a card with no orders (Close Assault: all units in close assault fire after the enemy moves)
-  - Direct from HQ, Move Out
-- [x] Refactor first: cards describe their rules as data (`CommandCard`), and `game-core/orderRules.ts` works out the orderable units, order slots, move limits and orders left from the card and the orders given. The engine already handles sections chosen on play, unit types, "all" units, quotas per section, units on the move, no move, move bonus, move override, extra shots for holding units and conditional dice bonuses; the UI to pick a section (on play, and for a border unit) is still to do
+- [x] Refactor first: cards describe their rules as data (`CommandCard`), and `game-core/orderRules.ts` works out the orderable units, order slots, move limits and orders left from the card and the orders given
+- [x] Card database (`data/commandCards.ts`): 40 section cards (Recon, Probe, Attack and Assault for each section, Recon in Force, General Advance, Pincer) and 17 tactic cards (Move Out, Finest Hour, Direct from HQ, Artillery Bombardment, Infantry Assault, Close Assault, Armor Assault, Firefight, Preparations), each with its count and Spanish text. The card face is a diagram (sections, order count, tags for the special rules); no art yet
+- [x] Engine support for the new card shapes:
+  - quotas per section (General Advance: 2 each; Recon in Force: 1 each; Pincer: 2 left and 2 right)
+  - all units in one section (Assault), or in a section chosen on play (Infantry Assault)
+  - unit-type cards, with "1 unit of your choice" when none of that type are left
+  - orders that can't move (Firefight), extra movement (Infantry Assault +1 hex, also for moving and firing), "fire twice or move 3" (Artillery Bombardment)
+  - units on the move (Recon, Probe): 1 extra unit anywhere that can't fire
+  - a points budget (Finest Hour: 4 points, infantry 1, tank or artillery 2)
+  - dice modifiers: Armor Assault +1 in close assault, Firefight +1 at range and −1 in close assault, Finest Hour +1, Close Assault +1
+  - a card with no orders (Close Assault): in the battle the player marks each unit adjacent to an enemy, which fires once, in close assault only
+- [x] UI: pick the section when playing a card that needs one; pick which section's order a border unit takes (or put it on the move); the hold button says whether the unit will fire; the card played is shown while giving orders; "Marcar unidades" in the battle for Close Assault
 - [x] **Decided:** Counter Attack is not in the game
 - [x] **Decided:** a unit on a border hex can be ordered by either section it touches (left or center, center or right); for cards with quotas per section the player picks which section's order it takes
 - [x] **Decided:** "on the move" (Recon, Probe): the player may order 1 extra unit anywhere, which may move but can't fire
-- [ ] **Decide:**
-  - the "1 less on standard maps" rule for cards with units on the move
-  - Infantry Assault's +1 hex: does it also add 1 to how far infantry moves and still fires? (the engine adds it to both, as in official M44)
-  - which sections Pincer uses
-  - the final deck counts (the notes have several "(−1)" changes)
+- [x] **Decided:** Pincer orders 2 units on the left and 2 on the right
+- [x] **Decided:** Infantry Assault's +1 hex also adds to how far infantry moves and still fires
+- [x] **Decided:** Finest Hour is a 4-point budget (infantry 1, tank or artillery 2); the units ordered fire +1 die
+- [x] **Decided:** Behind Enemy Lines is a combat card, not in the command deck
+- [x] **Decided:** a unit-type card with none of its units left orders 1 unit of any type, with no bonus
+- [x] **Decided:** Close Assault: the player marks the units in close assault in the battle phase
+- [x] **Decided (provisional):** deck counts are the notes' Breakthrough counts with the "(−1)" changes, which make a standard-size deck; the "1 less on standard maps" note is about these counts. Tune them in `data/commandCards.ts`
 
 ### Step 22: Drawing cards
 - [ ] Gamble: when drawing, keep the card or discard it and draw another, which must be kept. **Decide:** is this a rule for every draw, or a card?
 - [ ] Recon: draw 3 and choose 1. This replaces the "Coge 2 Cartas" debug button.
-- [ ] Preparations: order 1 unit and take 3 coins and a combat card
-- [ ] The attacking side draws first in the Fase final (Step 17)
+- [ ] Preparations: order 1 unit and take 3 coins and a combat card (the card and its text are in the deck since Step 21; the coins and the combat card are still taken at the table)
+- [x] **Decided:** each tablet has its own command deck (the tablets don't connect), so nothing waits for the opponent to draw; the old "the attacking side draws first" reminder is gone
 
 ---
 
@@ -165,7 +164,7 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 - [ ] End of turn: take 2 coins or a combat card (Step 24)
 - [ ] Spending:
   - order one extra unit anywhere for 4 coins; it gets none of the command card's benefits, and it can be done several times per turn
-  - Finest Hour: 1 coin per infantry, 2 per armor or artillery (max 4 orders)
+  - Finest Hour: 1 coin per infantry, 2 per armor or artillery (max 4 orders). **Decide:** Step 21 built Finest Hour as a 4-point budget (infantry 1, tank or artillery 2), as decided then; confirm whether the units also cost coins
 - [ ] A ledger with undo, like battle edits
 - [ ] No coins on the attacking side's extra first turn
 
@@ -177,9 +176,10 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
   - the battle screen shows the reaction cards in your hand, and you can play one at any time while it's the opponent's turn to fire
   - Ambush, Out of Ammo, Out of Fuel and Shells Shortage work this way (the last three are reaction cards: the enemy unit can't fire, and with Out of Ammo/Out of Fuel it also moves; done at the table)
 - [ ] End of turn: combat card or 2 coins (with Step 23)
+- [ ] Deck types: several combat decks with different sets of cards, e.g. an offensive, a neutral and a defensive deck, or special decks for a side with air superiority or more tanks. Each scenario says which deck each side uses. Keep this in mind when building the combat deck; what each deck holds is decided once the app is finished
+- [x] **Decided (Step 21):** Ambush, Behind Enemy Lines, Barrage, Air Power, Medics and Dig In are not in the command deck; they are combat cards
 - [ ] **Decide:**
   - the final card list, costs and counts (the notes list extra copies in brackets, and medic variants)
-  - whether Ambush, Behind Enemy Lines, Barrage, Air Power, Medics and Dig In are combat cards or command cards
 
 ### Step 25: Map markers
 Several cards need you to mark hexes on your map during orders.
@@ -208,7 +208,6 @@ Several cards need you to mark hexes on your map during orders.
 - [ ] Orders:
   - Tactician: change the section of a section card
   - Behind Enemy Lines: fire and move before other attacks, with the move done in the retreat phase
-  - Close Assault: fire after the enemy has moved
 - [ ] Battle: Not a Step Back (ignore retreats), Heat of Battle (infantry overrun)
 - [ ] **Decide when we get here:** a way to play Personal Armor (ignore 1 infantry the opponent rolled), Rifles Up! (fire before anyone else) and Behind Enemy Lines (fire and move before other attacks) without connecting the tablets
 

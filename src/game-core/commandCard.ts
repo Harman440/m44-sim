@@ -25,12 +25,19 @@ export interface CommandCardProps {
   id?: string;
   name?: string;
   description?: string;
+  /** A tactic card (drawn differently); otherwise a section card */
+  tactic?: boolean;
   /** Sections it orders units in, or "chosen": one section the player picks when playing it. Defaults to all three. */
   sections?: readonly Section[] | "chosen";
-  /** Only units of these types; omitted: every type */
+  /**
+   * Only units of these types; omitted: every type. With none of them on the
+   * board, the card orders 1 unit of any type anywhere instead, with no bonus.
+   */
   unitTypes?: readonly UnitType[];
-  /** How many units it orders, or "all" of the units that fit */
+  /** How many units it orders, or "all" of the units that fit; with `orderCost`, the points to spend */
   orders?: number | "all";
+  /** Points each unit type costs out of `orders` (Finest Hour: infantry 1, tank and artillery 2); 1 when omitted */
+  orderCost?: Partial<Record<UnitType, number>>;
   /** At most this many orders in each section (General Advance: 2); a border unit counts for the section the player picks */
   perSection?: number;
   /** Extra units anywhere on the board that may move but can't fire (Probe, Recon) */
@@ -44,6 +51,8 @@ export interface CommandCardProps {
   /** Shots for a unit that holds (Artillery Bombardment: 2); a unit that moved fires at most once */
   holdShots?: number;
   fireBonus?: readonly FireBonus[];
+  /** No orders: in the battle, the player marks each unit adjacent to an enemy and it fires in close assault (Close Assault) */
+  closeAssaultOnly?: boolean;
 }
 
 class CommandCard {
@@ -51,9 +60,11 @@ class CommandCard {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  readonly tactic: boolean;
   readonly sections: readonly Section[] | "chosen";
   readonly unitTypes: readonly UnitType[] | null;
   readonly orders: number | "all";
+  readonly orderCost: Partial<Record<UnitType, number>>;
   readonly perSection: number | null;
   readonly onTheMove: number;
   readonly noMove: boolean;
@@ -61,14 +72,17 @@ class CommandCard {
   readonly maxMove: number | null;
   readonly holdShots: number;
   readonly fireBonus: readonly FireBonus[];
+  readonly closeAssaultOnly: boolean;
 
   constructor({
     id = `command-card-${CommandCard.counter++}`,
     name = "",
     description = "",
+    tactic = false,
     sections = SECTIONS,
     unitTypes,
     orders = 0,
+    orderCost = {},
     perSection,
     onTheMove = 0,
     noMove = false,
@@ -76,13 +90,16 @@ class CommandCard {
     maxMove,
     holdShots = 1,
     fireBonus = [],
+    closeAssaultOnly = false,
   }: CommandCardProps) {
     this.id = id;
     this.name = name;
     this.description = description;
+    this.tactic = tactic;
     this.sections = sections;
     this.unitTypes = unitTypes ?? null;
     this.orders = orders;
+    this.orderCost = orderCost;
     this.perSection = perSection ?? null;
     this.onTheMove = onTheMove;
     this.noMove = noMove;
@@ -90,6 +107,12 @@ class CommandCard {
     this.maxMove = maxMove ?? null;
     this.holdShots = holdShots;
     this.fireBonus = fireBonus;
+    this.closeAssaultOnly = closeAssaultOnly;
+  }
+
+  /** Points an order for this unit type uses out of the card's orders */
+  costOf(unitType: UnitType): number {
+    return this.orderCost[unitType] ?? 1;
   }
 
   /** The player picks the card's section when playing it */

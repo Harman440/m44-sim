@@ -12,7 +12,17 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { positionKey, samePosition } from "./position";
-import { OrderContext, OrderSlot, moveLimits, orderSlots, orderablePositions, ordersLeft, sameSlot } from "./orderRules";
+import {
+  MoveLimits,
+  OrderContext,
+  OrderSlot,
+  fallbackCard,
+  moveLimits,
+  orderSlots,
+  orderablePositions,
+  ordersLeft,
+  sameSlot,
+} from "./orderRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
@@ -26,6 +36,11 @@ export interface GameSnapshot {
   /** Debug placeholder for cards that let you keep 1 of 2 drawn cards */
   choiceCards: readonly CommandCard[];
   chosenCard: CommandCard | null;
+  /**
+   * The rules in force this turn: the chosen card, or "1 unit of your choice"
+   * when it's a unit-type card and none of those units are left
+   */
+  activeCard: CommandCard | null;
   /** The section picked for a card that orders units in a section of the player's choice */
   chosenSection: Section | null;
   orders: readonly Order[];
@@ -33,6 +48,8 @@ export interface GameSnapshot {
   ordersLeft: number;
   /** Units that can still be ordered (empty outside giving orders) */
   orderable: readonly Position[];
+  /** With a Close Assault card, in the battle: units that can still be marked as in close assault */
+  closeAssaultMarkable: readonly Position[];
   ordersCommitted: boolean;
   /** Board changes made in the final phase to mirror the table after the battle (undoable) */
   battleEdits: number;
@@ -67,6 +84,8 @@ export interface Shot {
 export interface MoveOptions {
   moves: Position[];
   moveAndFire: Position[];
+  /** How far it moves with this order, and its shots if it holds */
+  limits: MoveLimits;
   /**
    * The ways the unit can be ordered. The moves are for the card's own orders
    * when it can take one; with more than one, the player picks the section.
@@ -164,12 +183,17 @@ class GameSession {
 
   // --- PICK_CARDS
 
-  /** Play a card from the hand; a card that orders units in a section of the player's choice needs the section */
+  /** The card orders units in a section the player picks when playing it (and doesn't fall back to 1 unit) */
+  cardNeedsSection(card: CommandCard): boolean {
+    return card.choosesSection && !fallbackCard(card, this.board);
+  }
+
+  /** Play a card from the hand; see `cardNeedsSection` for when it takes a section */
   pickCard(card: CommandCard, section?: Section): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (this.choiceCards.length > 0) return false;
     if (!this.hand.includes(card)) return false;
-    if (card.choosesSection ? !isSection(section) : section !== undefined) return false;
+    if (this.cardNeedsSection(card) ? !isSection(section) : section !== undefined) return false;
 
     this.chosenCard = card;
     this.chosenSection = section ?? null;
@@ -203,9 +227,16 @@ class GameSession {
 
   // --- ORDER_UNITS
 
+  /** The chosen card's rules, or 1 unit of any type when it's a unit-type card with none of its units left */
+  private activeCard(): CommandCard | null {
+    if (!this.chosenCard) return null;
+    return fallbackCard(this.chosenCard, this.board) ?? this.chosenCard;
+  }
+
   private orderContext(): OrderContext | null {
-    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !this.chosenCard) return null;
-    return { card: this.chosenCard, chosenSection: this.chosenSection, board: this.board, orders: this.orders };
+    const card = this.activeCard();
+    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !card) return null;
+    return { card, chosenSection: this.chosenSection, board: this.board, orders: this.orders };
   }
 
   private remainingOrders(): number {
@@ -240,6 +271,7 @@ class GameSession {
     return {
       moves: destinations(limits.maxMove),
       moveAndFire: destinations(limits.moveAndFire, true),
+      limits,
       slots,
     };
   }
@@ -360,8 +392,14 @@ class GameSession {
    */
   fire(orderIndex: number, answers: FireAnswers): boolean {
     if (!this.canFireNow(orderIndex)) return false;
-    const context = { unitType: this.orders[orderIndex]!.unit.getUnitType(), card: this.chosenCard };
+    const order = this.orders[orderIndex]!;
+    const context = {
+      unitType: order.unit.getUnitType(),
+      card: this.activeCard(),
+      closeAssaultOnly: order.closeAssaultOnly,
+    };
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
+    if (order.closeAssaultOnly && answers.distance !== "1") return false;
 
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
     if (blocked) return false;
@@ -376,6 +414,7 @@ class GameSession {
     if (!Number.isInteger(dice) || dice < 1) return false;
     if (!isUnitType(target.unitType)) return false;
     if (!this.canFireNow(orderIndex)) return false;
+    if (this.orders[orderIndex]!.closeAssaultOnly && !target.closeAssault) return false;
     return this.recordShot(orderIndex, dice, [], [], { ...target });
   }
 
@@ -392,10 +431,46 @@ class GameSession {
     if (samePosition(order.start, order.end)) return false;
     if (this.shots.some((shot) => shot.orderIndex === orderIndex)) return false;
 
-    const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.chosenCard });
+    const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.activeCard() });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     const target = { unitType: targetType, closeAssault: true };
     return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true);
+  }
+
+  // Close Assault card: no orders; in the battle the player marks each unit
+  // that is adjacent to an enemy on the table, and it fires in close assault
+
+  private canMarkCloseAssault(): boolean {
+    return this.phase === TurnPhase.BATTLE && (this.activeCard()?.closeAssaultOnly ?? false);
+  }
+
+  private closeAssaultMarkable(): Position[] {
+    if (!this.canMarkCloseAssault()) return [];
+    const marked = new Set(this.orders.map((order) => order.unit));
+    return this.board
+      .getAllHexes()
+      .filter((hex) => hex.unit && !marked.has(hex.unit))
+      .map((hex) => hex.getPosition());
+  }
+
+  /** Mark the unit at `position` as in close assault: it may fire once, at an adjacent enemy */
+  markCloseAssault(position: Position): boolean {
+    if (!this.closeAssaultMarkable().some((p) => samePosition(p, position))) return false;
+
+    const unit = this.board.getHex(position)!.unit!;
+    const order = new Order({ unit, start: position, end: position, path: [position], shots: 1, closeAssaultOnly: true });
+    this.orders = [...this.orders, order];
+    return this.publish();
+  }
+
+  /** Take back the last mark, if that unit hasn't fired */
+  undoCloseAssaultMark(): boolean {
+    if (!this.canMarkCloseAssault()) return false;
+    const index = this.orders.length - 1;
+    if (index < 0 || this.shots.some((shot) => shot.orderIndex === index)) return false;
+
+    this.orders = this.orders.slice(0, -1);
+    return this.publish();
   }
 
   /** Take back this unit's last shot, for a shot recorded by mistake */
@@ -559,11 +634,13 @@ class GameSession {
       hand: [...this.hand],
       choiceCards: [...this.choiceCards],
       chosenCard: this.chosenCard,
+      activeCard: this.activeCard(),
       chosenSection: this.chosenSection,
       drawnCard: this.drawnCard,
       orders: this.orders,
       ordersLeft: orderContext ? ordersLeft(orderContext) : 0,
       orderable: orderContext ? orderablePositions(orderContext) : [],
+      closeAssaultMarkable: this.closeAssaultMarkable(),
       ordersCommitted: this.ordersCommitted,
       battleEdits: this.battleEdits.length,
       drawPileCount: this.deck.getDrawPileCount(),

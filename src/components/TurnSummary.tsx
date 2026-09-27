@@ -27,7 +27,9 @@ const GROUPS = [
 ] as const;
 
 const describeMove = (summary: OrderSummary) =>
-  summary.hold
+  summary.closeAssaultOnly
+    ? "En asalto cercano"
+    : summary.hold
     ? "Mantiene posición"
     : `Avanza ${summary.hexesMoved} ${summary.hexesMoved === 1 ? "casilla" : "casillas"} → ${
         TERRAIN_LABELS[summary.destinationTerrain]
@@ -115,7 +117,9 @@ function TurnSummary({ card, summaries, faction, onFire, withCoins = true, onSki
 
       {summaries.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No se dieron órdenes este turno.
+          {card?.closeAssaultOnly
+            ? "Marca las unidades en asalto cercano para que disparen."
+            : "No se dieron órdenes este turno."}
         </Typography>
       ) : (
         <>

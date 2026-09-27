@@ -17,6 +17,8 @@ export interface OrderSummary {
   hexesMoved: number;
   destinationTerrain: HexType;
   canFire: boolean;
+  /** Marked for a Close Assault card: it fires only at an adjacent enemy */
+  closeAssaultOnly: boolean;
   /** The unit has since been removed from the board (destroyed in battle) */
   removed: boolean;
   /** Shots this unit has fired this turn */
@@ -67,6 +69,7 @@ function summarizeEach(
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
+      closeAssaultOnly: order.closeAssaultOnly,
       removed,
       shots: unitShots,
       skipped,

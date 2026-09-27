@@ -1,12 +1,13 @@
 // labels.ts
 // Spanish UI text for game enums (code identifiers stay in English)
 import Hex from "./game-core/hex";
-import Unit, { UnitType } from "./game-core/unit";
+import { UnitType } from "./game-core/unit";
 import { DieFace, countFaces } from "./game-core/dice";
 import { HexType, Side } from "./types/hex";
 import { Faction } from "./types/faction";
 import { ShotTarget } from "./data/hitRules";
 import { RollResult } from "./game-core/rollResult";
+import type { MoveLimits } from "./game-core/orderRules";
 
 export const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
 
@@ -45,14 +46,16 @@ export const describeHex = (hex: Hex): string => {
   return hex.unit ? `${UNIT_LABELS[hex.unit.getUnitType()]} en ${terrain}` : terrain;
 };
 
-/** How far a unit may move, and how far it may move and still fire */
-export const describeMovement = (unit: Unit): string => {
+/** How far a unit moves with its order, and whether it can still fire */
+export const describeMovement = ({ maxMove, moveAndFire, holdShots }: MoveLimits): string => {
   const hexes = (n: number) => `${n} ${n === 1 ? "casilla" : "casillas"}`;
+  if (maxMove === 0) return "No puede moverse con esta carta";
+  if (holdShots === 0) return `Mueve hasta ${hexes(maxMove)}; no puede disparar`;
   const fire =
-    unit.getMoveAndFire() === 0
+    moveAndFire === 0
       ? "si se mueve no puede disparar"
-      : `puede disparar si mueve hasta ${hexes(unit.getMoveAndFire())}`;
-  return `Mueve hasta ${hexes(unit.getMaxMove())}; ${fire}`;
+      : `puede disparar si mueve hasta ${hexes(moveAndFire)}`;
+  return `Mueve hasta ${hexes(maxMove)}; ${fire}`;
 };
 
 /** "2 × Infantería · 1 × Granada", or "sin efecto" when no dice were rolled */

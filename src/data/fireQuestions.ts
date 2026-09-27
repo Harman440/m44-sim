@@ -37,8 +37,8 @@ const YES_NO = [
 const distanceQuestion: FireQuestion = {
   id: "distance",
   text: "¿A cuántas casillas está el objetivo?",
-  options: ({ unitType }) =>
-    BASE_DICE_BY_DISTANCE[unitType].map((_, i) => ({
+  options: ({ unitType, closeAssaultOnly }) =>
+    BASE_DICE_BY_DISTANCE[unitType].slice(0, closeAssaultOnly ? 1 : undefined).map((_, i) => ({
       value: String(i + 1),
       label: i === 0 ? "1 (adyacente)" : String(i + 1),
     })),

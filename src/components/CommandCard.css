@@ -6,7 +6,7 @@
   flex-direction: column;
   flex: 0 0 auto;
   width: 170px;
-  height: 250px;
+  min-height: 250px;
   overflow: hidden;
   cursor: pointer;
   background: var(--m44-paper);
@@ -85,6 +85,12 @@
   fill: var(--m44-accent);
 }
 
+.command-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .command-card__unit {
   align-self: flex-start;
   padding: 2px 8px;
@@ -95,8 +101,9 @@
 
 .command-card__orders {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  column-gap: 6px;
   font-size: 0.95rem;
 }
 
@@ -104,6 +111,11 @@
   font-family: var(--m44-font-display);
   font-size: 2.6rem;
   line-height: 1;
+}
+
+/* A word ("Todas") instead of a number */
+.command-card__count--word {
+  font-size: 1.8rem;
 }
 
 .card-description {

@@ -224,3 +224,68 @@ describe("BattleView map", () => {
     expect(onEndBattle).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("BattleView Close Assault card", () => {
+  const setupCloseAssault = () => {
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Allies",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [
+        new CommandCard({
+          id: "close",
+          name: "Asalto cercano",
+          closeAssaultOnly: true,
+          fireBonus: [{ dice: 1, closeAssault: true }],
+        }),
+      ],
+    });
+    session.pickCard(session.getSnapshot().hand[0]!);
+    session.commitOrders();
+    session.startMovement();
+    session.startBattle();
+    const { container } = render(<Harness session={session} onEndBattle={vi.fn()} />);
+    const tap = (p: Position) =>
+      fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`) as SVGGElement);
+    return { session, container, tap };
+  };
+
+  it("marks the units in close assault on the map, and they can then fire", () => {
+    const { session, container, tap } = setupCloseAssault();
+    expect(screen.getByText("Marca las unidades en asalto cercano para que disparen.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Marcar unidades" }));
+    expect(container.querySelectorAll(".unit__ring--orderable")).toHaveLength(2);
+    tap(INFANTRY);
+    expect(screen.getByTestId("marked-count")).toHaveTextContent("1 unidad marcada");
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+
+    const row = screen.getByTestId("order-summary");
+    expect(row).toHaveTextContent("En asalto cercano");
+    fireEvent.click(within(row).getByRole("button", { name: "Disparar" }));
+    // Only adjacent targets: the distance question offers 1 hex only
+    expect(screen.getByRole("button", { name: "1 (adyacente)" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "2" })).not.toBeInTheDocument();
+    expect(session.getSnapshot().orders).toHaveLength(1);
+  });
+
+  it("takes back the last mark", () => {
+    const { session, tap } = setupCloseAssault();
+    fireEvent.click(screen.getByRole("button", { name: "Marcar unidades" }));
+    tap(INFANTRY);
+    tap(TANK);
+
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+
+    expect(session.getSnapshot().orders).toHaveLength(1);
+    expect(screen.getByTestId("marked-count")).toHaveTextContent("1 unidad marcada");
+  });
+});

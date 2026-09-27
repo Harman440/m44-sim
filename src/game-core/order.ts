@@ -11,11 +11,13 @@ interface OrderProps {
   shots: number;
   section?: Section | null;
   onTheMove?: boolean;
+  closeAssaultOnly?: boolean;
 }
 
 /**
- * One unit's order for this turn. Orders are only ever appended while giving
- * orders and are frozen once committed, so an order's index in the turn's list
+ * One unit's order for this turn. Orders are only ever appended (while giving
+ * orders, or when marking units for a Close Assault card in the battle) and
+ * only the last one can be taken back, so an order's index in the turn's list
  * identifies it for the rest of the turn (arrow colour, shots).
  */
 class Order {
@@ -29,7 +31,18 @@ class Order {
   section: Section | null;
   /** The card's extra unit on the move: it may move but can't fire */
   onTheMove: boolean;
-  constructor({ unit, start, end, path = null, shots, section = null, onTheMove = false }: OrderProps) {
+  /** Marked in the battle for a Close Assault card: it holds and fires only at an adjacent enemy */
+  closeAssaultOnly: boolean;
+  constructor({
+    unit,
+    start,
+    end,
+    path = null,
+    shots,
+    section = null,
+    onTheMove = false,
+    closeAssaultOnly = false,
+  }: OrderProps) {
     this.unit = unit;
     this.start = start;
     this.end = end;
@@ -37,6 +50,7 @@ class Order {
     this.shots = shots;
     this.section = section;
     this.onTheMove = onTheMove;
+    this.closeAssaultOnly = closeAssaultOnly;
   }
 
   /** Whether the unit may fire this turn after carrying out the order */

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
-import CommandCard from "../../../game-core/commandCard";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
+import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
+import { SECTION_LABELS } from "../../../labels";
 import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
 import { useSound } from "../../../sound";
@@ -20,7 +21,10 @@ interface CardsViewProps {
   /** Returns false when the deck doesn't have 2 cards */
   onDrawChoice: () => boolean;
   onChooseCard: (card: CommandCard) => void;
-  onCardClick: (card: CommandCard) => void;
+  /** Play the card; `section` for a card whose section the player picks */
+  onCardClick: (card: CommandCard, section?: Section) => void;
+  /** The card orders units in a section the player picks when playing it */
+  needsSection?: (card: CommandCard) => boolean;
   /** Show the "Coge 2 Cartas" debug button (a stand-in for the planned special cards) */
   showDrawChoice?: boolean;
 }
@@ -35,8 +39,11 @@ function CardsView({
   onDrawChoice,
   onChooseCard,
   onCardClick,
+  needsSection = () => false,
   showDrawChoice = import.meta.env.DEV,
 }: CardsViewProps) {
+  /** A card waiting for its section to be picked */
+  const [choosingSection, setChoosingSection] = useState<CommandCard | null>(null);
   const [message, setMessage] = useState('Selecciona una carta para jugarla');
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
   const play = useSound();
@@ -83,7 +90,17 @@ function CardsView({
       setMessage('Primero elige una de las dos cartas');
       return;
     }
+    if (needsSection(card)) {
+      setChoosingSection(card);
+      return;
+    }
     onCardClick(card);
+  };
+
+  const playInSection = (section: Section) => {
+    if (!choosingSection) return;
+    onCardClick(choosingSection, section);
+    setChoosingSection(null);
   };
 
   return (
@@ -159,6 +176,24 @@ function CardsView({
           ))}
         </div>
       </div>
+
+      <Dialog open={choosingSection !== null} onClose={() => setChoosingSection(null)}>
+        <DialogTitle>{choosingSection?.name}: ¿en qué sección?</DialogTitle>
+        <DialogContent>
+          <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap", pt: 1 }}>
+            {SECTIONS.map((section) => (
+              <Button key={section} size="large" onClick={() => playInSection(section)} sx={{ flex: "1 1 120px" }}>
+                {SECTION_LABELS[section]}
+              </Button>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" onClick={() => setChoosingSection(null)}>
+            Cancelar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Animating Card Overlay */}
       {/* Flies from the deck into the hand; keyed so each card gets its own flight */}

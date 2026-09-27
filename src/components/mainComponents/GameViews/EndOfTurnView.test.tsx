@@ -44,7 +44,6 @@ function Harness({ session }: { session: GameSession }) {
       faction="Allies"
       session={session}
       game={game}
-      attacking={session.attacking}
       onDrawCard={() => session.drawCard()}
       onEndTurn={() => session.endTurn()}
     />

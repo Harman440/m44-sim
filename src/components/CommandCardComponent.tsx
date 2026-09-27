@@ -32,26 +32,52 @@ function FlankDiagram({ card }: { card: CommandCard }) {
     );
 }
 
+/** The big number on the card and its word: orders, points, "Todas" or none */
+function orderCount(card: CommandCard): { count: string; unit: string } {
+    if (card.closeAssaultOnly || card.orders === 0) return { count: "0", unit: "órdenes" };
+    if (card.orders === "all") return { count: "Todas", unit: "las unidades" };
+    if (Object.keys(card.orderCost).length > 0) return { count: String(card.orders), unit: "puntos" };
+    return { count: String(card.orders), unit: card.orders === 1 ? "orden" : "órdenes" };
+}
+
+/** Short tags for the card's special rules; the description has the details */
+function ruleTags(card: CommandCard): string[] {
+    const tags: string[] = [];
+    if (card.unitTypes) tags.push(`Solo ${card.unitTypes.map((type) => UNIT_LABELS[type].toLowerCase()).join(", ")}`);
+    if (card.choosesSection) tags.push("Sección a elegir");
+    if (card.perSection !== null) tags.push(`${card.perSection} por sección`);
+    if (card.onTheMove > 0) tags.push(`+${card.onTheMove} en movimiento`);
+    if (card.noMove) tags.push("Sin mover");
+    if (card.closeAssaultOnly) tags.push("Asalto cercano");
+    return tags;
+}
+
 /** A command card, drawn like the game's: title band, sections diagram, order count */
 function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
-    // Tactic cards order some unit types anywhere
-    const tacticUnits = cardData.unitTypes?.map((type) => UNIT_LABELS[type].toLowerCase()).join(", ");
-    const orders = cardData.orders;
+    const { count, unit } = orderCount(cardData);
     const Root = onClick ? "button" : "div";
     return (
         <Root
             {...(onClick ? { type: "button", onClick: () => onClick(cardData) } : {})}
-            className={`command-card command-card--${tacticUnits ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
+            className={`command-card command-card--${cardData.tactic ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
         >
             <span className="command-card__band">
                 <h3 className="card-title">{cardData.name}</h3>
             </span>
             <span className="command-card__body">
                 <FlankDiagram card={cardData} />
-                {tacticUnits && <span className="command-card__unit">Solo {tacticUnits}</span>}
+                {ruleTags(cardData).length > 0 && (
+                    <span className="command-card__tags">
+                        {ruleTags(cardData).map((tag) => (
+                            <span key={tag} className="command-card__unit">{tag}</span>
+                        ))}
+                    </span>
+                )}
                 <span className="command-card__orders">
-                    <span className="command-card__count">{orders === "all" ? "Todas" : orders}</span>
-                    <span>{orders === 1 ? "orden" : "órdenes"}</span>
+                    <span className={`command-card__count${/^\d+$/.test(count) ? "" : " command-card__count--word"}`}>
+                        {count}
+                    </span>
+                    <span>{unit}</span>
                 </span>
                 <span className="card-description">{cardData.description}</span>
             </span>

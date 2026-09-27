@@ -61,13 +61,30 @@ export function moveLimits(card: CommandCard, unit: Unit, slot: OrderSlot): Move
   };
 }
 
+/**
+ * What a unit-type card orders when none of its unit types are on the board:
+ * 1 unit of any type, anywhere, with none of the card's bonuses. Null when the
+ * card applies as it is.
+ */
+export function fallbackCard(card: CommandCard, board: BoardManager): CommandCard | null {
+  const { unitTypes } = card;
+  if (!unitTypes) return null;
+  if (board.getAllHexes().some((hex) => hex.unit && unitTypes.includes(hex.unit.getUnitType()))) return null;
+  return new CommandCard({
+    id: card.id,
+    name: card.name,
+    description: "No tienes unidades de este tipo: da una orden a 1 unidad cualquiera, sin bonificaciones.",
+    orders: 1,
+  });
+}
+
 /** Every order slot this unit can still take, the card's own orders first */
 export function orderSlots(context: OrderContext, unit: Unit, side: Side): OrderSlot[] {
   if (context.orders.some((order) => order.unit === unit)) return [];
   const limits = remaining(context);
 
   const cardSlots: OrderSlot[] = [];
-  if (limits.cardOrders > 0 && fitsCard(context, unit)) {
+  if (limits.cardOrders >= context.card.costOf(unit.getUnitType()) && fitsCard(context, unit)) {
     const sections = sectionsOf(side).filter((section) => cardSections(context).includes(section));
     if (context.card.perSection === null) {
       if (sections.length > 0) cardSlots.push({ section: null, onTheMove: false });
@@ -92,20 +109,34 @@ export function orderablePositions(context: OrderContext): Position[] {
 /**
  * The most orders the player can still give with the units left. A border
  * unit can fill either section's quota, so the card's orders are matched to
- * units; the units on the move can be any of the rest.
+ * units; with costs, the cheapest units are counted first. The units on the
+ * move can be any of the rest. (No card has both quotas and costs.)
  */
 export function ordersLeft(context: OrderContext): number {
+  const { card } = context;
   const limits = remaining(context);
   const ordered = new Set(context.orders.map((order) => order.unit));
   const free = context.board.getAllHexes().filter((hex) => hex.unit && !ordered.has(hex.unit));
 
   const fitting = free
     .filter((hex) => fitsCard(context, hex.unit!))
-    .map((hex) => sectionsOf(hex.getSide()).filter((section) => cardSections(context).includes(section)))
-    .filter((sections) => sections.length > 0);
-  const cardUnits =
-    context.card.perSection === null ? fitting.length : maxMatching(fitting, limits.quota);
-  const cardOrders = Math.min(limits.cardOrders, cardUnits);
+    .map((hex) => ({
+      sections: sectionsOf(hex.getSide()).filter((section) => cardSections(context).includes(section)),
+      cost: card.costOf(hex.unit!.getUnitType()),
+    }))
+    .filter(({ sections }) => sections.length > 0);
+
+  let cardOrders = 0;
+  if (card.perSection !== null) {
+    cardOrders = Math.min(limits.cardOrders, maxMatching(fitting.map((unit) => unit.sections), limits.quota));
+  } else {
+    let points = limits.cardOrders;
+    for (const cost of fitting.map((unit) => unit.cost).sort((a, b) => a - b)) {
+      if (cost > points) break;
+      points -= cost;
+      cardOrders++;
+    }
+  }
   return cardOrders + Math.min(limits.onTheMove, free.length - cardOrders);
 }
 
@@ -122,11 +153,12 @@ function fitsCard(context: OrderContext, unit: Unit): boolean {
   return !unitTypes || unitTypes.includes(unit.getUnitType());
 }
 
-/** What's left of the card's orders, its quota in each section and its units on the move */
+/** What's left of the card's orders (points, with costs), its quota in each section and its units on the move */
 function remaining({ card, orders }: OrderContext) {
   const cardOrders = orders.filter((order) => !order.onTheMove);
+  const used = cardOrders.reduce((sum, order) => sum + card.costOf(order.unit.getUnitType()), 0);
   return {
-    cardOrders: card.orders === "all" ? Infinity : card.orders - cardOrders.length,
+    cardOrders: card.orders === "all" ? Infinity : card.orders - used,
     quota: (section: Section) =>
       (card.perSection ?? Infinity) - cardOrders.filter((order) => order.section === section).length,
     onTheMove: card.onTheMove - (orders.length - cardOrders.length),

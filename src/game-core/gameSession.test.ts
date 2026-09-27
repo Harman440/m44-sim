@@ -325,6 +325,109 @@ describe("GameSession card rules", () => {
   });
 });
 
+describe("GameSession unit-type cards with none of their units", () => {
+  const withCard = (props: CommandCardProps) => {
+    const commandCards = [new CommandCard({ id: "card", name: "Carta", ...props })];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards });
+    return { session, card: session.getSnapshot().hand[0]! };
+  };
+
+  it("orders 1 unit of any type, without the card's bonus", () => {
+    const { session, card } = withCard({
+      unitTypes: [UnitType.ARTILLERY],
+      orders: 4,
+      fireBonus: [{ dice: 1 }],
+    });
+    session.pickCard(card);
+
+    expect(session.getSnapshot().activeCard).toMatchObject({ orders: 1, fireBonus: [] });
+    expect(session.getSnapshot().ordersLeft).toBe(1);
+    expect(orderablePositions(session)).toHaveLength(4);
+  });
+
+  it("doesn't ask for a section then", () => {
+    const { session, card } = withCard({ sections: "chosen", unitTypes: [UnitType.ARTILLERY], orders: "all" });
+
+    expect(session.cardNeedsSection(card)).toBe(false);
+    expect(session.pickCard(card, Side.LEFT)).toBe(false);
+    expect(session.pickCard(card)).toBe(true);
+  });
+});
+
+describe("GameSession Close Assault card", () => {
+  const ADJACENT = { unitType: UnitType.INFANTRY, closeAssault: true };
+
+  /** In battle with a Close Assault card: no orders were given */
+  const closeAssault = () => {
+    const commandCards = [
+      new CommandCard({
+        id: "close",
+        name: "Asalto cercano",
+        closeAssaultOnly: true,
+        fireBonus: [{ dice: 1, closeAssault: true }],
+      }),
+    ];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0 });
+    session.pickCard(session.getSnapshot().hand[0]!);
+    expect(session.getSnapshot().ordersLeft).toBe(0);
+    orderAllAndFight(session);
+    return session;
+  };
+
+  it("gives no orders, and marks units in close assault only in the battle", () => {
+    const commandCards = [new CommandCard({ id: "close", closeAssaultOnly: true })];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards });
+    session.pickCard(session.getSnapshot().hand[0]!);
+
+    expect(session.getSnapshot().orderable).toEqual([]);
+    expect(session.markCloseAssault(LEFT_INF)).toBe(false);
+
+    orderAllAndFight(session);
+    expect(session.getSnapshot().closeAssaultMarkable).toHaveLength(4);
+  });
+
+  it("lets a marked unit fire once, at an adjacent enemy, with the card's die", () => {
+    const session = closeAssault();
+
+    expect(session.markCloseAssault(LEFT_INF)).toBe(true);
+    expect(session.markCloseAssault(LEFT_INF)).toBe(false);
+    expect(session.getSnapshot().orders[0]).toMatchObject({ closeAssaultOnly: true, shots: 1 });
+    expect(session.getSnapshot().closeAssaultMarkable).toHaveLength(3);
+
+    const at = (distance: string) => ({ distance, targetType: "infantry", targetTerrain: "plains", sandbags: "no" });
+    expect(session.fire(0, { ...at("2"), lineOfSight: "yes" })).toBe(false);
+    expect(session.fireQuick(0, 2, AT_INFANTRY)).toBe(false);
+    expect(session.fire(0, at("1"))).toBe(true);
+
+    expect(session.getSnapshot().shots[0]!.dice).toBe(4);
+    expect(session.shotsLeft(0)).toBe(0);
+  });
+
+  it("takes back the last mark until that unit has fired", () => {
+    const session = closeAssault();
+    session.markCloseAssault(LEFT_INF);
+    session.markCloseAssault(TANK);
+
+    expect(session.undoCloseAssaultMark()).toBe(true);
+    expect(session.getSnapshot().orders).toHaveLength(1);
+
+    session.fireQuick(0, 3, ADJACENT);
+    expect(session.undoCloseAssaultMark()).toBe(false);
+  });
+
+  it("keeps the marks after a reload", () => {
+    const session = closeAssault();
+    session.markCloseAssault(TANK);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
+      new CommandCard({ id: "close", closeAssaultOnly: true }),
+    ]);
+
+    expect(restored.getSnapshot().orders[0]).toMatchObject({ closeAssaultOnly: true });
+    expect(restored.fireQuick(0, 3, ADJACENT)).toBe(true);
+  });
+});
+
 describe("GameSession movement and final phases", () => {
   it("goes orders -> movement -> battle -> final phase, one step at a time", () => {
     const { session, card } = sessionWithAllCards();
@@ -530,11 +633,12 @@ describe("GameSession syncing the table in the final phase", () => {
     expect(unitAt(session, TANK)).toBeNull();
     expect(unitAt(session, { row: 6, col: 1 })).not.toBeNull();
     expect(session.undoBattleEdit()).toBe(false);
-    // A card that would have ordered the tank now finds nothing to order
+    // With the tank gone, the tank card falls back to 1 unit of any type
     // (the whole deck is in hand, so the tank card is always there)
     const tankCard = session.getSnapshot().hand.find((c) => c.unitTypes?.includes(UnitType.TANK))!;
     session.pickCard(tankCard);
-    expect(session.getSnapshot().ordersLeft).toBe(0);
+    expect(session.getSnapshot().ordersLeft).toBe(1);
+    expect(session.getSnapshot().orderable).toHaveLength(3);
   });
 });
 
@@ -1030,7 +1134,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 5 as 6 })).toThrow();
+    expect(broken({ version: 6 as 7 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();

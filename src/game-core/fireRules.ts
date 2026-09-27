@@ -9,6 +9,8 @@ export interface FireContext {
   unitType: UnitType;
   /** The command card played this turn (may add dice) */
   card: CommandCard | null;
+  /** The unit may only fire at an adjacent enemy (Close Assault card) */
+  closeAssaultOnly?: boolean;
 }
 
 /** Answers so far, by question id -> option value */
