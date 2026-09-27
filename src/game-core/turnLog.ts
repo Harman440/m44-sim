@@ -7,7 +7,7 @@ import { DieFace } from "./dice";
 import { DiceStep } from "./fireRules";
 import { positionKey } from "./position";
 import { Position } from "../types/scenario";
-import type { BattleEdit, Shot } from "./gameSession";
+import type { BattleEdit, CardAttack, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
@@ -59,6 +59,8 @@ export interface TurnRecord {
   combatCardDrawn: { id: string; name: string } | null;
   /** Hexes marked for the order combat card */
   markers: Position[];
+  /** The attack combat card's rolls on the marked hexes */
+  cardAttacks: CardAttack[];
 }
 
 interface TurnState {
@@ -75,6 +77,7 @@ interface TurnState {
   combatCardsPlayed: readonly CombatCard[];
   combatCardDrawn: CombatCard | null;
   markers: readonly Position[];
+  cardAttacks: readonly CardAttack[];
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
@@ -91,6 +94,7 @@ export function recordTurn({
   combatCardsPlayed,
   combatCardDrawn,
   markers,
+  cardAttacks,
 }: TurnState): TurnRecord {
   return {
     turn,
@@ -124,6 +128,11 @@ export function recordTurn({
     combatCardsPlayed: combatCardsPlayed.map(({ id, name }) => ({ id, name })),
     combatCardDrawn: combatCardDrawn && { id: combatCardDrawn.id, name: combatCardDrawn.name },
     markers: markers.map((p) => ({ ...p })),
+    cardAttacks: cardAttacks.map((attack) => ({
+      ...attack,
+      target: attack.target && { ...attack.target },
+      faces: [...attack.faces],
+    })),
   };
 }
 

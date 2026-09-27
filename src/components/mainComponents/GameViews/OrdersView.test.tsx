@@ -363,3 +363,47 @@ describe("OrdersView combat card markers", () => {
     expect(session.getSnapshot().ordersCommitted).toBe(true);
   });
 });
+
+describe("OrdersView movement combat cards", () => {
+  it("lets the player use the card's movement on a unit, as many times as it allows", () => {
+    const frozen: CombatCard = {
+      id: "frozen",
+      name: "Terreno helado",
+      description: "",
+      cost: 0,
+      phase: "order",
+      effect: { kind: "move", units: 1, moveBonus: 1 },
+    };
+    const card = new CommandCard({ id: "card", name: "Carta", sections: [Side.LEFT], orders: 2 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards: [frozen],
+    });
+    session.startFirstTurn();
+    session.pickCard(card, undefined, frozen);
+    const { container } = render(<Harness session={session} />);
+    const tap = (p: Position) => fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`)!);
+
+    tap(LEFT_A);
+    const toggle = screen.getByRole("button", { name: /Usar Terreno helado \(queda 1\)/ });
+    const movesBefore = container.querySelectorAll(".hexagon__tile--move, .hexagon__tile--move-and-fire").length;
+    fireEvent.click(toggle);
+    expect(container.querySelectorAll(".hexagon__tile--move, .hexagon__tile--move-and-fire").length).toBeGreaterThan(movesBefore);
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+
+    expect(session.getSnapshot().orders[0]!.boosted).toBe(true);
+    tap(LEFT_B);
+    expect(screen.queryByRole("button", { name: /Usar Terreno helado/ })).not.toBeInTheDocument();
+  });
+});

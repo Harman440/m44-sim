@@ -21,7 +21,8 @@ import BattleMap from "./BattleMap";
 import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
 import CombatCardComponent from "../../CombatCardComponent";
-import { coinsText } from "../../../labels";
+import { coinsText, describePlace, UNIT_LABELS } from "../../../labels";
+import CardAttackDialog from "../../CardAttackDialog";
 import { useSound } from "../../../sound";
 
 interface BattleViewProps {
@@ -57,6 +58,10 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
   const anyMoved = summaries.some((s) => !s.hold && !s.removed);
   const play = useSound();
   const battleCards = game.combatHand.filter((card) => card.phase === "battle");
+  const [attackingHex, setAttackingHex] = useState<number | null>(null);
+  const attackCard = game.orderCombatCard?.effect?.kind === "attack" ? game.orderCombatCard : null;
+  const attackOn = (marker: number) => game.cardAttacks.find((attack) => attack.marker === marker) ?? null;
+  const bonusUsed = game.shots.some((shot) => shot.combatBonus);
 
   /** After a shot: the dice sound, or the stamp for a shot with no dice */
   const withSound = (fired: boolean) => {
@@ -148,6 +153,45 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             </Alert>
           )}
 
+          {attackCard && (
+            <Box component="section" aria-labelledby="card-attacks-title" data-testid="card-attacks">
+              <Typography variant="h6" component="h3" id="card-attacks-title">
+                {attackCard.name}
+              </Typography>
+              <Typography variant="body2" color={game.attacksPending ? "warning.main" : "text.secondary"} sx={{ mb: 1 }}>
+                {game.attacksPending
+                  ? "Tira primero en cada casilla marcada: ninguna unidad dispara hasta entonces."
+                  : "Ataques resueltos."}
+              </Typography>
+              <Stack sx={{ gap: 1 }}>
+                {game.markers.map((position, i) => {
+                  const attack = attackOn(i);
+                  const result = attack?.target
+                    ? `${UNIT_LABELS[attack.target.unitType]}: ${attack.faces.length} ${attack.faces.length === 1 ? "dado" : "dados"}`
+                    : attack
+                      ? "Vacía"
+                      : "Sin tirar";
+                  return (
+                    <Stack key={i} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+                      <Typography variant="body1">
+                        Casilla {i + 1} · {describePlace(session.board.getHex(position))} · {result}
+                      </Typography>
+                      <Button
+                        variant={attack ? "outlined" : "contained"}
+                        color={attack ? "primary" : "warning"}
+                        onClick={() => setAttackingHex(i)}
+                        startIcon={<GameIcon name={attack ? "dice" : "fire"} />}
+                        aria-label={`${attack ? "Ver" : "Tirar"} casilla ${i + 1}`}
+                      >
+                        {attack ? "Ver" : "Tirar"}
+                      </Button>
+                    </Stack>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
           <Alert severity="info" icon={<GameIcon name="fire" />} data-testid="fire-order">
             {session.attacking
               ? "Eres el bando atacante: disparas primero."
@@ -160,7 +204,8 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             card={game.activeCard}
             summaries={summaries}
             faction={faction}
-            onFire={(summary) => setFiringIndex(summary.index)}
+            // Units wait for the attack combat card's rolls
+            onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
             withCoins={!game.extraTurn}
             onSkipUnmoved={() => setConfirmingSkip(true)}
           />
@@ -181,9 +226,11 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
                   icon={<GameIcon name="cards" />}
                   sx={{ mt: 1 }}
                   action={
-                    <Button color="inherit" onClick={() => session.undoBattleCombatCard()}>
-                      Deshacer
-                    </Button>
+                    !bonusUsed && (
+                      <Button color="inherit" onClick={() => session.undoBattleCombatCard()}>
+                        Deshacer
+                      </Button>
+                    )
                   }
                 >
                   <strong>Has jugado {game.battleCombatCard.name}</strong> (pagada:{" "}
@@ -230,6 +277,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         summary={firing}
         // An extra order bought with coins gets none of the card's bonuses
         card={firing?.extra ? null : game.activeCard}
+        combatBonus={firingIndex === null ? undefined : session.combatBonusFor(firingIndex)}
         faction={faction}
         onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
         onQuickFire={(dice, target) =>
@@ -239,6 +287,28 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onClose={() => setFiringIndex(null)}
       />
+
+      {attackCard && attackCard.effect?.kind === "attack" && (
+        <CardAttackDialog
+          key={`attack-${attackingHex ?? "closed"}`}
+          hex={
+            attackingHex === null
+              ? null
+              : { index: attackingHex, place: describePlace(session.board.getHex(game.markers[attackingHex]!)) }
+          }
+          cardName={attackCard.name}
+          dicePerHex={attackCard.effect.dicePerHex}
+          attack={attackingHex === null ? null : attackOn(attackingHex)}
+          faction={faction}
+          onAttack={(targetType) => {
+            const done = attackingHex !== null && session.attackHex(attackingHex, targetType);
+            if (done && targetType !== null) play("dice");
+            return done;
+          }}
+          onUndo={() => attackingHex !== null && session.undoCardAttack(attackingHex)}
+          onClose={() => setAttackingHex(null)}
+        />
+      )}
 
       <CollisionDialog
         open={collisionOpen}

@@ -13,6 +13,7 @@ interface OrderProps {
   onTheMove?: boolean;
   extra?: boolean;
   cost?: number;
+  boosted?: boolean;
   closeAssaultOnly?: boolean;
 }
 
@@ -35,6 +36,8 @@ class Order {
   onTheMove: boolean;
   /** An extra order bought with coins: a normal order with none of the card's benefits */
   extra: boolean;
+  /** It uses the order combat card's movement (Frozen Ground, Armor Forward…) */
+  boosted: boolean;
   /** Coins paid for the order (an extra order, or a card that charges per unit like Finest Hour) */
   cost: number;
   /** Marked in the battle for a Close Assault card: it holds and fires only at an adjacent enemy */
@@ -49,6 +52,7 @@ class Order {
     onTheMove = false,
     extra = false,
     cost = 0,
+    boosted = false,
     closeAssaultOnly = false,
   }: OrderProps) {
     this.unit = unit;
@@ -60,6 +64,7 @@ class Order {
     this.onTheMove = onTheMove;
     this.extra = extra;
     this.cost = cost;
+    this.boosted = boosted;
     this.closeAssaultOnly = closeAssaultOnly;
   }
 

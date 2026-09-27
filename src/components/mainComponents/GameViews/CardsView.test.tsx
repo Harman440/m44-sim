@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CardsView, { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./CardsView";
 import CommandCard from "../../../game-core/commandCard";
+import { Side } from "../../../types/hex";
 import { CombatCard } from "../../../game-core/combatCard";
 import GameSession from "../../../game-core/gameSession";
 
@@ -203,5 +204,34 @@ describe("CardsView combat cards", () => {
     expect(screen.queryByRole("button", { name: /Barrera/ })).not.toBeInTheDocument();
     playCommandCard();
     expect(onCardClick).toHaveBeenCalledWith(card, undefined, undefined);
+  });
+});
+
+describe("CardsView Tactician", () => {
+  it("asks for the new section when Tactician is played with a one-section card", () => {
+    const card = new CommandCard({ id: "attack-left", name: "Ataque en el flanco izquierdo", sections: [Side.LEFT], orders: 3 });
+    const tactician: CombatCard = { id: "tactician", name: "Táctico", description: "", cost: 0, phase: "order", effect: { kind: "changeSection" } };
+    const onCardClick = vi.fn();
+    const { container } = render(
+      <CardsView
+        handCards={[card]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onCardClick={onCardClick}
+        needsSection={(c, combat) => combat?.effect?.kind === "changeSection" && c.sections !== "chosen" && c.sections.length === 1}
+        combatHand={[tactician]}
+        canPlayCombatCards
+        coins={0}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 monedas" }));
+    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    expect(screen.getByText("Táctico: ¿a qué sección cambias Ataque en el flanco izquierdo?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "flanco derecho" }));
+
+    expect(onCardClick).toHaveBeenCalledWith(card, Side.RIGHT, tactician);
   });
 });

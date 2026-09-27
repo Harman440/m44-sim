@@ -90,6 +90,23 @@ const sandbagsQuestion: FireQuestion = {
   note: (_, answer) => (answer === "yes" ? "Sacos terreros: el objetivo ignora 1 bandera." : null),
 };
 
+/** A battle combat card that adds dice to one shot (Spotter, Street Fight, Explosives) */
+export const combatBonusQuestion: FireQuestion = {
+  id: "combatCard",
+  text: "",
+  textFor: ({ combatBonus }) =>
+    combatBonus?.condition
+      ? `${combatBonus.name}: ${combatBonus.condition} Si es así, ¿la usas en este disparo?`
+      : `${combatBonus?.name}: ¿la usas en este disparo?`,
+  options: () => YES_NO,
+  appliesTo: ({ combatBonus }, answers) =>
+    !!combatBonus &&
+    !!answers.distance &&
+    (combatBonus.closeAssault === undefined || combatBonus.closeAssault === (answers.distance === "1")),
+  effect: ({ combatBonus }, answer) =>
+    combatBonus && answer === "yes" ? { label: `Carta ${combatBonus.name}`, dice: combatBonus.dice } : null,
+};
+
 /** Asked in this order; add new situations here */
 export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   distanceQuestion,
@@ -97,6 +114,7 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   targetTypeQuestion,
   targetTerrainQuestion,
   sandbagsQuestion,
+  combatBonusQuestion,
 ];
 
 /** The command card's dice, when it changes them in this situation */

@@ -42,6 +42,10 @@ export const DIE_FACE_LABELS: Record<DieFace, string> = {
   [DieFace.FLAG]: "Bandera",
 };
 
+/** "bosque, centro": where a hex is, without its unit */
+export const describePlace = (hex: Hex | null): string =>
+  hex ? `${TERRAIN_LABELS[hex.getType()]}, ${SECTION_LABELS[hex.getSide()]}` : "fuera del mapa";
+
 /** "Tanque en bosque", or just the terrain for an empty hex */
 export const describeHex = (hex: Hex): string => {
   const terrain = TERRAIN_LABELS[hex.getType()];

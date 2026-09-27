@@ -349,3 +349,85 @@ describe("BattleView combat cards", () => {
     expect(screen.queryByTestId("battle-combat-cards")).not.toBeInTheDocument();
   });
 });
+
+describe("BattleView combat card effects", () => {
+  const barrage: CombatCard = {
+    id: "barrage",
+    name: "Barrera",
+    description: "",
+    cost: 0,
+    phase: "order",
+    marker: { kind: "target", count: 1 },
+    effect: { kind: "attack", dicePerHex: 4 },
+  };
+  const spotter: CombatCard = {
+    id: "street",
+    name: "Lucha callejera",
+    description: "",
+    cost: 0,
+    phase: "battle",
+    effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: "¿En un edificio?" },
+  };
+
+  /** The defender at turn 2, with the combat cards given and `before` run before the battle */
+  const effectSetup = (combatCards: CombatCard[], orderCard?: CombatCard) => {
+    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards,
+      random: () => 0.7, // stars
+    });
+    session.startFirstTurn();
+    session.pickCard(card, undefined, orderCard);
+    if (orderCard) session.markHex({ row: 1, col: 10 });
+    session.issueOrder(INFANTRY, INFANTRY);
+    session.issueOrder(TANK, TANK);
+    session.commitOrders();
+    session.startMovement();
+    session.startBattle();
+    render(<Harness session={session} onEndBattle={() => {}} />);
+    return session;
+  };
+
+  it("rolls the attack card on each marked hex before the units can fire", () => {
+    const session = effectSetup([barrage], barrage);
+    const section = screen.getByTestId("card-attacks");
+    expect(section).toHaveTextContent("Tira primero en cada casilla marcada");
+    expect(screen.queryByRole("button", { name: "Disparar" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(section).getByRole("button", { name: "Tirar casilla 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tanque" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tirar 4 dados" }));
+
+    expect(session.getSnapshot().cardAttacks[0]).toMatchObject({ dice: 4 });
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("4");
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(section).toHaveTextContent("Ataques resueltos.");
+    expect(screen.getAllByRole("button", { name: "Disparar" }).length).toBeGreaterThan(0);
+  });
+
+  it("asks whether to use a dice card on a shot by a unit that fits", () => {
+    const session = effectSetup([spotter]);
+    session.playBattleCombatCard(spotter);
+    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[0]!);
+
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí" })); // line of sight
+    fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
+    fireEvent.click(screen.getByRole("button", { name: "Campo abierto" }));
+    fireEvent.click(screen.getByRole("button", { name: "No" })); // sandbags
+
+    expect(screen.getByText("Lucha callejera: ¿En un edificio? Si es así, ¿la usas en este disparo?")).toBeInTheDocument();
+  });
+});

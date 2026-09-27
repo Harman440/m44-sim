@@ -2,6 +2,7 @@
 // Engine for the "how many dice?" questionnaire shown when a unit fires.
 // The questions themselves (and their dice effects) live in data/fireQuestions.ts.
 import CommandCard from "./commandCard";
+import type { DiceBonusEffect } from "./combatCard";
 import { UnitType } from "./unit";
 
 /** What we know about the shot before asking anything */
@@ -11,6 +12,8 @@ export interface FireContext {
   card: CommandCard | null;
   /** The unit may only fire at an adjacent enemy (Close Assault card) */
   closeAssaultOnly?: boolean;
+  /** A battle combat card played this turn that this unit could use on this shot (Spotter…) */
+  combatBonus?: DiceBonusEffect & { name: string };
 }
 
 /** Answers so far, by question id -> option value */
@@ -31,6 +34,8 @@ export interface FireQuestion {
   id: string;
   /** Shown to the player */
   text: string;
+  /** The text when it depends on the situation (e.g. the combat card's name); overrides `text` */
+  textFor?: (context: FireContext) => string;
   options: (context: FireContext) => FireOption[];
   /** Skip the question when it doesn't apply; defaults to always asking */
   appliesTo?: (context: FireContext, answers: FireAnswers) => boolean;

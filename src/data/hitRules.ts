@@ -9,15 +9,17 @@ export interface ShotTarget {
   unitType: UnitType;
   /** The target is adjacent (or it was a collision) */
   closeAssault: boolean;
+  /** Stars hit too (Barrage, Air Power, Air Bombardment) */
+  starsHit?: boolean;
 }
 
 /**
  * Whether a face is a hit on the target:
  * - the matching unit symbol hits (there is no artillery face)
  * - a grenade hits any unit
- * - a star hits artillery in close assault (house rule)
+ * - a star hits artillery in close assault (house rule), and any unit for the attack combat cards
  */
-export function faceHits(face: DieFace, { unitType, closeAssault }: ShotTarget): boolean {
+export function faceHits(face: DieFace, { unitType, closeAssault, starsHit = false }: ShotTarget): boolean {
   switch (face) {
     case DieFace.INFANTRY:
       return unitType === UnitType.INFANTRY;
@@ -26,7 +28,7 @@ export function faceHits(face: DieFace, { unitType, closeAssault }: ShotTarget):
     case DieFace.GRENADE:
       return true;
     case DieFace.STAR:
-      return closeAssault && unitType === UnitType.ARTILLERY;
+      return starsHit || (closeAssault && unitType === UnitType.ARTILLERY);
     case DieFace.FLAG:
       return false;
   }

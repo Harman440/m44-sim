@@ -5,6 +5,7 @@ import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import {
   EXTRA_SLOT,
+  boostedLimits,
   OrderContext,
   canBuyExtraOrder,
   cardOrdersLeft,
@@ -301,5 +302,23 @@ describe("moveLimits", () => {
 
   it("fires twice when holding, or moves further (Artillery Bombardment)", () => {
     expect(limits({ maxMove: 3, holdShots: 2 }, artillery)).toEqual({ maxMove: 3, moveAndFire: 0, holdShots: 2 });
+  });
+});
+
+describe("boostedLimits", () => {
+  const limits = { maxMove: 2, moveAndFire: 1, holdShots: 1 };
+
+  it("adds a move bonus to moving and to moving and firing", () => {
+    expect(boostedLimits(limits, { kind: "move", units: 3, moveBonus: 1 })).toEqual({ maxMove: 3, moveAndFire: 2, holdShots: 1 });
+    expect(boostedLimits({ ...limits, moveAndFire: 0 }, { kind: "move", units: 3, moveBonus: 1 }).moveAndFire).toBe(0);
+  });
+
+  it("replaces the move, and lets it fire when it can fire into the card's terrain", () => {
+    expect(boostedLimits(limits, { kind: "move", units: 1, maxMove: 3, fireInto: [] })).toMatchObject({ maxMove: 3, moveAndFire: 3 });
+  });
+
+  it("leaves a unit that can't move as it is", () => {
+    const noMove = { maxMove: 0, moveAndFire: 0, holdShots: 1 };
+    expect(boostedLimits(noMove, { kind: "move", units: 3, moveBonus: 1 })).toEqual(noMove);
   });
 });

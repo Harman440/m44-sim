@@ -214,7 +214,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             dealtCardIds={dealtCardIds}
             onCardDealt={handleCardDealt}
             onCardClick={(card, section, combatCard) => session.pickCard(card, section, combatCard) && play("cardPlay")}
-            needsSection={(card) => session.cardNeedsSection(card)}
+            needsSection={(card, combatCard) => session.cardNeedsSection(card, combatCard)}
             combatHand={game.combatHand}
             canPlayCombatCards={game.canPlayCombatCards}
             coins={game.coins}

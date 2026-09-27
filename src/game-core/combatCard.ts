@@ -1,5 +1,6 @@
 // game-core/combatCard.ts
 import type { UnitType } from "./unit";
+import type { HexType } from "../types/hex";
 
 /**
  * When a combat card is played: with the command card, for this turn's orders
@@ -17,8 +18,51 @@ export interface CombatCard {
   readonly phase: CombatPhase;
   /** Hexes to mark on the map while giving orders (Barrage, Air Power, Sniper…) */
   readonly marker?: MarkerRule;
-  /** Something to put on the physical board when it's played (sandbags, a camouflage badge) */
+  /** A reminder for the final phase: something to do on the table (sandbags, a camouflage badge, a move to mirror on the map) */
   readonly tableReminder?: string;
+  /** What the app applies for it; without one, the card is resolved at the table */
+  readonly effect?: CombatEffect;
+}
+
+/** The effects the app applies; the rest is resolved at the table */
+export type CombatEffect = DiceBonusEffect | AttackEffect | MoveEffect | { kind: "changeSection" };
+
+/** A battle card: +dice on one shot by a unit of these types (Spotter, Street Fight, Explosives) */
+export interface DiceBonusEffect {
+  kind: "diceBonus";
+  dice: number;
+  unitTypes: readonly UnitType[];
+  /** Only in close assault (Explosives) */
+  closeAssault?: boolean;
+  /** Asked when a unit that fits fires, e.g. "¿La unidad está en un edificio o junto a uno?" */
+  condition?: string;
+}
+
+/** An order card that attacks the marked hexes in the battle, with its own roll per hex (Barrage, Air Power…) */
+export interface AttackEffect {
+  kind: "attack";
+  dicePerHex: number;
+}
+
+/** An order card that changes how some ordered units move (Frozen Ground, Armor Forward, Rattenkrieg…) */
+export interface MoveEffect {
+  kind: "move";
+  /** How many ordered units can use it */
+  units: number;
+  /** Only units of these types; omitted: any */
+  unitTypes?: readonly UnitType[];
+  /** Hexes added to the move, and to how far it moves and still fires */
+  moveBonus?: number;
+  /** It moves this far instead, and can still fire */
+  maxMove?: number;
+  /** Terrain doesn't stop the move */
+  ignoreTerrain?: boolean;
+  /** It can still fire after moving into these terrains */
+  fireInto?: readonly HexType[];
+  /** It must end the move on these terrains */
+  endOn?: readonly HexType[];
+  /** It must start on or next to these terrains */
+  startNear?: readonly HexType[];
 }
 
 /** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */

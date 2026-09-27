@@ -13,11 +13,10 @@ import GameSession from "../game-core/gameSession";
 import { TurnRecord } from "../game-core/turnLog";
 import { Position } from "../types/scenario";
 import {
-  SECTION_LABELS,
-  TERRAIN_LABELS,
   UNIT_LABELS,
   coinsText,
   describeCoinEntry,
+  describePlace,
   describeFaces,
   describeRoll,
   describeTarget,
@@ -43,10 +42,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
   const filePrefix = `m44-${scenario.id}-${faction === "Axis" ? "eje" : "aliados"}`;
 
   /** "bosque, centro": terrain never changes, so the board can describe past positions */
-  const describePlace = (position: Position) => {
-    const hex = session.board.getHex(position);
-    return hex ? `${TERRAIN_LABELS[hex.getType()]}, ${SECTION_LABELS[hex.getSide()]}` : "fuera del mapa";
-  };
+  const placeOf = (position: Position) => describePlace(session.board.getHex(position));
 
   const exportGame = () =>
     downloadJson(`${filePrefix}-partida-turno-${session.getSnapshot().turn}.json`, session.save());
@@ -103,8 +99,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       >
                         {UNIT_LABELS[order.unit]} ·{" "}
                         {hexesMoved === 0
-                          ? `mantiene posición (${describePlace(order.end)})`
-                          : `avanza ${plural(hexesMoved, "casilla", "casillas")} → ${describePlace(order.end)}`}{" "}
+                          ? `mantiene posición (${placeOf(order.end)})`
+                          : `avanza ${plural(hexesMoved, "casilla", "casillas")} → ${placeOf(order.end)}`}{" "}
                         · {order.canFire ? "puede disparar" : "no dispara"}
                       </Typography>
                     );
@@ -155,8 +151,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                   {record.battleEdits.map((edit, i) => (
                     <Typography component="li" variant="body2" key={i}>
                       {edit.kind === "remove"
-                        ? `Eliminada: ${UNIT_LABELS[edit.unit]} (${describePlace(edit.position)})`
-                        : `Movida: ${UNIT_LABELS[edit.unit]} → ${describePlace(edit.to)}`}
+                        ? `Eliminada: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
+                        : `Movida: ${UNIT_LABELS[edit.unit]} → ${placeOf(edit.to)}`}
                     </Typography>
                   ))}
                 </Box>
@@ -176,7 +172,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                 Al terminar el turno: {coinsText(record.coinsAfter)}
               </Typography>
 
-              {(record.combatCardsPlayed.length > 0 || record.combatCardDrawn) && (
+              {(record.combatCardsPlayed.length > 0 || record.combatCardDrawn || record.cardAttacks.length > 0) && (
                 <>
                   <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
                     Cartas de combate
@@ -189,9 +185,20 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     ))}
                     {record.markers.length > 0 && (
                       <Typography component="li" variant="body2">
-                        Marcas en el mapa: {record.markers.map(describePlace).join(" · ")}
+                        Marcas en el mapa: {record.markers.map(placeOf).join(" · ")}
                       </Typography>
                     )}
+                    {record.cardAttacks.map((attack) => (
+                      <Typography component="li" variant="body2" key={`attack-${attack.marker}`}>
+                        Ataque en la casilla {attack.marker + 1}:{" "}
+                        {attack.target
+                          ? `${UNIT_LABELS[attack.target.unitType].toLowerCase()} → ${describeFaces(attack.faces)} (${describeRoll(
+                              readRoll(attack.faces, attack.target),
+                              false
+                            )})`
+                          : "vacía"}
+                      </Typography>
+                    ))}
                     {record.combatCardDrawn && (
                       <Typography component="li" variant="body2">
                         Robada en la fase final: {record.combatCardDrawn.name}

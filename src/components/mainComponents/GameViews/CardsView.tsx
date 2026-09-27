@@ -21,8 +21,8 @@ interface CardsViewProps {
   onCardDealt: (card: CommandCard) => void;
   /** Play the card; `section` for a card whose section the player picks, `combatCard` to play with it */
   onCardClick: (card: CommandCard, section?: Section, combatCard?: CombatCard) => void;
-  /** The card orders units in a section the player picks when playing it */
-  needsSection?: (card: CommandCard) => boolean;
+  /** The card orders units in a section the player picks when playing it (or Tactician changes it) */
+  needsSection?: (card: CommandCard, combatCard?: CombatCard) => boolean;
   combatHand?: readonly CombatCard[];
   /** Combat cards can be played this turn (not in the attacker's extra turn) */
   canPlayCombatCards?: boolean;
@@ -73,7 +73,7 @@ function CardsView({
   }, [animatingCard, play]);
 
   const playCard = (card: CommandCard) => {
-    if (needsSection(card)) {
+    if (needsSection(card, combatPick ?? undefined)) {
       setChoosingSection(card);
       return;
     }
@@ -175,7 +175,11 @@ function CardsView({
       </Box>
 
       <Dialog open={choosingSection !== null} onClose={() => setChoosingSection(null)}>
-        <DialogTitle>{choosingSection?.name}: ¿en qué sección?</DialogTitle>
+        <DialogTitle>
+          {combatPick?.effect?.kind === "changeSection" && !choosingSection?.choosesSection
+            ? `${combatPick.name}: ¿a qué sección cambias ${choosingSection?.name}?`
+            : `${choosingSection?.name}: ¿en qué sección?`}
+        </DialogTitle>
         <DialogContent>
           <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap", pt: 1 }}>
             {SECTIONS.map((section) => (

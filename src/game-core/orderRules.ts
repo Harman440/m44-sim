@@ -9,6 +9,7 @@ import Unit from "./unit";
 import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { EXTRA_ORDER_COST } from "../data/coinRules";
+import type { MoveEffect } from "./combatCard";
 
 /** The sections a hex's side belongs to: a border hex is in both */
 export function sectionsOf(side: Side): Section[] {
@@ -70,6 +71,20 @@ export function moveLimits(card: CommandCard, unit: Unit, slot: OrderSlot): Move
     // A unit that can't move and fire still can't with a bonus
     moveAndFire: moveAndFire > 0 ? moveAndFire + card.moveBonus : 0,
     holdShots: card.holdShots,
+  };
+}
+
+/** How far a unit moves with the order combat card's movement (Frozen Ground, Rattenkrieg…) */
+export function boostedLimits(limits: MoveLimits, effect: MoveEffect): MoveLimits {
+  if (limits.maxMove === 0) return limits; // a card whose units can't move
+  if (effect.maxMove !== undefined) {
+    return { ...limits, maxMove: effect.maxMove, moveAndFire: effect.fireInto ? effect.maxMove : limits.moveAndFire };
+  }
+  const bonus = effect.moveBonus ?? 0;
+  return {
+    ...limits,
+    maxMove: limits.maxMove + bonus,
+    moveAndFire: limits.moveAndFire > 0 ? limits.moveAndFire + bonus : 0,
   };
 }
 
@@ -174,10 +189,11 @@ export function cardOrdersLeft(context: OrderContext): number {
 
 // --- internals
 
+/** The card's sections: the one chosen on play, for a "chosen" card or when Tactician changed it */
 function cardSections(context: OrderContext): readonly Section[] {
   const { sections } = context.card;
-  if (sections !== "chosen") return sections;
-  return context.chosenSection ? [context.chosenSection] : [];
+  if (context.chosenSection) return [context.chosenSection];
+  return sections === "chosen" ? [] : sections;
 }
 
 function isOrdered(context: OrderContext, unit: Unit): boolean {

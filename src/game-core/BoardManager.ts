@@ -6,6 +6,14 @@ import { HexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
 import { positionKey } from "./position";
 
+/** Terrain rules a combat card loosens for one unit's move */
+export interface MoveRules {
+  /** Terrain doesn't stop the move (Armor Forward, Rattenkrieg) */
+  ignoreTerrain?: boolean;
+  /** The unit can still fire after moving into these terrains (House to House, Forest, Rattenkrieg) */
+  fireInto?: readonly HexType[];
+}
+
 class BoardManager {
   width: number;
   height: number;
@@ -112,12 +120,15 @@ class BoardManager {
    * Every hex a unit at `startHex` can reach within `maxRange`, with the
    * cheapest path to each (Dijkstra). Stop terrain ends movement; with
    * `forFirePositions`, only destinations the unit can still fire from.
+   * `rules` loosens terrain for combat cards (Armor Forward, House to House…).
    */
   calculatePossibleMovesWithPaths = (
     startHex: Hex,
     maxRange: number,
-    forFirePositions: boolean = false
+    forFirePositions: boolean = false,
+    rules: MoveRules = {}
   ): PathResult[] => {
+    const canFireFrom = (hex: Hex) => hex.getCanMoveAndFire() || (rules.fireInto?.includes(hex.getType()) ?? false);
     const startPos = startHex.getPosition();
 
     // A sorted array is plenty for a 117-hex board
@@ -151,7 +162,7 @@ class BoardManager {
       if (
         current.cost > 0 &&
         current.cost <= maxRange &&
-        (forFirePositions ? currentHex.getCanMoveAndFire() : true)
+        (forFirePositions ? canFireFrom(currentHex) : true)
       ) {
         reachableResults.push({
           position: current.position,
@@ -193,7 +204,7 @@ class BoardManager {
         queue.push({
           position: neighborPos,
           cost: newCost,
-          canContinue: neighborHex.canContinueMovement(),
+          canContinue: rules.ignoreTerrain || neighborHex.canContinueMovement(),
           path: [...current.path, neighborPos], // Extend the path
         });
       }
@@ -206,13 +217,10 @@ class BoardManager {
   getAllPaths = (
     startHex: Hex,
     maxRange: number,
-    forFirePositions: boolean = false
+    forFirePositions: boolean = false,
+    rules: MoveRules = {}
   ): Map<string, Position[]> => {
-    const results = this.calculatePossibleMovesWithPaths(
-      startHex,
-      maxRange,
-      forFirePositions
-    );
+    const results = this.calculatePossibleMovesWithPaths(startHex, maxRange, forFirePositions, rules);
     const pathMap = new Map<string, Position[]>();
 
     results.forEach((result) => pathMap.set(positionKey(result.position), result.path));

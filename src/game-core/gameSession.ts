@@ -7,15 +7,23 @@ import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
 import { DieFace, rollDice } from "./dice";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
-import { COLLISION_NOTES, FIRE_QUESTIONS, collisionSteps, fireBonusSteps } from "../data/fireQuestions";
+import {
+  COLLISION_NOTES,
+  FIRE_QUESTIONS,
+  collisionSteps,
+  combatBonusQuestion,
+  fireBonusSteps,
+} from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
-import { Side } from "../types/hex";
+import { HexType, Side } from "../types/hex";
 import { Faction } from "../types/faction";
-import { positionKey, samePosition } from "./position";
+import { fromKey, positionKey, samePosition } from "./position";
+import Hex from "./hex";
 import {
   EXTRA_SLOT,
   MoveLimits,
+  boostedLimits,
   OrderContext,
   OrderSlot,
   canBuyExtraOrder,
@@ -31,7 +39,7 @@ import {
 } from "./orderRules";
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS } from "../data/coinRules";
-import { CombatCard } from "./combatCard";
+import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
@@ -103,6 +111,10 @@ export interface GameSnapshot {
   markers: readonly Position[];
   /** Hexes that can be marked next (empty outside giving orders, or when all are marked) */
   markable: readonly Position[];
+  /** The attack combat card's rolls, one per marked hex (Barrage, Air Power…) */
+  cardAttacks: readonly CardAttack[];
+  /** The attack combat card still has hexes to roll: no unit fires until they're done */
+  attacksPending: boolean;
   /** The battle combat card played in this turn's battle (one per battle) */
   battleCombatCard: CombatCard | null;
   /** The combat card drawn in the final phase */
@@ -127,7 +139,22 @@ export interface Shot {
   collision: boolean;
   /** What it was rolled against, to read the hits */
   target: ShotTarget;
+  /** It used the battle combat card's extra dice (Spotter, Street Fight, Explosives) */
+  combatBonus: boolean;
 }
+
+/** The roll of an attack combat card on one marked hex (Barrage, Air Power, Air Bombardment) */
+export interface CardAttack {
+  /** Index of the hex in the turn's markers */
+  marker: number;
+  /** The enemy unit on the hex, or null when it was empty (no roll) */
+  target: ShotTarget | null;
+  dice: number;
+  faces: readonly DieFace[];
+}
+
+/** Reminder kept with every attack combat card roll */
+export const CARD_ATTACK_NOTE = "Las estrellas cuentan como impacto y las retiradas no se pueden ignorar.";
 
 export interface MoveOptions {
   moves: Position[];
@@ -139,6 +166,8 @@ export interface MoveOptions {
    * when it can take one; with more than one, the player picks the section.
    */
   slots: OrderSlot[];
+  /** It can use the order combat card's movement (Frozen Ground…) */
+  canBoost: boolean;
 }
 
 interface GameSessionOptions {
@@ -197,6 +226,7 @@ class GameSession {
   private combatHand: CombatCard[];
   private orderCombatCard: CombatCard | null = null;
   private markers: Position[] = [];
+  private cardAttacks: CardAttack[] = [];
   private battleCombatCard: CombatCard | null = null;
   private drawnCombatCard: CombatCard | null = null;
   private readonly random: () => number;
@@ -247,8 +277,15 @@ class GameSession {
 
   // --- PICK_CARDS
 
-  /** The card orders units in a section the player picks when playing it (and doesn't fall back to 1 unit) */
-  cardNeedsSection(card: CommandCard): boolean {
+  /**
+   * The card orders units in a section the player picks when playing it (and
+   * doesn't fall back to 1 unit), or Tactician changes the section of a card
+   * for one section
+   */
+  cardNeedsSection(card: CommandCard, combatCard?: CombatCard): boolean {
+    if (combatCard?.effect?.kind === "changeSection" && card.sections !== "chosen" && card.sections.length === 1) {
+      return true;
+    }
     return card.choosesSection && !fallbackCard(card, this.board);
   }
 
@@ -259,8 +296,8 @@ class GameSession {
   pickCard(card: CommandCard, section?: Section, combatCard?: CombatCard): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (!this.hand.includes(card)) return false;
-    if (this.cardNeedsSection(card) ? !isSection(section) : section !== undefined) return false;
     if (combatCard && !this.canPlayCombatCard(combatCard, "order")) return false;
+    if (this.cardNeedsSection(card, combatCard) ? !isSection(section) : section !== undefined) return false;
 
     if (combatCard) this.playCombatCard(combatCard);
     this.chosenCard = card;
@@ -300,7 +337,7 @@ class GameSession {
    * Where the unit at `position` can move, or null if it can't be ordered.
    * `slot` gets the moves for one way of ordering it (e.g. on the move).
    */
-  getMoveOptions(position: Position, slot?: OrderSlot): MoveOptions | null {
+  getMoveOptions(position: Position, slot?: OrderSlot, boost = false): MoveOptions | null {
     const context = this.orderContext();
     const hex = this.board.getHex(position);
     const unit = hex?.unit;
@@ -308,15 +345,56 @@ class GameSession {
     const slots = this.slotsFor(context, unit, hex.getSide(), slot);
     const moveSlot = slot ? this.slotFor(slots, slot) : (slots.find((s) => !s.onTheMove) ?? slots[0]);
     if (!moveSlot) return null;
+    const canBoost = this.canBoost(hex);
+    if (boost && !canBoost) return null;
 
-    const limits = moveLimits(context.card, unit, moveSlot);
-    const destinations = (range: number, forFire = false) =>
-      this.board.calculatePossibleMovesWithPaths(hex, range, forFire).map((result) => result.position);
+    const plan = this.movePlan(hex, moveLimits(context.card, unit, moveSlot), boost);
     return {
-      moves: destinations(limits.maxMove),
-      moveAndFire: destinations(limits.moveAndFire, true),
-      limits,
+      moves: [...plan.paths(plan.limits.maxMove).keys()].map(fromKey),
+      moveAndFire: [...plan.paths(plan.limits.moveAndFire, true).keys()].map(fromKey),
+      limits: plan.limits,
       slots,
+      canBoost,
+    };
+  }
+
+  // Order combat cards that change how some units move (Frozen Ground, Armor Forward, Rattenkrieg…)
+
+  private moveEffect(): MoveEffect | null {
+    const effect = this.orderCombatCard?.effect;
+    return effect?.kind === "move" ? effect : null;
+  }
+
+  /** How many more ordered units can use the order combat card's movement */
+  private boostsLeft(): number {
+    const effect = this.moveEffect();
+    return effect ? effect.units - this.orders.filter((order) => order.boosted).length : 0;
+  }
+
+  /** The unit on this hex can use the order combat card's movement */
+  private canBoost(hex: Hex): boolean {
+    const effect = this.moveEffect();
+    const unit = hex.unit;
+    if (!effect || !unit || this.boostsLeft() <= 0) return false;
+    if (effect.unitTypes && !effect.unitTypes.includes(unit.getUnitType())) return false;
+    if (effect.startNear) {
+      const near = [hex.getPosition(), ...hex.getNeighbors()].some((p) =>
+        effect.startNear!.includes(this.board.getHex(p)?.getType() as HexType)
+      );
+      if (!near) return false;
+    }
+    return true;
+  }
+
+  /** The unit's move limits and paths, with the order combat card's movement when `boost` */
+  private movePlan(hex: Hex, limits: MoveLimits, boost: boolean) {
+    const effect = boost ? this.moveEffect() : null;
+    const rules = effect ? { ignoreTerrain: effect.ignoreTerrain, fireInto: effect.fireInto } : {};
+    const endsOk = (key: string) => !effect?.endOn || effect.endOn.includes(this.board.getHex(fromKey(key))!.getType());
+    return {
+      limits: effect ? boostedLimits(limits, effect) : limits,
+      paths: (range: number, forFire = false) =>
+        new Map([...this.board.getAllPaths(hex, range, forFire, rules)].filter(([key]) => endsOk(key))),
     };
   }
 
@@ -324,14 +402,16 @@ class GameSession {
    * Order the unit at `from` to move to `to`, or to hold when `to` equals `from`.
    * `slot` is needed when the unit can fill more than one section's orders.
    */
-  issueOrder(from: Position, to: Position, slot?: OrderSlot): boolean {
+  issueOrder(from: Position, to: Position, slot?: OrderSlot, boost = false): boolean {
     const context = this.orderContext();
     const hex = this.board.getHex(from);
     const unit = hex?.unit;
     if (!context || !hex || !unit) return false;
     const chosen = this.slotFor(this.slotsFor(context, unit, hex.getSide(), slot), slot);
     if (!chosen) return false;
-    const limits = moveLimits(context.card, unit, chosen);
+    if (boost && !this.canBoost(hex)) return false;
+    const plan = this.movePlan(hex, moveLimits(context.card, unit, chosen), boost);
+    const limits = plan.limits;
     const cost = slotCost(context.card, unit, chosen);
     if (cost > context.coins) return false;
 
@@ -344,13 +424,14 @@ class GameSession {
       onTheMove: chosen.onTheMove,
       extra: chosen.extra ?? false,
       cost,
+      boosted: boost,
     };
     if (samePosition(from, to)) {
       order = new Order({ ...props, path: [from], shots: limits.holdShots });
     } else {
       // Paths must be found before moving: afterwards the start hex is empty and the destination taken
-      const path = this.board.getAllPaths(hex, limits.maxMove).get(positionKey(to));
-      const canFire = this.board.getAllPaths(hex, limits.moveAndFire, true).has(positionKey(to));
+      const path = plan.paths(limits.maxMove).get(positionKey(to));
+      const canFire = plan.paths(limits.moveAndFire, true).has(positionKey(to));
       if (!path || !this.board.moveUnit(from, to)) return false;
       order = new Order({ ...props, path, shots: canFire ? 1 : 0 });
     }
@@ -442,8 +523,60 @@ class GameSession {
 
   /** The unit may fire now: it has a shot left and, if it moved, the units that didn't move are done */
   private canFireNow(orderIndex: number): boolean {
-    if (this.shotsLeft(orderIndex) <= 0) return false;
+    if (this.shotsLeft(orderIndex) <= 0 || this.attacksPending()) return false;
     return !this.summaries()[orderIndex]!.waiting;
+  }
+
+  /** The battle combat card's extra dice, if this unit can still use them (Spotter, Street Fight, Explosives) */
+  combatBonusFor(orderIndex: number): (DiceBonusEffect & { name: string }) | undefined {
+    const card = this.battleCombatCard;
+    const order = this.orders[orderIndex];
+    if (this.phase !== TurnPhase.BATTLE || card?.effect?.kind !== "diceBonus" || !order) return undefined;
+    if (this.shots.some((shot) => shot.combatBonus)) return undefined;
+    if (!card.effect.unitTypes.includes(order.unit.getUnitType())) return undefined;
+    return { ...card.effect, name: card.name };
+  }
+
+  // Attack combat cards: one roll per marked hex, before any other shot
+
+  private attackEffect() {
+    const effect = this.orderCombatCard?.effect;
+    return effect?.kind === "attack" ? effect : null;
+  }
+
+  private attacksPending(): boolean {
+    return this.phase === TurnPhase.BATTLE && !!this.attackEffect() && this.cardAttacks.length < this.markers.length;
+  }
+
+  /**
+   * Roll the attack combat card on a marked hex: `targetType` is the enemy
+   * unit on it, or null when the hex was empty (nothing to roll). Stars hit.
+   */
+  attackHex(marker: number, targetType: UnitType | null): boolean {
+    const effect = this.attackEffect();
+    if (this.phase !== TurnPhase.BATTLE || !effect || !this.markers[marker]) return false;
+    if (this.cardAttacks.some((attack) => attack.marker === marker)) return false;
+    if (targetType !== null && !isUnitType(targetType)) return false;
+
+    const attack: CardAttack =
+      targetType === null
+        ? { marker, target: null, dice: 0, faces: [] }
+        : {
+            marker,
+            target: { unitType: targetType, closeAssault: false, starsHit: true },
+            dice: effect.dicePerHex,
+            faces: rollDice(effect.dicePerHex, this.random),
+          };
+    this.cardAttacks = [...this.cardAttacks, attack];
+    return this.publish();
+  }
+
+  /** Take back a hex's attack roll, for one recorded by mistake */
+  undoCardAttack(marker: number): boolean {
+    if (this.phase !== TurnPhase.BATTLE || !this.cardAttacks.some((attack) => attack.marker === marker)) return false;
+
+    this.cardAttacks = this.cardAttacks.filter((attack) => attack.marker !== marker);
+    return this.publish();
   }
 
   /**
@@ -458,6 +591,7 @@ class GameSession {
       unitType: order.unit.getUnitType(),
       card: this.cardFor(order),
       closeAssaultOnly: order.closeAssaultOnly,
+      combatBonus: this.combatBonusFor(orderIndex),
     };
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
     if (order.closeAssaultOnly && answers.distance !== "1") return false;
@@ -467,7 +601,9 @@ class GameSession {
     const unitType = answers.targetType as UnitType;
     if (!isUnitType(unitType)) return false;
     const target = { unitType, closeAssault: answers.distance === "1" };
-    return this.recordShot(orderIndex, dice, steps, notes, target);
+    const usedBonus =
+      !!context.combatBonus && answers.combatCard === "yes" && (combatBonusQuestion.appliesTo?.(context, answers) ?? true);
+    return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus);
   }
 
   /** Fire with a number of dice the player worked out themselves */
@@ -555,10 +691,11 @@ class GameSession {
     steps: DiceStep[],
     notes: string[],
     target: ShotTarget,
-    collision = false
+    collision = false,
+    combatBonus = false
   ): true {
     const faces = rollDice(dice, this.random);
-    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target };
+    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus };
     this.shots = [...this.shots, shot];
     return this.publish();
   }
@@ -702,6 +839,8 @@ class GameSession {
   /** Take back the battle combat card played by mistake; its coins come back */
   undoBattleCombatCard(): boolean {
     if (this.phase !== TurnPhase.BATTLE || !this.battleCombatCard) return false;
+    // A shot already used its dice: undo that shot first
+    if (this.shots.some((shot) => shot.combatBonus)) return false;
 
     this.combatHand = [...this.combatHand, this.battleCombatCard];
     this.battleCombatCard = null;
@@ -856,6 +995,7 @@ class GameSession {
       combatCardsPlayed: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
       combatCardDrawn: this.drawnCombatCard,
       markers: this.markers,
+      cardAttacks: this.cardAttacks,
     });
     this.log = [...this.log, record];
     this.startCoins = coins;
@@ -864,6 +1004,7 @@ class GameSession {
     [this.orderCombatCard, this.battleCombatCard].forEach((card) => card && this.combatDeck.discard(card));
     this.orderCombatCard = null;
     this.markers = [];
+    this.cardAttacks = [];
     this.battleCombatCard = null;
     this.drawnCombatCard = null;
 
@@ -909,6 +1050,7 @@ class GameSession {
       combatHand: this.combatHand,
       orderCombatCard: this.orderCombatCard,
       markers: this.markers,
+      cardAttacks: this.cardAttacks,
       battleCombatCard: this.battleCombatCard,
       drawnCombatCard: this.drawnCombatCard,
     });
@@ -948,6 +1090,7 @@ class GameSession {
     session.combatHand = state.combatHand;
     session.orderCombatCard = state.orderCombatCard;
     session.markers = state.markers;
+    session.cardAttacks = state.cardAttacks;
     session.battleCombatCard = state.battleCombatCard;
     session.drawnCombatCard = state.drawnCombatCard;
     session.snapshot = session.createSnapshot();
@@ -994,6 +1137,8 @@ class GameSession {
       orderCombatCard: this.orderCombatCard,
       markers: this.markers,
       markable: this.markableNow(),
+      cardAttacks: this.cardAttacks,
+      attacksPending: this.attacksPending(),
       battleCombatCard: this.battleCombatCard,
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),

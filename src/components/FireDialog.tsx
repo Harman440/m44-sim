@@ -31,6 +31,8 @@ interface FireDialogProps {
   /** The firing unit's order; the dialog is closed when null */
   summary: OrderSummary | null;
   card: CommandCard | null;
+  /** A battle combat card this unit could use on this shot (Spotter…) */
+  combatBonus?: FireContext["combatBonus"];
   faction: Faction;
   /** Fire using the questionnaire's answers; the session rolls the dice */
   onFire: (answers: FireAnswers) => boolean;
@@ -99,7 +101,7 @@ export function ShotResult({ shot, number, faction, withCoins }: ShotResultProps
  * the unit again shows the result, and only a deliberate "Anular disparo"
  * takes it back. Questions and their dice effects live in data/fireQuestions.ts.
  */
-function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, onUndoShot, onClose }: FireDialogProps) {
+function FireDialog({ summary, card, combatBonus, faction, onFire, onQuickFire, withCoins, onUndoShot, onClose }: FireDialogProps) {
   // Answer order is kept so "Atrás" can undo the last one
   const [answerOrder, setAnswerOrder] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -116,7 +118,12 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, on
 
   if (!summary) return null;
 
-  const context: FireContext = { unitType: summary.unitType, card, closeAssaultOnly: summary.closeAssaultOnly };
+  const context: FireContext = {
+    unitType: summary.unitType,
+    card,
+    closeAssaultOnly: summary.closeAssaultOnly,
+    combatBonus,
+  };
   const question = nextFireQuestion(FIRE_QUESTIONS, context, answers);
   const result = question ? null : calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
@@ -305,7 +312,7 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, on
             Pregunta {answerOrder.length + 1}
           </Typography>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            {question.text}
+            {question.textFor?.(context) ?? question.text}
           </Typography>
           <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
             {question.options(context).map((option) => (

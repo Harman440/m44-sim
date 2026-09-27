@@ -70,6 +70,10 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   /** Which of the card's orders the selected unit takes, when it could take more than one */
   const [slot, setSlot] = useState<OrderSlot | null>(null);
   const [slotHint, setSlotHint] = useState(false);
+  /** The selected unit uses the order combat card's movement (Frozen Ground…) */
+  const [boost, setBoost] = useState(false);
+  const moveEffect = game.orderCombatCard?.effect?.kind === "move" ? game.orderCombatCard.effect : null;
+  const boostsLeft = moveEffect ? moveEffect.units - orders.filter((o) => o.boosted).length : 0;
   /** The next unit tapped takes an extra order bought with coins */
   const [extraMode, setExtraMode] = useState(false);
   const canBuyExtra = game.extraOrderable.length > 0;
@@ -87,6 +91,16 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     setMoveOptions(null);
     setSlot(null);
     setSlotHint(false);
+    setBoost(false);
+  };
+
+  const toggleBoost = () => {
+    if (!unitHexPosition) return;
+    const next = !boost;
+    const options = session.getMoveOptions(unitHexPosition, slot ?? undefined, next);
+    if (!options) return;
+    setBoost(next);
+    setMoveOptions(options);
   };
 
   const choosingSlot = (moveOptions?.slots.length ?? 0) > 1;
@@ -98,7 +112,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       flashInvalid(to);
       return;
     }
-    if (session.issueOrder(from, to, slot ?? undefined)) {
+    if (session.issueOrder(from, to, slot ?? undefined, boost)) {
       clearSelection();
       setExtraMode(false);
     }
@@ -121,7 +135,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     if (!picked || !unitHexPosition) return;
     setSlot(picked);
     setSlotHint(false);
-    setMoveOptions(session.getMoveOptions(unitHexPosition, picked));
+    setMoveOptions(session.getMoveOptions(unitHexPosition, picked, boost));
   };
 
   // One tap per action so it works the same with a mouse or on a tablet
@@ -152,6 +166,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       setMoveOptions(options);
       setSlot(extraMode ? EXTRA_SLOT : defaultSlot(options.slots));
       setSlotHint(false);
+      setBoost(false);
       return;
     }
 
@@ -301,6 +316,20 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               )}
               <LegendItem color="var(--m44-move-only)" label="Solo mover (no podrá disparar)" />
             </Stack>
+            {game.orderCombatCard && moveEffect && (moveOptions?.canBoost || boost) && (
+              <Box sx={{ mb: 1.5 }}>
+                <ToggleButton
+                  value="boost"
+                  selected={boost}
+                  onChange={toggleBoost}
+                  color="warning"
+                  sx={{ minHeight: 48, gap: 1 }}
+                >
+                  <GameIcon name="cards" /> Usar {game.orderCombatCard.name} (
+                  {boostsLeft === 1 ? "queda 1" : `quedan ${boostsLeft}`})
+                </ToggleButton>
+              </Box>
+            )}
             {choosingSlot && moveOptions && (
               <Box sx={{ mb: 1.5 }}>
                 <Typography variant="body2" color={slotHint ? "error" : "text.primary"} sx={{ mb: 0.5 }}>

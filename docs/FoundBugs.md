@@ -2,4 +2,8 @@
 - No scroll, only when showing lists. Everything should fit in the screen
 - option to go back after a card is chosen
 - option to see cards just as a preview
-- improve 
+- improve rolling dice question. Show info of unit and choose range and then possible protections extracted from map data
+- add animations to coins
+- Add different dice and better roll animations
+- let offensive player gain coins on the starting turn but no spend
+- Battle info ui change. giving more importance to combat cards and coins

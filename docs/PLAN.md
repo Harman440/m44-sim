@@ -24,6 +24,7 @@ Done so far (details in git history):
 - Step 23: coins: the counter and its ledger, stars earn coins, 2 coins or a combat card in the final phase, extra orders for 4 coins, Finest Hour paid in coins
 - Step 24: combat cards: the house deck (53 cards), 2 to start and at most 3 in hand, order cards played with the command card, one battle card per battle, drawn in the final phase
 - Step 25: map markers for combat cards (Barrage, Air Power, Air Bombardment, Sniper, Reinforcements) and reminders for tokens placed on the table
+- Step 26: combat card effects: +1 die cards asked on the shot, attack cards rolled on the marked hexes, movement cards on the orders map, Tactician; the rest at the table with reminders
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -203,24 +204,17 @@ Several cards need you to mark hexes on your map during orders.
 - [x] Markers are drawn as targets or crosses (numbered when there are several) on the orders, movement, "Mostrar al rival" and battle maps, saved (`SAVE_VERSION` 11) and listed in the Historial
 
 ### Step 26: Combat card effects the app applies
-- [ ] Dice:
-  - Spotter: +1 for artillery
-  - Street Fight: +1 on or next to a building
-  - Explosives: +1 for infantry in close assault
-  - Barrage: 4 dice, stars count, retreats can't be ignored
-  - Air Power: 1 die per hex
-  - Air Bombardment: 2 dice on 2 hexes
-- [ ] Movement:
-  - Frozen Ground: +1 hex
-  - Armor Forward: ignore terrain
-  - Rattenkrieg, House to House and Forest: move into that terrain and still battle
-  - Reposition: artillery moves 2 after battle
-  - Pull Back: retreat up to 2 before the enemy battles
-- [ ] Orders:
-  - Tactician: change the section of a section card
-  - Behind Enemy Lines: fire and move before other attacks, with the move done in the retreat phase
-- [ ] Battle: Not a Step Back (ignore retreats), Heat of Battle (infantry overrun)
-- [ ] **Decide when we get here:** a way to play Personal Armor (ignore 1 infantry the opponent rolled), Rifles Up! (fire before anyone else) and Behind Enemy Lines (fire and move before other attacks) without connecting the tablets
+Each card's effect is data (`CombatCard.effect` in `data/combatCards.ts`); cards without one are resolved at the table.
+- [x] Dice (battle cards, `diceBonus`): Spotter (+1 artillery), Street Fight (+1 infantry on or next to a building), Explosives (+1 infantry in close assault). Once played, the fire questions ask "¿la usas en este disparo?" when a unit that fits fires; it adds its die to that one shot (`Shot.combatBonus`), and undoing the shot frees it
+- [x] Attacks (order cards, `attack`): Barrage 4 dice, Air Power 1 die per hex, Air Bombardment 2 dice per hex. The battle screen lists the marked hexes; for each the player says which enemy unit is there (or none) and the app rolls (`attackHex`). Stars hit, retreats can't be ignored, no coins. Units don't fire until every hex is rolled; a roll can be undone ("Anular tirada")
+- [x] Movement (order cards, `move`): a "Usar …" toggle on the unit being ordered, for as many units as the card says (`Order.boosted`):
+  - Frozen Ground: +1 hex (3 units)
+  - Armor Forward: terrain doesn't stop the move (3 tanks; firing rules still apply)
+  - House to House, Forest: move into a building / forest and still fire (1 infantry / 1 unit)
+  - Rattenkrieg: 1 infantry on or next to a building moves up to 3 through any terrain, ends on a building and can fire
+- [x] Orders: Tactician asks which section a one-section card orders instead (`cardNeedsSection` with the combat card)
+- [x] **Decided:** the rest is resolved at the table with the card's text on screen, and a final-phase reminder when something must be mirrored on the map (Reposition, Pull Back, Behind Enemy Lines) or placed on the table (Fortify, Camouflage): Reposition, Pull Back, Not a Step Back, Heat of Battle, Behind Enemy Lines, Personal Armor, Rifles Up!, Ambush, Out of Ammo/Fuel, Shells Shortage, Medic, Mechanic, Return to Duty, Reinforcements, Sniper
+- [x] Saved (`SAVE_VERSION` 12) and in the Historial (attack rolls)
 
 ---
 

@@ -11,13 +11,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { BattleEdit, Shot } from "./gameSession";
+import type { BattleEdit, CardAttack, Shot } from "./gameSession";
 import type { TurnRecord } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 interface SavedUnit {
   type: UnitType;
@@ -50,6 +50,7 @@ export interface SavedGame {
     onTheMove: boolean;
     extra: boolean;
     cost: number;
+    boosted: boolean;
     closeAssaultOnly: boolean;
   }[];
   ordersCommitted: boolean;
@@ -68,6 +69,7 @@ export interface SavedGame {
   combatHand: string[];
   orderCombatCard: string | null;
   markers: Position[];
+  cardAttacks: CardAttack[];
   battleCombatCard: string | null;
   drawnCombatCard: string | null;
 }
@@ -100,6 +102,7 @@ export interface SessionState {
   orderCombatCard: CombatCard | null;
   /** Hexes marked for the order combat card */
   markers: Position[];
+  cardAttacks: CardAttack[];
   battleCombatCard: CombatCard | null;
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
@@ -114,6 +117,19 @@ const isPosition = (value: unknown): value is Position =>
 function readMarkers(markers: unknown): Position[] {
   if (!Array.isArray(markers) || !markers.every(isPosition)) throw new Error("Markers are not a list of hexes");
   return markers.map(({ row, col }) => ({ row, col }));
+}
+
+function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
+  if (!Array.isArray(attacks)) throw new Error("Card attacks are not a list");
+  const faces = new Set<string>(Object.values(DieFace));
+  return attacks.map((attack: CardAttack) => {
+    if (!Number.isInteger(attack.marker) || attack.marker < 0 || attack.marker >= markerCount) {
+      throw new Error(`Attack on unknown marker ${attack.marker}`);
+    }
+    if (attack.target !== null && !isUnitType(attack.target?.unitType)) throw new Error("Unknown attack target");
+    if (!attack.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
+    return attack;
+  });
 }
 
 export function writeSave(scenarioId: string, faction: Faction, board: BoardManager, state: SessionState): SavedGame {
@@ -157,6 +173,7 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
       onTheMove: order.onTheMove,
       extra: order.extra,
       cost: order.cost,
+      boosted: order.boosted,
       closeAssaultOnly: order.closeAssaultOnly,
     })),
     battleEdits: state.battleEdits.map((edit) =>
@@ -181,6 +198,11 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     combatHand: ids(state.combatHand),
     orderCombatCard: state.orderCombatCard?.id ?? null,
     markers: state.markers.map((p) => ({ ...p })),
+    cardAttacks: state.cardAttacks.map((attack) => ({
+      ...attack,
+      target: attack.target && { ...attack.target },
+      faces: [...attack.faces],
+    })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     units: savedUnits,
@@ -253,6 +275,7 @@ export function readSave(
         onTheMove: order.onTheMove,
         extra: order.extra,
         cost: order.cost,
+        boosted: order.boosted,
         closeAssaultOnly: order.closeAssaultOnly,
       })
   );
@@ -308,6 +331,7 @@ export function readSave(
     combatHand: saved.combatHand.map(combatCard),
     orderCombatCard: combatCardOrNull(saved.orderCombatCard),
     markers: readMarkers(saved.markers),
+    cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
   };
