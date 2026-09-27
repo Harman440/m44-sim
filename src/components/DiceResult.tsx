@@ -7,8 +7,11 @@ import { unitSprite } from "./UnitComponent";
 import { DIE_FACE_LABELS } from "../labels";
 import "./DiceResult.css";
 
+/** The outline of an 8-sided die, drawn as an octagon so it can't be mistaken for the normal die */
+const OCTAGON = "16,2 32,2 46,16 46,32 32,46 16,46 2,32 2,16";
+
 /** One die showing `face`; infantry and tank faces reuse the player's unit art */
-export function DieFaceIcon({ face, faction }: { face: DieFace; faction: Faction }) {
+export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFace; faction: Faction; eightSided?: boolean }) {
   const symbol = (() => {
     switch (face) {
       case DieFace.INFANTRY:
@@ -37,12 +40,19 @@ export function DieFaceIcon({ face, faction }: { face: DieFace; faction: Faction
             <path d="M17 9 L38 15 L17 22 Z" fill="#c62828" />
           </g>
         );
+      case DieFace.MISS:
+        // A blank side: only a faint dash
+        return <rect x="16" y="22.5" width="16" height="3" rx="1.5" fill="#333" opacity="0.35" />;
     }
   })();
 
   return (
     <svg viewBox="0 0 48 48" className="die" role="img" aria-label={DIE_FACE_LABELS[face]}>
-      <rect className="die__face" x="2" y="2" width="44" height="44" rx="9" />
+      {eightSided ? (
+        <polygon className="die__face" points={OCTAGON} strokeLinejoin="round" />
+      ) : (
+        <rect className="die__face" x="2" y="2" width="44" height="44" rx="9" />
+      )}
       {symbol}
     </svg>
   );
@@ -59,12 +69,14 @@ interface DiceResultProps {
   faction: Faction;
   /** The dice whose results are applied (indexes into the faces); the rest show as discarded. Null: all */
   kept?: readonly number[] | null;
+  /** Rolled on the 8-sided long-range die */
+  eightSided?: boolean;
   /** Picking the dice to apply: every die is a toggle button */
   picking?: { selected: readonly number[]; onToggle: (index: number) => void };
 }
 
 /** The faces of a roll, plus how many of each symbol are applied */
-function DiceResult({ roll, faction, kept = null, picking }: DiceResultProps) {
+function DiceResult({ roll, faction, kept = null, eightSided = false, picking }: DiceResultProps) {
   const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
   const counts = countFaces(roll.faces.filter((_, i) => applied(i)));
 
@@ -89,10 +101,10 @@ function DiceResult({ roll, faction, kept = null, picking }: DiceResultProps) {
                   aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
                   onClick={() => picking.onToggle(i)}
                 >
-                  <DieFaceIcon face={face} faction={faction} />
+                  <DieFaceIcon face={face} faction={faction} eightSided={eightSided} />
                 </button>
               ) : (
-                <DieFaceIcon face={face} faction={faction} />
+                <DieFaceIcon face={face} faction={faction} eightSided={eightSided} />
               )}
               <Typography variant="caption">
                 {DIE_FACE_LABELS[face]}

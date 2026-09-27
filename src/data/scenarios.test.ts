@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { scenarios } from "./scenarios";
 import BoardManager from "../game-core/BoardManager";
 import { Position, UnitGroup } from "../types/scenario";
-import { DieFace } from "../game-core/dice";
+import { SIX_SIDED_FACES } from "../game-core/dice";
 import { isUnitType } from "../game-core/unit";
 import { positionKey } from "../game-core/position";
 
@@ -22,7 +22,7 @@ describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, sce
   });
 
   it("says which unit each die face brings with the Reinforcements card", () => {
-    expect(Object.keys(scenario.reinforcements ?? {}).sort()).toEqual(Object.values(DieFace).sort());
+    expect(Object.keys(scenario.reinforcements ?? {}).sort()).toEqual([...SIX_SIDED_FACES].sort());
     expect(Object.values(scenario.reinforcements ?? {}).every((unit) => unit === null || isUnitType(unit))).toBe(true);
   });
 

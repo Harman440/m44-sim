@@ -2,7 +2,7 @@ import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "./faction";
 import type { CombatDeckId } from "../data/combatCards";
-import type { DieFace } from "../game-core/dice";
+import type { SixSidedFace } from "../game-core/dice";
 
 // src/types/scenario.ts
 export interface Position {
@@ -33,7 +33,7 @@ export interface Scenario {
   tiles: Tiles;
   units: Factions;
   /** Reinforcements card: the unit each die face brings onto this map (null: no reinforcements) */
-  reinforcements?: Record<DieFace, UnitType | null>;
+  reinforcements?: Record<SixSidedFace, UnitType | null>;
   /** The combat deck each side uses; the standard deck when omitted */
   combatDecks?: { allies?: CombatDeckId; axis?: CombatDeckId };
 }

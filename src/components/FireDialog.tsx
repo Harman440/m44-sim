@@ -39,6 +39,8 @@ interface FireDialogProps {
   onQuickFire: (dice: number, target: ShotTarget) => boolean;
   /** Rolls earn coins this turn (not in the attacker's extra first turn) */
   withCoins: boolean;
+  /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
+  longRangeDie?: boolean;
   /** Take back the unit's last shot (a mistake) */
   onUndoShot: () => boolean;
   /** Apply only some of the dice of the unit's shot `shotNumber` (or all, with null) */
@@ -49,7 +51,8 @@ interface FireDialogProps {
 const QUICK_DICE = [1, 2, 3, 4, 5, 6];
 
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
-const diceText = (dice: number) => `${dice} ${dice === 1 ? "dado" : "dados"}`;
+const diceText = (dice: number, eightSided = false) =>
+  `${dice} ${dice === 1 ? "dado" : "dados"}${eightSided ? " de 8 caras" : ""}`;
 
 /** Reminders for resolving the hits on the table, e.g. sandbags */
 function ShotNotes({ notes }: { notes: readonly string[] }) {
@@ -88,7 +91,9 @@ export function ShotResult({ shot, number, faction, withCoins, onKeepResults }: 
           : "Tirada rápida"}
       </Typography>
       <Typography variant="h6">
-        {shot.dice > 0 ? diceText(shot.dice) : "0 dados: el disparo no tuvo efecto"}
+        {shot.dice > 0
+          ? diceText(shot.dice, shot.target.longRangeFirer !== undefined)
+          : "0 dados: el disparo no tuvo efecto"}
       </Typography>
       <ShotDice
         shot={shot}
@@ -117,6 +122,7 @@ function FireDialog({
   onFire,
   onQuickFire,
   withCoins,
+  longRangeDie = false,
   onUndoShot,
   onKeepResults,
   onClose,
@@ -146,6 +152,9 @@ function FireDialog({
   const question = nextFireQuestion(FIRE_QUESTIONS, context, answers);
   const result = question ? null : calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
+  // The long-range die is rolled at a target that isn't adjacent
+  const eightSided = longRangeDie && answers.distance !== undefined && answers.distance !== "1";
+  const quickEightSided = longRangeDie && !summary.closeAssaultOnly && quickCloseAssault === false;
   const aiming = canFire && (summary.shots.length === 0 || firingAgain);
 
   const resetAim = () => {
@@ -324,7 +333,7 @@ function FireDialog({
             onClick={handleQuickFire}
             disabled={quickTarget === null || (!summary.closeAssaultOnly && quickCloseAssault === null)}
           >
-            Disparar {diceText(quickDice)}
+            Disparar {diceText(quickDice, quickEightSided)}
           </Button>
           {noRepeat}
         </>
@@ -382,12 +391,12 @@ function FireDialog({
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="h6" data-testid="fire-total">
             {result.dice > 0
-              ? `Total: ${diceText(result.dice)}`
+              ? `Total: ${diceText(result.dice, eightSided)}`
               : "Total: 0 dados. Este disparo no tiene efecto."}
           </Typography>
           <ShotNotes notes={result.notes} />
           <Button fullWidth size="large" onClick={handleFire} sx={{ mt: 2 }}>
-            {result.dice > 0 ? `Disparar ${diceText(result.dice)}` : "Registrar disparo sin efecto"}
+            {result.dice > 0 ? `Disparar ${diceText(result.dice, eightSided)}` : "Registrar disparo sin efecto"}
           </Button>
           {noRepeat}
         </>

@@ -9,7 +9,9 @@ import {
   CardActionArea,
   CardContent,
   CardMedia,
+  FormControlLabel,
   Stack,
+  Switch,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -36,6 +38,8 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
   const [faction, setFaction] = useState<Faction | null>(
     isFaction(initialSetup?.faction) ? initialSetup.faction : null
   );
+
+  const [longRangeDie, setLongRangeDie] = useState(initialSetup?.longRangeDie === true);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scenario = scenarios.find((s) => s.id === scenarioId);
@@ -121,10 +125,26 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
         )}
       </Box>
 
+      <Box>
+        <Typography variant="h6" sx={{ mb: 0.5 }}>
+          Reglas de prueba
+        </Typography>
+        <FormControlLabel
+          control={<Switch checked={longRangeDie} onChange={(e) => setLongRangeDie(e.target.checked)} />}
+          label="Dado de 8 caras a distancia"
+          sx={{ minHeight: 48 }}
+        />
+        <Typography variant="body2" color="text.secondary">
+          Los disparos a una unidad no adyacente se tiran con un dado de 8 caras: 3 infantería, tanque,
+          granada, estrella, bandera y fallo. La granada no cuenta si la infantería dispara a un tanque.
+          Actívalo en los dos dispositivos.
+        </Typography>
+      </Box>
+
       <Button
         size="large"
         disabled={!scenarioId || !faction}
-        onClick={() => scenarioId && faction && onStart({ scenarioId, faction })}
+        onClick={() => scenarioId && faction && onStart({ scenarioId, faction, longRangeDie })}
         startIcon={<GameIcon name="battle" />}
         sx={{ alignSelf: "flex-start", minWidth: 240, fontSize: "1.2rem" }}
       >

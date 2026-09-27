@@ -883,6 +883,48 @@ describe("GameSession firing", () => {
   });
 });
 
+describe("GameSession long-range die", () => {
+  // Left card: the infantry at (7,1) and (7,3) hold and fire
+  const battle = (longRangeDie: boolean, random = () => 0.99) => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, longRangeDie, random });
+    session.pickCard(session.getSnapshot().hand[0]!);
+    orderAllAndFight(session);
+    return session;
+  };
+
+  it("rolls the 8-sided die at range when the game uses it", () => {
+    const session = battle(true); // the last side: a miss
+
+    session.fireQuick(0, 2, AT_INFANTRY);
+    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no" });
+
+    const shots = session.getSnapshot().shots;
+    expect(shots.map((s) => s.faces)).toEqual([["miss", "miss"], ["miss", "miss"]]);
+    expect(shots.map((s) => s.target.longRangeFirer)).toEqual([UnitType.INFANTRY, UnitType.INFANTRY]);
+  });
+
+  it("keeps the normal die in close assault, and when the game doesn't use it", () => {
+    const withIt = battle(true);
+    withIt.fireQuick(0, 2, { unitType: UnitType.INFANTRY, closeAssault: true });
+    const without = battle(false);
+    without.fireQuick(0, 2, AT_INFANTRY);
+
+    expect(withIt.getSnapshot().shots[0]!.faces).toEqual(["flag", "flag"]);
+    expect(withIt.getSnapshot().shots[0]!.target.longRangeFirer).toBeUndefined();
+    expect(without.getSnapshot().shots[0]!.faces).toEqual(["flag", "flag"]);
+  });
+
+  it("is kept with the saved game", () => {
+    const session = battle(true);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
+    ]);
+
+    expect(restored.longRangeDie).toBe(true);
+  });
+});
+
 describe("GameSession attacker's extra first turn", () => {
   const defenderSession = () =>
     new GameSession({ scenario: { ...scenario, attacker: "Axis" }, faction: "Allies", initialHandSize: 2, commandCards: cards() });
@@ -1228,7 +1270,8 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 12 as 13 })).toThrow();
+    expect(broken({ version: 13 as 14 })).toThrow();
+    expect(broken({ longRangeDie: "yes" as never })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();

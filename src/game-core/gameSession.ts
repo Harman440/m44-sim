@@ -5,7 +5,7 @@ import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
-import { DieFace, rollDice } from "./dice";
+import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES, rollDice } from "./dice";
 import { isKeptList } from "./rollResult";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
 import {
@@ -184,6 +184,8 @@ interface GameSessionOptions {
   commandCards: CommandCard[];
   /** This side's combat deck; the hand starts with 2 of them */
   combatCards?: CombatCard[];
+  /** Shots at range roll the 8-sided long-range die (an experiment, chosen per game) */
+  longRangeDie?: boolean;
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
   random?: () => number;
 }
@@ -208,6 +210,8 @@ class GameSession {
   readonly faction: Faction;
   /** This device's side attacks: it plays the extra first turn */
   readonly attacking: boolean;
+  /** Shots at range roll the 8-sided long-range die */
+  readonly longRangeDie: boolean;
   readonly board: BoardManager;
   private readonly deck: Deck;
   private hand: CommandCard[];
@@ -247,9 +251,11 @@ class GameSession {
     initialHandSize,
     commandCards,
     combatCards = [],
+    longRangeDie = false,
     random = () => Math.random(),
   }: GameSessionOptions) {
     this.scenario = scenario;
+    this.longRangeDie = longRangeDie;
     this.random = random;
     this.faction = faction;
     this.attacking = scenario.attacker === faction;
@@ -607,7 +613,7 @@ class GameSession {
     if (blocked) return false;
     const unitType = answers.targetType as UnitType;
     if (!isUnitType(unitType)) return false;
-    const target = { unitType, closeAssault: answers.distance === "1" };
+    const target = this.targetFor(order, { unitType, closeAssault: answers.distance === "1" });
     const usedBonus =
       !!context.combatBonus && answers.combatCard === "yes" && (combatBonusQuestion.appliesTo?.(context, answers) ?? true);
     return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus);
@@ -619,7 +625,14 @@ class GameSession {
     if (!isUnitType(target.unitType)) return false;
     if (!this.canFireNow(orderIndex)) return false;
     if (this.orders[orderIndex]!.closeAssaultOnly && !target.closeAssault) return false;
-    return this.recordShot(orderIndex, dice, [], [], { ...target });
+    return this.recordShot(orderIndex, dice, [], [], this.targetFor(this.orders[orderIndex]!, target));
+  }
+
+  /** The target of a shot, marked as rolled on the long-range die when the game uses it and the target isn't adjacent */
+  private targetFor(order: Order, { unitType, closeAssault }: ShotTarget): ShotTarget {
+    return this.longRangeDie && !closeAssault
+      ? { unitType, closeAssault, longRangeFirer: order.unit.getUnitType() }
+      : { unitType, closeAssault };
   }
 
   /**
@@ -717,7 +730,7 @@ class GameSession {
     collision = false,
     combatBonus = false
   ): true {
-    const faces = rollDice(dice, this.random);
+    const faces = rollDice(dice, this.random, target.longRangeFirer ? LONG_RANGE_DIE_SIDES : DIE_SIDES);
     const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null };
     this.shots = [...this.shots, shot];
     return this.publish();
@@ -1048,7 +1061,7 @@ class GameSession {
   // --- saving
 
   save(): SavedGame {
-    return writeSave(this.scenario.id, this.faction, this.board, {
+    return writeSave(this.scenario.id, this.faction, this.longRangeDie, this.board, {
       turn: this.turn,
       phase: this.phase,
       drawPile: this.deck.drawPile,
@@ -1089,7 +1102,14 @@ class GameSession {
   ): GameSession {
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
 
-    const session = new GameSession({ scenario, faction: saved.faction, initialHandSize: 0, commandCards, random });
+    const session = new GameSession({
+      scenario,
+      faction: saved.faction,
+      initialHandSize: 0,
+      commandCards,
+      longRangeDie: saved.longRangeDie,
+      random,
+    });
     const state: SessionState = readSave(saved, session.board, commandCards, combatCards);
     session.deck.restorePiles([...state.drawPile], [...state.discardPile]);
     session.turn = state.turn;

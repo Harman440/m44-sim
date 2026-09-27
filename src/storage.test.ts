@@ -48,9 +48,9 @@ describe("last setup", () => {
   it("remembers the last scenario and side", () => {
     expect(loadLastSetup()).toBeUndefined();
 
-    saveLastSetup({ scenarioId: "test", faction: "Axis" });
+    saveLastSetup({ scenarioId: "test", faction: "Axis", longRangeDie: true });
 
-    expect(loadLastSetup()).toEqual({ scenarioId: "test", faction: "Axis" });
+    expect(loadLastSetup()).toEqual({ scenarioId: "test", faction: "Axis", longRangeDie: true });
   });
 
   it("ignores a setup it can't read", () => {
@@ -127,7 +127,7 @@ describe("saved game", () => {
     });
 
     expect(() => saveGame(newSession())).not.toThrow();
-    expect(() => saveLastSetup({ scenarioId: "test", faction: "Allies" })).not.toThrow();
+    expect(() => saveLastSetup({ scenarioId: "test", faction: "Allies", longRangeDie: false })).not.toThrow();
     expect(loadSavedGame([scenario], cards())).toBeNull();
     expect(loadLastSetup()).toBeUndefined();
   });

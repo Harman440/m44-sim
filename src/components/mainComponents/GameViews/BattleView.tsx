@@ -284,6 +284,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
           withSound(firingIndex !== null && session.fireQuick(firingIndex, dice, target))
         }
         withCoins={!game.extraTurn}
+        longRangeDie={session.longRangeDie}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}

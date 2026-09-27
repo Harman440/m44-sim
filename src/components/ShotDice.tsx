@@ -46,6 +46,7 @@ function ShotDice({ shot, rollId, faction, withCoins, onKeepResults }: ShotDiceP
         roll={{ faces: [...shot.faces], id: rollId }}
         faction={faction}
         kept={shot.kept}
+        eightSided={shot.target.longRangeFirer !== undefined}
         picking={picked ? { selected: picked, onToggle: toggle } : undefined}
       />
       <RollReading faces={faces} target={shot.target} withCoins={withCoins} />

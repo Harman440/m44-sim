@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DieFace, DIE_SIDES, countFaces, rollDice } from "./dice";
+import { DieFace, DIE_SIDES, LONG_RANGE_DIE_SIDES, countFaces, rollDice } from "./dice";
 
 describe("battle dice", () => {
   it("has the Memoir '44 faces: 2 infantry, 1 tank, 1 grenade, 1 star, 1 flag", () => {
@@ -9,6 +9,7 @@ describe("battle dice", () => {
       [DieFace.GRENADE]: 1,
       [DieFace.STAR]: 1,
       [DieFace.FLAG]: 1,
+      [DieFace.MISS]: 0,
     });
   });
 
@@ -38,5 +39,16 @@ describe("battle dice", () => {
     expect(counts[DieFace.STAR]).toBe(2);
     expect(counts[DieFace.TANK]).toBe(1);
     expect(counts[DieFace.FLAG]).toBe(0);
+  });
+});
+
+describe("the long-range die", () => {
+  it("has 8 sides: 3 infantry, tank, grenade, star, flag and a miss", () => {
+    expect(LONG_RANGE_DIE_SIDES).toHaveLength(8);
+    expect(countFaces(LONG_RANGE_DIE_SIDES)).toEqual({ infantry: 3, tank: 1, grenade: 1, star: 1, flag: 1, miss: 1 });
+  });
+
+  it("rolls with its own sides", () => {
+    expect(rollDice(1, () => 0.99, LONG_RANGE_DIE_SIDES)).toEqual([DieFace.MISS]);
   });
 });

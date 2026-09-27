@@ -18,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 interface SavedUnit {
   type: UnitType;
@@ -30,6 +30,8 @@ export interface SavedGame {
   version: typeof SAVE_VERSION;
   scenarioId: string;
   faction: Faction;
+  /** Shots at range roll the 8-sided long-range die */
+  longRangeDie: boolean;
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -133,7 +135,13 @@ function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
   });
 }
 
-export function writeSave(scenarioId: string, faction: Faction, board: BoardManager, state: SessionState): SavedGame {
+export function writeSave(
+  scenarioId: string,
+  faction: Faction,
+  longRangeDie: boolean,
+  board: BoardManager,
+  state: SessionState
+): SavedGame {
   const units: Unit[] = [];
   const savedUnits: SavedUnit[] = [];
   const addUnit = (unit: Unit, position: Position | null) => {
@@ -153,6 +161,7 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     version: SAVE_VERSION,
     scenarioId,
     faction,
+    longRangeDie,
     turn: state.turn,
     phase: state.phase,
     drawPile: ids(state.drawPile),
@@ -224,6 +233,7 @@ export function readSave(
   if (saved.version !== SAVE_VERSION) {
     throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
   }
+  if (typeof saved.longRangeDie !== "boolean") throw new Error("Long-range die setting is missing");
   if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
     throw new Error(`Unknown phase ${saved.phase}`);
   }
@@ -287,6 +297,9 @@ export function readSave(
     if (!orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
     if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
     if (!isUnitType(shot.target?.unitType)) throw new Error(`Unknown target ${shot.target?.unitType}`);
+    if (shot.target.longRangeFirer !== undefined && !isUnitType(shot.target.longRangeFirer)) {
+      throw new Error(`Unknown firer ${shot.target.longRangeFirer}`);
+    }
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     return shot;
   });

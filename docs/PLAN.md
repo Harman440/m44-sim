@@ -27,6 +27,9 @@ Done so far (details in git history):
 - Step 26: combat card effects: +1 die cards asked on the shot, attack cards rolled on the marked hexes, movement cards on the orders map, Tactician; the rest at the table with reminders
 - Steps 27–28: no figure counts; after a roll the player can apply fewer results than were rolled (Steps 29 and 30 are postponed)
 - Step 31: a second scenario, Arracourt, with board art built from its terrain, and a reinforcement table per scenario
+- Step 32: the 8-sided long-range die, switched on per game
+
+**The plan is finished for now.** What's left unticked (Steps 29, 30, 33, 34 and the other experiments) is postponed, to pick up later.
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -276,7 +279,7 @@ Large; split it into smaller steps when we get here.
 - The old board art (`defualt.png`) is in git history from before Step 9
 
 ### Step 32: Experiments (decide later)
-- [ ] An 8-sided long-range die: tank, grenade, 3× infantry, retreat, 2× miss (the grenade doesn't count for infantry firing on a tank). Make sure one side gives a coin and one a retreat.
+- [x] An 8-sided long-range die: 3× infantry, tank, grenade, star (a coin), flag, miss (`LONG_RANGE_DIE_SIDES`). A switch on the start menu turns it on for the game (saved with it, `SAVE_VERSION` 14); then every shot at a target that isn't adjacent rolls it, and its grenade doesn't hit a tank fired on by infantry. Close assault, collisions and attack cards keep the normal die
 - [ ] Bigger units: infantry with 5 figures, tanks with 4 (a table rule; the app only needs changes if it affects dice)
 - [ ] Fewer cards (more predictable) with more orders per card
 - [ ] A deck-probability view: how likely each card type is to be drawn, for balancing (the probability notes in house-rules.md)

@@ -2,7 +2,7 @@
 // Spanish UI text for game enums (code identifiers stay in English)
 import Hex from "./game-core/hex";
 import { UnitType } from "./game-core/unit";
-import { DieFace, countFaces } from "./game-core/dice";
+import { DieFace, SIX_SIDED_FACES, SixSidedFace, countFaces } from "./game-core/dice";
 import { HexType, Side } from "./types/hex";
 import { Faction } from "./types/faction";
 import { ShotTarget } from "./data/hitRules";
@@ -40,6 +40,7 @@ export const DIE_FACE_LABELS: Record<DieFace, string> = {
   [DieFace.GRENADE]: "Granada",
   [DieFace.STAR]: "Estrella",
   [DieFace.FLAG]: "Bandera",
+  [DieFace.MISS]: "Fallo",
 };
 
 /** "bosque, centro": where a hex is, without its unit */
@@ -74,8 +75,8 @@ export const describeFaces = (faces: readonly DieFace[]): string => {
 };
 
 /** The Reinforcements card's table: "Infantería → infantería · … · Bandera → sin refuerzos" */
-export const describeReinforcements = (table: Record<DieFace, UnitType | null>): string =>
-  Object.values(DieFace)
+export const describeReinforcements = (table: Record<SixSidedFace, UnitType | null>): string =>
+  SIX_SIDED_FACES
     .map((face) => {
       const unit = table[face];
       return `${DIE_FACE_LABELS[face]} → ${unit ? UNIT_LABELS[unit].toLowerCase() : "sin refuerzos"}`;
@@ -91,8 +92,10 @@ export const describeAppliedFaces = (faces: readonly DieFace[], kept: readonly n
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** "Contra tanque · asalto cercano" */
-export const describeTarget = ({ unitType, closeAssault }: ShotTarget): string =>
-  `Contra ${UNIT_LABELS[unitType].toLowerCase()} · ${closeAssault ? "asalto cercano" : "a distancia"}`;
+export const describeTarget = ({ unitType, closeAssault, longRangeFirer }: ShotTarget): string =>
+  `Contra ${UNIT_LABELS[unitType].toLowerCase()} · ${closeAssault ? "asalto cercano" : "a distancia"}${
+    longRangeFirer ? " · dado de 8 caras" : ""
+  }`;
 
 /** "2 impactos · 1 retirada · +1 moneda"; coins are left out when the turn earns none */
 export const describeRoll = ({ hits, retreats, coins }: RollResult, withCoins = true): string =>

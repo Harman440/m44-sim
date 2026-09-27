@@ -15,7 +15,7 @@ const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
 const UNIT: Position = { row: 7, col: 1 };
 
 /** A session in battle with one unit of `unitType` ordered to hold and fire; dice always show a grenade */
-const makeSession = (unitType: UnitType, holdShots = 1) => {
+const makeSession = (unitType: UnitType, holdShots = 1, longRangeDie = false) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -29,7 +29,8 @@ const makeSession = (unitType: UnitType, holdShots = 1) => {
     faction: "Allies",
     initialHandSize: 1,
     commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1, holdShots })],
-    random: () => 0.5, // grenade
+    random: () => 0.5, // grenade, on either die
+    longRangeDie,
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(UNIT, UNIT);
@@ -55,6 +56,7 @@ function Harness({ session }: { session: GameSession }) {
         onFire={(answers) => session.fire(0, answers)}
         onQuickFire={(dice, target) => session.fireQuick(0, dice, target)}
         withCoins
+        longRangeDie={session.longRangeDie}
         onUndoShot={() => session.undoShot(0)}
         onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}
         onClose={() => setOpen(false)}
@@ -144,6 +146,24 @@ describe("FireDialog", () => {
     choose("Aplicar todos");
     expect(session.getSnapshot().shots[0]!.kept).toBeNull();
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("3Impactos");
+  });
+
+  it("rolls the 8-sided die at a target that isn't adjacent, when the game uses it", () => {
+    const session = makeSession(UnitType.INFANTRY, 1, true);
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByText("abrir"));
+    choose("2");
+    choose("Sí");
+    choose("Tanque");
+    choose("Campo abierto");
+    choose("No");
+
+    expect(screen.getByTestId("fire-total")).toHaveTextContent("Total: 2 dados de 8 caras");
+    choose("Disparar 2 dados de 8 caras");
+
+    expect(session.getSnapshot().shots[0]!.faces).toEqual(["grenade", "grenade"]);
+    expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · a distancia · dado de 8 caras");
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("0Impactos"); // infantry's grenades don't hit a tank
   });
 
   it("fires a quick roll with the number of dice chosen", () => {

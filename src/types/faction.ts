@@ -12,4 +12,6 @@ export const isFaction = (value: unknown): value is Faction =>
 export interface GameSetup {
   scenarioId: string;
   faction: Faction;
+  /** Shots at range roll the 8-sided long-range die (both players should agree) */
+  longRangeDie: boolean;
 }

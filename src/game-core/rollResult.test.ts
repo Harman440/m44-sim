@@ -50,3 +50,20 @@ describe("appliedFaces", () => {
     expect(appliedFaces(faces, [])).toEqual([]);
   });
 });
+
+describe("readRoll on the long-range die", () => {
+  it("never hits with a miss", () => {
+    expect(readRoll([DieFace.MISS], { unitType: UnitType.INFANTRY, closeAssault: false, longRangeFirer: UnitType.TANK }).hits).toBe(0);
+  });
+
+  it("doesn't count the grenade when infantry fires on a tank", () => {
+    const grenade = [DieFace.GRENADE];
+    const on = (firer: UnitType, unitType: UnitType) =>
+      readRoll(grenade, { unitType, closeAssault: false, longRangeFirer: firer }).hits;
+
+    expect(on(UnitType.INFANTRY, UnitType.TANK)).toBe(0);
+    expect(on(UnitType.INFANTRY, UnitType.INFANTRY)).toBe(1);
+    expect(on(UnitType.TANK, UnitType.TANK)).toBe(1);
+    expect(readRoll(grenade, { unitType: UnitType.TANK, closeAssault: false }).hits).toBe(1); // normal die
+  });
+});

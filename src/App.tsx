@@ -78,6 +78,7 @@ const App = () => {
       initialHandSize: scenario.initialHandSize[setup.faction === "Axis" ? "axis" : "allies"],
       commandCards,
       combatCards: combatDeckFor(scenario, setup.faction),
+      longRangeDie: setup.longRangeDie,
     });
     setGame((prev) => ({ session, resumed: false, number: (prev?.number ?? 0) + 1 }));
   };
