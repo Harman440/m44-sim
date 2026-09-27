@@ -17,12 +17,13 @@ import {
   coinsText,
   describeCoinEntry,
   describePlace,
+  describeAppliedFaces,
   describeFaces,
   describeRoll,
   describeTarget,
   signedCoins,
 } from "../labels";
-import { readRoll } from "../game-core/rollResult";
+import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { downloadJson } from "../download";
 import { orderColor } from "./OrderComponent";
 import GameIcon from "./GameIcon";
@@ -126,10 +127,10 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     >
                       {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
                       {shot.collision && " en un choque"}
-                      {shot.steps.length === 0 && " (tirada rápida)"} → {describeFaces(shot.faces)}
+                      {shot.steps.length === 0 && " (tirada rápida)"} → {describeAppliedFaces(shot.faces, shot.kept)}
                       {shot.dice > 0 &&
                         ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
-                          readRoll(shot.faces, shot.target),
+                          readRoll(appliedFaces(shot.faces, shot.kept), shot.target),
                           // The attacker's extra first turn earns no coins
                           !(session.attacking && record.turn === 1)
                         )})`}

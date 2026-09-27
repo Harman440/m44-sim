@@ -6,6 +6,7 @@ import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
 import { DieFace, rollDice } from "./dice";
+import { isKeptList } from "./rollResult";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
 import {
   COLLISION_NOTES,
@@ -141,6 +142,12 @@ export interface Shot {
   target: ShotTarget;
   /** It used the battle combat card's extra dice (Spotter, Street Fight, Explosives) */
   combatBonus: boolean;
+  /**
+   * The dice whose results are applied, as indexes into `faces` in the order
+   * rolled, when the player applies fewer results than were rolled (a unit
+   * with few figures); null applies them all. Hits and coins count only these.
+   */
+  kept: readonly number[] | null;
 }
 
 /** The roll of an attack combat card on one marked hex (Barrage, Air Power, Air Bombardment) */
@@ -685,6 +692,22 @@ class GameSession {
     return this.publish();
   }
 
+  /**
+   * Apply only some of the results of this unit's shot number `shotNumber`
+   * (0 for its first shot this turn): `kept` are indexes into its faces, and
+   * null applies them all again. The roll itself stays as it was.
+   */
+  keepResults(orderIndex: number, shotNumber: number, kept: readonly number[] | null): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    const shot = this.shots.filter((s) => s.orderIndex === orderIndex)[shotNumber];
+    if (!shot) return false;
+    if (kept !== null && !isKeptList(kept, shot.faces.length)) return false;
+
+    const sorted = kept && kept.length < shot.faces.length ? [...kept].sort((a, b) => a - b) : null;
+    this.shots = this.shots.map((s) => (s === shot ? { ...s, kept: sorted } : s));
+    return this.publish();
+  }
+
   private recordShot(
     orderIndex: number,
     dice: number,
@@ -695,7 +718,7 @@ class GameSession {
     combatBonus = false
   ): true {
     const faces = rollDice(dice, this.random);
-    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus };
+    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null };
     this.shots = [...this.shots, shot];
     return this.publish();
   }

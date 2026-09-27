@@ -6,7 +6,7 @@ import { DieFace, countFaces } from "./game-core/dice";
 import { HexType, Side } from "./types/hex";
 import { Faction } from "./types/faction";
 import { ShotTarget } from "./data/hitRules";
-import { RollResult } from "./game-core/rollResult";
+import { RollResult, appliedFaces } from "./game-core/rollResult";
 import type { MoveLimits } from "./game-core/orderRules";
 import type { CoinEntry } from "./game-core/coins";
 import type { CombatPhase, MarkerRule } from "./game-core/combatCard";
@@ -72,6 +72,12 @@ export const describeFaces = (faces: readonly DieFace[]): string => {
     .map((face) => `${counts[face]} × ${DIE_FACE_LABELS[face]}`);
   return parts.length > 0 ? parts.join(" · ") : "sin efecto";
 };
+
+/** The results a shot applies, and how many of the dice rolled they are when some were set aside */
+export const describeAppliedFaces = (faces: readonly DieFace[], kept: readonly number[] | null): string =>
+  kept === null
+    ? describeFaces(faces)
+    : `${describeFaces(appliedFaces(faces, kept))} (aplica ${kept.length} de ${faces.length})`;
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 

@@ -56,6 +56,7 @@ function Harness({ session }: { session: GameSession }) {
         onQuickFire={(dice, target) => session.fireQuick(0, dice, target)}
         withCoins
         onUndoShot={() => session.undoShot(0)}
+        onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}
         onClose={() => setOpen(false)}
       />
     </>
@@ -121,6 +122,28 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("shot-result")).toHaveTextContent("Base: Infantería a 1 casilla +3");
     expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · asalto cercano");
     expect(screen.queryByText("¿A cuántas casillas está el objetivo?")).not.toBeInTheDocument();
+  });
+
+  it("applies fewer results than were rolled: the dice not picked show as discarded", () => {
+    const session = open(UnitType.TANK);
+    choose(/Tirada rápida/);
+    choose("3");
+    quickTarget();
+    choose("Disparar 3 dados");
+
+    choose("Aplicar menos resultados");
+    choose("Dado 2: Granada");
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2Impactos");
+    choose("Aplicar 2 de 3");
+
+    expect(session.getSnapshot().shots[0]!.kept).toEqual([0, 2]);
+    expect(grenades()).toHaveLength(3); // the full roll stays on show
+    expect(screen.getByText("(descartado)", { exact: false })).toBeInTheDocument();
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2Impactos");
+
+    choose("Aplicar todos");
+    expect(session.getSnapshot().shots[0]!.kept).toBeNull();
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("3Impactos");
   });
 
   it("fires a quick roll with the number of dice chosen", () => {

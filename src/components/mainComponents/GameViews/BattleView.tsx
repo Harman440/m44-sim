@@ -285,6 +285,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         }
         withCoins={!game.extraTurn}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
+        onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}
       />
 
@@ -317,6 +318,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         faction={faction}
         onRoll={(orderIndex, targetType) => withSound(session.fireCollision(orderIndex, targetType))}
         withCoins={!game.extraTurn}
+        onKeepResults={(orderIndex, shotNumber, kept) => session.keepResults(orderIndex, shotNumber, kept)}
         onClose={() => setCollisionOpen(false)}
       />
 

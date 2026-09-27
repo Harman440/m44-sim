@@ -22,3 +22,17 @@ export function readRoll(faces: readonly DieFace[], target: ShotTarget): RollRes
     hitFaces,
   };
 }
+
+/** The results a shot applies: the dice at the `kept` indexes, or all of them when null */
+export function appliedFaces(faces: readonly DieFace[], kept: readonly number[] | null): DieFace[] {
+  return kept === null ? [...faces] : faces.filter((_, i) => kept.includes(i));
+}
+
+/** `kept` names distinct dice of a roll of `dice` dice */
+export function isKeptList(kept: unknown, dice: number): kept is number[] {
+  return (
+    Array.isArray(kept) &&
+    kept.every((i) => Number.isInteger(i) && i >= 0 && i < dice) &&
+    new Set(kept).size === kept.length
+  );
+}

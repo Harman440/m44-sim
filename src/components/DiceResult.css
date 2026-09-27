@@ -24,3 +24,48 @@
   stroke: var(--m44-ink, #9ca3af);
   stroke-width: 2.5;
 }
+
+/* A die whose result isn't applied: still visible, for reference */
+.dice-result__die--discarded .die {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.dice-result__die--discarded .MuiTypography-root {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* Picking the dice to apply: each die is a toggle */
+.dice-result__pick {
+  padding: 4px;
+  border: 3px dashed transparent;
+  border-radius: 14px;
+  background: none;
+  cursor: pointer;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.dice-result__pick[aria-pressed="true"] {
+  border: 3px solid var(--m44-accent, #1976d2);
+}
+
+.dice-result__pick[aria-pressed="false"] {
+  border-color: var(--m44-border, #9ca3af);
+}
+
+.dice-result__pick[aria-pressed="false"] .die {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+/* Read out to screen readers only; the line-through shows it on screen */
+.dice-result__discarded {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

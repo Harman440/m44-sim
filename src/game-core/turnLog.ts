@@ -36,6 +36,8 @@ export interface TurnRecord {
     /** How the dice were worked out; empty for a quick roll */
     steps: DiceStep[];
     faces: DieFace[];
+    /** The dice whose results were applied (indexes into `faces`); null for all of them */
+    kept: number[] | null;
     notes: string[];
     /** Rolled for a collision in the movement phase */
     collision: boolean;
@@ -112,6 +114,7 @@ export function recordTurn({
       dice: shot.dice,
       steps: shot.steps.map((step) => ({ ...step })),
       faces: [...shot.faces],
+      kept: shot.kept && [...shot.kept],
       notes: [...shot.notes],
       collision: shot.collision,
       target: { ...shot.target },

@@ -7,6 +7,7 @@ import CommandCard, { Section, isSection } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
 import { DieFace } from "./dice";
+import { isKeptList } from "./rollResult";
 import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
@@ -17,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 interface SavedUnit {
   type: UnitType;
@@ -185,6 +186,7 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
       ...shot,
       steps: [...shot.steps],
       faces: [...shot.faces],
+      kept: shot.kept && [...shot.kept],
       notes: [...shot.notes],
       target: { ...shot.target },
     })),
@@ -285,6 +287,7 @@ export function readSave(
     if (!orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
     if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
     if (!isUnitType(shot.target?.unitType)) throw new Error(`Unknown target ${shot.target?.unitType}`);
+    if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     return shot;
   });
 

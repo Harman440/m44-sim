@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DieFace } from "./dice";
 import { UnitType } from "./unit";
-import { readRoll } from "./rollResult";
+import { appliedFaces, readRoll } from "./rollResult";
 
 const { INFANTRY, TANK, GRENADE, STAR, FLAG } = DieFace;
 const ALL = [INFANTRY, INFANTRY, TANK, GRENADE, STAR, FLAG];
@@ -35,5 +35,18 @@ describe("readRoll", () => {
 
   it("reads an empty roll as nothing", () => {
     expect(readRoll([], at(UnitType.INFANTRY))).toEqual({ hits: 0, retreats: 0, coins: 0, hitFaces: [] });
+  });
+});
+
+describe("appliedFaces", () => {
+  const faces = [DieFace.INFANTRY, DieFace.FLAG, DieFace.GRENADE];
+
+  it("applies every face when none were set aside", () => {
+    expect(appliedFaces(faces, null)).toEqual(faces);
+  });
+
+  it("applies only the kept dice, in the order rolled", () => {
+    expect(appliedFaces(faces, [2, 0])).toEqual([DieFace.INFANTRY, DieFace.GRENADE]);
+    expect(appliedFaces(faces, [])).toEqual([]);
   });
 });

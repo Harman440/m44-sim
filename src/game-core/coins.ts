@@ -4,7 +4,7 @@
 // are in data/coinRules.ts; which stars earn a coin in data/hitRules.ts.
 import Order from "./order";
 import { UnitType } from "./unit";
-import { readRoll } from "./rollResult";
+import { appliedFaces, readRoll } from "./rollResult";
 import { END_OF_TURN_COINS } from "../data/coinRules";
 import type { Shot } from "./gameSession";
 import type { CombatCard } from "./combatCard";
@@ -55,7 +55,7 @@ export function turnCoins({
   });
   if (!extraTurn) {
     shots.forEach((shot) => {
-      const coins = readRoll(shot.faces, shot.target).coins;
+      const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
       if (coins > 0) entries.push({ kind: "stars", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
     });
     if (reward === "coins") entries.push({ kind: "endOfTurn", amount: END_OF_TURN_COINS });

@@ -14,13 +14,12 @@ import {
   Typography,
 } from "@mui/material";
 import { UnitType } from "../game-core/unit";
-import RollReading from "./RollReading";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { COLLISION_NOTES, collisionSteps } from "../data/fireQuestions";
 import { Faction } from "../types/faction";
 import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS } from "../labels";
-import DiceResult from "./DiceResult";
+import ShotDice from "./ShotDice";
 import OrderToken from "./OrderToken";
 
 interface CollisionDialogProps {
@@ -33,6 +32,8 @@ interface CollisionDialogProps {
   onRoll: (orderIndex: number, targetType: UnitType) => boolean;
   /** Rolls earn coins this turn (not in the attacker's extra first turn) */
   withCoins: boolean;
+  /** Apply only some of the dice of the order's shot `shotNumber` (or all, with null) */
+  onKeepResults: (orderIndex: number, shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
 }
 
@@ -69,7 +70,16 @@ function Outcome() {
  * phase. They battle at once, before any other shot, with close assault dice
  * − 1 and no terrain. The roll uses up the unit's shot.
  */
-function CollisionDialog({ open, summaries, card, faction, onRoll, withCoins, onClose }: CollisionDialogProps) {
+function CollisionDialog({
+  open,
+  summaries,
+  card,
+  faction,
+  onRoll,
+  withCoins,
+  onKeepResults,
+  onClose,
+}: CollisionDialogProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [targetType, setTargetType] = useState<UnitType | null>(null);
   const moved = summaries.filter((s) => !s.hold && !s.removed);
@@ -128,10 +138,13 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, withCoins, on
           <Typography variant="h6">
             {collisionShot.dice > 0 ? diceText(collisionShot.dice) : "0 dados: el choque no tuvo efecto"}
           </Typography>
-          {collisionShot.dice > 0 && <DiceResult roll={{ faces: [...collisionShot.faces], id: 1 }} faction={faction} />}
-          {collisionShot.dice > 0 && (
-            <RollReading faces={collisionShot.faces} target={collisionShot.target} withCoins={withCoins} />
-          )}
+          <ShotDice
+            shot={collisionShot}
+            rollId={1}
+            faction={faction}
+            withCoins={withCoins}
+            onKeepResults={(kept) => onKeepResults(summary.index, summary.shots.indexOf(collisionShot), kept)}
+          />
           <Alert severity="warning" sx={{ mt: 1.5 }}>
             {collisionShot.notes.join(" ")}
           </Alert>

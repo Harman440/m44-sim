@@ -831,6 +831,47 @@ describe("GameSession firing", () => {
     expect(session.undoShot(0)).toBe(false);
   });
 
+  it("applies fewer results than were rolled, and all of them again", () => {
+    const session = battle({ holdShots: 2 });
+    session.fireQuick(0, 3, AT_INFANTRY);
+    session.fireQuick(0, 2, AT_INFANTRY);
+
+    expect(session.keepResults(0, 1, [1])).toBe(true);
+    expect(session.getSnapshot().shots.map((s) => s.kept)).toEqual([null, [1]]);
+    expect(session.getSnapshot().shots[1]!.faces).toHaveLength(2); // the full roll stays
+    expect(session.keepResults(0, 0, [2, 0])).toBe(true);
+    expect(session.getSnapshot().shots[0]!.kept).toEqual([0, 2]);
+    expect(session.keepResults(0, 0, [0, 1, 2])).toBe(true); // all of them
+    expect(session.getSnapshot().shots[0]!.kept).toBeNull();
+    expect(session.keepResults(0, 1, null)).toBe(true);
+    expect(session.getSnapshot().shots[1]!.kept).toBeNull();
+  });
+
+  it("won't keep dice that weren't rolled, or a shot that wasn't fired", () => {
+    const session = battle();
+    session.fireQuick(0, 2, AT_INFANTRY);
+
+    expect(session.keepResults(0, 0, [2])).toBe(false);
+    expect(session.keepResults(0, 0, [0, 0])).toBe(false);
+    expect(session.keepResults(0, 0, [0.5])).toBe(false);
+    expect(session.keepResults(0, 1, [0])).toBe(false);
+    expect(session.keepResults(1, 0, [0])).toBe(false);
+    expect(session.getSnapshot().shots[0]!.kept).toBeNull();
+  });
+
+  it("keeps the kept dice after a reload and in the turn log", () => {
+    const session = battle();
+    session.fireQuick(0, 3, AT_INFANTRY);
+    session.keepResults(0, 0, [0, 2]);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
+    ]);
+    expect(restored.getSnapshot().shots[0]!.kept).toEqual([0, 2]);
+    finishTurn(session);
+    expect(session.getSnapshot().log[0]!.shots[0]!.kept).toEqual([0, 2]);
+  });
+
   it("clears the shots when the turn ends", () => {
     const session = battle();
     session.fireQuick(0, 2, AT_INFANTRY);
@@ -1059,7 +1100,7 @@ describe("GameSession turn log", () => {
     expect(record!.orders).toHaveLength(4);
     expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true });
     expect(record!.shots).toEqual([
-      { order: tankOrder, unit: "tank", dice: 2, steps: [], faces: expect.any(Array), notes: [], collision: false, target: AT_INFANTRY },
+      { order: tankOrder, unit: "tank", dice: 2, steps: [], faces: expect.any(Array), kept: null, notes: [], collision: false, target: AT_INFANTRY },
     ]);
     expect(record!.shots[0]!.faces).toHaveLength(2);
     expect(record!.battleEdits).toEqual([
@@ -1187,13 +1228,13 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 11 as 12 })).toThrow();
+    expect(broken({ version: 12 as 13 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
     expect(broken({ drawOptions: ["no-such-card"] })).toThrow();
-    const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, combatBonus: false, target: { unitType: UnitType.INFANTRY, closeAssault: false } };
+    const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, combatBonus: false, kept: null, target: { unitType: UnitType.INFANTRY, closeAssault: false } };
     expect(broken({ shots: [{ ...shot, orderIndex: 5 }] })).toThrow();
     expect(broken({ chosenSection: "middle" as never })).toThrow();
     expect(broken({ startCoins: "3" as never })).toThrow();
@@ -1243,6 +1284,16 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coinEntries).toEqual([{ kind: "stars", amount: 3, unit: UnitType.INFANTRY }]);
     session.undoShot(0);
     expect(session.getSnapshot().coins).toBe(0);
+  });
+
+  it("only counts the stars of the results applied", () => {
+    const session = turnWithCoins(0, "left", () => 0.7);
+    orderAllAndFight(session);
+    session.fireQuick(0, 3, AT_INFANTRY);
+
+    session.keepResults(0, 0, [1]);
+
+    expect(session.getSnapshot().coins).toBe(1);
   });
 
   it("earns nothing for a star that hit (artillery in close assault)", () => {

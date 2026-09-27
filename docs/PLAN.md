@@ -25,6 +25,7 @@ Done so far (details in git history):
 - Step 24: combat cards: the house deck (53 cards), 2 to start and at most 3 in hand, order cards played with the command card, one battle card per battle, drawn in the final phase
 - Step 25: map markers for combat cards (Barrage, Air Power, Air Bombardment, Sniper, Reinforcements) and reminders for tokens placed on the table
 - Step 26: combat card effects: +1 die cards asked on the shot, attack cards rolled on the marked hexes, movement cards on the orders map, Tactician; the rest at the table with reminders
+- Steps 27–28: no figure counts; after a roll the player can apply fewer results than were rolled (Steps 29 and 30 are postponed)
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -226,11 +227,13 @@ Each card's effect is data (`CombatCard.effect` in `data/combatCards.ts`); cards
 
 ### Step 28: Apply fewer results than were rolled
 Covers the rules that reduce firepower because of figures (one-figure infantry fires at most 2 dice; limited damages: a unit keeps at most as many results as it has figures, +1 with a bonus-dice card).
-- [ ] After a roll, "Aplicar menos resultados": the player taps the dice to keep, and the rest are shown as discarded
-- [ ] The kept results are what the shot records, and what counts for hits and coins (Steps 20 and 23)
-- [ ] The full roll stays visible for reference
+- [x] After a roll, "Aplicar menos resultados": the player taps the dice to keep, and the rest are shown as discarded ("Cambiar resultados aplicados", "Aplicar todos"); on fire and collision shots
+- [x] The kept results are what the shot records (`Shot.kept`, `GameSession.keepResults`), and what counts for hits and coins (Steps 20 and 23)
+- [x] The full roll stays visible for reference; saved (`SAVE_VERSION` 13), in the battle summary and the Historial
+- [x] **Decided:** the one-figure infantry limit (at most 2 dice) isn't applied
 
 ### Step 29: New unit types
+**Postponed:** skipped for now, to be done later.
 - [ ] Mobile artillery: 3 figures, hit like tanks, fires 3-3-2-2
 - [ ] Jeep: 2 figures, fires 3-2, only grenades hit it
 - [ ] Half-track: fires 3-2, moves 3 hexes
@@ -243,6 +246,7 @@ Covers the rules that reduce firepower because of figures (one-figure infantry f
 ## Part G: Air
 
 ### Step 30: Air rules
+**Postponed:** skipped for now, to be done later.
 Large; split it into smaller steps when we get here.
 - [ ] Air sorties: markers per scenario instead of air cards (the Air Power card is removed)
 - [ ] Ordering a plane:

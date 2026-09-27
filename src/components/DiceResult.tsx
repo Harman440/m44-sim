@@ -54,26 +54,53 @@ export interface DiceRoll {
   id: number;
 }
 
-/** The faces of a roll, plus how many of each symbol came up */
-function DiceResult({ roll, faction }: { roll: DiceRoll; faction: Faction }) {
-  const counts = countFaces(roll.faces);
+interface DiceResultProps {
+  roll: DiceRoll;
+  faction: Faction;
+  /** The dice whose results are applied (indexes into the faces); the rest show as discarded. Null: all */
+  kept?: readonly number[] | null;
+  /** Picking the dice to apply: every die is a toggle button */
+  picking?: { selected: readonly number[]; onToggle: (index: number) => void };
+}
+
+/** The faces of a roll, plus how many of each symbol are applied */
+function DiceResult({ roll, faction, kept = null, picking }: DiceResultProps) {
+  const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
+  const counts = countFaces(roll.faces.filter((_, i) => applied(i)));
 
   return (
     <Box sx={{ mt: 2 }}>
       {/* Keyed by roll so every roll replays the animation */}
       <div key={roll.id} className="dice-result" data-testid="dice-result">
-        {roll.faces.map((face, i) => (
-          <motion.div
-            key={i}
-            className="dice-result__die"
-            initial={{ rotate: -220, y: -36, scale: 0.4, opacity: 0 }}
-            animate={{ rotate: 0, y: 0, scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 320, damping: 18, delay: i * 0.08 }}
-          >
-            <DieFaceIcon face={face} faction={faction} />
-            <Typography variant="caption">{DIE_FACE_LABELS[face]}</Typography>
-          </motion.div>
-        ))}
+        {roll.faces.map((face, i) => {
+          return (
+            <motion.div
+              key={i}
+              className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}`}
+              initial={{ rotate: -220, y: -36, scale: 0.4, opacity: 0 }}
+              animate={{ rotate: 0, y: 0, scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 320, damping: 18, delay: i * 0.08 }}
+            >
+              {picking ? (
+                <button
+                  type="button"
+                  className="dice-result__pick"
+                  aria-pressed={applied(i)}
+                  aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
+                  onClick={() => picking.onToggle(i)}
+                >
+                  <DieFaceIcon face={face} faction={faction} />
+                </button>
+              ) : (
+                <DieFaceIcon face={face} faction={faction} />
+              )}
+              <Typography variant="caption">
+                {DIE_FACE_LABELS[face]}
+                {!applied(i) && <span className="dice-result__discarded"> (descartado)</span>}
+              </Typography>
+            </motion.div>
+          );
+        })}
       </div>
       <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1.5 }}>
         {Object.values(DieFace)

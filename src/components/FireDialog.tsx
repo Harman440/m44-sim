@@ -21,8 +21,7 @@ import { Shot } from "../game-core/gameSession";
 import { FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "../game-core/fireRules";
 import { OrderSummary } from "../game-core/turnSummary";
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
-import DiceResult from "./DiceResult";
-import RollReading from "./RollReading";
+import ShotDice from "./ShotDice";
 import { SECTION_LABELS, UNIT_LABELS } from "../labels";
 import { UnitType } from "../game-core/unit";
 import { ShotTarget } from "../data/hitRules";
@@ -42,6 +41,8 @@ interface FireDialogProps {
   withCoins: boolean;
   /** Take back the unit's last shot (a mistake) */
   onUndoShot: () => boolean;
+  /** Apply only some of the dice of the unit's shot `shotNumber` (or all, with null) */
+  onKeepResults: (shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
 }
 
@@ -69,9 +70,11 @@ interface ShotResultProps {
   number: number | null;
   faction: Faction;
   withCoins: boolean;
+  /** Apply only some of the dice (or all, with null) */
+  onKeepResults?: (kept: number[] | null) => boolean;
 }
 
-export function ShotResult({ shot, number, faction, withCoins }: ShotResultProps) {
+export function ShotResult({ shot, number, faction, withCoins, onKeepResults }: ShotResultProps) {
   return (
     <Box data-testid="shot-result">
       {(number !== null || shot.collision) && (
@@ -87,8 +90,13 @@ export function ShotResult({ shot, number, faction, withCoins }: ShotResultProps
       <Typography variant="h6">
         {shot.dice > 0 ? diceText(shot.dice) : "0 dados: el disparo no tuvo efecto"}
       </Typography>
-      {shot.dice > 0 && <DiceResult roll={{ faces: [...shot.faces], id: number ?? 1 }} faction={faction} />}
-      {shot.dice > 0 && <RollReading faces={shot.faces} target={shot.target} withCoins={withCoins} />}
+      <ShotDice
+        shot={shot}
+        rollId={number ?? 1}
+        faction={faction}
+        withCoins={withCoins}
+        onKeepResults={onKeepResults}
+      />
       <ShotNotes notes={shot.notes} />
     </Box>
   );
@@ -101,7 +109,18 @@ export function ShotResult({ shot, number, faction, withCoins }: ShotResultProps
  * the unit again shows the result, and only a deliberate "Anular disparo"
  * takes it back. Questions and their dice effects live in data/fireQuestions.ts.
  */
-function FireDialog({ summary, card, combatBonus, faction, onFire, onQuickFire, withCoins, onUndoShot, onClose }: FireDialogProps) {
+function FireDialog({
+  summary,
+  card,
+  combatBonus,
+  faction,
+  onFire,
+  onQuickFire,
+  withCoins,
+  onUndoShot,
+  onKeepResults,
+  onClose,
+}: FireDialogProps) {
   // Answer order is kept so "Atrás" can undo the last one
   const [answerOrder, setAnswerOrder] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -211,7 +230,14 @@ function FireDialog({ summary, card, combatBonus, faction, onFire, onQuickFire, 
       return (
         <Stack sx={{ gap: 2 }}>
           {summary.shots.map((shot, i) => (
-            <ShotResult key={i} shot={shot} number={numbered ? i + 1 : null} faction={faction} withCoins={withCoins} />
+            <ShotResult
+              key={i}
+              shot={shot}
+              number={numbered ? i + 1 : null}
+              faction={faction}
+              withCoins={withCoins}
+              onKeepResults={(kept) => onKeepResults(i, kept)}
+            />
           ))}
           {justFired && (
             <Alert severity="warning" data-testid="opponent-turn">

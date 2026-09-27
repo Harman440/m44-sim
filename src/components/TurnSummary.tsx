@@ -1,8 +1,8 @@
 import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces, describeRoll } from "../labels";
-import { readRoll } from "../game-core/rollResult";
+import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeAppliedFaces, describeRoll } from "../labels";
+import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Faction } from "../types/faction";
 import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
@@ -74,8 +74,10 @@ function TurnSummary({ card, summaries, faction, onFire, withCoins = true, onSki
             {summary.shots
               .map(
                 (shot) =>
-                  `${shot.collision ? "choque, " : ""}${describeFaces(shot.faces)}${
-                    shot.dice > 0 ? ` → ${describeRoll(readRoll(shot.faces, shot.target), withCoins)}` : ""
+                  `${shot.collision ? "choque, " : ""}${describeAppliedFaces(shot.faces, shot.kept)}${
+                    shot.dice > 0
+                      ? ` → ${describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target), withCoins)}`
+                      : ""
                   }`
               )
               .join(" / ")}
