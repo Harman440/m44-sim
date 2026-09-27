@@ -4,6 +4,8 @@ import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
 import { SECTION_LABELS } from "../../../labels";
 import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
+import CombatCardComponent from "../../CombatCardComponent";
+import { CombatCard } from "../../../game-core/combatCard";
 import { useSound } from "../../../sound";
 import "./CardsView.css";
 
@@ -17,10 +19,15 @@ interface CardsViewProps {
   discardPileCount: number;
   dealtCardIds: ReadonlySet<string>;
   onCardDealt: (card: CommandCard) => void;
-  /** Play the card; `section` for a card whose section the player picks */
-  onCardClick: (card: CommandCard, section?: Section) => void;
+  /** Play the card; `section` for a card whose section the player picks, `combatCard` to play with it */
+  onCardClick: (card: CommandCard, section?: Section, combatCard?: CombatCard) => void;
   /** The card orders units in a section the player picks when playing it */
   needsSection?: (card: CommandCard) => boolean;
+  combatHand?: readonly CombatCard[];
+  /** Combat cards can be played this turn (not in the attacker's extra turn) */
+  canPlayCombatCards?: boolean;
+  /** Coins to pay for a combat card */
+  coins?: number;
 }
 
 function CardsView({
@@ -31,7 +38,12 @@ function CardsView({
   onCardDealt,
   onCardClick,
   needsSection = () => false,
+  combatHand = [],
+  canPlayCombatCards = false,
+  coins = 0,
 }: CardsViewProps) {
+  /** The order combat card to play with the command card */
+  const [combatPick, setCombatPick] = useState<CombatCard | null>(null);
   /** A card waiting for its section to be picked */
   const [choosingSection, setChoosingSection] = useState<CommandCard | null>(null);
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
@@ -65,12 +77,12 @@ function CardsView({
       setChoosingSection(card);
       return;
     }
-    onCardClick(card);
+    onCardClick(card, undefined, combatPick ?? undefined);
   };
 
   const playInSection = (section: Section) => {
     if (!choosingSection) return;
-    onCardClick(choosingSection, section);
+    onCardClick(choosingSection, section, combatPick ?? undefined);
     setChoosingSection(null);
   };
 
@@ -126,6 +138,41 @@ function CardsView({
           ))}
         </div>
       </div>
+
+      {/* Combat cards: an order card can be played with the command card */}
+      <Box component="section" sx={{ mt: 3, pt: 2, borderTop: "3px double", borderColor: "divider" }} aria-labelledby="combat-hand-title">
+        <Typography variant="h6" component="h3" id="combat-hand-title">
+          Cartas de combate ({combatHand.length})
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {!canPlayCombatCards
+            ? "En el turno extra no se juegan cartas de combate."
+            : combatPick
+              ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas. Ponla boca abajo en la mesa.`
+              : "Para jugar una carta de órdenes este turno, tócala antes de elegir la carta de mando. Las de batalla se juegan en la batalla."}
+        </Typography>
+        {combatHand.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No tienes cartas de combate.
+          </Typography>
+        ) : (
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+            {combatHand.map((card) => {
+              const playable = canPlayCombatCards && card.phase === "order" && card.cost <= coins;
+              return playable ? (
+                <CombatCardComponent
+                  key={card.id}
+                  card={card}
+                  selected={combatPick === card}
+                  onClick={(c) => setCombatPick((picked) => (picked === c ? null : c))}
+                />
+              ) : (
+                <CombatCardComponent key={card.id} card={card} disabled={card.phase === "order"} />
+              );
+            })}
+          </Box>
+        )}
+      </Box>
 
       <Dialog open={choosingSection !== null} onClose={() => setChoosingSection(null)}>
         <DialogTitle>{choosingSection?.name}: ¿en qué sección?</DialogTitle>

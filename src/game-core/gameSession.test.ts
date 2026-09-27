@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import GameSession from "./gameSession";
 import { SavedGame } from "./saveGame";
 import CommandCard, { CommandCardProps } from "./commandCard";
+import { CombatCard } from "./combatCard";
 import { Side } from "../types/hex";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
@@ -1184,7 +1185,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 8 as 9 })).toThrow();
+    expect(broken({ version: 9 as 10 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();
@@ -1394,5 +1395,186 @@ describe("GameSession coins", () => {
     expect(restored.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
     expect(restored.undoCoinAdjustment()).toBe(true);
     expect(restored.getSnapshot().coins).toBe(2);
+  });
+});
+
+describe("GameSession combat cards", () => {
+  const defender = { ...scenario, attacker: "Axis" as const };
+  const combat = (id: string, phase: CombatCard["phase"], cost: number): CombatCard => ({
+    id,
+    name: id,
+    description: "",
+    cost,
+    phase,
+  });
+
+  /** The defender at turn 2 with `coins`, the "left" card in hand, and the combat deck given */
+  const turnTwo = (combatCards: CombatCard[], coins = 0) => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }), ...cards().slice(1)];
+    const session = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 4, commandCards, combatCards });
+    session.startFirstTurn();
+    if (coins > 0) session.adjustCoins(coins);
+    const left = commandCards[0]!;
+    return { session, left };
+  };
+
+  const toFinalPhase = (session: GameSession) => {
+    orderAllAndFight(session);
+    session.endBattle();
+    session.drawCard();
+    session.keepCard(session.getSnapshot().drawOptions[0]!);
+  };
+
+  it("deals 2 combat cards at the start", () => {
+    const deck = ["a", "b", "c"].map((id) => combat(id, "order", 1));
+    const { session } = turnTwo(deck);
+
+    expect(session.getSnapshot().combatHand).toHaveLength(2);
+    expect(session.getSnapshot().combatDrawPileCount).toBe(1);
+  });
+
+  it("plays an order card with the command card, paying for it", () => {
+    const barrage = combat("barrage", "order", 4);
+    const { session, left } = turnTwo([barrage, combat("spotter", "battle", 1)], 5);
+
+    expect(session.pickCard(left, undefined, barrage)).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ orderCombatCard: barrage, coins: 1 });
+    expect(session.getSnapshot().combatHand.map((c) => c.id)).toEqual(["spotter"]);
+    expect(session.getSnapshot().coinEntries).toContainEqual({ kind: "combatCard", amount: -4, card: "barrage" });
+  });
+
+  it("won't play a combat card the player can't pay for, or a battle card with the orders", () => {
+    const barrage = combat("barrage", "order", 4);
+    const spotter = combat("spotter", "battle", 1);
+    const { session, left } = turnTwo([barrage, spotter], 3);
+
+    expect(session.pickCard(left, undefined, barrage)).toBe(false);
+    expect(session.pickCard(left, undefined, spotter)).toBe(false);
+    expect(session.getSnapshot().phase).toBe(TurnPhase.PICK_CARDS);
+  });
+
+  it("takes the order card back while giving orders, with its coins", () => {
+    const barrage = combat("barrage", "order", 4);
+    const { session, left } = turnTwo([barrage, combat("spotter", "battle", 1)], 4);
+    session.pickCard(left, undefined, barrage);
+
+    expect(session.cancelOrderCombatCard()).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ orderCombatCard: null, coins: 4 });
+    expect(session.getSnapshot().combatHand).toContain(barrage);
+  });
+
+  it("plays one battle card per battle, and undoes it", () => {
+    const spotter = combat("spotter", "battle", 1);
+    const ambush = combat("ambush", "battle", 1);
+    const { session, left } = turnTwo([spotter, ambush], 2);
+    session.pickCard(left);
+    expect(session.playBattleCombatCard(spotter)).toBe(false); // not in the orders phase
+    orderAllAndFight(session);
+
+    expect(session.playBattleCombatCard(spotter)).toBe(true);
+    expect(session.playBattleCombatCard(ambush)).toBe(false);
+    expect(session.getSnapshot()).toMatchObject({ battleCombatCard: spotter, coins: 1 });
+
+    expect(session.undoBattleCombatCard()).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ battleCombatCard: null, coins: 2 });
+    expect(session.playBattleCombatCard(ambush)).toBe(true);
+  });
+
+  it("plays no combat cards in the attacker's extra turn", () => {
+    const barrage = combat("barrage", "order", 0);
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, combatCards: [barrage] });
+
+    expect(session.getSnapshot().canPlayCombatCards).toBe(false);
+    expect(session.pickCard(commandCards[0]!, undefined, barrage)).toBe(false);
+  });
+
+  it("discards the played cards at the end of the turn", () => {
+    const barrage = combat("barrage", "order", 1);
+    const { session, left } = turnTwo([barrage, combat("spotter", "battle", 1)], 1);
+    session.pickCard(left, undefined, barrage);
+    toFinalPhase(session);
+    session.chooseReward("coins");
+
+    session.endTurn();
+
+    expect(session.save().combatDiscardPile).toEqual(["barrage"]);
+    expect(session.getSnapshot().log.at(-1)).toMatchObject({ combatCardsPlayed: [{ id: "barrage", name: "barrage" }] });
+  });
+
+  it("draws the combat card chosen in the final phase, and then the choice stays", () => {
+    const { session, left } = turnTwo(["a", "b", "c"].map((id) => combat(id, "order", 1)));
+    session.pickCard(left);
+    toFinalPhase(session);
+
+    expect(session.chooseReward("combatCard")).toBe(true);
+
+    const snapshot = session.getSnapshot();
+    expect(snapshot.combatHand).toHaveLength(3);
+    expect(snapshot.drawnCombatCard).toBe(snapshot.combatHand[2]);
+    expect(snapshot.combatCardDue).toBe(false);
+    expect(session.chooseReward("coins")).toBe(false);
+    expect(session.endTurn()).toBe(true);
+    expect(session.getSnapshot().log.at(-1)!.combatCardDrawn).toEqual({ id: snapshot.drawnCombatCard!.id, name: snapshot.drawnCombatCard!.name });
+  });
+
+  it("makes the player discard one when the hand goes over 3", () => {
+    const deck = ["a", "b", "c", "d", "e"].map((id) => combat(id, "order", 1));
+    const { session, left } = turnTwo(deck);
+    session.pickCard(left);
+    toFinalPhase(session);
+    session.chooseReward("combatCard");
+    session.endTurn();
+    session.pickCard(session.getSnapshot().hand[0]!);
+    toFinalPhase(session);
+    session.chooseReward("combatCard");
+    const fourth = session.getSnapshot().drawnCombatCard!;
+
+    expect(session.getSnapshot()).toMatchObject({ mustDiscardCombatCard: true });
+    expect(session.endTurn()).toBe(false);
+    expect(session.discardCombatCard(fourth)).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ mustDiscardCombatCard: false });
+    expect(session.getSnapshot().combatHand).toHaveLength(3);
+    expect(session.discardCombatCard(session.getSnapshot().combatHand[0]!)).toBe(false);
+    expect(session.endTurn()).toBe(true);
+  });
+
+  it("draws the Preparations combat card with its coins", () => {
+    const commandCards = [
+      new CommandCard({ id: "prep", sections: [Side.LEFT], orders: 1, endOfTurnReward: { coins: 3, combatCard: true } }),
+    ];
+    const combatCards = ["a", "b", "c"].map((id) => combat(id, "order", 1));
+    const session = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 1, commandCards, combatCards });
+    session.startFirstTurn();
+    session.pickCard(commandCards[0]!);
+    toFinalPhase(session);
+
+    expect(session.getSnapshot()).toMatchObject({ combatCardDue: true, coins: 3 });
+    expect(session.endTurn()).toBe(false);
+    expect(session.drawCombatCard()).toBe(true);
+    expect(session.getSnapshot().combatHand).toHaveLength(3);
+    expect(session.drawCombatCard()).toBe(false);
+    expect(session.endTurn()).toBe(true);
+  });
+
+  it("keeps the combat cards after a reload", () => {
+    const deck = [combat("barrage", "order", 1), combat("spotter", "battle", 1), combat("x", "order", 1)];
+    const { session, left } = turnTwo(deck, 2);
+    const orderCard = session.getSnapshot().combatHand.find((c) => c.phase === "order")!;
+    session.pickCard(left, undefined, orderCard);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, cards(), deck);
+
+    expect(restored.getSnapshot()).toMatchObject({
+      orderCombatCard: orderCard,
+      combatHand: session.getSnapshot().combatHand,
+      combatDrawPileCount: 1,
+      coins: 1,
+    });
+    expect(() =>
+      GameSession.restore({ ...session.save(), combatHand: ["no-such-card"] }, defender, cards(), deck)
+    ).toThrow();
   });
 });

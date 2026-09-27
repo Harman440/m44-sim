@@ -10,6 +10,7 @@ import { Position } from "../types/scenario";
 import type { BattleEdit, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
+import type { CombatCard } from "./combatCard";
 
 /**
  * One finished turn as plain JSON: what was played, ordered, rolled and
@@ -52,6 +53,10 @@ export interface TurnRecord {
   coinsAfter: number;
   /** Final phase: 2 coins or a combat card; null in the extra turn or after a card with its own reward */
   reward: RewardChoice | null;
+  /** Combat cards played this turn (with the orders, then in the battle) */
+  combatCardsPlayed: { id: string; name: string }[];
+  /** The combat card drawn in the final phase */
+  combatCardDrawn: { id: string; name: string } | null;
 }
 
 interface TurnState {
@@ -65,6 +70,8 @@ interface TurnState {
   coins: readonly CoinEntry[];
   coinsAfter: number;
   reward: RewardChoice | null;
+  combatCardsPlayed: readonly CombatCard[];
+  combatCardDrawn: CombatCard | null;
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
@@ -78,6 +85,8 @@ export function recordTurn({
   coins,
   coinsAfter,
   reward,
+  combatCardsPlayed,
+  combatCardDrawn,
 }: TurnState): TurnRecord {
   return {
     turn,
@@ -108,6 +117,8 @@ export function recordTurn({
     coins: coins.map((entry) => ({ ...entry })),
     coinsAfter,
     reward,
+    combatCardsPlayed: combatCardsPlayed.map(({ id, name }) => ({ id, name })),
+    combatCardDrawn: combatCardDrawn && { id: combatCardDrawn.id, name: combatCardDrawn.name },
   };
 }
 

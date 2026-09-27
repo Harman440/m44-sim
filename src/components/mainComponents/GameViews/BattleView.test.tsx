@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import BattleView from "./BattleView";
 import GameSession from "../../../game-core/gameSession";
 import CommandCard from "../../../game-core/commandCard";
+import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 
@@ -287,5 +288,64 @@ describe("BattleView Close Assault card", () => {
 
     expect(session.getSnapshot().orders).toHaveLength(1);
     expect(screen.getByTestId("marked-count")).toHaveTextContent("1 unidad marcada");
+  });
+});
+
+describe("BattleView combat cards", () => {
+  const combatDeck: CombatCard[] = [
+    { id: "spotter", name: "Observador", description: "1 artillería tira 1 dado más.", cost: 1, phase: "battle" },
+    { id: "ambush", name: "Emboscada", description: "Combates tú primero.", cost: 3, phase: "battle" },
+  ];
+
+  // The defender at turn 2 with 2 coins and both battle cards in hand, in the battle
+  const combatSetup = () => {
+    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards: combatDeck,
+    });
+    session.startFirstTurn();
+    session.adjustCoins(2);
+    session.pickCard(card);
+    session.issueOrder(INFANTRY, INFANTRY);
+    session.issueOrder(TANK, TANK);
+    session.commitOrders();
+    session.startMovement();
+    session.startBattle();
+    render(<Harness session={session} onEndBattle={() => {}} />);
+    return session;
+  };
+
+  it("plays one battle card, paid, and undoes it", () => {
+    const session = combatSetup();
+    const section = screen.getByTestId("battle-combat-cards");
+    expect(within(section).getByRole("button", { name: "Jugar Emboscada" })).toBeDisabled(); // 3 coins, has 2
+
+    fireEvent.click(within(section).getByRole("button", { name: "Jugar Observador" }));
+
+    expect(section).toHaveTextContent("Has jugado Observador (pagada: 1 moneda)");
+    expect(within(section).queryByRole("button", { name: /Jugar/ })).not.toBeInTheDocument();
+    expect(session.getSnapshot().coins).toBe(1);
+
+    fireEvent.click(within(section).getByRole("button", { name: "Deshacer" }));
+    expect(session.getSnapshot().coins).toBe(2);
+    expect(within(section).getByRole("button", { name: "Jugar Observador" })).toBeEnabled();
+  });
+
+  it("shows no combat cards in the attacker's extra turn", () => {
+    setup({ openMap: false });
+
+    expect(screen.queryByTestId("battle-combat-cards")).not.toBeInTheDocument();
   });
 });

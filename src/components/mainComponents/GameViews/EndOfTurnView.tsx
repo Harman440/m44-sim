@@ -8,6 +8,8 @@ import GameIcon from "../../GameIcon";
 import EndOfTurnMap from "./EndOfTurnMap";
 import { RewardChoice } from "../../../game-core/coins";
 import { END_OF_TURN_COINS } from "../../../data/coinRules";
+import { MAX_COMBAT_HAND } from "../../../data/combatCards";
+import CombatCardComponent from "../../CombatCardComponent";
 
 interface EndOfTurnViewProps {
   faction: Faction;
@@ -40,6 +42,15 @@ function EndOfTurnView({
   const drawChoice = chosenCard?.drawChoice ?? 1;
   const reward = chosenCard?.endOfTurnReward;
   const [showMap, setShowMap] = useState(false);
+  /** What's still needed before the next turn */
+  const pendingStep =
+    game.needsRewardChoice && !game.rewardChoice
+      ? "Elige monedas o carta de combate para empezar el siguiente turno."
+      : game.combatCardDue
+        ? "Roba la carta de combate para empezar el siguiente turno."
+        : game.mustDiscardCombatCard
+          ? "Descarta una carta de combate para empezar el siguiente turno."
+          : null;
 
   if (showMap) {
     return <EndOfTurnMap faction={faction} session={session} game={game} onDone={() => setShowMap(false)} />;
@@ -129,15 +140,18 @@ function EndOfTurnView({
         ) : reward ? (
           <Typography variant="body1">
             En lugar de elegir: +{reward.coins} monedas, ya sumadas al contador
-            {reward.combatCard ? ", y coge una carta de combate en la mesa" : ""}.
+            {reward.combatCard ? ", y una carta de combate" : ""}.
           </Typography>
         ) : (
           <>
-            <Typography variant="body1">Elige qué te llevas este turno.</Typography>
+            <Typography variant="body1">
+              Elige qué te llevas este turno. La carta de combate se roba al elegirla, así que ya no se puede cambiar.
+            </Typography>
             <ToggleButtonGroup
               exclusive
               value={game.rewardChoice}
               onChange={(_, choice: RewardChoice | null) => choice && onChooseReward(choice)}
+              disabled={game.drawnCombatCard !== null}
               aria-label="Monedas o carta de combate"
               sx={{ flexWrap: "wrap" }}
             >
@@ -148,16 +162,45 @@ function EndOfTurnView({
                 <GameIcon name="cards" /> Carta de combate
               </ToggleButton>
             </ToggleButtonGroup>
-            {game.rewardChoice === "combatCard" && (
-              <Alert severity="info">
-                Coge una carta de combate del mazo en la mesa. Puedes tener 3 como máximo: si ya tienes 3, cambia una
-                de tu mano por la nueva.
-              </Alert>
-            )}
           </>
         )}
-        {reward?.combatCard && !game.extraTurn && (
-          <Alert severity="info">Puedes tener 3 cartas de combate como máximo: si ya tienes 3, cambia una.</Alert>
+        {game.combatCardDue && (
+          <Button
+            onClick={() => session.drawCombatCard()}
+            startIcon={<GameIcon name="cards" />}
+            sx={{ alignSelf: "flex-start" }}
+          >
+            Robar carta de combate
+          </Button>
+        )}
+        {game.drawnCombatCard && (
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Has robado:
+            </Typography>
+            <CombatCardComponent card={game.drawnCombatCard} />
+          </Box>
+        )}
+        {game.mustDiscardCombatCard && (
+          <Box data-testid="discard-combat-card">
+            <Alert severity="warning" sx={{ mb: 1.5 }}>
+              Puedes tener {MAX_COMBAT_HAND} cartas de combate como máximo: descarta una (puede ser la nueva).
+            </Alert>
+            <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
+              {game.combatHand.map((card) => (
+                <CombatCardComponent key={card.id} card={card}>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={() => session.discardCombatCard(card)}
+                    aria-label={`Descartar ${card.name}`}
+                  >
+                    Descartar
+                  </Button>
+                </CombatCardComponent>
+              ))}
+            </Box>
+          </Box>
         )}
       </Paper>
 
@@ -165,16 +208,16 @@ function EndOfTurnView({
         <Button
           size="large"
           onClick={onEndTurn}
-          disabled={game.needsRewardChoice && !game.rewardChoice}
+          disabled={!!pendingStep}
           startIcon={<GameIcon name="endTurn" />}
           sx={{ alignSelf: "center" }}
         >
           Empezar turno {game.turn + 1}
         </Button>
       )}
-      {drawnCard && game.needsRewardChoice && !game.rewardChoice && (
+      {drawnCard && pendingStep && (
         <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-          Elige monedas o carta de combate para empezar el siguiente turno.
+          {pendingStep}
         </Typography>
       )}
     </Stack>

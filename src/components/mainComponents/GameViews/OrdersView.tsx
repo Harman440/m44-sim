@@ -199,6 +199,24 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             <strong>{game.activeCard.name}:</strong> {game.activeCard.description}
           </Typography>
         )}
+        {game.orderCombatCard && (
+          <Alert
+            severity="info"
+            icon={<GameIcon name="cards" />}
+            sx={{ width: "100%" }}
+            data-testid="order-combat-card"
+            action={
+              !ordersCommitted && (
+                <Button color="inherit" onClick={() => session.cancelOrderCombatCard()}>
+                  Quitar
+                </Button>
+              )
+            }
+          >
+            <strong>Carta de combate: {game.orderCombatCard.name}.</strong> {game.orderCombatCard.description} Anota
+            en el mapa sobre qué unidades o casillas la usas.
+          </Alert>
+        )}
         {ordersCommitted ? (
           <Alert severity="success" sx={{ width: "100%" }}>
             Ya no se pueden cambiar. Pasa a la fase de movimiento.

@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import './App.css';
 import { scenarios } from './data/scenarios';
 import commandCards from './data/commandCards';
+import { combatDeckFor } from './data/combatCards';
 import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/LazyGameView';
 import Menu from './components/mainComponents/Menu';
@@ -76,6 +77,7 @@ const App = () => {
       faction: setup.faction,
       initialHandSize: scenario.initialHandSize[setup.faction === "Axis" ? "axis" : "allies"],
       commandCards,
+      combatCards: combatDeckFor(scenario, setup.faction),
     });
     setGame((prev) => ({ session, resumed: false, number: (prev?.number ?? 0) + 1 }));
   };

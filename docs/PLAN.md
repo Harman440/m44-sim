@@ -22,6 +22,7 @@ Done so far (details in git history):
 - Step 21: the house command deck (57 cards) with its card rules: sections chosen on play, quotas per section, units on the move, points, no-move and close-assault cards
 - Step 22: drawing cards: keep the card drawn or swap it once (Gamble), Recon draws 3 and keeps 1, Preparations reminds the player of its reward
 - Step 23: coins: the counter and its ledger, stars earn coins, 2 coins or a combat card in the final phase, extra orders for 4 coins, Finest Hour paid in coins
+- Step 24: combat cards: the house deck (53 cards), 2 to start and at most 3 in hand, order cards played with the command card, one battle card per battle, drawn in the final phase
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -74,7 +75,7 @@ The house rules' programming note says to start from the turn data as JSON; the 
 ### Step 16: Attacking side and the extra first turn
 - [x] Scenario data: which side attacks (`Scenario.attacker`; Forêt d'Écouves: Allies, who start with 5 cards to 3)
 - [x] The attacking side plays one extra turn at the start (turn 1), played normally; the snapshot's `extraTurn` marks it
-- [ ] No combat cards or coins in the extra turn: enforce with `extraTurn` once Part E exists
+- [x] No combat cards or coins in the extra turn: enforced with `extraTurn` (Steps 23 and 24)
 - [x] Show who is attacking in the header ("Atacante"/"Defensor", "Turno 1 · extra") and the menu ("Ataca: …" on the scenario, and what it means for the chosen side)
 - [x] **Decided:** the defender's app starts on a waiting screen (`TurnPhase.AWAIT_ATTACKER`, `WaitingView`) with an "Empezar turno 2" button
 
@@ -82,12 +83,12 @@ The house rules' programming note says to start from the turn data as JSON; the 
 The house turn is Carta → Órdenes → **Movimiento** → Batalla → **Fase final**.
 - [x] **Movimiento** (`MovementView`):
   - [x] a full-screen "Mostrar al rival" map with the orders (arrows and fire markers), to show the opponent (`OpponentMap`)
-  - [ ] pay coins for combat cards (Part E)
+  - [x] pay coins for combat cards (Part E): the order combat card is paid when chosen, and the movement phase reminds the player to show it
   - [x] move the pieces on the table (a checklist beside the read-only map, with the number of units that fire)
 - [x] **Fase final** (`EndOfTurnView`):
   - [x] apply the retreats marked in battle (Step 19): made on the table, then mirrored on the map ("Actualizar mapa")
   - [x] draw the command card ("Robar carta" shows the card drawn); then "Empezar turno N"
-  - [ ] choose a combat card or 2 coins (Part E)
+  - [x] choose a combat card or 2 coins (Part E)
 - [x] Add the phases to `TurnPhase` (`MOVEMENT`, `END_OF_TURN`, appended) and to the header steps (Carta, Órdenes, Movimiento, Batalla, Final). "Terminar batalla" leads to the final phase; the card is drawn with `drawCard()` there instead of in `endTurn()`
 - [x] Tests for the new phase flow and for saves from before the change (`SAVE_VERSION` 4 adds the drawn card; version 3 saves carry on through the new phases)
 
@@ -175,17 +176,19 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 - [x] No coins on the attacking side's extra first turn: no stars, no choice in the Fase final, no changes by hand
 
 ### Step 24: Combat cards
-- [ ] Database from house-rules.md: name, cost, phase (order, battle or command), text and count
-- [ ] Combat deck; start with 2 cards; hand of at most 3 (swap one when drawing a fourth)
-- [ ] Order combat cards: one per turn, chosen with the command card (face down), targets recorded on the map, paid in the movement phase
-- [ ] Reaction (battle) cards: one per player per battle phase, paid immediately
-  - the battle screen shows the reaction cards in your hand, and you can play one at any time while it's the opponent's turn to fire
-  - Ambush, Out of Ammo, Out of Fuel and Shells Shortage work this way (the last three are reaction cards: the enemy unit can't fire, and with Out of Ammo/Out of Fuel it also moves; done at the table)
-- [ ] End of turn: combat card or 2 coins (with Step 23)
-- [ ] Deck types: several combat decks with different sets of cards, e.g. an offensive, a neutral and a defensive deck, or special decks for a side with air superiority or more tanks. Each scenario says which deck each side uses. Keep this in mind when building the combat deck; what each deck holds is decided once the app is finished
+- [x] Database (`data/combatCards.ts`, `CombatCard` in `game-core/combatCard.ts`): name, cost, phase (order or battle), Spanish text and count; 53 cards (23 order, 30 battle)
+- [x] Combat deck (the generic `Deck`); start with 2 cards; hand of at most 3: drawing a fourth means discarding one, which may be the new one
+- [x] Order combat cards: one per turn, picked on the card screen before the command card ("ponla boca abajo"), paid then; shown while giving orders (with "Quitar" until the orders are confirmed, which gives the coins back) and in the movement phase. Marking targets on the map comes in Step 25; until then the player notes them on paper
+- [x] Battle (reaction) cards: one per battle phase, paid when played, with "Deshacer"; listed under the battle summary. The effects are resolved at the table (the app applies some in Step 26)
+  - Ambush, Out of Ammo, Out of Fuel and Shells Shortage work this way
+- [x] End of turn: combat card or 2 coins; the combat card is drawn when chosen, so the choice is then final. Preparations: "Robar carta de combate" along with its 3 coins
+- [x] Deck types: `COMBAT_DECKS` holds the decks (only "standard" so far) and a scenario can name one per side (`Scenario.combatDecks`); what the other decks hold is decided once the app is finished
+- [x] Saved (`SAVE_VERSION` 10) and in the Historial (cards played and drawn)
 - [x] **Decided (Step 21):** Ambush, Behind Enemy Lines, Barrage, Air Power, Medics and Dig In are not in the command deck; they are combat cards
-- [ ] **Decide:**
-  - the final card list, costs and counts (the notes list extra copies in brackets, and medic variants)
+- [x] **Decided:** the deck is the player's set (39) with the extras in brackets (Ambush +2, Reinforcements +1, Medic +1, Infiltrators +1, Fortify +1) and 1 of each new card (Mechanic, Tactician, Barrage, Air Power, Personal Armor, Explosives, Shells Shortage, Rifles Up!): 53 cards. Counts are easy to tune in the data file
+- [x] **Decided:** Heat of Battle costs 1 coin (the house rules gave no cost)
+- [x] **Decided:** the command combat cards (Spies, HQ Distraction, Message Interception, Lost Message) stay out of the deck until Step 33
+- [x] **Decided:** a battle card can be played at any time in the battle (the app can't tell whose turn it is to fire)
 
 ### Step 25: Map markers
 Several cards need you to mark hexes on your map during orders.

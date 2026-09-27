@@ -1,6 +1,7 @@
 import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "./faction";
+import type { CombatDeckId } from "../data/combatCards";
 
 // src/types/scenario.ts
 export interface Position {
@@ -30,4 +31,6 @@ export interface Scenario {
   attacker: Faction;
   tiles: Tiles;
   units: Factions;
+  /** The combat deck each side uses; the standard deck when omitted */
+  combatDecks?: { allies?: CombatDeckId; axis?: CombatDeckId };
 }

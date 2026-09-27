@@ -7,8 +7,9 @@ import { UnitType } from "./unit";
 import { readRoll } from "./rollResult";
 import { END_OF_TURN_COINS } from "../data/coinRules";
 import type { Shot } from "./gameSession";
+import type { CombatCard } from "./combatCard";
 
-/** Final phase: 2 coins, or a combat card (taken at the table until combat cards are in the app) */
+/** Final phase: 2 coins, or a combat card from the combat deck */
 export type RewardChoice = "coins" | "combatCard";
 
 export const isRewardChoice = (value: unknown): value is RewardChoice => value === "coins" || value === "combatCard";
@@ -18,12 +19,15 @@ export type CoinEntry =
   | { kind: "extraOrder" | "cardOrder"; amount: number; unit: UnitType }
   | { kind: "stars"; amount: number; unit: UnitType }
   | { kind: "endOfTurn" | "cardReward"; amount: number }
+  | { kind: "combatCard"; amount: number; card: string }
   | { kind: "adjustment"; amount: number };
 
 export interface TurnCoinsState {
   orders: readonly Order[];
+  /** Combat cards played this turn, paid when played */
+  combatCards: readonly CombatCard[];
   shots: readonly Shot[];
-  /** Coins added or taken by hand (e.g. paying a combat card played at the table) */
+  /** Coins added or taken by hand (to match the table) */
   adjustments: readonly number[];
   reward: RewardChoice | null;
   /** Coins the played card gives in the final phase instead of the choice (Preparations); 0 before then */
@@ -32,9 +36,18 @@ export interface TurnCoinsState {
   extraTurn: boolean;
 }
 
-/** This turn's ledger: orders paid, stars rolled, the final phase's coins and changes by hand */
-export function turnCoins({ orders, shots, adjustments, reward, cardReward, extraTurn }: TurnCoinsState): CoinEntry[] {
+/** This turn's ledger: combat cards and orders paid, stars rolled, the final phase's coins and changes by hand */
+export function turnCoins({
+  orders,
+  combatCards,
+  shots,
+  adjustments,
+  reward,
+  cardReward,
+  extraTurn,
+}: TurnCoinsState): CoinEntry[] {
   const entries: CoinEntry[] = [];
+  combatCards.forEach((card) => entries.push({ kind: "combatCard", amount: -card.cost, card: card.name }));
   orders.forEach((order) => {
     if (order.cost > 0) {
       entries.push({ kind: order.extra ? "extraOrder" : "cardOrder", amount: -order.cost, unit: order.unit.getUnitType() });

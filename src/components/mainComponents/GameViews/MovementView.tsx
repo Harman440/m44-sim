@@ -5,6 +5,7 @@ import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import OpponentMap from "./OpponentMap";
+import { coinsText } from "../../../labels";
 import "./PhaseLayout.css";
 
 interface MovementViewProps {
@@ -46,6 +47,13 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           <Typography component="li" variant="body1">
             Enseña tu mapa al rival y mira el suyo.
           </Typography>
+          {game.orderCombatCard && (
+            <Typography component="li" variant="body1" data-testid="order-combat-card">
+              Descubre tu carta de combate, <strong>{game.orderCombatCard.name}</strong> (coste:{" "}
+              {coinsText(game.orderCombatCard.cost)}, ya restado del contador):{" "}
+              {game.orderCombatCard.description}
+            </Typography>
+          )}
           <Typography component="li" variant="body1">
             Mueve en la mesa las unidades con flecha.
           </Typography>

@@ -20,6 +20,8 @@ import CollisionDialog from "../../CollisionDialog";
 import BattleMap from "./BattleMap";
 import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
+import CombatCardComponent from "../../CombatCardComponent";
+import { coinsText } from "../../../labels";
 import { useSound } from "../../../sound";
 
 interface BattleViewProps {
@@ -54,6 +56,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
   // Only units that moved (and are still on the board) can have collided with an enemy unit
   const anyMoved = summaries.some((s) => !s.hold && !s.removed);
   const play = useSound();
+  const battleCards = game.combatHand.filter((card) => card.phase === "battle");
 
   /** After a shot: the dice sound, or the stamp for a shot with no dice */
   const withSound = (fired: boolean) => {
@@ -161,6 +164,63 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
             withCoins={!game.extraTurn}
             onSkipUnmoved={() => setConfirmingSkip(true)}
           />
+
+          {game.canPlayCombatCards && (
+            <Box component="section" aria-labelledby="battle-combat-title" data-testid="battle-combat-cards">
+              <Typography variant="h6" component="h3" id="battle-combat-title">
+                Cartas de combate
+              </Typography>
+              {game.orderCombatCard && (
+                <Typography variant="body2" color="text.secondary">
+                  Con las órdenes: {game.orderCombatCard.name}. {game.orderCombatCard.description}
+                </Typography>
+              )}
+              {game.battleCombatCard ? (
+                <Alert
+                  severity="success"
+                  icon={<GameIcon name="cards" />}
+                  sx={{ mt: 1 }}
+                  action={
+                    <Button color="inherit" onClick={() => session.undoBattleCombatCard()}>
+                      Deshacer
+                    </Button>
+                  }
+                >
+                  <strong>Has jugado {game.battleCombatCard.name}</strong> (pagada:{" "}
+                  {coinsText(game.battleCombatCard.cost)}). {game.battleCombatCard.description} Solo se juega una por batalla.
+                </Alert>
+              ) : battleCards.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No tienes cartas de combate para la batalla.
+                </Typography>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Puedes jugar una en cualquier momento de la batalla, normalmente cuando dispara el rival. Se paga al
+                    jugarla y se resuelve en la mesa.
+                  </Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                    {battleCards.map((card) => (
+                      <CombatCardComponent key={card.id} card={card} disabled={card.cost > game.coins}>
+                        <Button
+                          onClick={() => session.playBattleCombatCard(card) && play("cardPlay")}
+                          disabled={card.cost > game.coins}
+                          aria-label={`Jugar ${card.name}`}
+                        >
+                          Jugar
+                        </Button>
+                        {card.cost > game.coins && (
+                          <Typography variant="caption" sx={{ alignSelf: "center" }}>
+                            No tienes monedas suficientes
+                          </Typography>
+                        )}
+                      </CombatCardComponent>
+                    ))}
+                  </Box>
+                </>
+              )}
+            </Box>
+          )}
         </Stack>
       )}
 

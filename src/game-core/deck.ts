@@ -1,16 +1,17 @@
 // game-core/deck.ts
-import CommandCard from './commandCard';
+import type CommandCard from './commandCard';
 import { shuffle } from './utils';
 
-class Deck {
-    drawPile: CommandCard[];
-    discardPile: CommandCard[];
-    constructor(cards: CommandCard[] = []) {
+/** A shuffled draw pile and a discard pile; command cards by default, combat cards too */
+class Deck<Card = CommandCard> {
+    drawPile: Card[];
+    discardPile: Card[];
+    constructor(cards: Card[] = []) {
         this.drawPile = shuffle(cards);
         this.discardPile = [];
     }
 
-    draw(n = 1): CommandCard[] {
+    draw(n = 1): Card[] {
         //If there are less than n cards in the draw pile, reshuffle the discard pile
         if (this.drawPile.length < n) {
             this.shuffleDiscardIntoDraw();
@@ -18,7 +19,7 @@ class Deck {
         return this.drawPile.splice(0, n);
     }
 
-    discard(card: CommandCard) {
+    discard(card: Card) {
         this.discardPile.push(card);
     }
 
@@ -28,7 +29,7 @@ class Deck {
     }
 
     /** Put back piles from a saved game, in their saved order */
-    restorePiles(drawPile: CommandCard[], discardPile: CommandCard[]) {
+    restorePiles(drawPile: Card[], discardPile: Card[]) {
         this.drawPile = [...drawPile];
         this.discardPile = [...discardPile];
     }

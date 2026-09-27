@@ -171,15 +171,30 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     {describeCoinEntry(entry)}: {signedCoins(entry.amount)}
                   </Typography>
                 ))}
-                {record.reward === "combatCard" && (
-                  <Typography component="li" variant="body2">
-                    Fase final: carta de combate
-                  </Typography>
-                )}
               </Box>
               <Typography variant="body2" color="text.secondary">
                 Al terminar el turno: {coinsText(record.coinsAfter)}
               </Typography>
+
+              {(record.combatCardsPlayed.length > 0 || record.combatCardDrawn) && (
+                <>
+                  <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
+                    Cartas de combate
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-combat-cards">
+                    {record.combatCardsPlayed.map((card) => (
+                      <Typography component="li" variant="body2" key={card.id}>
+                        Jugada: {card.name}
+                      </Typography>
+                    ))}
+                    {record.combatCardDrawn && (
+                      <Typography component="li" variant="body2">
+                        Robada en la fase final: {record.combatCardDrawn.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </>
+              )}
             </Paper>
           ))}
         </Stack>

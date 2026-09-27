@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CardsView, { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./CardsView";
 import CommandCard from "../../../game-core/commandCard";
+import { CombatCard } from "../../../game-core/combatCard";
 import GameSession from "../../../game-core/gameSession";
 
 const makeSession = (cardNames: string[], initialHandSize: number) =>
@@ -134,7 +135,7 @@ describe("CardsView playing a card in a section of the player's choice", () => {
     expect(onCardClick).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "centro" }));
 
-    expect(onCardClick).toHaveBeenCalledWith(card, "center");
+    expect(onCardClick).toHaveBeenCalledWith(card, "center", undefined);
   });
 
   it("can be cancelled", () => {
@@ -143,5 +144,64 @@ describe("CardsView playing a card in a section of the player's choice", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
 
     expect(onCardClick).not.toHaveBeenCalled();
+  });
+});
+
+describe("CardsView combat cards", () => {
+  const combat = (id: string, phase: CombatCard["phase"], cost: number): CombatCard => ({
+    id,
+    name: id,
+    description: `Texto de ${id}`,
+    cost,
+    phase,
+  });
+
+  const renderWith = (props: Partial<Parameters<typeof CardsView>[0]> = {}) => {
+    const card = new CommandCard({ id: "attack", name: "Ataque", orders: 2 });
+    const onCardClick = vi.fn();
+    const utils = render(
+      <CardsView
+        handCards={[card]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onCardClick={onCardClick}
+        combatHand={[combat("Barrera", "order", 4), combat("Emboscada", "battle", 3), combat("Refuerzos", "order", 6)]}
+        canPlayCombatCards
+        coins={5}
+        {...props}
+      />
+    );
+    const playCommandCard = () =>
+      fireEvent.click(within(utils.container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    return { card, onCardClick, playCommandCard };
+  };
+
+  it("plays the order card picked with the command card", () => {
+    const { card, onCardClick, playCommandCard } = renderWith();
+
+    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 monedas" }));
+    expect(screen.getByText(/Jugarás Barrera \(4 monedas\)/)).toBeInTheDocument();
+    playCommandCard();
+
+    expect(onCardClick).toHaveBeenCalledWith(card, undefined, expect.objectContaining({ id: "Barrera" }));
+  });
+
+  it("offers only the order cards the player can pay for", () => {
+    renderWith();
+
+    expect(screen.queryByRole("button", { name: /Refuerzos/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Emboscada/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Texto de Emboscada")).toBeInTheDocument();
+  });
+
+  it("plays none in the attacker's extra turn", () => {
+    const { card, onCardClick, playCommandCard } = renderWith({ canPlayCombatCards: false });
+
+    expect(screen.getByText("En el turno extra no se juegan cartas de combate.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Barrera/ })).not.toBeInTheDocument();
+    playCommandCard();
+    expect(onCardClick).toHaveBeenCalledWith(card, undefined, undefined);
   });
 });

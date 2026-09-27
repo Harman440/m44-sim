@@ -14,9 +14,10 @@ import { Position } from "../types/scenario";
 import type { BattleEdit, Shot } from "./gameSession";
 import type { TurnRecord } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
+import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 interface SavedUnit {
   type: UnitType;
@@ -62,6 +63,12 @@ export interface SavedGame {
   startCoins: number;
   coinAdjustments: number[];
   rewardChoice: RewardChoice | null;
+  combatDrawPile: string[];
+  combatDiscardPile: string[];
+  combatHand: string[];
+  orderCombatCard: string | null;
+  battleCombatCard: string | null;
+  drawnCombatCard: string | null;
 }
 
 /** Everything a GameSession keeps between actions, apart from the board's units */
@@ -86,6 +93,13 @@ export interface SessionState {
   startCoins: number;
   coinAdjustments: number[];
   rewardChoice: RewardChoice | null;
+  combatDrawPile: readonly CombatCard[];
+  combatDiscardPile: readonly CombatCard[];
+  combatHand: CombatCard[];
+  orderCombatCard: CombatCard | null;
+  battleCombatCard: CombatCard | null;
+  /** Drawn in the final phase (it is already in the hand, unless discarded) */
+  drawnCombatCard: CombatCard | null;
 }
 
 export function writeSave(scenarioId: string, faction: Faction, board: BoardManager, state: SessionState): SavedGame {
@@ -103,7 +117,7 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     if (hex.unit) addUnit(hex.unit, hex.getPosition());
   });
 
-  const ids = (cards: readonly CommandCard[]) => cards.map((card) => card.id);
+  const ids = (cards: readonly { id: string }[]) => cards.map((card) => card.id);
   return {
     version: SAVE_VERSION,
     scenarioId,
@@ -148,6 +162,12 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     startCoins: state.startCoins,
     coinAdjustments: [...state.coinAdjustments],
     rewardChoice: state.rewardChoice,
+    combatDrawPile: ids(state.combatDrawPile),
+    combatDiscardPile: ids(state.combatDiscardPile),
+    combatHand: ids(state.combatHand),
+    orderCombatCard: state.orderCombatCard?.id ?? null,
+    battleCombatCard: state.battleCombatCard?.id ?? null,
+    drawnCombatCard: state.drawnCombatCard?.id ?? null,
     units: savedUnits,
   };
 }
@@ -156,7 +176,12 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
  * Read a save back, putting its units on `board` in place of the scenario's.
  * Throws on anything that doesn't fit these cards or this version.
  */
-export function readSave(saved: SavedGame, board: BoardManager, commandCards: readonly CommandCard[]): SessionState {
+export function readSave(
+  saved: SavedGame,
+  board: BoardManager,
+  commandCards: readonly CommandCard[],
+  combatCards: readonly CombatCard[]
+): SessionState {
   if (saved.version !== SAVE_VERSION) {
     throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
   }
@@ -171,6 +196,13 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
     return found;
   };
   const cards = (ids: string[]) => ids.map(card);
+  const combatById = new Map(combatCards.map((card) => [card.id, card]));
+  const combatCard = (id: string) => {
+    const found = combatById.get(id);
+    if (!found) throw new Error(`Unknown combat card ${id}`);
+    return found;
+  };
+  const combatCardOrNull = (id: string | null) => (id === null ? null : combatCard(id));
   const section = (value: Section | null) => {
     if (value !== null && !isSection(value)) throw new Error(`Unknown section ${value}`);
     return value;
@@ -256,5 +288,11 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
     startCoins: saved.startCoins,
     coinAdjustments: [...saved.coinAdjustments],
     rewardChoice: saved.rewardChoice,
+    combatDrawPile: saved.combatDrawPile.map(combatCard),
+    combatDiscardPile: saved.combatDiscardPile.map(combatCard),
+    combatHand: saved.combatHand.map(combatCard),
+    orderCombatCard: combatCardOrNull(saved.orderCombatCard),
+    battleCombatCard: combatCardOrNull(saved.battleCombatCard),
+    drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
   };
 }

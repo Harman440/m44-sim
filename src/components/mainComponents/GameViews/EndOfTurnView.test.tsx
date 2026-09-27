@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import EndOfTurnView from "./EndOfTurnView";
 import GameSession from "../../../game-core/gameSession";
 import CommandCard from "../../../game-core/commandCard";
+import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 
@@ -131,9 +132,18 @@ describe("EndOfTurnView map", () => {
 });
 
 describe("EndOfTurnView after a special card", () => {
-  // Plays `card` (1 hold order on the left), with 3 plain cards left in the deck.
+  // Plays `card` (1 hold order on the left), with 3 plain cards left in the deck
+  // and `combatInHand` combat cards in hand (4 in the combat deck).
   // Turn 1 is the attacker's extra turn; from turn 2 the final phase gives coins.
-  const finalAfter = (card: CommandCard, turn = 1) => {
+  const finalAfter = (card: CommandCard, turn = 1, combatInHand = 0) => {
+    const combatDeck: CombatCard[] = ["C1", "C2", "C3", "C4"].map((name) => ({
+      id: name,
+      name,
+      description: "",
+      cost: 1,
+      phase: "battle",
+    }));
+    const combatIds = combatDeck.map((c) => c.id);
     const deck = ["X", "Y", "Z"].map((name) => new CommandCard({ id: name, name, orders: 1 }));
     const session = new GameSession({
       scenario: {
@@ -150,9 +160,17 @@ describe("EndOfTurnView after a special card", () => {
       commandCards: [],
     });
     const restored = GameSession.restore(
-      { ...session.save(), turn, hand: [card.id], drawPile: deck.map((c) => c.id) },
+      {
+        ...session.save(),
+        turn,
+        hand: [card.id],
+        drawPile: deck.map((c) => c.id),
+        combatHand: combatIds.slice(0, combatInHand),
+        combatDrawPile: combatIds.slice(combatInHand),
+      },
       session.scenario,
-      [card, ...deck]
+      [card, ...deck],
+      combatDeck
     );
     restored.pickCard(card);
     restored.issueOrder(INFANTRY, INFANTRY);
@@ -181,7 +199,7 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeInTheDocument();
   });
 
-  it("adds the Preparations coins and reminds the player of the combat card, with no choice", () => {
+  it("adds the Preparations coins and draws its combat card, with no choice", () => {
     const session = finalAfter(
       new CommandCard({
         id: "preparations",
@@ -193,29 +211,53 @@ describe("EndOfTurnView after a special card", () => {
     );
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "En lugar de elegir: +3 monedas, ya sumadas al contador, y coge una carta de combate en la mesa."
+      "En lugar de elegir: +3 monedas, ya sumadas al contador, y una carta de combate."
     );
     expect(screen.queryByRole("button", { name: /2 monedas/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().coins).toBe(3);
+
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
+    expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta de combate" }));
+
+    expect(screen.getByText("Has robado:")).toBeInTheDocument();
+    expect(session.getSnapshot().combatHand).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
-  it("asks for 2 coins or a combat card before the next turn", () => {
+  it("asks for 2 coins or a combat card before the next turn; coins can still change to the card", () => {
     const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2);
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
     const start = screen.getByRole("button", { name: "Empezar turno 3" });
     expect(start).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
-    expect(screen.getByText(/Coge una carta de combate del mazo en la mesa/)).toBeInTheDocument();
-    expect(session.getSnapshot().coins).toBe(0);
-
     fireEvent.click(screen.getByRole("button", { name: /2 monedas/ }));
     expect(session.getSnapshot().coins).toBe(2);
     expect(start).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
+    expect(session.getSnapshot().coins).toBe(0);
+    expect(screen.getByText("Has robado:")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /2 monedas/ })).toBeDisabled();
     fireEvent.click(start);
     expect(session.getSnapshot().turn).toBe(3);
-    expect(session.getSnapshot().coins).toBe(2);
+  });
+
+  it("makes the player discard a combat card when the hand goes over 3", () => {
+    const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2, 3);
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
+    fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
+
+    expect(screen.getByTestId("discard-combat-card")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Descartar C1" }));
+
+    expect(session.getSnapshot().combatHand.map((c) => c.id)).toEqual(["C2", "C3", "C4"]);
+    expect(screen.queryByTestId("discard-combat-card")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
   it("gives no coins or combat card in the attacker's extra turn", () => {

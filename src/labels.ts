@@ -9,6 +9,7 @@ import { ShotTarget } from "./data/hitRules";
 import { RollResult } from "./game-core/rollResult";
 import type { MoveLimits } from "./game-core/orderRules";
 import type { CoinEntry } from "./game-core/coins";
+import type { CombatPhase } from "./game-core/combatCard";
 
 export const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
 
@@ -101,7 +102,15 @@ export const describeCoinEntry = (entry: CoinEntry): string => {
       return "Fase final: monedas";
     case "cardReward":
       return "Fase final: recompensa de la carta";
+    case "combatCard":
+      return `Carta de combate: ${entry.card}`;
     case "adjustment":
       return entry.amount < 0 ? "Pago a mano" : "Ingreso a mano";
   }
+};
+
+/** When a combat card is played */
+export const COMBAT_PHASE_LABELS: Record<CombatPhase, string> = {
+  order: "Con las órdenes",
+  battle: "En la batalla",
 };

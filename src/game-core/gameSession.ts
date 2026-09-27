@@ -31,6 +31,8 @@ import {
 } from "./orderRules";
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS } from "../data/coinRules";
+import { CombatCard } from "./combatCard";
+import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
@@ -89,6 +91,21 @@ export interface GameSnapshot {
   rewardChoice: RewardChoice | null;
   /** The final phase asks for the choice (not in the extra turn, nor after a card that gives its own reward) */
   needsRewardChoice: boolean;
+  /** Combat cards in the hand (not the ones played this turn) */
+  combatHand: readonly CombatCard[];
+  combatDrawPileCount: number;
+  /** Combat cards can be played this turn (not in the attacker's extra turn) */
+  canPlayCombatCards: boolean;
+  /** The order combat card played with the command card this turn */
+  orderCombatCard: CombatCard | null;
+  /** The battle combat card played in this turn's battle (one per battle) */
+  battleCombatCard: CombatCard | null;
+  /** The combat card drawn in the final phase */
+  drawnCombatCard: CombatCard | null;
+  /** The final phase still owes a combat card: drawing it is the next step */
+  combatCardDue: boolean;
+  /** The hand has more combat cards than allowed: one must be discarded before the next turn */
+  mustDiscardCombatCard: boolean;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -124,6 +141,8 @@ interface GameSessionOptions {
   faction: Faction;
   initialHandSize: number;
   commandCards: CommandCard[];
+  /** This side's combat deck; the hand starts with 2 of them */
+  combatCards?: CombatCard[];
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
   random?: () => number;
 }
@@ -169,6 +188,11 @@ class GameSession {
   private startCoins = STARTING_COINS;
   private coinAdjustments: number[] = [];
   private rewardChoice: RewardChoice | null = null;
+  private readonly combatDeck: Deck<CombatCard>;
+  private combatHand: CombatCard[];
+  private orderCombatCard: CombatCard | null = null;
+  private battleCombatCard: CombatCard | null = null;
+  private drawnCombatCard: CombatCard | null = null;
   private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
@@ -179,6 +203,7 @@ class GameSession {
     faction,
     initialHandSize,
     commandCards,
+    combatCards = [],
     random = () => Math.random(),
   }: GameSessionOptions) {
     this.scenario = scenario;
@@ -189,6 +214,8 @@ class GameSession {
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
     this.hand = this.deck.draw(initialHandSize);
+    this.combatDeck = new Deck(combatCards);
+    this.combatHand = this.combatDeck.draw(STARTING_COMBAT_CARDS);
     this.snapshot = this.createSnapshot();
   }
 
@@ -219,12 +246,17 @@ class GameSession {
     return card.choosesSection && !fallbackCard(card, this.board);
   }
 
-  /** Play a card from the hand; see `cardNeedsSection` for when it takes a section */
-  pickCard(card: CommandCard, section?: Section): boolean {
+  /**
+   * Play a card from the hand; see `cardNeedsSection` for when it takes a
+   * section. An order combat card from the hand can be played with it, paid now.
+   */
+  pickCard(card: CommandCard, section?: Section, combatCard?: CombatCard): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (!this.hand.includes(card)) return false;
     if (this.cardNeedsSection(card) ? !isSection(section) : section !== undefined) return false;
+    if (combatCard && !this.canPlayCombatCard(combatCard, "order")) return false;
 
+    if (combatCard) this.playCombatCard(combatCard);
     this.chosenCard = card;
     this.chosenSection = section ?? null;
     this.phase = TurnPhase.ORDER_UNITS;
@@ -534,6 +566,7 @@ class GameSession {
     const endOfTurn = this.phase === TurnPhase.END_OF_TURN;
     return turnCoins({
       orders: this.orders,
+      combatCards: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
       shots: this.shots,
       adjustments: this.coinAdjustments,
       reward: this.rewardChoice,
@@ -575,11 +608,98 @@ class GameSession {
     return this.phase === TurnPhase.END_OF_TURN && !this.extraTurn() && !this.chosenCard?.endOfTurnReward;
   }
 
-  /** Final phase: take 2 coins or a combat card; it can be changed until the turn ends */
+  /**
+   * Final phase: take 2 coins or a combat card. Coins can be changed for the
+   * card until the turn ends; the combat card is drawn at once, so it stays.
+   */
   chooseReward(choice: RewardChoice): boolean {
     if (!this.needsRewardChoice() || !isRewardChoice(choice)) return false;
+    if (this.drawnCombatCard) return false;
 
     this.rewardChoice = choice;
+    if (choice === "combatCard") this.drawCombat();
+    return this.publish();
+  }
+
+  // --- combat cards: order cards are played with the command card, battle
+  // cards at any time in the battle (one each per turn), paid when played
+
+  private hasCombatCards(): boolean {
+    return this.combatDeck.getDrawPileCount() + this.combatDeck.getDiscardPileCount() > 0;
+  }
+
+  private canPlayCombatCard(card: CombatCard, phase: CombatCard["phase"]): boolean {
+    return (
+      !this.extraTurn() && card.phase === phase && this.combatHand.includes(card) && card.cost <= this.coins()
+    );
+  }
+
+  private playCombatCard(card: CombatCard) {
+    this.combatHand = this.combatHand.filter((c) => c !== card);
+    if (card.phase === "order") this.orderCombatCard = card;
+    else this.battleCombatCard = card;
+  }
+
+  /** Take back the order combat card while giving orders, before they're confirmed; its coins come back */
+  cancelOrderCombatCard(): boolean {
+    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !this.orderCombatCard) return false;
+
+    this.combatHand = [...this.combatHand, this.orderCombatCard];
+    this.orderCombatCard = null;
+    return this.publish();
+  }
+
+  /** Play a battle combat card from the hand (one per battle), paid now */
+  playBattleCombatCard(card: CombatCard): boolean {
+    if (this.phase !== TurnPhase.BATTLE || this.battleCombatCard) return false;
+    if (!this.canPlayCombatCard(card, "battle")) return false;
+
+    this.playCombatCard(card);
+    return this.publish();
+  }
+
+  /** Take back the battle combat card played by mistake; its coins come back */
+  undoBattleCombatCard(): boolean {
+    if (this.phase !== TurnPhase.BATTLE || !this.battleCombatCard) return false;
+
+    this.combatHand = [...this.combatHand, this.battleCombatCard];
+    this.battleCombatCard = null;
+    return this.publish();
+  }
+
+  /** The final phase owes a combat card (the choice, or Preparations) that hasn't been drawn */
+  private combatCardDue(): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || this.extraTurn() || this.drawnCombatCard) return false;
+    if (!this.hasCombatCards()) return false;
+    return this.rewardChoice === "combatCard" || (this.chosenCard?.endOfTurnReward?.combatCard ?? false);
+  }
+
+  private drawCombat() {
+    const [card] = this.combatDeck.draw(1);
+    if (!card) return;
+    this.combatHand = [...this.combatHand, card];
+    this.drawnCombatCard = card;
+  }
+
+  /** Draw the combat card the final phase gives (Preparations: along with its coins) */
+  drawCombatCard(): boolean {
+    if (!this.combatCardDue()) return false;
+
+    this.drawCombat();
+    return this.publish();
+  }
+
+  private mustDiscardCombatCard(): boolean {
+    return this.combatHand.length > MAX_COMBAT_HAND;
+  }
+
+  /** With one combat card too many after drawing, discard one (it may be the new one) */
+  discardCombatCard(card: CombatCard): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || !this.mustDiscardCombatCard()) return false;
+    if (!this.combatHand.includes(card)) return false;
+
+    this.combatHand = this.combatHand.filter((c) => c !== card);
+    this.combatDeck.discard(card);
     return this.publish();
   }
 
@@ -678,6 +798,7 @@ class GameSession {
   endTurn(): boolean {
     if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || !this.drawnCard) return false;
     if (this.needsRewardChoice() && !this.rewardChoice) return false;
+    if (this.combatCardDue() || this.mustDiscardCombatCard()) return false;
 
     const playedCard = this.chosenCard;
     const coins = this.coins();
@@ -691,11 +812,17 @@ class GameSession {
       coins: this.turnCoinEntries(),
       coinsAfter: coins,
       reward: this.rewardChoice,
+      combatCardsPlayed: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
+      combatCardDrawn: this.drawnCombatCard,
     });
     this.log = [...this.log, record];
     this.startCoins = coins;
     this.coinAdjustments = [];
     this.rewardChoice = null;
+    [this.orderCombatCard, this.battleCombatCard].forEach((card) => card && this.combatDeck.discard(card));
+    this.orderCombatCard = null;
+    this.battleCombatCard = null;
+    this.drawnCombatCard = null;
 
     this.chosenCard = null;
     this.chosenSection = null;
@@ -734,15 +861,27 @@ class GameSession {
       startCoins: this.startCoins,
       coinAdjustments: this.coinAdjustments,
       rewardChoice: this.rewardChoice,
+      combatDrawPile: this.combatDeck.drawPile,
+      combatDiscardPile: this.combatDeck.discardPile,
+      combatHand: this.combatHand,
+      orderCombatCard: this.orderCombatCard,
+      battleCombatCard: this.battleCombatCard,
+      drawnCombatCard: this.drawnCombatCard,
     });
   }
 
   /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
-  static restore(saved: SavedGame, scenario: Scenario, commandCards: CommandCard[], random?: () => number): GameSession {
+  static restore(
+    saved: SavedGame,
+    scenario: Scenario,
+    commandCards: CommandCard[],
+    combatCards: CombatCard[] = [],
+    random?: () => number
+  ): GameSession {
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
 
     const session = new GameSession({ scenario, faction: saved.faction, initialHandSize: 0, commandCards, random });
-    const state: SessionState = readSave(saved, session.board, commandCards);
+    const state: SessionState = readSave(saved, session.board, commandCards, combatCards);
     session.deck.restorePiles([...state.drawPile], [...state.discardPile]);
     session.turn = state.turn;
     session.phase = state.phase;
@@ -761,6 +900,11 @@ class GameSession {
     session.startCoins = state.startCoins;
     session.coinAdjustments = state.coinAdjustments;
     session.rewardChoice = state.rewardChoice;
+    session.combatDeck.restorePiles([...state.combatDrawPile], [...state.combatDiscardPile]);
+    session.combatHand = state.combatHand;
+    session.orderCombatCard = state.orderCombatCard;
+    session.battleCombatCard = state.battleCombatCard;
+    session.drawnCombatCard = state.drawnCombatCard;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -799,6 +943,14 @@ class GameSession {
       canAdjustCoins: this.canAdjustCoins(),
       rewardChoice: this.rewardChoice,
       needsRewardChoice: this.needsRewardChoice(),
+      combatHand: [...this.combatHand],
+      combatDrawPileCount: this.combatDeck.getDrawPileCount(),
+      canPlayCombatCards: !this.extraTurn() && this.phase !== TurnPhase.AWAIT_ATTACKER,
+      orderCombatCard: this.orderCombatCard,
+      battleCombatCard: this.battleCombatCard,
+      drawnCombatCard: this.drawnCombatCard,
+      combatCardDue: this.combatCardDue(),
+      mustDiscardCombatCard: this.mustDiscardCombatCard(),
     };
   }
 
