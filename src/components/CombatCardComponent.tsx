@@ -3,6 +3,8 @@ import { Box, ButtonBase, Typography } from "@mui/material";
 import { CombatCard } from "../game-core/combatCard";
 import { COMBAT_PHASE_LABELS } from "../labels";
 import GameIcon from "./GameIcon";
+import { Faction } from "../types/faction";
+import { CombatCardArt } from "./CardArt";
 
 interface CombatCardProps {
   card: CombatCard;
@@ -14,33 +16,77 @@ interface CombatCardProps {
   disabled?: boolean;
   /** Buttons under the text */
   children?: ReactNode;
+  /** Whose unit tokens the art shows */
+  faction?: Faction;
 }
 
-/** A combat card: name band, cost in coins, when it's played and its text */
-function CombatCardComponent({ card, onClick, selected = false, disabled = false, children }: CombatCardProps) {
+/**
+ * A combat card: name band with its cost in coins, art showing what it does,
+ * when it's played and its text. Order cards are tinted like section cards,
+ * battle (reaction) cards like tactic cards.
+ */
+function CombatCardComponent({ card, onClick, selected = false, disabled = false, children, faction = "Allies" }: CombatCardProps) {
   const face = (
     <>
-      <Box sx={{ px: 1.25, py: 0.75, bgcolor: "var(--m44-ink)", color: "var(--m44-paper)" }}>
+      <Box
+        sx={{
+          px: 1.25,
+          py: 0.75,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          bgcolor: "var(--m44-ink)",
+          color: "var(--m44-paper)",
+          borderBottom: "3px solid var(--card-accent)",
+        }}
+      >
         <Typography
           component="h3"
-          sx={{ fontFamily: "var(--m44-font-display)", fontSize: "0.95rem", lineHeight: 1.15, textTransform: "uppercase" }}
+          lang="es"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            fontFamily: "var(--m44-font-display)",
+            fontSize: "0.95rem",
+            lineHeight: 1.15,
+            textTransform: "uppercase",
+            // Long single words (Reposicionamiento) break instead of running under the coin
+            hyphens: "auto",
+            overflowWrap: "anywhere",
+          }}
         >
           {card.name}
         </Typography>
+        {/* The cost as a coin */}
+        <Box
+          component="span"
+          aria-label={`Cuesta ${card.cost} ${card.cost === 1 ? "moneda" : "monedas"}`}
+          sx={{
+            flexShrink: 0,
+            display: "grid",
+            placeItems: "center",
+            width: 30,
+            height: 30,
+            borderRadius: "50%",
+            background: "radial-gradient(circle at 35% 30%, #f3d98b, #c9a227 60%, #9a7a17)",
+            color: "#3b2f0b",
+            fontFamily: "var(--m44-font-display)",
+            fontSize: "1rem",
+            fontWeight: 700,
+            boxShadow: "inset 0 0 0 2px #a8871f, 0 1px 2px rgba(0,0,0,0.4)",
+          }}
+        >
+          {card.cost}
+        </Box>
       </Box>
-      <Box sx={{ p: 1.25, display: "flex", flexDirection: "column", gap: 0.75, flex: 1 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{ border: "1px solid var(--m44-border)", borderRadius: "var(--m44-radius)", px: 0.75 }}
-          >
+      <Box sx={{ px: 1, pt: 1 }}>
+        <CombatCardArt card={card} faction={faction} />
+      </Box>
+      <Box sx={{ p: 1.25, pt: 1, display: "flex", flexDirection: "column", gap: 0.75, flex: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          <GameIcon name={card.phase === "order" ? "battle" : "fire"} size="1.1em" />
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             {COMBAT_PHASE_LABELS[card.phase]}
-          </Typography>
-          <Typography
-            sx={{ display: "flex", alignItems: "center", gap: 0.5, fontWeight: 700 }}
-            aria-label={`Cuesta ${card.cost} ${card.cost === 1 ? "moneda" : "monedas"}`}
-          >
-            <GameIcon name="coins" /> {card.cost}
           </Typography>
         </Box>
         <Typography variant="body2" sx={{ color: "var(--m44-ink)" }}>
@@ -53,7 +99,8 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
 
   const frame = {
     width: 200,
-    minHeight: 180,
+    minHeight: 230,
+    "--card-accent": card.phase === "order" ? "var(--m44-primary)" : "var(--m44-accent)",
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
+import { Faction } from "../../../types/faction";
 import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
 import { SECTION_LABELS } from "../../../labels";
 import { motion } from "motion/react";
@@ -28,6 +29,8 @@ interface CardsViewProps {
   canPlayCombatCards?: boolean;
   /** Coins to pay for a combat card */
   coins?: number;
+  /** Whose unit tokens the card art shows */
+  faction?: Faction;
 }
 
 function CardsView({
@@ -41,6 +44,7 @@ function CardsView({
   combatHand = [],
   canPlayCombatCards = false,
   coins = 0,
+  faction = "Allies",
 }: CardsViewProps) {
   /** The order combat card to play with the command card */
   const [combatPick, setCombatPick] = useState<CombatCard | null>(null);
@@ -134,7 +138,7 @@ function CardsView({
       <div className="cards-grid">
         <div className="grid">
           {visibleHand.map((card) => (
-            <CommandCardComponent key={card.id} cardData={card} onClick={playCard} />
+            <CommandCardComponent key={card.id} faction={faction} cardData={card} onClick={playCard} />
           ))}
         </div>
       </div>
@@ -162,12 +166,13 @@ function CardsView({
               return playable ? (
                 <CombatCardComponent
                   key={card.id}
+                  faction={faction}
                   card={card}
                   selected={combatPick === card}
                   onClick={(c) => setCombatPick((picked) => (picked === c ? null : c))}
                 />
               ) : (
-                <CombatCardComponent key={card.id} card={card} disabled={card.phase === "order"} />
+                <CombatCardComponent key={card.id} faction={faction} card={card} disabled={card.phase === "order"} />
               );
             })}
           </Box>
@@ -207,7 +212,7 @@ function CardsView({
           animate={{ x: "-50%", y: "-50%", rotate: 0, scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 260, damping: 22 }}
         >
-          <CommandCardComponent cardData={animatingCard} onClick={() => {}} />
+          <CommandCardComponent faction={faction} cardData={animatingCard} onClick={() => {}} />
         </motion.div>
       )}
     </div>

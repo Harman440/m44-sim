@@ -1,35 +1,15 @@
-import CommandCard, { SECTIONS } from "../game-core/commandCard";
+import CommandCard from "../game-core/commandCard";
+import { Faction } from "../types/faction";
 import { UNIT_LABELS } from "../labels";
+import { CommandCardArt } from "./CardArt";
 import "./CommandCard.css";
 
 interface CommandCardProps {
     cardData: CommandCard;
     /** Without it the card is only shown, not a button */
     onClick?: (card: CommandCard) => void;
-}
-
-const SECTION_NAMES = ["Izquierda", "Centro", "Derecha"];
-
-/** The board's three sections, with the ones this card orders filled in (all of them when the player picks one) */
-function FlankDiagram({ card }: { card: CommandCard }) {
-    const active = SECTIONS.map((section) => card.sections === "chosen" || card.sections.includes(section));
-    const label = card.choosesSection
-        ? "una a elegir"
-        : SECTION_NAMES.filter((_, i) => active[i]).join(", ");
-    return (
-        <svg className="command-card__flanks" viewBox="0 0 120 28" role="img" aria-label={`Secciones: ${label}`}>
-            {active.map((on, i) => (
-                <rect
-                    key={i}
-                    x={1 + i * 40}
-                    y={1}
-                    width={38}
-                    height={26}
-                    className={on ? "command-card__flank command-card__flank--on" : "command-card__flank"}
-                />
-            ))}
-        </svg>
-    );
+    /** Whose unit tokens the art shows */
+    faction?: Faction;
 }
 
 /** The big number on the card and its word: orders, "Todas" or none */
@@ -54,8 +34,8 @@ function ruleTags(card: CommandCard): string[] {
     return tags;
 }
 
-/** A command card, drawn like the game's: title band, sections diagram, order count */
-function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
+/** A command card, drawn like the game's: title band, art with the sections it orders, order count */
+function CommandCardComponent({ cardData, onClick, faction = "Allies" }: CommandCardProps) {
     const { count, unit } = orderCount(cardData);
     const Root = onClick ? "button" : "div";
     return (
@@ -64,10 +44,18 @@ function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
             className={`command-card command-card--${cardData.tactic ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
         >
             <span className="command-card__band">
-                <h3 className="card-title">{cardData.name}</h3>
+                <h3 className="card-title" lang="es">{cardData.name}</h3>
+            </span>
+            <span className="command-card__art">
+                <CommandCardArt card={cardData} faction={faction} />
+                <span className="command-card__orders">
+                    <span className={`command-card__count${/^\d+$/.test(count) ? "" : " command-card__count--word"}`}>
+                        {count}
+                    </span>
+                    <span className="command-card__orders-unit">{unit}</span>
+                </span>
             </span>
             <span className="command-card__body">
-                <FlankDiagram card={cardData} />
                 {ruleTags(cardData).length > 0 && (
                     <span className="command-card__tags">
                         {ruleTags(cardData).map((tag) => (
@@ -75,12 +63,6 @@ function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
                         ))}
                     </span>
                 )}
-                <span className="command-card__orders">
-                    <span className={`command-card__count${/^\d+$/.test(count) ? "" : " command-card__count--word"}`}>
-                        {count}
-                    </span>
-                    <span>{unit}</span>
-                </span>
                 <span className="card-description">{cardData.description}</span>
             </span>
         </Root>

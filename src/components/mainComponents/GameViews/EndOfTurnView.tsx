@@ -107,7 +107,7 @@ function EndOfTurnView({
             <Typography variant="body2" color="text.secondary">
               {game.drewAgain ? "Has descartado la primera y robado:" : "Te quedas:"}
             </Typography>
-            <CommandCardComponent cardData={drawnCard} />
+            <CommandCardComponent faction={faction} cardData={drawnCard} />
           </Box>
         ) : drawOptions.length > 0 ? (
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
@@ -120,7 +120,7 @@ function EndOfTurnView({
                   key={card.id}
                   sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 1 }}
                 >
-                  <CommandCardComponent cardData={card} />
+                  <CommandCardComponent faction={faction} cardData={card} />
                   <Button onClick={() => onKeepCard(card)} aria-label={`Quedármela: ${card.name}`}>
                     Quedármela
                   </Button>
@@ -187,7 +187,7 @@ function EndOfTurnView({
             <Typography variant="body2" color="text.secondary">
               Has robado:
             </Typography>
-            <CombatCardComponent card={game.drawnCombatCard} />
+            <CombatCardComponent faction={faction} card={game.drawnCombatCard} />
           </Box>
         )}
         {game.mustDiscardCombatCard && (
@@ -197,7 +197,7 @@ function EndOfTurnView({
             </Alert>
             <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
               {game.combatHand.map((card) => (
-                <CombatCardComponent key={card.id} card={card}>
+                <CombatCardComponent key={card.id} faction={faction} card={card}>
                   <Button
                     variant="outlined"
                     color="warning"

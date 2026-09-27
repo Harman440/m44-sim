@@ -39,6 +39,9 @@ const ICONS = {
 
 export type GameIconName = keyof typeof ICONS;
 
+/** The icon's image, for drawing it inside an SVG (as a mask, so it takes a fill colour) */
+export const iconUrl = (name: GameIconName): string => ICONS[name];
+
 interface GameIconProps {
   name: GameIconName;
   /** CSS size; defaults to the text size */

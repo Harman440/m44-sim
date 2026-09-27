@@ -17,6 +17,13 @@
   font-family: var(--m44-font-body);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s ease;
+  --card-accent: var(--m44-primary);
+  --card-on-accent: var(--m44-on-primary);
+}
+
+.command-card--tactic {
+  --card-accent: var(--m44-accent);
+  --card-on-accent: var(--m44-on-accent);
 }
 
 .command-card:active {
@@ -36,16 +43,22 @@
   outline-offset: 3px;
 }
 
+/* Title band, with a printed-ink sheen and a rule under it */
 .command-card__band {
   display: block;
-  padding: 8px 10px;
-  background: var(--m44-primary);
-  color: var(--m44-on-primary);
+  padding: 8px 10px 7px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #fff 14%, transparent), transparent 60%),
+    var(--card-accent);
+  color: var(--card-on-accent);
+  border-bottom: 2px solid color-mix(in srgb, var(--card-accent) 55%, var(--m44-ink));
 }
 
-.command-card--tactic .command-card__band {
-  background: var(--m44-accent);
-  color: var(--m44-on-accent);
+/* The art, with the order count stamped on its corner */
+.command-card__art {
+  position: relative;
+  display: block;
+  padding: 8px 8px 0;
 }
 
 .card-title {
@@ -56,6 +69,9 @@
   line-height: 1.15;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  /* Long single words (Reconocimiento) break instead of running off the card */
+  hyphens: auto;
+  overflow-wrap: anywhere;
 }
 
 .command-card__body {
@@ -64,25 +80,6 @@
   gap: 8px;
   flex: 1;
   padding: 10px;
-}
-
-.command-card__flanks {
-  width: 100%;
-  height: auto;
-}
-
-.command-card__flank {
-  fill: transparent;
-  stroke: var(--m44-border);
-  stroke-width: 2;
-}
-
-.command-card__flank--on {
-  fill: var(--m44-primary);
-}
-
-.command-card--tactic .command-card__flank--on {
-  fill: var(--m44-accent);
 }
 
 .command-card__tags {
@@ -100,22 +97,42 @@
 }
 
 .command-card__orders {
+  position: absolute;
+  right: 12px;
+  bottom: 4px;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 6px;
-  font-size: 0.95rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 46px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 23px;
+  background: var(--card-accent);
+  color: var(--card-on-accent);
+  border: 2px solid var(--m44-paper);
+  box-shadow: 0 0 0 1.5px var(--card-accent), 0 2px 4px color-mix(in srgb, #000 35%, transparent);
+  transform: rotate(-6deg);
 }
 
 .command-card__count {
   font-family: var(--m44-font-display);
-  font-size: 2.6rem;
-  line-height: 1;
+  font-size: 1.7rem;
+  line-height: 0.95;
 }
 
 /* A word ("Todas") instead of a number */
 .command-card__count--word {
-  font-size: 1.8rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+}
+
+.command-card__orders-unit {
+  font-size: 0.58rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .card-description {

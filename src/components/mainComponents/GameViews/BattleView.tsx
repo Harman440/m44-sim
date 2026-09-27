@@ -248,7 +248,7 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
                     {battleCards.map((card) => (
-                      <CombatCardComponent key={card.id} card={card} disabled={card.cost > game.coins}>
+                      <CombatCardComponent key={card.id} faction={faction} card={card} disabled={card.cost > game.coins}>
                         <Button
                           onClick={() => session.playBattleCombatCard(card) && play("cardPlay")}
                           disabled={card.cost > game.coins}

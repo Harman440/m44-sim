@@ -218,6 +218,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             combatHand={game.combatHand}
             canPlayCombatCards={game.canPlayCombatCards}
             coins={game.coins}
+            faction={faction}
           />
         )}
 
