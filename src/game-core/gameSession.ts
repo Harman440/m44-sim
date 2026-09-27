@@ -31,10 +31,14 @@ export interface GameSnapshot {
   turn: number;
   phase: TurnPhase;
   hand: readonly CommandCard[];
-  /** The command card drawn in the final phase, once drawn (it is already in the hand) */
+  /** The command card drawn in the final phase, once kept (it is already in the hand) */
   drawnCard: CommandCard | null;
-  /** Debug placeholder for cards that let you keep 1 of 2 drawn cards */
-  choiceCards: readonly CommandCard[];
+  /** Cards drawn in the final phase waiting for the player to keep one (Recon: 3; otherwise 1, which may be swapped) */
+  drawOptions: readonly CommandCard[];
+  /** The one card drawn may be discarded for another, which must be kept */
+  canDrawAgain: boolean;
+  /** The first card drawn this turn was discarded and the kept card is its replacement */
+  drewAgain: boolean;
   chosenCard: CommandCard | null;
   /**
    * The rules in force this turn: the chosen card, or "1 unit of your choice"
@@ -128,10 +132,11 @@ class GameSession {
 
   private turn = 1;
   private phase: TurnPhase;
-  private choiceCards: CommandCard[] = [];
   private chosenCard: CommandCard | null = null;
   private chosenSection: Section | null = null;
   private drawnCard: CommandCard | null = null;
+  private drawOptions: CommandCard[] = [];
+  private drewAgain = false;
   private orders: Order[] = [];
   private ordersCommitted = false;
   private battleEdits: BattleEdit[] = [];
@@ -191,37 +196,12 @@ class GameSession {
   /** Play a card from the hand; see `cardNeedsSection` for when it takes a section */
   pickCard(card: CommandCard, section?: Section): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
-    if (this.choiceCards.length > 0) return false;
     if (!this.hand.includes(card)) return false;
     if (this.cardNeedsSection(card) ? !isSection(section) : section !== undefined) return false;
 
     this.chosenCard = card;
     this.chosenSection = section ?? null;
     this.phase = TurnPhase.ORDER_UNITS;
-    return this.publish();
-  }
-
-  /** Debug placeholder: draw 2 cards to choose 1 from */
-  drawChoice(): boolean {
-    if (this.phase !== TurnPhase.PICK_CARDS) return false;
-    if (this.choiceCards.length > 0) return false;
-
-    const drawn = this.deck.draw(2);
-    if (drawn.length < 2) {
-      drawn.forEach((card) => this.deck.discard(card));
-      this.publish();
-      return false;
-    }
-    this.choiceCards = drawn;
-    return this.publish();
-  }
-
-  chooseCard(card: CommandCard): boolean {
-    if (!this.choiceCards.includes(card)) return false;
-
-    this.choiceCards.filter((c) => c !== card).forEach((c) => this.deck.discard(c));
-    this.choiceCards = [];
-    this.hand = [...this.hand, card];
     return this.publish();
   }
 
@@ -536,19 +516,57 @@ class GameSession {
     return this.publish();
   }
 
-  /** Discard the played card and draw a new command card (once per turn) */
+  /**
+   * Discard the played card and draw command cards to choose from (once per
+   * turn): as many as the card says (Recon: 3), otherwise 1, which the player
+   * may swap with `drawAgain`. `keepCard` then puts one in the hand.
+   */
   drawCard(): boolean {
-    if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || this.drawnCard) return false;
+    if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard) return false;
+    if (this.drawnCard || this.drawOptions.length > 0) return false;
 
     // Discard first so a reshuffle on an empty deck can bring the card back,
     // so there is always a card to draw
     const playedCard = this.chosenCard;
     this.deck.discard(playedCard);
-    const [drawn] = this.deck.draw(1);
-    if (!drawn) throw new Error("No command card to draw");
-    this.hand = [...this.hand.filter((c) => c !== playedCard), drawn];
-    this.drawnCard = drawn;
+    this.hand = this.hand.filter((c) => c !== playedCard);
+    const drawn = this.deck.draw(playedCard.drawChoice);
+    if (drawn.length === 0) throw new Error("No command card to draw");
+    this.drawOptions = drawn;
     return this.publish();
+  }
+
+  /** Keep one of the cards drawn; the others are discarded */
+  keepCard(card: CommandCard): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || !this.drawOptions.includes(card)) return false;
+
+    this.drawOptions.filter((c) => c !== card).forEach((c) => this.deck.discard(c));
+    this.keep(card);
+    return this.publish();
+  }
+
+  private canDrawAgain(): boolean {
+    return this.drawOptions.length === 1 && this.chosenCard?.drawChoice === 1;
+  }
+
+  /** Gamble: discard the card drawn and draw another, which must be kept */
+  drawAgain(): boolean {
+    if (this.phase !== TurnPhase.END_OF_TURN || !this.canDrawAgain()) return false;
+
+    // Draw before discarding, so a reshuffle can't bring the same card back
+    // (unless it's the only card left to draw)
+    const [first] = this.drawOptions;
+    const [next] = this.deck.draw(1);
+    this.deck.discard(first!);
+    this.keep(next ?? this.deck.draw(1)[0]!);
+    this.drewAgain = true;
+    return this.publish();
+  }
+
+  private keep(card: CommandCard) {
+    this.hand = [...this.hand, card];
+    this.drawnCard = card;
+    this.drawOptions = [];
   }
 
   endTurn(): boolean {
@@ -568,6 +586,7 @@ class GameSession {
     this.chosenCard = null;
     this.chosenSection = null;
     this.drawnCard = null;
+    this.drewAgain = false;
     this.orders = [];
     this.ordersCommitted = false;
     this.battleEdits = [];
@@ -587,10 +606,11 @@ class GameSession {
       drawPile: this.deck.drawPile,
       discardPile: this.deck.discardPile,
       hand: this.hand,
-      choiceCards: this.choiceCards,
       chosenCard: this.chosenCard,
       chosenSection: this.chosenSection,
       drawnCard: this.drawnCard,
+      drawOptions: this.drawOptions,
+      drewAgain: this.drewAgain,
       orders: this.orders,
       ordersCommitted: this.ordersCommitted,
       unmovedFireSkipped: this.unmovedFireSkipped,
@@ -610,10 +630,11 @@ class GameSession {
     session.turn = state.turn;
     session.phase = state.phase;
     session.hand = state.hand;
-    session.choiceCards = state.choiceCards;
     session.chosenCard = state.chosenCard;
     session.chosenSection = state.chosenSection;
     session.drawnCard = state.drawnCard;
+    session.drawOptions = state.drawOptions;
+    session.drewAgain = state.drewAgain;
     session.orders = state.orders;
     session.ordersCommitted = state.ordersCommitted;
     session.unmovedFireSkipped = state.unmovedFireSkipped;
@@ -632,11 +653,13 @@ class GameSession {
       turn: this.turn,
       phase: this.phase,
       hand: [...this.hand],
-      choiceCards: [...this.choiceCards],
       chosenCard: this.chosenCard,
       activeCard: this.activeCard(),
       chosenSection: this.chosenSection,
       drawnCard: this.drawnCard,
+      drawOptions: [...this.drawOptions],
+      canDrawAgain: this.canDrawAgain(),
+      drewAgain: this.drewAgain,
       orders: this.orders,
       ordersLeft: orderContext ? ordersLeft(orderContext) : 0,
       orderable: orderContext ? orderablePositions(orderContext) : [],

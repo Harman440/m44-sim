@@ -74,23 +74,6 @@
   color: var(--m44-on-accent);
 }
 
-.choice-area {
-  margin-bottom: 2rem;
-}
-
-.choice-cards {
-  display: flex;
-  justify-content: center;
-  gap: 1.5rem;
-}
-
-.choice-card {
-  display: flex; /* frame wraps the card instead of a fixed size it overflows */
-  padding: 4px;
-  border: 3px dashed var(--m44-primary);
-  border-radius: var(--m44-radius);
-}
-
 /* Positioned by motion (see CardsView): starts at the deck, lands at the top of the hand */
 .animating-card {
   position: fixed;

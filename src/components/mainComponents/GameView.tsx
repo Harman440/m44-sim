@@ -197,13 +197,10 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
         {game.phase === TurnPhase.PICK_CARDS && (
           <CardsView
             handCards={game.hand}
-            choiceCards={game.choiceCards}
             drawPileCount={game.drawPileCount}
             discardPileCount={game.discardPileCount}
             dealtCardIds={dealtCardIds}
             onCardDealt={handleCardDealt}
-            onDrawChoice={() => session.drawChoice()}
-            onChooseCard={(card) => session.chooseCard(card)}
             onCardClick={(card, section) => session.pickCard(card, section) && play("cardPlay")}
             needsSection={(card) => session.cardNeedsSection(card)}
           />
@@ -225,6 +222,8 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             session={session}
             game={game}
             onDrawCard={handleDrawCard}
+            onKeepCard={(card) => session.keepCard(card)}
+            onDrawAgain={() => session.drawAgain() && play("cardPlay")}
             onEndTurn={() => session.endTurn()}
           />
         )}

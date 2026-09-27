@@ -46,6 +46,7 @@ const playedSession = () => {
     session.endBattle();
     final();
     session.drawCard();
+    session.keepCard(session.getSnapshot().drawOptions[0]!);
     session.endTurn();
   };
   playTurn(() => session.fireQuick(0, 2, AT_INFANTRY));

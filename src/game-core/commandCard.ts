@@ -53,6 +53,16 @@ export interface CommandCardProps {
   fireBonus?: readonly FireBonus[];
   /** No orders: in the battle, the player marks each unit adjacent to an enemy and it fires in close assault (Close Assault) */
   closeAssaultOnly?: boolean;
+  /** In the final phase, draw this many command cards and keep 1 (Recon: 3); otherwise draw 1, which may be swapped once */
+  drawChoice?: number;
+  /** Taken in the final phase instead of choosing between coins and a combat card (Preparations) */
+  endOfTurnReward?: EndOfTurnReward;
+}
+
+/** What a card gives in the final phase, in place of the usual choice */
+export interface EndOfTurnReward {
+  coins: number;
+  combatCard: boolean;
 }
 
 class CommandCard {
@@ -73,6 +83,8 @@ class CommandCard {
   readonly holdShots: number;
   readonly fireBonus: readonly FireBonus[];
   readonly closeAssaultOnly: boolean;
+  readonly drawChoice: number;
+  readonly endOfTurnReward: EndOfTurnReward | null;
 
   constructor({
     id = `command-card-${CommandCard.counter++}`,
@@ -91,6 +103,8 @@ class CommandCard {
     holdShots = 1,
     fireBonus = [],
     closeAssaultOnly = false,
+    drawChoice = 1,
+    endOfTurnReward,
   }: CommandCardProps) {
     this.id = id;
     this.name = name;
@@ -108,6 +122,8 @@ class CommandCard {
     this.holdShots = holdShots;
     this.fireBonus = fireBonus;
     this.closeAssaultOnly = closeAssaultOnly;
+    this.drawChoice = drawChoice;
+    this.endOfTurnReward = endOfTurnReward ?? null;
   }
 
   /** Points an order for this unit type uses out of the card's orders */

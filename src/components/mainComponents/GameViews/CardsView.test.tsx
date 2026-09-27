@@ -28,12 +28,10 @@ function Harness({
   session,
   initialDealt = [],
   onCardClick,
-  showDrawChoice,
 }: {
   session: GameSession;
   initialDealt?: string[];
   onCardClick?: (card: CommandCard) => void;
-  showDrawChoice?: boolean;
 }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [dealt, setDealt] = useState<ReadonlySet<string>>(() => new Set(initialDealt));
@@ -45,15 +43,11 @@ function Harness({
   return (
     <CardsView
       handCards={game.hand}
-      choiceCards={game.choiceCards}
       drawPileCount={game.drawPileCount}
       discardPileCount={game.discardPileCount}
       dealtCardIds={dealt}
       onCardDealt={onCardDealt}
-      onDrawChoice={() => session.drawChoice()}
-      onChooseCard={(card) => session.chooseCard(card)}
       onCardClick={onCardClick ?? ((card) => session.pickCard(card))}
-      showDrawChoice={showDrawChoice}
     />
   );
 }
@@ -116,75 +110,18 @@ describe("CardsView dealing", () => {
   });
 });
 
-describe("CardsView choosing between 2 cards", () => {
-  const setup = (onCardClick = vi.fn()) => {
-    const session = makeSession(["A", "X", "Y", "Z"], 1);
-    const [handCard] = session.getSnapshot().hand.map(nameOf);
-    const utils = render(
-      <Harness session={session} initialDealt={[handCard!]} onCardClick={onCardClick} />
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Coge 2 Cartas" }));
-    return { session, handCard: handCard!, onCardClick, ...utils };
-  };
-
-  it("locks the button while a choice is open", () => {
-    const { session } = setup();
-
-    expect(screen.getByRole("button", { name: "Coge 2 Cartas" })).toBeDisabled();
-    expect(session.getSnapshot().drawPileCount).toBe(1);
-  });
-
-  it("adds the chosen card to the hand and discards the other", () => {
-    const { session, handCard, container } = setup();
-    const choiceArea = container.querySelector(".choice-area") as HTMLElement;
-    const [chosen, other] = Array.from(choiceArea.querySelectorAll(".card-title")).map(
-      (el) => el.textContent!
-    );
-
-    fireEvent.click(within(choiceArea).getByText(chosen!));
-    dealOneCard();
-
-    expect(handNames(container)).toEqual([handCard, chosen]);
-    expect(session.getSnapshot().discardPileCount).toBe(1);
-    expect(screen.getByText("Descarte (1)")).toBeInTheDocument();
-    expect(screen.queryByText(other!)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Coge 2 Cartas" })).toBeEnabled();
-  });
-
-  it("doesn't let you play a card until you have chosen", () => {
-    const { onCardClick, handCard, container } = setup();
-
-    fireEvent.click(
-      within(container.querySelector(".cards-grid") as HTMLElement).getByText(handCard)
-    );
-
-    expect(onCardClick).not.toHaveBeenCalled();
-    expect(screen.getByText("Primero elige una de las dos cartas")).toBeInTheDocument();
-  });
-
-  it("hides the debug draw-2 button outside development", () => {
-    render(<Harness session={makeSession(["A", "B", "C"], 2)} showDrawChoice={false} />);
-
-    expect(screen.queryByRole("button", { name: "Coge 2 Cartas" })).not.toBeInTheDocument();
-  });
-});
-
 describe("CardsView playing a card in a section of the player's choice", () => {
   const render1 = (onCardClick = vi.fn()) => {
     const card = new CommandCard({ id: "assault", name: "Asalto de infantería", sections: "chosen", orders: "all" });
     const utils = render(
       <CardsView
         handCards={[card]}
-        choiceCards={[]}
         drawPileCount={0}
         discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
-        onDrawChoice={() => false}
-        onChooseCard={() => {}}
         onCardClick={onCardClick}
         needsSection={(c) => c.choosesSection}
-        showDrawChoice={false}
       />
     );
     fireEvent.click(within(utils.container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));

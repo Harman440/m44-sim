@@ -20,6 +20,7 @@ Done so far (details in git history):
 - Step 19: firing order (units that didn't move first, enforced) and the map updated in the final phase
 - Step 20: each roll is read against its target: hits, retreats and coins
 - Step 21: the house command deck (57 cards) with its card rules: sections chosen on play, quotas per section, units on the move, points, no-move and close-assault cards
+- Step 22: drawing cards: keep the card drawn or swap it once (Gamble), Recon draws 3 and keeps 1, Preparations reminds the player of its reward
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -149,9 +150,12 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 - [x] **Decided (provisional):** deck counts are the notes' Breakthrough counts with the "(−1)" changes, which make a standard-size deck; the "1 less on standard maps" note is about these counts. Tune them in `data/commandCards.ts`
 
 ### Step 22: Drawing cards
-- [ ] Gamble: when drawing, keep the card or discard it and draw another, which must be kept. **Decide:** is this a rule for every draw, or a card?
-- [ ] Recon: draw 3 and choose 1. This replaces the "Coge 2 Cartas" debug button.
-- [ ] Preparations: order 1 unit and take 3 coins and a combat card (the card and its text are in the deck since Step 21; the coins and the combat card are still taken at the table)
+- [x] Gamble: when drawing, keep the card or discard it and draw another, which must be kept ("Quedármela" / "Descartar y robar otra" in the Fase final; `GameSession.drawCard`, `keepCard`, `drawAgain`)
+- [x] **Decided:** Gamble is a rule for every draw, not a card
+- [x] Recon: draw 3 and choose 1 (`CommandCard.drawChoice`). The "Coge 2 Cartas" debug button is gone
+- [x] **Decided:** only the Left/Center/Right Recon cards draw 3 (not Recon in Force), and choosing 1 of 3 replaces the gamble
+- [x] Preparations: order 1 unit; the Fase final reminds the player to take 3 coins and a combat card at the table (`CommandCard.endOfTurnReward`; Step 23 adds the coins to the counter)
+- [x] Saved: the cards drawn but not yet kept, and whether the first was swapped (`SAVE_VERSION` 8)
 - [x] **Decided:** each tablet has its own command deck (the tablets don't connect), so nothing waits for the opponent to draw; the old "the attacking side draws first" reminder is gone
 
 ---

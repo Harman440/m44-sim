@@ -76,6 +76,7 @@ const orderAllAndFight = (session: GameSession) => {
 const finishTurn = (session: GameSession) => {
   if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
   expect(session.drawCard()).toBe(true);
+  expect(session.keepCard(session.getSnapshot().drawOptions[0]!)).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
 
@@ -461,12 +462,21 @@ describe("GameSession movement and final phases", () => {
 
     expect(session.endTurn()).toBe(false); // nothing drawn yet
     expect(session.drawCard()).toBe(true);
-    const { drawnCard, hand, turn, phase } = session.getSnapshot();
-    expect(drawnCard).not.toBeNull();
+    const [option] = session.getSnapshot().drawOptions;
+    expect(session.getSnapshot()).toMatchObject({ drawnCard: null, canDrawAgain: true });
+    expect(session.getSnapshot().hand).not.toContain(played);
+    expect(session.getSnapshot().hand).not.toContain(option);
+    expect(session.drawCard()).toBe(false);
+    expect(session.endTurn()).toBe(false); // the card drawn isn't kept yet
+
+    expect(session.keepCard(option!)).toBe(true);
+    const { drawnCard, drawOptions, hand, turn, phase } = session.getSnapshot();
+    expect(drawnCard).toBe(option);
+    expect(drawOptions).toEqual([]);
     expect(hand).toContain(drawnCard);
-    expect(hand).not.toContain(played);
     expect({ turn, phase }).toEqual({ turn: 1, phase: TurnPhase.END_OF_TURN });
     expect(session.drawCard()).toBe(false);
+    expect(session.drawAgain()).toBe(false);
 
     expect(session.endTurn()).toBe(true);
     expect(session.getSnapshot().drawnCard).toBeNull();
@@ -478,6 +488,7 @@ describe("GameSession movement and final phases", () => {
     orderAllAndFight(session);
     session.endBattle();
     session.drawCard();
+    session.keepCard(session.getSnapshot().drawOptions[0]!);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
 
@@ -535,34 +546,82 @@ describe("GameSession ending the turn", () => {
   });
 });
 
-describe("GameSession draw-2-keep-1 (debug placeholder)", () => {
-  it("keeps the chosen card, discards the other and blocks playing until then", () => {
-    const session = makeSession(2); // 2 in hand, 2 in the deck
-    const handCard = session.getSnapshot().hand[0]!;
+describe("GameSession drawing a command card", () => {
+  const recon = () =>
+    new CommandCard({ id: "recon", sections: [Side.LEFT], orders: 1, onTheMove: 1, drawChoice: 3 });
 
-    expect(session.drawChoice()).toBe(true);
-    const [kept, other] = session.getSnapshot().choiceCards;
-    expect(session.drawChoice()).toBe(false);
-    expect(session.pickCard(handCard)).toBe(false);
+  /** In the final phase after playing `played`; the other cards are in the deck in order */
+  const finalPhaseWith = (played: CommandCard, deck: CommandCard[]) => {
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 0, commandCards: [] });
+    const restored = GameSession.restore(
+      { ...session.save(), hand: [played.id], drawPile: deck.map((c) => c.id) },
+      scenario,
+      [played, ...deck]
+    );
+    restored.pickCard(played);
+    orderAllAndFight(restored);
+    restored.endBattle();
+    return restored;
+  };
 
-    expect(session.chooseCard(kept!)).toBe(true);
+  it("swaps the card drawn once (Gamble): the first is discarded and the next must be kept", () => {
+    const [played, first, second, third] = cards();
+    const session = finalPhaseWith(played!, [first!, second!, third!]);
+
+    session.drawCard();
+    expect(session.getSnapshot().drawOptions).toEqual([first]);
+    expect(session.drawAgain()).toBe(true);
 
     const snapshot = session.getSnapshot();
-    expect(snapshot.hand).toContain(kept);
-    expect(snapshot.hand).toHaveLength(3);
-    expect(snapshot.choiceCards).toEqual([]);
-    expect(snapshot.discardPileCount).toBe(1);
-    expect(session.chooseCard(other!)).toBe(false);
-    expect(session.pickCard(handCard)).toBe(true);
+    expect(snapshot).toMatchObject({ drawnCard: second, drawOptions: [], drewAgain: true, canDrawAgain: false });
+    expect(snapshot.hand).toEqual([second]);
+    expect(snapshot.discardPileCount).toBe(2); // the played card and the first one drawn
+    expect(session.drawAgain()).toBe(false);
+    expect(session.keepCard(first!)).toBe(false);
+
+    expect(session.endTurn()).toBe(true);
+    expect(session.getSnapshot().drewAgain).toBe(false);
   });
 
-  it("doesn't lose cards when there aren't 2 to draw", () => {
-    const session = makeSession(0); // everything in hand, nothing to draw
+  it("swaps even when the deck is empty, without drawing the discarded card back", () => {
+    const [played, first] = cards();
+    const session = finalPhaseWith(played!, [first!]);
 
-    expect(session.drawChoice()).toBe(false);
+    session.drawCard(); // the deck is now empty
+    expect(session.drawAgain()).toBe(true);
 
+    // The reshuffled discard pile only holds the played card
+    expect(session.getSnapshot().drawnCard).toBe(played);
+  });
+
+  it("draws 3 and keeps 1 after a Recon card, with no swap", () => {
+    const [first, second, third, fourth] = cards();
+    const session = finalPhaseWith(recon(), [first!, second!, third!, fourth!]);
+
+    session.drawCard();
+    expect(session.getSnapshot()).toMatchObject({ drawOptions: [first, second, third], canDrawAgain: false });
+    expect(session.drawAgain()).toBe(false);
+    expect(session.keepCard(fourth!)).toBe(false); // not one of the cards drawn
+
+    expect(session.keepCard(second!)).toBe(true);
     const snapshot = session.getSnapshot();
-    expect(snapshot.hand.length + snapshot.drawPileCount + snapshot.discardPileCount).toBe(4);
+    expect(snapshot.hand).toEqual([second]);
+    expect(snapshot.discardPileCount).toBe(3); // Recon and the two left over
+    expect(snapshot.drawPileCount).toBe(1);
+  });
+
+  it("keeps the cards drawn but not yet chosen after a reload", () => {
+    const [first, second, third] = cards();
+    const reconCard = recon();
+    const session = finalPhaseWith(reconCard, [first!, second!, third!]);
+    session.drawCard();
+
+    const all = [reconCard, ...cards()];
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, all);
+
+    expect(restored.getSnapshot().drawOptions.map((c) => c.id)).toEqual(["left", "right", "all"]);
+    expect(restored.keepCard(restored.getSnapshot().drawOptions[2]!)).toBe(true);
+    expect(restored.getSnapshot().drawnCard?.id).toBe("all");
   });
 });
 
@@ -1119,26 +1178,17 @@ describe("GameSession saving and restoring", () => {
     expect(restored.getSnapshot().log).toHaveLength(1);
   });
 
-  it("restores a pending draw-2 choice", () => {
-    const session = makeSession(2);
-    session.drawChoice();
-
-    const restored = reload(session);
-
-    expect(ids(restored.getSnapshot().choiceCards)).toEqual(ids(session.getSnapshot().choiceCards));
-    expect(restored.chooseCard(restored.getSnapshot().choiceCards[0]!)).toBe(true);
-  });
-
   it("rejects a save it can't trust", () => {
     const saved = makeSession().save();
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 6 as 7 })).toThrow();
+    expect(broken({ version: 7 as 8 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
+    expect(broken({ drawOptions: ["no-such-card"] })).toThrow();
     const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, target: { unitType: UnitType.INFANTRY, closeAssault: false } };
     expect(broken({ shots: [{ ...shot, orderIndex: 5 }] })).toThrow();
     expect(broken({ chosenSection: "middle" as never })).toThrow();

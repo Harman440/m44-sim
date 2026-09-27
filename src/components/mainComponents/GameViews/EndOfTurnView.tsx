@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
+import CommandCard from "../../../game-core/commandCard";
 import { Faction } from "../../../types/faction";
 import CommandCardComponent from "../../CommandCardComponent";
 import GameIcon from "../../GameIcon";
@@ -11,15 +12,20 @@ interface EndOfTurnViewProps {
   session: GameSession;
   game: GameSnapshot;
   onDrawCard: () => void;
+  onKeepCard: (card: CommandCard) => void;
+  onDrawAgain: () => void;
   onEndTurn: () => void;
 }
 
 /**
  * Fase final: make the retreats marked in battle on the table and mirror the
- * casualties, retreats and ground taken on the map, then draw a command card
+ * casualties, retreats and ground taken on the map, then draw a command card:
+ * keep it or swap it once for the next one (Recon: draw 3 and keep 1)
  */
-function EndOfTurnView({ faction, session, game, onDrawCard, onEndTurn }: EndOfTurnViewProps) {
-  const { drawnCard } = game;
+function EndOfTurnView({ faction, session, game, onDrawCard, onKeepCard, onDrawAgain, onEndTurn }: EndOfTurnViewProps) {
+  const { drawnCard, drawOptions, chosenCard } = game;
+  const drawChoice = chosenCard?.drawChoice ?? 1;
+  const reward = chosenCard?.endOfTurnReward;
   const [showMap, setShowMap] = useState(false);
 
   if (showMap) {
@@ -57,21 +63,61 @@ function EndOfTurnView({ faction, session, game, onDrawCard, onEndTurn }: EndOfT
           <Typography variant="h6" component="h3">
             2. Carta de mando
           </Typography>
-          <Typography variant="body1">Roba una carta de tu mazo.</Typography>
+          <Typography variant="body1">
+            {drawChoice > 1
+              ? `${chosenCard!.name}: roba ${drawChoice} cartas de tu mazo y quédate con 1.`
+              : "Roba una carta de tu mazo. Puedes descartarla y robar otra, pero entonces tienes que quedarte con la nueva."}
+          </Typography>
         </Box>
         {drawnCard ? (
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Has robado:
+              {game.drewAgain ? "Has descartado la primera y robado:" : "Te quedas:"}
             </Typography>
             <CommandCardComponent cardData={drawnCard} />
           </Box>
+        ) : drawOptions.length > 0 ? (
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              {drawOptions.length > 1 ? "Elige la carta que te quedas:" : "Has robado:"}
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
+              {drawOptions.map((card) => (
+                <Box
+                  key={card.id}
+                  sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+                >
+                  <CommandCardComponent cardData={card} />
+                  <Button onClick={() => onKeepCard(card)} aria-label={`Quedármela: ${card.name}`}>
+                    Quedármela
+                  </Button>
+                </Box>
+              ))}
+            </Box>
+            {game.canDrawAgain && (
+              <Button variant="outlined" onClick={onDrawAgain} startIcon={<GameIcon name="cards" />}>
+                Descartar y robar otra
+              </Button>
+            )}
+          </Box>
         ) : (
           <Button onClick={onDrawCard} startIcon={<GameIcon name="cards" />} sx={{ alignSelf: "flex-start" }}>
-            Robar carta
+            {drawChoice > 1 ? `Robar ${drawChoice} cartas` : "Robar carta"}
           </Button>
         )}
       </Paper>
+
+      {reward && (
+        <Paper variant="outlined" sx={{ p: 2 }} data-testid="end-of-turn-reward">
+          <Typography variant="h6" component="h3">
+            3. {chosenCard!.name}
+          </Typography>
+          <Typography variant="body1">
+            Toma {reward.coins} monedas{reward.combatCard ? " y una carta de combate" : ""} en la mesa, en lugar de
+            elegir entre monedas y carta de combate.
+          </Typography>
+        </Paper>
+      )}
 
       {drawnCard && (
         <Button size="large" onClick={onEndTurn} startIcon={<GameIcon name="endTurn" />} sx={{ alignSelf: "center" }}>

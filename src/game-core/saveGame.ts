@@ -15,7 +15,7 @@ import type { BattleEdit, Shot } from "./gameSession";
 import type { TurnRecord } from "./turnLog";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 interface SavedUnit {
   type: UnitType;
@@ -32,10 +32,11 @@ export interface SavedGame {
   drawPile: string[];
   discardPile: string[];
   hand: string[];
-  choiceCards: string[];
   chosenCard: string | null;
   chosenSection: Section | null;
   drawnCard: string | null;
+  drawOptions: string[];
+  drewAgain: boolean;
   units: SavedUnit[];
   orders: {
     unit: number;
@@ -64,10 +65,11 @@ export interface SessionState {
   drawPile: readonly CommandCard[];
   discardPile: readonly CommandCard[];
   hand: CommandCard[];
-  choiceCards: CommandCard[];
   chosenCard: CommandCard | null;
   chosenSection: Section | null;
   drawnCard: CommandCard | null;
+  drawOptions: CommandCard[];
+  drewAgain: boolean;
   orders: Order[];
   ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
@@ -101,10 +103,11 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     drawPile: ids(state.drawPile),
     discardPile: ids(state.discardPile),
     hand: ids(state.hand),
-    choiceCards: ids(state.choiceCards),
     chosenCard: state.chosenCard?.id ?? null,
     chosenSection: state.chosenSection,
     drawnCard: state.drawnCard?.id ?? null,
+    drawOptions: ids(state.drawOptions),
+    drewAgain: state.drewAgain,
     // Orders and edits first, so units they reference get indexes; the list is read after
     orders: state.orders.map((order) => ({
       unit: unitIndex(order.unit),
@@ -211,10 +214,11 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
     drawPile: cards(saved.drawPile),
     discardPile: cards(saved.discardPile),
     hand,
-    choiceCards: cards(saved.choiceCards),
     chosenCard: saved.chosenCard === null ? null : card(saved.chosenCard),
     chosenSection: section(saved.chosenSection),
     drawnCard,
+    drawOptions: cards(saved.drawOptions),
+    drewAgain: saved.drewAgain === true,
     orders,
     ordersCommitted: saved.ordersCommitted,
     unmovedFireSkipped: saved.unmovedFireSkipped,

@@ -46,9 +46,10 @@ const ON_THE_MOVE = 'Además, 1 unidad en cualquier lugar puede moverse, pero no
 const cardTemplates: CardTemplate[] = [
   // --- Section cards (40)
   ...perSection('recon', 'Reconocimiento', [2, 2, 2], (_, where) => ({
-    description: `Da una orden a 1 unidad del ${where}. ${ON_THE_MOVE}`,
+    description: `Da una orden a 1 unidad del ${where}. ${ON_THE_MOVE} En la fase final, roba 3 cartas y quédate con 1.`,
     orders: 1,
     onTheMove: 1,
+    drawChoice: 3,
   })),
   ...perSection('probe', 'Sondeo', [4, 5, 4], (_, where) => ({
     description: `Da órdenes a 2 unidades del ${where}. ${ON_THE_MOVE}`,
@@ -207,6 +208,7 @@ const cardTemplates: CardTemplate[] = [
         'Da una orden a 1 unidad. En la fase final recibes 3 monedas y una carta de combate, en lugar de elegir entre ellas.',
       tactic: true,
       orders: 1,
+      endOfTurnReward: { coins: 3, combatCard: true },
     },
   },
 ];

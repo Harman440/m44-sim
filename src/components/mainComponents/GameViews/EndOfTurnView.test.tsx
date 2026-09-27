@@ -45,6 +45,8 @@ function Harness({ session }: { session: GameSession }) {
       session={session}
       game={game}
       onDrawCard={() => session.drawCard()}
+      onKeepCard={(card) => session.keepCard(card)}
+      onDrawAgain={() => session.drawAgain()}
       onEndTurn={() => session.endTurn()}
     />
   );
@@ -124,5 +126,71 @@ describe("EndOfTurnView map", () => {
 
     tap(EMPTY);
     expect(session.getSnapshot().battleEdits).toBe(0);
+  });
+});
+
+describe("EndOfTurnView after a special card", () => {
+  // Plays `card` (1 hold order on the left), with 3 plain cards left in the deck
+  const finalAfter = (card: CommandCard) => {
+    const deck = ["X", "Y", "Z"].map((name) => new CommandCard({ id: name, name, orders: 1 }));
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Allies",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 0,
+      commandCards: [],
+    });
+    const restored = GameSession.restore(
+      { ...session.save(), hand: [card.id], drawPile: deck.map((c) => c.id) },
+      session.scenario,
+      [card, ...deck]
+    );
+    restored.pickCard(card);
+    restored.issueOrder(INFANTRY, INFANTRY);
+    restored.commitOrders();
+    restored.startMovement();
+    restored.startBattle();
+    restored.endBattle();
+    render(<Harness session={restored} />);
+    return restored;
+  };
+
+  it("draws 3 cards after Recon and keeps the one tapped, with no swap", () => {
+    const session = finalAfter(
+      new CommandCard({ id: "recon", name: "Reconocimiento", sections: [Side.LEFT], orders: 1, drawChoice: 3 })
+    );
+    expect(screen.getByText("Reconocimiento: roba 3 cartas de tu mazo y quédate con 1.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Robar 3 cartas" }));
+
+    expect(screen.getByText("Elige la carta que te quedas:")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Quedármela/ })).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Quedármela: Y" }));
+    expect(session.getSnapshot().hand.map((c) => c.name)).toEqual(["Y"]);
+    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeInTheDocument();
+  });
+
+  it("reminds the player of the Preparations reward", () => {
+    finalAfter(
+      new CommandCard({
+        id: "preparations",
+        name: "Preparativos",
+        orders: 1,
+        endOfTurnReward: { coins: 3, combatCard: true },
+      })
+    );
+
+    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
+      "Toma 3 monedas y una carta de combate en la mesa"
+    );
   });
 });

@@ -49,6 +49,8 @@ function ruleTags(card: CommandCard): string[] {
     if (card.onTheMove > 0) tags.push(`+${card.onTheMove} en movimiento`);
     if (card.noMove) tags.push("Sin mover");
     if (card.closeAssaultOnly) tags.push("Asalto cercano");
+    if (card.drawChoice > 1) tags.push(`Roba ${card.drawChoice}, elige 1`);
+    if (card.endOfTurnReward) tags.push(`${card.endOfTurnReward.coins} monedas + carta de combate`);
     return tags;
 }
 
