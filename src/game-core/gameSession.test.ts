@@ -1,10 +1,12 @@
 import { UnitType } from "./unit";
 import { describe, expect, it, vi } from "vitest";
-import GameSession, { SavedGame } from "./gameSession";
-import CommandCard, { CommandCardType } from "./commandCard";
+import GameSession from "./gameSession";
+import { SavedGame } from "./saveGame";
+import CommandCard, { CommandCardProps } from "./commandCard";
+import { Side } from "../types/hex";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
-import { samePosition } from "./position";
+import { positionKey, samePosition } from "./position";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
@@ -31,10 +33,10 @@ const TANK: Position = { row: 4, col: 6 };
 const LEFT_INF: Position = { row: 7, col: 1 };
 
 const cards = () => [
-  new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
-  new CommandCard({ id: "right", type: CommandCardType.RIGHT, maxTotalOrders: 2 }),
-  new CommandCard({ id: "all", type: CommandCardType.ALLSIDES, maxTotalOrders: 6 }),
-  new CommandCard({ id: "tank", type: CommandCardType.TANK, maxTotalOrders: 4 }),
+  new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
+  new CommandCard({ id: "right", sections: [Side.RIGHT], orders: 2 }),
+  new CommandCard({ id: "all", orders: 6 }),
+  new CommandCard({ id: "tank", unitTypes: [UnitType.TANK], orders: 4 }),
 ];
 
 /** Session with the 4 test cards shuffled; `deckSize` of them stay in the deck, the rest are in hand */
@@ -57,18 +59,13 @@ const sessionWithAllCards = () => {
 
 const unitAt = (session: GameSession, p: Position) => session.board.getHex(p)!.unit;
 
-const orderablePositions = (session: GameSession) =>
-  session.board
-    .getAllHexes()
-    .filter((h) => h.unit?.isOrderable())
-    .map((h) => `${h.getPosition().row}-${h.getPosition().col}`)
-    .sort();
+const orderablePositions = (session: GameSession) => session.getSnapshot().orderable.map(positionKey).sort();
 
 /** Give hold orders until none are left, then commit and go to battle */
 const orderAllAndFight = (session: GameSession) => {
   while (session.getSnapshot().ordersLeft > 0) {
-    const hex = session.board.getAllHexes().find((h) => h.unit?.isOrderable())!;
-    expect(session.issueOrder(hex.getPosition(), hex.getPosition())).toBe(true);
+    const position = session.getSnapshot().orderable[0]!;
+    expect(session.issueOrder(position, position)).toBe(true);
   }
   expect(session.commitOrders()).toBe(true);
   expect(session.startMovement()).toBe(true);
@@ -216,8 +213,7 @@ describe("GameSession giving orders", () => {
     expect(session.undoLastOrder()).toBe(true);
 
     expect(unitAt(session, TANK)).toBe(tank);
-    expect(tank!.isOrderable()).toBe(true);
-    expect(tank!.isOrdered()).toBe(false);
+    expect(orderablePositions(session)).toContain(positionKey(TANK));
     expect(session.getSnapshot().orders).toHaveLength(0);
     expect(session.getSnapshot().ordersLeft).toBe(4);
   });
@@ -236,6 +232,96 @@ describe("GameSession giving orders", () => {
     expect(orderablePositions(session)).toEqual([]);
     expect(session.undoLastOrder()).toBe(false);
     expect(session.getMoveOptions(TANK)).toBeNull();
+  });
+});
+
+describe("GameSession card rules", () => {
+  const BORDER: Position = { row: 7, col: 3 };
+  const WEST_OF_TANK: Position = { row: 4, col: 5 };
+
+  /** Session holding just this card */
+  const withCard = (props: CommandCardProps) => {
+    const commandCards = [new CommandCard({ id: "card", ...props })];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards });
+    return { session, card: session.getSnapshot().hand[0]!, commandCards };
+  };
+
+  it("needs the section for a card that orders in a section of the player's choice", () => {
+    const { session, card } = withCard({ sections: "chosen", orders: "all" });
+
+    expect(session.pickCard(card)).toBe(false);
+    expect(session.pickCard(card, Side.LEFT)).toBe(true);
+
+    expect(session.getSnapshot().chosenSection).toBe(Side.LEFT);
+    expect(orderablePositions(session)).toEqual(["7-1", "7-3"]);
+    expect(session.getSnapshot().ordersLeft).toBe(2);
+  });
+
+  it("refuses a section for a card that has its own", () => {
+    const { session, card } = withCard({ sections: [Side.LEFT], orders: 2 });
+
+    expect(session.pickCard(card, Side.RIGHT)).toBe(false);
+  });
+
+  it("has the player pick the section of a border unit when both have orders left", () => {
+    const { session, card } = withCard({ orders: 3, perSection: 1 });
+    session.pickCard(card);
+
+    expect(session.getMoveOptions(BORDER)!.slots).toHaveLength(2);
+    expect(session.issueOrder(BORDER, BORDER)).toBe(false);
+    expect(session.issueOrder(BORDER, BORDER, { section: Side.CENTER, onTheMove: false })).toBe(true);
+
+    expect(session.getSnapshot().orders[0]!.section).toBe(Side.CENTER);
+    // The center's order is used: the tank there can't be ordered any more
+    expect(orderablePositions(session)).toEqual(["7-1", "8-11"]);
+    expect(session.getSnapshot().ordersLeft).toBe(2);
+  });
+
+  it("orders a unit on the move anywhere, and it can't fire", () => {
+    const { session, card } = withCard({ sections: [Side.LEFT], orders: 1, onTheMove: 1 });
+    session.pickCard(card);
+
+    session.issueOrder(LEFT_INF, LEFT_INF);
+    expect(session.issueOrder(TANK, WEST_OF_TANK)).toBe(true);
+
+    expect(session.getSnapshot().orders[0]).toMatchObject({ onTheMove: false, shots: 1 });
+    // A tank moving 1 hex over open ground could fire with a card order
+    expect(session.getSnapshot().orders[1]).toMatchObject({ onTheMove: true, shots: 0 });
+    expect(session.getSnapshot().ordersLeft).toBe(0);
+  });
+
+  it("only lets units hold with a card that can't move", () => {
+    const { session, card } = withCard({ orders: 2, noMove: true });
+    session.pickCard(card);
+
+    expect(session.getMoveOptions(TANK)!.moves).toEqual([]);
+    expect(session.issueOrder(TANK, WEST_OF_TANK)).toBe(false);
+    expect(session.issueOrder(TANK, TANK)).toBe(true);
+  });
+
+  it("gives the card's extra shots only to a unit that holds", () => {
+    const { session, card } = withCard({ orders: 2, holdShots: 2 });
+    session.pickCard(card);
+
+    session.issueOrder(LEFT_INF, LEFT_INF);
+    session.issueOrder(TANK, WEST_OF_TANK);
+
+    expect(session.getSnapshot().orders.map((o) => o.shots)).toEqual([2, 1]);
+  });
+
+  it("keeps the chosen section and the orders' sections after a reload, until the turn ends", () => {
+    const { session, card, commandCards } = withCard({ sections: "chosen", orders: 2, perSection: 1 });
+    session.pickCard(card, Side.CENTER);
+    session.issueOrder(BORDER, BORDER);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, commandCards);
+
+    expect(restored.getSnapshot().chosenSection).toBe(Side.CENTER);
+    expect(restored.getSnapshot().orders[0]!.section).toBe(Side.CENTER);
+    expect(restored.getSnapshot().ordersLeft).toBe(0);
+    orderAllAndFight(restored);
+    finishTurn(restored);
+    expect(restored.getSnapshot().chosenSection).toBeNull();
   });
 });
 
@@ -297,19 +383,6 @@ describe("GameSession movement and final phases", () => {
     expect(restored.drawCard()).toBe(false);
     expect(restored.endTurn()).toBe(true);
   });
-
-  it("carries on a version 3 save from the battle phase through the new final phase", () => {
-    const session = makeSession(1);
-    session.pickCard(session.getSnapshot().hand[0]!);
-    orderAllAndFight(session);
-    const { drawnCard: _, ...v3 } = { ...session.save(), version: 3 as const };
-
-    const restored = GameSession.restore(v3, scenario, cards());
-
-    expect(restored.getSnapshot().drawnCard).toBeNull();
-    finishTurn(restored);
-    expect(restored.getSnapshot().turn).toBe(2);
-  });
 });
 
 describe("GameSession ending the turn", () => {
@@ -330,8 +403,6 @@ describe("GameSession ending the turn", () => {
     expect(snapshot.drawPileCount).toBe(0);
     expect(snapshot.orders).toEqual([]);
     expect(snapshot.chosenCard).toBeNull();
-    const units = session.board.getAllHexes().flatMap((h) => (h.unit ? [h.unit] : []));
-    expect(units.some((u) => u.isOrdered())).toBe(false);
   });
 
   it("only ends the turn from the final phase", () => {
@@ -461,7 +532,7 @@ describe("GameSession syncing the table in the final phase", () => {
     expect(session.undoBattleEdit()).toBe(false);
     // A card that would have ordered the tank now finds nothing to order
     // (the whole deck is in hand, so the tank card is always there)
-    const tankCard = session.getSnapshot().hand.find((c) => c.type === CommandCardType.TANK)!;
+    const tankCard = session.getSnapshot().hand.find((c) => c.unitTypes?.includes(UnitType.TANK))!;
     session.pickCard(tankCard);
     expect(session.getSnapshot().ordersLeft).toBe(0);
   });
@@ -469,9 +540,9 @@ describe("GameSession syncing the table in the final phase", () => {
 
 describe("GameSession firing", () => {
   // Left card: the infantry at (7,1) and (7,3) hold and fire; orders 0 and 1
-  const battle = (options: { numFireTimes?: number } = {}) => {
+  const battle = (options: { holdShots?: number } = {}) => {
     const commandCards = [
-      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2, ...options }),
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2, ...options }),
     ];
     // Always rolls the first face: infantry
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0 });
@@ -508,7 +579,7 @@ describe("GameSession firing", () => {
     const [shot] = session.getSnapshot().shots;
     expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
-      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
     ]);
     expect(restored.getSnapshot().shots[0]!.notes).toEqual(shot!.notes);
   });
@@ -571,23 +642,10 @@ describe("GameSession firing", () => {
     expect(session.getSnapshot().shots).toHaveLength(0);
   });
 
-  it("reads shots from saves without a target as having none", () => {
-    const session = battle();
-    session.fireQuick(0, 2, AT_INFANTRY);
-    const saved = session.save();
-    delete (saved.shots[0] as { target?: unknown }).target;
+  it("lets a unit that holds fire as many times as the card says", () => {
+    const session = battle({ holdShots: 2 });
 
-    const restored = GameSession.restore(saved, scenario, [
-      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
-    ]);
-
-    expect(restored.getSnapshot().shots[0]!.target).toBeNull();
-  });
-
-  it("lets a unit fire as many times as the card says", () => {
-    const session = battle({ numFireTimes: 2 });
-
-    expect(session.getSnapshot().firesPerUnit).toBe(2);
+    expect(session.getSnapshot().orders[0]!.shots).toBe(2);
     expect(session.fireQuick(0, 2, AT_INFANTRY)).toBe(true);
     expect(session.shotsLeft(0)).toBe(1);
     expect(session.fireQuick(0, 2, AT_INFANTRY)).toBe(true);
@@ -665,9 +723,10 @@ describe("GameSession collisions", () => {
   const MOVED_TO: Position = { row: 4, col: 4 };
 
   /** The tank moves 2 hexes west (it can still fire); the card may add close-assault dice */
-  const tankMoved = (closeAssaultAdditionalDice = 0) => {
+  const tankMoved = (closeAssaultBonus = 0) => {
     const commandCards = [
-      new CommandCard({ id: "tank", name: "Blindados", type: CommandCardType.TANK, maxTotalOrders: 1, closeAssaultAdditionalDice }),
+      new CommandCard({ id: "tank", name: "Blindados", unitTypes: [UnitType.TANK], orders: 1,
+        fireBonus: [{ dice: closeAssaultBonus, closeAssault: true }] }),
     ];
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0 });
     session.pickCard(session.getSnapshot().hand[0]!);
@@ -735,7 +794,7 @@ describe("GameSession collisions", () => {
     session.fireCollision(0, UnitType.INFANTRY);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
-      new CommandCard({ id: "tank", name: "Blindados", type: CommandCardType.TANK, maxTotalOrders: 1 }),
+      new CommandCard({ id: "tank", name: "Blindados", unitTypes: [UnitType.TANK], orders: 1 }),
     ]);
     expect(restored.getSnapshot().shots[0]!.collision).toBe(true);
 
@@ -806,16 +865,6 @@ describe("GameSession firing order", () => {
 
     finishTurn(restored);
     expect(restored.getSnapshot().unmovedFireSkipped).toBe(false);
-  });
-
-  it("reads a version 4 save as a battle where nothing was skipped", () => {
-    const session = oneHeldOneMoved();
-    const { unmovedFireSkipped: _, ...v4 } = { ...session.save(), version: 4 as const };
-
-    const restored = GameSession.restore(v4, scenario, cards());
-
-    expect(restored.getSnapshot().unmovedFireSkipped).toBe(false);
-    expect(restored.fireQuick(0, 2, AT_INFANTRY)).toBe(true);
   });
 });
 
@@ -911,8 +960,9 @@ describe("GameSession saving and restoring", () => {
     const restored = reload(session);
 
     expect(unitAt(restored, TANK)).toBeNull();
-    expect(unitAt(restored, { row: 5, col: 6 })?.isOrdered()).toBe(true);
-    expect(unitAt(restored, LEFT_INF)?.isOrderable()).toBe(true);
+    expect(restored.getSnapshot().orders[0]!.unit).toBe(unitAt(restored, { row: 5, col: 6 }));
+    expect(orderablePositions(restored)).toContain(positionKey(LEFT_INF));
+    expect(orderablePositions(restored)).not.toContain("5-6");
     expect(restored.getSnapshot().orders[0]!.path).toEqual(session.getSnapshot().orders[0]!.path);
     expect(restored.undoLastOrder()).toBe(true);
     expect(unitAt(restored, TANK)?.getUnitType()).toBe("tank");
@@ -952,18 +1002,6 @@ describe("GameSession saving and restoring", () => {
     expect(restored.undoShot(0)).toBe(true);
   });
 
-  it("reads a version 1 save (before shots) as a turn where nobody has fired", () => {
-    const { session, card } = sessionWithAllCards();
-    session.pickCard(card("left"));
-    orderAllAndFight(session);
-    const { shots: _, ...v1 } = { ...session.save(), version: 1 as const };
-
-    const restored = GameSession.restore(v1, scenario, cards());
-
-    expect(restored.getSnapshot().shots).toEqual([]);
-    expect(restored.shotsLeft(0)).toBe(1);
-  });
-
   it("keeps the turn log", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
@@ -975,19 +1013,6 @@ describe("GameSession saving and restoring", () => {
 
     expect(restored.getSnapshot().log).toEqual(session.getSnapshot().log);
     expect(restored.getSnapshot().log).toHaveLength(1);
-  });
-
-  it("reads a version 2 save (before the turn log) as a game with no history", () => {
-    const { session, card } = sessionWithAllCards();
-    session.pickCard(card("left"));
-    orderAllAndFight(session);
-    finishTurn(session);
-    const { log: _, ...v2 } = { ...session.save(), version: 2 as const };
-
-    const restored = GameSession.restore(v2, scenario, cards());
-
-    expect(restored.getSnapshot().log).toEqual([]);
-    expect(restored.getSnapshot().turn).toBe(2);
   });
 
   it("restores a pending draw-2 choice", () => {
@@ -1005,12 +1030,14 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 6 as 5 })).toThrow();
+    expect(broken({ version: 5 as 6 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
-    expect(broken({ shots: [{ orderIndex: 5, steps: [], dice: 1, faces: ["infantry" as never] }] })).toThrow();
+    const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, target: { unitType: UnitType.INFANTRY, closeAssault: false } };
+    expect(broken({ shots: [{ ...shot, orderIndex: 5 }] })).toThrow();
+    expect(broken({ chosenSection: "middle" as never })).toThrow();
     expect(broken({ units: [{ ...saved.units[0]!, position: { row: 40, col: 0 } }] })).toThrow();
   });
 });

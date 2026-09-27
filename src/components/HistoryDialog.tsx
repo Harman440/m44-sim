@@ -121,8 +121,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
                       {shot.collision && " en un choque"}
                       {shot.steps.length === 0 && " (tirada rápida)"} → {describeFaces(shot.faces)}
-                      {shot.target &&
-                        shot.dice > 0 &&
+                      {shot.dice > 0 &&
                         ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
                           readRoll(shot.faces, shot.target),
                           // The attacker's extra first turn earns no coins

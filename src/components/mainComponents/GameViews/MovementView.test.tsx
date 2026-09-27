@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import MovementView from "./MovementView";
 import EndOfTurnView from "./EndOfTurnView";
 import GameSession from "../../../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../../../game-core/commandCard";
+import CommandCard from "../../../game-core/commandCard";
+import { Side } from "../../../types/hex";
 import { TurnPhase } from "../../../types/gameManager";
 import { Position } from "../../../types/scenario";
 
@@ -26,8 +27,8 @@ const makeMovementSession = () => {
     faction: "Allies",
     initialHandSize: 2,
     commandCards: [
-      new CommandCard({ id: "left", name: "Ataque", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
-      new CommandCard({ id: "next", name: "Siguiente", type: CommandCardType.RIGHT, maxTotalOrders: 1 }),
+      new CommandCard({ id: "left", name: "Ataque", sections: [Side.LEFT], orders: 2 }),
+      new CommandCard({ id: "next", name: "Siguiente", sections: [Side.RIGHT], orders: 1 }),
     ],
   });
   session.pickCard(session.getSnapshot().hand.find((card) => card.id === "left")!);

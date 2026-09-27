@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import GameSession from "./gameSession";
-import CommandCard, { CommandCardType } from "./commandCard";
+import CommandCard from "./commandCard";
 import { summarizeOrders } from "./turnSummary";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
@@ -26,7 +26,7 @@ const playTurn = () => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "all", type: CommandCardType.ALLSIDES, maxTotalOrders: 6 })],
+    commandCards: [new CommandCard({ id: "all", orders: 6 })],
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(TANK, FOREST);
@@ -73,11 +73,12 @@ describe("summarizeOrders", () => {
     session.fireQuick(1, 2, AT_INFANTRY);
     const { orders, shots } = session.getSnapshot();
 
-    const [, infantry] = summarizeOrders(orders, session.board, shots, 2);
+    const [, infantry] = summarizeOrders(orders, session.board, shots);
 
     expect(infantry!.shots).toHaveLength(1);
-    expect(infantry!.shotsLeft).toBe(1);
-    expect(summarizeOrders(orders, session.board, shots, 1)[1]!.shotsLeft).toBe(0);
+    expect(infantry!.shotsLeft).toBe(0);
+    orders[1]!.shots = 2; // an order that fires twice
+    expect(summarizeOrders(orders, session.board, shots)[1]!.shotsLeft).toBe(1);
   });
 
   it("marks units removed after the battle", () => {
@@ -103,11 +104,11 @@ describe("summarizeOrders", () => {
     const session = playTurn();
     const { orders } = session.getSnapshot();
     // Pretend the tank could fire from the forest: a moved unit that fires
-    orders[0]!.canFire = true;
+    orders[0]!.shots = 1;
 
     expect(summarizeOrders(orders, session.board)[0]!.waiting).toBe(true);
 
-    const skipped = summarizeOrders(orders, session.board, [], 1, true);
+    const skipped = summarizeOrders(orders, session.board, [], true);
     expect(skipped[0]!.waiting).toBe(false);
     expect(skipped[1]).toMatchObject({ skipped: true, shotsLeft: 0 });
 

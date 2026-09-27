@@ -18,6 +18,8 @@ interface HexProps {
   unitReadyToFire: boolean;
   /** The unit here has used its shots this turn */
   unitFired?: boolean;
+  /** The unit can be ordered */
+  unitOrderable?: boolean;
   /** Set to flash the hex red; a new value restarts the flash */
   invalidFlashId?: number | null;
   hexSize?: number;
@@ -33,6 +35,7 @@ function Hexagon({
   highlight,
   unitReadyToFire,
   unitFired = false,
+  unitOrderable = false,
   invalidFlashId = null,
   hexSize = 25,
   hexData,
@@ -71,6 +74,7 @@ function Hexagon({
           unitData={hexData.unit}
           readyToFire={unitReadyToFire}
           fired={unitFired}
+          orderable={unitOrderable}
         />
       )}
       {/* Keyed so each new flash remounts the path and replays the animation */}

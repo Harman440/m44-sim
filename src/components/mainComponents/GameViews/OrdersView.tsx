@@ -107,6 +107,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
           locked={ordersCommitted}
+          orderablePositions={game.orderable}
           faction={faction}
         />
       </div>

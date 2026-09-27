@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import OrdersView from "./OrdersView";
 import { INVALID_FLASH_MS } from "../../useHexFlash";
 import GameSession from "../../../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../../../game-core/commandCard";
+import CommandCard from "../../../game-core/commandCard";
+import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 
 // Allies: two infantry on the left flank (orderable with a LEFT card) and one on the right
@@ -25,7 +26,7 @@ const makeSession = () => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 })],
+    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })],
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   return session;

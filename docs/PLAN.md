@@ -139,9 +139,13 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
     - Close Assault card +1
   - a card with no orders (Close Assault: all units in close assault fire after the enemy moves)
   - Direct from HQ, Move Out
+- [x] Refactor first: cards describe their rules as data (`CommandCard`), and `game-core/orderRules.ts` works out the orderable units, order slots, move limits and orders left from the card and the orders given. The engine already handles sections chosen on play, unit types, "all" units, quotas per section, units on the move, no move, move bonus, move override, extra shots for holding units and conditional dice bonuses; the UI to pick a section (on play, and for a border unit) is still to do
 - [x] **Decided:** Counter Attack is not in the game
+- [x] **Decided:** a unit on a border hex can be ordered by either section it touches (left or center, center or right); for cards with quotas per section the player picks which section's order it takes
+- [x] **Decided:** "on the move" (Recon, Probe): the player may order 1 extra unit anywhere, which may move but can't fire
 - [ ] **Decide:**
-  - what "on the move" means in this variant (units that may move and still fire?) and the "1 less on standard maps" rule
+  - the "1 less on standard maps" rule for cards with units on the move
+  - Infantry Assault's +1 hex: does it also add 1 to how far infantry moves and still fires? (the engine adds it to both, as in official M44)
   - which sections Pincer uses
   - the final deck counts (the notes have several "(−1)" changes)
 

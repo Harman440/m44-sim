@@ -99,22 +99,24 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   sandbagsQuestion,
 ];
 
-/** Extra dice that don't need a question: the command card's bonuses */
-export const fireBonusSteps = ({ card }: FireContext, answers: FireAnswers): DiceStep[] => {
-  if (!card || !answers.distance) return [];
-  const closeAssault = answers.distance === "1";
-  const bonus = closeAssault ? card.closeAssaultAdditionalDice : card.rangeAdditionalDice;
-  return [{ label: `Carta ${card.name}`, dice: bonus }];
+/** The command card's dice, when it changes them in this situation */
+const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): DiceStep[] => {
+  const dice = card?.fireBonusFor(unitType, closeAssault) ?? 0;
+  return card && dice !== 0 ? [{ label: `Carta ${card.name}`, dice }] : [];
 };
+
+/** Extra dice that don't need a question: the command card's bonuses */
+export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
+  answers.distance ? cardSteps(context, answers.distance === "1") : [];
 
 /**
  * A collision in the movement phase (two units cross or land on the same hex):
  * close assault dice − 1, plus the card's close-assault bonus. Terrain is ignored.
  */
-export const collisionSteps = ({ unitType, card }: FireContext): DiceStep[] => [
-  { label: `Base: ${UNIT_LABELS[unitType]} en choque`, dice: BASE_DICE_BY_DISTANCE[unitType][0] ?? 0 },
+export const collisionSteps = (context: FireContext): DiceStep[] => [
+  { label: `Base: ${UNIT_LABELS[context.unitType]} en choque`, dice: BASE_DICE_BY_DISTANCE[context.unitType][0] ?? 0 },
   { label: "Choque", dice: -1 },
-  ...(card?.closeAssaultAdditionalDice ? [{ label: `Carta ${card.name}`, dice: card.closeAssaultAdditionalDice }] : []),
+  ...cardSteps(context, true),
 ];
 
 /** Reminders kept with every collision roll */

@@ -31,6 +31,8 @@ interface BoardProps {
   locked?: boolean;
   /** Units that have used their shots this turn */
   firedUnits?: ReadonlySet<Unit>;
+  /** Units that can still be ordered, ringed */
+  orderablePositions?: readonly Position[];
   hexSize?: number;
   faction: Faction;
 }
@@ -46,6 +48,7 @@ function Board({
   invalidFlash = null,
   locked = false,
   firedUnits,
+  orderablePositions = [],
   hexSize = 50,
   faction
 }: BoardProps) {
@@ -100,6 +103,7 @@ function Board({
             highlight={highlightAt(position)}
             unitReadyToFire={hexData.unit !== null && unitsReadyToFire.has(hexData.unit)}
             unitFired={hexData.unit !== null && (firedUnits?.has(hexData.unit) ?? false)}
+            unitOrderable={includesPosition(orderablePositions, position)}
             invalidFlashId={flashesInvalid ? invalidFlash.id : null}
             hexSize={hexSize}
             hexData={hexData}

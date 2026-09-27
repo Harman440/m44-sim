@@ -38,10 +38,9 @@ export function summarizeOrders(
   orders: readonly Order[],
   board: BoardManager,
   shots: readonly Shot[] = [],
-  firesPerUnit = 1,
   unmovedFireSkipped = false
 ): OrderSummary[] {
-  const summaries = summarizeEach(orders, board, shots, firesPerUnit, unmovedFireSkipped);
+  const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped);
   const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
   return summaries.map((s) => ({ ...s, waiting: !s.hold && s.shotsLeft > 0 && unmovedLeft }));
 }
@@ -50,7 +49,6 @@ function summarizeEach(
   orders: readonly Order[],
   board: BoardManager,
   shots: readonly Shot[],
-  firesPerUnit: number,
   unmovedFireSkipped: boolean
 ): Omit<OrderSummary, "waiting">[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
@@ -60,7 +58,7 @@ function summarizeEach(
     const hold = samePosition(order.start, order.end);
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
-    const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < firesPerUnit;
+    const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < order.shots;
     return {
       index,
       unitType: order.unit.getUnitType(),
@@ -72,7 +70,7 @@ function summarizeEach(
       removed,
       shots: unitShots,
       skipped,
-      shotsLeft: order.canFire && !removed && !skipped ? Math.max(0, firesPerUnit - unitShots.length) : 0,
+      shotsLeft: order.canFire && !removed && !skipped ? Math.max(0, order.shots - unitShots.length) : 0,
     };
   });
 }

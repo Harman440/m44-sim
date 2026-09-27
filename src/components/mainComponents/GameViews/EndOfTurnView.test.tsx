@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import EndOfTurnView from "./EndOfTurnView";
 import GameSession from "../../../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../../../game-core/commandCard";
+import CommandCard from "../../../game-core/commandCard";
+import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 
 const INFANTRY: Position = { row: 7, col: 1 };
@@ -24,7 +25,7 @@ const makeFinalSession = () => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 })],
+    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })],
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(INFANTRY, INFANTRY);

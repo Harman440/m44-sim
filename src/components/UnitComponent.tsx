@@ -36,6 +36,8 @@ interface UnitProps {
   readyToFire?: boolean;
   /** It has used its shots this turn */
   fired?: boolean;
+  /** It can be ordered */
+  orderable?: boolean;
 }
 
 const TOKEN_RADIUS = 27;
@@ -47,7 +49,15 @@ const BADGE_RADIUS = 10;
  * unit that can be ordered; a badge shows it will fire (crosshair) or has
  * fired (check).
  */
-const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData, readyToFire = false, fired = false }) => {
+const UnitComponent: React.FC<UnitProps> = ({
+  x,
+  y,
+  faction,
+  unitData,
+  readyToFire = false,
+  fired = false,
+  orderable = false,
+}) => {
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
   const href = unitSprite(faction, unitType);
   const badgeX = x + TOKEN_RADIUS * 0.72;
@@ -66,7 +76,7 @@ const UnitComponent: React.FC<UnitProps> = ({ x, y, faction, unitData, readyToFi
         strokeWidth={4}
       />
 
-      {unitData?.isOrderable() && (
+      {orderable && (
         <circle
           className="unit__ring unit__ring--orderable"
           cx={x}

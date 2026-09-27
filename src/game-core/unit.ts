@@ -8,17 +8,11 @@ const UNIT_STATS: Record<UnitType, { maxMove: number; moveAndFire: number }> = {
   artillery: { maxMove: 1, moveAndFire: 0 }, // can't move and fire
 };
 
-/**
- * A unit on the board. Whether it fires this turn belongs to its Order
- * (`Order.canFire`); the unit only tracks whether it can still be ordered.
- */
+/** A unit on the board. What it may do this turn comes from its Order and the card played. */
 class Unit {
   private readonly unitType: UnitType;
   private readonly maxMove: number;
   private readonly moveAndFire: number;
-
-  private orderable = false;
-  private ordered = false;
 
   constructor(unitType: UnitType = UnitType.INFANTRY) {
     const stats = UNIT_STATS[unitType];
@@ -38,27 +32,9 @@ class Unit {
   getMoveAndFire(): number {
     return this.moveAndFire;
   }
-
-  isOrderable(): boolean {
-    return this.orderable;
-  }
-
-  setOrderable(orderable: boolean): void {
-    this.orderable = orderable;
-  }
-
-  isOrdered(): boolean {
-    return this.ordered;
-  }
-
-  giveOrder(): void {
-    this.ordered = true;
-    this.orderable = false;
-  }
-
-  clearOrder(): void {
-    this.ordered = false;
-  }
 }
 
 export default Unit;
+
+export const isUnitType = (value: unknown): value is UnitType =>
+  Object.values(UnitType).includes(value as UnitType);

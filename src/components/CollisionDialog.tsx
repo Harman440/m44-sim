@@ -129,7 +129,7 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, withCoins, on
             {collisionShot.dice > 0 ? diceText(collisionShot.dice) : "0 dados: el choque no tuvo efecto"}
           </Typography>
           {collisionShot.dice > 0 && <DiceResult roll={{ faces: [...collisionShot.faces], id: 1 }} faction={faction} />}
-          {collisionShot.dice > 0 && collisionShot.target && (
+          {collisionShot.dice > 0 && (
             <RollReading faces={collisionShot.faces} target={collisionShot.target} withCoins={withCoins} />
           )}
           <Alert severity="warning" sx={{ mt: 1.5 }}>

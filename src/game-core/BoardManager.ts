@@ -2,25 +2,21 @@ import Hex from "./hex";
 import Unit, { UnitType } from "./unit";
 import { Factions, Position, Scenario } from "../types/scenario";
 import { Faction, isFaction } from "../types/faction";
-import { HexType, Side } from "../types/hex";
+import { HexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
-import CommandCard, { CommandCardType } from "./commandCard";
 import { positionKey } from "./position";
 
 class BoardManager {
   width: number;
   height: number;
   hexes: Map<string, Hex>;
-  sideHexes: Map<Side, Hex[]>;
 
   constructor(scenario: Scenario, faction: Faction = "Allies", width = 13, height = 9) {
     this.width = width;
     this.height = height;
     this.hexes = new Map(); // Store hexes by "row-col" key
-    this.sideHexes = new Map();
 
     this.initializeBoard(scenario, faction);
-    this.initializeSideHexes();
   }
 
   // Initialize the board with default terrain
@@ -89,27 +85,6 @@ class BoardManager {
         }
       });
     }
-  }
-
-  // --- initialize side groups at startup
-  private initializeSideHexes(): void {
-    Object.values(Side).forEach((side) => {
-      const hexesForSide = this.getHexesBySide(side);
-      this.sideHexes.set(side, hexesForSide);
-    });
-  }
-
-  // --- get all hexes of a given side
-  private getHexesBySide(side: Side): Hex[] {
-    return Array.from(this.hexes.values()).filter(
-      (hex) => hex.getSide() === side
-    );
-  }
-
-  getHexesForSide(sides: Side | Side[]): Hex[] {
-    const sideArray = Array.isArray(sides) ? sides : [sides];
-
-    return sideArray.flatMap((side) => this.sideHexes.get(side) ?? []);
   }
 
   // Get hex at specific position
@@ -271,79 +246,6 @@ class BoardManager {
   /** Put a unit back on an empty hex */
   placeUnitAt(position: Position, unit: Unit): boolean {
     return this.getHex(position)?.placeUnit(unit) ?? false;
-  }
-
-  removeOrders() {
-    this.getAllHexes().forEach((hex) => {
-      if (hex.unit) {
-        hex.unit.clearOrder();
-      }
-    });
-  }
-
-  setOrderableUnits(commandCard: CommandCard): number {
-    // Start from a clean slate so a previous card's units don't stay orderable
-    this.setUnitsNotOrderable();
-
-    let sides: Side[] = [];
-    let filterFn: ((unit: Unit) => boolean) | null = null;
-
-    switch (commandCard.type) {
-      case CommandCardType.LEFT:
-        sides = [Side.LEFT, Side.LEFT_CENTER];
-        break;
-      case CommandCardType.CENTER:
-        sides = [Side.CENTER, Side.LEFT_CENTER, Side.RIGHT_CENTER];
-        break;
-      case CommandCardType.RIGHT:
-        sides = [Side.RIGHT, Side.RIGHT_CENTER];
-        break;
-      case CommandCardType.ALLSIDES:
-        sides = [Side.LEFT, Side.LEFT_CENTER, Side.CENTER, Side.RIGHT_CENTER, Side.RIGHT];
-        break;
-      case CommandCardType.INFANTRY:
-        filterFn = (u) => u.getUnitType() === UnitType.INFANTRY;
-        break;
-      case CommandCardType.TANK:
-        filterFn = (u) => u.getUnitType() === UnitType.TANK;
-        break;
-      case CommandCardType.ARTILLERY:
-        filterFn = (u) => u.getUnitType() === UnitType.ARTILLERY;
-        break;
-      case CommandCardType.ALL:
-        filterFn = () => true;
-        break;
-      default:
-        return 0;
-    }
-
-    // Collect hexes based on type
-    const hexes =
-      sides.length > 0 ? this.getHexesForSide(sides) : this.getAllHexes();
-
-    let count = 0;
-
-    // Iterate and mark orderable
-    hexes.forEach((hex) => {
-      const unit = hex.unit;
-      if (!unit) return;
-
-      if (!filterFn || filterFn(unit)) {
-        unit.setOrderable(true);
-        count++;
-      }
-    });
-
-    // The card's order count, capped at the units it can actually order
-    return Math.min(commandCard.maxTotalOrders, count);
-  }
-
-  setUnitsNotOrderable() {
-    this.getAllHexes().forEach((hex) => {
-      if (hex.unit) {
-        hex.unit.setOrderable(false);
-      }
-    });
   }
 }
 

@@ -3,7 +3,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import FireDialog from "./FireDialog";
 import GameSession from "../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../game-core/commandCard";
+import CommandCard from "../game-core/commandCard";
+import { Side } from "../types/hex";
 import { summarizeOrders } from "../game-core/turnSummary";
 import { UnitType } from "../game-core/unit";
 import { Position } from "../types/scenario";
@@ -14,7 +15,7 @@ const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
 const UNIT: Position = { row: 7, col: 1 };
 
 /** A session in battle with one unit of `unitType` ordered to hold and fire; dice always show a grenade */
-const makeSession = (unitType: UnitType, numFireTimes = 1) => {
+const makeSession = (unitType: UnitType, holdShots = 1) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -27,7 +28,7 @@ const makeSession = (unitType: UnitType, numFireTimes = 1) => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 1, numFireTimes })],
+    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1, holdShots })],
     random: () => 0.5, // grenade
   });
   session.pickCard(session.getSnapshot().hand[0]!);
@@ -42,7 +43,7 @@ const makeSession = (unitType: UnitType, numFireTimes = 1) => {
 function Harness({ session }: { session: GameSession }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [open, setOpen] = useState(false);
-  const summary = summarizeOrders(game.orders, session.board, game.shots, game.firesPerUnit)[0]!;
+  const summary = summarizeOrders(game.orders, session.board, game.shots)[0]!;
   return (
     <>
       <button onClick={() => setOpen(true)}>abrir</button>
@@ -61,8 +62,8 @@ function Harness({ session }: { session: GameSession }) {
   );
 }
 
-const open = (unitType: UnitType, numFireTimes?: number) => {
-  const session = makeSession(unitType, numFireTimes);
+const open = (unitType: UnitType, holdShots?: number) => {
+  const session = makeSession(unitType, holdShots);
   render(<Harness session={session} />);
   fireEvent.click(screen.getByText("abrir"));
   return session;

@@ -2,8 +2,10 @@ import { UnitType } from "../game-core/unit";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import HistoryDialog from "./HistoryDialog";
-import GameSession, { SAVE_VERSION } from "../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../game-core/commandCard";
+import GameSession from "../game-core/gameSession";
+import { SAVE_VERSION } from "../game-core/saveGame";
+import CommandCard from "../game-core/commandCard";
+import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { downloadJson } from "../download";
 
@@ -29,8 +31,8 @@ const playedSession = () => {
     faction: "Allies",
     initialHandSize: 2,
     commandCards: [
-      new CommandCard({ id: "a", name: "Ataque", type: CommandCardType.LEFT, maxTotalOrders: 1 }),
-      new CommandCard({ id: "b", name: "Asalto", type: CommandCardType.LEFT, maxTotalOrders: 1 }),
+      new CommandCard({ id: "a", name: "Ataque", sections: [Side.LEFT], orders: 1 }),
+      new CommandCard({ id: "b", name: "Asalto", sections: [Side.LEFT], orders: 1 }),
     ],
     random: () => 0.5, // grenade
   });

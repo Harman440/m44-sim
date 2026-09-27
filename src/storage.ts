@@ -3,7 +3,8 @@
 // (private mode) or hold data from an older version, so every read and write
 // is allowed to fail quietly.
 import CommandCard from "./game-core/commandCard";
-import GameSession, { SavedGame } from "./game-core/gameSession";
+import GameSession from "./game-core/gameSession";
+import { SavedGame } from "./game-core/saveGame";
 import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
 import { Settings, normalizeSettings } from "./settings";

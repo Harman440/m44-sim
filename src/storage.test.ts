@@ -10,7 +10,8 @@ import {
 } from "./storage";
 import { DEFAULT_SETTINGS } from "./settings";
 import GameSession from "./game-core/gameSession";
-import CommandCard, { CommandCardType } from "./game-core/commandCard";
+import CommandCard from "./game-core/commandCard";
+import { Side } from "./types/hex";
 import { TurnPhase } from "./types/gameManager";
 import { Scenario } from "./types/scenario";
 
@@ -27,9 +28,9 @@ const scenario: Scenario = {
 };
 
 const cards = () => [
-  new CommandCard({ id: "a", type: CommandCardType.LEFT, maxTotalOrders: 1 }),
-  new CommandCard({ id: "b", type: CommandCardType.RIGHT, maxTotalOrders: 1 }),
-  new CommandCard({ id: "c", type: CommandCardType.CENTER, maxTotalOrders: 1 }),
+  new CommandCard({ id: "a", sections: [Side.LEFT], orders: 1 }),
+  new CommandCard({ id: "b", sections: [Side.RIGHT], orders: 1 }),
+  new CommandCard({ id: "c", sections: [Side.CENTER], orders: 1 }),
 ];
 
 const newSession = () =>

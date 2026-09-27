@@ -37,8 +37,8 @@ export interface TurnRecord {
     notes: string[];
     /** Rolled for a collision in the movement phase */
     collision: boolean;
-    /** What it was rolled against; missing or null in turns from before targets were asked */
-    target?: ShotTarget | null;
+    /** What it was rolled against */
+    target: ShotTarget;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -77,7 +77,7 @@ export function recordTurn({ turn, card, orders, shots, battleEdits, board }: Tu
       faces: [...shot.faces],
       notes: [...shot.notes],
       collision: shot.collision,
-      target: shot.target && { ...shot.target },
+      target: { ...shot.target },
     })),
     battleEdits: editedUnits(battleEdits, board).map((unit, i) => {
       const edit = battleEdits[i]!;

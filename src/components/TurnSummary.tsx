@@ -72,7 +72,7 @@ function TurnSummary({ card, summaries, faction, onFire, withCoins = true, onSki
               .map(
                 (shot) =>
                   `${shot.collision ? "choque, " : ""}${describeFaces(shot.faces)}${
-                    shot.target && shot.dice > 0 ? ` → ${describeRoll(readRoll(shot.faces, shot.target), withCoins)}` : ""
+                    shot.dice > 0 ? ` → ${describeRoll(readRoll(shot.faces, shot.target), withCoins)}` : ""
                   }`
               )
               .join(" / ")}

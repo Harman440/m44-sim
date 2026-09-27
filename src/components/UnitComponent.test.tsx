@@ -62,11 +62,9 @@ describe("UnitComponent", () => {
   });
 
   it("rings a unit that can be ordered", () => {
-    const unit = new Unit(UnitType.INFANTRY);
-    unit.setOrderable(true);
     const container = render(
       <svg>
-        <UnitComponent x={0} y={0} faction="Allies" unitData={unit} />
+        <UnitComponent x={0} y={0} faction="Allies" unitData={new Unit(UnitType.INFANTRY)} orderable />
       </svg>
     ).container;
 

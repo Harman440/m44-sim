@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
-import CommandCard, { CommandCardType } from "./commandCard";
-import { HexType, Side } from "../types/hex";
+import { HexType } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { positionKey as key, samePosition } from "./position";
@@ -20,21 +19,11 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
 const unitPositions = (board: BoardManager) =>
   board.getAllHexes().filter((h) => h.hasUnit()).map((h) => key(h.getPosition()));
 
-const orderablePositions = (board: BoardManager) =>
-  board
-    .getAllHexes()
-    .filter((h) => h.unit?.isOrderable())
-    .map((h) => key(h.getPosition()))
-    .sort();
-
 /** Destinations only, sorted by key */
 const destinations = (board: BoardManager, range: number, forFire = false) =>
   board
     .calculatePossibleMovesWithPaths(board.getHex({ row: 4, col: 6 })!, range, forFire)
     .map((r) => key(r.position));
-
-const card = (type: CommandCardType, maxTotalOrders: number) =>
-  new CommandCard({ type, maxTotalOrders });
 
 const isAdjacent = (a: Position, b: Position, board: BoardManager) =>
   board.getHex(a)!.getNeighbors().some((n) => samePosition(n, b));
@@ -86,72 +75,6 @@ describe("BoardManager setup", () => {
 
   it("rejects an unknown faction (e.g. from a tampered save)", () => {
     expect(() => new BoardManager(makeScenario(), "Soviets" as Faction)).toThrow("Invalid faction");
-  });
-});
-
-describe("BoardManager.setOrderableUnits", () => {
-  // One unit per section: (7,1) left, (7,3) left-center, (8,4) center tank,
-  // (8,6) center, (7,8) right-center, (8,11) right
-  const scenario = makeScenario({
-    units: {
-      allies: {
-        infantry: [
-          { row: 7, col: 1 }, { row: 7, col: 3 }, { row: 8, col: 6 },
-          { row: 7, col: 8 }, { row: 8, col: 11 },
-        ],
-        tank: [{ row: 8, col: 4 }],
-      },
-      axis: {},
-    },
-  });
-
-  it("uses the sections the test scenario expects", () => {
-    const board = new BoardManager(scenario);
-    const sideOf = (row: number, col: number) => board.getHex({ row, col })!.getSide();
-
-    expect(sideOf(7, 1)).toBe(Side.LEFT);
-    expect(sideOf(7, 3)).toBe(Side.LEFT_CENTER);
-    expect(sideOf(8, 4)).toBe(Side.CENTER);
-    expect(sideOf(7, 8)).toBe(Side.RIGHT_CENTER);
-    expect(sideOf(8, 11)).toBe(Side.RIGHT);
-  });
-
-  it.each([
-    ["LEFT", CommandCardType.LEFT, 2, ["7-1", "7-3"], 2],
-    ["CENTER", CommandCardType.CENTER, 3, ["7-3", "7-8", "8-4", "8-6"], 3],
-    ["RIGHT", CommandCardType.RIGHT, 4, ["7-8", "8-11"], 2],
-    ["ALLSIDES", CommandCardType.ALLSIDES, 6, ["7-1", "7-3", "7-8", "8-11", "8-4", "8-6"], 6],
-    ["TANK", CommandCardType.TANK, 4, ["8-4"], 1],
-    ["ARTILLERY", CommandCardType.ARTILLERY, 4, [], 0],
-    ["INFANTRY", CommandCardType.INFANTRY, 2, ["7-1", "7-3", "7-8", "8-11", "8-6"], 2],
-  ])(
-    "%s card marks the right units and caps orders at the units available",
-    (_name, type, maxOrders, expectedOrderable, expectedOrders) => {
-      const board = new BoardManager(scenario);
-
-      const orders = board.setOrderableUnits(card(type, maxOrders));
-
-      expect(orderablePositions(board)).toEqual([...expectedOrderable].sort());
-      expect(orders).toBe(expectedOrders);
-    }
-  );
-
-  it("clears the previous card's orderable units (B9)", () => {
-    const board = new BoardManager(scenario);
-    board.setOrderableUnits(card(CommandCardType.LEFT, 2));
-
-    board.setOrderableUnits(card(CommandCardType.RIGHT, 2));
-
-    expect(orderablePositions(board)).toEqual(["7-8", "8-11"]);
-  });
-
-  it("setUnitsNotOrderable clears every orderable flag", () => {
-    const board = new BoardManager(scenario);
-    board.setOrderableUnits(card(CommandCardType.ALLSIDES, 6));
-
-    board.setUnitsNotOrderable();
-
-    expect(orderablePositions(board)).toEqual([]);
   });
 });
 
@@ -243,15 +166,5 @@ describe("BoardManager.moveUnit", () => {
     expect(board.moveUnit({ row: 4, col: 6 }, { row: 4, col: 8 })).toBe(false);
     expect(board.moveUnit({ row: 0, col: 0 }, { row: 0, col: 1 })).toBe(false);
     expect(unitPositions(board).sort()).toEqual(["4-6", "4-8"]);
-  });
-
-  it("removeOrders clears the ordered flags", () => {
-    const board = new BoardManager(scenario);
-    const unit = board.getHex({ row: 4, col: 6 })!.unit!;
-    unit.giveOrder();
-
-    board.removeOrders();
-
-    expect(unit.isOrdered()).toBe(false);
   });
 });

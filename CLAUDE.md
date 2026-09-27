@@ -19,10 +19,12 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 
 ## Architecture
 - `src/game-core/`: plain TypeScript game logic with **no React imports**:
-  - `BoardManager`: hex grid, Axis flip, pathfinding (`calculatePossibleMovesWithPaths`), orderable units
+  - `BoardManager`: hex grid, Axis flip, pathfinding (`calculatePossibleMovesWithPaths`)
   - `Hex`: terrain properties, board section (`_setSide`), neighbors (offset↔axial coordinates)
   - `GameSession`: owns one player's game (board, deck, hand, turn flow) and is the only place game rules run. Actions (`startFirstTurn`, `pickCard`, `issueOrder`, `undoLastOrder`, `commitOrders`, `startMovement`, `startBattle`, `endBattle`, `drawCard`, `endTurn`, plus the final-phase map sync `removeUnit`, `relocateUnit` and `undoBattleEdit`, and firing: `fire`, `fireQuick`, `fireCollision`, `undoShot`, `skipUnmovedFire`) return `false` and change nothing when they aren't allowed. After each change it publishes an immutable `GameSnapshot`.
-  - `Unit`, `Order` (whether the unit fires lives on the order; an order's index identifies it for the turn), `Deck`, `CommandCard`
+  - `CommandCard`: a card's rules as data (sections, fixed or `"chosen"` on play; unit types; number of orders or `"all"`; `perSection` quotas; `onTheMove` extra units that can't fire; `noMove`, `moveBonus`, `maxMove`, `holdShots`; `fireBonus` dice). The cards themselves are in `data/commandCards.ts`.
+  - `orderRules.ts`: pure functions that apply a card: which order slots a unit can take (a card order, in a section for quota cards, or on the move), its move limits, the orderable units and the orders left. Everything is derived from the card and the orders given, not stored on units. A unit on a border hex can fill either section's quota; the player picks.
+  - `Unit`, `Order` (its shots, the section quota it used and whether it's on the move; `canFire` is `shots > 0`; an order's index identifies it for the turn), `Deck`
   - `position.ts`: `samePosition`, `positionKey` ("row-col") and `includesPosition`; use them rather than comparing rows and columns by hand
   - `dice.ts` (Memoir '44 battle dice: 2 infantry, tank, grenade, star, flag) and `turnSummary.ts` (what each order means for the battle, and the firing order: units that didn't move fire first, moved units wait)
   - `turnLog.ts`: `recordTurn` turns a finished turn into a plain-JSON `TurnRecord` (card, orders, shots, map edits); `GameSession.endTurn` appends it to the log in the snapshot and save
@@ -32,7 +34,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `src/types/`: shared types and enums (`TurnPhase`, `HexType`, `Side`, `Position`, `Faction`/`GameSetup`, …)
 - `src/App.tsx`: creates the `GameSession` and shows `Menu` (scenario and side picker) or `GameView`. It saves the session after every change and resumes it on load, so a reload or the tablet dropping the tab doesn't lose the game; "Salir" forgets the save.
 - `src/storage.ts`: everything kept in `localStorage` (the last setup and the game in progress). Reads and writes fail quietly, and an unreadable save is dropped.
-- Saving: `GameSession.save()` returns a plain-JSON `SavedGame` (cards by id, units by index so orders and battle edits keep their references) and `GameSession.restore()` rebuilds it, throwing on anything it can't match. **When you add state to `GameSession`, add it to `SavedGame` too**, and bump `SAVE_VERSION` if old saves can no longer be read.
+- Saving: `game-core/saveGame.ts` turns the session into a plain-JSON `SavedGame` (cards by id, units by index so orders and battle edits keep their references) and reads it back, throwing on anything it can't match; `GameSession.save()`/`restore()` call it. **When you add state to `GameSession`, add it to `SessionState` and `SavedGame` too**, and bump `SAVE_VERSION` when the shape changes: older saves are dropped, not migrated.
 - `src/looks/`: the three visual looks the player picks in "Ajustes" (`looks.ts`: colours, fonts, shape, texture per look) and `theme.ts`, which builds the MUI theme and the `--m44-*` CSS variables from a look. **Style custom CSS with the `--m44-*` variables, never fixed colours**, so it works in every look. Bundled fonts are imported in `looks/fonts.ts`.
 - `src/settings.ts`: per-device settings (look, sound) and `SettingsContext`; `src/sound.ts`: `useSound()` plays the short effects only when sound is on
 - `src/components/GameIcon.tsx` (game-icons.net icons as a colour-following mask), `Stamp.tsx` (the rubber stamp that slams in), `FactionInsignia.tsx`

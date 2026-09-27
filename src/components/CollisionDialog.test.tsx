@@ -3,7 +3,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import BattleView from "./mainComponents/GameViews/BattleView";
 import GameSession from "../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../game-core/commandCard";
+import CommandCard from "../game-core/commandCard";
+import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { samePosition } from "../game-core/position";
 
@@ -24,7 +25,7 @@ const makeSession = ({ tankHolds = false } = {}) => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 })],
+    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })],
     random: () => 0.5,
   });
   session.pickCard(session.getSnapshot().hand[0]!);
@@ -91,7 +92,7 @@ describe("Collisions in the battle phase", () => {
     const moved = played.getSnapshot().orders[0]!.end;
     saved.units = saved.units.map((u) => (u.position && samePosition(u.position, moved) ? { ...u, position: null } : u));
     const session = GameSession.restore(saved, played.scenario, [
-      new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 }),
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
     ]);
     render(<Harness session={session} />);
 

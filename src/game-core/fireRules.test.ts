@@ -119,10 +119,29 @@ describe("fire questions (house rules)", () => {
   });
 
   it("adds the command card's close assault or ranged bonus", () => {
-    const card = new CommandCard({ name: "Test", closeAssaultAdditionalDice: 1, rangeAdditionalDice: 2 });
+    const card = new CommandCard({
+      name: "Test",
+      fireBonus: [
+        { dice: 1, closeAssault: true },
+        { dice: 2, closeAssault: false },
+      ],
+    });
 
     expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, card)).toBe(4);
     expect(dice(UnitType.INFANTRY, { distance: "2", targetTerrain: "plains" }, card)).toBe(4);
+  });
+
+  it("adds a card bonus only for the unit types it names, and takes dice away too", () => {
+    const card = new CommandCard({
+      name: "Test",
+      fireBonus: [
+        { dice: 1, closeAssault: true, unitTypes: [UnitType.TANK] },
+        { dice: -1, closeAssault: true },
+      ],
+    });
+
+    expect(dice(UnitType.TANK, { distance: "1", targetTerrain: "plains" }, card)).toBe(3);
+    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, card)).toBe(2);
   });
 
   it("explains the calculation step by step, leaving out zero changes", () => {

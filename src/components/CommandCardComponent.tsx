@@ -1,5 +1,4 @@
-import CommandCard, { CommandCardType } from "../game-core/commandCard";
-import { UnitType } from "../game-core/unit";
+import CommandCard, { SECTIONS } from "../game-core/commandCard";
 import { UNIT_LABELS } from "../labels";
 import "./CommandCard.css";
 
@@ -9,31 +8,14 @@ interface CommandCardProps {
     onClick?: (card: CommandCard) => void;
 }
 
-/** Sections (left, center, right) a card orders units in */
-const SECTIONS: Record<CommandCardType, [boolean, boolean, boolean]> = {
-    [CommandCardType.LEFT]: [true, false, false],
-    [CommandCardType.CENTER]: [false, true, false],
-    [CommandCardType.RIGHT]: [false, false, true],
-    [CommandCardType.ALLSIDES]: [true, true, true],
-    [CommandCardType.ALL]: [true, true, true],
-    [CommandCardType.INFANTRY]: [true, true, true],
-    [CommandCardType.TANK]: [true, true, true],
-    [CommandCardType.ARTILLERY]: [true, true, true],
-};
-
-/** Tactic cards order one unit type anywhere */
-const TACTIC_UNIT: Partial<Record<CommandCardType, UnitType>> = {
-    [CommandCardType.INFANTRY]: UnitType.INFANTRY,
-    [CommandCardType.TANK]: UnitType.TANK,
-    [CommandCardType.ARTILLERY]: UnitType.ARTILLERY,
-};
-
 const SECTION_NAMES = ["Izquierda", "Centro", "Derecha"];
 
-/** The board's three sections, with the ones this card orders filled in */
-function FlankDiagram({ type }: { type: CommandCardType }) {
-    const active = SECTIONS[type];
-    const label = SECTION_NAMES.filter((_, i) => active[i]).join(", ");
+/** The board's three sections, with the ones this card orders filled in (all of them when the player picks one) */
+function FlankDiagram({ card }: { card: CommandCard }) {
+    const active = SECTIONS.map((section) => card.sections === "chosen" || card.sections.includes(section));
+    const label = card.choosesSection
+        ? "una a elegir"
+        : SECTION_NAMES.filter((_, i) => active[i]).join(", ");
     return (
         <svg className="command-card__flanks" viewBox="0 0 120 28" role="img" aria-label={`Secciones: ${label}`}>
             {active.map((on, i) => (
@@ -52,22 +34,24 @@ function FlankDiagram({ type }: { type: CommandCardType }) {
 
 /** A command card, drawn like the game's: title band, sections diagram, order count */
 function CommandCardComponent({ cardData, onClick }: CommandCardProps) {
-    const tacticUnit = TACTIC_UNIT[cardData.type];
+    // Tactic cards order some unit types anywhere
+    const tacticUnits = cardData.unitTypes?.map((type) => UNIT_LABELS[type].toLowerCase()).join(", ");
+    const orders = cardData.orders;
     const Root = onClick ? "button" : "div";
     return (
         <Root
             {...(onClick ? { type: "button", onClick: () => onClick(cardData) } : {})}
-            className={`command-card command-card--${tacticUnit ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
+            className={`command-card command-card--${tacticUnits ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
         >
             <span className="command-card__band">
                 <h3 className="card-title">{cardData.name}</h3>
             </span>
             <span className="command-card__body">
-                <FlankDiagram type={cardData.type} />
-                {tacticUnit && <span className="command-card__unit">Solo {UNIT_LABELS[tacticUnit].toLowerCase()}</span>}
+                <FlankDiagram card={cardData} />
+                {tacticUnits && <span className="command-card__unit">Solo {tacticUnits}</span>}
                 <span className="command-card__orders">
-                    <span className="command-card__count">{cardData.maxTotalOrders}</span>
-                    <span>{cardData.maxTotalOrders === 1 ? "orden" : "órdenes"}</span>
+                    <span className="command-card__count">{orders === "all" ? "Todas" : orders}</span>
+                    <span>{orders === 1 ? "orden" : "órdenes"}</span>
                 </span>
                 <span className="card-description">{cardData.description}</span>
             </span>

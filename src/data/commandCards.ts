@@ -1,15 +1,17 @@
-// data/commandCards.js
-import CommandCard, { CommandCardType } from '../game-core/commandCard.js';
+// data/commandCards.ts
+import CommandCard, { CommandCardProps } from '../game-core/commandCard';
+import { UnitType } from '../game-core/unit';
+import { Side } from '../types/hex';
 
-const cardTemplates = [
+const cardTemplates: { count: number; props: CommandCardProps & { id: string } }[] = [
   {
     count: 1,
     props: {
       id: 'probe-left',
       name: 'Sondeo en el flanco izquierdo',
-      type: CommandCardType.LEFT,
+      sections: [Side.LEFT],
       description: 'Da órdenes a 2 unidades del flanco izquierdo.',
-      maxTotalOrders: 2,
+      orders: 2,
     },
   },
   {
@@ -17,9 +19,9 @@ const cardTemplates = [
     props: {
       id: 'probe-right',
       name: 'Sondeo en el flanco derecho',
-      type: CommandCardType.RIGHT,
+      sections: [Side.RIGHT],
       description: 'Da órdenes a 2 unidades del flanco derecho.',
-      maxTotalOrders: 2,
+      orders: 2,
     },
   },
   {
@@ -27,9 +29,9 @@ const cardTemplates = [
     props: {
       id: 'probe-center',
       name: 'Sondeo en el centro',
-      type: CommandCardType.CENTER,
+      sections: [Side.CENTER],
       description: 'Da órdenes a 2 unidades del centro.',
-      maxTotalOrders: 2,
+      orders: 2,
     },
   },
   {
@@ -37,9 +39,9 @@ const cardTemplates = [
     props: {
       id: 'attack-center',
       name: 'Ataque en el centro',
-      type: CommandCardType.CENTER,
+      sections: [Side.CENTER],
       description: 'Da órdenes a 3 unidades del centro.',
-      maxTotalOrders: 3,
+      orders: 3,
     },
   },
   {
@@ -47,9 +49,9 @@ const cardTemplates = [
     props: {
       id: 'assault-left',
       name: 'Asalto en el flanco izquierdo',
-      type: CommandCardType.LEFT,
+      sections: [Side.LEFT],
       description: 'Da órdenes a 4 unidades del flanco izquierdo.',
-      maxTotalOrders: 4,
+      orders: 4,
     },
   },
   {
@@ -57,9 +59,9 @@ const cardTemplates = [
     props: {
       id: 'assault-right',
       name: 'Asalto en el flanco derecho',
-      type: CommandCardType.RIGHT,
+      sections: [Side.RIGHT],
       description: 'Da órdenes a 4 unidades del flanco derecho.',
-      maxTotalOrders: 4,
+      orders: 4,
     },
   },
   {
@@ -67,9 +69,8 @@ const cardTemplates = [
     props: {
       id: 'all-out',
       name: 'Asalto general',
-      type: CommandCardType.ALLSIDES,
       description: 'Da órdenes a 6 unidades en cualquier sección.',
-      maxTotalOrders: 6,
+      orders: 6,
     },
   },
   {
@@ -77,9 +78,9 @@ const cardTemplates = [
     props: {
       id: 'tank-assault',
       name: 'Asalto blindado',
-      type: CommandCardType.TANK,
+      unitTypes: [UnitType.TANK],
       description: 'Da órdenes a 4 tanques en cualquier sección.',
-      maxTotalOrders: 4,
+      orders: 4,
     },
   }
 ];

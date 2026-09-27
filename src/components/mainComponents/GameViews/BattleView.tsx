@@ -43,7 +43,6 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
     game.orders,
     session.board,
     game.shots,
-    game.firesPerUnit,
     game.unmovedFireSkipped
   );
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);

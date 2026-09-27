@@ -1,9 +1,9 @@
 // game-core/gameSession.ts
 import BoardManager from "./BoardManager";
-import CommandCard from "./commandCard";
+import CommandCard, { Section, isSection } from "./commandCard";
 import Deck from "./deck";
 import Order from "./order";
-import Unit, { UnitType } from "./unit";
+import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
 import { DieFace, rollDice } from "./dice";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
@@ -12,6 +12,8 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { positionKey, samePosition } from "./position";
+import { OrderContext, OrderSlot, moveLimits, orderSlots, orderablePositions, ordersLeft, sameSlot } from "./orderRules";
+import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
 
@@ -24,8 +26,13 @@ export interface GameSnapshot {
   /** Debug placeholder for cards that let you keep 1 of 2 drawn cards */
   choiceCards: readonly CommandCard[];
   chosenCard: CommandCard | null;
+  /** The section picked for a card that orders units in a section of the player's choice */
+  chosenSection: Section | null;
   orders: readonly Order[];
+  /** The most orders the player can still give with this card */
   ordersLeft: number;
+  /** Units that can still be ordered (empty outside giving orders) */
+  orderable: readonly Position[];
   ordersCommitted: boolean;
   /** Board changes made in the final phase to mirror the table after the battle (undoable) */
   battleEdits: number;
@@ -33,8 +40,6 @@ export interface GameSnapshot {
   discardPileCount: number;
   /** Shots fired this turn, in the order they were rolled */
   shots: readonly Shot[];
-  /** How many times each unit that can fire may fire this turn (from the card) */
-  firesPerUnit: number;
   /** The player gave up the unfired shots of the units that didn't move, so the moved units can fire */
   unmovedFireSkipped: boolean;
   /** Finished turns, oldest first */
@@ -55,70 +60,19 @@ export interface Shot {
   notes: readonly string[];
   /** Rolled for a collision in the movement phase, before the normal battle */
   collision: boolean;
-  /** What it was rolled against, to read the hits; null for shots from before targets were asked */
-  target: ShotTarget | null;
+  /** What it was rolled against, to read the hits */
+  target: ShotTarget;
 }
-
-/** Saves from before notes, collisions or targets existed have none of them */
-type SavedShot = Omit<Shot, "notes" | "collision" | "target"> & {
-  notes?: string[];
-  collision?: boolean;
-  target?: ShotTarget | null;
-};
 
 export interface MoveOptions {
   moves: Position[];
   moveAndFire: Position[];
+  /**
+   * The ways the unit can be ordered. The moves are for the card's own orders
+   * when it can take one; with more than one, the player picks the section.
+   */
+  slots: OrderSlot[];
 }
-
-/** Bump when SavedGame changes shape; older saves are then migrated or dropped instead of misread */
-export const SAVE_VERSION = 5;
-
-interface SavedUnit {
-  type: UnitType;
-  /** null for a unit removed in this turn's battle (an undo can bring it back) */
-  position: Position | null;
-  orderable: boolean;
-  ordered: boolean;
-}
-
-/**
- * The whole game as plain JSON, so it survives a page reload or the tablet
- * dropping the tab. Cards are saved by id, units by their index in `units`.
- */
-export interface SavedGame {
-  version: typeof SAVE_VERSION;
-  scenarioId: string;
-  faction: Faction;
-  turn: number;
-  phase: TurnPhase;
-  drawPile: string[];
-  discardPile: string[];
-  hand: string[];
-  choiceCards: string[];
-  chosenCard: string | null;
-  drawnCard: string | null;
-  units: SavedUnit[];
-  orders: { unit: number; start: Position; end: Position; canFire: boolean; path: Position[] | null }[];
-  ordersLeft: number;
-  ordersCommitted: boolean;
-  unmovedFireSkipped: boolean;
-  battleEdits: (
-    | { kind: "remove"; position: Position; unit: number }
-    | { kind: "move"; from: Position; to: Position }
-  )[];
-  shots: SavedShot[];
-  log: TurnRecord[];
-}
-
-/** Version 4 saves had no firing order, so no unit's shot was ever skipped */
-type SavedGameV4 = Omit<SavedGame, "version" | "unmovedFireSkipped"> & { version: 4 };
-/** Version 3 saves drew the new card as the turn ended, so none is ever pending */
-type SavedGameV3 = Omit<SavedGameV4, "version" | "drawnCard"> & { version: 3 };
-/** Version 2 saves had no turn log either; they are read as a game with no history */
-type SavedGameV2 = Omit<SavedGameV3, "version" | "log"> & { version: 2 };
-/** Version 1 saves had no shots either; they are read as a turn where nobody has fired yet */
-type SavedGameV1 = Omit<SavedGameV2, "version" | "shots"> & { version: 1 };
 
 interface GameSessionOptions {
   scenario: Scenario;
@@ -144,9 +98,6 @@ export type BattleEdit =
  * React reads it with useSyncExternalStore. Actions return false and change
  * nothing when they aren't allowed.
  */
-const isUnitType = (value: unknown): value is UnitType =>
-  Object.values(UnitType).includes(value as UnitType);
-
 class GameSession {
   readonly scenario: Scenario;
   readonly faction: Faction;
@@ -160,9 +111,9 @@ class GameSession {
   private phase: TurnPhase;
   private choiceCards: CommandCard[] = [];
   private chosenCard: CommandCard | null = null;
+  private chosenSection: Section | null = null;
   private drawnCard: CommandCard | null = null;
   private orders: Order[] = [];
-  private ordersLeft = 0;
   private ordersCommitted = false;
   private battleEdits: BattleEdit[] = [];
   private shots: Shot[] = [];
@@ -213,13 +164,15 @@ class GameSession {
 
   // --- PICK_CARDS
 
-  pickCard(card: CommandCard): boolean {
+  /** Play a card from the hand; a card that orders units in a section of the player's choice needs the section */
+  pickCard(card: CommandCard, section?: Section): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (this.choiceCards.length > 0) return false;
     if (!this.hand.includes(card)) return false;
+    if (card.choosesSection ? !isSection(section) : section !== undefined) return false;
 
     this.chosenCard = card;
-    this.ordersLeft = this.board.setOrderableUnits(card);
+    this.chosenSection = section ?? null;
     this.phase = TurnPhase.ORDER_UNITS;
     return this.publish();
   }
@@ -250,46 +203,73 @@ class GameSession {
 
   // --- ORDER_UNITS
 
-  private canGiveOrders(): boolean {
-    return this.phase === TurnPhase.ORDER_UNITS && !this.ordersCommitted && this.ordersLeft > 0;
+  private orderContext(): OrderContext | null {
+    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !this.chosenCard) return null;
+    return { card: this.chosenCard, chosenSection: this.chosenSection, board: this.board, orders: this.orders };
   }
 
-  /** Where the orderable unit at `position` can move, or null if it can't be ordered */
-  getMoveOptions(position: Position): MoveOptions | null {
-    if (!this.canGiveOrders()) return null;
+  private remainingOrders(): number {
+    const context = this.orderContext();
+    return context ? ordersLeft(context) : 0;
+  }
+
+  /** The order slot to use: the one asked for, else the card's own order, else on the move */
+  private slotFor(slots: OrderSlot[], slot?: OrderSlot): OrderSlot | null {
+    if (slot) return slots.find((s) => sameSlot(s, slot)) ?? null;
+    const cardSlots = slots.filter((s) => !s.onTheMove);
+    if (cardSlots.length > 1) return null; // a border unit: the player picks the section
+    return cardSlots[0] ?? slots[0] ?? null;
+  }
+
+  /**
+   * Where the unit at `position` can move, or null if it can't be ordered.
+   * `slot` gets the moves for one way of ordering it (e.g. on the move).
+   */
+  getMoveOptions(position: Position, slot?: OrderSlot): MoveOptions | null {
+    const context = this.orderContext();
     const hex = this.board.getHex(position);
     const unit = hex?.unit;
-    if (!hex || !unit?.isOrderable()) return null;
+    if (!context || !hex || !unit) return null;
+    const slots = orderSlots(context, unit, hex.getSide());
+    const moveSlot = slot ? this.slotFor(slots, slot) : (slots.find((s) => !s.onTheMove) ?? slots[0]);
+    if (!moveSlot) return null;
 
+    const limits = moveLimits(context.card, unit, moveSlot);
     const destinations = (range: number, forFire = false) =>
       this.board.calculatePossibleMovesWithPaths(hex, range, forFire).map((result) => result.position);
     return {
-      moves: destinations(unit.getMaxMove()),
-      moveAndFire: destinations(unit.getMoveAndFire(), true),
+      moves: destinations(limits.maxMove),
+      moveAndFire: destinations(limits.moveAndFire, true),
+      slots,
     };
   }
 
-  /** Order the unit at `from` to move to `to`, or to hold and fire when `to` equals `from` */
-  issueOrder(from: Position, to: Position): boolean {
-    const options = this.getMoveOptions(from);
-    if (!options) return false;
-    const hex = this.board.getHex(from)!;
-    const unit = hex.unit!;
+  /**
+   * Order the unit at `from` to move to `to`, or to hold when `to` equals `from`.
+   * `slot` is needed when the unit can fill more than one section's orders.
+   */
+  issueOrder(from: Position, to: Position, slot?: OrderSlot): boolean {
+    const context = this.orderContext();
+    const hex = this.board.getHex(from);
+    const unit = hex?.unit;
+    if (!context || !hex || !unit) return false;
+    const chosen = this.slotFor(orderSlots(context, unit, hex.getSide()), slot);
+    if (!chosen) return false;
+    const limits = moveLimits(context.card, unit, chosen);
 
     let order: Order;
+    const props = { unit, start: from, end: to, section: chosen.section, onTheMove: chosen.onTheMove };
     if (samePosition(from, to)) {
-      order = new Order(unit, from, to, true, [from]);
+      order = new Order({ ...props, path: [from], shots: limits.holdShots });
     } else {
-      // Path must be found before moving: the start hex is empty afterwards
-      const path = this.board.getAllPaths(hex, unit.getMaxMove()).get(positionKey(to));
+      // Paths must be found before moving: afterwards the start hex is empty and the destination taken
+      const path = this.board.getAllPaths(hex, limits.maxMove).get(positionKey(to));
+      const canFire = this.board.getAllPaths(hex, limits.moveAndFire, true).has(positionKey(to));
       if (!path || !this.board.moveUnit(from, to)) return false;
-      const canFire = options.moveAndFire.some((p) => samePosition(p, to));
-      order = new Order(unit, from, to, canFire, path);
+      order = new Order({ ...props, path, shots: canFire ? 1 : 0 });
     }
 
-    unit.giveOrder();
     this.orders = [...this.orders, order];
-    this.ordersLeft--;
     return this.publish();
   }
 
@@ -301,19 +281,15 @@ class GameSession {
     if (!samePosition(lastOrder.start, lastOrder.end)) {
       this.board.moveUnit(lastOrder.end, lastOrder.start);
     }
-    lastOrder.unit.clearOrder();
-    lastOrder.unit.setOrderable(true);
     this.orders = this.orders.slice(0, -1);
-    this.ordersLeft++;
     return this.publish();
   }
 
   commitOrders(): boolean {
     if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return false;
-    if (this.ordersLeft > 0) return false;
+    if (this.remainingOrders() > 0) return false;
 
     this.ordersCommitted = true;
-    this.board.setUnitsNotOrderable();
     return this.publish();
   }
 
@@ -356,12 +332,8 @@ class GameSession {
 
   // Firing: the dice are rolled here, once, and the result is kept
 
-  private get firesPerUnit(): number {
-    return Math.max(1, this.chosenCard?.numFireTimes ?? 1);
-  }
-
   private summaries() {
-    return summarizeOrders(this.orders, this.board, this.shots, this.firesPerUnit, this.unmovedFireSkipped);
+    return summarizeOrders(this.orders, this.board, this.shots, this.unmovedFireSkipped);
   }
 
   /** No unit that didn't move has a shot left (or the player skipped them) */
@@ -518,11 +490,10 @@ class GameSession {
     });
     this.log = [...this.log, record];
 
-    this.board.removeOrders();
     this.chosenCard = null;
+    this.chosenSection = null;
     this.drawnCard = null;
     this.orders = [];
-    this.ordersLeft = 0;
     this.ordersCommitted = false;
     this.battleEdits = [];
     this.shots = [];
@@ -535,148 +506,45 @@ class GameSession {
   // --- saving
 
   save(): SavedGame {
-    const units: Unit[] = [];
-    const savedUnits: SavedUnit[] = [];
-    const addUnit = (unit: Unit, position: Position | null) => {
-      units.push(unit);
-      savedUnits.push({
-        type: unit.getUnitType(),
-        position,
-        orderable: unit.isOrderable(),
-        ordered: unit.isOrdered(),
-      });
-    };
-    const unitIndex = (unit: Unit) => {
-      if (!units.includes(unit)) addUnit(unit, null);
-      return units.indexOf(unit);
-    };
-    this.board.getAllHexes().forEach((hex) => {
-      if (hex.unit) addUnit(hex.unit, hex.getPosition());
-    });
-
-    const ids = (cards: readonly CommandCard[]) => cards.map((card) => card.id);
-    return {
-      version: SAVE_VERSION,
-      scenarioId: this.scenario.id,
-      faction: this.faction,
+    return writeSave(this.scenario.id, this.faction, this.board, {
       turn: this.turn,
       phase: this.phase,
-      drawPile: ids(this.deck.drawPile),
-      discardPile: ids(this.deck.discardPile),
-      hand: ids(this.hand),
-      choiceCards: ids(this.choiceCards),
-      chosenCard: this.chosenCard?.id ?? null,
-      drawnCard: this.drawnCard?.id ?? null,
-      // Orders and edits first, so units they reference get indexes; the list is read after
-      orders: this.orders.map((order) => ({
-        unit: unitIndex(order.unit),
-        start: order.start,
-        end: order.end,
-        canFire: order.canFire,
-        path: order.path ?? null,
-      })),
-      battleEdits: this.battleEdits.map((edit) =>
-        edit.kind === "remove"
-          ? { kind: "remove", position: edit.position, unit: unitIndex(edit.unit) }
-          : edit
-      ),
-      ordersLeft: this.ordersLeft,
+      drawPile: this.deck.drawPile,
+      discardPile: this.deck.discardPile,
+      hand: this.hand,
+      choiceCards: this.choiceCards,
+      chosenCard: this.chosenCard,
+      chosenSection: this.chosenSection,
+      drawnCard: this.drawnCard,
+      orders: this.orders,
       ordersCommitted: this.ordersCommitted,
       unmovedFireSkipped: this.unmovedFireSkipped,
-      shots: this.shots.map((shot) => ({
-        ...shot,
-        steps: [...shot.steps],
-        faces: [...shot.faces],
-        notes: [...shot.notes],
-        target: shot.target && { ...shot.target },
-      })),
-      // Records are plain data that is never mutated, so they can be shared
-      log: [...this.log],
-      units: savedUnits,
-    };
+      battleEdits: this.battleEdits,
+      shots: this.shots,
+      log: this.log,
+    });
   }
 
   /** Rebuild a saved game. Throws if the save doesn't fit this scenario or these cards. */
-  static restore(
-    saved: SavedGame | SavedGameV4 | SavedGameV3 | SavedGameV2 | SavedGameV1,
-    scenario: Scenario,
-    commandCards: CommandCard[],
-    random?: () => number
-  ): GameSession {
-    if (![1, 2, 3, 4, SAVE_VERSION].includes(saved.version)) {
-      throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
-    }
+  static restore(saved: SavedGame, scenario: Scenario, commandCards: CommandCard[], random?: () => number): GameSession {
     if (saved.scenarioId !== scenario.id) throw new Error(`Save is for scenario ${saved.scenarioId}`);
-    if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
-      throw new Error(`Unknown phase ${saved.phase}`);
-    }
 
-    const session = new GameSession({
-      scenario,
-      faction: saved.faction,
-      initialHandSize: 0,
-      commandCards,
-      random,
-    });
-
-    const cardsById = new Map(commandCards.map((card) => [card.id, card]));
-    const card = (id: string) => {
-      const found = cardsById.get(id);
-      if (!found) throw new Error(`Unknown card ${id}`);
-      return found;
-    };
-    const cards = (ids: string[]) => ids.map(card);
-
-    // Replace the scenario's starting units with the saved ones
-    session.board.getAllHexes().forEach((hex) => hex.removeUnit());
-    const units = saved.units.map((savedUnit) => {
-      const unit = new Unit(savedUnit.type);
-      if (savedUnit.ordered) unit.giveOrder();
-      unit.setOrderable(savedUnit.orderable);
-      if (savedUnit.position && !session.board.placeUnitAt(savedUnit.position, unit)) {
-        throw new Error(`Can't place unit at ${positionKey(savedUnit.position)}`);
-      }
-      return unit;
-    });
-    const unit = (index: number) => {
-      if (!units[index]) throw new Error(`Unknown unit ${index}`);
-      return units[index];
-    };
-
-    session.deck.restorePiles(cards(saved.drawPile), cards(saved.discardPile));
-    session.hand = cards(saved.hand);
-    session.choiceCards = cards(saved.choiceCards);
-    session.chosenCard = saved.chosenCard === null ? null : card(saved.chosenCard);
-    const drawnCard = saved.version === SAVE_VERSION || saved.version === 4 ? saved.drawnCard : null;
-    session.drawnCard = drawnCard === null ? null : card(drawnCard);
-    if (session.drawnCard && !session.hand.includes(session.drawnCard)) throw new Error("Drawn card not in hand");
-    session.turn = saved.turn;
-    session.phase = saved.phase;
-    session.orders = saved.orders.map(
-      (order) => new Order(unit(order.unit), order.start, order.end, order.canFire, order.path)
-    );
-    session.ordersLeft = saved.ordersLeft;
-    session.ordersCommitted = saved.ordersCommitted;
-    session.unmovedFireSkipped = saved.version === SAVE_VERSION ? saved.unmovedFireSkipped === true : false;
-    session.battleEdits = saved.battleEdits.map((edit) =>
-      edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unit(edit.unit) } : edit
-    );
-    const faces = new Set<string>(Object.values(DieFace));
-    session.shots = (saved.version === 1 ? [] : saved.shots).map((shot) => {
-      if (!session.orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
-      if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
-      const target = shot.target ?? null;
-      if (target && !isUnitType(target.unitType)) throw new Error(`Unknown target ${target.unitType}`);
-      return { ...shot, notes: shot.notes ?? [], collision: shot.collision ?? false, target };
-    });
-    const log = saved.version === 1 || saved.version === 2 ? [] : saved.log;
-    if (!Array.isArray(log)) throw new Error("Turn log is not a list");
-    log.forEach((record) => {
-      if (!record.shots.every((shot) => shot.faces.every((face) => faces.has(face)))) {
-        throw new Error(`Unknown die face in turn ${record.turn}`);
-      }
-    });
-    session.log = log;
+    const session = new GameSession({ scenario, faction: saved.faction, initialHandSize: 0, commandCards, random });
+    const state: SessionState = readSave(saved, session.board, commandCards);
+    session.deck.restorePiles([...state.drawPile], [...state.discardPile]);
+    session.turn = state.turn;
+    session.phase = state.phase;
+    session.hand = state.hand;
+    session.choiceCards = state.choiceCards;
+    session.chosenCard = state.chosenCard;
+    session.chosenSection = state.chosenSection;
+    session.drawnCard = state.drawnCard;
+    session.orders = state.orders;
+    session.ordersCommitted = state.ordersCommitted;
+    session.unmovedFireSkipped = state.unmovedFireSkipped;
+    session.battleEdits = state.battleEdits;
+    session.shots = state.shots;
+    session.log = state.log;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -684,21 +552,23 @@ class GameSession {
   // --- internals
 
   private createSnapshot(): GameSnapshot {
+    const orderContext = this.orderContext();
     return {
       turn: this.turn,
       phase: this.phase,
       hand: [...this.hand],
       choiceCards: [...this.choiceCards],
       chosenCard: this.chosenCard,
+      chosenSection: this.chosenSection,
       drawnCard: this.drawnCard,
       orders: this.orders,
-      ordersLeft: this.ordersLeft,
+      ordersLeft: orderContext ? ordersLeft(orderContext) : 0,
+      orderable: orderContext ? orderablePositions(orderContext) : [],
       ordersCommitted: this.ordersCommitted,
       battleEdits: this.battleEdits.length,
       drawPileCount: this.deck.getDrawPileCount(),
       discardPileCount: this.deck.getDiscardPileCount(),
       shots: this.shots,
-      firesPerUnit: this.firesPerUnit,
       unmovedFireSkipped: this.unmovedFireSkipped,
       log: this.log,
       extraTurn: this.attacking && this.turn === 1,

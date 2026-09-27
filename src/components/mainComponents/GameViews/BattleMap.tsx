@@ -24,8 +24,8 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
   // Units that have used all their shots get a check badge on the map
   const firedUnits = new Set(
     game.orders
-      .filter((_, i) => game.shots.filter((s) => s.orderIndex === i).length >= game.firesPerUnit)
-      .map((o) => o.unit)
+      .filter((order, i) => game.shots.filter((s) => s.orderIndex === i).length >= order.shots)
+      .map((order) => order.unit)
   );
 
   return (

@@ -86,7 +86,7 @@ export function ShotResult({ shot, number, faction, withCoins }: ShotResultProps
         {shot.dice > 0 ? diceText(shot.dice) : "0 dados: el disparo no tuvo efecto"}
       </Typography>
       {shot.dice > 0 && <DiceResult roll={{ faces: [...shot.faces], id: number ?? 1 }} faction={faction} />}
-      {shot.dice > 0 && shot.target && <RollReading faces={shot.faces} target={shot.target} withCoins={withCoins} />}
+      {shot.dice > 0 && <RollReading faces={shot.faces} target={shot.target} withCoins={withCoins} />}
       <ShotNotes notes={shot.notes} />
     </Box>
   );
@@ -107,7 +107,7 @@ function FireDialog({ summary, card, faction, onFire, onQuickFire, withCoins, on
   const [quickDice, setQuickDice] = useState(3);
   const [quickTarget, setQuickTarget] = useState<UnitType | null>(null);
   const [quickCloseAssault, setQuickCloseAssault] = useState<boolean | null>(null);
-  /** Aiming a further shot at a unit that already fired (cards with numFireTimes > 1) */
+  /** Aiming a further shot at a unit that already fired (orders with more than one shot) */
   const [firingAgain, setFiringAgain] = useState(false);
   const [confirmingUndo, setConfirmingUndo] = useState(false);
   const [undoChecked, setUndoChecked] = useState(false);

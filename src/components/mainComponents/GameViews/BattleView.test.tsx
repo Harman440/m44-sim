@@ -4,7 +4,8 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { describe, expect, it, vi } from "vitest";
 import BattleView from "./BattleView";
 import GameSession from "../../../game-core/gameSession";
-import CommandCard, { CommandCardType } from "../../../game-core/commandCard";
+import CommandCard from "../../../game-core/commandCard";
+import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 
 /** Default target for shots whose reading the test doesn't check */
@@ -29,7 +30,7 @@ const makeBattleSession = ({ moveTank = false } = {}) => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", type: CommandCardType.LEFT, maxTotalOrders: 2 })],
+    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })],
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(INFANTRY, INFANTRY);
