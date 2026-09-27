@@ -38,6 +38,8 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           possibleMoveAndFirePositions={[]}
           boardManager={session.board}
           orders={game.orders}
+          markers={game.markers}
+          markerKind={game.orderCombatCard?.marker?.kind}
           backgroundImage={session.scenario.image}
           firedUnits={firedUnits}
           faction={faction}

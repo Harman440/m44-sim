@@ -6,7 +6,7 @@ import { positionKey } from '../game-core/position';
 import UnitComponent from './UnitComponent';
 
 /** How a hex is highlighted: the selected unit, or a destination for it */
-export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | null;
+export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | 'mark' | null;
 
 interface HexProps {
   x: number;

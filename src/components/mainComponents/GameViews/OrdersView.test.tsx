@@ -5,6 +5,7 @@ import OrdersView from "./OrdersView";
 import { INVALID_FLASH_MS } from "../../useHexFlash";
 import GameSession from "../../../game-core/gameSession";
 import CommandCard, { CommandCardProps } from "../../../game-core/commandCard";
+import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { UnitType } from "../../../game-core/unit";
 import { Position } from "../../../types/scenario";
@@ -308,5 +309,57 @@ describe("OrdersView orders paid in coins", () => {
 
     expect(session.getSnapshot().coins).toBe(0);
     expect(screen.getByText(/No te llega para más órdenes de la carta/)).toBeInTheDocument();
+  });
+});
+
+describe("OrdersView combat card markers", () => {
+  it("marks the Barrage hex on the map before the orders can be confirmed", () => {
+    const barrage: CombatCard = {
+      id: "barrage",
+      name: "Barrera",
+      description: "4 dados.",
+      cost: 0,
+      phase: "order",
+      marker: { kind: "target", count: 1 },
+    };
+    const card = new CommandCard({ id: "card", name: "Carta", sections: [Side.LEFT], orders: 1 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards: [barrage],
+    });
+    session.startFirstTurn();
+    session.pickCard(card, undefined, barrage);
+    session.issueOrder(LEFT_A, LEFT_A);
+    const { container } = render(<Harness session={session} />);
+    const tap = (p: Position) => fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`)!);
+    expect(screen.queryByRole("button", { name: "Confirmar Órdenes" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("order-combat-card")).toHaveTextContent("Marca 1 casilla sin unidades tuyas. (0/1)");
+
+    fireEvent.click(screen.getByRole("button", { name: "Marcar en el mapa" }));
+    expect(container.querySelectorAll(".hexagon__tile--mark").length).toBeGreaterThan(0);
+    tap(LEFT_B); // one of your units: not allowed
+    expect(session.getSnapshot().markers).toEqual([]);
+    tap({ row: 1, col: 10 });
+
+    expect(session.getSnapshot().markers).toEqual([{ row: 1, col: 10 }]);
+    expect(container.querySelector('[data-marker="1-10"]')).not.toBeNull();
+    expect(container.querySelectorAll(".hexagon__tile--mark")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Borrar última marca" }));
+    expect(session.getSnapshot().markers).toEqual([]);
+    expect(screen.getByRole("button", { name: "Dejar de marcar" })).toBeInTheDocument(); // still marking
+    tap({ row: 1, col: 10 });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
+    expect(session.getSnapshot().ordersCommitted).toBe(true);
   });
 });

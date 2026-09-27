@@ -1185,7 +1185,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 9 as 10 })).toThrow();
+    expect(broken({ version: 10 as 11 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();
@@ -1576,5 +1576,78 @@ describe("GameSession combat cards", () => {
     expect(() =>
       GameSession.restore({ ...session.save(), combatHand: ["no-such-card"] }, defender, cards(), deck)
     ).toThrow();
+  });
+});
+
+describe("GameSession map markers", () => {
+  const defender = { ...scenario, attacker: "Axis" as const };
+  const barrage: CombatCard = {
+    id: "barrage",
+    name: "Barrera",
+    description: "",
+    cost: 0,
+    phase: "order",
+    marker: { kind: "target", count: 1 },
+  };
+  const FAR: Position = { row: 1, col: 10 };
+
+  /** The defender at turn 2, playing the "left" card with Barrage, orders given */
+  const withBarrage = () => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({
+      scenario: defender,
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards,
+      combatCards: [barrage],
+    });
+    session.startFirstTurn();
+    session.pickCard(commandCards[0]!, undefined, barrage);
+    while (session.getSnapshot().ordersLeft > 0) {
+      const p = session.getSnapshot().orderable[0]!;
+      session.issueOrder(p, p);
+    }
+    return { session, commandCards };
+  };
+
+  it("marks the card's hexes, and won't confirm the orders until they're all marked", () => {
+    const { session } = withBarrage();
+    expect(session.getSnapshot().markable.length).toBeGreaterThan(0);
+    expect(session.commitOrders()).toBe(false);
+
+    expect(session.markHex(LEFT_INF)).toBe(false); // one of your units
+    expect(session.markHex(FAR)).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ markers: [FAR], markable: [] });
+    expect(session.markHex({ row: 1, col: 9 })).toBe(false);
+    expect(session.commitOrders()).toBe(true);
+    expect(session.undoMarker()).toBe(false); // confirmed
+  });
+
+  it("undoes the last mark, and clears them when the card is taken back", () => {
+    const { session } = withBarrage();
+    session.markHex(FAR);
+
+    expect(session.undoMarker()).toBe(true);
+    expect(session.getSnapshot().markers).toEqual([]);
+    session.markHex(FAR);
+    session.cancelOrderCombatCard();
+    expect(session.getSnapshot().markers).toEqual([]);
+    expect(session.commitOrders()).toBe(true);
+  });
+
+  it("keeps the marks after a reload and in the turn log", () => {
+    const { session, commandCards } = withBarrage();
+    session.markHex(FAR);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, commandCards, [barrage]);
+    expect(restored.getSnapshot().markers).toEqual([FAR]);
+
+    restored.commitOrders();
+    restored.startMovement();
+    restored.startBattle();
+    finishTurn(restored);
+    expect(restored.getSnapshot().log.at(-1)!.markers).toEqual([FAR]);
+    expect(restored.getSnapshot().markers).toEqual([]);
   });
 });

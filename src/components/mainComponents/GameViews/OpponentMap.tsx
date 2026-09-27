@@ -32,6 +32,10 @@ function OpponentMap({ open, onClose, faction, session, game }: OpponentMapProps
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Flecha: movimiento · Diana roja: dispara
+              {game.orderCombatCard?.marker &&
+                ` · ${game.orderCombatCard.name}: ${
+                  game.orderCombatCard.marker.kind === "cross" ? "la cruz marca dónde aparece" : "las dianas marcan dónde ataca"
+                }`}
             </Typography>
           </Box>
           <Button variant="outlined" onClick={onClose} startIcon={<GameIcon name="cancel" />}>
@@ -46,6 +50,8 @@ function OpponentMap({ open, onClose, faction, session, game }: OpponentMapProps
             possibleMoveAndFirePositions={[]}
             boardManager={session.board}
             orders={game.orders}
+            markers={game.markers}
+            markerKind={game.orderCombatCard?.marker?.kind}
             backgroundImage={session.scenario.image}
             faction={faction}
           />

@@ -5,7 +5,7 @@ import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { SECTION_LABELS, UNIT_LABELS, coinsText, describeHex, describeMovement } from "../../../labels";
+import { SECTION_LABELS, UNIT_LABELS, coinsText, describeHex, describeMarkerRule, describeMovement } from "../../../labels";
 import { EXTRA_SLOT, OrderSlot, sameSlot } from "../../../game-core/orderRules";
 import { EXTRA_ORDER_COST } from "../../../data/coinRules";
 import CommandCard from "../../../game-core/commandCard";
@@ -73,6 +73,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   /** The next unit tapped takes an extra order bought with coins */
   const [extraMode, setExtraMode] = useState(false);
   const canBuyExtra = game.extraOrderable.length > 0;
+  const markerRule = game.orderCombatCard?.marker ?? null;
+  const markersLeft = markerRule ? markerRule.count - game.markers.length : 0;
+  /** Taps mark hexes for the combat card instead of ordering units */
+  const [markMode, setMarkMode] = useState(false);
+  const marking = markMode && markersLeft > 0 && !ordersCommitted;
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
   const play = useSound();
@@ -101,7 +106,14 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   const toggleExtraMode = () => {
     clearSelection();
+    setMarkMode(false);
     setExtraMode((on) => !on);
+  };
+
+  const toggleMarkMode = () => {
+    clearSelection();
+    setExtraMode(false);
+    setMarkMode((on) => !on);
   };
 
   const pickSlot = (key: string | null) => {
@@ -115,6 +127,10 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   // One tap per action so it works the same with a mouse or on a tablet
   const handleTileClick = (position: Position) => {
     if (ordersCommitted) return;
+    if (marking) {
+      if (!session.markHex(position)) flashInvalid(position);
+      return;
+    }
 
     if (unitHexPosition) {
       // Tapping the selected unit again deselects it
@@ -153,6 +169,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   const instructions = () => {
     if (ordersCommitted) return null;
+    if (marking && markerRule) {
+      return `${describeMarkerRule(markerRule)} Faltan ${markersLeft}`;
+    }
     if (extraMode) {
       return selectedHex
         ? "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción"
@@ -165,6 +184,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     }
     if (game.activeCard?.closeAssaultOnly) {
       return "Esta carta no da órdenes: confírmalas. En la batalla marcarás las unidades en asalto cercano";
+    }
+    if (ordersLeft <= 0 && markersLeft > 0) {
+      return `Marca en el mapa las casillas de ${game.orderCombatCard!.name} para poder confirmar`;
     }
     if (ordersLeft <= 0) {
       return "No quedan órdenes: confirma las órdenes o deshaz la última";
@@ -188,7 +210,10 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
           locked={ordersCommitted}
-          orderablePositions={extraMode ? game.extraOrderable : game.orderable}
+          orderablePositions={marking ? [] : extraMode ? game.extraOrderable : game.orderable}
+          markers={game.markers}
+          markerKind={markerRule?.kind}
+          markablePositions={marking ? game.markable : []}
           faction={faction}
         />
       </div>
@@ -213,8 +238,30 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               )
             }
           >
-            <strong>Carta de combate: {game.orderCombatCard.name}.</strong> {game.orderCombatCard.description} Anota
-            en el mapa sobre qué unidades o casillas la usas.
+            <strong>Carta de combate: {game.orderCombatCard.name}.</strong> {game.orderCombatCard.description}{" "}
+            {markerRule
+              ? `${describeMarkerRule(markerRule)} (${game.markers.length}/${markerRule.count})`
+              : "Si hace falta, anota en papel sobre qué unidades la usas."}
+            {markerRule && !ordersCommitted && (
+              <Stack direction="row" sx={{ gap: 1, mt: 1, flexWrap: "wrap" }}>
+                {(markersLeft > 0 || marking) && (
+                  <Button
+                    variant={marking ? "contained" : "outlined"}
+                    color="warning"
+                    onClick={toggleMarkMode}
+                    startIcon={<GameIcon name={marking ? "cancel" : "fire"} />}
+                    aria-pressed={marking}
+                  >
+                    {marking ? "Dejar de marcar" : "Marcar en el mapa"}
+                  </Button>
+                )}
+                {game.markers.length > 0 && (
+                  <Button variant="text" color="inherit" onClick={() => session.undoMarker()} startIcon={<GameIcon name="undo" />}>
+                    Borrar última marca
+                  </Button>
+                )}
+              </Stack>
+            )}
           </Alert>
         )}
         {ordersCommitted ? (
@@ -286,7 +333,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         )}
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-          {!ordersCommitted && !game.extraTurn && (canBuyExtra || extraMode) && (
+          {!ordersCommitted && !marking && !game.extraTurn && (canBuyExtra || extraMode) && (
             <Button
               variant={extraMode ? "contained" : "outlined"}
               color="warning"
@@ -302,7 +349,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               Volver
             </Button>
           )}
-          {!ordersCommitted && ordersLeft <= 0 && (
+          {!ordersCommitted && ordersLeft <= 0 && markersLeft <= 0 && (
             <Button
               onClick={() => session.commitOrders() && play("stamp")}
               startIcon={<GameIcon name="confirm" />}

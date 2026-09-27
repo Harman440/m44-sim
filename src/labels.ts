@@ -9,7 +9,7 @@ import { ShotTarget } from "./data/hitRules";
 import { RollResult } from "./game-core/rollResult";
 import type { MoveLimits } from "./game-core/orderRules";
 import type { CoinEntry } from "./game-core/coins";
-import type { CombatPhase } from "./game-core/combatCard";
+import type { CombatPhase, MarkerRule } from "./game-core/combatCard";
 
 export const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
 
@@ -113,4 +113,17 @@ export const describeCoinEntry = (entry: CoinEntry): string => {
 export const COMBAT_PHASE_LABELS: Record<CombatPhase, string> = {
   order: "Con las órdenes",
   battle: "En la batalla",
+};
+
+/** What to mark on the map for a combat card */
+export const describeMarkerRule = ({ kind, count, chain, awayFromOwnUnits, nextTo }: MarkerRule): string => {
+  if (kind === "cross") {
+    return nextTo
+      ? `Marca con una cruz una casilla libre junto a una unidad tuya de ${UNIT_LABELS[nextTo].toLowerCase()}.`
+      : "Marca con una cruz la casilla libre donde aparece la unidad.";
+  }
+  const hexes = count === 1 ? "1 casilla" : `${count} casillas`;
+  if (chain) return `Marca ${hexes} en cadena: cada una junto a la anterior.`;
+  if (awayFromOwnUnits) return `Marca ${hexes} que no estén en tus unidades ni junto a ellas.`;
+  return `Marca ${hexes} sin unidades tuyas.`;
 };

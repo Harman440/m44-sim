@@ -23,6 +23,7 @@ Done so far (details in git history):
 - Step 22: drawing cards: keep the card drawn or swap it once (Gamble), Recon draws 3 and keeps 1, Preparations reminds the player of its reward
 - Step 23: coins: the counter and its ledger, stars earn coins, 2 coins or a combat card in the final phase, extra orders for 4 coins, Finest Hour paid in coins
 - Step 24: combat cards: the house deck (53 cards), 2 to start and at most 3 in hand, order cards played with the command card, one battle card per battle, drawn in the final phase
+- Step 25: map markers for combat cards (Barrage, Air Power, Air Bombardment, Sniper, Reinforcements) and reminders for tokens placed on the table
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -192,13 +193,14 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 
 ### Step 25: Map markers
 Several cards need you to mark hexes on your map during orders.
-- [ ] Marker tool on the orders map:
-  - a barrage hex
-  - an air power line (4 adjacent hexes)
-  - air bombardment (2 hexes, not next to your own units)
-  - a cross where a Sniper or Reinforcements will appear
-- [ ] Lasting tokens on the board: sandbags (Dig In, Fortify) and camouflage
-- [ ] Markers appear on the "Mostrar al rival" map (Step 17) and are saved
+- [x] Marker tool on the orders map ("Marcar en el mapa" on the order combat card, "Borrar última marca"); each card's rule is data (`CombatCard.marker`), checked in `game-core/markerRules.ts`:
+  - a barrage hex (not on your own units)
+  - an air power chain: 4 hexes, each next to the one marked before
+  - air bombardment: 2 hexes, not on or next to your own units
+  - a cross where a Sniper (an empty hex next to your infantry) or Reinforcements (any empty hex) will appear
+- [x] **Decided:** every hex must be marked before the orders can be confirmed ("Quitar" on the card clears the marks)
+- [x] **Decided:** lasting tokens (sandbags from Fortify, the camouflage badge) stay on the physical board; the final phase reminds the player to place them (`CombatCard.tableReminder`)
+- [x] Markers are drawn as targets or crosses (numbered when there are several) on the orders, movement, "Mostrar al rival" and battle maps, saved (`SAVE_VERSION` 11) and listed in the Historial
 
 ### Step 26: Combat card effects the app applies
 - [ ] Dice:

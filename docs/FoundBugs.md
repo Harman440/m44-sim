@@ -1,0 +1,5 @@
+- When showing opponent, show cards chosen
+- No scroll, only when showing lists. Everything should fit in the screen
+- option to go back after a card is chosen
+- option to see cards just as a preview
+- improve 

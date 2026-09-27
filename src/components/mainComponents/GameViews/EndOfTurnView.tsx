@@ -42,6 +42,10 @@ function EndOfTurnView({
   const drawChoice = chosenCard?.drawChoice ?? 1;
   const reward = chosenCard?.endOfTurnReward;
   const [showMap, setShowMap] = useState(false);
+  /** Tokens the combat cards played put on the physical board (sandbags, camouflage) */
+  const tableReminders = [game.orderCombatCard, game.battleCombatCard].flatMap((card) =>
+    card?.tableReminder ? [card.tableReminder] : []
+  );
   /** What's still needed before the next turn */
   const pendingStep =
     game.needsRewardChoice && !game.rewardChoice
@@ -70,6 +74,11 @@ function EndOfTurnView({
           Haz en la mesa las retiradas marcadas en la batalla. Después refleja en el mapa las unidades
           eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.
         </Typography>
+        {tableReminders.map((reminder) => (
+          <Alert key={reminder} severity="warning" icon={<GameIcon name="cards" />} sx={{ mt: 1.5 }} data-testid="table-reminder">
+            {reminder}
+          </Alert>
+        ))}
         <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
           <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
             Actualizar mapa

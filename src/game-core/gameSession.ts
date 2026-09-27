@@ -33,6 +33,7 @@ import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./
 import { STARTING_COINS } from "../data/coinRules";
 import { CombatCard } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
+import { canMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
@@ -98,6 +99,10 @@ export interface GameSnapshot {
   canPlayCombatCards: boolean;
   /** The order combat card played with the command card this turn */
   orderCombatCard: CombatCard | null;
+  /** Hexes marked on the map for the order combat card (Barrage, Air Power…), in the order marked */
+  markers: readonly Position[];
+  /** Hexes that can be marked next (empty outside giving orders, or when all are marked) */
+  markable: readonly Position[];
   /** The battle combat card played in this turn's battle (one per battle) */
   battleCombatCard: CombatCard | null;
   /** The combat card drawn in the final phase */
@@ -191,6 +196,7 @@ class GameSession {
   private readonly combatDeck: Deck<CombatCard>;
   private combatHand: CombatCard[];
   private orderCombatCard: CombatCard | null = null;
+  private markers: Position[] = [];
   private battleCombatCard: CombatCard | null = null;
   private drawnCombatCard: CombatCard | null = null;
   private readonly random: () => number;
@@ -374,6 +380,7 @@ class GameSession {
   commitOrders(): boolean {
     if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return false;
     if (this.remainingOrders() > 0) return false;
+    if (this.markersLeft() > 0) return false;
 
     this.ordersCommitted = true;
     return this.publish();
@@ -646,6 +653,40 @@ class GameSession {
 
     this.combatHand = [...this.combatHand, this.orderCombatCard];
     this.orderCombatCard = null;
+    this.markers = [];
+    return this.publish();
+  }
+
+  // Map markers: the hexes the order combat card targets, or where its unit appears
+
+  private markerRule() {
+    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return null;
+    return this.orderCombatCard?.marker ?? null;
+  }
+
+  private markersLeft(): number {
+    const rule = this.orderCombatCard?.marker;
+    return rule ? rule.count - this.markers.length : 0;
+  }
+
+  /** Mark a hex for the order combat card; see markerRules.ts for where */
+  markHex(position: Position): boolean {
+    const rule = this.markerRule();
+    if (!rule || !canMark(rule, this.board, this.markers, position)) return false;
+
+    this.markers = [...this.markers, { row: position.row, col: position.col }];
+    return this.publish();
+  }
+
+  private markableNow(): Position[] {
+    const rule = this.markerRule();
+    return rule ? markablePositions(rule, this.board, this.markers) : [];
+  }
+
+  undoMarker(): boolean {
+    if (!this.markerRule() || this.markers.length === 0) return false;
+
+    this.markers = this.markers.slice(0, -1);
     return this.publish();
   }
 
@@ -814,6 +855,7 @@ class GameSession {
       reward: this.rewardChoice,
       combatCardsPlayed: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
       combatCardDrawn: this.drawnCombatCard,
+      markers: this.markers,
     });
     this.log = [...this.log, record];
     this.startCoins = coins;
@@ -821,6 +863,7 @@ class GameSession {
     this.rewardChoice = null;
     [this.orderCombatCard, this.battleCombatCard].forEach((card) => card && this.combatDeck.discard(card));
     this.orderCombatCard = null;
+    this.markers = [];
     this.battleCombatCard = null;
     this.drawnCombatCard = null;
 
@@ -865,6 +908,7 @@ class GameSession {
       combatDiscardPile: this.combatDeck.discardPile,
       combatHand: this.combatHand,
       orderCombatCard: this.orderCombatCard,
+      markers: this.markers,
       battleCombatCard: this.battleCombatCard,
       drawnCombatCard: this.drawnCombatCard,
     });
@@ -903,6 +947,7 @@ class GameSession {
     session.combatDeck.restorePiles([...state.combatDrawPile], [...state.combatDiscardPile]);
     session.combatHand = state.combatHand;
     session.orderCombatCard = state.orderCombatCard;
+    session.markers = state.markers;
     session.battleCombatCard = state.battleCombatCard;
     session.drawnCombatCard = state.drawnCombatCard;
     session.snapshot = session.createSnapshot();
@@ -947,6 +992,8 @@ class GameSession {
       combatDrawPileCount: this.combatDeck.getDrawPileCount(),
       canPlayCombatCards: !this.extraTurn() && this.phase !== TurnPhase.AWAIT_ATTACKER,
       orderCombatCard: this.orderCombatCard,
+      markers: this.markers,
+      markable: this.markableNow(),
       battleCombatCard: this.battleCombatCard,
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),

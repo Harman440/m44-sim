@@ -271,3 +271,43 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
   });
 });
+
+describe("EndOfTurnView table reminders", () => {
+  it("reminds the player to put the sandbags of Fortify on the table", () => {
+    const fortify: CombatCard = {
+      id: "fortify",
+      name: "Fortificar",
+      description: "",
+      cost: 0,
+      phase: "battle",
+      tableReminder: "Fortificar: pon sacos terreros en la mesa, en una infantería o artillería.",
+    };
+    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards: [fortify],
+    });
+    session.startFirstTurn();
+    session.pickCard(card);
+    session.issueOrder(INFANTRY, INFANTRY);
+    session.commitOrders();
+    session.startMovement();
+    session.startBattle();
+    session.playBattleCombatCard(fortify);
+    session.endBattle();
+    render(<Harness session={session} />);
+
+    expect(screen.getByTestId("table-reminder")).toHaveTextContent("Fortificar: pon sacos terreros en la mesa");
+  });
+});

@@ -187,6 +187,11 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         Jugada: {card.name}
                       </Typography>
                     ))}
+                    {record.markers.length > 0 && (
+                      <Typography component="li" variant="body2">
+                        Marcas en el mapa: {record.markers.map(describePlace).join(" · ")}
+                      </Typography>
+                    )}
                     {record.combatCardDrawn && (
                       <Typography component="li" variant="body2">
                         Robada en la fase final: {record.combatCardDrawn.name}

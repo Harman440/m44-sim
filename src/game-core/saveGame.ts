@@ -17,7 +17,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 interface SavedUnit {
   type: UnitType;
@@ -67,6 +67,7 @@ export interface SavedGame {
   combatDiscardPile: string[];
   combatHand: string[];
   orderCombatCard: string | null;
+  markers: Position[];
   battleCombatCard: string | null;
   drawnCombatCard: string | null;
 }
@@ -97,9 +98,22 @@ export interface SessionState {
   combatDiscardPile: readonly CombatCard[];
   combatHand: CombatCard[];
   orderCombatCard: CombatCard | null;
+  /** Hexes marked for the order combat card */
+  markers: Position[];
   battleCombatCard: CombatCard | null;
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
+}
+
+const isPosition = (value: unknown): value is Position =>
+  typeof value === "object" &&
+  value !== null &&
+  Number.isInteger((value as Position).row) &&
+  Number.isInteger((value as Position).col);
+
+function readMarkers(markers: unknown): Position[] {
+  if (!Array.isArray(markers) || !markers.every(isPosition)) throw new Error("Markers are not a list of hexes");
+  return markers.map(({ row, col }) => ({ row, col }));
 }
 
 export function writeSave(scenarioId: string, faction: Faction, board: BoardManager, state: SessionState): SavedGame {
@@ -166,6 +180,7 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     combatDiscardPile: ids(state.combatDiscardPile),
     combatHand: ids(state.combatHand),
     orderCombatCard: state.orderCombatCard?.id ?? null,
+    markers: state.markers.map((p) => ({ ...p })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     units: savedUnits,
@@ -292,6 +307,7 @@ export function readSave(
     combatDiscardPile: saved.combatDiscardPile.map(combatCard),
     combatHand: saved.combatHand.map(combatCard),
     orderCombatCard: combatCardOrNull(saved.orderCombatCard),
+    markers: readMarkers(saved.markers),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
   };

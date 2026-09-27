@@ -10,6 +10,7 @@ import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
 import Unit from '../game-core/unit';
 import Stamp from './Stamp';
+import type { MarkerRule } from '../game-core/combatCard';
 
 /** A hex to flash red; a new `id` restarts the animation on the same hex */
 export interface HexFlash {
@@ -33,6 +34,11 @@ interface BoardProps {
   firedUnits?: ReadonlySet<Unit>;
   /** Units that can still be ordered, ringed */
   orderablePositions?: readonly Position[];
+  /** Hexes marked for a combat card, drawn as targets or crosses */
+  markers?: readonly Position[];
+  markerKind?: MarkerRule['kind'];
+  /** Hexes that can be marked next, highlighted */
+  markablePositions?: readonly Position[];
   hexSize?: number;
   faction: Faction;
 }
@@ -49,6 +55,9 @@ function Board({
   locked = false,
   firedUnits,
   orderablePositions = [],
+  markers = [],
+  markerKind = 'target',
+  markablePositions = [],
   hexSize = 50,
   faction
 }: BoardProps) {
@@ -61,6 +70,7 @@ function Board({
     // Move-and-fire wins over move-only: every move-and-fire hex is also a move hex
     if (includesPosition(possibleMoveAndFirePositions, position)) return 'move-and-fire';
     if (includesPosition(possibleMovePositions, position)) return 'move';
+    if (includesPosition(markablePositions, position)) return 'mark';
     return null;
   };
 
@@ -75,6 +85,37 @@ function Board({
       />
     ));
   };
+
+  /** A target (attack) or a cross (a unit appears), like pencil on the paper map */
+  const renderMarkers = () =>
+    markers.map((position, i) => {
+      const { x, y } = geometry.hexCenter(position);
+      const r = hexSize * 0.55;
+      return (
+        <g
+          key={positionKey(position)}
+          className={`board__marker board__marker--${markerKind}`}
+          data-marker={positionKey(position)}
+          pointerEvents="none"
+          filter="url(#board-pencil)"
+        >
+          {markerKind === 'cross' ? (
+            <path d={`M ${x - r} ${y - r} L ${x + r} ${y + r} M ${x + r} ${y - r} L ${x - r} ${y + r}`} />
+          ) : (
+            <>
+              <circle cx={x} cy={y} r={r} />
+              <circle cx={x} cy={y} r={r * 0.45} />
+              <path d={`M ${x - r * 1.25} ${y} L ${x + r * 1.25} ${y} M ${x} ${y - r * 1.25} L ${x} ${y + r * 1.25}`} />
+            </>
+          )}
+          {markers.length > 1 && (
+            <text x={x + r * 0.9} y={y - r * 0.9} className="board__marker-number">
+              {i + 1}
+            </text>
+          )}
+        </g>
+      );
+    });
 
   const renderBoard = () => {
     const tiles = [];
@@ -158,8 +199,11 @@ function Board({
         {/* Layer 2: Hexagon tiles*/}
         {renderBoard()}
 
-        {/* Layer 3: Orders (top layer) */}
+        {/* Layer 3: Orders */}
         {renderOrders()}
+
+        {/* Layer 4: Combat card markers (top layer) */}
+        {renderMarkers()}
       </svg>
       {locked && (
         <div className="board__stamp">

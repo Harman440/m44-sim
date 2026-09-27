@@ -34,6 +34,8 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           possibleMoveAndFirePositions={[]}
           boardManager={session.board}
           orders={game.orders}
+          markers={game.markers}
+          markerKind={game.orderCombatCard?.marker?.kind}
           backgroundImage={session.scenario.image}
           faction={faction}
         />

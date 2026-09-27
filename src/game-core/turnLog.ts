@@ -57,6 +57,8 @@ export interface TurnRecord {
   combatCardsPlayed: { id: string; name: string }[];
   /** The combat card drawn in the final phase */
   combatCardDrawn: { id: string; name: string } | null;
+  /** Hexes marked for the order combat card */
+  markers: Position[];
 }
 
 interface TurnState {
@@ -72,6 +74,7 @@ interface TurnState {
   reward: RewardChoice | null;
   combatCardsPlayed: readonly CombatCard[];
   combatCardDrawn: CombatCard | null;
+  markers: readonly Position[];
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
@@ -87,6 +90,7 @@ export function recordTurn({
   reward,
   combatCardsPlayed,
   combatCardDrawn,
+  markers,
 }: TurnState): TurnRecord {
   return {
     turn,
@@ -119,6 +123,7 @@ export function recordTurn({
     reward,
     combatCardsPlayed: combatCardsPlayed.map(({ id, name }) => ({ id, name })),
     combatCardDrawn: combatCardDrawn && { id: combatCardDrawn.id, name: combatCardDrawn.name },
+    markers: markers.map((p) => ({ ...p })),
   };
 }
 

@@ -33,3 +33,22 @@
   justify-content: center;
   pointer-events: none;
 }
+
+/* Combat card markers: a target to attack, a cross where a unit appears */
+.board__marker {
+  fill: none;
+  stroke: var(--m44-accent, #e53935);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.board__marker-number {
+  fill: var(--m44-accent, #e53935);
+  stroke: var(--m44-paper, #fff);
+  stroke-width: 3;
+  paint-order: stroke;
+  font-family: var(--m44-font-display);
+  font-size: 26px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
