@@ -10,19 +10,27 @@ import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fi
 import { COLLISION_NOTES, FIRE_QUESTIONS, collisionSteps, fireBonusSteps } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
+import { Side } from "../types/hex";
 import { Faction } from "../types/faction";
 import { positionKey, samePosition } from "./position";
 import {
+  EXTRA_SLOT,
   MoveLimits,
   OrderContext,
   OrderSlot,
+  canBuyExtraOrder,
+  cardOrdersLeft,
+  extraOrderablePositions,
   fallbackCard,
   moveLimits,
   orderSlots,
   orderablePositions,
   ordersLeft,
   sameSlot,
+  slotCost,
 } from "./orderRules";
+import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
+import { STARTING_COINS } from "../data/coinRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
@@ -50,8 +58,12 @@ export interface GameSnapshot {
   orders: readonly Order[];
   /** The most orders the player can still give with this card */
   ordersLeft: number;
-  /** Units that can still be ordered (empty outside giving orders) */
+  /** The card's orders still to give, including optional ones paid in coins (Finest Hour) */
+  cardOrdersLeft: number;
+  /** Units that the card can still order (empty outside giving orders) */
   orderable: readonly Position[];
+  /** Units that can take an extra order bought with coins (empty outside giving orders, or without the coins) */
+  extraOrderable: readonly Position[];
   /** With a Close Assault card, in the battle: units that can still be marked as in close assault */
   closeAssaultMarkable: readonly Position[];
   ordersCommitted: boolean;
@@ -67,6 +79,16 @@ export interface GameSnapshot {
   log: readonly TurnRecord[];
   /** The attacker's extra first turn, before the defender plays (no combat cards or coins) */
   extraTurn: boolean;
+  /** Coins the player has now */
+  coins: number;
+  /** How this turn earned and spent coins, in the order of the ledger */
+  coinEntries: readonly CoinEntry[];
+  /** Coins can be added or taken by hand now (not in the extra turn, nor while waiting for it) */
+  canAdjustCoins: boolean;
+  /** Final phase: 2 coins or a combat card, once chosen */
+  rewardChoice: RewardChoice | null;
+  /** The final phase asks for the choice (not in the extra turn, nor after a card that gives its own reward) */
+  needsRewardChoice: boolean;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -143,6 +165,10 @@ class GameSession {
   private shots: Shot[] = [];
   private unmovedFireSkipped = false;
   private log: TurnRecord[] = [];
+  /** Coins at the start of this turn; this turn's ledger adds to it */
+  private startCoins = STARTING_COINS;
+  private coinAdjustments: number[] = [];
+  private rewardChoice: RewardChoice | null = null;
   private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
@@ -216,7 +242,7 @@ class GameSession {
   private orderContext(): OrderContext | null {
     const card = this.activeCard();
     if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !card) return null;
-    return { card, chosenSection: this.chosenSection, board: this.board, orders: this.orders };
+    return { card, chosenSection: this.chosenSection, board: this.board, orders: this.orders, coins: this.coins() };
   }
 
   private remainingOrders(): number {
@@ -241,7 +267,7 @@ class GameSession {
     const hex = this.board.getHex(position);
     const unit = hex?.unit;
     if (!context || !hex || !unit) return null;
-    const slots = orderSlots(context, unit, hex.getSide());
+    const slots = this.slotsFor(context, unit, hex.getSide(), slot);
     const moveSlot = slot ? this.slotFor(slots, slot) : (slots.find((s) => !s.onTheMove) ?? slots[0]);
     if (!moveSlot) return null;
 
@@ -265,12 +291,22 @@ class GameSession {
     const hex = this.board.getHex(from);
     const unit = hex?.unit;
     if (!context || !hex || !unit) return false;
-    const chosen = this.slotFor(orderSlots(context, unit, hex.getSide()), slot);
+    const chosen = this.slotFor(this.slotsFor(context, unit, hex.getSide(), slot), slot);
     if (!chosen) return false;
     const limits = moveLimits(context.card, unit, chosen);
+    const cost = slotCost(context.card, unit, chosen);
+    if (cost > context.coins) return false;
 
     let order: Order;
-    const props = { unit, start: from, end: to, section: chosen.section, onTheMove: chosen.onTheMove };
+    const props = {
+      unit,
+      start: from,
+      end: to,
+      section: chosen.section,
+      onTheMove: chosen.onTheMove,
+      extra: chosen.extra ?? false,
+      cost,
+    };
     if (samePosition(from, to)) {
       order = new Order({ ...props, path: [from], shots: limits.holdShots });
     } else {
@@ -283,6 +319,12 @@ class GameSession {
 
     this.orders = [...this.orders, order];
     return this.publish();
+  }
+
+  /** The card's slots for the unit, or the extra order bought with coins when that's what's asked for */
+  private slotsFor(context: OrderContext, unit: Unit, side: Side, slot?: OrderSlot): OrderSlot[] {
+    if (!slot?.extra) return orderSlots(context, unit, side);
+    return !this.extraTurn() && canBuyExtraOrder(context, unit) ? [EXTRA_SLOT] : [];
   }
 
   undoLastOrder(): boolean {
@@ -375,7 +417,7 @@ class GameSession {
     const order = this.orders[orderIndex]!;
     const context = {
       unitType: order.unit.getUnitType(),
-      card: this.activeCard(),
+      card: this.cardFor(order),
       closeAssaultOnly: order.closeAssaultOnly,
     };
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
@@ -411,10 +453,15 @@ class GameSession {
     if (samePosition(order.start, order.end)) return false;
     if (this.shots.some((shot) => shot.orderIndex === orderIndex)) return false;
 
-    const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.activeCard() });
+    const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.cardFor(order) });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     const target = { unitType: targetType, closeAssault: true };
     return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true);
+  }
+
+  /** The card whose bonuses the order gets: none for an extra order bought with coins */
+  private cardFor(order: Order): CommandCard | null {
+    return order.extra ? null : this.activeCard();
   }
 
   // Close Assault card: no orders; in the battle the player marks each unit
@@ -447,7 +494,7 @@ class GameSession {
   undoCloseAssaultMark(): boolean {
     if (!this.canMarkCloseAssault()) return false;
     const index = this.orders.length - 1;
-    if (index < 0 || this.shots.some((shot) => shot.orderIndex === index)) return false;
+    if (!this.orders[index]?.closeAssaultOnly || this.shots.some((shot) => shot.orderIndex === index)) return false;
 
     this.orders = this.orders.slice(0, -1);
     return this.publish();
@@ -474,6 +521,65 @@ class GameSession {
     const faces = rollDice(dice, this.random);
     const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target };
     this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
+  // --- coins: earned and spent through the turn; `turnCoins` works out the ledger
+
+  private extraTurn(): boolean {
+    return this.attacking && this.turn === 1;
+  }
+
+  private turnCoinEntries(): CoinEntry[] {
+    const endOfTurn = this.phase === TurnPhase.END_OF_TURN;
+    return turnCoins({
+      orders: this.orders,
+      shots: this.shots,
+      adjustments: this.coinAdjustments,
+      reward: this.rewardChoice,
+      cardReward: endOfTurn ? (this.chosenCard?.endOfTurnReward?.coins ?? 0) : 0,
+      extraTurn: this.extraTurn(),
+    });
+  }
+
+  /** Coins the player has now. It can drop below 0 only when a shot that earned coins already spent is undone. */
+  private coins(): number {
+    return this.startCoins + sumCoins(this.turnCoinEntries());
+  }
+
+  private canAdjustCoins(): boolean {
+    return this.phase !== TurnPhase.AWAIT_ATTACKER && !this.extraTurn();
+  }
+
+  /**
+   * Add (or, negative, take) coins by hand, e.g. to pay for a combat card
+   * played at the table. The player can't spend more than they have.
+   */
+  adjustCoins(amount: number): boolean {
+    if (!Number.isInteger(amount) || amount === 0 || !this.canAdjustCoins()) return false;
+    if (amount < 0 && this.coins() + amount < 0) return false;
+
+    this.coinAdjustments = [...this.coinAdjustments, amount];
+    return this.publish();
+  }
+
+  /** Take back this turn's last change by hand */
+  undoCoinAdjustment(): boolean {
+    if (!this.canAdjustCoins() || this.coinAdjustments.length === 0) return false;
+
+    this.coinAdjustments = this.coinAdjustments.slice(0, -1);
+    return this.publish();
+  }
+
+  private needsRewardChoice(): boolean {
+    return this.phase === TurnPhase.END_OF_TURN && !this.extraTurn() && !this.chosenCard?.endOfTurnReward;
+  }
+
+  /** Final phase: take 2 coins or a combat card; it can be changed until the turn ends */
+  chooseReward(choice: RewardChoice): boolean {
+    if (!this.needsRewardChoice() || !isRewardChoice(choice)) return false;
+
+    this.rewardChoice = choice;
     return this.publish();
   }
 
@@ -571,8 +677,10 @@ class GameSession {
 
   endTurn(): boolean {
     if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || !this.drawnCard) return false;
+    if (this.needsRewardChoice() && !this.rewardChoice) return false;
 
     const playedCard = this.chosenCard;
+    const coins = this.coins();
     const record = recordTurn({
       turn: this.turn,
       card: playedCard,
@@ -580,8 +688,14 @@ class GameSession {
       shots: this.shots,
       battleEdits: this.battleEdits,
       board: this.board,
+      coins: this.turnCoinEntries(),
+      coinsAfter: coins,
+      reward: this.rewardChoice,
     });
     this.log = [...this.log, record];
+    this.startCoins = coins;
+    this.coinAdjustments = [];
+    this.rewardChoice = null;
 
     this.chosenCard = null;
     this.chosenSection = null;
@@ -617,6 +731,9 @@ class GameSession {
       battleEdits: this.battleEdits,
       shots: this.shots,
       log: this.log,
+      startCoins: this.startCoins,
+      coinAdjustments: this.coinAdjustments,
+      rewardChoice: this.rewardChoice,
     });
   }
 
@@ -641,6 +758,9 @@ class GameSession {
     session.battleEdits = state.battleEdits;
     session.shots = state.shots;
     session.log = state.log;
+    session.startCoins = state.startCoins;
+    session.coinAdjustments = state.coinAdjustments;
+    session.rewardChoice = state.rewardChoice;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -662,7 +782,9 @@ class GameSession {
       drewAgain: this.drewAgain,
       orders: this.orders,
       ordersLeft: orderContext ? ordersLeft(orderContext) : 0,
+      cardOrdersLeft: orderContext ? cardOrdersLeft(orderContext) : 0,
       orderable: orderContext ? orderablePositions(orderContext) : [],
+      extraOrderable: orderContext && !this.extraTurn() ? extraOrderablePositions(orderContext) : [],
       closeAssaultMarkable: this.closeAssaultMarkable(),
       ordersCommitted: this.ordersCommitted,
       battleEdits: this.battleEdits.length,
@@ -671,7 +793,12 @@ class GameSession {
       shots: this.shots,
       unmovedFireSkipped: this.unmovedFireSkipped,
       log: this.log,
-      extraTurn: this.attacking && this.turn === 1,
+      extraTurn: this.extraTurn(),
+      coins: this.coins(),
+      coinEntries: this.turnCoinEntries(),
+      canAdjustCoins: this.canAdjustCoins(),
+      rewardChoice: this.rewardChoice,
+      needsRewardChoice: this.needsRewardChoice(),
     };
   }
 

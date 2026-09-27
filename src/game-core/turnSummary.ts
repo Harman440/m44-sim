@@ -19,6 +19,8 @@ export interface OrderSummary {
   canFire: boolean;
   /** Marked for a Close Assault card: it fires only at an adjacent enemy */
   closeAssaultOnly: boolean;
+  /** An extra order bought with coins: it fires without the card's bonuses */
+  extra: boolean;
   /** The unit has since been removed from the board (destroyed in battle) */
   removed: boolean;
   /** Shots this unit has fired this turn */
@@ -70,6 +72,7 @@ function summarizeEach(
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
       closeAssaultOnly: order.closeAssaultOnly,
+      extra: order.extra,
       removed,
       shots: unitShots,
       skipped,

@@ -168,7 +168,8 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
       <FireDialog
         key={firingIndex ?? "closed"}
         summary={firing}
-        card={game.activeCard}
+        // An extra order bought with coins gets none of the card's bonuses
+        card={firing?.extra ? null : game.activeCard}
         faction={faction}
         onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
         onQuickFire={(dice, target) =>

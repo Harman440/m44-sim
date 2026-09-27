@@ -32,11 +32,10 @@ function FlankDiagram({ card }: { card: CommandCard }) {
     );
 }
 
-/** The big number on the card and its word: orders, points, "Todas" or none */
+/** The big number on the card and its word: orders, "Todas" or none */
 function orderCount(card: CommandCard): { count: string; unit: string } {
     if (card.closeAssaultOnly || card.orders === 0) return { count: "0", unit: "órdenes" };
     if (card.orders === "all") return { count: "Todas", unit: "las unidades" };
-    if (Object.keys(card.orderCost).length > 0) return { count: String(card.orders), unit: "puntos" };
     return { count: String(card.orders), unit: card.orders === 1 ? "orden" : "órdenes" };
 }
 
@@ -46,6 +45,7 @@ function ruleTags(card: CommandCard): string[] {
     if (card.unitTypes) tags.push(`Solo ${card.unitTypes.map((type) => UNIT_LABELS[type].toLowerCase()).join(", ")}`);
     if (card.choosesSection) tags.push("Sección a elegir");
     if (card.perSection !== null) tags.push(`${card.perSection} por sección`);
+    if (card.paidInCoins) tags.push("Cuesta monedas");
     if (card.onTheMove > 0) tags.push(`+${card.onTheMove} en movimiento`);
     if (card.noMove) tags.push("Sin mover");
     if (card.closeAssaultOnly) tags.push("Asalto cercano");

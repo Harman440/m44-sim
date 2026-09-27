@@ -13,9 +13,10 @@ import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
 import type { BattleEdit, Shot } from "./gameSession";
 import type { TurnRecord } from "./turnLog";
+import { RewardChoice, isRewardChoice } from "./coins";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 interface SavedUnit {
   type: UnitType;
@@ -46,6 +47,8 @@ export interface SavedGame {
     shots: number;
     section: Section | null;
     onTheMove: boolean;
+    extra: boolean;
+    cost: number;
     closeAssaultOnly: boolean;
   }[];
   ordersCommitted: boolean;
@@ -56,6 +59,9 @@ export interface SavedGame {
   )[];
   shots: Shot[];
   log: TurnRecord[];
+  startCoins: number;
+  coinAdjustments: number[];
+  rewardChoice: RewardChoice | null;
 }
 
 /** Everything a GameSession keeps between actions, apart from the board's units */
@@ -76,6 +82,10 @@ export interface SessionState {
   battleEdits: BattleEdit[];
   shots: Shot[];
   log: TurnRecord[];
+  /** Coins at the start of this turn */
+  startCoins: number;
+  coinAdjustments: number[];
+  rewardChoice: RewardChoice | null;
 }
 
 export function writeSave(scenarioId: string, faction: Faction, board: BoardManager, state: SessionState): SavedGame {
@@ -117,6 +127,8 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
       shots: order.shots,
       section: order.section,
       onTheMove: order.onTheMove,
+      extra: order.extra,
+      cost: order.cost,
       closeAssaultOnly: order.closeAssaultOnly,
     })),
     battleEdits: state.battleEdits.map((edit) =>
@@ -133,6 +145,9 @@ export function writeSave(scenarioId: string, faction: Faction, board: BoardMana
     })),
     // Records are plain data that is never mutated, so they can be shared
     log: [...state.log],
+    startCoins: state.startCoins,
+    coinAdjustments: [...state.coinAdjustments],
+    rewardChoice: state.rewardChoice,
     units: savedUnits,
   };
 }
@@ -189,6 +204,8 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
         shots: order.shots,
         section: section(order.section),
         onTheMove: order.onTheMove,
+        extra: order.extra,
+        cost: order.cost,
         closeAssaultOnly: order.closeAssaultOnly,
       })
   );
@@ -207,6 +224,15 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
       throw new Error(`Unknown die face in turn ${record.turn}`);
     }
   });
+
+  const isCount = (value: unknown) => Number.isInteger(value);
+  if (!isCount(saved.startCoins)) throw new Error("Coins are not a number");
+  if (!Array.isArray(saved.coinAdjustments) || !saved.coinAdjustments.every(isCount)) {
+    throw new Error("Coin adjustments are not a list of numbers");
+  }
+  if (saved.rewardChoice !== null && !isRewardChoice(saved.rewardChoice)) {
+    throw new Error(`Unknown reward ${saved.rewardChoice}`);
+  }
 
   return {
     turn: saved.turn,
@@ -227,5 +253,8 @@ export function readSave(saved: SavedGame, board: BoardManager, commandCards: re
     ),
     shots,
     log: saved.log,
+    startCoins: saved.startCoins,
+    coinAdjustments: [...saved.coinAdjustments],
+    rewardChoice: saved.rewardChoice,
   };
 }

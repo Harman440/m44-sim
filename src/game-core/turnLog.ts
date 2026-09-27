@@ -9,6 +9,7 @@ import { positionKey } from "./position";
 import { Position } from "../types/scenario";
 import type { BattleEdit, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
+import type { CoinEntry, RewardChoice } from "./coins";
 
 /**
  * One finished turn as plain JSON: what was played, ordered, rolled and
@@ -45,6 +46,12 @@ export interface TurnRecord {
     | { kind: "remove"; unit: UnitType; position: Position }
     | { kind: "move"; unit: UnitType; from: Position; to: Position }
   )[];
+  /** How the turn earned and spent coins */
+  coins: CoinEntry[];
+  /** Coins at the end of the turn */
+  coinsAfter: number;
+  /** Final phase: 2 coins or a combat card; null in the extra turn or after a card with its own reward */
+  reward: RewardChoice | null;
 }
 
 interface TurnState {
@@ -55,10 +62,23 @@ interface TurnState {
   battleEdits: readonly BattleEdit[];
   /** The board after the battle edits, to find which unit each move was */
   board: BoardManager;
+  coins: readonly CoinEntry[];
+  coinsAfter: number;
+  reward: RewardChoice | null;
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
-export function recordTurn({ turn, card, orders, shots, battleEdits, board }: TurnState): TurnRecord {
+export function recordTurn({
+  turn,
+  card,
+  orders,
+  shots,
+  battleEdits,
+  board,
+  coins,
+  coinsAfter,
+  reward,
+}: TurnState): TurnRecord {
   return {
     turn,
     card: { id: card.id, name: card.name },
@@ -85,6 +105,9 @@ export function recordTurn({ turn, card, orders, shots, battleEdits, board }: Tu
         ? { kind: "remove", unit, position: { ...edit.position } }
         : { kind: "move", unit, from: { ...edit.from }, to: { ...edit.to } };
     }),
+    coins: coins.map((entry) => ({ ...entry })),
+    coinsAfter,
+    reward,
   };
 }
 

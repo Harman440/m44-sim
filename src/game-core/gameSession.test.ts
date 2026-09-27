@@ -77,6 +77,7 @@ const finishTurn = (session: GameSession) => {
   if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
   expect(session.drawCard()).toBe(true);
   expect(session.keepCard(session.getSnapshot().drawOptions[0]!)).toBe(true);
+  if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("combatCard")).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
 
@@ -1183,7 +1184,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 7 as 8 })).toThrow();
+    expect(broken({ version: 8 as 9 })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
     expect(broken({ phase: "BATTLE" as never })).toThrow();
@@ -1192,6 +1193,206 @@ describe("GameSession saving and restoring", () => {
     const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, target: { unitType: UnitType.INFANTRY, closeAssault: false } };
     expect(broken({ shots: [{ ...shot, orderIndex: 5 }] })).toThrow();
     expect(broken({ chosenSection: "middle" as never })).toThrow();
+    expect(broken({ startCoins: "3" as never })).toThrow();
+    expect(broken({ coinAdjustments: [1.5] })).toThrow();
+    expect(broken({ rewardChoice: "gold" as never })).toThrow();
     expect(broken({ units: [{ ...saved.units[0]!, position: { row: 40, col: 0 } }] })).toThrow();
+  });
+});
+
+describe("GameSession coins", () => {
+  const defender = { ...scenario, attacker: "Axis" as const };
+  const coinCards = () => [
+    new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2, fireBonus: [{ dice: 1 }] }),
+    new CommandCard({
+      id: "finest",
+      orders: 4,
+      coinCost: { [UnitType.INFANTRY]: 1, [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
+    }),
+    new CommandCard({ id: "close", closeAssaultOnly: true }),
+  ];
+
+  /** The defender at turn 2 (no extra turn), with every card in hand, `coins` added by hand and `cardId` played */
+  const turnWithCoins = (coins: number, cardId: string, random = () => 0) => {
+    const commandCards = coinCards();
+    const session = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 3, commandCards, random });
+    session.startFirstTurn();
+    if (coins > 0) expect(session.adjustCoins(coins)).toBe(true);
+    expect(session.pickCard(commandCards.find((c) => c.id === cardId)!)).toBe(true);
+    return session;
+  };
+
+  const RIGHT_INF: Position = { row: 8, col: 11 };
+  const LEFT_CENTER_INF: Position = { row: 7, col: 3 };
+  const EXTRA = { section: null, onTheMove: false, extra: true };
+
+  it("starts with none", () => {
+    expect(makeSession().getSnapshot()).toMatchObject({ coins: 0, coinEntries: [] });
+  });
+
+  it("earns 1 coin per star rolled in battle, and gives it back if the shot is undone", () => {
+    const session = turnWithCoins(0, "left", () => 0.7); // every die a star
+    orderAllAndFight(session);
+
+    session.fireQuick(0, 3, AT_INFANTRY);
+
+    expect(session.getSnapshot().coins).toBe(3);
+    expect(session.getSnapshot().coinEntries).toEqual([{ kind: "stars", amount: 3, unit: UnitType.INFANTRY }]);
+    session.undoShot(0);
+    expect(session.getSnapshot().coins).toBe(0);
+  });
+
+  it("earns nothing for a star that hit (artillery in close assault)", () => {
+    const session = turnWithCoins(0, "left", () => 0.7);
+    orderAllAndFight(session);
+
+    session.fireQuick(0, 2, { unitType: UnitType.ARTILLERY, closeAssault: true });
+
+    expect(session.getSnapshot().coins).toBe(0);
+  });
+
+  it("earns nothing in the attacker's extra turn, and can't be changed by hand there", () => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0.7 });
+    expect(session.adjustCoins(4)).toBe(false);
+    session.pickCard(commandCards[0]!);
+    orderAllAndFight(session);
+
+    session.fireQuick(0, 3, AT_INFANTRY);
+    session.endBattle();
+
+    expect(session.getSnapshot()).toMatchObject({ coins: 0, canAdjustCoins: false, needsRewardChoice: false });
+    expect(session.chooseReward("coins")).toBe(false);
+  });
+
+  it("buys an extra order for 4 coins, for any unit, without using the card's orders", () => {
+    const session = turnWithCoins(5, "left");
+    expect(session.getSnapshot().extraOrderable).toHaveLength(4);
+    expect(session.getSnapshot().orderable.map(positionKey)).not.toContain(positionKey(RIGHT_INF));
+
+    expect(session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA)).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ coins: 1, ordersLeft: 2, extraOrderable: [] });
+    expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
+    expect(session.getSnapshot().coinEntries).toEqual([
+      { kind: "extraOrder", amount: -4, unit: UnitType.INFANTRY },
+      { kind: "adjustment", amount: 5 },
+    ]);
+    expect(session.issueOrder(TANK, TANK, EXTRA)).toBe(false);
+  });
+
+  it("gives the coins back when the extra order is undone", () => {
+    const session = turnWithCoins(4, "left");
+    session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA);
+
+    session.undoLastOrder();
+
+    expect(session.getSnapshot().coins).toBe(4);
+  });
+
+  it("moves an extra order like the unit, and fires it without the card's bonus", () => {
+    const session = turnWithCoins(4, "left");
+    const options = session.getMoveOptions(RIGHT_INF, EXTRA)!;
+    expect(options.slots).toEqual([EXTRA]);
+    expect(options.limits).toEqual({ maxMove: 2, moveAndFire: 1, holdShots: 1 });
+    session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA);
+    orderAllAndFight(session);
+    const answers = { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no" };
+
+    session.fire(0, answers); // the extra order
+    session.fire(1, answers); // a card order
+
+    expect(session.getSnapshot().shots.map((shot) => shot.dice)).toEqual([2, 3]);
+  });
+
+  it("charges Finest Hour's orders in coins, up to what the player has", () => {
+    const session = turnWithCoins(3, "finest");
+    expect(session.getSnapshot()).toMatchObject({ ordersLeft: 0, cardOrdersLeft: 4 });
+
+    expect(session.issueOrder(TANK, TANK)).toBe(true);
+    expect(session.getSnapshot().coins).toBe(1);
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ coins: 0, cardOrdersLeft: 2, orderable: [] });
+    expect(session.issueOrder(RIGHT_INF, RIGHT_INF)).toBe(false);
+    expect(session.commitOrders()).toBe(true);
+  });
+
+  it("lets the player pay and add coins by hand, never below 0, and undo it", () => {
+    const session = turnWithCoins(3, "left");
+
+    expect(session.adjustCoins(-4)).toBe(false);
+    expect(session.adjustCoins(-2)).toBe(true);
+    expect(session.adjustCoins(0)).toBe(false);
+    expect(session.adjustCoins(1.5)).toBe(false);
+    expect(session.getSnapshot().coins).toBe(1);
+
+    expect(session.undoCoinAdjustment()).toBe(true);
+    expect(session.getSnapshot().coins).toBe(3);
+  });
+
+  it("doesn't take back an extra order when undoing a Close Assault mark", () => {
+    const session = turnWithCoins(4, "close");
+    session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA);
+    session.commitOrders();
+    session.startMovement();
+    session.startBattle();
+
+    expect(session.undoCloseAssaultMark()).toBe(false);
+    expect(session.getSnapshot().orders).toHaveLength(1);
+  });
+
+  it("asks for 2 coins or a combat card in the final phase, and carries the coins into the next turn", () => {
+    const session = turnWithCoins(0, "left");
+    orderAllAndFight(session);
+    session.endBattle();
+    session.drawCard();
+    session.keepCard(session.getSnapshot().drawOptions[0]!);
+    expect(session.getSnapshot().needsRewardChoice).toBe(true);
+    expect(session.endTurn()).toBe(false);
+
+    session.chooseReward("combatCard");
+    expect(session.getSnapshot().coins).toBe(0);
+    session.chooseReward("coins");
+    expect(session.getSnapshot().coins).toBe(2);
+    expect(session.endTurn()).toBe(true);
+
+    const snapshot = session.getSnapshot();
+    expect(snapshot).toMatchObject({ coins: 2, coinEntries: [], rewardChoice: null });
+    expect(snapshot.log.at(-1)).toMatchObject({
+      coins: [{ kind: "endOfTurn", amount: 2 }],
+      coinsAfter: 2,
+      reward: "coins",
+    });
+  });
+
+  it("gives a card's own reward instead of the choice (Preparations)", () => {
+    const commandCards = [
+      new CommandCard({ id: "prep", sections: [Side.LEFT], orders: 1, endOfTurnReward: { coins: 3, combatCard: true } }),
+    ];
+    const session = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 1, commandCards });
+    session.startFirstTurn();
+    session.pickCard(commandCards[0]!);
+    orderAllAndFight(session);
+    expect(session.getSnapshot().coins).toBe(0);
+
+    session.endBattle();
+
+    expect(session.getSnapshot()).toMatchObject({ coins: 3, needsRewardChoice: false });
+    expect(session.chooseReward("coins")).toBe(false);
+  });
+
+  it("keeps the coins, this turn's changes and extra orders after a reload", () => {
+    const session = turnWithCoins(6, "left");
+    session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA);
+    session.adjustCoins(-1);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, coinCards());
+
+    expect(restored.getSnapshot().coins).toBe(1);
+    expect(restored.getSnapshot().coinEntries).toEqual(session.getSnapshot().coinEntries);
+    expect(restored.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
+    expect(restored.undoCoinAdjustment()).toBe(true);
+    expect(restored.getSnapshot().coins).toBe(2);
   });
 });

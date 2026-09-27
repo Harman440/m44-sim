@@ -50,6 +50,7 @@ function Harness({ session }: { session: GameSession }) {
       onDrawCard={() => session.drawCard()}
       onKeepCard={(card) => session.keepCard(card)}
       onDrawAgain={() => session.drawAgain()}
+      onChooseReward={(choice) => session.chooseReward(choice)}
       onEndTurn={() => session.endTurn()}
     />
   );

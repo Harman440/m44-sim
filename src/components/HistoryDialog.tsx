@@ -12,7 +12,17 @@ import {
 import GameSession from "../game-core/gameSession";
 import { TurnRecord } from "../game-core/turnLog";
 import { Position } from "../types/scenario";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeFaces, describeRoll, describeTarget } from "../labels";
+import {
+  SECTION_LABELS,
+  TERRAIN_LABELS,
+  UNIT_LABELS,
+  coinsText,
+  describeCoinEntry,
+  describeFaces,
+  describeRoll,
+  describeTarget,
+  signedCoins,
+} from "../labels";
 import { readRoll } from "../game-core/rollResult";
 import { downloadJson } from "../download";
 import { orderColor } from "./OrderComponent";
@@ -151,6 +161,25 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                   ))}
                 </Box>
               )}
+
+              <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
+                Monedas
+              </Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-coins">
+                {record.coins.map((entry, i) => (
+                  <Typography component="li" variant="body2" key={i}>
+                    {describeCoinEntry(entry)}: {signedCoins(entry.amount)}
+                  </Typography>
+                ))}
+                {record.reward === "combatCard" && (
+                  <Typography component="li" variant="body2">
+                    Fase final: carta de combate
+                  </Typography>
+                )}
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Al terminar el turno: {coinsText(record.coinsAfter)}
+              </Typography>
             </Paper>
           ))}
         </Stack>

@@ -5,8 +5,11 @@ import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { SECTION_LABELS, describeHex, describeMovement } from "../../../labels";
-import { OrderSlot, sameSlot } from "../../../game-core/orderRules";
+import { SECTION_LABELS, UNIT_LABELS, coinsText, describeHex, describeMovement } from "../../../labels";
+import { EXTRA_SLOT, OrderSlot, sameSlot } from "../../../game-core/orderRules";
+import { EXTRA_ORDER_COST } from "../../../data/coinRules";
+import CommandCard from "../../../game-core/commandCard";
+import { UnitType } from "../../../game-core/unit";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
@@ -30,11 +33,19 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 
 /** What an order slot means, for picking one */
 const slotLabel = (slot: OrderSlot) => {
+  if (slot.extra) return `Orden extra (${EXTRA_ORDER_COST} monedas)`;
   if (slot.onTheMove) return "En movimiento (no dispara)";
   return slot.section ? `Orden del ${SECTION_LABELS[slot.section]}` : "Orden de la carta";
 };
 
-const slotKey = (slot: OrderSlot) => `${slot.section ?? "card"}-${slot.onTheMove}`;
+const slotKey = (slot: OrderSlot) => `${slot.section ?? "card"}-${slot.onTheMove}-${!!slot.extra}`;
+
+/** "infantería 1, tanque 2, artillería 2": what each of the card's orders costs */
+const describeCoinCost = (card: CommandCard) =>
+  Object.values(UnitType)
+    .filter((type) => card.coinCostOf(type) > 0)
+    .map((type) => `${UNIT_LABELS[type].toLowerCase()} ${card.coinCostOf(type)}`)
+    .join(", ");
 
 /** The slot used when the player doesn't pick: the card's only order, else on the move; null when they must pick */
 function defaultSlot(slots: readonly OrderSlot[]): OrderSlot | null {
@@ -51,7 +62,7 @@ const holdLabel = (shots: number) => {
 function OrdersView({ faction, session, game }: OrdersViewProps) {
   const boardManager = session.board;
   const { orders, ordersLeft, ordersCommitted } = game;
-  const canGiveOrders = !ordersCommitted && ordersLeft > 0;
+  const paidCard = game.activeCard?.paidInCoins ?? false;
 
   // Selected unit and its highlighted destinations (UI state only)
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
@@ -59,6 +70,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   /** Which of the card's orders the selected unit takes, when it could take more than one */
   const [slot, setSlot] = useState<OrderSlot | null>(null);
   const [slotHint, setSlotHint] = useState(false);
+  /** The next unit tapped takes an extra order bought with coins */
+  const [extraMode, setExtraMode] = useState(false);
+  const canBuyExtra = game.extraOrderable.length > 0;
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
   const play = useSound();
@@ -79,7 +93,15 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       flashInvalid(to);
       return;
     }
-    if (session.issueOrder(from, to, slot ?? undefined)) clearSelection();
+    if (session.issueOrder(from, to, slot ?? undefined)) {
+      clearSelection();
+      setExtraMode(false);
+    }
+  };
+
+  const toggleExtraMode = () => {
+    clearSelection();
+    setExtraMode((on) => !on);
   };
 
   const pickSlot = (key: string | null) => {
@@ -92,7 +114,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   // One tap per action so it works the same with a mouse or on a tablet
   const handleTileClick = (position: Position) => {
-    if (!canGiveOrders) return;
+    if (ordersCommitted) return;
 
     if (unitHexPosition) {
       // Tapping the selected unit again deselects it
@@ -108,11 +130,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     }
 
     // Select a unit, or switch to another one
-    const options = session.getMoveOptions(position);
+    const options = session.getMoveOptions(position, extraMode ? EXTRA_SLOT : undefined);
     if (options) {
       setUnitHexPosition(position);
       setMoveOptions(options);
-      setSlot(defaultSlot(options.slots));
+      setSlot(extraMode ? EXTRA_SLOT : defaultSlot(options.slots));
       setSlotHint(false);
       return;
     }
@@ -131,6 +153,16 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   const instructions = () => {
     if (ordersCommitted) return null;
+    if (extraMode) {
+      return selectedHex
+        ? "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción"
+        : `Orden extra (${EXTRA_ORDER_COST} monedas): toca cualquier unidad sin orden. No tiene las ventajas de la carta`;
+    }
+    if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
+      return game.orderable.length > 0
+        ? `Cada orden de la carta cuesta monedas (${describeCoinCost(game.activeCard!)}): da las que quieras pagar y confirma`
+        : "No te llega para más órdenes de la carta: confirma las órdenes o deshaz la última";
+    }
     if (game.activeCard?.closeAssaultOnly) {
       return "Esta carta no da órdenes: confírmalas. En la batalla marcarás las unidades en asalto cercano";
     }
@@ -156,7 +188,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
           locked={ordersCommitted}
-          orderablePositions={game.orderable}
+          orderablePositions={extraMode ? game.extraOrderable : game.orderable}
           faction={faction}
         />
       </div>
@@ -173,13 +205,25 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           </Alert>
         ) : (
           <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
-            {instructions()} · órdenes restantes: {ordersLeft}
+            {instructions()} ·{" "}
+            {paidCard ? `órdenes de la carta: ${game.cardOrdersLeft}` : `órdenes restantes: ${ordersLeft}`} ·{" "}
+            {coinsText(game.coins)}
           </Typography>
         )}
 
         {selectedHex && (
           <Paper variant="outlined" sx={{ p: 2, width: "100%" }}>
             <Typography variant="body2">Seleccionado: {describeHex(selectedHex)}</Typography>
+            {slot?.extra && (
+              <Typography variant="body2" color="warning.main">
+                Orden extra: cuesta {EXTRA_ORDER_COST} monedas y no tiene las ventajas de la carta
+              </Typography>
+            )}
+            {paidCard && !slot?.extra && !slot?.onTheMove && game.activeCard && selectedHex.unit && (
+              <Typography variant="body2" color="warning.main">
+                Esta orden cuesta {coinsText(game.activeCard.coinCostOf(selectedHex.unit.getUnitType()))}
+              </Typography>
+            )}
             {moveOptions && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                 {describeMovement(moveOptions.limits)}
@@ -224,6 +268,17 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         )}
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
+          {!ordersCommitted && !game.extraTurn && (canBuyExtra || extraMode) && (
+            <Button
+              variant={extraMode ? "contained" : "outlined"}
+              color="warning"
+              onClick={toggleExtraMode}
+              startIcon={<GameIcon name={extraMode ? "cancel" : "coins"} />}
+              aria-pressed={extraMode}
+            >
+              {extraMode ? "Cancelar orden extra" : `Orden extra (${EXTRA_ORDER_COST} monedas)`}
+            </Button>
+          )}
           {!ordersCommitted && orders.length > 0 && !unitHexPosition && (
             <Button variant="outlined" onClick={() => session.undoLastOrder()} startIcon={<GameIcon name="undo" />}>
               Volver

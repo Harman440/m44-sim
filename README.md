@@ -60,7 +60,7 @@ React 19, TypeScript, Vite, MUI 9, motion, Vitest + Testing Library.
 
 ## Credits
 
-- Icons: [game-icons.net](https://game-icons.net), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/): *cog*, *treasure map*, *hourglass*, *bugle call* and *scroll unfurled* by Lorc; *speaker*, *speaker off*, *crosshair*, *rolling dices*, *anticlockwise rotation*, *check mark*, *exit door* and *save* by Delapouite; *card draw* by Faithtoken; *cancel* by Sbed. The background of each icon was removed so it takes the text colour.
+- Icons: [game-icons.net](https://game-icons.net), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/): *cog*, *treasure map*, *hourglass*, *bugle call* and *scroll unfurled* by Lorc; *speaker*, *speaker off*, *crosshair*, *rolling dices*, *anticlockwise rotation*, *check mark*, *exit door*, *save* and *two coins* by Delapouite; *card draw* by Faithtoken; *cancel* by Sbed. The background of each icon was removed so it takes the text colour.
 - Textures: [ambientCG](https://ambientcg.com) (Paper002, Paper003, Fabric045), CC0.
 - Sounds: [Kenney](https://kenney.nl) Casino Audio and Impact Sounds, CC0.
 - Fonts (SIL Open Font License, via Fontsource): Stardos Stencil, Special Elite, Black Ops One, Barlow Condensed, Allerta Stencil, IBM Plex Sans Condensed.

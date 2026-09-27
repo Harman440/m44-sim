@@ -63,6 +63,7 @@ function TurnSummary({ card, summaries, faction, onFire, withCoins = true, onSki
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography variant="body1">
           {UNIT_LABELS[summary.unitType]} · {SECTION_LABELS[summary.section]}
+          {summary.extra && " · orden extra (sin las ventajas de la carta)"}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {describeMove(summary)}

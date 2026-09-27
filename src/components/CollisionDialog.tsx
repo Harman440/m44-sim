@@ -163,7 +163,8 @@ function CollisionDialog({ open, summaries, card, faction, onRoll, withCoins, on
       );
     }
 
-    const steps = collisionSteps({ unitType: summary.unitType, card });
+    // An extra order bought with coins gets none of the card's bonuses
+    const steps = collisionSteps({ unitType: summary.unitType, card: summary.extra ? null : card });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     return (
       <>

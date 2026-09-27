@@ -21,6 +21,7 @@ Done so far (details in git history):
 - Step 20: each roll is read against its target: hits, retreats and coins
 - Step 21: the house command deck (57 cards) with its card rules: sections chosen on play, quotas per section, units on the move, points, no-move and close-assault cards
 - Step 22: drawing cards: keep the card drawn or swap it once (Gamble), Recon draws 3 and keeps 1, Preparations reminds the player of its reward
+- Step 23: coins: the counter and its ledger, stars earn coins, 2 coins or a combat card in the final phase, extra orders for 4 coins, Finest Hour paid in coins
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -143,7 +144,7 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 - [x] **Decided:** "on the move" (Recon, Probe): the player may order 1 extra unit anywhere, which may move but can't fire
 - [x] **Decided:** Pincer orders 2 units on the left and 2 on the right
 - [x] **Decided:** Infantry Assault's +1 hex also adds to how far infantry moves and still fires
-- [x] **Decided:** Finest Hour is a 4-point budget (infantry 1, tank or artillery 2); the units ordered fire +1 die
+- [x] **Decided:** Finest Hour is a 4-point budget (infantry 1, tank or artillery 2); the units ordered fire +1 die. Changed in Step 23: the orders cost coins
 - [x] **Decided:** Behind Enemy Lines is a combat card, not in the command deck
 - [x] **Decided:** a unit-type card with none of its units left orders 1 unit of any type, with no bonus
 - [x] **Decided:** Close Assault: the player marks the units in close assault in the battle phase
@@ -163,14 +164,15 @@ Replace today's 8 test cards with the house deck ("Breakthrough" counts in house
 ## Part E: Coins and combat cards
 
 ### Step 23: Coins
-- [ ] A coin counter in the header, saved with the game
-- [ ] +1 coin per star rolled in combat, added automatically from the shots (not for other rolls, and not for a star that counted as a hit)
-- [ ] End of turn: take 2 coins or a combat card (Step 24)
-- [ ] Spending:
-  - order one extra unit anywhere for 4 coins; it gets none of the command card's benefits, and it can be done several times per turn
-  - Finest Hour: 1 coin per infantry, 2 per armor or artillery (max 4 orders). **Decide:** Step 21 built Finest Hour as a 4-point budget (infantry 1, tank or artillery 2), as decided then; confirm whether the units also cost coins
-- [ ] A ledger with undo, like battle edits
-- [ ] No coins on the attacking side's extra first turn
+- [x] A coin counter in the header ("Monedas" dialog), saved with the game (`SAVE_VERSION` 9); numbers in `data/coinRules.ts`, each turn's ledger worked out in `game-core/coins.ts`
+- [x] +1 coin per star rolled in combat, added automatically from the shots, collisions included (not for a star that counted as a hit); undoing the shot takes it back
+- [x] End of turn: take 2 coins or a combat card ("Monedas o carta de combate" in the Fase final, needed before the next turn). Until Step 24 the combat card is taken at the table; Preparations adds its 3 coins by itself instead of the choice
+- [x] Spending:
+  - "Orden extra (4 monedas)" in the orders phase: any unit not yet ordered, as many times as the player can pay; it moves and fires like the unit, with none of the card's benefits (no bonus dice either). Undoing it gives the coins back
+  - Finest Hour: 1 coin per infantry, 2 per tank or artillery, up to 4 orders; they're optional, so the player orders only what they want to pay for
+- [x] **Decided:** Finest Hour's orders cost coins (replacing Step 21's free 4-point budget), max 4 orders
+- [x] A ledger with undo: this turn's lines (orders, stars, final phase, by hand) in the "Monedas" dialog, where coins can also be paid or added by hand (e.g. a combat card played at the table) and the last change undone; each turn's lines are kept in the Historial
+- [x] No coins on the attacking side's extra first turn: no stars, no choice in the Fase final, no changes by hand
 
 ### Step 24: Combat cards
 - [ ] Database from house-rules.md: name, cost, phase (order, battle or command), text and count

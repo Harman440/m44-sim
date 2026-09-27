@@ -8,6 +8,7 @@ import { Faction } from "./types/faction";
 import { ShotTarget } from "./data/hitRules";
 import { RollResult } from "./game-core/rollResult";
 import type { MoveLimits } from "./game-core/orderRules";
+import type { CoinEntry } from "./game-core/coins";
 
 export const FACTION_LABELS: Record<Faction, string> = { Allies: "Aliados", Axis: "Eje" };
 
@@ -80,3 +81,27 @@ export const describeRoll = ({ hits, retreats, coins }: RollResult, withCoins = 
     count(retreats, "retirada", "retiradas"),
     ...(withCoins && coins > 0 ? [`+${count(coins, "moneda", "monedas")}`] : []),
   ].join(" · ");
+
+/** "1 moneda", "3 monedas" */
+export const coinsText = (n: number): string => `${n} ${n === 1 ? "moneda" : "monedas"}`;
+
+/** "+2" or "−4": a signed number of coins */
+export const signedCoins = (amount: number): string => (amount < 0 ? `−${-amount}` : `+${amount}`);
+
+/** What a line of the coin ledger was for */
+export const describeCoinEntry = (entry: CoinEntry): string => {
+  switch (entry.kind) {
+    case "extraOrder":
+      return `Orden extra: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
+    case "cardOrder":
+      return `Orden de la carta: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
+    case "stars":
+      return `Estrellas: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
+    case "endOfTurn":
+      return "Fase final: monedas";
+    case "cardReward":
+      return "Fase final: recompensa de la carta";
+    case "adjustment":
+      return entry.amount < 0 ? "Pago a mano" : "Ingreso a mano";
+  }
+};

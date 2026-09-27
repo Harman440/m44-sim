@@ -114,10 +114,10 @@ const cardTemplates: CardTemplate[] = [
       id: 'finest-hour',
       name: 'Su mejor hora',
       description:
-        'Reparte 4 puntos: cada infantería cuesta 1 y cada tanque o artillería 2. Las unidades con orden disparan con 1 dado más.',
+        'Da órdenes a hasta 4 unidades pagando monedas: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
       tactic: true,
       orders: 4,
-      orderCost: { [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
+      coinCost: { [UnitType.INFANTRY]: 1, [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
       fireBonus: [{ dice: 1 }],
     },
   },

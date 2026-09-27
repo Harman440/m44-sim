@@ -47,6 +47,7 @@ function Harness({ session }: { session: GameSession }) {
       onDrawCard={() => session.drawCard()}
       onKeepCard={(card) => session.keepCard(card)}
       onDrawAgain={() => session.drawAgain()}
+      onChooseReward={(choice) => session.chooseReward(choice)}
       onEndTurn={() => session.endTurn()}
     />
   );
@@ -130,8 +131,9 @@ describe("EndOfTurnView map", () => {
 });
 
 describe("EndOfTurnView after a special card", () => {
-  // Plays `card` (1 hold order on the left), with 3 plain cards left in the deck
-  const finalAfter = (card: CommandCard) => {
+  // Plays `card` (1 hold order on the left), with 3 plain cards left in the deck.
+  // Turn 1 is the attacker's extra turn; from turn 2 the final phase gives coins.
+  const finalAfter = (card: CommandCard, turn = 1) => {
     const deck = ["X", "Y", "Z"].map((name) => new CommandCard({ id: name, name, orders: 1 }));
     const session = new GameSession({
       scenario: {
@@ -148,7 +150,7 @@ describe("EndOfTurnView after a special card", () => {
       commandCards: [],
     });
     const restored = GameSession.restore(
-      { ...session.save(), hand: [card.id], drawPile: deck.map((c) => c.id) },
+      { ...session.save(), turn, hand: [card.id], drawPile: deck.map((c) => c.id) },
       session.scenario,
       [card, ...deck]
     );
@@ -179,18 +181,51 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeInTheDocument();
   });
 
-  it("reminds the player of the Preparations reward", () => {
-    finalAfter(
+  it("adds the Preparations coins and reminds the player of the combat card, with no choice", () => {
+    const session = finalAfter(
       new CommandCard({
         id: "preparations",
         name: "Preparativos",
         orders: 1,
         endOfTurnReward: { coins: 3, combatCard: true },
-      })
+      }),
+      2
     );
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "Toma 3 monedas y una carta de combate en la mesa"
+      "En lugar de elegir: +3 monedas, ya sumadas al contador, y coge una carta de combate en la mesa."
     );
+    expect(screen.queryByRole("button", { name: /2 monedas/ })).not.toBeInTheDocument();
+    expect(session.getSnapshot().coins).toBe(3);
+  });
+
+  it("asks for 2 coins or a combat card before the next turn", () => {
+    const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2);
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
+    const start = screen.getByRole("button", { name: "Empezar turno 3" });
+    expect(start).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
+    expect(screen.getByText(/Coge una carta de combate del mazo en la mesa/)).toBeInTheDocument();
+    expect(session.getSnapshot().coins).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /2 monedas/ }));
+    expect(session.getSnapshot().coins).toBe(2);
+    expect(start).toBeEnabled();
+    fireEvent.click(start);
+    expect(session.getSnapshot().turn).toBe(3);
+    expect(session.getSnapshot().coins).toBe(2);
+  });
+
+  it("gives no coins or combat card in the attacker's extra turn", () => {
+    finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }));
+
+    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
+      "En el turno extra no se ganan monedas ni se cogen cartas de combate."
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
+    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
   });
 });

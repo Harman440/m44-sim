@@ -11,6 +11,8 @@ interface OrderProps {
   shots: number;
   section?: Section | null;
   onTheMove?: boolean;
+  extra?: boolean;
+  cost?: number;
   closeAssaultOnly?: boolean;
 }
 
@@ -31,6 +33,10 @@ class Order {
   section: Section | null;
   /** The card's extra unit on the move: it may move but can't fire */
   onTheMove: boolean;
+  /** An extra order bought with coins: a normal order with none of the card's benefits */
+  extra: boolean;
+  /** Coins paid for the order (an extra order, or a card that charges per unit like Finest Hour) */
+  cost: number;
   /** Marked in the battle for a Close Assault card: it holds and fires only at an adjacent enemy */
   closeAssaultOnly: boolean;
   constructor({
@@ -41,6 +47,8 @@ class Order {
     shots,
     section = null,
     onTheMove = false,
+    extra = false,
+    cost = 0,
     closeAssaultOnly = false,
   }: OrderProps) {
     this.unit = unit;
@@ -50,6 +58,8 @@ class Order {
     this.shots = shots;
     this.section = section;
     this.onTheMove = onTheMove;
+    this.extra = extra;
+    this.cost = cost;
     this.closeAssaultOnly = closeAssaultOnly;
   }
 

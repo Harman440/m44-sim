@@ -6,6 +6,7 @@ import { INVALID_FLASH_MS } from "../../useHexFlash";
 import GameSession from "../../../game-core/gameSession";
 import CommandCard, { CommandCardProps } from "../../../game-core/commandCard";
 import { Side } from "../../../types/hex";
+import { UnitType } from "../../../game-core/unit";
 import { Position } from "../../../types/scenario";
 
 // Allies: two infantry on the left flank (orderable with a LEFT card) and one on the right
@@ -247,5 +248,65 @@ describe("OrdersView card rules", () => {
 
     expect(screen.getByText(/Esta carta no da órdenes/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar Órdenes" })).toBeInTheDocument();
+  });
+});
+
+describe("OrdersView orders paid in coins", () => {
+  // The defender at turn 2 (no extra turn) with `coins`, playing `props`
+  const withCoins = (coins: number, props: CommandCardProps) => {
+    const card = new CommandCard({ id: "card", name: "Carta", ...props });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+    });
+    session.startFirstTurn();
+    session.adjustCoins(coins);
+    session.pickCard(card);
+    const { container } = render(<Harness session={session} />);
+    const tap = (p: Position) => fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`)!);
+    return { session, tap };
+  };
+
+  it("buys an extra order for any unit with 4 coins", () => {
+    const { session, tap } = withCoins(4, { sections: [Side.LEFT], orders: 1 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Orden extra (4 monedas)" }));
+    expect(screen.getByText(/toca cualquier unidad sin orden/)).toBeInTheDocument();
+    tap(RIGHT);
+    expect(screen.getByText(/cuesta 4 monedas y no tiene las ventajas de la carta/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+
+    expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
+    expect(session.getSnapshot().coins).toBe(0);
+    expect(screen.queryByRole("button", { name: "Orden extra (4 monedas)" })).not.toBeInTheDocument();
+  });
+
+  it("hides the extra order without 4 coins", () => {
+    withCoins(3, { sections: [Side.LEFT], orders: 1 });
+
+    expect(screen.queryByRole("button", { name: "Orden extra (4 monedas)" })).not.toBeInTheDocument();
+  });
+
+  it("lets a card paid in coins be confirmed with the orders the player wants to pay", () => {
+    const { session, tap } = withCoins(1, { orders: 4, coinCost: { [UnitType.INFANTRY]: 1 } });
+    expect(screen.getByText(/Cada orden de la carta cuesta monedas \(infantería 1\)/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar Órdenes" })).toBeInTheDocument();
+
+    tap(LEFT_A);
+    expect(screen.getByText("Esta orden cuesta 1 moneda")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+
+    expect(session.getSnapshot().coins).toBe(0);
+    expect(screen.getByText(/No te llega para más órdenes de la carta/)).toBeInTheDocument();
   });
 });

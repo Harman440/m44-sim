@@ -4,13 +4,18 @@ import CommandCard, { CommandCardProps, Section } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import {
+  EXTRA_SLOT,
   OrderContext,
+  canBuyExtraOrder,
+  cardOrdersLeft,
+  extraOrderablePositions,
   fallbackCard,
   moveLimits,
   orderSlots,
   orderablePositions,
   ordersLeft,
   sectionsOf,
+  slotCost,
 } from "./orderRules";
 import { positionKey as key } from "./position";
 import { Side } from "../types/hex";
@@ -42,8 +47,8 @@ const RIGHT = { row: 8, col: 11 };
 
 const context = (
   props: CommandCardProps,
-  { board = new BoardManager(scenario), orders = [], chosenSection = null }: Partial<OrderContext> = {}
-): OrderContext => ({ card: new CommandCard(props), board, orders, chosenSection });
+  { board = new BoardManager(scenario), orders = [], chosenSection = null, coins = 0 }: Partial<OrderContext> = {}
+): OrderContext => ({ card: new CommandCard(props), board, orders, chosenSection, coins });
 
 const orderable = (ctx: OrderContext) => orderablePositions(ctx).map(key).sort();
 
@@ -183,28 +188,67 @@ describe("units on the move", () => {
   });
 });
 
-describe("order costs (Finest Hour)", () => {
+describe("orders paid in coins (Finest Hour)", () => {
   const TANK = { row: 8, col: 4 };
-  const finestHour: CommandCardProps = { orders: 4, orderCost: { [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 } };
+  const finestHour: CommandCardProps = {
+    orders: 4,
+    coinCost: { [UnitType.INFANTRY]: 1, [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
+  };
 
-  it("counts the most units the points pay for, cheapest first", () => {
-    expect(ordersLeft(context(finestHour))).toBe(4);
+  it("makes the orders optional, so none are still owed", () => {
+    expect(ordersLeft(context(finestHour, { coins: 10 }))).toBe(0);
+    expect(cardOrdersLeft(context(finestHour, { coins: 10 }))).toBe(4);
   });
 
-  it("takes each unit's cost from the points left", () => {
-    const board = new BoardManager(scenario);
-    const ctx = context(finestHour, { board, orders: [holdAt(board, TANK)] });
-
-    expect(ordersLeft(ctx)).toBe(2);
+  it("orders only the units the player can pay for", () => {
+    expect(orderable(context(finestHour, { coins: 0 }))).toEqual([]);
+    expect(orderable(context(finestHour, { coins: 1 }))).not.toContain(key(TANK));
+    expect(orderable(context(finestHour, { coins: 2 }))).toContain(key(TANK));
   });
 
-  it("leaves out units that cost more than the points left", () => {
+  it("stops at 4 orders however many coins are left", () => {
     const board = new BoardManager(scenario);
-    const orders = [holdAt(board, LEFT), holdAt(board, LEFT_CENTER), holdAt(board, CENTER)];
-    const ctx = context(finestHour, { board, orders });
+    const orders = [holdAt(board, LEFT), holdAt(board, LEFT_CENTER), holdAt(board, CENTER), holdAt(board, RIGHT)];
+    const ctx = context(finestHour, { board, orders, coins: 20 });
 
-    expect(orderable(ctx)).toEqual(["7-8", "8-11"]);
-    expect(ordersLeft(ctx)).toBe(1);
+    expect(cardOrdersLeft(ctx)).toBe(0);
+    expect(orderable(ctx)).toEqual([]);
+  });
+
+  it("charges the card's cost for its orders, and nothing on the move", () => {
+    const card = new CommandCard(finestHour);
+    const tank = new Unit(UnitType.TANK);
+
+    expect(slotCost(card, tank, { section: null, onTheMove: false })).toBe(2);
+    expect(slotCost(card, new Unit(UnitType.INFANTRY), { section: null, onTheMove: false })).toBe(1);
+    expect(slotCost(new CommandCard({ orders: 1 }), tank, { section: null, onTheMove: false })).toBe(0);
+    expect(slotCost(card, tank, { section: null, onTheMove: true })).toBe(0);
+  });
+});
+
+describe("extra orders bought with coins", () => {
+  it("lets any unit not yet ordered take one, with 4 coins", () => {
+    const board = new BoardManager(scenario);
+    const unit = board.getHex(LEFT)!.unit!;
+
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 3 }), unit)).toBe(false);
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 4 }), unit)).toBe(true);
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 4, orders: [holdAt(board, LEFT)] }), unit)).toBe(false);
+    expect(extraOrderablePositions(context({ orders: 1, sections: [Side.RIGHT] }, { board, coins: 4 }))).toHaveLength(6);
+  });
+
+  it("doesn't use up the card's orders", () => {
+    const board = new BoardManager(scenario);
+    const extra = new Order({ unit: board.getHex(LEFT)!.unit!, start: LEFT, end: LEFT, shots: 1, extra: true, cost: 4 });
+
+    expect(ordersLeft(context({ orders: 1 }, { board, orders: [extra] }))).toBe(1);
+  });
+
+  it("costs 4 coins and moves like the unit, with none of the card's benefits", () => {
+    const card = new CommandCard({ noMove: true, moveBonus: 1, holdShots: 2 });
+
+    expect(slotCost(card, new Unit(UnitType.TANK), EXTRA_SLOT)).toBe(4);
+    expect(moveLimits(card, new Unit(UnitType.INFANTRY), EXTRA_SLOT)).toEqual({ maxMove: 2, moveAndFire: 1, holdShots: 1 });
   });
 });
 
@@ -216,7 +260,7 @@ describe("fallbackCard", () => {
     const fallback = fallbackCard(artillery, board)!;
 
     expect(fallback).toMatchObject({ id: "arty", name: "Artillería", orders: 1, unitTypes: null, holdShots: 1 });
-    expect(ordersLeft({ card: fallback, board, orders: [], chosenSection: null })).toBe(1);
+    expect(ordersLeft({ card: fallback, board, orders: [], chosenSection: null, coins: 0 })).toBe(1);
   });
 
   it("keeps the card when a unit of its type is on the board, or it isn't a unit-type card", () => {

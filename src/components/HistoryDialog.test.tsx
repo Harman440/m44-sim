@@ -47,6 +47,7 @@ const playedSession = () => {
     final();
     session.drawCard();
     session.keepCard(session.getSnapshot().drawOptions[0]!);
+    session.chooseReward("coins"); // not asked in the extra turn 1
     session.endTurn();
   };
   playTurn(() => session.fireQuick(0, 2, AT_INFANTRY));
@@ -70,6 +71,9 @@ describe("HistoryDialog", () => {
     expect(first).toHaveTextContent("Infantería: 2 dados (tirada rápida) → 2 × Granada");
     expect(first).toHaveTextContent("(contra infantería · a distancia: 2 impactos · 0 retiradas)");
     expect(first).toHaveTextContent("Sin bajas ni retiradas.");
+    expect(first).toHaveTextContent("Al terminar el turno: 0 monedas");
+    expect(second).toHaveTextContent("Fase final: monedas: +2");
+    expect(second).toHaveTextContent("Al terminar el turno: 2 monedas");
   });
 
   it("says so when no turn has finished yet", () => {

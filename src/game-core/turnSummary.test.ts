@@ -52,6 +52,7 @@ describe("summarizeOrders", () => {
       destinationTerrain: HexType.FOREST,
       canFire: false, // moved into forest
       closeAssaultOnly: false,
+      extra: false,
       removed: false,
       shots: [],
       shotsLeft: 0,

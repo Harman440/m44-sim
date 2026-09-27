@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import CommandCardComponent from "./CommandCardComponent";
 import CommandCard from "../game-core/commandCard";
@@ -31,12 +31,13 @@ describe("CommandCardComponent", () => {
     expect(screen.getByRole("img", { name: "Secciones: una a elegir" })).toBeInTheDocument();
   });
 
-  it("counts points for a card with costs, and none for Close Assault", () => {
-    const points = renderCard(new CommandCard({ tactic: true, orders: 4, orderCost: { [UnitType.TANK]: 2 } }));
+  it("tags a card paid in coins, and counts no orders for Close Assault", () => {
+    const paid = renderCard(new CommandCard({ tactic: true, orders: 4, coinCost: { [UnitType.TANK]: 2 } }));
     const none = renderCard(new CommandCard({ tactic: true, closeAssaultOnly: true }));
 
-    expect(points.querySelector(".command-card__orders")).toHaveTextContent("4puntos");
-    expect(points.querySelector(".command-card--tactic")).not.toBeNull();
+    expect(paid.querySelector(".command-card__orders")).toHaveTextContent("4órdenes");
+    expect(within(paid).getByText("Cuesta monedas")).toBeInTheDocument();
+    expect(paid.querySelector(".command-card--tactic")).not.toBeNull();
     expect(none.querySelector(".command-card__orders")).toHaveTextContent("0órdenes");
   });
 });

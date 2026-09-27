@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import CommandCard from "../../../game-core/commandCard";
 import { Faction } from "../../../types/faction";
 import CommandCardComponent from "../../CommandCardComponent";
 import GameIcon from "../../GameIcon";
 import EndOfTurnMap from "./EndOfTurnMap";
+import { RewardChoice } from "../../../game-core/coins";
+import { END_OF_TURN_COINS } from "../../../data/coinRules";
 
 interface EndOfTurnViewProps {
   faction: Faction;
@@ -14,15 +16,26 @@ interface EndOfTurnViewProps {
   onDrawCard: () => void;
   onKeepCard: (card: CommandCard) => void;
   onDrawAgain: () => void;
+  onChooseReward: (choice: RewardChoice) => void;
   onEndTurn: () => void;
 }
 
 /**
  * Fase final: make the retreats marked in battle on the table and mirror the
  * casualties, retreats and ground taken on the map, then draw a command card:
- * keep it or swap it once for the next one (Recon: draw 3 and keep 1)
+ * keep it or swap it once for the next one (Recon: draw 3 and keep 1). Last,
+ * take 2 coins or a combat card (Preparations gives both, in its own amounts).
  */
-function EndOfTurnView({ faction, session, game, onDrawCard, onKeepCard, onDrawAgain, onEndTurn }: EndOfTurnViewProps) {
+function EndOfTurnView({
+  faction,
+  session,
+  game,
+  onDrawCard,
+  onKeepCard,
+  onDrawAgain,
+  onChooseReward,
+  onEndTurn,
+}: EndOfTurnViewProps) {
   const { drawnCard, drawOptions, chosenCard } = game;
   const drawChoice = chosenCard?.drawChoice ?? 1;
   const reward = chosenCard?.endOfTurnReward;
@@ -107,22 +120,62 @@ function EndOfTurnView({ faction, session, game, onDrawCard, onKeepCard, onDrawA
         )}
       </Paper>
 
-      {reward && (
-        <Paper variant="outlined" sx={{ p: 2 }} data-testid="end-of-turn-reward">
-          <Typography variant="h6" component="h3">
-            3. {chosenCard!.name}
-          </Typography>
+      <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }} data-testid="end-of-turn-reward">
+        <Typography variant="h6" component="h3">
+          3. {reward ? chosenCard!.name : "Monedas o carta de combate"}
+        </Typography>
+        {game.extraTurn ? (
+          <Typography variant="body1">En el turno extra no se ganan monedas ni se cogen cartas de combate.</Typography>
+        ) : reward ? (
           <Typography variant="body1">
-            Toma {reward.coins} monedas{reward.combatCard ? " y una carta de combate" : ""} en la mesa, en lugar de
-            elegir entre monedas y carta de combate.
+            En lugar de elegir: +{reward.coins} monedas, ya sumadas al contador
+            {reward.combatCard ? ", y coge una carta de combate en la mesa" : ""}.
           </Typography>
-        </Paper>
-      )}
+        ) : (
+          <>
+            <Typography variant="body1">Elige qué te llevas este turno.</Typography>
+            <ToggleButtonGroup
+              exclusive
+              value={game.rewardChoice}
+              onChange={(_, choice: RewardChoice | null) => choice && onChooseReward(choice)}
+              aria-label="Monedas o carta de combate"
+              sx={{ flexWrap: "wrap" }}
+            >
+              <ToggleButton value="coins" sx={{ minHeight: 48, gap: 1 }}>
+                <GameIcon name="coins" /> {END_OF_TURN_COINS} monedas
+              </ToggleButton>
+              <ToggleButton value="combatCard" sx={{ minHeight: 48, gap: 1 }}>
+                <GameIcon name="cards" /> Carta de combate
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {game.rewardChoice === "combatCard" && (
+              <Alert severity="info">
+                Coge una carta de combate del mazo en la mesa. Puedes tener 3 como máximo: si ya tienes 3, cambia una
+                de tu mano por la nueva.
+              </Alert>
+            )}
+          </>
+        )}
+        {reward?.combatCard && !game.extraTurn && (
+          <Alert severity="info">Puedes tener 3 cartas de combate como máximo: si ya tienes 3, cambia una.</Alert>
+        )}
+      </Paper>
 
       {drawnCard && (
-        <Button size="large" onClick={onEndTurn} startIcon={<GameIcon name="endTurn" />} sx={{ alignSelf: "center" }}>
+        <Button
+          size="large"
+          onClick={onEndTurn}
+          disabled={game.needsRewardChoice && !game.rewardChoice}
+          startIcon={<GameIcon name="endTurn" />}
+          sx={{ alignSelf: "center" }}
+        >
           Empezar turno {game.turn + 1}
         </Button>
+      )}
+      {drawnCard && game.needsRewardChoice && !game.rewardChoice && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+          Elige monedas o carta de combate para empezar el siguiente turno.
+        </Typography>
       )}
     </Stack>
   );

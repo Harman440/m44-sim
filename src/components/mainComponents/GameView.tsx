@@ -27,13 +27,14 @@ import BattleView from "./GameViews/BattleView";
 import WaitingView from "./GameViews/WaitingView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
-import { FACTION_LABELS } from "../../labels";
+import { FACTION_LABELS, coinsText } from "../../labels";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import SettingsDialog from "../SettingsDialog";
 import HistoryDialog from "../HistoryDialog";
+import CoinsDialog from "../CoinsDialog";
 
 export interface GameViewProps {
   /** Owns all game rules; React re-renders when it publishes a new snapshot */
@@ -59,6 +60,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [coinsOpen, setCoinsOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -125,6 +127,16 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             ))}
           </Stack>
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setCoinsOpen(true)}
+              startIcon={<GameIcon name="coins" />}
+              aria-label={`Monedas: ${coinsText(game.coins)}`}
+              data-testid="coin-counter"
+              color={game.coins < 0 ? "error" : "primary"}
+            >
+              {game.coins}
+            </Button>
             <IconButton
               aria-label={settings.sound ? "Silenciar sonidos" : "Activar sonidos"}
               aria-pressed={settings.sound}
@@ -224,6 +236,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             onDrawCard={handleDrawCard}
             onKeepCard={(card) => session.keepCard(card)}
             onDrawAgain={() => session.drawAgain() && play("cardPlay")}
+            onChooseReward={(choice) => session.chooseReward(choice)}
             onEndTurn={() => session.endTurn()}
           />
         )}
@@ -237,6 +250,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
         />
 
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <CoinsDialog open={coinsOpen} onClose={() => setCoinsOpen(false)} session={session} game={game} />
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
 
         <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>

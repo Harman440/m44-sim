@@ -34,10 +34,14 @@ export interface CommandCardProps {
    * board, the card orders 1 unit of any type anywhere instead, with no bonus.
    */
   unitTypes?: readonly UnitType[];
-  /** How many units it orders, or "all" of the units that fit; with `orderCost`, the points to spend */
+  /** How many units it orders, or "all" of the units that fit */
   orders?: number | "all";
-  /** Points each unit type costs out of `orders` (Finest Hour: infantry 1, tank and artillery 2); 1 when omitted */
-  orderCost?: Partial<Record<UnitType, number>>;
+  /**
+   * Coins each of its orders costs by unit type (Finest Hour: infantry 1, tank
+   * and artillery 2). A card with costs orders only the units the player pays
+   * for, up to `orders`; its orders are optional.
+   */
+  coinCost?: Partial<Record<UnitType, number>>;
   /** At most this many orders in each section (General Advance: 2); a border unit counts for the section the player picks */
   perSection?: number;
   /** Extra units anywhere on the board that may move but can't fire (Probe, Recon) */
@@ -74,7 +78,7 @@ class CommandCard {
   readonly sections: readonly Section[] | "chosen";
   readonly unitTypes: readonly UnitType[] | null;
   readonly orders: number | "all";
-  readonly orderCost: Partial<Record<UnitType, number>>;
+  readonly coinCost: Partial<Record<UnitType, number>>;
   readonly perSection: number | null;
   readonly onTheMove: number;
   readonly noMove: boolean;
@@ -94,7 +98,7 @@ class CommandCard {
     sections = SECTIONS,
     unitTypes,
     orders = 0,
-    orderCost = {},
+    coinCost = {},
     perSection,
     onTheMove = 0,
     noMove = false,
@@ -113,7 +117,7 @@ class CommandCard {
     this.sections = sections;
     this.unitTypes = unitTypes ?? null;
     this.orders = orders;
-    this.orderCost = orderCost;
+    this.coinCost = coinCost;
     this.perSection = perSection ?? null;
     this.onTheMove = onTheMove;
     this.noMove = noMove;
@@ -126,9 +130,14 @@ class CommandCard {
     this.endOfTurnReward = endOfTurnReward ?? null;
   }
 
-  /** Points an order for this unit type uses out of the card's orders */
-  costOf(unitType: UnitType): number {
-    return this.orderCost[unitType] ?? 1;
+  /** Coins an order for this unit type costs (0 for most cards) */
+  coinCostOf(unitType: UnitType): number {
+    return this.coinCost[unitType] ?? 0;
+  }
+
+  /** Its orders cost coins (Finest Hour) */
+  get paidInCoins(): boolean {
+    return Object.values(this.coinCost).some((cost) => cost > 0);
   }
 
   /** The player picks the card's section when playing it */
