@@ -26,6 +26,7 @@
     "test": "vitest",
     "optimize-image": "node scripts/optimize-image.mjs",
     "icons": "node scripts/generate-icons.mjs",
+    "board": "node scripts/compose-board.mjs",
     "tablet": "vite build && vite preview --host --port 4173"
   },
   "repository": {

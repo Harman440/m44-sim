@@ -91,7 +91,7 @@ const STANDARD: CombatCardTemplate[] = [
     { effect: { kind: "move", units: 1, unitTypes: [UnitType.INFANTRY], fireInto: [HexType.TOWN] } }),
   order("reinforcements", "Refuerzos", 6, 3,
     "Tira 1 dado y, según el mapa, añade la unidad que salga (bandera: no hay refuerzos). Marca con una cruz dónde aparece.",
-    { marker: { kind: "cross", count: 1 } }),
+    { marker: { kind: "cross", count: 1 }, effect: { kind: "reinforcements" } }),
   order("tactician", "Táctico", 2, 1, "Cambia la sección de una carta de sección.",
     { effect: { kind: "changeSection" } }),
   order("barrage", "Barrera", 4, 1,

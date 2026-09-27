@@ -25,7 +25,13 @@ export interface CombatCard {
 }
 
 /** The effects the app applies; the rest is resolved at the table */
-export type CombatEffect = DiceBonusEffect | AttackEffect | MoveEffect | { kind: "changeSection" };
+export type CombatEffect =
+  | DiceBonusEffect
+  | AttackEffect
+  | MoveEffect
+  | { kind: "changeSection" }
+  /** Reinforcements: the orders screen shows the scenario's table of which unit each die face brings */
+  | { kind: "reinforcements" };
 
 /** A battle card: +dice on one shot by a unit of these types (Spotter, Street Fight, Explosives) */
 export interface DiceBonusEffect {

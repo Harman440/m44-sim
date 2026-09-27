@@ -1,7 +1,12 @@
 // data/scenarios.ts
 
-import { Scenario } from "../types/scenario";
+import { Scenario, Tiles } from "../types/scenario";
+import { DieFace } from "../game-core/dice";
+import { UnitType } from "../game-core/unit";
 import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
+// Board art made with `npm run board` from the same terrain file
+import arracourtImage from "../assets/scenarios/Arracourt.webp";
+import arracourtTiles from "./boards/arracourt.json";
 
 export const scenarios: Scenario[] = [
   {
@@ -11,6 +16,13 @@ export const scenarios: Scenario[] = [
     image: foretDEcouvesImage,
     initialHandSize: { allies: 5, axis: 3 },
     attacker: 'Allies',
+    reinforcements: {
+      [DieFace.INFANTRY]: UnitType.INFANTRY,
+      [DieFace.TANK]: UnitType.TANK,
+      [DieFace.GRENADE]: UnitType.INFANTRY,
+      [DieFace.STAR]: UnitType.ARTILLERY,
+      [DieFace.FLAG]: null,
+    },
     "tiles": {
       "forest": [
         { "row": 1, "col": 3 }, { "row": 1, "col": 7 },
@@ -56,5 +68,38 @@ export const scenarios: Scenario[] = [
         ]
       }
     }
+  },
+  {
+    // Made up for the app, loosely after the tank battle of Arracourt (September 1944):
+    // German armour attacks across open farmland towards the American-held village
+    id: 'arracourt',
+    name: 'Arracourt',
+    description: 'Campo abierto entre pueblos y bosquecillos: los blindados alemanes atacan el pueblo.',
+    image: arracourtImage,
+    initialHandSize: { allies: 4, axis: 5 },
+    attacker: 'Axis',
+    reinforcements: {
+      [DieFace.INFANTRY]: UnitType.INFANTRY,
+      [DieFace.TANK]: UnitType.TANK,
+      [DieFace.GRENADE]: UnitType.TANK,
+      [DieFace.STAR]: UnitType.ARTILLERY,
+      [DieFace.FLAG]: null,
+    },
+    tiles: arracourtTiles as Tiles,
+    units: {
+      allies: {
+        infantry: [{ row: 6, col: 5 }, { row: 6, col: 6 }, { row: 7, col: 1 }, { row: 7, col: 10 }],
+        tank: [{ row: 7, col: 2 }, { row: 7, col: 5 }, { row: 7, col: 7 }, { row: 6, col: 9 }],
+        artillery: [{ row: 8, col: 5 }, { row: 8, col: 7 }],
+      },
+      axis: {
+        infantry: [{ row: 0, col: 3 }, { row: 0, col: 6 }, { row: 0, col: 8 }, { row: 0, col: 10 }],
+        tank: [
+          { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 1, col: 5 },
+          { row: 1, col: 6 }, { row: 1, col: 7 }, { row: 1, col: 9 },
+        ],
+        artillery: [{ row: 0, col: 5 }],
+      },
+    },
   },
 ];

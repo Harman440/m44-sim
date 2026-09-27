@@ -73,6 +73,15 @@ export const describeFaces = (faces: readonly DieFace[]): string => {
   return parts.length > 0 ? parts.join(" · ") : "sin efecto";
 };
 
+/** The Reinforcements card's table: "Infantería → infantería · … · Bandera → sin refuerzos" */
+export const describeReinforcements = (table: Record<DieFace, UnitType | null>): string =>
+  Object.values(DieFace)
+    .map((face) => {
+      const unit = table[face];
+      return `${DIE_FACE_LABELS[face]} → ${unit ? UNIT_LABELS[unit].toLowerCase() : "sin refuerzos"}`;
+    })
+    .join(" · ");
+
 /** The results a shot applies, and how many of the dice rolled they are when some were set aside */
 export const describeAppliedFaces = (faces: readonly DieFace[], kept: readonly number[] | null): string =>
   kept === null

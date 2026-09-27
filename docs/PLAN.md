@@ -26,6 +26,7 @@ Done so far (details in git history):
 - Step 25: map markers for combat cards (Barrage, Air Power, Air Bombardment, Sniper, Reinforcements) and reminders for tokens placed on the table
 - Step 26: combat card effects: +1 die cards asked on the shot, attack cards rolled on the marked hexes, movement cards on the orders map, Tactician; the rest at the table with reminders
 - Steps 27–28: no figure counts; after a roll the player can apply fewer results than were rolled (Steps 29 and 30 are postponed)
+- Step 31: a second scenario, Arracourt, with board art built from its terrain, and a reinforcement table per scenario
 
 Two decisions shape the rest of the plan (Steps 15 and 27):
 - **Each tablet stays independent** and knows only its own side. Anything that involves the opponent (alternating fire, collisions, cards that act on the other side) is done at the table, and the app reminds the player when.
@@ -266,8 +267,13 @@ Large; split it into smaller steps when we get here.
 ## Part H: Content and experiments
 
 ### Step 31: More scenarios
-- [ ] More scenarios, each with its attacking side, air sorties, reinforcement table (for the Reinforcements card) and a data check
-- [ ] The old board art (`defualt.png`) is in git history from before Step 9
+- [x] Arracourt (made up, loosely after the September 1944 tank battle): open farmland, the Axis attacks. Its board art is built from its terrain with `npm run board`, which cuts plains, forest and town hexes out of the Forêt d'Écouves art (`scripts/compose-board.mjs`; the terrain lives in `src/data/boards/arracourt.json`)
+- [x] Reinforcement table per scenario (`Scenario.reinforcements`: the unit each die face brings), shown under the Reinforcements card when ordering
+- [x] Data check: every die face in the table, one terrain per hex, distinct ids (plus the existing on-board and one-unit-per-hex checks)
+- [ ] Air sorties per scenario: with the air rules (Step 30, postponed)
+- [ ] **Decide:** the reinforcement tables are a proposal (Écouves: grenade → infantry, star → artillery; Arracourt: grenade → tank, star → artillery; flag → none on both)
+- [ ] Hills: no hill art to cut out yet, so new boards use plains, forest and town only
+- The old board art (`defualt.png`) is in git history from before Step 9
 
 ### Step 32: Experiments (decide later)
 - [ ] An 8-sided long-range die: tank, grenade, 3× infantry, retreat, 2× miss (the grenade doesn't count for infantry firing on a tank). Make sure one side gives a coin and one a retreat.

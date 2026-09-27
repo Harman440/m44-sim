@@ -44,6 +44,7 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
+    "resolveJsonModule": true,
     "skipLibCheck": true,
   },
   "include": [

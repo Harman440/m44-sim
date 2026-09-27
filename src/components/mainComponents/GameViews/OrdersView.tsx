@@ -5,7 +5,7 @@ import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { SECTION_LABELS, UNIT_LABELS, coinsText, describeHex, describeMarkerRule, describeMovement } from "../../../labels";
+import { SECTION_LABELS, UNIT_LABELS, coinsText, describeHex, describeMarkerRule, describeMovement, describeReinforcements } from "../../../labels";
 import { EXTRA_SLOT, OrderSlot, sameSlot } from "../../../game-core/orderRules";
 import { EXTRA_ORDER_COST } from "../../../data/coinRules";
 import CommandCard from "../../../game-core/commandCard";
@@ -257,6 +257,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             {markerRule
               ? `${describeMarkerRule(markerRule)} (${game.markers.length}/${markerRule.count})`
               : "Si hace falta, anota en papel sobre qué unidades la usas."}
+            {game.orderCombatCard.effect?.kind === "reinforcements" && session.scenario.reinforcements && (
+              <Typography variant="body2" sx={{ mt: 1 }} data-testid="reinforcements-table">
+                <strong>Refuerzos en este mapa:</strong> {describeReinforcements(session.scenario.reinforcements)}
+              </Typography>
+            )}
             {markerRule && !ordersCommitted && (
               <Stack direction="row" sx={{ gap: 1, mt: 1, flexWrap: "wrap" }}>
                 {(markersLeft > 0 || marking) && (
