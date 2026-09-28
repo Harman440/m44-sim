@@ -3,10 +3,12 @@
 // Usage: npm run board -- <tiles.json> <out.webp>
 // Example: npm run board -- src/data/boards/arracourt.json src/assets/scenarios/Arracourt.webp
 // tiles.json: { "forest": [{ "row": 3, "col": 9 }], "town": [...] }, in the scenario's
-// positions; every other hex is plains. Only plains, forest and town have art, and
-// the outer ring of hexes can't become forest or town (the frame is drawn over them).
+// positions; every other hex is plains. Plains, forest and town are cut out of the art,
+// hills are drawn by terrain-tiles.mjs. The outer ring of hexes can't change terrain
+// (the frame is drawn over them).
 import sharp from "sharp";
 import { readFileSync } from "node:fs";
+import { TILES } from "./terrain-tiles.mjs";
 
 const SOURCE = "src/assets/scenarios/ForetDEcouves.webp";
 // The source's terrain (from scenarios.ts), so its forests and towns can be painted over
@@ -76,6 +78,16 @@ const tile = (key) => {
     .toBuffer();
 };
 
+// A drawn tile, rendered at the board's hex size; seeded by the hex so every hill differs
+const drawn = (type, key) => {
+  const [row, col] = key.split("-").map(Number);
+  return sharp(Buffer.from(TILES[type](row * 13 + col + 1)))
+    .resize(Math.round(hexWidth), Math.round(radius * 2))
+    .png()
+    .toBuffer();
+};
+const DRAWN = new Set(["hill"]);
+
 const tiles = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const out = process.argv[3];
 if (!out) {
@@ -84,7 +96,7 @@ if (!out) {
 }
 const wanted = new Map();
 for (const [type, positions] of Object.entries(tiles)) {
-  if (!SAMPLES[type] || type === "plains") throw new Error(`No art for ${type}`);
+  if ((!SAMPLES[type] && !DRAWN.has(type)) || type === "plains") throw new Error(`No art for ${type}`);
   positions.forEach(({ row, col }) => wanted.set(`${row}-${col}`, type));
 }
 const current = new Map(Object.entries(SOURCE_TILES).flatMap(([type, keys]) => keys.map((k) => [k, type])));
@@ -96,15 +108,20 @@ for (const key of new Set([...wanted.keys(), ...current.keys()])) {
   const type = wanted.get(key) ?? "plains";
   if ((current.get(key) ?? "plains") === type) continue;
   const [row, col] = key.split("-").map(Number);
+  if (isEdge(key) && !(type === "plains" && SAMPLES.edgeRow[row])) {
+    throw new Error(`Hex ${key} is on the edge of the board: its terrain can't change`);
+  }
+  if (DRAWN.has(type)) {
+    const { x, y } = center(key);
+    layers.push({ input: await drawn(type, key), left: Math.round(x - hexWidth / 2) + PAD, top: Math.round(y - radius) + PAD });
+    continue;
+  }
   const sample =
     type === "plains" && SAMPLES.edgeRow[row]
       ? SAMPLES.edgeRow[row]
       : type === "plains" && SAMPLES.sectionLine[row % 2 ? "odd" : "even"][col]
         ? SAMPLES.sectionLine[row % 2 ? "odd" : "even"][col]
         : pick(SAMPLES[type]);
-  if (isEdge(key) && !(type === "plains" && SAMPLES.edgeRow[row])) {
-    throw new Error(`Hex ${key} is on the edge of the board: its terrain can't change`);
-  }
   layers.push({ input: await tile(sample), ...corner(key) });
 }
 

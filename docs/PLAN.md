@@ -275,7 +275,9 @@ Large; split it into smaller steps when we get here.
 - [x] Data check: every die face in the table, one terrain per hex, distinct ids (plus the existing on-board and one-unit-per-hex checks)
 - [ ] Air sorties per scenario: with the air rules (Step 30, postponed)
 - [ ] **Decide:** the reinforcement tables are a proposal (Écouves: grenade → infantry, star → artillery; Arracourt: grenade → tank, star → artillery; flag → none on both)
-- [ ] Hills: no hill art to cut out yet, so new boards use plains, forest and town only
+- [x] Hills: `npm run board` draws them (`scripts/terrain-tiles.mjs`: a dry, rocky hill with steep sides, its rocks and scrub different on every hex), so a board's terrain file can list `hill` hexes
+- [ ] Rivers and hedgerows: their art is drawn too (in `terrain-tiles.mjs`: a stony river from any edge to any other, so bends join up; hedges between three fields), but they aren't terrain types yet
+- [ ] **Decide:** how rivers and hedgerows play in the house rules (crossing a river, stopping at a hedgerow, line of sight, fire dice), before adding them to `HexType` and `npm run board`
 - The old board art (`defualt.png`) is in git history from before Step 9
 
 ### Step 32: Experiments (decide later)

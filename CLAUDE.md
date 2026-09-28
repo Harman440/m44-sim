@@ -16,7 +16,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `npm run build`: production build to `dist/`, with the service worker (`vite-plugin-pwa`, config in `vite.config.ts`)
 - `npm run tablet`: build and serve the production app on the network (port 4173); the only way to test install and offline, since the service worker doesn't run in `npm run dev`. Service workers need HTTPS or localhost; see the README for the tablet.
 - `npm run icons`: regenerate the app icon PNGs from `public/icons/icon.svg`
-- `npm run board -- <tiles.json> <out.webp>`: build a scenario's board art from its terrain (plains, forest and town hexes cut out of the Forêt d'Écouves art); the terrain file in `src/data/boards/` is also what `scenarios.ts` imports
+- `npm run board -- <tiles.json> <out.webp>`: build a scenario's board art from its terrain (plains, forest and town hexes cut out of the Forêt d'Écouves art; hills drawn as SVG by `scripts/terrain-tiles.mjs`, which also has the river and hedgerow art for later); the terrain file in `src/data/boards/` is also what `scenarios.ts` imports
 
 ## Architecture
 - `src/game-core/`: plain TypeScript game logic with **no React imports**:
