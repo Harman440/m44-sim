@@ -34,6 +34,11 @@ export interface Scenario {
   units: Factions;
   /** Reinforcements card: the unit each die face brings onto this map (null: no reinforcements) */
   reinforcements?: Record<SixSidedFace, UnitType | null>;
+  /**
+   * Units one side drops on the table before the game starts (Sainte-Mère-Église); that
+   * side's app first asks where they landed. Units off the board or on another unit are lost.
+   */
+  paradrop?: { faction: Faction; unitType: UnitType; units: number };
   /** The combat deck each side uses; the standard deck when omitted */
   combatDecks?: { allies?: CombatDeckId; axis?: CombatDeckId };
 }

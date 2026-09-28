@@ -124,6 +124,10 @@ export interface GameSnapshot {
   combatCardDue: boolean;
   /** The hand has more combat cards than allowed: one must be discarded before the next turn */
   mustDiscardCombatCard: boolean;
+  /** Paratroopers placed so far, in order (PARADROP) */
+  drops: readonly Position[];
+  /** Paratroopers that can still be placed (PARADROP) */
+  dropsLeft: number;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -198,7 +202,8 @@ export type BattleEdit =
 /**
  * Owns one player's game: board, command cards and the turn flow
  * PICK_CARDS -> ORDER_UNITS -> MOVEMENT -> BATTLE -> END_OF_TURN -> (next turn). The attacking side
- * plays turn 1 alone; the defender waits in AWAIT_ATTACKER and starts at turn 2.
+ * plays turn 1 alone; the defender waits in AWAIT_ATTACKER and starts at turn 2. A side with a
+ * paradrop starts in PARADROP, placing the units that landed on the table.
  *
  * Game objects are mutable, so instead of a React reducer (which React may run
  * twice) every action mutates them here and publishes a new immutable snapshot.
@@ -240,6 +245,7 @@ class GameSession {
   private cardAttacks: CardAttack[] = [];
   private battleCombatCard: CombatCard | null = null;
   private drawnCombatCard: CombatCard | null = null;
+  private drops: Position[] = [];
   private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
@@ -259,7 +265,7 @@ class GameSession {
     this.random = random;
     this.faction = faction;
     this.attacking = scenario.attacker === faction;
-    this.phase = this.attacking ? TurnPhase.PICK_CARDS : TurnPhase.AWAIT_ATTACKER;
+    this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
     this.board = new BoardManager(scenario, faction);
     this.deck = new Deck(commandCards);
     this.hand = this.deck.draw(initialHandSize);
@@ -276,6 +282,52 @@ class GameSession {
   };
 
   getSnapshot = (): GameSnapshot => this.snapshot;
+
+  /** The phase the game starts in, after any paradrop */
+  private firstPhase(): TurnPhase {
+    return this.attacking ? TurnPhase.PICK_CARDS : TurnPhase.AWAIT_ATTACKER;
+  }
+
+  // --- PARADROP
+
+  /** This side's paradrop, if the scenario has one */
+  private paradrop() {
+    const paradrop = this.scenario.paradrop;
+    return paradrop?.faction === this.faction ? paradrop : null;
+  }
+
+  private dropsLeft(): number {
+    const paradrop = this.paradrop();
+    return this.phase === TurnPhase.PARADROP && paradrop ? paradrop.units - this.drops.length : 0;
+  }
+
+  /** A paratrooper landed on this empty hex on the table */
+  dropUnit(position: Position): boolean {
+    const paradrop = this.paradrop();
+    if (!paradrop || this.dropsLeft() === 0) return false;
+    if (!this.board.getHex(position)?.isPassable()) return false;
+
+    this.board.placeUnitAt(position, new Unit(paradrop.unitType));
+    this.drops = [...this.drops, position];
+    return this.publish();
+  }
+
+  undoDrop(): boolean {
+    const last = this.drops.at(-1);
+    if (this.phase !== TurnPhase.PARADROP || !last) return false;
+
+    this.board.removeUnitAt(last);
+    this.drops = this.drops.slice(0, -1);
+    return this.publish();
+  }
+
+  /** All the paratroopers that landed are placed (the others missed the board or hit a unit): start */
+  finishParadrop(): boolean {
+    if (this.phase !== TurnPhase.PARADROP) return false;
+
+    this.phase = this.firstPhase();
+    return this.publish();
+  }
 
   // --- AWAIT_ATTACKER
 
@@ -1089,6 +1141,7 @@ class GameSession {
       cardAttacks: this.cardAttacks,
       battleCombatCard: this.battleCombatCard,
       drawnCombatCard: this.drawnCombatCard,
+      drops: this.drops,
     });
   }
 
@@ -1136,6 +1189,7 @@ class GameSession {
     session.cardAttacks = state.cardAttacks;
     session.battleCombatCard = state.battleCombatCard;
     session.drawnCombatCard = state.drawnCombatCard;
+    session.drops = state.drops;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -1186,6 +1240,8 @@ class GameSession {
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),
       mustDiscardCombatCard: this.mustDiscardCombatCard(),
+      drops: this.drops,
+      dropsLeft: this.dropsLeft(),
     };
   }
 

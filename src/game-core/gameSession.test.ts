@@ -1270,7 +1270,8 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 13 as 14 })).toThrow();
+    expect(broken({ version: 14 as 15 })).toThrow();
+    expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
     expect(broken({ phase: 9 as TurnPhase })).toThrow();
@@ -1987,5 +1988,74 @@ describe("GameSession combat card effects", () => {
       const { session } = turnTwo([tactician]);
       expect(session.cardNeedsSection(new CommandCard({ id: "all", orders: 3 }), tactician)).toBe(false);
     });
+  });
+});
+
+describe("GameSession paradrop", () => {
+  // The Allies drop 2 infantry
+  const paradropSession = (faction: "Allies" | "Axis" = "Allies", attacker: "Allies" | "Axis" = "Allies") =>
+    new GameSession({
+      scenario: {
+        ...scenario,
+        id: "paradrop",
+        attacker,
+        paradrop: { faction: "Allies", unitType: UnitType.INFANTRY, units: 2 },
+      },
+      faction,
+      initialHandSize: 3,
+      commandCards: cards(),
+    });
+
+  it("starts the paradrop side placing its paratroopers; the other side starts as usual", () => {
+    expect(paradropSession().getSnapshot()).toMatchObject({ phase: TurnPhase.PARADROP, dropsLeft: 2, drops: [] });
+    expect(paradropSession("Axis").getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+  });
+
+  it("places a unit on each empty hex tapped, up to the paradrop's size", () => {
+    const session = paradropSession();
+
+    expect(session.dropUnit({ row: 2, col: 2 })).toBe(true);
+    expect(session.dropUnit(TANK)).toBe(false); // occupied
+    expect(session.dropUnit({ row: 4, col: 7 })).toBe(true); // any terrain
+    expect(session.dropUnit({ row: 2, col: 5 })).toBe(false); // none left
+
+    expect(unitAt(session, { row: 2, col: 2 })?.getUnitType()).toBe(UnitType.INFANTRY);
+    expect(session.getSnapshot()).toMatchObject({ dropsLeft: 0, drops: [{ row: 2, col: 2 }, { row: 4, col: 7 }] });
+  });
+
+  it("undoes the last paratrooper placed", () => {
+    const session = paradropSession();
+    session.dropUnit({ row: 2, col: 2 });
+
+    expect(session.undoDrop()).toBe(true);
+    expect(unitAt(session, { row: 2, col: 2 })).toBeNull();
+    expect(session.getSnapshot().dropsLeft).toBe(2);
+    expect(session.undoDrop()).toBe(false);
+  });
+
+  it("goes on to the first turn, even with paratroopers lost, and then can't drop any more", () => {
+    const attacker = paradropSession();
+    attacker.dropUnit({ row: 2, col: 2 });
+
+    expect(attacker.finishParadrop()).toBe(true);
+    expect(attacker.getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 1, dropsLeft: 0 });
+    expect(attacker.dropUnit({ row: 2, col: 5 })).toBe(false);
+    expect(attacker.undoDrop()).toBe(false);
+
+    const defender = paradropSession("Allies", "Axis");
+    defender.finishParadrop();
+    expect(defender.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+  });
+
+  it("keeps the paratroopers through a reload, and can still undo them", () => {
+    const session = paradropSession();
+    session.dropUnit({ row: 2, col: 2 });
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), session.scenario, cards());
+
+    expect(restored.getSnapshot()).toMatchObject({ phase: TurnPhase.PARADROP, dropsLeft: 1 });
+    expect(unitAt(restored, { row: 2, col: 2 })?.getUnitType()).toBe(UnitType.INFANTRY);
+    expect(restored.undoDrop()).toBe(true);
+    expect(unitAt(restored, { row: 2, col: 2 })).toBeNull();
   });
 });

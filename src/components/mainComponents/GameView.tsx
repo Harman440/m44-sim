@@ -25,6 +25,7 @@ import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
 import WaitingView from "./GameViews/WaitingView";
+import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
 import { FACTION_LABELS, coinsText } from "../../labels";
@@ -201,6 +202,8 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             </MenuItem>
           </Menu>
         </Box>
+
+        {game.phase === TurnPhase.PARADROP && <ParadropView faction={faction} session={session} game={game} />}
 
         {game.phase === TurnPhase.AWAIT_ATTACKER && (
           <WaitingView attacker={scenario.attacker} onStart={() => session.startFirstTurn()} />

@@ -137,6 +137,37 @@ describe("BoardManager pathfinding", () => {
     expect(firePositions.sort()).toEqual(["3-5", "4-5", "5-5", "5-6"]);
   });
 
+  it("enters a hedgerow only from the hex the move starts on, and stops there", () => {
+    // 4-7 is next to the start (4-6); 4-9 is two hexes away
+    const scenario = makeScenario({ tiles: { hedgerow: [{ row: 4, col: 7 }, { row: 4, col: 9 }] } });
+    const board = new BoardManager(scenario);
+
+    const reachable = destinations(board, 3);
+
+    expect(reachable).toContain("4-7");
+    expect(reachable).not.toContain("4-9");
+    expect(reachable).toContain("4-8"); // round the hedgerow
+    expect(destinations(board, 1, true)).not.toContain("4-7"); // can't fire after entering
+  });
+
+  it("moves a unit that starts on a hedgerow only 1 hex", () => {
+    const scenario = makeScenario({ tiles: { hedgerow: [start] } });
+    const board = new BoardManager(scenario);
+
+    expect(destinations(board, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);
+  });
+
+  it("ignores the hedgerow limits when a card ignores terrain", () => {
+    const scenario = makeScenario({ tiles: { hedgerow: [start, { row: 4, col: 9 }] } });
+    const board = new BoardManager(scenario);
+
+    const moves = board
+      .calculatePossibleMovesWithPaths(board.getHex(start)!, 3, false, { ignoreTerrain: true })
+      .map((r) => key(r.position));
+
+    expect(moves).toContain("4-9");
+  });
+
   it("looks up the path from start to each destination by key", () => {
     const board = new BoardManager(makeScenario());
     const paths = board.getAllPaths(board.getHex(start)!, 2);

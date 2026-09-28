@@ -120,6 +120,8 @@ class BoardManager {
    * Every hex a unit at `startHex` can reach within `maxRange`, with the
    * cheapest path to each (Dijkstra). Stop terrain ends movement; with
    * `forFirePositions`, only destinations the unit can still fire from.
+   * A hedgerow can only be entered by a unit that starts next to it, and a
+   * unit that starts on one moves 1 hex.
    * `rules` loosens terrain for combat cards (Armor Forward, House to House…).
    */
   calculatePossibleMovesWithPaths = (
@@ -130,6 +132,8 @@ class BoardManager {
   ): PathResult[] => {
     const canFireFrom = (hex: Hex) => hex.getCanMoveAndFire() || (rules.fireInto?.includes(hex.getType()) ?? false);
     const startPos = startHex.getPosition();
+    const hedgerowRules = !rules.ignoreTerrain;
+    if (hedgerowRules && startHex.getType() === HexType.HEDGEROW) maxRange = Math.min(maxRange, 1);
 
     // A sorted array is plenty for a 117-hex board
     const queue: PathNode[] = [
@@ -184,6 +188,9 @@ class BoardManager {
 
         // Skip if hex doesn't exist on board or is impassable
         if (!neighborHex || !neighborHex.isPassable()) {
+          continue;
+        }
+        if (hedgerowRules && neighborHex.getType() === HexType.HEDGEROW && current.cost > 0) {
           continue;
         }
 

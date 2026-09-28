@@ -18,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 interface SavedUnit {
   type: UnitType;
@@ -75,6 +75,7 @@ export interface SavedGame {
   cardAttacks: CardAttack[];
   battleCombatCard: string | null;
   drawnCombatCard: string | null;
+  drops: Position[];
 }
 
 /** Everything a GameSession keeps between actions, apart from the board's units */
@@ -109,6 +110,8 @@ export interface SessionState {
   battleCombatCard: CombatCard | null;
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
+  /** Paratroopers placed before the first turn, in order (the units are on the board) */
+  drops: Position[];
 }
 
 const isPosition = (value: unknown): value is Position =>
@@ -117,9 +120,9 @@ const isPosition = (value: unknown): value is Position =>
   Number.isInteger((value as Position).row) &&
   Number.isInteger((value as Position).col);
 
-function readMarkers(markers: unknown): Position[] {
-  if (!Array.isArray(markers) || !markers.every(isPosition)) throw new Error("Markers are not a list of hexes");
-  return markers.map(({ row, col }) => ({ row, col }));
+function readPositions(positions: unknown, what: string): Position[] {
+  if (!Array.isArray(positions) || !positions.every(isPosition)) throw new Error(`${what} are not a list of hexes`);
+  return positions.map(({ row, col }) => ({ row, col }));
 }
 
 function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
@@ -216,6 +219,7 @@ export function writeSave(
     })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
+    drops: state.drops.map((p) => ({ ...p })),
     units: savedUnits,
   };
 }
@@ -346,9 +350,10 @@ export function readSave(
     combatDiscardPile: saved.combatDiscardPile.map(combatCard),
     combatHand: saved.combatHand.map(combatCard),
     orderCombatCard: combatCardOrNull(saved.orderCombatCard),
-    markers: readMarkers(saved.markers),
+    markers: readPositions(saved.markers, "Markers"),
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
+    drops: readPositions(saved.drops, "Paradrops"),
   };
 }

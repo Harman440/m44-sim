@@ -279,19 +279,22 @@ const field = (pts, kind) => {
   return `<polygon points="${poly}" fill="${FIELDS[kind][0]}"/><polygon points="${poly}" fill="url(#fur-${kind})"/>`;
 };
 const inset = (k) => corners(R * k);
-// Hedges crossing the hex between three fields, meeting a hedge along the top edges
+// Hedges crossing the hex between three fields, meeting a hedge along three of the edges.
+// The seed picks where they meet, which corners they run to and which edges have the hedge.
 export function hedgerow(seed = 53) {
   const rand = rng(seed);
   let b = ground("#8fa652", "#aebd6c", "#6f8a38", seed, 0.03);
-  const k = inset(1.3), m = [6, -4];
-  b += field([m, k[5], k[0], k[1]], "wheat") + field([m, k[1], k[2], k[3]], "pasture") + field([m, k[3], k[4], k[5]], "plough");
+  const turn = Math.floor(rand() * 2), start = Math.floor(rand() * 6);
+  const m = [(rand() - 0.5) * 24, (rand() - 0.5) * 24];
+  const corner = (points, i) => points[(i + turn) % 6];
+  const k = inset(1.3);
+  const kinds = ["wheat", "pasture", "plough", "hay"].sort(() => rand() - 0.5);
+  [1, 3, 5].forEach((c, i) => (b += field([m, corner(k, c), corner(k, c + 1), corner(k, c + 2)], kinds[i])));
   b += `<g filter="url(#gl${seed})" opacity=".35"><rect x="-100" y="-100" width="200" height="200"/></g>`;
-  const e = inset(0.9);
-  b += hedgeLine([m, e[1].map((v) => v * 1.05)], rand, { r: 7 });
-  b += hedgeLine([m, e[3].map((v) => v * 1.05)], rand, { r: 7 });
-  b += hedgeLine([m, e[5].map((v) => v * 1.05)], rand, { r: 7 });
+  const e = inset(0.95);
+  [1, 3, 5].forEach((c) => (b += hedgeLine([m, corner(e, c)], rand, { r: 9.5, trees: 0.1 })));
   const ring = inset(0.8);
-  b += hedgeLine([ring[4], ring[5], ring[0], ring[1]], rand, { r: 7, trees: 0.15 });
+  b += hedgeLine([0, 1, 2, 3].map((i) => ring[(start + i) % 6]), rand, { r: 9.5, trees: 0.15 });
   return frame(b, "#7f9a45", fieldDefs(seed));
 }
 export const TILES = { hill, river, hedgerow };

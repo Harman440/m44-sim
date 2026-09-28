@@ -13,6 +13,7 @@ import { UnitType } from "../../../game-core/unit";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
+import { HexType } from "../../../types/hex";
 import "./PhaseLayout.css";
 
 interface OrdersViewProps {
@@ -312,6 +313,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             {moveOptions && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                 {describeMovement(moveOptions.limits)}
+                {selectedHex.getType() === HexType.HEDGEROW && moveOptions.limits.maxMove > 1 && (
+                  <>. Al salir de un seto solo avanza 1 casilla</>
+                )}
               </Typography>
             )}
             {/* Legend for the highlighted hexes (no hover on tablets) */}

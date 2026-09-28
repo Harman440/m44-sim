@@ -26,6 +26,7 @@ export const TARGET_TERRAIN_MODIFIERS: Record<TargetTerrain, { label: string; di
   forest: { label: "Bosque", dice: { infantry: -1, tank: -2, artillery: 0 } },
   town: { label: "Pueblo", dice: { infantry: -1, tank: -2, artillery: 0 } },
   hill: { label: "Colina", dice: { infantry: -1, tank: -1, artillery: 0 } },
+  hedgerow: { label: "Seto", dice: { infantry: -1, tank: -2, artillery: 0 } },
   bunker: { label: "Búnker", dice: { infantry: -1, tank: -2, artillery: 0 } },
 };
 

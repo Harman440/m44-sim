@@ -9,4 +9,6 @@ export enum TurnPhase {
   MOVEMENT,
   /** Fase final: retreats, then drawing a command card */
   END_OF_TURN,
+  /** Before the first turn: place the paratroopers that landed on the table (Scenario.paradrop) */
+  PARADROP,
 }

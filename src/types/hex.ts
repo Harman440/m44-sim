@@ -4,6 +4,7 @@ export enum HexType {
   FOREST = "forest",
   HILL = "hill",
   TOWN = "town",
+  HEDGEROW = "hedgerow",
 }
 
 // Enum for movement rules

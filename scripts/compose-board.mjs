@@ -4,8 +4,8 @@
 // Example: npm run board -- src/data/boards/arracourt.json src/assets/scenarios/Arracourt.webp
 // tiles.json: { "forest": [{ "row": 3, "col": 9 }], "town": [...] }, in the scenario's
 // positions; every other hex is plains. Plains, forest and town are cut out of the art,
-// hills are drawn by terrain-tiles.mjs. The outer ring of hexes can't change terrain
-// (the frame is drawn over them).
+// hills and hedgerows are drawn by terrain-tiles.mjs. On the outer ring, the frame
+// (the medal tracks along the top and bottom) is put back over the new hexes.
 import sharp from "sharp";
 import { readFileSync } from "node:fs";
 import { TILES } from "./terrain-tiles.mjs";
@@ -41,10 +41,28 @@ const center = (key) => {
   const [row, col] = key.split("-").map(Number);
   return { x: (65 - offsetX) / scale + col * hexWidth + (row % 2) * (hexWidth / 2), y: 50 / scale + row * rowSpacing };
 };
-const isEdge = (key) => {
-  const [row, col] = key.split("-").map(Number);
-  return row === 0 || row === 8 || col === 0 || col === 12 - (row % 2);
-};
+// Where the frame is: everything outside the hexes, plus the medal tracks, which
+// overlap the top and bottom rows
+const FRAME_BAND = 10;
+const frameMask = (() => {
+  const hexPath = (key) => {
+    const { x, y } = center(key);
+    return (
+      [...Array(6)]
+        .map((_, i) => {
+          const a = ((i * 60 - 90) * Math.PI) / 180;
+          return `${i ? "L" : "M"}${(x + radius * Math.cos(a)).toFixed(1)},${(y + radius * Math.sin(a)).toFixed(1)}`;
+        })
+        .join("") + "Z"
+    );
+  };
+  const keys = [...Array(9)].flatMap((_, row) => [...Array(13 - (row % 2))].map((_, col) => `${row}-${col}`));
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
+      `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${keys.map(hexPath).join("")}"/>` +
+      `<rect width="${W}" height="${FRAME_BAND}"/><rect y="${H - FRAME_BAND}" width="${W}" height="${FRAME_BAND}"/></svg>`
+  );
+})();
 
 // A hex cut out of the source, slightly larger so it keeps its outline
 const size = Math.ceil(radius * 2 + 6);
@@ -86,7 +104,7 @@ const drawn = (type, key) => {
     .png()
     .toBuffer();
 };
-const DRAWN = new Set(["hill"]);
+const DRAWN = new Set(["hill", "hedgerow"]);
 
 const tiles = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const out = process.argv[3];
@@ -108,9 +126,6 @@ for (const key of new Set([...wanted.keys(), ...current.keys()])) {
   const type = wanted.get(key) ?? "plains";
   if ((current.get(key) ?? "plains") === type) continue;
   const [row, col] = key.split("-").map(Number);
-  if (isEdge(key) && !(type === "plains" && SAMPLES.edgeRow[row])) {
-    throw new Error(`Hex ${key} is on the edge of the board: its terrain can't change`);
-  }
   if (DRAWN.has(type)) {
     const { x, y } = center(key);
     layers.push({ input: await drawn(type, key), left: Math.round(x - hexWidth / 2) + PAD, top: Math.round(y - radius) + PAD });
@@ -125,7 +140,12 @@ for (const key of new Set([...wanted.keys(), ...current.keys()])) {
   layers.push({ input: await tile(sample), ...corner(key) });
 }
 
-// Pasted on the padded source, then cropped back; the frame is opaque, so nothing transparent is left
+// Pasted on the padded source, cropped back, then the frame put back on top
 const composed = await sharp(padded).composite(layers).png().toBuffer();
-await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).removeAlpha().webp({ quality: 85 }).toFile(out);
+const frame = await sharp(SOURCE).ensureAlpha().composite([{ input: frameMask, blend: "dest-in" }]).png().toBuffer();
+await sharp(await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
+  .composite([{ input: frame }])
+  .removeAlpha()
+  .webp({ quality: 85 })
+  .toFile(out);
 console.log(`${out}: ${layers.length} hexes changed`);

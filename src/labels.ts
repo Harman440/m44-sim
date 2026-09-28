@@ -24,6 +24,7 @@ export const TERRAIN_LABELS: Record<HexType, string> = {
   [HexType.FOREST]: "bosque",
   [HexType.HILL]: "colina",
   [HexType.TOWN]: "pueblo",
+  [HexType.HEDGEROW]: "seto",
 };
 
 export const SECTION_LABELS: Record<Side, string> = {

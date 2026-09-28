@@ -79,6 +79,14 @@ class Hex {
           movementCost: 1
         };
 
+      // Also: only entered from an adjacent hex, and left one hex at a time (BoardManager)
+      case HexType.HEDGEROW:
+        return {
+          movementRule: MovementRule.STOP,
+          canMoveAndFire: false,
+          movementCost: 1
+        };
+
       default:
         return {
           movementRule: MovementRule.NORMAL,
