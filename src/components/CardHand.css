@@ -5,9 +5,9 @@
   overflow-x: auto;
   overflow-y: hidden;
   /* room above for a lifted card, and at the sides for the fan's tilt */
-  padding: 28px 28px 36px;
+  padding: 24px 24px 30px;
   scroll-snap-type: x proximity;
-  scroll-padding-inline: 28px;
+  scroll-padding-inline: 24px;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--m44-border) transparent;

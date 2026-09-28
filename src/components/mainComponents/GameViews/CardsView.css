@@ -98,7 +98,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   gap: 12px;
   padding: 16px;
   border-radius: calc(var(--m44-radius) * 2);
@@ -106,6 +106,7 @@
 }
 
 .cards-hands {
+  --card-width: 164px;
   flex: none;
   display: flex;
   flex-wrap: wrap;
@@ -137,4 +138,22 @@
 
 .hand-group__empty {
   padding: 12px;
+}
+
+/* Landscape: the table has the height the hands leave it. The card looked at
+   is sized from that height (cqh), and a table too short for its text scrolls */
+@media (orientation: landscape) {
+  .cards-table {
+    container-type: size;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* A table too short for a readable card shows only its text: the card is
+   lifted in the hand below anyway */
+@container (max-height: 240px) {
+  .cards-table .card-details__card {
+    display: none;
+  }
 }

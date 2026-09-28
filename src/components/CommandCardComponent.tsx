@@ -21,7 +21,7 @@ function orderCount(card: CommandCard): { count: string; unit: string } {
 }
 
 /** Short tags for the card's special rules; the description has the details */
-function ruleTags(card: CommandCard): string[] {
+export function ruleTags(card: CommandCard): string[] {
     const tags: string[] = [];
     if (card.unitTypes) tags.push(`Solo ${card.unitTypes.map((type) => UNIT_LABELS[type].toLowerCase()).join(", ")}`);
     if (card.choosesSection) tags.push("Sección a elegir");

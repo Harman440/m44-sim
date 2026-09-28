@@ -9,6 +9,7 @@ import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { UnitType } from "../../../game-core/unit";
 import { Position } from "../../../types/scenario";
+import { TurnPhase } from "../../../types/gameManager";
 
 // Allies: two infantry on the left flank (orderable with a LEFT card) and one on the right
 const LEFT_A: Position = { row: 7, col: 1 };
@@ -443,5 +444,22 @@ describe("OrdersView movement combat cards", () => {
     expect(session.getSnapshot().orders[0]!.boosted).toBe(true);
     tap(LEFT_B);
     expect(screen.queryByRole("button", { name: /Usar Terreno helado/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("OrdersView changing the card", () => {
+  it("goes back to the cards until an order is given", () => {
+    const { tap, session } = setup();
+    expect(screen.getByRole("button", { name: "Cambiar carta" })).toBeInTheDocument();
+
+    tap(LEFT_A);
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    expect(screen.queryByRole("button", { name: "Cambiar carta" })).not.toBeInTheDocument();
+
+    act(() => {
+      session.undoLastOrder();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar carta" }));
+    expect(session.getSnapshot().phase).toBe(TurnPhase.PICK_CARDS);
   });
 });

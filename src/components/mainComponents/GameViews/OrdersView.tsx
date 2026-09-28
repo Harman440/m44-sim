@@ -240,6 +240,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             <strong>{game.activeCard.name}:</strong> {game.activeCard.description}
           </Typography>
         )}
+        {game.canUnpickCard && (
+          <Button variant="outlined" onClick={() => session.unpickCard()} startIcon={<GameIcon name="undo" />}>
+            Cambiar carta
+          </Button>
+        )}
         {game.orderCombatCard && (
           <Alert
             severity="info"

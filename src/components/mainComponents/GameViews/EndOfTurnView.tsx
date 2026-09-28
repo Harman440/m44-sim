@@ -3,7 +3,8 @@ import { Alert, Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typo
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import CommandCard from "../../../game-core/commandCard";
 import { Faction } from "../../../types/faction";
-import CommandCardComponent from "../../CommandCardComponent";
+import CommandCardComponent, { ruleTags } from "../../CommandCardComponent";
+import CardDetails from "../../CardDetails";
 import GameIcon from "../../GameIcon";
 import EndOfTurnMap from "./EndOfTurnMap";
 import { RewardChoice } from "../../../game-core/coins";
@@ -144,7 +145,13 @@ function EndOfTurnView({
               <Typography variant="body2" color="text.secondary">
                 {game.drewAgain ? "Has descartado la primera y robado:" : "Te quedas:"}
               </Typography>
-              <CommandCardComponent faction={faction} cardData={drawnCard} />
+              <CardDetails
+                card={<CommandCardComponent faction={faction} cardData={drawnCard} />}
+                cardWidth={150}
+                name={drawnCard.name}
+                tags={ruleTags(drawnCard)}
+                text={drawnCard.description}
+              />
             </Box>
           ) : drawOptions.length > 0 ? (
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
@@ -153,15 +160,18 @@ function EndOfTurnView({
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
                 {drawOptions.map((card) => (
-                  <Box
+                  <CardDetails
                     key={card.id}
-                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+                    card={<CommandCardComponent faction={faction} cardData={card} />}
+                    cardWidth={150}
+                    name={card.name}
+                    tags={ruleTags(card)}
+                    text={card.description}
                   >
-                    <CommandCardComponent faction={faction} cardData={card} />
                     <Button onClick={() => onKeepCard(card)} aria-label={`Quedármela: ${card.name}`}>
                       Quedármela
                     </Button>
-                  </Box>
+                  </CardDetails>
                 ))}
               </Box>
               {game.canDrawAgain && (

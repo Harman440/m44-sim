@@ -81,13 +81,22 @@
   }
 }
 
-/* "Mostrar al rival": the whole board on screen, below a one-line header */
+/* "Mostrar al rival": the whole board on screen below a one-line header,
+   with the cards played beside it (below it in portrait) */
 .opponent-map {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+}
+
+.opponent-map__board {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  container-type: size;
 }
 
 .opponent-map .board {
@@ -96,5 +105,33 @@
 }
 
 .opponent-map .board__svg {
-  width: min(100%, calc((100dvh - 110px) * var(--board-aspect)));
+  width: min(100cqw, (100cqh - 8px) * var(--board-aspect));
+}
+
+.opponent-map__cards {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  --card-width: 150px;
+}
+
+@media (orientation: landscape) {
+  .opponent-map {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .opponent-map__board {
+    width: auto;
+    min-width: 0;
+  }
+
+  .opponent-map__cards {
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow-y: auto;
+    --card-width: 170px;
+  }
 }

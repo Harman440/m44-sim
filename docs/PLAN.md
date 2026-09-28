@@ -31,9 +31,10 @@ The two decisions from the first plan still hold:
 - [ ] **Later:** portrait (800×1280) still scrolls the page; the player asked to leave it for now. The menu also still scrolls at 800px high
 
 ### Step 37: Choosing a card
-- [ ] Go back after a card is chosen: undo the pick in Órdenes while no order has been given (and give back a combat card played with it)
-- [ ] Look at a card as a preview (full size, its rules and art) without playing it
-- [ ] "Mostrar al rival" also shows the command card chosen, and the combat card played with it
+- [x] Go back after a card is chosen: "Cambiar carta" in Órdenes while no order has been given (`unpickCard`; a combat card played with it goes back to the hand, and its coins come back)
+- [x] Look at a card as a preview without playing it: tapping a card in the hand puts it on the table with its full text (`CardDetails`); a command card is played from there ("Jugar esta carta"), an order combat card is picked there ("Jugarla con la carta de mando"). The final phase shows the drawn cards the same way
+- [x] "Mostrar al rival" also shows the command card chosen, and the combat card played with it
+- [x] Also: playing-card shaped cards (5:7, sized from `--card-width`) held in a fanned hand (`CardHand`) that scrolls sideways, with the combat cards on the right
 
 ### Step 38: Battle screen
 - [ ] Rework the battle info so combat cards and coins stand out more (what's in hand, what can be played now, what it costs)

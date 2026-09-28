@@ -75,6 +75,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** Tap a command card in the hand to look at it, then play it from the table */
+const playFromHand = (container: HTMLElement, name: string) => {
+  fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(name));
+  fireEvent.click(within(screen.getByTestId("card-details")).getByRole("button", { name: /^Jugar/ }));
+};
+
 describe("CardsView dealing", () => {
   it("deals cards that haven't been shown yet, one at a time", () => {
     const session = makeSession(["A", "B"], 2);
@@ -126,7 +132,7 @@ describe("CardsView playing a card in a section of the player's choice", () => {
         needsSection={(c) => c.choosesSection}
       />
     );
-    fireEvent.click(within(utils.container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    playFromHand(utils.container, card.name);
     return { card, onCardClick };
   };
 
@@ -174,8 +180,7 @@ describe("CardsView combat cards", () => {
         {...props}
       />
     );
-    const playCommandCard = () =>
-      fireEvent.click(within(utils.container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    const playCommandCard = () => playFromHand(utils.container, card.name);
     return { card, onCardClick, playCommandCard };
   };
 
@@ -183,25 +188,32 @@ describe("CardsView combat cards", () => {
     const { card, onCardClick, playCommandCard } = renderWith();
 
     fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 monedas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
     expect(screen.getByText(/Jugarás Barrera \(4 monedas\)/)).toBeInTheDocument();
     playCommandCard();
 
     expect(onCardClick).toHaveBeenCalledWith(card, undefined, expect.objectContaining({ id: "Barrera" }));
   });
 
-  it("offers only the order cards the player can pay for", () => {
+  it("offers only the order cards the player can pay for, but shows them all", () => {
     renderWith();
 
-    expect(screen.queryByRole("button", { name: /Refuerzos/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Emboscada/ })).not.toBeInTheDocument();
-    expect(screen.getByText("Texto de Emboscada")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refuerzos, 6 monedas" }));
+    expect(screen.getByText("Te faltan monedas: cuesta 6 monedas y tienes 5 monedas.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Emboscada, 3 monedas" }));
+    expect(screen.getByText("Se juega durante la batalla.")).toBeInTheDocument();
+    expect(within(screen.getByTestId("card-details")).getAllByText("Texto de Emboscada").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
   });
 
   it("plays none in the attacker's extra turn", () => {
     const { card, onCardClick, playCommandCard } = renderWith({ canPlayCombatCards: false });
 
     expect(screen.getByText("En el turno extra no se juegan cartas de combate.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Barrera/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 monedas" }));
+    expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
     playCommandCard();
     expect(onCardClick).toHaveBeenCalledWith(card, undefined, undefined);
   });
@@ -228,7 +240,8 @@ describe("CardsView Tactician", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 monedas" }));
-    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
+    playFromHand(container, card.name);
     expect(screen.getByText("Táctico: ¿a qué sección cambias Ataque en el flanco izquierdo?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "flanco derecho" }));
 
@@ -257,11 +270,40 @@ describe("CardsView Tactician with a card for several sections", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 monedas" }));
-    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
+    playFromHand(container, card.name);
     expect(screen.getByText("Táctico no sirve con Avance general")).toBeInTheDocument();
     expect(onCardClick).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Jugar sin Táctico" }));
     expect(onCardClick).toHaveBeenCalledWith(card);
+  });
+});
+
+describe("CardsView looking at a card", () => {
+  it("puts a tapped card on the table with its full text, without playing it", () => {
+    const card = new CommandCard({ id: "recon", name: "Reconocimiento", description: "Texto completo del reconocimiento", orders: 1 });
+    const onCardClick = vi.fn();
+    const { container } = render(
+      <CardsView
+        handCards={[card]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onCardClick={onCardClick}
+      />
+    );
+
+    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+
+    const details = screen.getByTestId("card-details");
+    expect(within(details).getAllByRole("heading", { name: "Reconocimiento" }).length).toBeGreaterThan(0);
+    expect(within(details).getAllByText("Texto completo del reconocimiento").length).toBeGreaterThan(0);
+    expect(onCardClick).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Devolver a la mano" }));
+    expect(screen.queryByTestId("card-details")).not.toBeInTheDocument();
+    expect(screen.getByText("Toca una carta para verla")).toBeInTheDocument();
   });
 });

@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import { Faction } from "../../../types/faction";
 import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
-import { SECTION_LABELS } from "../../../labels";
+import { COMBAT_PHASE_LABELS, SECTION_LABELS, coinsText } from "../../../labels";
 import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
 import CardHand from "../../CardHand";
+import CardDetails from "../../CardDetails";
+import GameIcon from "../../GameIcon";
+import { ruleTags } from "../../CommandCardComponent";
 import { CombatCard } from "../../../game-core/combatCard";
 import { useSound } from "../../../sound";
 import "./CardsView.css";
@@ -14,6 +17,9 @@ import "./CardsView.css";
 // Must be at least the 0.5s slideDown animation in CardsView.css
 export const DEAL_ANIMATION_MS = 600;
 export const DEAL_GAP_MS = 150;
+
+/** The card looked at on the table: as tall as the table allows, up to 180px wide (see .cards-table) */
+const TABLE_CARD_WIDTH = "min(180px, (100cqh - 40px) * 5 / 7)";
 
 interface CardsViewProps {
   handCards: readonly CommandCard[];
@@ -57,6 +63,8 @@ function CardsView({
   /** A card the order combat card can't be played with: asks whether to play it alone */
   const [misfit, setMisfit] = useState<CommandCard | null>(null);
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
+  /** The card being looked at on the table; a command card is played from there */
+  const [looking, setLooking] = useState<{ command: CommandCard } | { combat: CombatCard } | null>(null);
   const play = useSound();
 
   const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
@@ -81,6 +89,24 @@ function CardsView({
   useEffect(() => {
     if (animatingCard) play("cardDeal");
   }, [animatingCard, play]);
+
+  /** Tapping a card in the hand puts it on the table to look at; tapping it again puts it back */
+  const look = (next: { command: CommandCard } | { combat: CombatCard }) =>
+    setLooking((current) =>
+      current && ("command" in next ? "command" in current && current.command === next.command : "combat" in current && current.combat === next.combat)
+        ? null
+        : next
+    );
+  const lookingAt = (card: CommandCard | CombatCard) =>
+    !!looking && ("command" in looking ? looking.command === card : looking.combat === card);
+
+  /** Why an order combat card can't be played now, or null if it can */
+  const cantPlay = (card: CombatCard): string | null => {
+    if (!canPlayCombatCards) return "En el turno extra no se juegan cartas de combate.";
+    if (card.phase === "battle") return "Se juega durante la batalla.";
+    if (card.cost > coins) return `Te faltan monedas: cuesta ${coinsText(card.cost)} y tienes ${coinsText(coins)}.`;
+    return null;
+  };
 
   const playCard = (card: CommandCard) => {
     if (combatPick && !combatCardFits(card, combatPick)) {
@@ -140,13 +166,68 @@ function CardsView({
 
       {/* The table: what the player is about to play */}
       <Box className="cards-table">
-        <Typography variant="body1" color={combatPick ? "primary" : "text.secondary"} sx={{ textAlign: "center", maxWidth: 560 }}>
-          {!canPlayCombatCards
-            ? "En el turno extra no se juegan cartas de combate."
-            : combatPick
-              ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas. Ponla boca abajo en la mesa.`
-              : "Para jugar una carta de órdenes este turno, tócala antes de elegir la carta de mando. Las de batalla se juegan en la batalla."}
-        </Typography>
+        {/* While a card is looked at, its buttons say what will be played */}
+        {looking === null && (
+          <Typography variant="body1" color={combatPick ? "primary" : "text.secondary"} sx={{ textAlign: "center", maxWidth: 560 }}>
+            {!canPlayCombatCards
+              ? "En el turno extra no se juegan cartas de combate."
+              : combatPick
+                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas. Ponla boca abajo en la mesa.`
+                : "Para jugar una carta de órdenes este turno, elígela antes que la carta de mando. Las de batalla se juegan en la batalla."}
+          </Typography>
+        )}
+        {looking === null ? (
+          <Typography variant="h6" component="p" color="text.secondary" sx={{ textAlign: "center" }}>
+            Toca una carta para verla
+          </Typography>
+        ) : "command" in looking ? (
+          <CardDetails
+            card={<CommandCardComponent faction={faction} cardData={looking.command} />}
+            cardWidth={TABLE_CARD_WIDTH}
+            name={looking.command.name}
+            tags={ruleTags(looking.command)}
+            text={looking.command.description}
+          >
+            <Button size="large" onClick={() => playCard(looking.command)} startIcon={<GameIcon name="cards" />}>
+              {combatPick ? `Jugar con ${combatPick.name}` : "Jugar esta carta"}
+            </Button>
+            <Button variant="text" onClick={() => setLooking(null)}>
+              Devolver a la mano
+            </Button>
+          </CardDetails>
+        ) : (
+          <CardDetails
+            card={<CombatCardComponent faction={faction} card={looking.combat} />}
+            cardWidth={TABLE_CARD_WIDTH}
+            name={looking.combat.name}
+            tags={[COMBAT_PHASE_LABELS[looking.combat.phase], `Cuesta ${coinsText(looking.combat.cost)}`]}
+            text={looking.combat.description}
+          >
+            {cantPlay(looking.combat) ? (
+              <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
+                {cantPlay(looking.combat)}
+              </Typography>
+            ) : combatPick === looking.combat ? (
+              <Button variant="outlined" onClick={() => setCombatPick(null)}>
+                No jugarla
+              </Button>
+            ) : (
+              <Button
+                size="large"
+                onClick={() => {
+                  setCombatPick(looking.combat);
+                  setLooking(null);
+                }}
+                startIcon={<GameIcon name="cards" />}
+              >
+                Jugarla con la carta de mando
+              </Button>
+            )}
+            <Button variant="text" onClick={() => setLooking(null)}>
+              Devolver a la mano
+            </Button>
+          </CardDetails>
+        )}
       </Box>
 
       {/* The hands: command cards, and the combat cards on the right */}
@@ -159,7 +240,8 @@ function CardsView({
             label="Cartas de mando"
             cards={visibleHand.map((card) => ({
               key: card.id,
-              node: <CommandCardComponent faction={faction} cardData={card} onClick={playCard} />,
+              lifted: lookingAt(card),
+              node: <CommandCardComponent faction={faction} cardData={card} onClick={(c) => look({ command: c })} />,
             }))}
           />
         </section>
@@ -176,23 +258,20 @@ function CardsView({
             <CardHand
               label="Cartas de combate"
               overlap={0.3}
-              cards={combatHand.map((card) => {
-                const playable = canPlayCombatCards && card.phase === "order" && card.cost <= coins;
-                return {
-                  key: card.id,
-                  lifted: combatPick === card,
-                  node: playable ? (
-                    <CombatCardComponent
-                      faction={faction}
-                      card={card}
-                      selected={combatPick === card}
-                      onClick={(c) => setCombatPick((picked) => (picked === c ? null : c))}
-                    />
-                  ) : (
-                    <CombatCardComponent faction={faction} card={card} disabled={card.phase === "order"} />
-                  ),
-                };
-              })}
+              cards={combatHand.map((card) => ({
+                key: card.id,
+                lifted: combatPick === card || lookingAt(card),
+                // Any combat card can be looked at; only an order card that can be paid is played
+                node: (
+                  <CombatCardComponent
+                    faction={faction}
+                    card={card}
+                    selected={combatPick === card}
+                    disabled={card.phase === "order" && cantPlay(card) !== null}
+                    onClick={(c) => look({ combat: c })}
+                  />
+                ),
+              }))}
             />
           )}
         </section>

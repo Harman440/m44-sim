@@ -65,12 +65,15 @@ describe("MovementView", () => {
   });
 
   it("shows the orders full screen for the opponent, and closes again", async () => {
-    render(<Harness session={makeMovementSession()} />);
+    const session = makeMovementSession();
+    render(<Harness session={session} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Mostrar al rival" }));
 
     const dialog = screen.getByRole("dialog", { name: "Órdenes de Aliados · Turno 1" });
     expect(dialog.querySelectorAll(".unit__badge--fire")).toHaveLength(1);
+    // The card played is shown too, for the opponent to read
+    expect(within(screen.getByTestId("opponent-cards")).getByRole("heading", { name: session.getSnapshot().chosenCard!.name })).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });

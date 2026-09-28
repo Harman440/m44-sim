@@ -1,7 +1,9 @@
 import { Box, Button, Dialog, Stack, Typography } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import { Faction } from "../../../types/faction";
-import { FACTION_LABELS } from "../../../labels";
+import { FACTION_LABELS, SECTION_LABELS } from "../../../labels";
+import CommandCardComponent from "../../CommandCardComponent";
+import CombatCardComponent from "../../CombatCardComponent";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import "./PhaseLayout.css";
@@ -43,18 +45,32 @@ function OpponentMap({ open, onClose, faction, session, game }: OpponentMapProps
           </Button>
         </Stack>
         <Box className="opponent-map">
-          <Board
-            onTileClick={noop}
-            unitHexPosition={null}
-            possibleMovePositions={[]}
-            possibleMoveAndFirePositions={[]}
-            boardManager={session.board}
-            orders={game.orders}
-            markers={game.markers}
-            markerKind={game.orderCombatCard?.marker?.kind}
-            backgroundImage={session.scenario.image}
-            faction={faction}
-          />
+          <Box className="opponent-map__board">
+            <Board
+              onTileClick={noop}
+              unitHexPosition={null}
+              possibleMovePositions={[]}
+              possibleMoveAndFirePositions={[]}
+              boardManager={session.board}
+              orders={game.orders}
+              markers={game.markers}
+              markerKind={game.orderCombatCard?.marker?.kind}
+              backgroundImage={session.scenario.image}
+              faction={faction}
+            />
+          </Box>
+          {/* The cards played this turn, so the opponent can read them */}
+          <Box className="opponent-map__cards" data-testid="opponent-cards">
+            {game.chosenCard && (
+              <Stack sx={{ alignItems: "center", gap: 0.5 }}>
+                <CommandCardComponent faction={faction} cardData={game.chosenCard} />
+                {game.chosenSection && (
+                  <Typography variant="body2">Sección: {SECTION_LABELS[game.chosenSection]}</Typography>
+                )}
+              </Stack>
+            )}
+            {game.orderCombatCard && <CombatCardComponent faction={faction} card={game.orderCombatCard} />}
+          </Box>
         </Box>
       </Box>
     </Dialog>

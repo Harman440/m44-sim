@@ -14,7 +14,7 @@ interface CombatCardProps {
   onClick?: (card: CombatCard) => void;
   /** Picked to be played */
   selected?: boolean;
-  /** Shown faded: it can't be played now */
+  /** Shown faded: it can't be played now (it can still be tapped to look at it) */
   disabled?: boolean;
   /** Buttons under the text */
   children?: ReactNode;
@@ -130,8 +130,8 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
   if (onClick) {
     return (
       <ButtonBase
+        // Faded but still tappable, to look at a card that can't be played now
         onClick={() => onClick(card)}
-        disabled={disabled}
         aria-pressed={selected}
         aria-label={`${card.name}, ${card.cost} ${card.cost === 1 ? "moneda" : "monedas"}`}
         className="game-card combat-card"

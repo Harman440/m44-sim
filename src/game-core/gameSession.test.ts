@@ -2221,3 +2221,65 @@ describe("GameSession Reinforcements", () => {
     expect(session.getSnapshot().log.at(-1)!.battleEdits).toEqual([{ kind: "add", unit: UnitType.INFANTRY, position: FAR }]);
   });
 });
+
+describe("GameSession taking back the card picked", () => {
+  const barrage: CombatCard = {
+    id: "barrage",
+    name: "Barrera",
+    description: "",
+    cost: 4,
+    phase: "order",
+    marker: { kind: "target", count: 1 },
+    effect: { kind: "attack", dicePerHex: 4 },
+  };
+  const FAR: Position = { row: 1, col: 10 };
+
+  /** The defender at turn 2 with 5 coins, the "left" card and Barrage in hand */
+  const turnTwo = () => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }), ...cards().slice(1)];
+    const session = new GameSession({
+      scenario: { ...scenario, attacker: "Axis" },
+      faction: "Allies",
+      initialHandSize: commandCards.length,
+      commandCards,
+      combatCards: [barrage],
+    });
+    session.startFirstTurn();
+    session.adjustCoins(5);
+    return { session, left: commandCards[0]! };
+  };
+
+  it("goes back to picking a card, with the combat card and its coins back", () => {
+    const { session, left } = turnTwo();
+    expect(session.pickCard(left, undefined, barrage)).toBe(true);
+    session.markHex(FAR);
+    expect(session.getSnapshot()).toMatchObject({ coins: 1, canUnpickCard: true });
+
+    expect(session.unpickCard()).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: TurnPhase.PICK_CARDS,
+      chosenCard: null,
+      orderCombatCard: null,
+      markers: [],
+      coins: 5,
+      canUnpickCard: false,
+    });
+    expect(session.getSnapshot().combatHand).toContain(barrage);
+    expect(session.getSnapshot().hand).toContain(left);
+    expect(session.pickCard(left)).toBe(true);
+  });
+
+  it("can't once an order is given, or outside giving orders", () => {
+    const { session, left } = turnTwo();
+    expect(session.unpickCard()).toBe(false);
+    session.pickCard(left);
+    const position = session.getSnapshot().orderable[0]!;
+    session.issueOrder(position, position);
+
+    expect(session.getSnapshot().canUnpickCard).toBe(false);
+    expect(session.unpickCard()).toBe(false);
+    session.undoLastOrder();
+    expect(session.unpickCard()).toBe(true);
+  });
+});

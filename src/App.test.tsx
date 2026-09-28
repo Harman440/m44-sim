@@ -127,6 +127,7 @@ describe("App menu and game flow", () => {
     start("Aliados");
     dealHand(5);
     fireEvent.click(handTitles(container)[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /^Jugar/ }));
     expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     unmount();
 

@@ -128,6 +128,8 @@ export interface GameSnapshot {
   drops: readonly Position[];
   /** Paratroopers that can still be placed (PARADROP) */
   dropsLeft: number;
+  /** Giving orders with none given yet: the card can be taken back (`unpickCard`) */
+  canUnpickCard: boolean;
   /** The Reinforcements card's roll in the final phase, and the unit it brings on this map (null: none) */
   reinforcement: ReinforcementRoll | null;
   /** The Reinforcements card was played and its die is still to roll (final phase) */
@@ -403,6 +405,27 @@ class GameSession {
     this.chosenCard = card;
     this.chosenSection = section ?? null;
     this.phase = TurnPhase.ORDER_UNITS;
+    return this.publish();
+  }
+
+  /** The card picked can still be taken back: giving orders, none given yet */
+  private canUnpickCard(): boolean {
+    return this.phase === TurnPhase.ORDER_UNITS && !this.ordersCommitted && this.orders.length === 0;
+  }
+
+  /**
+   * Go back to choosing a card, before any order is given. An order combat
+   * card played with it goes back to the hand, and its coins come back.
+   */
+  unpickCard(): boolean {
+    if (!this.canUnpickCard()) return false;
+
+    if (this.orderCombatCard) this.combatHand = [...this.combatHand, this.orderCombatCard];
+    this.orderCombatCard = null;
+    this.markers = [];
+    this.chosenCard = null;
+    this.chosenSection = null;
+    this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
   }
 
@@ -1341,6 +1364,7 @@ class GameSession {
       mustDiscardCombatCard: this.mustDiscardCombatCard(),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
+      canUnpickCard: this.canUnpickCard(),
       reinforcement: this.reinforcementRoll(),
       reinforcementDue: this.reinforcementDue(),
       reinforcementToPlace: this.reinforcementToPlace(),
