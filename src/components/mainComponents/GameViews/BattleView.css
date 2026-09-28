@@ -1,0 +1,78 @@
+/* Portrait: one column, in the order the battle is played */
+.battle-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.battle-view__main,
+.battle-view__side {
+  display: contents;
+}
+
+.battle-view__main > *,
+.battle-view__side > * {
+  order: 1;
+}
+
+.battle-view [data-testid="card-attacks"] {
+  order: 2;
+}
+
+.battle-view [data-testid="fire-order"] {
+  order: 3;
+}
+
+.battle-view__summary {
+  order: 4 !important;
+}
+
+.battle-view [data-testid="battle-combat-cards"] {
+  order: 5;
+}
+
+/*
+ * Landscape: one screen high (see GameView.css). The turn summary scrolls in
+ * its own box; the side column scrolls if its cards don't fit.
+ */
+@media (orientation: landscape) {
+  .battle-view {
+    flex-direction: row;
+    max-width: none;
+    min-height: 0;
+  }
+
+  .battle-view__main,
+  .battle-view__side {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .battle-view__main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .battle-view__side {
+    flex: 0 0 340px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .battle-view__main > *,
+  .battle-view__side > * {
+    flex: none;
+  }
+
+  .battle-view__summary {
+    flex: 1 1 auto !important;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

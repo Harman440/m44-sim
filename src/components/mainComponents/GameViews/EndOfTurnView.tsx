@@ -10,6 +10,7 @@ import { RewardChoice } from "../../../game-core/coins";
 import { END_OF_TURN_COINS } from "../../../data/coinRules";
 import { MAX_COMBAT_HAND } from "../../../data/combatCards";
 import CombatCardComponent from "../../CombatCardComponent";
+import "./EndOfTurnView.css";
 import { DieFaceIcon } from "../../DiceResult";
 import { DIE_FACE_LABELS, UNIT_LABELS } from "../../../labels";
 
@@ -66,205 +67,209 @@ function EndOfTurnView({
   }
 
   return (
-    <Stack spacing={2} sx={{ width: "100%", maxWidth: 640, mx: "auto" }}>
+    <div className="end-of-turn">
       <Typography variant="h5" component="h2">
         Fase final
       </Typography>
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="h6" component="h3">
-          1. Retiradas y bajas
-        </Typography>
-        <Typography variant="body1">
-          Haz en la mesa las retiradas marcadas en la batalla. Después refleja en el mapa las unidades
-          eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.
-        </Typography>
-        {tableReminders.map((reminder) => (
-          <Alert key={reminder} severity="warning" icon={<GameIcon name="cards" />} sx={{ mt: 1.5 }} data-testid="table-reminder">
-            {reminder}
-          </Alert>
-        ))}
-        {(game.reinforcementDue || game.reinforcement) && (
-          <Box sx={{ mt: 1.5 }} data-testid="reinforcements">
-            {game.reinforcementDue ? (
-              <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
-                <Typography variant="body1">
-                  {game.orderCombatCard?.name}: tira el dado para ver qué unidad llega a la casilla de la cruz.
-                </Typography>
-                <Button onClick={() => session.rollReinforcements()} startIcon={<GameIcon name="dice" />}>
-                  Tirar dado de refuerzos
-                </Button>
-              </Stack>
-            ) : (
-              game.reinforcement && (
-                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-                  <Box sx={{ flex: "none", display: "flex" }}>
-                    <DieFaceIcon face={game.reinforcement.face} faction={faction} />
-                  </Box>
-                  <Typography variant="body1">
-                    {DIE_FACE_LABELS[game.reinforcement.face]}:{" "}
-                    {!game.reinforcement.unitType
-                      ? "no hay refuerzos."
-                      : game.reinforcementToPlace
-                        ? `llega ${UNIT_LABELS[game.reinforcement.unitType].toLowerCase()}. La casilla de la cruz está ocupada: ponla en la mesa y en «Actualizar mapa», en una casilla libre.`
-                        : `llega ${UNIT_LABELS[game.reinforcement.unitType].toLowerCase()}, ya en el mapa. Ponla en la mesa en la casilla de la cruz.`}
-                  </Typography>
-                </Stack>
-              )
-            )}
-          </Box>
-        )}
-        <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
-          <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-            Actualizar mapa
-          </Button>
-          {game.battleEdits > 0 && (
-            <Typography variant="body2" color="text.secondary" data-testid="map-edits">
-              {game.battleEdits === 1 ? "1 cambio" : `${game.battleEdits} cambios`} en el mapa
-            </Typography>
-          )}
-        </Stack>
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
-        <Box>
+      <div className="end-of-turn__steps">
+        <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography variant="h6" component="h3">
-            2. Carta de mando
+            1. Retiradas y bajas
           </Typography>
           <Typography variant="body1">
-            {drawChoice > 1
-              ? `${chosenCard!.name}: roba ${drawChoice} cartas de tu mazo y quédate con 1.`
-              : "Roba una carta de tu mazo. Puedes descartarla y robar otra, pero entonces tienes que quedarte con la nueva."}
+            Haz en la mesa las retiradas marcadas en la batalla. Después refleja en el mapa las unidades
+            eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.
           </Typography>
-        </Box>
-        {drawnCard ? (
-          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {game.drewAgain ? "Has descartado la primera y robado:" : "Te quedas:"}
-            </Typography>
-            <CommandCardComponent faction={faction} cardData={drawnCard} />
-          </Box>
-        ) : drawOptions.length > 0 ? (
-          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              {drawOptions.length > 1 ? "Elige la carta que te quedas:" : "Has robado:"}
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
-              {drawOptions.map((card) => (
-                <Box
-                  key={card.id}
-                  sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 1 }}
-                >
-                  <CommandCardComponent faction={faction} cardData={card} />
-                  <Button onClick={() => onKeepCard(card)} aria-label={`Quedármela: ${card.name}`}>
-                    Quedármela
-                  </Button>
-                </Box>
-              ))}
-            </Box>
-            {game.canDrawAgain && (
-              <Button variant="outlined" onClick={onDrawAgain} startIcon={<GameIcon name="cards" />}>
-                Descartar y robar otra
-              </Button>
-            )}
-          </Box>
-        ) : (
-          <Button onClick={onDrawCard} startIcon={<GameIcon name="cards" />} sx={{ alignSelf: "flex-start" }}>
-            {drawChoice > 1 ? `Robar ${drawChoice} cartas` : "Robar carta"}
-          </Button>
-        )}
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }} data-testid="end-of-turn-reward">
-        <Typography variant="h6" component="h3">
-          3. {reward ? chosenCard!.name : "Monedas o carta de combate"}
-        </Typography>
-        {game.extraTurn ? (
-          <Typography variant="body1">En el turno extra no se ganan monedas ni se cogen cartas de combate.</Typography>
-        ) : reward ? (
-          <Typography variant="body1">
-            En lugar de elegir: +{reward.coins} monedas, ya sumadas al contador
-            {reward.combatCard ? ", y una carta de combate" : ""}.
-          </Typography>
-        ) : (
-          <>
-            <Typography variant="body1">
-              Elige qué te llevas este turno. La carta de combate se roba al elegirla, así que ya no se puede cambiar.
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              value={game.rewardChoice}
-              onChange={(_, choice: RewardChoice | null) => choice && onChooseReward(choice)}
-              disabled={game.drawnCombatCard !== null}
-              aria-label="Monedas o carta de combate"
-              sx={{ flexWrap: "wrap" }}
-            >
-              <ToggleButton value="coins" sx={{ minHeight: 48, gap: 1 }}>
-                <GameIcon name="coins" /> {END_OF_TURN_COINS} monedas
-              </ToggleButton>
-              <ToggleButton value="combatCard" sx={{ minHeight: 48, gap: 1 }}>
-                <GameIcon name="cards" /> Carta de combate
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </>
-        )}
-        {game.combatCardDue && (
-          <Button
-            onClick={() => session.drawCombatCard()}
-            startIcon={<GameIcon name="cards" />}
-            sx={{ alignSelf: "flex-start" }}
-          >
-            Robar carta de combate
-          </Button>
-        )}
-        {game.drawnCombatCard && (
-          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Has robado:
-            </Typography>
-            <CombatCardComponent faction={faction} card={game.drawnCombatCard} />
-          </Box>
-        )}
-        {game.mustDiscardCombatCard && (
-          <Box data-testid="discard-combat-card">
-            <Alert severity="warning" sx={{ mb: 1.5 }}>
-              Puedes tener {MAX_COMBAT_HAND} cartas de combate como máximo: descarta una (puede ser la nueva).
+          {tableReminders.map((reminder) => (
+            <Alert key={reminder} severity="warning" icon={<GameIcon name="cards" />} sx={{ mt: 1.5 }} data-testid="table-reminder">
+              {reminder}
             </Alert>
-            <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
-              {game.combatHand.map((card) => (
-                <CombatCardComponent key={card.id} faction={faction} card={card}>
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => session.discardCombatCard(card)}
-                    aria-label={`Descartar ${card.name}`}
-                  >
-                    Descartar
+          ))}
+          {(game.reinforcementDue || game.reinforcement) && (
+            <Box sx={{ mt: 1.5 }} data-testid="reinforcements">
+              {game.reinforcementDue ? (
+                <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                  <Typography variant="body1">
+                    {game.orderCombatCard?.name}: tira el dado para ver qué unidad llega a la casilla de la cruz.
+                  </Typography>
+                  <Button onClick={() => session.rollReinforcements()} startIcon={<GameIcon name="dice" />}>
+                    Tirar dado de refuerzos
                   </Button>
-                </CombatCardComponent>
-              ))}
+                </Stack>
+              ) : (
+                game.reinforcement && (
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ flex: "none", display: "flex" }}>
+                      <DieFaceIcon face={game.reinforcement.face} faction={faction} />
+                    </Box>
+                    <Typography variant="body1">
+                      {DIE_FACE_LABELS[game.reinforcement.face]}:{" "}
+                      {!game.reinforcement.unitType
+                        ? "no hay refuerzos."
+                        : game.reinforcementToPlace
+                          ? `llega ${UNIT_LABELS[game.reinforcement.unitType].toLowerCase()}. La casilla de la cruz está ocupada: ponla en la mesa y en «Actualizar mapa», en una casilla libre.`
+                          : `llega ${UNIT_LABELS[game.reinforcement.unitType].toLowerCase()}, ya en el mapa. Ponla en la mesa en la casilla de la cruz.`}
+                    </Typography>
+                  </Stack>
+                )
+              )}
             </Box>
-          </Box>
-        )}
-      </Paper>
+          )}
+          <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
+            <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+              Actualizar mapa
+            </Button>
+            {game.battleEdits > 0 && (
+              <Typography variant="body2" color="text.secondary" data-testid="map-edits">
+                {game.battleEdits === 1 ? "1 cambio" : `${game.battleEdits} cambios`} en el mapa
+              </Typography>
+            )}
+          </Stack>
+        </Paper>
 
-      {drawnCard && (
-        <Button
-          size="large"
-          onClick={onEndTurn}
-          disabled={!!pendingStep}
-          startIcon={<GameIcon name="endTurn" />}
-          sx={{ alignSelf: "center" }}
-        >
-          Empezar turno {game.turn + 1}
-        </Button>
-      )}
-      {drawnCard && pendingStep && (
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-          {pendingStep}
-        </Typography>
-      )}
-    </Stack>
+        <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Box>
+            <Typography variant="h6" component="h3">
+              2. Carta de mando
+            </Typography>
+            <Typography variant="body1">
+              {drawChoice > 1
+                ? `${chosenCard!.name}: roba ${drawChoice} cartas de tu mazo y quédate con 1.`
+                : "Roba una carta de tu mazo. Puedes descartarla y robar otra, pero entonces tienes que quedarte con la nueva."}
+            </Typography>
+          </Box>
+          {drawnCard ? (
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                {game.drewAgain ? "Has descartado la primera y robado:" : "Te quedas:"}
+              </Typography>
+              <CommandCardComponent faction={faction} cardData={drawnCard} />
+            </Box>
+          ) : drawOptions.length > 0 ? (
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                {drawOptions.length > 1 ? "Elige la carta que te quedas:" : "Has robado:"}
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
+                {drawOptions.map((card) => (
+                  <Box
+                    key={card.id}
+                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+                  >
+                    <CommandCardComponent faction={faction} cardData={card} />
+                    <Button onClick={() => onKeepCard(card)} aria-label={`Quedármela: ${card.name}`}>
+                      Quedármela
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+              {game.canDrawAgain && (
+                <Button variant="outlined" onClick={onDrawAgain} startIcon={<GameIcon name="cards" />}>
+                  Descartar y robar otra
+                </Button>
+              )}
+            </Box>
+          ) : (
+            <Button onClick={onDrawCard} startIcon={<GameIcon name="cards" />} sx={{ alignSelf: "flex-start" }}>
+              {drawChoice > 1 ? `Robar ${drawChoice} cartas` : "Robar carta"}
+            </Button>
+          )}
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }} data-testid="end-of-turn-reward">
+          <Typography variant="h6" component="h3">
+            3. {reward ? chosenCard!.name : "Monedas o carta de combate"}
+          </Typography>
+          {game.extraTurn ? (
+            <Typography variant="body1">En el turno extra no se ganan monedas ni se cogen cartas de combate.</Typography>
+          ) : reward ? (
+            <Typography variant="body1">
+              En lugar de elegir: +{reward.coins} monedas, ya sumadas al contador
+              {reward.combatCard ? ", y una carta de combate" : ""}.
+            </Typography>
+          ) : (
+            <>
+              <Typography variant="body1">
+                Elige qué te llevas este turno. La carta de combate se roba al elegirla, así que ya no se puede cambiar.
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                value={game.rewardChoice}
+                onChange={(_, choice: RewardChoice | null) => choice && onChooseReward(choice)}
+                disabled={game.drawnCombatCard !== null}
+                aria-label="Monedas o carta de combate"
+                sx={{ flexWrap: "wrap" }}
+              >
+                <ToggleButton value="coins" sx={{ minHeight: 48, gap: 1 }}>
+                  <GameIcon name="coins" /> {END_OF_TURN_COINS} monedas
+                </ToggleButton>
+                <ToggleButton value="combatCard" sx={{ minHeight: 48, gap: 1 }}>
+                  <GameIcon name="cards" /> Carta de combate
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </>
+          )}
+          {game.combatCardDue && (
+            <Button
+              onClick={() => session.drawCombatCard()}
+              startIcon={<GameIcon name="cards" />}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              Robar carta de combate
+            </Button>
+          )}
+          {game.drawnCombatCard && (
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Has robado:
+              </Typography>
+              <CombatCardComponent faction={faction} card={game.drawnCombatCard} />
+            </Box>
+          )}
+          {game.mustDiscardCombatCard && (
+            <Box data-testid="discard-combat-card">
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                Puedes tener {MAX_COMBAT_HAND} cartas de combate como máximo: descarta una (puede ser la nueva).
+              </Alert>
+              <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 2 }}>
+                {game.combatHand.map((card) => (
+                  <CombatCardComponent key={card.id} faction={faction} card={card}>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      onClick={() => session.discardCombatCard(card)}
+                      aria-label={`Descartar ${card.name}`}
+                    >
+                      Descartar
+                    </Button>
+                  </CombatCardComponent>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </Paper>
+      </div>
+
+      <div className="end-of-turn__footer">
+        {drawnCard && (
+          <Button
+            size="large"
+            onClick={onEndTurn}
+            disabled={!!pendingStep}
+            startIcon={<GameIcon name="endTurn" />}
+            sx={{ alignSelf: "center" }}
+          >
+            Empezar turno {game.turn + 1}
+          </Button>
+        )}
+        {drawnCard && pendingStep && (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            {pendingStep}
+          </Typography>
+        )}
+      </div>
+    </div>
   );
 }
 

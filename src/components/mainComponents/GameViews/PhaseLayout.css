@@ -19,36 +19,61 @@
   max-width: 560px;
 }
 
-/* Short landscape screens (tablets, laptops): fit the board to the screen
-   height and put the controls beside it, so nothing needs scrolling */
-@media (orientation: landscape) and (max-height: 900px) {
+/* Landscape (tablets, desktops): the board fills the space the game screen
+   leaves it (see GameView.css) and the controls sit beside it; if they don't
+   fit, only the controls column scrolls */
+@media (orientation: landscape) {
   .phase-layout {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
   }
 
   .phase-layout__board {
     flex: 1 1 auto;
     min-width: 0;
+    container-type: size;
   }
 
   .phase-layout__board .board__svg {
-    /* width follows from the available height; --board-aspect is set by Board */
-    width: min(100%, calc((100dvh - 64px) * var(--board-aspect)));
+    /* as wide as fits both ways; --board-aspect is set by Board, the 8px is the border */
+    width: min(100cqw, (100cqh - 8px) * var(--board-aspect));
   }
 
   /* Narrow column so the board gets most of the width */
   .phase-layout__controls {
-    flex: 0 0 220px;
+    flex: 0 0 280px;
     align-items: stretch;
     gap: 12px;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .phase-layout__controls .MuiButton-root {
     width: 100%;
     padding-inline: 8px;
-    white-space: nowrap;
+  }
+
+  /* An alert's buttons go below its text, so the text keeps the column's width */
+  .phase-layout__controls .MuiAlert-root {
+    flex-wrap: wrap;
+  }
+
+  .phase-layout__controls .MuiAlert-message {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .phase-layout__controls .MuiAlert-action {
+    flex-basis: 100%;
+    margin: 0;
+    padding: 0;
+    justify-content: flex-end;
+  }
+
+  .phase-layout__controls .MuiAlert-action .MuiButton-root {
+    width: auto;
   }
 
   .phase-layout__controls .MuiPaper-root {

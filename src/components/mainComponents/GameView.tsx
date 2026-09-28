@@ -36,6 +36,7 @@ import GameIcon from "../GameIcon";
 import SettingsDialog from "../SettingsDialog";
 import HistoryDialog from "../HistoryDialog";
 import CoinsDialog from "../CoinsDialog";
+import "./GameView.css";
 
 export interface GameViewProps {
   /** Owns all game rules; React re-renders when it publishes a new snapshot */
@@ -94,7 +95,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
     // Animations follow the device's "reduce motion" setting. Only the game
     // screens animate, so motion stays out of the menu's download.
     <MotionConfig reducedMotion="user">
-      <Box sx={{ width: "100%", maxWidth: 1400 }}>
+      <Box className="game-screen" sx={{ width: "100%", maxWidth: 1400 }}>
         <Box
           component="header"
           sx={{
@@ -103,25 +104,27 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             alignItems: "center",
             justifyContent: "space-between",
             gap: 1,
+            flex: "none",
             mb: 1.5,
             pb: 1,
             borderBottom: "3px double",
             borderColor: "divider",
           }}
         >
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1.25, flexWrap: "wrap" }}>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
             <FactionInsignia faction={faction} size={34} decorative />
             <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
               {scenario.name} · {FACTION_LABELS[faction]}
             </Typography>
-            <Chip label={session.attacking ? "Atacante" : "Defensor"} variant="outlined" />
-            <Chip label={game.extraTurn ? "Turno 1 · extra" : `Turno ${game.turn}`} color="secondary" />
+            <Chip label={session.attacking ? "Atacante" : "Defensor"} variant="outlined" size="small" />
+            <Chip label={game.extraTurn ? "Turno 1 · extra" : `Turno ${game.turn}`} color="secondary" size="small" />
             {PHASE_STEPS.map(({ phase, label }, i) => (
               <Chip
                 key={phase}
                 label={`${i + 1}. ${label}`}
                 color={phase === game.phase ? "primary" : "default"}
                 variant={phase === game.phase ? "filled" : "outlined"}
+                size="small"
                 aria-current={phase === game.phase ? "step" : undefined}
                 sx={{ fontFamily: "var(--m44-font-display)", letterSpacing: "0.05em", borderRadius: 0.5 }}
               />
@@ -203,51 +206,53 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           </Menu>
         </Box>
 
-        {game.phase === TurnPhase.PARADROP && <ParadropView faction={faction} session={session} game={game} />}
+        <Box component="main" className="game-screen__main">
+          {game.phase === TurnPhase.PARADROP && <ParadropView faction={faction} session={session} game={game} />}
 
-        {game.phase === TurnPhase.AWAIT_ATTACKER && (
-          <WaitingView attacker={scenario.attacker} onStart={() => session.startFirstTurn()} />
-        )}
+          {game.phase === TurnPhase.AWAIT_ATTACKER && (
+            <WaitingView attacker={scenario.attacker} onStart={() => session.startFirstTurn()} />
+          )}
 
-        {game.phase === TurnPhase.PICK_CARDS && (
-          <CardsView
-            handCards={game.hand}
-            drawPileCount={game.drawPileCount}
-            discardPileCount={game.discardPileCount}
-            dealtCardIds={dealtCardIds}
-            onCardDealt={handleCardDealt}
-            onCardClick={(card, section, combatCard) => session.pickCard(card, section, combatCard) && play("cardPlay")}
-            needsSection={(card, combatCard) => session.cardNeedsSection(card, combatCard)}
-            combatCardFits={(card, combatCard) => session.combatCardFits(card, combatCard)}
-            combatHand={game.combatHand}
-            canPlayCombatCards={game.canPlayCombatCards}
-            coins={game.coins}
-            faction={faction}
-          />
-        )}
+          {game.phase === TurnPhase.PICK_CARDS && (
+            <CardsView
+              handCards={game.hand}
+              drawPileCount={game.drawPileCount}
+              discardPileCount={game.discardPileCount}
+              dealtCardIds={dealtCardIds}
+              onCardDealt={handleCardDealt}
+              onCardClick={(card, section, combatCard) => session.pickCard(card, section, combatCard) && play("cardPlay")}
+              needsSection={(card, combatCard) => session.cardNeedsSection(card, combatCard)}
+              combatCardFits={(card, combatCard) => session.combatCardFits(card, combatCard)}
+              combatHand={game.combatHand}
+              canPlayCombatCards={game.canPlayCombatCards}
+              coins={game.coins}
+              faction={faction}
+            />
+          )}
 
-        {game.phase === TurnPhase.ORDER_UNITS && (
-          <OrdersView faction={faction} session={session} game={game} />
-        )}
+          {game.phase === TurnPhase.ORDER_UNITS && (
+            <OrdersView faction={faction} session={session} game={game} />
+          )}
 
-        {game.phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}
+          {game.phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}
 
-        {game.phase === TurnPhase.BATTLE && (
-          <BattleView faction={faction} session={session} game={game} onEndBattle={() => session.endBattle()} />
-        )}
+          {game.phase === TurnPhase.BATTLE && (
+            <BattleView faction={faction} session={session} game={game} onEndBattle={() => session.endBattle()} />
+          )}
 
-        {game.phase === TurnPhase.END_OF_TURN && (
-          <EndOfTurnView
-            faction={faction}
-            session={session}
-            game={game}
-            onDrawCard={handleDrawCard}
-            onKeepCard={(card) => session.keepCard(card)}
-            onDrawAgain={() => session.drawAgain() && play("cardPlay")}
-            onChooseReward={(choice) => session.chooseReward(choice)}
-            onEndTurn={() => session.endTurn()}
-          />
-        )}
+          {game.phase === TurnPhase.END_OF_TURN && (
+            <EndOfTurnView
+              faction={faction}
+              session={session}
+              game={game}
+              onDrawCard={handleDrawCard}
+              onKeepCard={(card) => session.keepCard(card)}
+              onDrawAgain={() => session.drawAgain() && play("cardPlay")}
+              onChooseReward={(choice) => session.chooseReward(choice)}
+              onEndTurn={() => session.endTurn()}
+            />
+          )}
+        </Box>
 
         <Snackbar
           open={showResumed}

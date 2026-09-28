@@ -26,8 +26,9 @@ The two decisions from the first plan still hold:
 ## Part B: Screens
 
 ### Step 36: Everything fits on the screen
-- [ ] No page scroll on the game screens at 1280×800 and 800×1280: only lists (cards, history, the turn summary) scroll inside their own box
-- [ ] Check each phase at both sizes, and the dialogs
+- [x] No page scroll on the game screens in landscape: the game screen is one screen high (`GameView.css`), and only lists (the hand, combat cards, the turn summary, a crowded controls column) scroll inside their own box. Cards: title and small piles in one row, hand on the left, combat cards in a column. Battle: turn summary on the left, who fires first and the combat cards on the right. Final phase: the three steps side by side
+- [x] Checked each phase and the dialogs at 1280×800, 1024×768, 1366×768 and 1920×1080
+- [ ] **Later:** portrait (800×1280) still scrolls the page; the player asked to leave it for now. The menu also still scrolls at 800px high
 
 ### Step 37: Choosing a card
 - [ ] Go back after a card is chosen: undo the pick in Órdenes while no order has been given (and give back a combat card played with it)

@@ -1,6 +1,8 @@
 .app {
-  padding: 20px;
+  --app-padding: 20px;
+  padding: var(--app-padding);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -9,6 +11,6 @@
 /* Tablets and small screens: give the board as much room as possible */
 @media (max-width: 1300px), (max-height: 900px) {
   .app {
-    padding: 8px;
+    --app-padding: 8px;
   }
 }

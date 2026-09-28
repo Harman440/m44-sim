@@ -82,11 +82,38 @@
   top: 20%;
 }
 
-/* Short landscape screens (tablets): tighten so the hand fits without scrolling */
-@media (orientation: landscape) and (max-height: 900px) {
-  .cards-header {
-    padding-bottom: 8px !important;
-    margin-bottom: 12px !important;
+.pile__label {
+  margin-bottom: 8px;
+}
+
+/*
+ * Landscape: one screen high (see GameView.css). The title and small deck
+ * piles share one row; the hand fills the left and wraps, the combat cards
+ * are a column on the right. Each scrolls in its own box if it doesn't fit.
+ */
+@media (orientation: landscape) {
+  .cards-view {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cards-top {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 8px;
+    border-bottom: 3px double var(--m44-border);
+  }
+
+  .cards-top .cards-header {
+    text-align: left !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
   }
 
   .cards-header h3 {
@@ -95,12 +122,64 @@
   }
 
   .top-area {
-    margin-bottom: 16px;
+    gap: 16px;
+    margin: 0;
+  }
+
+  .pile {
+    flex-direction: row !important;
+    gap: 8px;
+  }
+
+  .pile__label {
+    margin: 0;
+    font-size: 0.9rem;
   }
 
   .deck-pile,
   .discard-pile {
-    width: 6.5rem;
-    height: 9rem;
+    width: 2.25rem;
+    height: 3.25rem;
+    border-width: var(--m44-border-width);
+  }
+
+  .deck-back {
+    font-size: 0.6rem;
+    text-shadow: none;
+  }
+
+  .cards-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 16px;
+  }
+
+  .cards-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .cards-grid .grid {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+
+  .cards-body .cards-combat {
+    flex: 0 0 232px;
+    margin: 0;
+    padding: 0 0 0 16px;
+    border-top: none;
+    border-left: 3px double var(--m44-border);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .cards-combat__list {
+    gap: 12px !important;
   }
 }

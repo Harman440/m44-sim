@@ -1,0 +1,63 @@
+/* Portrait: the three steps one below the other */
+.end-of-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.end-of-turn__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.end-of-turn__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.end-of-turn__footer:empty {
+  display: none;
+}
+
+/*
+ * Landscape: one screen high (see GameView.css). The three steps side by
+ * side, each scrolling in its own box, and the next turn button below.
+ */
+@media (orientation: landscape) {
+  .end-of-turn {
+    max-width: none;
+    min-height: 0;
+    gap: 12px;
+  }
+
+  .end-of-turn > h2 {
+    flex: none;
+  }
+
+  .end-of-turn__steps {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .end-of-turn__steps > * {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .end-of-turn__footer {
+    flex: none;
+    flex-direction: row-reverse;
+    justify-content: center;
+    gap: 16px;
+  }
+}

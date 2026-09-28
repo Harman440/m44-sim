@@ -1,0 +1,29 @@
+/*
+ * Landscape (tablets and desktops): the game screen is exactly one screen
+ * high. The header stays at the top and the phase fills the rest; each phase
+ * fits its content in that space and only its lists (the hand, combat cards,
+ * the turn summary) scroll inside their own box. Portrait still scrolls the
+ * page for now.
+ */
+@media (orientation: landscape) {
+  .game-screen {
+    /* the board grows with the screen: no cap on wide desktops */
+    max-width: none !important;
+    height: calc(100dvh - 2 * var(--app-padding));
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-screen__main {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* A phase view that is a single block fills the space */
+  .game-screen__main > * {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
