@@ -75,7 +75,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
               A mano
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Paga aquí las cartas de combate que juegues en la mesa, o corrige el contador.
+              Corrige aquí el contador si hace falta.
             </Typography>
             <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
               <IconButton

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import MovementView from "./MovementView";
 import EndOfTurnView from "./EndOfTurnView";
@@ -27,7 +27,7 @@ const makeMovementSession = () => {
     faction: "Allies",
     initialHandSize: 2,
     commandCards: [
-      new CommandCard({ id: "left", name: "Ataque", sections: [Side.LEFT], orders: 2 }),
+      new CommandCard({ id: "left", name: "Ataque", sections: [Side.LEFT], orders: 2, description: "Da órdenes a 2 unidades del flanco izquierdo." }),
       new CommandCard({ id: "next", name: "Siguiente", sections: [Side.RIGHT], orders: 1 }),
     ],
   });
@@ -60,7 +60,7 @@ describe("MovementView", () => {
   it("says what to do at the table and counts the units that fire", () => {
     render(<Harness session={makeMovementSession()} />);
 
-    expect(screen.getByText("Enseña tu mapa al rival y mira el suyo.")).toBeInTheDocument();
+    expect(screen.getByText(/Enseña esta pantalla al rival/)).toBeInTheDocument();
     expect(screen.getByText(/Pon un marcador de batalla en\s+la unidad que dispara\./)).toBeInTheDocument();
   });
 
@@ -71,6 +71,19 @@ describe("MovementView", () => {
     const cards = screen.getByTestId("played-cards");
     expect(within(cards).getByRole("heading", { name: session.getSnapshot().chosenCard!.name })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mostrar al rival" })).not.toBeInTheDocument();
+  });
+
+  it("shows a played card's full text when it is tapped", async () => {
+    const session = makeMovementSession();
+    render(<Harness session={session} />);
+    const card = session.getSnapshot().chosenCard!;
+
+    fireEvent.click(within(screen.getByTestId("played-cards")).getByRole("button", { name: new RegExp(`^${card.name}`) }));
+
+    const dialog = screen.getByRole("dialog", { name: "Carta jugada" });
+    expect(within(dialog).getByTestId("card-details")).toHaveTextContent(card.description);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("moves on to the battle", () => {

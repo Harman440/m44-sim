@@ -172,7 +172,7 @@ function CardsView({
             {!canPlayCombatCards
               ? "En el turno extra no se juegan cartas de combate."
               : combatPick
-                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas. Ponla boca abajo en la mesa.`
+                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas.`
                 : "Para jugar una carta de órdenes este turno, elígela antes que la carta de mando. Las de batalla se juegan en la batalla."}
           </Typography>
         )}

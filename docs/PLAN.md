@@ -35,7 +35,8 @@ The two decisions from the first plan still hold:
 - [x] Look at a card as a preview without playing it: tapping a card in the hand puts it on the table with its full text (`CardDetails`); a command card is played from there ("Jugar esta carta"), an order combat card is picked there ("Jugarla con la carta de mando"). The final phase shows the drawn cards the same way
 - [x] "Mostrar al rival" also shows the command card chosen, and the combat card played with it
 - [x] Also: playing-card shaped cards (5:7, sized from `--card-width`) held in a fanned hand (`CardHand`) that scrolls sideways, with the combat cards on the right
-- [x] Movement phase redesign: "Mostrar al rival" is gone; the command card and order combat card played sit above the instructions
+- [x] Movement phase redesign: "Mostrar al rival" is gone; the command card and order combat card played sit above the instructions, and tapping one shows its full text
+- [x] No UI text refers to physical cards: the app replaces them (no "boca abajo en la mesa", "Descubre tu carta", "cartas que juegues en la mesa")
 
 ### Step 38: Battle screen
 - [ ] Rework the battle info so combat cards and coins stand out more (what's in hand, what can be played now, what it costs)

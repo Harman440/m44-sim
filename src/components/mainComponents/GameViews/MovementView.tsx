@@ -1,11 +1,13 @@
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { useState } from "react";
+import { Box, Button, Dialog, DialogActions, DialogContent, Stack, Typography } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
-import CommandCardComponent from "../../CommandCardComponent";
+import CommandCardComponent, { ruleTags } from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
-import { coinsText, SECTION_LABELS } from "../../../labels";
+import CardDetails from "../../CardDetails";
+import { COMBAT_PHASE_LABELS, coinsText, SECTION_LABELS } from "../../../labels";
 import "./PhaseLayout.css";
 
 interface MovementViewProps {
@@ -20,9 +22,12 @@ const noop = () => {};
  * Movement phase: both players show their maps, then move the pieces on the
  * table. The map here is read-only; it shows what to move, and the cards
  * played this turn sit above the instructions for the opponent to read.
+ * Tapping a card shows its full text, which the small card fades out.
  */
 function MovementView({ faction, session, game }: MovementViewProps) {
   const firing = game.orders.filter((order) => order.canFire).length;
+  const [looking, setLooking] = useState<"command" | "combat" | null>(null);
+  const { chosenCard, orderCombatCard } = game;
 
   return (
     <div className="phase-layout">
@@ -49,23 +54,24 @@ function MovementView({ faction, session, game }: MovementViewProps) {
         <Box className="movement__cards" data-testid="played-cards">
           {game.chosenCard && (
             <Stack sx={{ alignItems: "center", gap: 0.5 }}>
-              <CommandCardComponent faction={faction} cardData={game.chosenCard} />
+              <CommandCardComponent faction={faction} cardData={game.chosenCard} onClick={() => setLooking("command")} />
               {game.chosenSection && (
                 <Typography variant="body2">Sección: {SECTION_LABELS[game.chosenSection]}</Typography>
               )}
             </Stack>
           )}
-          {game.orderCombatCard && <CombatCardComponent faction={faction} card={game.orderCombatCard} />}
+          {game.orderCombatCard && (
+            <CombatCardComponent faction={faction} card={game.orderCombatCard} onClick={() => setLooking("combat")} />
+          )}
         </Box>
         <Box component="ol" sx={{ m: 0, pl: 3, display: "flex", flexDirection: "column", gap: 1 }}>
           <Typography component="li" variant="body1">
-            Enseña tu mapa al rival y mira el suyo.
+            Enseña esta pantalla al rival, con el mapa y las cartas, y mira la suya. Toca una carta para leerla entera.
           </Typography>
           {game.orderCombatCard && (
             <Typography component="li" variant="body1" data-testid="order-combat-card">
-              Descubre tu carta de combate, <strong>{game.orderCombatCard.name}</strong> (coste:{" "}
-              {coinsText(game.orderCombatCard.cost)}, ya restado del contador):{" "}
-              {game.orderCombatCard.description}
+              Juegas <strong>{game.orderCombatCard.name}</strong> (coste: {coinsText(game.orderCombatCard.cost)}, ya restado
+              del contador): {game.orderCombatCard.description}
             </Typography>
           )}
           <Typography component="li" variant="body1">
@@ -82,6 +88,40 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           Fase Batalla
         </Button>
       </div>
+
+      <Dialog
+        open={looking !== null}
+        onClose={() => setLooking(null)}
+        maxWidth="md"
+        fullWidth
+        slotProps={{ paper: { "aria-label": "Carta jugada" } }}
+      >
+        <DialogContent>
+          {looking === "command" && chosenCard && (
+            <CardDetails
+              card={<CommandCardComponent faction={faction} cardData={chosenCard} />}
+              cardWidth={220}
+              name={chosenCard.name}
+              tags={[...ruleTags(chosenCard), ...(game.chosenSection ? [`Sección: ${SECTION_LABELS[game.chosenSection]}`] : [])]}
+              text={chosenCard.description}
+            />
+          )}
+          {looking === "combat" && orderCombatCard && (
+            <CardDetails
+              card={<CombatCardComponent faction={faction} card={orderCombatCard} />}
+              cardWidth={220}
+              name={orderCombatCard.name}
+              tags={[COMBAT_PHASE_LABELS[orderCombatCard.phase], `Cuesta ${coinsText(orderCombatCard.cost)}`]}
+              text={orderCombatCard.description}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setLooking(null)} startIcon={<GameIcon name="cancel" />}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
