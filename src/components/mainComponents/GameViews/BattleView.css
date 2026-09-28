@@ -79,7 +79,7 @@
 @media (orientation: landscape) {
   .battle-view {
     display: grid;
-    grid-template-columns: minmax(360px, 560px) minmax(0, 1fr);
+    grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     max-width: none;
     min-height: 0;

@@ -10,9 +10,15 @@ const LIT: Record<Side, readonly [boolean, boolean, boolean]> = {
 };
 
 /** The board's three sections as small blocks, with the unit's section lit */
-function SectionIcon({ side }: { side: Side }) {
+function SectionIcon({ side, label }: { side: Side; /** Read out instead of the picture */ label?: string }) {
   return (
-    <svg width="30" height="14" viewBox="0 0 30 14" aria-hidden="true" className="section-icon">
+    <svg
+      width="30"
+      height="14"
+      viewBox="0 0 30 14"
+      {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
+      className="section-icon"
+    >
       {LIT[side].map((lit, i) => (
         <rect
           key={i}

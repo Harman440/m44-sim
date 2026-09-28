@@ -169,12 +169,18 @@ function FireOrderList({
   const where = (position: Position) => {
     const hex = board.getHex(position);
     if (!hex) return null;
+    // Icons only: the hex's own art and the lit section say it without words
     return (
       <>
-        <HexThumbnail board={board} position={position} image={image} faction={faction} size={34} />
-        {capitalize(TERRAIN_LABELS[hex.getType()])}
-        <SectionIcon side={hex.getSide()} />
-        {SECTION_SHORT_LABELS[hex.getSide()]}
+        <HexThumbnail
+          board={board}
+          position={position}
+          image={image}
+          faction={faction}
+          size={34}
+          label={capitalize(TERRAIN_LABELS[hex.getType()])}
+        />
+        <SectionIcon side={hex.getSide()} label={SECTION_SHORT_LABELS[hex.getSide()]} />
       </>
     );
   };

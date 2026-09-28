@@ -12,6 +12,8 @@ interface HexThumbnailProps {
   faction: Faction;
   /** Height in px */
   size?: number;
+  /** Read out instead of the picture, e.g. the terrain */
+  label?: string;
 }
 
 const HEX_SIZE = 50;
@@ -20,7 +22,7 @@ const HEX_SIZE = 50;
  * One hex of the board, cut out of the scenario art: its terrain as the
  * player sees it on the map. Laid out exactly as `Board` lays out the image.
  */
-function HexThumbnail({ board, position, image, faction, size = 28 }: HexThumbnailProps) {
+function HexThumbnail({ board, position, image, faction, size = 28, label }: HexThumbnailProps) {
   // useId has characters that break url(#…)
   const clipId = `hex-clip-${useId().replace(/[^\w-]/g, "")}`;
   const geometry = createBoardGeometry(board.width, board.height, HEX_SIZE);
@@ -38,7 +40,7 @@ function HexThumbnail({ board, position, image, faction, size = 28 }: HexThumbna
       viewBox={`${x - halfWidth - 2} ${y - HEX_SIZE - 2} ${2 * halfWidth + 4} ${2 * HEX_SIZE + 4}`}
       height={size}
       width={(size * (2 * halfWidth + 4)) / (2 * HEX_SIZE + 4)}
-      aria-hidden="true"
+      {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
       className="hex-thumbnail"
       style={{ flex: "none" }}
     >
@@ -49,16 +51,19 @@ function HexThumbnail({ board, position, image, faction, size = 28 }: HexThumbna
       </defs>
       <polygon points={points} fill="var(--m44-paper-alt)" />
       {image && (
-        <image
-          href={image}
-          x={imageMargin}
-          y={imageMargin}
-          width={width - 2 * imageMargin}
-          height={height - 2 * imageMargin}
-          preserveAspectRatio="xMidYMid meet"
-          transform={faction === "Axis" ? `rotate(180 ${width / 2} ${height / 2})` : undefined}
-          clipPath={`url(#${clipId})`}
-        />
+        // The clip goes on a group: on the image itself, the Axis rotation
+        // would turn the clip too, onto the hex on the other side of the board
+        <g clipPath={`url(#${clipId})`}>
+          <image
+            href={image}
+            x={imageMargin}
+            y={imageMargin}
+            width={width - 2 * imageMargin}
+            height={height - 2 * imageMargin}
+            preserveAspectRatio="xMidYMid meet"
+            transform={faction === "Axis" ? `rotate(180 ${width / 2} ${height / 2})` : undefined}
+          />
+        </g>
       )}
       <polygon points={points} fill="none" stroke="var(--m44-border)" strokeWidth={4} />
     </svg>

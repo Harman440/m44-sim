@@ -68,9 +68,9 @@ describe("BattleView summary screen", () => {
     const rows = screen.getAllByTestId("order-summary");
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("Infantería");
-    // Where it is, not how far it moved
-    expect(rows[0]).toHaveTextContent("Llanura");
-    expect(rows[0]).toHaveTextContent("Izquierda");
+    // Where it is, as icons, not how far it moved
+    expect(within(rows[0]!).getByRole("img", { name: "Llanura" })).toBeInTheDocument();
+    expect(within(rows[0]!).getByRole("img", { name: "Izquierda" })).toBeInTheDocument();
     expect(rows[0]).toHaveTextContent("Disparar ›");
     expect(rows[1]).toHaveTextContent("Tanque");
     // No command card summary on the battle screen
