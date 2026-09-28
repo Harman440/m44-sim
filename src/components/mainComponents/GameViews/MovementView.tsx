@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
-import OpponentMap from "./OpponentMap";
-import { coinsText } from "../../../labels";
+import CommandCardComponent from "../../CommandCardComponent";
+import CombatCardComponent from "../../CombatCardComponent";
+import { coinsText, SECTION_LABELS } from "../../../labels";
 import "./PhaseLayout.css";
 
 interface MovementViewProps {
@@ -18,10 +18,10 @@ const noop = () => {};
 
 /**
  * Movement phase: both players show their maps, then move the pieces on the
- * table. The map here is read-only; it shows what to move.
+ * table. The map here is read-only; it shows what to move, and the cards
+ * played this turn sit above the instructions for the opponent to read.
  */
 function MovementView({ faction, session, game }: MovementViewProps) {
-  const [showingOpponent, setShowingOpponent] = useState(false);
   const firing = game.orders.filter((order) => order.canFire).length;
 
   return (
@@ -45,6 +45,18 @@ function MovementView({ faction, session, game }: MovementViewProps) {
         <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
           Fase Movimiento
         </Typography>
+        {/* The cards played in the orders phase */}
+        <Box className="movement__cards" data-testid="played-cards">
+          {game.chosenCard && (
+            <Stack sx={{ alignItems: "center", gap: 0.5 }}>
+              <CommandCardComponent faction={faction} cardData={game.chosenCard} />
+              {game.chosenSection && (
+                <Typography variant="body2">Sección: {SECTION_LABELS[game.chosenSection]}</Typography>
+              )}
+            </Stack>
+          )}
+          {game.orderCombatCard && <CombatCardComponent faction={faction} card={game.orderCombatCard} />}
+        </Box>
         <Box component="ol" sx={{ m: 0, pl: 3, display: "flex", flexDirection: "column", gap: 1 }}>
           <Typography component="li" variant="body1">
             Enseña tu mapa al rival y mira el suyo.
@@ -66,21 +78,10 @@ function MovementView({ faction, session, game }: MovementViewProps) {
             </Typography>
           )}
         </Box>
-        <Button variant="outlined" onClick={() => setShowingOpponent(true)} startIcon={<GameIcon name="map" />}>
-          Mostrar al rival
-        </Button>
         <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
           Fase Batalla
         </Button>
       </div>
-
-      <OpponentMap
-        open={showingOpponent}
-        onClose={() => setShowingOpponent(false)}
-        faction={faction}
-        session={session}
-        game={game}
-      />
     </div>
   );
 }

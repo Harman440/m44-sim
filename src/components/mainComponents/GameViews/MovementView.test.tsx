@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import MovementView from "./MovementView";
 import EndOfTurnView from "./EndOfTurnView";
@@ -64,18 +64,13 @@ describe("MovementView", () => {
     expect(screen.getByText(/Pon un marcador de batalla en\s+la unidad que dispara\./)).toBeInTheDocument();
   });
 
-  it("shows the orders full screen for the opponent, and closes again", async () => {
+  it("shows the cards played in the orders phase above the instructions", () => {
     const session = makeMovementSession();
     render(<Harness session={session} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Mostrar al rival" }));
-
-    const dialog = screen.getByRole("dialog", { name: "Órdenes de Aliados · Turno 1" });
-    expect(dialog.querySelectorAll(".unit__badge--fire")).toHaveLength(1);
-    // The card played is shown too, for the opponent to read
-    expect(within(screen.getByTestId("opponent-cards")).getByRole("heading", { name: session.getSnapshot().chosenCard!.name })).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const cards = screen.getByTestId("played-cards");
+    expect(within(cards).getByRole("heading", { name: session.getSnapshot().chosenCard!.name })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mostrar al rival" })).not.toBeInTheDocument();
   });
 
   it("moves on to the battle", () => {

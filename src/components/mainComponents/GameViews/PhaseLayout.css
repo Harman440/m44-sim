@@ -81,35 +81,9 @@
   }
 }
 
-/* "Mostrar al rival": the whole board on screen below a one-line header,
-   with the cards played beside it (below it in portrait) */
-.opponent-map {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.opponent-map__board {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  container-type: size;
-}
-
-.opponent-map .board {
-  display: flex;
-  justify-content: center;
-}
-
-.opponent-map .board__svg {
-  width: min(100cqw, (100cqh - 8px) * var(--board-aspect));
-}
-
-.opponent-map__cards {
-  flex: none;
+/* Movement phase: the cards played this turn, side by side above the
+   instructions (two fit side by side in the 280px landscape column) */
+.movement__cards {
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -118,20 +92,12 @@
 }
 
 @media (orientation: landscape) {
-  .opponent-map {
-    flex-direction: row;
-    align-items: stretch;
+  .movement__cards {
+    --card-width: 130px;
   }
 
-  .opponent-map__board {
-    width: auto;
-    min-width: 0;
-  }
-
-  .opponent-map__cards {
-    flex-direction: column;
-    justify-content: flex-start;
-    overflow-y: auto;
-    --card-width: 170px;
+  /* Only the command card: it can take more of the column */
+  .movement__cards:has(> :only-child) {
+    --card-width: 180px;
   }
 }

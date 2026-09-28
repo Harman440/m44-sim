@@ -35,6 +35,7 @@ The two decisions from the first plan still hold:
 - [x] Look at a card as a preview without playing it: tapping a card in the hand puts it on the table with its full text (`CardDetails`); a command card is played from there ("Jugar esta carta"), an order combat card is picked there ("Jugarla con la carta de mando"). The final phase shows the drawn cards the same way
 - [x] "Mostrar al rival" also shows the command card chosen, and the combat card played with it
 - [x] Also: playing-card shaped cards (5:7, sized from `--card-width`) held in a fanned hand (`CardHand`) that scrolls sideways, with the combat cards on the right
+- [x] Movement phase redesign: "Mostrar al rival" is gone; the command card and order combat card played sit above the instructions
 
 ### Step 38: Battle screen
 - [ ] Rework the battle info so combat cards and coins stand out more (what's in hand, what can be played now, what it costs)
@@ -98,7 +99,7 @@ The two decisions from the first plan still hold:
 - `npm run dev` (port 3000), then check the flow by hand or with Playwright, at 1280×800 and 800×1280 with touch, and on desktop, in at least one look:
   1. Menu → start a game; the initial hand deals in.
   2. Picking a card highlights the right units.
-  3. Issue orders, then undo, then commit, then movement (open "Mostrar al rival"), then battle.
+  3. Issue orders, then undo, then commit, then movement (the cards played show above the instructions), then battle.
   4. Fire with a unit: the dice roll once, the unit shows as fired, and a reload doesn't bring the roll back.
   5. Sync a casualty on the map, end the battle, draw a card and start the next turn.
   6. Only the one new card animates in, and the deck and discard counts add up.
