@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { shoot } from "../test/shots";
 import GameSession from "./gameSession";
 import CommandCard from "./commandCard";
 import { summarizeOrders } from "./turnSummary";
@@ -75,7 +76,7 @@ describe("summarizeOrders", () => {
 
   it("attaches each unit's shots and counts the shots it has left", () => {
     const session = playTurn();
-    session.fireQuick(1, 2, AT_INFANTRY);
+    shoot(session, 1, AT_INFANTRY);
     const { orders, shots } = session.getSnapshot();
 
     const [, infantry] = summarizeOrders(orders, session.board, shots);
@@ -117,7 +118,7 @@ describe("summarizeOrders", () => {
     expect(skipped[0]!.waiting).toBe(false);
     expect(skipped[1]).toMatchObject({ skipped: true, shotsLeft: 0 });
 
-    session.fireQuick(1, 2, AT_INFANTRY);
+    shoot(session, 1, AT_INFANTRY);
     const afterShot = summarizeOrders(orders, session.board, session.getSnapshot().shots);
     expect(afterShot[0]!.waiting).toBe(false);
     expect(afterShot[1]!.skipped).toBe(false);

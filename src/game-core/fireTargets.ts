@@ -49,16 +49,22 @@ export function hexDistance(a: Position, b: Position): number {
  * Whether the line from the centre of `from` to the centre of `to` is clear:
  * no hex in between holds a unit or sight-blocking terrain. When the line runs
  * along the edge between two hexes, it's blocked only if both block (official
- * Memoir '44). The ends never block. Enemy units in between aren't known.
+ * Memoir '44), and from a hill to a hill the hills in between don't. The
+ * ends never block. Enemy units in between aren't known.
  */
 export function hasLineOfSight(board: BoardManager, from: Position, to: Position): boolean {
   const distance = hexDistance(from, to);
   if (distance <= 1) return true;
   const a = toCube(from);
   const b = toCube(to);
+  // Official hill rule: from a hill to a hill (the same height), the hills in between don't block
+  const hillToHill = board.getHex(from)?.getType() === HexType.HILL && board.getHex(to)?.getType() === HexType.HILL;
   const blocks = (position: Position) => {
     const hex = board.getHex(position);
-    return !!hex && (hex.hasUnit() || SIGHT_BLOCKING_TERRAIN.includes(hex.getType()));
+    if (!hex) return false;
+    if (hex.hasUnit()) return true;
+    if (hillToHill && hex.getType() === HexType.HILL) return false;
+    return SIGHT_BLOCKING_TERRAIN.includes(hex.getType());
   };
   // Nudged both ways, so a line along an edge picks the hex on each side of it
   const EPSILON = 1e-6;
@@ -101,7 +107,8 @@ export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): Fi
  * may only fire in close assault (Close Assault card, taking ground) reaches
  * adjacent hexes only.
  */
-export function fireTargets(board: BoardManager, from: Position, context: FireContext): FireTarget[] {
+export function fireTargets(board: BoardManager, from: Position, firing: FireContext): FireTarget[] {
+  const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
   const range = context.closeAssaultOnly ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
   return board
     .getAllHexes()

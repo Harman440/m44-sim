@@ -50,6 +50,13 @@ describe("hasLineOfSight", () => {
     expect(hasLineOfSight(board({ forest: [to, from] }), from, to)).toBe(true);
   });
 
+  it("from a hill to a hill, sees over the hills in between (official hill rule)", () => {
+    const hills = board({ hill: [from, { row: 4, col: 3 }, { row: 4, col: 4 }, to] });
+    expect(hasLineOfSight(hills, from, to)).toBe(true);
+    // Not from open ground
+    expect(hasLineOfSight(board({ hill: [{ row: 4, col: 3 }, to] }), from, to)).toBe(false);
+  });
+
   it("is blocked by one of this side's units in between", () => {
     expect(hasLineOfSight(board({}, { infantry: [{ row: 4, col: 4 }] }), from, to)).toBe(false);
   });
@@ -91,6 +98,13 @@ describe("fireTargets", () => {
     const targets = fireTargets(board(), from, { unitType: UnitType.TANK, card: null, closeAssaultOnly: true });
     expect(targets).toHaveLength(6);
     expect(targets.every((t) => t.distance === 1)).toBe(true);
+  });
+
+  it("fires from a hill at a hill as if it were open ground", () => {
+    const b = board({ hill: [from, { row: 4, col: 5 }] });
+    expect(at(fireTargets(b, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(3);
+    const low = board({ hill: [{ row: 4, col: 5 }] });
+    expect(at(fireTargets(low, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(2);
   });
 
   it("marks hexes out of sight", () => {

@@ -69,15 +69,22 @@ export const targetTypeQuestion: FireQuestion = {
   effect: () => null,
 };
 
+/**
+ * The terrain that counts for the shot: official hill rule, a unit on a hill
+ * fires at a unit on another hill (the same height) as if it were open ground.
+ */
+export const effectiveTerrain = ({ fromTerrain }: FireContext, answer: string | undefined): TargetTerrain | undefined =>
+  answer === HexType.HILL && fromTerrain === HexType.HILL ? HexType.PLAINS : (answer as TargetTerrain | undefined);
+
 const targetTerrainQuestion: FireQuestion = {
   id: "targetTerrain",
   text: "¿En qué terreno está el objetivo?",
   options: () =>
     Object.entries(TARGET_TERRAIN_MODIFIERS).map(([value, { label }]) => ({ value, label })),
-  effect: ({ unitType }, answer) => {
-    const terrain = TARGET_TERRAIN_MODIFIERS[answer as TargetTerrain];
+  effect: (context, answer) => {
+    const terrain = TARGET_TERRAIN_MODIFIERS[effectiveTerrain(context, answer)!];
     if (!terrain) return null;
-    return { label: `Objetivo en ${terrain.label.toLowerCase()}`, dice: terrain.dice[unitType] };
+    return { label: `Objetivo en ${terrain.label.toLowerCase()}`, dice: terrain.dice[context.unitType] };
   },
 };
 
@@ -92,12 +99,25 @@ const lineOfSightQuestion: FireQuestion = {
     answer === "no" ? "Sin línea de visión no puede disparar a este objetivo. Elige otro objetivo." : null,
 };
 
-/** Sandbags don't change the dice: the target ignores 1 flag when the hits are resolved */
+/** Dice lost against a target behind sandbags in the open (house rule), by the firing unit's type */
+export const SANDBAGS_IN_THE_OPEN: Record<UnitType, number> = {
+  [UnitType.INFANTRY]: -1,
+  [UnitType.TANK]: -1,
+  [UnitType.ARTILLERY]: -1,
+};
+
+/**
+ * Sandbags: the target ignores 1 flag when the hits are resolved and, in the
+ * open (where no terrain protects it), the shot loses a die too.
+ */
 const sandbagsQuestion: FireQuestion = {
   id: "sandbags",
   text: "¿El objetivo está protegido con sacos terreros?",
   options: () => YES_NO,
-  effect: () => null,
+  effect: (context, answer, answers) =>
+    answer === "yes" && effectiveTerrain(context, answers.targetTerrain) === HexType.PLAINS
+      ? { label: "Sacos terreros en campo abierto", dice: SANDBAGS_IN_THE_OPEN[context.unitType] }
+      : null,
   note: (_, answer) => (answer === "yes" ? "Sacos terreros: el objetivo ignora 1 bandera." : null),
 };
 

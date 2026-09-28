@@ -4,6 +4,7 @@
 import CommandCard from "./commandCard";
 import type { DiceBonusEffect } from "./combatCard";
 import { UnitType } from "./unit";
+import { HexType } from "../types/hex";
 
 /** What we know about the shot before asking anything */
 export interface FireContext {
@@ -14,6 +15,8 @@ export interface FireContext {
   closeAssaultOnly?: boolean;
   /** A battle combat card played this turn that this unit could use on this shot (Spotter…) */
   combatBonus?: DiceBonusEffect & { name: string };
+  /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground) */
+  fromTerrain?: HexType;
 }
 
 /** Answers so far, by question id -> option value */

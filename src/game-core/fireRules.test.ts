@@ -1,3 +1,4 @@
+import { HexType } from "../types/hex";
 import { describe, expect, it } from "vitest";
 import { FireContext, FireQuestion, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
@@ -110,12 +111,28 @@ describe("fire questions (house rules)", () => {
     expect(nextFireQuestion(FIRE_QUESTIONS, context(UnitType.INFANTRY), { distance: "2", lineOfSight: "no" })).toBeNull();
   });
 
-  it("reminds that sandbags ignore a flag, without changing the dice", () => {
+  it("reminds that sandbags ignore a flag and, in the open, take a die", () => {
     const answers = { distance: "1", targetTerrain: "plains", sandbags: "yes" };
     const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps);
 
-    expect(result.dice).toBe(3);
+    expect(result.dice).toBe(2);
+    expect(result.steps).toContainEqual({ label: "Sacos terreros en campo abierto", dice: -1 });
     expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+  });
+
+  it("doesn't take a die for sandbags where the terrain already protects", () => {
+    const answers = { distance: "1", targetTerrain: "forest", sandbags: "yes" };
+    expect(calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps).dice).toBe(2);
+  });
+
+  it("fires from a hill at a hill as if it were open ground (official hill rule)", () => {
+    const answers = { distance: "1", targetTerrain: "hill", sandbags: "no" };
+    const fromHill = { ...context(UnitType.INFANTRY), fromTerrain: HexType.HILL };
+
+    expect(calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps).dice).toBe(2);
+    expect(calculateFireDice(FIRE_QUESTIONS, fromHill, answers, fireBonusSteps).dice).toBe(3);
+    // …and sandbags there count as in the open
+    expect(calculateFireDice(FIRE_QUESTIONS, fromHill, { ...answers, sandbags: "yes" }, fireBonusSteps).dice).toBe(2);
   });
 
   it("adds the command card's close assault or ranged bonus", () => {

@@ -33,7 +33,7 @@ export interface TurnRecord {
     order: number;
     unit: UnitType;
     dice: number;
-    /** How the dice were worked out; empty for a quick roll */
+    /** How the dice were worked out (empty in turns saved from before the quick roll was removed) */
     steps: DiceStep[];
     faces: DieFace[];
     /** The dice whose results were applied (indexes into `faces`); null for all of them */

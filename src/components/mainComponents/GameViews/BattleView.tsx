@@ -193,9 +193,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         canTakeGround={firingIndex !== null && session.canTakeGround(firingIndex)}
         onTakeGround={() => firingIndex !== null && session.takeGround(firingIndex)}
         onUndoTakeGround={() => firingIndex !== null && session.undoTakeGround(firingIndex)}
-        onQuickFire={(dice, target, useCombatBonus) =>
-          withSound(firingIndex !== null && session.fireQuick(firingIndex, dice, target, useCombatBonus))
-        }
         withCoins={!game.extraTurn}
         longRangeDie={session.longRangeDie}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}

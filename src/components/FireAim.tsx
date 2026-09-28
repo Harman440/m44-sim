@@ -13,6 +13,7 @@ import { TERRAIN_LABELS, UNIT_LABELS } from "../labels";
 import Board from "./Board";
 import HexThumbnail from "./HexThumbnail";
 import { unitSprite } from "./UnitComponent";
+import SandbagsIcon from "./SandbagsIcon";
 
 export interface FireAimChoice {
   position: Position;
@@ -34,8 +35,6 @@ interface FireAimProps {
   card: CommandCard | null;
   longRangeDie: boolean;
   onFire: (choice: FireAimChoice) => void;
-  /** Switch to a quick roll */
-  onQuick: () => void;
 }
 
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
@@ -49,7 +48,7 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
  * The player taps the target's hex, then says what unit is there and whether
  * it has sandbags; the dice are worked out as they go.
  */
-function FireAim({ board, image, faction, from, targets, context, longRangeDie, onFire, onQuick }: FireAimProps) {
+function FireAim({ board, image, faction, from, targets, context, longRangeDie, onFire }: FireAimProps) {
   const [picked, setPicked] = useState<Position | null>(null);
   const [unitType, setUnitType] = useState<UnitType | null>(null);
   const [sandbags, setSandbags] = useState(false);
@@ -93,9 +92,11 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
       >
         {n}
       </Box>
-      <Typography variant="h6" component="h3" sx={{ fontSize: "1.05rem" }}>
-        {title}
-      </Typography>
+      {title && (
+        <Typography variant="h6" component="h3" sx={{ fontSize: "1.05rem" }}>
+          {title}
+        </Typography>
+      )}
     </Stack>
   );
 
@@ -119,7 +120,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         </Box>
         <Typography variant="body2" color={missed ? "warning.main" : "text.secondary"} aria-live="polite">
           {firable.length === 0
-            ? "No hay ninguna casilla a la que disparar desde aquí: fuera de alcance, sin dados o tapada. Si en la mesa sí la hay, usa la tirada rápida."
+            ? "No hay ninguna casilla a la que disparar desde aquí: todas están fuera de alcance, tapadas o sin ningún dado."
             : missed
               ? "Esa casilla no: está fuera de alcance, tapada (bosque, pueblo, colina, seto o una unidad tuya) o no llega ningún dado."
               : "Toca la casilla del objetivo. El número son los dados que tirarías."}
@@ -148,15 +149,16 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           {step(2, "¿Qué unidad es?")}
           <ToggleButtonGroup
             exclusive
+            size="small"
             value={unitType}
             onChange={(_, value: UnitType | null) => value && setUnitType(value)}
             aria-label="Tipo de objetivo"
             sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}
           >
             {Object.values(UnitType).map((type) => (
-              <ToggleButton key={type} value={type} aria-label={UNIT_LABELS[type]} sx={{ flexDirection: "column", gap: 0.5, py: 1 }}>
-                <Box component="img" src={unitSprite(enemy, type)} alt="" sx={{ width: 44, height: 44 }} />
-                <Typography component="span" variant="body2">
+              <ToggleButton key={type} value={type} aria-label={UNIT_LABELS[type]} sx={{ gap: 0.75, px: 1, minHeight: 48 }}>
+                <Box component="img" src={unitSprite(enemy, type)} alt="" sx={{ width: 26, height: 26 }} />
+                <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
                   {UNIT_LABELS[type]}
                 </Typography>
               </ToggleButton>
@@ -165,12 +167,17 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         </Stack>
 
         <Stack sx={{ gap: 0.5 }}>
-          {step(3, "Protección")}
-          <FormControlLabel
-            control={<Switch checked={sandbags} onChange={(e) => setSandbags(e.target.checked)} />}
-            label="Sacos terreros (ignora 1 bandera)"
-            sx={{ minHeight: 48 }}
-          />
+          {/* One line: the sandbags and a switch */}
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            {step(3, "")}
+            <SandbagsIcon />
+            <FormControlLabel
+              control={<Switch checked={sandbags} onChange={(e) => setSandbags(e.target.checked)} />}
+              label="¿Sacos terreros?"
+              labelPlacement="start"
+              sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
+            />
+          </Stack>
           {asksBonus && (
             <FormControlLabel
               control={<Switch checked={useBonus} onChange={(e) => setUseBonus(e.target.checked)} />}
@@ -203,12 +210,6 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           onClick={() => target && unitType && onFire({ position: target.position, unitType, sandbags, useCombatBonus: asksBonus && useBonus })}
         >
           {result && unitType ? `Disparar ${diceText(result.dice, eightSided)}` : "Disparar"}
-        </Button>
-        <Typography variant="body2" color="warning.main">
-          No se puede repetir la tirada.
-        </Typography>
-        <Button variant="text" onClick={onQuick}>
-          ¿Ya sabes cuántos dados? Tirada rápida
         </Button>
       </Stack>
     </Box>

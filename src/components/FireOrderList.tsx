@@ -257,7 +257,8 @@ function FireOrderList({
             )}
           </>
         }
-        detail={where(summary.position)}
+        // Where it is now: after taking ground, the hex it took
+        detail={where(summary.firingFrom)}
         result={
           hasShots &&
           `Disparó: ${summary.shots

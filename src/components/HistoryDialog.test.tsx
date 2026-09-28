@@ -1,4 +1,5 @@
 import { UnitType } from "../game-core/unit";
+import { shoot } from "../test/shots";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import HistoryDialog from "./HistoryDialog";
@@ -50,7 +51,7 @@ const playedSession = () => {
     session.chooseReward("coins"); // not asked in the extra turn 1
     session.endTurn();
   };
-  playTurn(() => session.fireQuick(0, 2, AT_INFANTRY));
+  playTurn(() => shoot(session, 0, AT_INFANTRY));
   playTurn(
     () => {},
     () => session.removeUnit(INFANTRY)
@@ -68,7 +69,7 @@ describe("HistoryDialog", () => {
     expect(second).toHaveTextContent("Eliminada: Infantería");
     expect(second).toHaveTextContent("Nadie disparó.");
     expect(first).toHaveTextContent("Infantería · mantiene posición");
-    expect(first).toHaveTextContent("Infantería: 2 dados (tirada rápida) → 2 × Granada");
+    expect(first).toHaveTextContent("Infantería: 2 dados → 2 × Granada");
     expect(first).toHaveTextContent("(contra infantería · a distancia: 2 impactos · 0 retiradas)");
     expect(first).toHaveTextContent("Sin bajas ni retiradas.");
     expect(first).toHaveTextContent("Al terminar el turno: 0 monedas");

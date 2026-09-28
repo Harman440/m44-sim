@@ -128,7 +128,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     >
                       {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
                       {shot.collision && " en un choque"}
-                      {shot.steps.length === 0 && " (tirada rápida)"} → {describeAppliedFaces(shot.faces, shot.kept)}
+                      {" → "}
+                      {describeAppliedFaces(shot.faces, shot.kept)}
                       {shot.dice > 0 &&
                         ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
                           readRoll(appliedFaces(shot.faces, shot.kept), shot.target),

@@ -6,7 +6,7 @@ import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
 import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES, SixSidedFace, rollDice } from "./dice";
-import { isKeptList } from "./rollResult";
+import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
 import {
@@ -149,7 +149,7 @@ export interface ReinforcementRoll {
 export interface Shot {
   /** Index of the firing unit's order in this turn's orders */
   orderIndex: number;
-  /** How the dice were worked out; empty for a quick roll where the player chose the dice */
+  /** How the dice were worked out (a collision's steps; empty only in shots saved from before the quick roll was removed) */
   steps: readonly DiceStep[];
   dice: number;
   faces: readonly DieFace[];
@@ -211,11 +211,6 @@ interface GameSessionOptions {
   longRangeDie?: boolean;
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
   random?: () => number;
-}
-
-/** A battle combat card's extra dice can be used on a shot at this range (Explosives: only in close assault) */
-export function canUseBonus(bonus: DiceBonusEffect | undefined, closeAssault: boolean): bonus is DiceBonusEffect {
-  return !!bonus && (bonus.closeAssault === undefined || bonus.closeAssault === closeAssault);
 }
 
 /** A change made in END_OF_TURN to match the physical table after the battle */
@@ -723,6 +718,7 @@ class GameSession {
       card: this.cardFor(order),
       closeAssaultOnly: summary.closeAssaultOnly,
       combatBonus: this.combatBonusFor(orderIndex),
+      fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
     };
   }
 
@@ -790,7 +786,10 @@ class GameSession {
     const summary = this.summaries()[orderIndex];
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
     if (!order || !summary || summary.removed || summary.tookGround || !last) return false;
-    if (!last.target.closeAssault || last.collision || last.dice === 0) return false;
+    if (!last.target.closeAssault || last.collision || !last.targetPosition) return false;
+    // Only when the target could have retreated (a flag) or been eliminated (a hit)
+    const { hits, retreats } = readRoll(appliedFaces(last.faces, last.kept), last.target);
+    if (hits === 0 && retreats === 0) return false;
     const unitType = order.unit.getUnitType();
     if (TAKE_GROUND_UNIT_TYPES.includes(unitType)) return true;
     const effect = this.battleCombatCard?.effect;
@@ -802,40 +801,36 @@ class GameSession {
     return used < effect.units;
   }
 
-  /** The unit took ground after its last shot: it gets one more shot, in close assault, from the hex it took */
+  /**
+   * The unit took ground after its last shot: it moves to the hex it fired at
+   * (as a map edit, as the player would in the final phase) and gets one more
+   * shot, in close assault, from there.
+   */
   takeGround(orderIndex: number): boolean {
     if (!this.canTakeGround(orderIndex)) return false;
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex)!;
+    const from = this.orders[orderIndex]!.end;
+    const to = last.targetPosition!;
+    if (!this.board.moveUnit(from, to)) return false;
+    this.battleEdits = [...this.battleEdits, { kind: "move", from, to }];
     this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: true } : shot));
     return this.publish();
   }
 
-  /** Take back taking ground, while its extra shot hasn't been fired */
+  /** Take back taking ground, while its extra shot hasn't been fired: the unit goes back */
   undoTakeGround(orderIndex: number): boolean {
     if (this.phase !== TurnPhase.BATTLE) return false;
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
-    if (!last?.tookGround) return false;
+    if (!last?.tookGround || !last.targetPosition) return false;
+    const from = this.orders[orderIndex]!.end;
+    const to = last.targetPosition;
+    const edit = this.battleEdits.findLastIndex(
+      (e) => e.kind === "move" && samePosition(e.from, from) && samePosition(e.to, to)
+    );
+    if (edit === -1 || !this.board.moveUnit(to, from)) return false;
+    this.battleEdits = this.battleEdits.filter((_, i) => i !== edit);
     this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: false } : shot));
     return this.publish();
-  }
-
-  /**
-   * Fire with a number of dice the player worked out themselves. With
-   * `useCombatBonus`, the battle combat card's extra dice (Spotter…) are added
-   * to them, when it applies to this unit and range.
-   */
-  fireQuick(orderIndex: number, dice: number, target: ShotTarget, useCombatBonus = false): boolean {
-    if (!Number.isInteger(dice) || dice < 1) return false;
-    if (!isUnitType(target.unitType)) return false;
-    if (!this.canFireNow(orderIndex)) return false;
-    if (this.summaries()[orderIndex]!.closeAssaultOnly && !target.closeAssault) return false;
-    const bonus = useCombatBonus ? this.combatBonusFor(orderIndex) : undefined;
-    if (useCombatBonus && !canUseBonus(bonus, target.closeAssault)) return false;
-
-    const steps = bonus ? [{ label: "Tirada rápida", dice }, { label: `Carta ${bonus.name}`, dice: bonus.dice }] : [];
-    const total = dice + (bonus?.dice ?? 0);
-    const shotTarget = this.targetFor(this.orders[orderIndex]!, target);
-    return this.recordShot(orderIndex, total, steps, [], shotTarget, false, !!bonus);
   }
 
   /** The target of a shot, marked as rolled on the long-range die when the game uses it and the target isn't adjacent */
