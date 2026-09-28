@@ -7,7 +7,7 @@ import { DieFace } from "./dice";
 import { DiceStep } from "./fireRules";
 import { positionKey } from "./position";
 import { Position } from "../types/scenario";
-import type { BattleEdit, CardAttack, Shot } from "./gameSession";
+import type { BattleEdit, CardAttack, ReinforcementRoll, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
@@ -48,6 +48,7 @@ export interface TurnRecord {
   battleEdits: (
     | { kind: "remove"; unit: UnitType; position: Position }
     | { kind: "move"; unit: UnitType; from: Position; to: Position }
+    | { kind: "add"; unit: UnitType; position: Position }
   )[];
   /** How the turn earned and spent coins */
   coins: CoinEntry[];
@@ -63,6 +64,8 @@ export interface TurnRecord {
   markers: Position[];
   /** The attack combat card's rolls on the marked hexes */
   cardAttacks: CardAttack[];
+  /** The Reinforcements card's roll and the unit it brought */
+  reinforcement: ReinforcementRoll | null;
 }
 
 interface TurnState {
@@ -80,6 +83,7 @@ interface TurnState {
   combatCardDrawn: CombatCard | null;
   markers: readonly Position[];
   cardAttacks: readonly CardAttack[];
+  reinforcement: ReinforcementRoll | null;
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
@@ -97,6 +101,7 @@ export function recordTurn({
   combatCardDrawn,
   markers,
   cardAttacks,
+  reinforcement,
 }: TurnState): TurnRecord {
   return {
     turn,
@@ -121,9 +126,9 @@ export function recordTurn({
     })),
     battleEdits: editedUnits(battleEdits, board).map((unit, i) => {
       const edit = battleEdits[i]!;
-      return edit.kind === "remove"
-        ? { kind: "remove", unit, position: { ...edit.position } }
-        : { kind: "move", unit, from: { ...edit.from }, to: { ...edit.to } };
+      return edit.kind === "move"
+        ? { kind: "move", unit, from: { ...edit.from }, to: { ...edit.to } }
+        : { kind: edit.kind, unit, position: { ...edit.position } };
     }),
     coins: coins.map((entry) => ({ ...entry })),
     coinsAfter,
@@ -136,6 +141,7 @@ export function recordTurn({
       target: attack.target && { ...attack.target },
       faces: [...attack.faces],
     })),
+    reinforcement: reinforcement && { ...reinforcement },
   };
 }
 
@@ -154,6 +160,9 @@ function editedUnits(edits: readonly BattleEdit[], board: BoardManager): UnitTyp
     const edit = edits[i]!;
     if (edit.kind === "remove") {
       units.set(positionKey(edit.position), edit.unit);
+      types[i] = edit.unit.getUnitType();
+    } else if (edit.kind === "add") {
+      units.delete(positionKey(edit.position));
       types[i] = edit.unit.getUnitType();
     } else {
       const unit = units.get(positionKey(edit.to));

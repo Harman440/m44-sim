@@ -218,6 +218,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             onCardDealt={handleCardDealt}
             onCardClick={(card, section, combatCard) => session.pickCard(card, section, combatCard) && play("cardPlay")}
             needsSection={(card, combatCard) => session.cardNeedsSection(card, combatCard)}
+            combatCardFits={(card, combatCard) => session.combatCardFits(card, combatCard)}
             combatHand={game.combatHand}
             canPlayCombatCards={game.canPlayCombatCards}
             coins={game.coins}

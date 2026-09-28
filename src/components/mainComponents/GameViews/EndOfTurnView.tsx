@@ -10,6 +10,8 @@ import { RewardChoice } from "../../../game-core/coins";
 import { END_OF_TURN_COINS } from "../../../data/coinRules";
 import { MAX_COMBAT_HAND } from "../../../data/combatCards";
 import CombatCardComponent from "../../CombatCardComponent";
+import { DieFaceIcon } from "../../DiceResult";
+import { DIE_FACE_LABELS, UNIT_LABELS } from "../../../labels";
 
 interface EndOfTurnViewProps {
   faction: Faction;
@@ -47,8 +49,11 @@ function EndOfTurnView({
     card?.tableReminder ? [card.tableReminder] : []
   );
   /** What's still needed before the next turn */
-  const pendingStep =
-    game.needsRewardChoice && !game.rewardChoice
+  const pendingStep = game.reinforcementDue
+    ? "Tira el dado de refuerzos para empezar el siguiente turno."
+    : game.reinforcementToPlace
+      ? "Coloca el refuerzo en el mapa para empezar el siguiente turno."
+      : game.needsRewardChoice && !game.rewardChoice
       ? "Elige monedas o carta de combate para empezar el siguiente turno."
       : game.combatCardDue
         ? "Roba la carta de combate para empezar el siguiente turno."
@@ -79,6 +84,36 @@ function EndOfTurnView({
             {reminder}
           </Alert>
         ))}
+        {(game.reinforcementDue || game.reinforcement) && (
+          <Box sx={{ mt: 1.5 }} data-testid="reinforcements">
+            {game.reinforcementDue ? (
+              <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                <Typography variant="body1">
+                  {game.orderCombatCard?.name}: tira el dado para ver qué unidad llega a la casilla de la cruz.
+                </Typography>
+                <Button onClick={() => session.rollReinforcements()} startIcon={<GameIcon name="dice" />}>
+                  Tirar dado de refuerzos
+                </Button>
+              </Stack>
+            ) : (
+              game.reinforcement && (
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+                  <Box sx={{ flex: "none", display: "flex" }}>
+                    <DieFaceIcon face={game.reinforcement.face} faction={faction} />
+                  </Box>
+                  <Typography variant="body1">
+                    {DIE_FACE_LABELS[game.reinforcement.face]}:{" "}
+                    {!game.reinforcement.unitType
+                      ? "no hay refuerzos."
+                      : game.reinforcementToPlace
+                        ? `llega ${UNIT_LABELS[game.reinforcement.unitType].toLowerCase()}. La casilla de la cruz está ocupada: ponla en la mesa y en «Actualizar mapa», en una casilla libre.`
+                        : `llega ${UNIT_LABELS[game.reinforcement.unitType].toLowerCase()}, ya en el mapa. Ponla en la mesa en la casilla de la cruz.`}
+                  </Typography>
+                </Stack>
+              )
+            )}
+          </Box>
+        )}
         <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
           <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
             Actualizar mapa

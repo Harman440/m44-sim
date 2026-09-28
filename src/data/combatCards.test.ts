@@ -5,8 +5,8 @@ import { scenarios } from "./scenarios";
 describe("combat card data", () => {
   const deck = combatDeckFor(scenarios[0]!, "Allies");
 
-  it("builds the standard deck: 23 order cards and 30 battle cards", () => {
-    expect(deck.filter((card) => card.phase === "order")).toHaveLength(23);
+  it("builds the standard deck: 22 order cards (no Sniper) and 30 battle cards", () => {
+    expect(deck.filter((card) => card.phase === "order")).toHaveLength(22);
     expect(deck.filter((card) => card.phase === "battle")).toHaveLength(30);
   });
 

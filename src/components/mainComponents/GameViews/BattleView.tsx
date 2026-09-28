@@ -280,8 +280,8 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
         combatBonus={firingIndex === null ? undefined : session.combatBonusFor(firingIndex)}
         faction={faction}
         onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
-        onQuickFire={(dice, target) =>
-          withSound(firingIndex !== null && session.fireQuick(firingIndex, dice, target))
+        onQuickFire={(dice, target, useCombatBonus) =>
+          withSound(firingIndex !== null && session.fireQuick(firingIndex, dice, target, useCombatBonus))
         }
         withCoins={!game.extraTurn}
         longRangeDie={session.longRangeDie}

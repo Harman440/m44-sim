@@ -6,7 +6,7 @@ import BoardManager from "./BoardManager";
 import CommandCard, { Section, isSection } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
-import { DieFace } from "./dice";
+import { DieFace, SIX_SIDED_FACES, SixSidedFace } from "./dice";
 import { isKeptList } from "./rollResult";
 import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
@@ -18,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 interface SavedUnit {
   type: UnitType;
@@ -61,6 +61,7 @@ export interface SavedGame {
   battleEdits: (
     | { kind: "remove"; position: Position; unit: number }
     | { kind: "move"; from: Position; to: Position }
+    | { kind: "add"; position: Position; unit: number }
   )[];
   shots: Shot[];
   log: TurnRecord[];
@@ -76,6 +77,7 @@ export interface SavedGame {
   battleCombatCard: string | null;
   drawnCombatCard: string | null;
   drops: Position[];
+  reinforcementFace: SixSidedFace | null;
 }
 
 /** Everything a GameSession keeps between actions, apart from the board's units */
@@ -112,6 +114,8 @@ export interface SessionState {
   drawnCombatCard: CombatCard | null;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
+  /** The Reinforcements die, rolled in the final phase */
+  reinforcementFace: SixSidedFace | null;
 }
 
 const isPosition = (value: unknown): value is Position =>
@@ -190,7 +194,7 @@ export function writeSave(
       closeAssaultOnly: order.closeAssaultOnly,
     })),
     battleEdits: state.battleEdits.map((edit) =>
-      edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unitIndex(edit.unit) } : edit
+      edit.kind === "move" ? edit : { kind: edit.kind, position: edit.position, unit: unitIndex(edit.unit) }
     ),
     ordersCommitted: state.ordersCommitted,
     unmovedFireSkipped: state.unmovedFireSkipped,
@@ -220,6 +224,7 @@ export function writeSave(
     battleCombatCard: state.battleCombatCard?.id ?? null,
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     drops: state.drops.map((p) => ({ ...p })),
+    reinforcementFace: state.reinforcementFace,
     units: savedUnits,
   };
 }
@@ -324,6 +329,11 @@ export function readSave(
     throw new Error(`Unknown reward ${saved.rewardChoice}`);
   }
 
+  const { reinforcementFace } = saved;
+  if (reinforcementFace !== null && !SIX_SIDED_FACES.includes(reinforcementFace)) {
+    throw new Error(`Unknown reinforcement roll ${reinforcementFace}`);
+  }
+
   return {
     turn: saved.turn,
     phase: saved.phase,
@@ -339,7 +349,7 @@ export function readSave(
     ordersCommitted: saved.ordersCommitted,
     unmovedFireSkipped: saved.unmovedFireSkipped,
     battleEdits: saved.battleEdits.map((edit) =>
-      edit.kind === "remove" ? { kind: "remove", position: edit.position, unit: unit(edit.unit) } : edit
+      edit.kind === "move" ? edit : { kind: edit.kind, position: edit.position, unit: unit(edit.unit) }
     ),
     shots,
     log: saved.log,
@@ -355,5 +365,6 @@ export function readSave(
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
+    reinforcementFace,
   };
 }

@@ -16,7 +16,7 @@ export interface CombatCard {
   /** Coins to play it */
   readonly cost: number;
   readonly phase: CombatPhase;
-  /** Hexes to mark on the map while giving orders (Barrage, Air Power, Sniper…) */
+  /** Hexes to mark on the map while giving orders (Barrage, Air Power, Reinforcements…) */
   readonly marker?: MarkerRule;
   /** A reminder for the final phase: something to do on the table (sandbags, a camouflage badge, a move to mirror on the map) */
   readonly tableReminder?: string;
@@ -81,6 +81,4 @@ export interface MarkerRule {
   chain?: boolean;
   /** Not on or next to your own units (Air Bombardment) */
   awayFromOwnUnits?: boolean;
-  /** Next to one of your units of this type (Sniper: infantry) */
-  nextTo?: UnitType;
 }

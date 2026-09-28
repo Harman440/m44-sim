@@ -26,7 +26,7 @@
   stroke-dasharray: 6 4;
 }
 
-/* Can be marked for a combat card (Barrage, Air Power, a Sniper's cross…) */
+/* Can be marked for a combat card (Barrage, Air Power, a Reinforcements cross…) */
 .hexagon__tile--mark {
   fill: color-mix(in srgb, var(--m44-accent, #e53935) 30%, transparent);
   stroke: var(--m44-accent, #e53935);

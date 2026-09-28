@@ -8,6 +8,7 @@ import { Side } from "../types/hex";
 import { summarizeOrders } from "../game-core/turnSummary";
 import { UnitType } from "../game-core/unit";
 import { Position } from "../types/scenario";
+import { CombatCard } from "../game-core/combatCard";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
@@ -54,7 +55,8 @@ function Harness({ session }: { session: GameSession }) {
         card={game.chosenCard}
         faction="Allies"
         onFire={(answers) => session.fire(0, answers)}
-        onQuickFire={(dice, target) => session.fireQuick(0, dice, target)}
+        combatBonus={session.combatBonusFor(0)}
+        onQuickFire={(dice, target, useCombatBonus) => session.fireQuick(0, dice, target, useCombatBonus)}
         withCoins
         longRangeDie={session.longRangeDie}
         onUndoShot={() => session.undoShot(0)}
@@ -185,6 +187,53 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("5Impactos");
     expect(screen.getByTestId("roll-retreats")).toHaveTextContent("0Retiradas");
     expect(screen.getByTestId("roll-coins")).toHaveTextContent("+0Monedas");
+  });
+
+  it("adds a dice combat card to a quick roll when the player uses it", () => {
+    const spotter: CombatCard = {
+      id: "spotter",
+      name: "Observador",
+      description: "",
+      cost: 0,
+      phase: "battle",
+      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] },
+    };
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: "Test",
+        description: "",
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { [UnitType.ARTILLERY]: [UNIT] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 })],
+      combatCards: [spotter],
+      random: () => 0.5,
+    });
+    session.startFirstTurn();
+    session.pickCard(session.getSnapshot().hand[0]!);
+    session.issueOrder(UNIT, UNIT);
+    session.commitOrders();
+    session.startMovement();
+    session.startBattle();
+    session.playBattleCombatCard(spotter);
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByText("abrir"));
+
+    choose(/Tirada rápida/);
+    choose("2");
+    quickTarget();
+    const useCard = within(screen.getByRole("group", { name: "Usar Observador" }));
+    expect(screen.getByRole("button", { name: "Disparar 2 dados" })).toBeDisabled();
+    fireEvent.click(useCard.getByRole("button", { name: "Sí" }));
+    choose("Disparar 3 dados");
+
+    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("Tirada rápida +2 · Carta Observador +1");
   });
 
   it("goes back from a quick roll, and one question at a time", () => {

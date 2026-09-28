@@ -1,6 +1,6 @@
 // game-core/markerRules.ts
 // Where the hexes of a combat card's marker can go (Barrage, Air Power, Air
-// Bombardment, Sniper, Reinforcements). The map only has this side's units,
+// Bombardment, Reinforcements). The map only has this side's units,
 // so the rules can only look at those.
 import BoardManager from "./BoardManager";
 import { MarkerRule } from "./combatCard";
@@ -18,7 +18,6 @@ export function canMark(rule: MarkerRule, board: BoardManager, marks: readonly P
   if (rule.kind === "cross" ? hex.hasUnit() || !hex.isPassable() : hex.hasUnit()) return false;
   const neighbors = neighborsOf(board, position);
   if (rule.awayFromOwnUnits && neighbors.some((p) => board.getHex(p)?.hasUnit())) return false;
-  if (rule.nextTo && !neighbors.some((p) => board.getHex(p)?.unit?.getUnitType() === rule.nextTo)) return false;
   const previous = marks.at(-1);
   if (rule.chain && previous && !includesPosition(neighbors, previous)) return false;
   return true;

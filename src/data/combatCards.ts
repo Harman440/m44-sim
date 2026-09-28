@@ -6,7 +6,7 @@
 //
 // Not in the deck yet: the command combat cards that act on the opponent's
 // hand or orders (Spies, HQ Distraction, Message Interception, Lost Message),
-// which come in Step 33.
+// which come in Step 33. Sniper is left out: the player doesn't want snipers.
 import { CombatCard, CombatEffect, CombatPhase, MarkerRule } from "../game-core/combatCard";
 import { UnitType } from "../game-core/unit";
 import { HexType } from "../types/hex";
@@ -79,9 +79,6 @@ const STANDARD: CombatCardTemplate[] = [
   order("infiltrators", "Tras las líneas enemigas", 4, 3,
     "1 unidad dispara y se mueve antes que cualquier otro ataque. El movimiento tras el ataque se hace al final, con las retiradas.",
     { tableReminder: "Tras las líneas enemigas: haz ahora el movimiento de la unidad tras su ataque y refléjalo en «Actualizar mapa»." }),
-  order("sniper", "Francotirador", 6, 1,
-    "Coloca un francotirador junto a una infantería tuya (marca una cruz en el mapa). No puede combatir este turno.",
-    { marker: { kind: "cross", count: 1, nextTo: UnitType.INFANTRY } }),
   order("frozen-ground", "Terreno helado", 3, 2, "3 unidades mueven 1 casilla más.",
     { effect: { kind: "move", units: 3, moveBonus: 1 } }),
   order("air-bombardment", "Bombardeo aéreo", 4, 1,

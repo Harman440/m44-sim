@@ -13,6 +13,7 @@ import GameSession from "../game-core/gameSession";
 import { TurnRecord } from "../game-core/turnLog";
 import { Position } from "../types/scenario";
 import {
+  DIE_FACE_LABELS,
   UNIT_LABELS,
   coinsText,
   describeCoinEntry,
@@ -153,7 +154,9 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     <Typography component="li" variant="body2" key={i}>
                       {edit.kind === "remove"
                         ? `Eliminada: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
-                        : `Movida: ${UNIT_LABELS[edit.unit]} → ${placeOf(edit.to)}`}
+                        : edit.kind === "add"
+                          ? `Refuerzo: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
+                          : `Movida: ${UNIT_LABELS[edit.unit]} → ${placeOf(edit.to)}`}
                     </Typography>
                   ))}
                 </Box>
@@ -200,6 +203,14 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                           : "vacía"}
                       </Typography>
                     ))}
+                    {record.reinforcement && (
+                      <Typography component="li" variant="body2">
+                        Refuerzos: {DIE_FACE_LABELS[record.reinforcement.face].toLowerCase()} →{" "}
+                        {record.reinforcement.unitType
+                          ? UNIT_LABELS[record.reinforcement.unitType].toLowerCase()
+                          : "sin refuerzos"}
+                      </Typography>
+                    )}
                     {record.combatCardDrawn && (
                       <Typography component="li" variant="body2">
                         Robada en la fase final: {record.combatCardDrawn.name}

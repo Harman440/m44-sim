@@ -17,9 +17,11 @@ The two decisions from the first plan still hold:
 ## Part A: Bugs
 
 ### Step 35: Known bugs
-- [ ] Tactician can still be played with a card that orders several sections (like General Advance): it's paid for but does nothing, and the app doesn't warn. Don't offer it then, or warn before paying
-- [ ] A dice combat card isn't offered on a "Tirada rápida" shot, because there the player enters the dice. Offer it there too (add its dice to the number entered)
-- [ ] Reinforcements and Sniper can't add their unit to the map: the cross marks where it goes, but nothing appears. `GameSession.dropUnit` (the paradrop) already places new units, so reuse that to place the unit on the marked hex
+- [x] Tactician can still be played with a card that orders several sections (like General Advance): it's paid for but does nothing, and the app doesn't warn. The session refuses it (`combatCardFits`), and the cards screen warns and offers to play the command card alone
+- [x] A dice combat card isn't offered on a "Tirada rápida" shot, because there the player enters the dice. The quick roll now asks whether to use it and adds its dice to the number entered
+- [x] Reinforcements and Sniper can't add their unit to the map: the cross marks where it goes, but nothing appears
+  - [x] **Decided:** Sniper is taken out of the game (the player doesn't want snipers)
+  - [x] **Decided:** Reinforcements: in the final phase the app rolls the die, reads the scenario's table and puts the unit on the cross (`rollReinforcements`). If the cross was taken by then, the player taps an empty hex (`placeReinforcement`). The new unit is a battle edit, so "Deshacer" takes it off again
 
 ## Part B: Screens
 

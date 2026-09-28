@@ -208,9 +208,9 @@ function CombatScene({ card, faction, hexes }: { card: CombatCard; faction: Fact
   }
 
   if (card.marker?.kind === "cross") {
-    // Where a new unit appears: a cross on a hex, next to the unit it comes with (Sniper) or a new token
+    // Where a new unit appears: a cross on a hex, next to a new token
     const hex = at(mid + 1);
-    const type = card.marker.nextTo ?? UnitType.INFANTRY;
+    const type = UnitType.INFANTRY;
     const d = 5;
     return (
       <>

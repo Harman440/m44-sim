@@ -5,7 +5,7 @@ import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { describeHex } from "../../../labels";
+import { UNIT_LABELS, describeHex } from "../../../labels";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import "./PhaseLayout.css";
@@ -43,7 +43,9 @@ function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
     if (selected) {
       if (session.relocateUnit(selected, position)) setSelected(null);
       else flashInvalid(position);
+      return;
     }
+    if (game.reinforcementToPlace && !session.placeReinforcement(position)) flashInvalid(position);
   };
 
   const handleRemove = () => {
@@ -51,6 +53,8 @@ function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
   };
 
   const selectedHex = selected ? boardManager.getHex(selected) : null;
+  /** The Reinforcements card's cross, until its unit is on the map */
+  const reinforcements = game.reinforcementDue || game.reinforcementToPlace !== null;
 
   return (
     <div className="phase-layout">
@@ -64,6 +68,8 @@ function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
           orders={game.orders}
           backgroundImage={session.scenario.image}
           invalidFlash={flash}
+          markers={reinforcements ? game.markers : []}
+          markerKind="cross"
           faction={faction}
         />
       </div>
@@ -75,7 +81,9 @@ function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
           {selectedHex
             ? "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala"
-            : "Refleja aquí las bajas, retiradas y terreno tomado de la mesa: toca una unidad"}
+            : game.reinforcementToPlace
+              ? `Refuerzo (${UNIT_LABELS[game.reinforcementToPlace].toLowerCase()}): toca la casilla libre donde lo pones`
+              : "Refleja aquí las bajas, retiradas y terreno tomado de la mesa: toca una unidad"}
         </Typography>
 
         {selectedHex && (

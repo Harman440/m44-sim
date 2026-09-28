@@ -235,3 +235,33 @@ describe("CardsView Tactician", () => {
     expect(onCardClick).toHaveBeenCalledWith(card, Side.RIGHT, tactician);
   });
 });
+
+describe("CardsView Tactician with a card for several sections", () => {
+  it("warns instead of paying, and can play the card alone", () => {
+    const card = new CommandCard({ id: "general-advance", name: "Avance general", orders: 6, perSection: 2 });
+    const tactician: CombatCard = { id: "tactician", name: "Táctico", description: "", cost: 0, phase: "order", effect: { kind: "changeSection" } };
+    const onCardClick = vi.fn();
+    const { container } = render(
+      <CardsView
+        handCards={[card]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onCardClick={onCardClick}
+        combatCardFits={(c, combat) => combat.effect?.kind !== "changeSection" || (c.sections !== "chosen" && c.sections.length === 1)}
+        combatHand={[tactician]}
+        canPlayCombatCards
+        coins={0}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 monedas" }));
+    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    expect(screen.getByText("Táctico no sirve con Avance general")).toBeInTheDocument();
+    expect(onCardClick).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Jugar sin Táctico" }));
+    expect(onCardClick).toHaveBeenCalledWith(card);
+  });
+});

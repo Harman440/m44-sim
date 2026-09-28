@@ -5,7 +5,7 @@ import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
-import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES, rollDice } from "./dice";
+import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES, SixSidedFace, rollDice } from "./dice";
 import { isKeptList } from "./rollResult";
 import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
 import {
@@ -128,6 +128,17 @@ export interface GameSnapshot {
   drops: readonly Position[];
   /** Paratroopers that can still be placed (PARADROP) */
   dropsLeft: number;
+  /** The Reinforcements card's roll in the final phase, and the unit it brings on this map (null: none) */
+  reinforcement: ReinforcementRoll | null;
+  /** The Reinforcements card was played and its die is still to roll (final phase) */
+  reinforcementDue: boolean;
+  /** The unit rolled isn't on the map yet: the player taps an empty hex for it (its marked hex was taken) */
+  reinforcementToPlace: UnitType | null;
+}
+
+export interface ReinforcementRoll {
+  face: SixSidedFace;
+  unitType: UnitType | null;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -194,10 +205,17 @@ interface GameSessionOptions {
   random?: () => number;
 }
 
+/** A battle combat card's extra dice can be used on a shot at this range (Explosives: only in close assault) */
+export function canUseBonus(bonus: DiceBonusEffect | undefined, closeAssault: boolean): bonus is DiceBonusEffect {
+  return !!bonus && (bonus.closeAssault === undefined || bonus.closeAssault === closeAssault);
+}
+
 /** A change made in END_OF_TURN to match the physical table after the battle */
 export type BattleEdit =
   | { kind: "remove"; position: Position; unit: Unit }
-  | { kind: "move"; from: Position; to: Position };
+  | { kind: "move"; from: Position; to: Position }
+  /** A unit that arrived: the Reinforcements card */
+  | { kind: "add"; position: Position; unit: Unit };
 
 /**
  * Owns one player's game: board, command cards and the turn flow
@@ -246,6 +264,7 @@ class GameSession {
   private battleCombatCard: CombatCard | null = null;
   private drawnCombatCard: CombatCard | null = null;
   private drops: Position[] = [];
+  private reinforcementFace: SixSidedFace | null = null;
   private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
@@ -305,11 +324,18 @@ class GameSession {
   dropUnit(position: Position): boolean {
     const paradrop = this.paradrop();
     if (!paradrop || this.dropsLeft() === 0) return false;
-    if (!this.board.getHex(position)?.isPassable()) return false;
+    if (!this.placeNewUnit(position, paradrop.unitType)) return false;
 
-    this.board.placeUnitAt(position, new Unit(paradrop.unitType));
     this.drops = [...this.drops, position];
     return this.publish();
+  }
+
+  /** Put a new unit on an empty hex it can stand on (paratroopers, reinforcements) */
+  private placeNewUnit(position: Position, unitType: UnitType): Unit | null {
+    const hex = this.board.getHex(position);
+    if (!hex?.isPassable() || hex.hasUnit()) return null;
+    const unit = new Unit(unitType);
+    return this.board.placeUnitAt(position, unit) ? unit : null;
   }
 
   undoDrop(): boolean {
@@ -348,10 +374,18 @@ class GameSession {
    * for one section
    */
   cardNeedsSection(card: CommandCard, combatCard?: CombatCard): boolean {
-    if (combatCard?.effect?.kind === "changeSection" && card.sections !== "chosen" && card.sections.length === 1) {
-      return true;
-    }
+    if (combatCard?.effect?.kind === "changeSection") return this.combatCardFits(card, combatCard);
     return card.choosesSection && !fallbackCard(card, this.board);
+  }
+
+  /**
+   * The order combat card does something with this command card. Tactician
+   * only changes a card that orders units in one fixed section, so it can't
+   * be played (and paid for) with General Advance or a card of any section.
+   */
+  combatCardFits(card: CommandCard, combatCard: CombatCard): boolean {
+    if (combatCard.effect?.kind !== "changeSection") return true;
+    return card.sections !== "chosen" && card.sections.length === 1;
   }
 
   /**
@@ -362,6 +396,7 @@ class GameSession {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (!this.hand.includes(card)) return false;
     if (combatCard && !this.canPlayCombatCard(combatCard, "order")) return false;
+    if (combatCard && !this.combatCardFits(card, combatCard)) return false;
     if (this.cardNeedsSection(card, combatCard) ? !isSection(section) : section !== undefined) return false;
 
     if (combatCard) this.playCombatCard(combatCard);
@@ -671,13 +706,23 @@ class GameSession {
     return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus);
   }
 
-  /** Fire with a number of dice the player worked out themselves */
-  fireQuick(orderIndex: number, dice: number, target: ShotTarget): boolean {
+  /**
+   * Fire with a number of dice the player worked out themselves. With
+   * `useCombatBonus`, the battle combat card's extra dice (Spotter…) are added
+   * to them, when it applies to this unit and range.
+   */
+  fireQuick(orderIndex: number, dice: number, target: ShotTarget, useCombatBonus = false): boolean {
     if (!Number.isInteger(dice) || dice < 1) return false;
     if (!isUnitType(target.unitType)) return false;
     if (!this.canFireNow(orderIndex)) return false;
     if (this.orders[orderIndex]!.closeAssaultOnly && !target.closeAssault) return false;
-    return this.recordShot(orderIndex, dice, [], [], this.targetFor(this.orders[orderIndex]!, target));
+    const bonus = useCombatBonus ? this.combatBonusFor(orderIndex) : undefined;
+    if (useCombatBonus && !canUseBonus(bonus, target.closeAssault)) return false;
+
+    const steps = bonus ? [{ label: "Tirada rápida", dice }, { label: `Carta ${bonus.name}`, dice: bonus.dice }] : [];
+    const total = dice + (bonus?.dice ?? 0);
+    const shotTarget = this.targetFor(this.orders[orderIndex]!, target);
+    return this.recordShot(orderIndex, total, steps, [], shotTarget, false, !!bonus);
   }
 
   /** The target of a shot, marked as rolled on the long-range die when the game uses it and the target isn't adjacent */
@@ -1003,11 +1048,60 @@ class GameSession {
 
     if (edit.kind === "remove") {
       this.board.placeUnitAt(edit.position, edit.unit);
+    } else if (edit.kind === "add") {
+      this.board.removeUnitAt(edit.position);
     } else {
       this.board.moveUnit(edit.to, edit.from);
     }
     this.battleEdits = this.battleEdits.slice(0, -1);
     return this.publish();
+  }
+
+  // Reinforcements: in the final phase the app rolls the die, and the unit the
+  // scenario's table gives for the face appears on the hex marked with the cross
+
+  private reinforcementTable() {
+    return this.orderCombatCard?.effect?.kind === "reinforcements" ? (this.scenario.reinforcements ?? null) : null;
+  }
+
+  private reinforcementDue(): boolean {
+    return this.phase === TurnPhase.END_OF_TURN && !!this.reinforcementTable() && this.reinforcementFace === null;
+  }
+
+  private reinforcementRoll(): ReinforcementRoll | null {
+    const table = this.reinforcementTable();
+    if (!table || !this.reinforcementFace) return null;
+    return { face: this.reinforcementFace, unitType: table[this.reinforcementFace] };
+  }
+
+  private reinforcementToPlace(): UnitType | null {
+    if (this.phase !== TurnPhase.END_OF_TURN) return null;
+    const unitType = this.reinforcementRoll()?.unitType ?? null;
+    return unitType && !this.battleEdits.some((edit) => edit.kind === "add") ? unitType : null;
+  }
+
+  /** Roll the Reinforcements die; the unit it brings is put on the marked hex if that is still empty */
+  rollReinforcements(): boolean {
+    if (!this.reinforcementDue()) return false;
+
+    this.reinforcementFace = rollDice(1, this.random)[0] as SixSidedFace;
+    const marked = this.markers[0];
+    if (marked) this.addReinforcement(marked);
+    return this.publish();
+  }
+
+  /** Put the unit rolled on an empty hex, when its marked hex was taken (or the placing was undone) */
+  placeReinforcement(position: Position): boolean {
+    return this.addReinforcement(position) && this.publish();
+  }
+
+  private addReinforcement(position: Position): boolean {
+    const unitType = this.reinforcementToPlace();
+    const unit = unitType && this.placeNewUnit(position, unitType);
+    if (!unit) return false;
+
+    this.battleEdits = [...this.battleEdits, { kind: "add", position: { ...position }, unit }];
+    return true;
   }
 
   /**
@@ -1067,6 +1161,7 @@ class GameSession {
     if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || !this.drawnCard) return false;
     if (this.needsRewardChoice() && !this.rewardChoice) return false;
     if (this.combatCardDue() || this.mustDiscardCombatCard()) return false;
+    if (this.reinforcementDue() || this.reinforcementToPlace()) return false;
 
     const playedCard = this.chosenCard;
     const coins = this.coins();
@@ -1084,6 +1179,7 @@ class GameSession {
       combatCardDrawn: this.drawnCombatCard,
       markers: this.markers,
       cardAttacks: this.cardAttacks,
+      reinforcement: this.reinforcementRoll(),
     });
     this.log = [...this.log, record];
     this.startCoins = coins;
@@ -1095,6 +1191,7 @@ class GameSession {
     this.cardAttacks = [];
     this.battleCombatCard = null;
     this.drawnCombatCard = null;
+    this.reinforcementFace = null;
 
     this.chosenCard = null;
     this.chosenSection = null;
@@ -1142,6 +1239,7 @@ class GameSession {
       battleCombatCard: this.battleCombatCard,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
+      reinforcementFace: this.reinforcementFace,
     });
   }
 
@@ -1190,6 +1288,7 @@ class GameSession {
     session.battleCombatCard = state.battleCombatCard;
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
+    session.reinforcementFace = state.reinforcementFace;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -1242,6 +1341,9 @@ class GameSession {
       mustDiscardCombatCard: this.mustDiscardCombatCard(),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
+      reinforcement: this.reinforcementRoll(),
+      reinforcementDue: this.reinforcementDue(),
+      reinforcementToPlace: this.reinforcementToPlace(),
     };
   }
 

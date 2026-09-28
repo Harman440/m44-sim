@@ -17,10 +17,10 @@ import {
 } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { Faction } from "../types/faction";
-import { Shot } from "../game-core/gameSession";
+import { Shot, canUseBonus } from "../game-core/gameSession";
 import { FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "../game-core/fireRules";
 import { OrderSummary } from "../game-core/turnSummary";
-import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
+import { FIRE_QUESTIONS, combatBonusQuestion, fireBonusSteps } from "../data/fireQuestions";
 import ShotDice from "./ShotDice";
 import { SECTION_LABELS, UNIT_LABELS } from "../labels";
 import { UnitType } from "../game-core/unit";
@@ -35,8 +35,8 @@ interface FireDialogProps {
   faction: Faction;
   /** Fire using the questionnaire's answers; the session rolls the dice */
   onFire: (answers: FireAnswers) => boolean;
-  /** Fire a number of dice the player worked out themselves, at this target */
-  onQuickFire: (dice: number, target: ShotTarget) => boolean;
+  /** Fire a number of dice the player worked out themselves, at this target, plus the combat card's dice with `useCombatBonus` */
+  onQuickFire: (dice: number, target: ShotTarget, useCombatBonus: boolean) => boolean;
   /** Rolls earn coins this turn (not in the attacker's extra first turn) */
   withCoins: boolean;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
@@ -134,6 +134,7 @@ function FireDialog({
   const [quickDice, setQuickDice] = useState(3);
   const [quickTarget, setQuickTarget] = useState<UnitType | null>(null);
   const [quickCloseAssault, setQuickCloseAssault] = useState<boolean | null>(null);
+  const [quickBonus, setQuickBonus] = useState<boolean | null>(null);
   /** Aiming a further shot at a unit that already fired (orders with more than one shot) */
   const [firingAgain, setFiringAgain] = useState(false);
   const [confirmingUndo, setConfirmingUndo] = useState(false);
@@ -156,6 +157,10 @@ function FireDialog({
   const eightSided = longRangeDie && answers.distance !== undefined && answers.distance !== "1";
   const quickEightSided = longRangeDie && !summary.closeAssaultOnly && quickCloseAssault === false;
   const aiming = canFire && (summary.shots.length === 0 || firingAgain);
+  const quickRange = summary.closeAssaultOnly || quickCloseAssault;
+  /** The battle combat card's dice can be added to the quick roll: asked once the range is known */
+  const askQuickBonus = quickRange !== null && canUseBonus(combatBonus, quickRange);
+  const quickTotal = quickDice + (askQuickBonus && quickBonus ? combatBonus!.dice : 0);
 
   const resetAim = () => {
     setAnswers({});
@@ -163,6 +168,7 @@ function FireDialog({
     setQuick(false);
     setQuickTarget(null);
     setQuickCloseAssault(null);
+    setQuickBonus(null);
     setFiringAgain(false);
   };
 
@@ -193,9 +199,8 @@ function FireDialog({
   };
 
   const handleQuickFire = () => {
-    const closeAssault = summary.closeAssaultOnly || quickCloseAssault;
-    if (quickTarget === null || closeAssault === null) return;
-    if (!onQuickFire(quickDice, { unitType: quickTarget, closeAssault })) return;
+    if (quickTarget === null || quickRange === null || (askQuickBonus && quickBonus === null)) return;
+    if (!onQuickFire(quickDice, { unitType: quickTarget, closeAssault: quickRange }, askQuickBonus && !!quickBonus)) return;
     resetAim();
     setJustFired(true);
   };
@@ -327,13 +332,34 @@ function FireDialog({
               </ToggleButtonGroup>
             </>
           )}
+          {askQuickBonus && (
+            <>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                {combatBonusQuestion.textFor!(context)} (+{combatBonus!.dice})
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                value={quickBonus}
+                onChange={(_, value: boolean | null) => value !== null && setQuickBonus(value)}
+                aria-label={`Usar ${combatBonus!.name}`}
+                sx={{ mb: 2 }}
+              >
+                <ToggleButton value={true} sx={{ minWidth: 64, minHeight: 48 }}>
+                  Sí
+                </ToggleButton>
+                <ToggleButton value={false} sx={{ minWidth: 64, minHeight: 48 }}>
+                  No
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </>
+          )}
           <Button
             fullWidth
             size="large"
             onClick={handleQuickFire}
-            disabled={quickTarget === null || (!summary.closeAssaultOnly && quickCloseAssault === null)}
+            disabled={quickTarget === null || quickRange === null || (askQuickBonus && quickBonus === null)}
           >
-            Disparar {diceText(quickDice, quickEightSided)}
+            Disparar {diceText(quickTotal, quickEightSided)}
           </Button>
           {noRepeat}
         </>

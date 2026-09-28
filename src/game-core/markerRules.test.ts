@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
 import { MarkerRule } from "./combatCard";
 import { canMark, markablePositions } from "./markerRules";
-import { UnitType } from "./unit";
 import { includesPosition } from "./position";
 import { Position, Scenario } from "../types/scenario";
 
@@ -52,14 +51,5 @@ describe("canMark", () => {
 
     expect(canMark(bombardment, board, [], neighbors(TANK)[0]!)).toBe(false);
     expect(canMark(bombardment, board, [], FAR)).toBe(true);
-  });
-
-  it("puts the Sniper's cross on an empty hex next to your infantry", () => {
-    const sniper: MarkerRule = { kind: "cross", count: 1, nextTo: UnitType.INFANTRY };
-
-    expect(canMark(sniper, board, [], neighbors(INFANTRY)[0]!)).toBe(true);
-    expect(canMark(sniper, board, [], neighbors(TANK)[0]!)).toBe(false);
-    expect(canMark(sniper, board, [], INFANTRY)).toBe(false);
-    expect(markablePositions(sniper, board, []).length).toBeLessThanOrEqual(6);
   });
 });

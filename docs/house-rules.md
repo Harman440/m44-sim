@@ -67,7 +67,7 @@ Combat cards now have a new rule where you have to pay to use them. At the start
 
 Whenever you want to use a combat card in your hand you must pay the amount marked with a pen (powerful combat cards cost more). One extra unit can be ordered anywhere on the field costing 4 coins. Units ordered in this way do not benefit from anything that the main command card may have. This can be done in conjunction with a combat card and as many times as you want per turn. Remember to record the order on your map in the ordering phase.
 
-If a new unit is to be placed on the field because of a combat card (Reinforcement or Sniper) a cross must be drawn on the small map to indicate where it is going to appear.
+If a new unit is to be placed on the field because of a combat card (Reinforcements) a cross must be drawn on the small map to indicate where it is going to appear.
 
 Payment is done in the movement phase before any units are moved. When using a reaction to a battle combat card, payment is done immediately.
 
@@ -141,7 +141,7 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Armor Forward — 2: 3 armor ignore terrain movement (battle restrictions still apply)
 - Return to duty (Medics) — 4: roll 2 dice for every weak infantry unit ordered; matching unit symbol or star recovers 1 figure
 - Infiltrators (Behind enemy lines) — 4
-- Sniper — 6: place a sniper next to an infantry unit; it can't battle this turn
+- ~~Sniper — 6: place a sniper next to an infantry unit; it can't battle this turn~~ (taken out of the game)
 - Frozen Ground (Dry ground / improve movement) — 3: 3 units +1 hex
 - Air bombardment — 4: 2 dice on 2 hexes (if they have units); can't ignore flags, stars count; hexes can't be next to your units
 - House to House — 1: 1 infantry may move into a building and still battle
