@@ -28,7 +28,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* safe: when the reserve is taller than its box, it starts at the top
+     instead of cutting off the coins */
+  justify-content: safe center;
+  min-width: 0;
   gap: 16px;
   padding: 16px;
   background: var(--m44-paper);
@@ -42,15 +45,30 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
   --card-width: 150px;
 }
 
+/* The cards in one row; only when they don't fit does the row scroll sideways */
 .battle-reserve__hand {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-wrap: nowrap;
+  justify-content: safe center;
   align-items: flex-start;
   gap: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  /* room for the cards' shadow and the scrollbar */
+  padding: 4px 4px 12px;
+  box-sizing: border-box;
+}
+
+.battle-reserve__hand > * {
+  flex: none;
+  scroll-snap-align: center;
 }
 
 /*
