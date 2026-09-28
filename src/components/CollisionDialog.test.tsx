@@ -41,11 +41,11 @@ const makeSession = ({ tankHolds = false } = {}) => {
 
 function Harness({ session }: { session: GameSession }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  return <BattleView faction="Allies" session={session} game={game} onEndBattle={() => {}} />;
+  return <BattleView faction="Allies" session={session} game={game} onEndBattle={() => {}} onShowCoins={() => {}} />;
 }
 
 const openCollision = () => {
-  expect(screen.getByText("Resuelve los choques antes que cualquier otro disparo.")).toBeInTheDocument();
+  expect(screen.getByTestId("step-collisions")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "¿Ha habido un choque?" }));
   return screen.getByRole("dialog");
 };

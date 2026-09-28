@@ -1,78 +1,101 @@
-/* Portrait: one column, in the order the battle is played */
+/*
+ * Portrait: one column, the toolbar, then the reserve (coins and combat
+ * cards), then the fire order.
+ */
 .battle-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
 }
 
-.battle-view__main,
-.battle-view__side {
-  display: contents;
-}
-
-.battle-view__main > *,
-.battle-view__side > * {
+.battle-view__toolbar {
   order: 1;
 }
 
-.battle-view [data-testid="card-attacks"] {
+.battle-view__reserve {
   order: 2;
 }
 
-.battle-view [data-testid="fire-order"] {
+.battle-view__fire {
   order: 3;
 }
 
-.battle-view__summary {
-  order: 4 !important;
+/* The reserve: the coins large above the battle combat cards, centred */
+.battle-reserve {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--m44-paper);
+  border: var(--m44-border-width) solid var(--m44-border);
+  border-radius: var(--m44-radius);
+  box-sizing: border-box;
 }
 
-.battle-view [data-testid="battle-combat-cards"] {
-  order: 5;
+.battle-reserve__cards {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  --card-width: 150px;
+}
+
+.battle-reserve__hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 /*
- * Landscape: one screen high (see GameView.css). The turn summary scrolls in
- * its own box; the side column scrolls if its cards don't fit.
+ * Landscape: one screen high (see GameView.css). The toolbar across the top,
+ * the fire order on the left in its own scrolling box, the reserve filling
+ * the rest of the screen.
  */
 @media (orientation: landscape) {
   .battle-view {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(360px, 560px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     max-width: none;
     min-height: 0;
   }
 
-  .battle-view__main,
-  .battle-view__side {
+  .battle-view__toolbar {
+    grid-column: 1 / -1;
+  }
+
+  .battle-view__fire,
+  .battle-view__reserve {
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .battle-view__fire {
+    grid-column: 1;
+    padding-right: 4px;
+  }
+
+  .battle-view__reserve {
+    grid-column: 2;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 0;
   }
 
-  .battle-view__main {
+  .battle-reserve {
     flex: 1 1 auto;
-    min-width: 0;
+    min-height: 100%;
   }
 
-  .battle-view__side {
-    flex: 0 0 340px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .battle-view__main > *,
-  .battle-view__side > * {
-    flex: none;
-  }
-
-  .battle-view__summary {
-    flex: 1 1 auto !important;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+  /* The cards are what matters here: as big as the space allows */
+  .battle-reserve__cards {
+    --card-width: 170px;
   }
 }

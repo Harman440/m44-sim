@@ -35,6 +35,15 @@ export const SECTION_LABELS: Record<Side, string> = {
   [Side.RIGHT]: "flanco derecho",
 };
 
+/** Section names short enough for a row of the fire order */
+export const SECTION_SHORT_LABELS: Record<Side, string> = {
+  [Side.LEFT]: "Izquierda",
+  [Side.LEFT_CENTER]: "Izq.–centro",
+  [Side.CENTER]: "Centro",
+  [Side.RIGHT_CENTER]: "Centro–dcha.",
+  [Side.RIGHT]: "Derecha",
+};
+
 export const DIE_FACE_LABELS: Record<DieFace, string> = {
   [DieFace.INFANTRY]: "Infantería",
   [DieFace.TANK]: "Tanque",

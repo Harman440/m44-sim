@@ -46,6 +46,7 @@ describe("summarizeOrders", () => {
     expect(tank).toEqual({
       index: 0,
       unitType: UnitType.TANK,
+      position: session.getSnapshot().orders[0]!.end,
       section: Side.CENTER,
       hold: false,
       hexesMoved: 1,

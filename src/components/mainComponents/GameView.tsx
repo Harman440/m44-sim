@@ -131,16 +131,19 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             ))}
           </Stack>
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
-            <Button
-              variant="outlined"
-              onClick={() => setCoinsOpen(true)}
-              startIcon={<GameIcon name="coins" />}
-              aria-label={`Monedas: ${coinsText(game.coins)}`}
-              data-testid="coin-counter"
-              color={game.coins < 0 ? "error" : "primary"}
-            >
-              {game.coins}
-            </Button>
+            {/* The battle shows the coins large in its own screen */}
+            {game.phase !== TurnPhase.BATTLE && (
+              <Button
+                variant="outlined"
+                onClick={() => setCoinsOpen(true)}
+                startIcon={<GameIcon name="coins" />}
+                aria-label={`Monedas: ${coinsText(game.coins)}`}
+                data-testid="coin-counter"
+                color={game.coins < 0 ? "error" : "primary"}
+              >
+                {game.coins}
+              </Button>
+            )}
             <IconButton
               aria-label={settings.sound ? "Silenciar sonidos" : "Activar sonidos"}
               aria-pressed={settings.sound}
@@ -237,7 +240,13 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           {game.phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}
 
           {game.phase === TurnPhase.BATTLE && (
-            <BattleView faction={faction} session={session} game={game} onEndBattle={() => session.endBattle()} />
+            <BattleView
+              faction={faction}
+              session={session}
+              game={game}
+              onEndBattle={() => session.endBattle()}
+              onShowCoins={() => setCoinsOpen(true)}
+            />
           )}
 
           {game.phase === TurnPhase.END_OF_TURN && (

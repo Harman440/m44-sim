@@ -39,12 +39,16 @@ The two decisions from the first plan still hold:
 - [x] No UI text refers to physical cards: the app replaces them (no "boca abajo en la mesa", "Descubre tu carta", "cartas que juegues en la mesa")
 
 ### Step 38: Battle screen
-- [ ] Rework the battle info so combat cards and coins stand out more (what's in hand, what can be played now, what it costs)
-- [ ] **Decide:** the layout, from a mock-up first
+- [x] Rework the battle info so combat cards and coins stand out more (what's in hand, what can be played now, what it costs)
+- [x] **Decided** (mock-up option A): the fire order as a tight list on the left, the reserve (coins and battle combat cards) filling the rest of the screen. The reserve's coin count replaces the header counter in the battle
+- [x] Fire order as numbered steps: 1 collisions, 2 an attack combat card (Barrera…) as rows per marked hex, 3 units that didn't move, 4 moved units. Each row shows the unit, its hex (a thumbnail of the board art) and its section as icons, not how far it moved; tapping the row opens the fire dialog (no "Disparar" button)
+- [x] Instructions and long warnings go into an "Instrucciones" dialog; only a short "who fires first" chip stays on screen
+- [x] No command card summary; "Ver mapa" looks like Movimiento, with the cards played (command card and order combat card) above, tappable for their full text
 
 ## Part C: Firing and feel
 
 ### Step 39: A better fire questionnaire
+- [ ] Taking ground: armour that wins a close assault can take ground and fire again (overrun); infantry can too only with Fragor del combate. Offer the extra shot in the battle, and say it in the battle's "Instrucciones"
 - [ ] Start from the firing unit: show its type, terrain and what it may fire with
 - [ ] Then pick the range, then only the protections that can apply
 - [ ] Protections from the map: the app knows this side's terrain, not where the enemy is. **Decide:** tap the target's hex on the map (so its terrain answers the terrain question, and the range is counted), or keep asking

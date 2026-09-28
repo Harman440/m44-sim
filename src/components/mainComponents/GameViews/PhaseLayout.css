@@ -81,9 +81,9 @@
   }
 }
 
-/* Movement phase: the cards played this turn, side by side above the
-   instructions (two fit side by side in the 280px landscape column) */
-.movement__cards {
+/* The cards played this turn (PlayedCards, in Movimiento and the battle map),
+   side by side above the instructions: two fit in the 280px landscape column */
+.played-cards {
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -92,12 +92,12 @@
 }
 
 @media (orientation: landscape) {
-  .movement__cards {
+  .played-cards {
     --card-width: 130px;
   }
 
   /* Only the command card: it can take more of the column */
-  .movement__cards:has(> :only-child) {
+  .played-cards:has(> :only-child) {
     --card-width: 180px;
   }
 }

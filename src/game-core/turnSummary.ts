@@ -5,12 +5,15 @@ import { samePosition } from "./position";
 import type { Shot } from "./gameSession";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
+import { Position } from "../types/scenario";
 
 /** What one order means for the battle, for carrying it out on the physical table */
 export interface OrderSummary {
   /** Position in the turn's orders; the map draws the order's arrow in the matching colour */
   index: number;
   unitType: UnitType;
+  /** Where the unit ended the move */
+  position: Position;
   /** Section the unit ended the move in */
   section: Side;
   hold: boolean;
@@ -66,6 +69,7 @@ function summarizeEach(
     return {
       index,
       unitType: order.unit.getUnitType(),
+      position: order.end,
       section: destination.getSide(),
       hold,
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),

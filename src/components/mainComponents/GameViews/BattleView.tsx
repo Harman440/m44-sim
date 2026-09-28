@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
-  Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,15 +14,16 @@ import {
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import { Faction } from "../../../types/faction";
 import { summarizeOrders } from "../../../game-core/turnSummary";
-import TurnSummary from "../../TurnSummary";
+import FireOrderList from "../../FireOrderList";
+import BattleReserve from "./BattleReserve";
+import BattleInstructions from "./BattleInstructions";
 import "./BattleView.css";
 import FireDialog from "../../FireDialog";
 import CollisionDialog from "../../CollisionDialog";
 import BattleMap from "./BattleMap";
 import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
-import CombatCardComponent from "../../CombatCardComponent";
-import { coinsText, describePlace, UNIT_LABELS } from "../../../labels";
+import { describePlace } from "../../../labels";
 import CardAttackDialog from "../../CardAttackDialog";
 import { useSound } from "../../../sound";
 
@@ -31,15 +32,19 @@ interface BattleViewProps {
   session: GameSession;
   game: GameSnapshot;
   onEndBattle: () => void;
+  /** Open the coin ledger; the battle shows the coins itself, instead of the header */
+  onShowCoins: () => void;
 }
 
 /**
- * Battle phase. The battle is played on the physical board, so by default the
- * map is hidden and the whole screen shows the turn summary, where each unit
- * fires. The map is one tap away for syncing casualties and retreats.
+ * Battle phase. The battle is played on the physical board, so the map is
+ * hidden: the screen shows the fire order, where each unit fires, and the
+ * reserve of coins and combat cards. The map, with the cards played, and the
+ * instructions are one tap away.
  */
-function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
+function BattleView({ faction, session, game, onEndBattle, onShowCoins }: BattleViewProps) {
   const [showMap, setShowMap] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [firingIndex, setFiringIndex] = useState<number | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [collisionOpen, setCollisionOpen] = useState(false);
@@ -94,191 +99,84 @@ function BattleView({ faction, session, game, onEndBattle }: BattleViewProps) {
       )}
 
       {!showMap && !markingCloseAssault && (
-        // Landscape: the turn summary on the left, what goes with it (who fires first,
-        // an attack card, combat cards) in a column on the right. Portrait: one column.
+        // Landscape: the fire order on the left, the reserve (coins and battle
+        // combat cards) filling the rest. Portrait: the reserve first.
         <Box className="battle-view">
-          <Box className="battle-view__main">
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 1.5,
-              }}
-            >
-              <Box>
-                <Typography variant="h5" component="h2">
-                  Batalla
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Dispara con cada unidad y resuelve la batalla en el tablero físico. Marca las retiradas
-                  en la mesa: se hacen en la fase final, y hasta entonces la unidad marcada puede
-                  disparar pero no tomar terreno.
-                </Typography>
-              </Box>
-              <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-                <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-                  Ver mapa
-                </Button>
-                <Button onClick={requestEndBattle} startIcon={<GameIcon name="endTurn" />}>
-                  Terminar batalla
-                </Button>
-              </Stack>
-            </Box>
+          <Stack direction="row" className="battle-view__toolbar" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography variant="h5" component="h2">
+              Batalla
+            </Typography>
+            <Chip
+              icon={<GameIcon name="fire" size={18} />}
+              label={session.attacking ? "Atacante: disparas tú primero" : "Defensor: dispara primero el rival"}
+              onClick={() => setShowInstructions(true)}
+              variant="outlined"
+              data-testid="fire-order"
+            />
+            <Box sx={{ flex: 1 }} />
+            <Button variant="outlined" onClick={() => setShowInstructions(true)} startIcon={<GameIcon name="history" />}>
+              Instrucciones
+            </Button>
+            <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+              Ver mapa
+            </Button>
+            <Button onClick={requestEndBattle} startIcon={<GameIcon name="endTurn" />}>
+              Terminar batalla
+            </Button>
+          </Stack>
 
-            {closeAssaultCard && (
-              <Alert
-                severity="warning"
-                icon={<GameIcon name="battle" />}
-                action={
-                  <Button color="warning" onClick={() => setMarkingCloseAssault(true)}>
-                    Marcar unidades
-                  </Button>
+          <Box className="battle-view__fire">
+            <FireOrderList
+              summaries={summaries}
+              board={session.board}
+              image={session.scenario.image}
+              faction={faction}
+              onCollision={anyMoved ? () => setCollisionOpen(true) : undefined}
+              attack={
+                attackCard && {
+                  card: attackCard,
+                  markers: game.markers,
+                  attackOn,
+                  pending: game.attacksPending,
+                  onOpen: setAttackingHex,
                 }
-                sx={{ alignItems: "center", flexWrap: "wrap", "& .MuiAlert-action": { pl: 0, ml: "auto" } }}
-              >
-                Asalto cercano: marca en el mapa cada unidad tuya adyacente a una unidad enemiga.
-              </Alert>
-            )}
-
-            {anyMoved && (
-              <Alert
-                severity="warning"
-                icon={<GameIcon name="battle" />}
-                action={
-                  <Button color="warning" onClick={() => setCollisionOpen(true)}>
-                    ¿Ha habido un choque?
-                  </Button>
-                }
-                sx={{ alignItems: "center", flexWrap: "wrap", "& .MuiAlert-action": { pl: 0, ml: "auto" } }}
-              >
-                Resuelve los choques antes que cualquier otro disparo.
-              </Alert>
-            )}
-
-            <Box className="battle-view__summary">
-              <TurnSummary
-                card={game.activeCard}
-                summaries={summaries}
-                faction={faction}
-                // Units wait for the attack combat card's rolls
-                onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
-                withCoins={!game.extraTurn}
-                onSkipUnmoved={() => setConfirmingSkip(true)}
-              />
-            </Box>
+              }
+              onMarkCloseAssault={closeAssaultCard ? () => setMarkingCloseAssault(true) : undefined}
+              // Units wait for the attack combat card's rolls
+              onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
+              withCoins={!game.extraTurn}
+              onSkipUnmoved={() => setConfirmingSkip(true)}
+              emptyText={
+                closeAssaultCard ? "Marca las unidades en asalto cercano para que disparen." : "No se dieron órdenes este turno."
+              }
+            />
           </Box>
 
-          <Box className="battle-view__side">
-            <Alert severity="info" icon={<GameIcon name="fire" />} data-testid="fire-order">
-              {session.attacking
-                ? "Eres el bando atacante: disparas primero."
-                : "Dispara primero el rival: es el bando atacante."}{" "}
-              Después alternáis, una unidad cada uno. Primero disparan todas las unidades que no se han
-              movido (de los dos bandos) y luego las que se movieron.
-            </Alert>
-
-            {attackCard && (
-              <Box component="section" aria-labelledby="card-attacks-title" data-testid="card-attacks">
-                <Typography variant="h6" component="h3" id="card-attacks-title">
-                  {attackCard.name}
-                </Typography>
-                <Typography variant="body2" color={game.attacksPending ? "warning.main" : "text.secondary"} sx={{ mb: 1 }}>
-                  {game.attacksPending
-                    ? "Tira primero en cada casilla marcada: ninguna unidad dispara hasta entonces."
-                    : "Ataques resueltos."}
-                </Typography>
-                <Stack sx={{ gap: 1 }}>
-                  {game.markers.map((position, i) => {
-                    const attack = attackOn(i);
-                    const result = attack?.target
-                      ? `${UNIT_LABELS[attack.target.unitType]}: ${attack.faces.length} ${attack.faces.length === 1 ? "dado" : "dados"}`
-                      : attack
-                        ? "Vacía"
-                        : "Sin tirar";
-                    return (
-                      <Stack key={i} direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
-                        <Typography variant="body1">
-                          Casilla {i + 1} · {describePlace(session.board.getHex(position))} · {result}
-                        </Typography>
-                        <Button
-                          variant={attack ? "outlined" : "contained"}
-                          color={attack ? "primary" : "warning"}
-                          onClick={() => setAttackingHex(i)}
-                          startIcon={<GameIcon name={attack ? "dice" : "fire"} />}
-                          aria-label={`${attack ? "Ver" : "Tirar"} casilla ${i + 1}`}
-                        >
-                          {attack ? "Ver" : "Tirar"}
-                        </Button>
-                      </Stack>
-                    );
-                  })}
-                </Stack>
-              </Box>
-            )}
-
-            {game.canPlayCombatCards && (
-              <Box component="section" aria-labelledby="battle-combat-title" data-testid="battle-combat-cards">
-                <Typography variant="h6" component="h3" id="battle-combat-title">
-                  Cartas de combate
-                </Typography>
-                {game.orderCombatCard && (
-                  <Typography variant="body2" color="text.secondary">
-                    Con las órdenes: {game.orderCombatCard.name}. {game.orderCombatCard.description}
-                  </Typography>
-                )}
-                {game.battleCombatCard ? (
-                  <Alert
-                    severity="success"
-                    icon={<GameIcon name="cards" />}
-                    sx={{ mt: 1 }}
-                    action={
-                      !bonusUsed && (
-                        <Button color="inherit" onClick={() => session.undoBattleCombatCard()}>
-                          Deshacer
-                        </Button>
-                      )
-                    }
-                  >
-                    <strong>Has jugado {game.battleCombatCard.name}</strong> (pagada:{" "}
-                    {coinsText(game.battleCombatCard.cost)}). {game.battleCombatCard.description} Solo se juega una por batalla.
-                  </Alert>
-                ) : battleCards.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No tienes cartas de combate para la batalla.
-                  </Typography>
-                ) : (
-                  <>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Puedes jugar una en cualquier momento de la batalla, normalmente cuando dispara el rival. Se paga al
-                      jugarla y se resuelve en la mesa.
-                    </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                      {battleCards.map((card) => (
-                        <CombatCardComponent key={card.id} faction={faction} card={card} disabled={card.cost > game.coins}>
-                          <Button
-                            onClick={() => session.playBattleCombatCard(card) && play("cardPlay")}
-                            disabled={card.cost > game.coins}
-                            aria-label={`Jugar ${card.name}`}
-                          >
-                            Jugar
-                          </Button>
-                          {card.cost > game.coins && (
-                            <Typography variant="caption" sx={{ alignSelf: "center" }}>
-                              No tienes monedas suficientes
-                            </Typography>
-                          )}
-                        </CombatCardComponent>
-                      ))}
-                    </Box>
-                  </>
-                )}
-              </Box>
-            )}
+          <Box className="battle-view__reserve">
+            <BattleReserve
+              faction={faction}
+              coins={game.coins}
+              onShowCoins={onShowCoins}
+              canPlayCombatCards={game.canPlayCombatCards}
+              battleCards={battleCards}
+              played={game.battleCombatCard}
+              canUndo={!bonusUsed}
+              onPlay={(card) => {
+                const done = session.playBattleCombatCard(card);
+                if (done) play("cardPlay");
+                return done;
+              }}
+              onUndo={() => session.undoBattleCombatCard()}
+            />
           </Box>
         </Box>
       )}
+
+      <BattleInstructions
+        open={showInstructions}
+        onClose={() => setShowInstructions(false)}
+        attacking={session.attacking}
+      />
 
       {/* Keyed by unit so every unit starts a fresh questionnaire */}
       <FireDialog

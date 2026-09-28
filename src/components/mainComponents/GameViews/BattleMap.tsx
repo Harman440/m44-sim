@@ -3,6 +3,7 @@ import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
+import PlayedCards from "../../PlayedCards";
 import "./PhaseLayout.css";
 
 interface BattleMapProps {
@@ -16,9 +17,10 @@ interface BattleMapProps {
 const noop = () => {};
 
 /**
- * Read-only map of the battle phase: the orders and which units have fired.
- * Casualties and retreats are mirrored on the map in the final phase, once
- * the battle is over on the table.
+ * Read-only map of the battle phase: the orders and which units have fired,
+ * laid out like Movimiento, with the cards played this turn. Casualties and
+ * retreats are mirrored on the map in the final phase, once the battle is
+ * over on the table.
  */
 function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: BattleMapProps) {
   // Units that have used all their shots get a check badge on the map
@@ -47,16 +49,22 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
       </div>
 
       <div className="phase-layout__controls">
-        <Typography variant="h6" sx={{ textAlign: "center" }}>
-          Fase Batalla
+        <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
+          Mapa de batalla
         </Typography>
-        <Typography variant="body1" sx={{ textAlign: "center" }}>
-          Las bajas y retiradas se reflejan en el mapa en la fase final.
+        <PlayedCards
+          faction={faction}
+          command={game.chosenCard}
+          section={game.chosenSection}
+          combat={game.orderCombatCard}
+        />
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+          Toca una carta para leerla entera. Las bajas y retiradas se reflejan en el mapa en la fase final.
         </Typography>
 
-        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-          <Button variant="outlined" onClick={onShowSummary}>
-            Volver al resumen
+        <Stack sx={{ gap: 1, width: "100%" }}>
+          <Button variant="outlined" onClick={onShowSummary} startIcon={<GameIcon name="battle" />}>
+            Volver a la batalla
           </Button>
           <Button onClick={onEndBattle} startIcon={<GameIcon name="endTurn" />}>
             Terminar batalla

@@ -44,7 +44,7 @@ const makeBattleSession = ({ moveTank = false } = {}) => {
 
 function Harness({ session, onEndBattle }: { session: GameSession; onEndBattle: () => void }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  return <BattleView faction="Allies" session={session} game={game} onEndBattle={onEndBattle} />;
+  return <BattleView faction="Allies" session={session} game={game} onEndBattle={onEndBattle} onShowCoins={() => {}} />;
 }
 
 const setup = ({ openMap = true, moveTank = false } = {}) => {
@@ -68,29 +68,35 @@ describe("BattleView summary screen", () => {
     const rows = screen.getAllByTestId("order-summary");
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("Infantería");
-    expect(rows[0]).toHaveTextContent("Mantiene posición");
-    expect(rows[0]).toHaveTextContent("Dispara");
+    // Where it is, not how far it moved
+    expect(rows[0]).toHaveTextContent("Llanura");
+    expect(rows[0]).toHaveTextContent("Izquierda");
+    expect(rows[0]).toHaveTextContent("Disparar ›");
     expect(rows[1]).toHaveTextContent("Tanque");
+    // No command card summary on the battle screen
+    expect(screen.queryByText(/Carta jugada/)).not.toBeInTheDocument();
     expect(screen.getByTestId("fire-count")).toHaveTextContent(
       "2 por disparar · 0 dispararon · 0 no pueden disparar"
     );
     expect(screen.queryByText("Tirada libre")).not.toBeInTheDocument();
   });
 
-  it("opens the map on demand and comes back to the summary", () => {
-    const { container } = setup({ openMap: false });
+  it("opens the map on demand, with the card played, and comes back to the summary", () => {
+    const { container, session } = setup({ openMap: false });
 
     fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
     expect(container.querySelector("svg.board__svg")).not.toBeNull();
+    const played = within(screen.getByTestId("played-cards"));
+    expect(played.getByRole("button", { name: new RegExp(`^${session.getSnapshot().chosenCard!.name}`) })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver a la batalla" }));
     expect(container.querySelector("svg.board__svg")).toBeNull();
     expect(screen.getAllByTestId("order-summary")).toHaveLength(2);
   });
 
   it("marks a unit that fired, keeps its roll after a trip to the map and won't fire it again", () => {
     const { session } = setup({ openMap: false });
-    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[1]!);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[1]!);
     fireEvent.click(screen.getByRole("button", { name: /Tirada rápida/ }));
     fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
     fireEvent.click(screen.getByRole("button", { name: "No" }));
@@ -98,21 +104,21 @@ describe("BattleView summary screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
-    fireEvent.click(screen.getByRole("button", { name: "Volver al resumen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver a la batalla" }));
 
     const tankRow = screen.getAllByTestId("order-summary")[1]!;
     expect(tankRow).toHaveTextContent(/Disparó: \d × /);
     expect(screen.getByTestId("fire-count")).toHaveTextContent("1 por disparar · 1 disparó");
-    fireEvent.click(screen.getByRole("button", { name: "Ver tirada" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver tirada de Tanque" }));
     expect(screen.getByTestId("dice-result")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Disparar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Disparar \d/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().shots).toHaveLength(1);
   });
 
   it("opens the fire questionnaire from a unit that can fire", () => {
     setup({ openMap: false });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[1]!);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[1]!);
 
     expect(screen.getByRole("dialog")).toHaveTextContent("Disparo: Tanque");
     expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
@@ -146,10 +152,17 @@ describe("BattleView summary screen", () => {
 });
 
 describe("BattleView firing order", () => {
-  it("says who fires first", () => {
+  it("says who fires first, in short, and in full in the instructions", async () => {
     setup({ openMap: false });
 
-    expect(screen.getByTestId("fire-order")).toHaveTextContent("Eres el bando atacante: disparas primero.");
+    expect(screen.getByTestId("fire-order")).toHaveTextContent("Atacante: disparas tú primero");
+    fireEvent.click(screen.getByTestId("fire-order"));
+    expect(screen.getByTestId("fire-order-rule")).toHaveTextContent("Eres el bando atacante: disparas primero.");
+    fireEvent.click(screen.getByRole("button", { name: "Entendido" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Cómo se juega la batalla");
   });
 
   it("groups the units that didn't move, which fire first, and the units that moved", () => {
@@ -162,7 +175,7 @@ describe("BattleView firing order", () => {
     expect(moved).toHaveTextContent("Movidas");
     expect(moved).toHaveTextContent("Tanque");
     expect(within(moved).getByText("Espera")).toBeInTheDocument();
-    expect(within(moved).queryByRole("button", { name: "Disparar" })).not.toBeInTheDocument();
+    expect(within(moved).queryByRole("button", { name: /^Disparar con/ })).not.toBeInTheDocument();
   });
 
   it("lets the moved units fire once the units that didn't move have fired", () => {
@@ -173,27 +186,27 @@ describe("BattleView firing order", () => {
     });
 
     const moved = screen.getByTestId("group-moved");
-    expect(within(moved).getByRole("button", { name: "Disparar" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pasar a las unidades movidas" })).not.toBeInTheDocument();
+    expect(within(moved).getByRole("button", { name: /^Disparar con/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pasar a las movidas" })).not.toBeInTheDocument();
   });
 
   it("skips the unfired units that didn't move, after confirming", async () => {
     const { session } = setup({ openMap: false, moveTank: true });
 
-    fireEvent.click(screen.getByRole("button", { name: "Pasar a las unidades movidas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pasar a las movidas" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("La unidad sin mover que no ha disparado pierde el disparo.");
     fireEvent.click(screen.getByRole("button", { name: "Pasar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     expect(session.getSnapshot().unmovedFireSkipped).toBe(true);
     expect(within(screen.getByTestId("group-unmoved")).getByText("Sin disparo")).toBeInTheDocument();
-    expect(within(screen.getByTestId("group-moved")).getByRole("button", { name: "Disparar" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("group-moved")).getByRole("button", { name: /^Disparar con/ })).toBeInTheDocument();
   });
 
   it("tells the player the opponent fires next after a roll", () => {
     setup({ openMap: false });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[0]!);
     fireEvent.click(screen.getByRole("button", { name: /Tirada rápida/ }));
     fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
     fireEvent.click(screen.getByRole("button", { name: "No" }));
@@ -270,8 +283,8 @@ describe("BattleView Close Assault card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
     const row = screen.getByTestId("order-summary");
-    expect(row).toHaveTextContent("En asalto cercano");
-    fireEvent.click(within(row).getByRole("button", { name: "Disparar" }));
+    expect(row).toHaveTextContent("asalto cercano");
+    fireEvent.click(within(row).getByRole("button", { name: "Disparar con Infantería" }));
     // Only adjacent targets: the distance question offers 1 hex only
     expect(screen.getByRole("button", { name: "1 (adyacente)" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "2" })).not.toBeInTheDocument();
@@ -327,20 +340,28 @@ describe("BattleView combat cards", () => {
     return session;
   };
 
-  it("plays one battle card, paid, and undoes it", () => {
+  it("plays one battle card, paid, and undoes it", async () => {
     const session = combatSetup();
     const section = screen.getByTestId("battle-combat-cards");
-    expect(within(section).getByRole("button", { name: "Jugar Emboscada" })).toBeDisabled(); // 3 coins, has 2
+    expect(screen.getByTestId("coin-counter")).toHaveTextContent("2");
+    // 3 coins, has 2: tapping the card shows it, and says what's missing
+    fireEvent.click(within(section).getByRole("button", { name: /^Emboscada/ }));
+    expect(screen.getByRole("button", { name: "Jugar Emboscada" })).toBeDisabled();
+    expect(screen.getByRole("dialog")).toHaveTextContent("Te falta 1 moneda");
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
-    fireEvent.click(within(section).getByRole("button", { name: "Jugar Observador" }));
+    fireEvent.click(within(section).getByRole("button", { name: /^Observador/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Jugar Observador" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
-    expect(section).toHaveTextContent("Has jugado Observador (pagada: 1 moneda)");
-    expect(within(section).queryByRole("button", { name: /Jugar/ })).not.toBeInTheDocument();
+    expect(section).toHaveTextContent("Jugada · pagada: 1 moneda");
+    expect(within(section).queryByRole("button", { name: /^Emboscada/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().coins).toBe(1);
 
     fireEvent.click(within(section).getByRole("button", { name: "Deshacer" }));
     expect(session.getSnapshot().coins).toBe(2);
-    expect(within(section).getByRole("button", { name: "Jugar Observador" })).toBeEnabled();
+    expect(within(section).getByRole("button", { name: /^Observador/ })).toBeInTheDocument();
   });
 
   it("shows no combat cards in the attacker's extra turn", () => {
@@ -404,7 +425,7 @@ describe("BattleView combat card effects", () => {
     const session = effectSetup([barrage], barrage);
     const section = screen.getByTestId("card-attacks");
     expect(section).toHaveTextContent("Tira primero en cada casilla marcada");
-    expect(screen.queryByRole("button", { name: "Disparar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Disparar con/ })).not.toBeInTheDocument();
 
     fireEvent.click(within(section).getByRole("button", { name: "Tirar casilla 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Tanque" }));
@@ -414,13 +435,13 @@ describe("BattleView combat card effects", () => {
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("4");
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(section).toHaveTextContent("Ataques resueltos.");
-    expect(screen.getAllByRole("button", { name: "Disparar" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /^Disparar con/ }).length).toBeGreaterThan(0);
   });
 
   it("asks whether to use a dice card on a shot by a unit that fits", () => {
     const session = effectSetup([spotter]);
     session.playBattleCombatCard(spotter);
-    fireEvent.click(screen.getAllByRole("button", { name: "Disparar" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[0]!);
 
     fireEvent.click(screen.getByRole("button", { name: "2" }));
     fireEvent.click(screen.getByRole("button", { name: "Sí" })); // line of sight
