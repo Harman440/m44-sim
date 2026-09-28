@@ -29,7 +29,8 @@ function BattleInstructions({ open, onClose, attacking }: BattleInstructionsProp
         <Stack sx={{ gap: 2 }}>
           <Typography variant="body1">
             La batalla se resuelve en el tablero: la app te dice cuántos dados tirar y lee la tirada. Toca una fila para
-            disparar o para ver su tirada.
+            disparar o para ver su tirada. Al disparar, toca en el mapa la casilla del objetivo: solo se marcan las que
+            están a su alcance, a la vista y con algún dado. El número de cada casilla son los dados.
           </Typography>
 
           <Box>
@@ -52,6 +53,15 @@ function BattleInstructions({ open, onClose, attacking }: BattleInstructionsProp
             <Typography variant="body1">
               Márcalas en la mesa: se hacen en la fase final. Hasta entonces la unidad marcada puede disparar pero no tomar
               terreno.
+            </Typography>
+          </Box>
+
+          <Box>
+            {heading("Tomar terreno")}
+            <Typography variant="body1" data-testid="take-ground-rule">
+              Si un blindado gana un asalto cercano (el objetivo se retira o es eliminado), puede tomar terreno: se mueve
+              a la casilla del objetivo y combate otra vez, solo en asalto cercano. La infantería también puede, pero solo
+              con la carta Fragor del combate. Una vez por unidad y turno.
             </Typography>
           </Box>
 

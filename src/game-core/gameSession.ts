@@ -7,11 +7,13 @@ import Unit, { UnitType, isUnitType } from "./unit";
 import { ShotTarget } from "../data/hitRules";
 import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES, SixSidedFace, rollDice } from "./dice";
 import { isKeptList } from "./rollResult";
-import { DiceStep, FireAnswers, calculateFireDice, nextFireQuestion } from "./fireRules";
+import { DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
+import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
 import {
   COLLISION_NOTES,
   FIRE_QUESTIONS,
   collisionSteps,
+  TAKE_GROUND_UNIT_TYPES,
   combatBonusQuestion,
   fireBonusSteps,
 } from "../data/fireQuestions";
@@ -165,6 +167,10 @@ export interface Shot {
    * with few figures); null applies them all. Hits and coins count only these.
    */
   kept: readonly number[] | null;
+  /** The hex fired at, when it was picked on the map */
+  targetPosition?: Position;
+  /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
+  tookGround?: boolean;
 }
 
 /** The roll of an attack combat card on one marked hex (Barrage, Air Power, Air Bombardment) */
@@ -707,17 +713,60 @@ class GameSession {
    * to work out the dice. The questionnaire must be complete. A shot worth 0
    * dice is still recorded: the unit has used its fire.
    */
-  fire(orderIndex: number, answers: FireAnswers): boolean {
-    if (!this.canFireNow(orderIndex)) return false;
-    const order = this.orders[orderIndex]!;
-    const context = {
+  /** What the fire questions need to know about this unit's next shot */
+  private fireContextFor(orderIndex: number): FireContext | null {
+    const order = this.orders[orderIndex];
+    const summary = this.summaries()[orderIndex];
+    if (!order || !summary) return null;
+    return {
       unitType: order.unit.getUnitType(),
       card: this.cardFor(order),
-      closeAssaultOnly: order.closeAssaultOnly,
+      closeAssaultOnly: summary.closeAssaultOnly,
       combatBonus: this.combatBonusFor(orderIndex),
     };
+  }
+
+  /**
+   * The hexes this unit can fire at from where it stands (or the hex it took
+   * ground on): in range, and whether each is in sight and how many dice it gets.
+   */
+  fireTargetsFor(orderIndex: number): FireTarget[] {
+    const context = this.fireContextFor(orderIndex);
+    if (this.phase !== TurnPhase.BATTLE || !context) return [];
+    return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context);
+  }
+
+  /** Fire answering the questionnaire by hand (the answers include the distance and the target's terrain) */
+  fire(orderIndex: number, answers: FireAnswers): boolean {
+    return this.fireWith(orderIndex, answers);
+  }
+
+  /**
+   * Fire at a hex picked on the map: its distance and terrain answer those
+   * questions. Only a hex in range and in sight, where the shot gets dice.
+   */
+  fireAt(
+    orderIndex: number,
+    { position, unitType, sandbags, useCombatBonus = false }: { position: Position; unitType: UnitType; sandbags: boolean; useCombatBonus?: boolean }
+  ): boolean {
+    const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
+    if (!target || !target.lineOfSight || target.dice <= 0) return false;
+    const context = this.fireContextFor(orderIndex)!;
+    const answers: Record<string, string> = {
+      ...mapAnswers(target),
+      targetType: unitType,
+      sandbags: sandbags ? "yes" : "no",
+    };
+    if (combatBonusQuestion.appliesTo?.(context, answers) ?? false) answers.combatCard = useCombatBonus ? "yes" : "no";
+    return this.fireWith(orderIndex, answers, position);
+  }
+
+  private fireWith(orderIndex: number, answers: FireAnswers, targetPosition?: Position): boolean {
+    if (!this.canFireNow(orderIndex)) return false;
+    const order = this.orders[orderIndex]!;
+    const context = this.fireContextFor(orderIndex)!;
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
-    if (order.closeAssaultOnly && answers.distance !== "1") return false;
+    if (context.closeAssaultOnly && answers.distance !== "1") return false;
 
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
     if (blocked) return false;
@@ -726,7 +775,48 @@ class GameSession {
     const target = this.targetFor(order, { unitType, closeAssault: answers.distance === "1" });
     const usedBonus =
       !!context.combatBonus && answers.combatCard === "yes" && (combatBonusQuestion.appliesTo?.(context, answers) ?? true);
-    return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus);
+    return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus, targetPosition);
+  }
+
+  /**
+   * The unit's last shot was a close assault that pushed back or eliminated
+   * its target, so it can take ground and fire once more: armour always,
+   * infantry with Fragor del combate (for as many units as the card says).
+   * Once per unit per turn; not after a collision.
+   */
+  canTakeGround(orderIndex: number): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    const order = this.orders[orderIndex];
+    const summary = this.summaries()[orderIndex];
+    const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
+    if (!order || !summary || summary.removed || summary.tookGround || !last) return false;
+    if (!last.target.closeAssault || last.collision || last.dice === 0) return false;
+    const unitType = order.unit.getUnitType();
+    if (TAKE_GROUND_UNIT_TYPES.includes(unitType)) return true;
+    const effect = this.battleCombatCard?.effect;
+    if (effect?.kind !== "takeGround" || !effect.unitTypes.includes(unitType)) return false;
+    // The card's units already used: units of its types (not armour) that took ground
+    const used = this.summaries().filter(
+      (s) => s.tookGround && effect.unitTypes.includes(s.unitType) && !TAKE_GROUND_UNIT_TYPES.includes(s.unitType)
+    ).length;
+    return used < effect.units;
+  }
+
+  /** The unit took ground after its last shot: it gets one more shot, in close assault, from the hex it took */
+  takeGround(orderIndex: number): boolean {
+    if (!this.canTakeGround(orderIndex)) return false;
+    const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex)!;
+    this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: true } : shot));
+    return this.publish();
+  }
+
+  /** Take back taking ground, while its extra shot hasn't been fired */
+  undoTakeGround(orderIndex: number): boolean {
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
+    if (!last?.tookGround) return false;
+    this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: false } : shot));
+    return this.publish();
   }
 
   /**
@@ -738,7 +828,7 @@ class GameSession {
     if (!Number.isInteger(dice) || dice < 1) return false;
     if (!isUnitType(target.unitType)) return false;
     if (!this.canFireNow(orderIndex)) return false;
-    if (this.orders[orderIndex]!.closeAssaultOnly && !target.closeAssault) return false;
+    if (this.summaries()[orderIndex]!.closeAssaultOnly && !target.closeAssault) return false;
     const bonus = useCombatBonus ? this.combatBonusFor(orderIndex) : undefined;
     if (useCombatBonus && !canUseBonus(bonus, target.closeAssault)) return false;
 
@@ -848,10 +938,12 @@ class GameSession {
     notes: string[],
     target: ShotTarget,
     collision = false,
-    combatBonus = false
+    combatBonus = false,
+    targetPosition?: Position
   ): true {
     const faces = rollDice(dice, this.random, target.longRangeFirer ? LONG_RANGE_DIE_SIDES : DIE_SIDES);
     const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null };
+    if (targetPosition) shot.targetPosition = targetPosition;
     this.shots = [...this.shots, shot];
     return this.publish();
   }

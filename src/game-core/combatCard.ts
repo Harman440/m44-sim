@@ -30,6 +30,8 @@ export type CombatEffect =
   | AttackEffect
   | MoveEffect
   | { kind: "changeSection" }
+  /** Heat of Battle: units of these types can take ground after a close assault and fire again, like armour */
+  | { kind: "takeGround"; unitTypes: readonly UnitType[]; units: number }
   /** Reinforcements: the orders screen shows the scenario's table of which unit each die face brings */
   | { kind: "reinforcements" };
 

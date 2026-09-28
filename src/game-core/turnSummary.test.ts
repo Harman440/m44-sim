@@ -53,6 +53,8 @@ describe("summarizeOrders", () => {
       destinationTerrain: HexType.FOREST,
       canFire: false, // moved into forest
       closeAssaultOnly: false,
+      firingFrom: session.getSnapshot().orders[0]!.end,
+      tookGround: false,
       extra: false,
       removed: false,
       shots: [],

@@ -48,10 +48,10 @@ The two decisions from the first plan still hold:
 ## Part C: Firing and feel
 
 ### Step 39: A better fire questionnaire
-- [ ] Taking ground: armour that wins a close assault can take ground and fire again (overrun); infantry can too only with Fragor del combate. Offer the extra shot in the battle, and say it in the battle's "Instrucciones"
-- [ ] Start from the firing unit: show its type, terrain and what it may fire with
-- [ ] Then pick the range, then only the protections that can apply
-- [ ] Protections from the map: the app knows this side's terrain, not where the enemy is. **Decide:** tap the target's hex on the map (so its terrain answers the terrain question, and the range is counted), or keep asking
+- [x] Taking ground: armour that wins a close assault can take ground and fire again; infantry can too only with Fragor del combate. **Decided:** the extra shot is close assault only (from the hex taken), once per unit per turn. Offered in the fire dialog after a close assault ("Tomar terreno"), and said in the battle's "Instrucciones"
+- [x] Start from the firing unit: its hex, range and dice at each distance in the fire dialog's title
+- [x] **Decided:** tap the target's hex on the map. The dialog shows the part of the board in range, with the hexes it can fire at (in range, in sight, dice > 0) and their dice; the tap answers the distance and terrain, then the unit type (with the unit art) and sandbags (a toggle) in the same dialog, and the dice add up as they're answered
+- [x] **Decided:** line of sight from the terrain (forest, town, hill, hedgerow) and this side's units in between; enemy units in between can't be known, so the player still checks the table. The quick roll stays for anything the map can't answer (a bunker, a target the app thinks is hidden)
 
 ### Step 40: Dice and coin animations
 - [ ] Better dice roll animations, and different dice (the 8-sided long-range die looks like its own die)

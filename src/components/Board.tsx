@@ -39,6 +39,12 @@ interface BoardProps {
   markerKind?: MarkerRule['kind'];
   /** Hexes that can be marked next, highlighted */
   markablePositions?: readonly Position[];
+  /** Hexes a unit can fire at, each with its dice; tapping one picks it */
+  fireTargets?: readonly { position: Position; dice: number }[];
+  /** The target hex picked */
+  selectedTarget?: Position | null;
+  /** Show only this part of the board: the view is cropped to fit these hexes */
+  focus?: readonly Position[];
   hexSize?: number;
   faction: Faction;
 }
@@ -58,6 +64,9 @@ function Board({
   markers = [],
   markerKind = 'target',
   markablePositions = [],
+  fireTargets = [],
+  selectedTarget = null,
+  focus = [],
   hexSize = 50,
   faction
 }: BoardProps) {
@@ -67,6 +76,8 @@ function Board({
 
   const highlightAt = (position: Position): HexHighlight => {
     if (unitHexPosition && samePosition(unitHexPosition, position)) return 'selected';
+    if (selectedTarget && samePosition(selectedTarget, position)) return 'target-selected';
+    if (fireTargets.some((target) => samePosition(target.position, position))) return 'target';
     // Move-and-fire wins over move-only: every move-and-fire hex is also a move hex
     if (includesPosition(possibleMoveAndFirePositions, position)) return 'move-and-fire';
     if (includesPosition(possibleMovePositions, position)) return 'move';
@@ -117,6 +128,25 @@ function Board({
       );
     });
 
+  /** The dice a shot at each target hex would roll, as a badge on the hex */
+  const renderTargetDice = () =>
+    fireTargets.map(({ position, dice }) => {
+      const { x, y } = geometry.hexCenter(position);
+      const picked = selectedTarget !== null && samePosition(selectedTarget, position);
+      return (
+        <g
+          key={positionKey(position)}
+          className={`board__target-dice${picked ? ' board__target-dice--picked' : ''}`}
+          pointerEvents="none"
+        >
+          <circle cx={x} cy={y} r={hexSize * 0.36} />
+          <text x={x} y={y} dominantBaseline="central" textAnchor="middle">
+            {dice}
+          </text>
+        </g>
+      );
+    });
+
   const renderBoard = () => {
     const tiles = [];
 
@@ -158,16 +188,31 @@ function Board({
 
   const { width, height, imageMargin } = geometry;
   // Crop the view to the board image: the hexes all lie inside it, so the
-  // dark margin around it would only waste screen space on tablets
-  const viewWidth = width - 2 * imageMargin;
-  const viewHeight = height - 2 * imageMargin;
+  // dark margin around it would only waste screen space on tablets. With
+  // `focus`, crop further to those hexes (still inside the image).
+  let viewX = imageMargin;
+  let viewY = imageMargin;
+  let viewWidth = width - 2 * imageMargin;
+  let viewHeight = height - 2 * imageMargin;
+  if (focus.length > 0) {
+    const centers = focus.map(geometry.hexCenter);
+    const halfWidth = (hexSize * Math.sqrt(3)) / 2;
+    const left = Math.max(viewX, Math.min(...centers.map((c) => c.x)) - halfWidth - 4);
+    const top = Math.max(viewY, Math.min(...centers.map((c) => c.y)) - hexSize - 4);
+    const right = Math.min(viewX + viewWidth, Math.max(...centers.map((c) => c.x)) + halfWidth + 4);
+    const bottom = Math.min(viewY + viewHeight, Math.max(...centers.map((c) => c.y)) + hexSize + 4);
+    viewX = left;
+    viewY = top;
+    viewWidth = right - left;
+    viewHeight = bottom - top;
+  }
 
   return (
     <div className="board">
       {/* viewBox + CSS width lets the board scale down to fit tablets */}
       <svg
-        viewBox={`${imageMargin} ${imageMargin} ${viewWidth} ${viewHeight}`}
-        style={{ maxWidth: width, '--board-aspect': viewWidth / viewHeight } as React.CSSProperties}
+        viewBox={`${viewX} ${viewY} ${viewWidth} ${viewHeight}`}
+        style={{ maxWidth: focus.length > 0 ? undefined : width, '--board-aspect': viewWidth / viewHeight } as React.CSSProperties}
         className={`board__svg${locked ? ' board__svg--locked' : ''}`}
       >
 
@@ -202,8 +247,11 @@ function Board({
         {/* Layer 3: Orders */}
         {renderOrders()}
 
-        {/* Layer 4: Combat card markers (top layer) */}
+        {/* Layer 4: Combat card markers */}
         {renderMarkers()}
+
+        {/* Layer 5: dice at each hex a unit can fire at (top layer) */}
+        {renderTargetDice()}
       </svg>
       {locked && (
         <div className="board__stamp">

@@ -100,7 +100,8 @@ const STANDARD: CombatCardTemplate[] = [
 
   // Played during the battle, as a reaction
   battle("heat-of-battle", "Fragor del combate", 1, 3,
-    "1 infantería que gana un asalto cercano (retirada o eliminación) puede arrollar como los blindados: toma terreno y vuelve a combatir, aunque la casilla lo impida."),
+    "1 infantería que gana un asalto cercano (retirada o eliminación) puede arrollar como los blindados: toma terreno y vuelve a combatir, aunque la casilla lo impida.",
+    { effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 } }),
   battle("out-of-ammo", "Sin munición", 4, 3,
     "1 unidad enemiga no puede combatir y se mueve a una casilla libre de su línea de fondo."),
   battle("street-fight", "Lucha callejera", 1, 1, "1 infantería en un edificio o junto a uno tira 1 dado más.",

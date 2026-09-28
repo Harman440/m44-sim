@@ -186,7 +186,13 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         card={firing?.extra ? null : game.activeCard}
         combatBonus={firingIndex === null ? undefined : session.combatBonusFor(firingIndex)}
         faction={faction}
-        onFire={(answers) => withSound(firingIndex !== null && session.fire(firingIndex, answers))}
+        board={session.board}
+        image={session.scenario.image}
+        targets={firingIndex === null ? [] : session.fireTargetsFor(firingIndex)}
+        onFireAt={(choice) => withSound(firingIndex !== null && session.fireAt(firingIndex, choice))}
+        canTakeGround={firingIndex !== null && session.canTakeGround(firingIndex)}
+        onTakeGround={() => firingIndex !== null && session.takeGround(firingIndex)}
+        onUndoTakeGround={() => firingIndex !== null && session.undoTakeGround(firingIndex)}
         onQuickFire={(dice, target, useCombatBonus) =>
           withSound(firingIndex !== null && session.fireQuick(firingIndex, dice, target, useCombatBonus))
         }

@@ -52,3 +52,25 @@
   text-anchor: middle;
   dominant-baseline: middle;
 }
+
+/* The dice a shot at a target hex would roll */
+.board__target-dice circle {
+  fill: var(--m44-paper);
+  stroke: var(--m44-accent);
+  stroke-width: 3;
+}
+
+.board__target-dice text {
+  fill: var(--m44-ink);
+  font-family: var(--m44-font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.board__target-dice--picked circle {
+  fill: var(--m44-accent);
+}
+
+.board__target-dice--picked text {
+  fill: var(--m44-on-accent);
+}

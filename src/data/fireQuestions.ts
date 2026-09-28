@@ -17,6 +17,16 @@ export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
   [UnitType.ARTILLERY]: [3, 3, 2, 2, 1, 1],
 };
 
+/** Terrain that blocks line of sight when it lies between the firing unit and its target (the ends don't count) */
+export const SIGHT_BLOCKING_TERRAIN: readonly HexType[] = [HexType.FOREST, HexType.TOWN, HexType.HILL, HexType.HEDGEROW];
+
+/**
+ * Units that can take ground after a close assault that eliminates or pushes
+ * back the target, and fire once more (house rule: in close assault only).
+ * Infantry can too with Fragor del combate.
+ */
+export const TAKE_GROUND_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
+
 /** Where the target can be: the board's terrain types plus a bunker */
 export type TargetTerrain = HexType | "bunker";
 

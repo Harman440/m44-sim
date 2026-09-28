@@ -5,8 +5,8 @@ import Hex from '../game-core/hex';
 import { positionKey } from '../game-core/position';
 import UnitComponent from './UnitComponent';
 
-/** How a hex is highlighted: the selected unit, or a destination for it */
-export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | 'mark' | null;
+/** How a hex is highlighted: the selected unit, a destination for it, or a hex it can fire at */
+export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | 'mark' | 'target' | 'target-selected' | null;
 
 interface HexProps {
   x: number;

@@ -8,21 +8,27 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControlLabel,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { Faction } from "../types/faction";
 import { Shot, canUseBonus } from "../game-core/gameSession";
-import { FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "../game-core/fireRules";
+import { FireContext } from "../game-core/fireRules";
+import { FireTarget } from "../game-core/fireTargets";
+import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
-import { FIRE_QUESTIONS, combatBonusQuestion, fireBonusSteps } from "../data/fireQuestions";
+import { BASE_DICE_BY_DISTANCE, combatBonusQuestion } from "../data/fireQuestions";
 import ShotDice from "./ShotDice";
 import { SECTION_LABELS, UNIT_LABELS } from "../labels";
+import FireAim, { FireAimChoice } from "./FireAim";
+import HexThumbnail from "./HexThumbnail";
+import GameIcon from "./GameIcon";
+import "./FireDialog.css";
 import { UnitType } from "../game-core/unit";
 import { ShotTarget } from "../data/hitRules";
 
@@ -33,8 +39,17 @@ interface FireDialogProps {
   /** A battle combat card this unit could use on this shot (Spotter…) */
   combatBonus?: FireContext["combatBonus"];
   faction: Faction;
-  /** Fire using the questionnaire's answers; the session rolls the dice */
-  onFire: (answers: FireAnswers) => boolean;
+  board: BoardManager;
+  /** The scenario's board art, for the map */
+  image?: string;
+  /** The hexes the unit can fire at from where it stands */
+  targets: readonly FireTarget[];
+  /** Fire at a hex picked on the map; the session works out and rolls the dice */
+  onFireAt: (choice: FireAimChoice) => boolean;
+  /** The last shot was a close assault that lets the unit take ground and fire again */
+  canTakeGround?: boolean;
+  onTakeGround?: () => boolean;
+  onUndoTakeGround?: () => boolean;
   /** Fire a number of dice the player worked out themselves, at this target, plus the combat card's dice with `useCombatBonus` */
   onQuickFire: (dice: number, target: ShotTarget, useCombatBonus: boolean) => boolean;
   /** Rolls earn coins this turn (not in the attacker's extra first turn) */
@@ -108,18 +123,26 @@ export function ShotResult({ shot, number, faction, withCoins, onKeepResults }: 
 }
 
 /**
- * Firing with one unit. Asks about the situation (distance, target terrain,
- * ...) one question at a time and works out the dice, or takes the number of
- * dice straight away ("Tirada rápida"). Once rolled, the shot stands: opening
- * the unit again shows the result, and only a deliberate "Anular disparo"
- * takes it back. Questions and their dice effects live in data/fireQuestions.ts.
+ * Firing with one unit. The target is picked on a map of the hexes the unit
+ * can reach (FireAim), which answers the distance and terrain; the player
+ * says what unit it is and whether it has sandbags, and the dice are worked
+ * out. Or the number of dice is given straight away ("Tirada rápida"). Once
+ * rolled, the shot stands: opening the unit again shows the result, and only
+ * a deliberate "Anular disparo" takes it back. After a close assault, armour
+ * (or infantry with Fragor del combate) can take ground and fire again.
  */
 function FireDialog({
   summary,
   card,
   combatBonus,
   faction,
-  onFire,
+  board,
+  image,
+  targets,
+  onFireAt,
+  canTakeGround = false,
+  onTakeGround,
+  onUndoTakeGround,
   onQuickFire,
   withCoins,
   longRangeDie = false,
@@ -127,10 +150,9 @@ function FireDialog({
   onKeepResults,
   onClose,
 }: FireDialogProps) {
-  // Answer order is kept so "Atrás" can undo the last one
-  const [answerOrder, setAnswerOrder] = useState<string[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quick, setQuick] = useState(false);
+  // Small screens get the whole screen for the map and the questions
+  const fullScreen = useMediaQuery("(max-width: 899px), (max-height: 599px)");
   const [quickDice, setQuickDice] = useState(3);
   const [quickTarget, setQuickTarget] = useState<UnitType | null>(null);
   const [quickCloseAssault, setQuickCloseAssault] = useState<boolean | null>(null);
@@ -150,11 +172,13 @@ function FireDialog({
     closeAssaultOnly: summary.closeAssaultOnly,
     combatBonus,
   };
-  const question = nextFireQuestion(FIRE_QUESTIONS, context, answers);
-  const result = question ? null : calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
-  // The long-range die is rolled at a target that isn't adjacent
-  const eightSided = longRangeDie && answers.distance !== undefined && answers.distance !== "1";
+  // After taking ground the unit fires from the hex it took, and there's no sure map position after a quick roll
+  const lastShot = summary.shots.at(-1);
+  const takenGround = summary.tookGround && lastShot?.tookGround === true;
+  // Taking ground after a quick roll: the hex taken isn't known, so no map
+  const quickOnly = takenGround && !lastShot?.targetPosition;
+  const showQuick = quick || quickOnly;
   const quickEightSided = longRangeDie && !summary.closeAssaultOnly && quickCloseAssault === false;
   const aiming = canFire && (summary.shots.length === 0 || firingAgain);
   const quickRange = summary.closeAssaultOnly || quickCloseAssault;
@@ -163,8 +187,6 @@ function FireDialog({
   const quickTotal = quickDice + (askQuickBonus && quickBonus ? combatBonus!.dice : 0);
 
   const resetAim = () => {
-    setAnswers({});
-    setAnswerOrder([]);
     setQuick(false);
     setQuickTarget(null);
     setQuickCloseAssault(null);
@@ -172,28 +194,8 @@ function FireDialog({
     setFiringAgain(false);
   };
 
-  const answer = (questionId: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
-    setAnswerOrder((prev) => [...prev, questionId]);
-  };
-
-  const goBack = () => {
-    if (quick) {
-      setQuick(false);
-      return;
-    }
-    const last = answerOrder.at(-1);
-    if (!last) return;
-    setAnswers((prev) => {
-      const next = { ...prev };
-      delete next[last];
-      return next;
-    });
-    setAnswerOrder((prev) => prev.slice(0, -1));
-  };
-
-  const handleFire = () => {
-    if (!onFire(answers)) return;
+  const handleFire = (choice: FireAimChoice) => {
+    if (!onFireAt(choice)) return;
     resetAim();
     setJustFired(true);
   };
@@ -253,7 +255,38 @@ function FireDialog({
               onKeepResults={(kept) => onKeepResults(i, kept)}
             />
           ))}
-          {justFired && (
+          {canTakeGround && (
+            <Alert
+              severity="success"
+              icon={<GameIcon name="battle" />}
+              data-testid="take-ground"
+              action={
+                <Button color="success" onClick={() => onTakeGround?.() && setJustFired(false)}>
+                  Tomar terreno
+                </Button>
+              }
+              sx={{ flexWrap: "wrap", "& .MuiAlert-action": { ml: "auto" } }}
+            >
+              ¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno (moverse a su casilla) y combatir
+              otra vez, solo en asalto cercano.
+            </Alert>
+          )}
+          {takenGround && canFire && (
+            <Alert
+              severity="info"
+              icon={<GameIcon name="battle" />}
+              action={
+                <Button color="inherit" onClick={() => onUndoTakeGround?.()}>
+                  Deshacer
+                </Button>
+              }
+              sx={{ flexWrap: "wrap", "& .MuiAlert-action": { ml: "auto" } }}
+            >
+              Ha tomado terreno: combate otra vez en asalto cercano desde la casilla tomada. Refleja el movimiento en
+              «Actualizar mapa» en la fase final.
+            </Alert>
+          )}
+          {justFired && !canTakeGround && (
             <Alert severity="warning" data-testid="opponent-turn">
               <strong>Ahora dispara el rival.</strong> Si no le quedan unidades por disparar en este grupo,
               vuelves a disparar tú.
@@ -275,7 +308,7 @@ function FireDialog({
       );
     }
 
-    if (quick) {
+    if (showQuick) {
       return (
         <>
           <Typography variant="h6" sx={{ mb: 2 }}>
@@ -366,67 +399,19 @@ function FireDialog({
       );
     }
 
-    if (question) {
-      return (
-        <>
-          <Typography variant="overline" color="text.secondary">
-            Pregunta {answerOrder.length + 1}
-          </Typography>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {question.textFor?.(context) ?? question.text}
-          </Typography>
-          <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
-            {question.options(context).map((option) => (
-              <Button
-                key={option.value}
-                variant="outlined"
-                size="large"
-                onClick={() => answer(question.id, option.value)}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </Box>
-          <Divider sx={{ my: 2 }} />
-          <Button variant="text" fullWidth onClick={() => setQuick(true)}>
-            ¿Ya sabes cuántos dados? Tirada rápida
-          </Button>
-        </>
-      );
-    }
-
-    if (result?.blocked) {
-      return (
-        <Alert severity="warning" data-testid="fire-blocked">
-          {result.blocked}
-        </Alert>
-      );
-    }
-
     return (
-      result && (
-        <>
-          <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
-            {result.steps.map((step) => (
-              <Box key={step.label} sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body1">{step.label}</Typography>
-                <Typography variant="body1">{formatDice(step.dice)}</Typography>
-              </Box>
-            ))}
-          </Stack>
-          <Divider sx={{ my: 1.5 }} />
-          <Typography variant="h6" data-testid="fire-total">
-            {result.dice > 0
-              ? `Total: ${diceText(result.dice, eightSided)}`
-              : "Total: 0 dados. Este disparo no tiene efecto."}
-          </Typography>
-          <ShotNotes notes={result.notes} />
-          <Button fullWidth size="large" onClick={handleFire} sx={{ mt: 2 }}>
-            {result.dice > 0 ? `Disparar ${diceText(result.dice, eightSided)}` : "Registrar disparo sin efecto"}
-          </Button>
-          {noRepeat}
-        </>
-      )
+      <FireAim
+        board={board}
+        image={image}
+        faction={faction}
+        from={summary.firingFrom}
+        targets={targets}
+        context={context}
+        card={card}
+        longRangeDie={longRangeDie}
+        onFire={handleFire}
+        onQuick={() => setQuick(true)}
+      />
     );
   };
 
@@ -443,7 +428,7 @@ function FireDialog({
         </>
       );
     }
-    const canGoBack = aiming && (quick || answerOrder.length > 0 || firingAgain);
+    const canGoBack = aiming && ((quick && !quickOnly) || firingAgain);
     return (
       <>
         {!aiming && summary.shots.length > 0 && (
@@ -452,7 +437,7 @@ function FireDialog({
           </Button>
         )}
         {canGoBack && (
-          <Button variant="outlined" onClick={quick || answerOrder.length > 0 ? goBack : resetAim}>
+          <Button variant="outlined" onClick={quick && !quickOnly ? () => setQuick(false) : resetAim}>
             Atrás
           </Button>
         )}
@@ -463,10 +448,33 @@ function FireDialog({
     );
   };
 
+  const range = summary.closeAssaultOnly ? [BASE_DICE_BY_DISTANCE[summary.unitType][0]] : BASE_DICE_BY_DISTANCE[summary.unitType];
+  const onMap = aiming && !showQuick && !confirmingUndo;
+
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open
+      onClose={onClose}
+      fullWidth
+      fullScreen={onMap && fullScreen}
+      maxWidth={onMap ? "lg" : "sm"}
+      slotProps={{ paper: { className: onMap ? "fire-dialog fire-dialog--map" : "fire-dialog" } }}
+    >
       <DialogTitle>
-        Disparo: {UNIT_LABELS[summary.unitType]} · {SECTION_LABELS[summary.section]}
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+          <span>
+            Disparo: {UNIT_LABELS[summary.unitType]} · {SECTION_LABELS[summary.section]}
+          </span>
+          {/* Where it fires from and what it fires with at each distance */}
+          <Stack direction="row" component="span" sx={{ alignItems: "center", gap: 1 }} data-testid="firing-unit">
+            <HexThumbnail board={board} position={summary.firingFrom} image={image} faction={faction} size={32} />
+            <Typography component="span" variant="body2" color="text.secondary">
+              {summary.closeAssaultOnly
+                ? `Solo asalto cercano: ${diceText(range[0] ?? 0)}`
+                : `Alcance ${range.length}: ${range.join(" / ")} dados`}
+            </Typography>
+          </Stack>
+        </Stack>
       </DialogTitle>
       <DialogContent>{content()}</DialogContent>
       <DialogActions>{actions()}</DialogActions>

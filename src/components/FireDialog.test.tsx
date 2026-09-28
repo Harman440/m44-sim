@@ -7,7 +7,7 @@ import CommandCard from "../game-core/commandCard";
 import { Side } from "../types/hex";
 import { summarizeOrders } from "../game-core/turnSummary";
 import { UnitType } from "../game-core/unit";
-import { Position } from "../types/scenario";
+import { Position, Scenario } from "../types/scenario";
 import { CombatCard } from "../game-core/combatCard";
 
 /** Default target for shots whose reading the test doesn't check */
@@ -16,7 +16,7 @@ const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
 const UNIT: Position = { row: 7, col: 1 };
 
 /** A session in battle with one unit of `unitType` ordered to hold and fire; dice always show a grenade */
-const makeSession = (unitType: UnitType, holdShots = 1, longRangeDie = false) => {
+const makeSession = (unitType: UnitType, holdShots = 1, longRangeDie = false, tiles: Scenario["tiles"] = {}) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -24,7 +24,7 @@ const makeSession = (unitType: UnitType, holdShots = 1, longRangeDie = false) =>
       description: "",
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
-      tiles: {},
+      tiles,
       units: { allies: { [unitType]: [UNIT] }, axis: {} },
     },
     faction: "Allies",
@@ -54,7 +54,12 @@ function Harness({ session }: { session: GameSession }) {
         summary={open ? summary : null}
         card={game.chosenCard}
         faction="Allies"
-        onFire={(answers) => session.fire(0, answers)}
+        board={session.board}
+        targets={session.fireTargetsFor(0)}
+        onFireAt={(choice) => session.fireAt(0, choice)}
+        canTakeGround={session.canTakeGround(0)}
+        onTakeGround={() => session.takeGround(0)}
+        onUndoTakeGround={() => session.undoTakeGround(0)}
         combatBonus={session.combatBonusFor(0)}
         onQuickFire={(dice, target, useCombatBonus) => session.fireQuick(0, dice, target, useCombatBonus)}
         withCoins
@@ -67,8 +72,8 @@ function Harness({ session }: { session: GameSession }) {
   );
 }
 
-const open = (unitType: UnitType, holdShots?: number) => {
-  const session = makeSession(unitType, holdShots);
+const open = (unitType: UnitType, holdShots?: number, tiles: Scenario["tiles"] = {}) => {
+  const session = makeSession(unitType, holdShots, false, tiles);
   render(<Harness session={session} />);
   fireEvent.click(screen.getByText("abrir"));
   return session;
@@ -79,21 +84,30 @@ const quickTarget = () => {
   choose("Infantería");
   choose("No");
 };
+/** Tap a hex on the fire map */
+const tapHex = (p: Position) =>
+  fireEvent.click(document.querySelector(`[data-testid="fire-map"] [data-position="${p.row}-${p.col}"]`)!);
+const diceBadges = () => document.querySelectorAll('[data-testid="fire-map"] .board__target-dice').length;
+const hasBadge = (p: Position) =>
+  Array.from(document.querySelectorAll('[data-testid="fire-map"] .hexagon__tile--target, [data-testid="fire-map"] .hexagon__tile--target-selected')).some(
+    (tile) => tile.parentElement?.getAttribute("data-position") === `${p.row}-${p.col}`
+  );
 const grenades = () => within(screen.getByTestId("dice-result")).getAllByRole("img", { name: "Granada" });
 
 describe("FireDialog", () => {
-  it("asks distance then target terrain, explains the dice and rolls them once", () => {
-    const session = open(UnitType.INFANTRY);
+  const TWO_AWAY: Position = { row: 5, col: 1 };
+  const ADJACENT: Position = { row: 6, col: 1 };
 
-    expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
-    choose("2");
-    expect(screen.getByText("¿Tiene línea de visión al objetivo?")).toBeInTheDocument();
-    choose("Sí");
-    expect(screen.getByText("¿Qué tipo de unidad es el objetivo?")).toBeInTheDocument();
+  it("shows the hexes in range with their dice; the target is tapped, then its unit, and the dice are rolled once", () => {
+    const session = open(UnitType.INFANTRY, 1, { forest: [TWO_AWAY] });
+
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance 3: 3 / 2 / 1 dados");
+    expect(diceBadges()).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Disparar" })).toBeDisabled();
+
+    tapHex(TWO_AWAY);
+    expect(screen.getByTestId("fire-target")).toHaveTextContent("Bosque · a 2 casillas");
     choose("Infantería");
-    expect(screen.getByText("¿En qué terreno está el objetivo?")).toBeInTheDocument();
-    choose("Bosque");
-    choose("No");
 
     const breakdown = screen.getByTestId("fire-breakdown");
     expect(breakdown).toHaveTextContent("Base: Infantería a 2 casillas+2");
@@ -105,18 +119,33 @@ describe("FireDialog", () => {
 
     expect(grenades()).toHaveLength(1);
     expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra infantería · a distancia");
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("1Impacto");
     expect(session.getSnapshot().shots).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: /Tirar|^Disparar/ })).not.toBeInTheDocument();
+    expect(session.getSnapshot().shots[0]!.targetPosition).toEqual(TWO_AWAY);
+    expect(screen.queryByRole("button", { name: /^Disparar/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Atrás" })).not.toBeInTheDocument();
+  });
+
+  it("won't pick a hex it can't fire at, and says why", () => {
+    open(UnitType.INFANTRY);
+
+    tapHex({ row: 1, col: 1 }); // far out of range
+    expect(screen.getByText(/Esa casilla no/)).toBeInTheDocument();
+    expect(screen.queryByTestId("fire-target")).not.toBeInTheDocument();
+  });
+
+  it("doesn't offer hexes out of sight or where no die gets through", () => {
+    // Infantry 3 hexes away into a town: 1 − 1 = 0 dice. A town in between hides the hex behind it
+    open(UnitType.INFANTRY, 1, { town: [{ row: 4, col: 1 }, ADJACENT] });
+
+    expect(hasBadge({ row: 4, col: 1 })).toBe(false); // 0 dice
+    expect(hasBadge(ADJACENT)).toBe(true); // adjacent: always in sight
+    expect(hasBadge(TWO_AWAY)).toBe(false); // behind the town
   });
 
   it("shows the stored shot read-only when the unit is opened again", () => {
     open(UnitType.INFANTRY);
-    choose("1 (adyacente)");
+    tapHex(ADJACENT);
     choose("Tanque");
-    choose("Campo abierto");
-    choose("No");
     choose("Disparar 3 dados");
     choose("Cerrar");
 
@@ -125,7 +154,86 @@ describe("FireDialog", () => {
     expect(grenades()).toHaveLength(3);
     expect(screen.getByTestId("shot-result")).toHaveTextContent("Base: Infantería a 1 casilla +3");
     expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · asalto cercano");
-    expect(screen.queryByText("¿A cuántas casillas está el objetivo?")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("fire-map")).not.toBeInTheDocument();
+  });
+
+  it("rolls the 8-sided die at a target that isn't adjacent, when the game uses it", () => {
+    const session = makeSession(UnitType.INFANTRY, 1, true);
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByText("abrir"));
+    tapHex(TWO_AWAY);
+    choose("Tanque");
+
+    expect(screen.getByTestId("fire-total")).toHaveTextContent("Total: 2 dados de 8 caras");
+    choose("Disparar 2 dados de 8 caras");
+
+    expect(session.getSnapshot().shots[0]!.faces).toEqual(["grenade", "grenade"]);
+    expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · a distancia · dado de 8 caras");
+  });
+
+  it("reminds about sandbags with the roll", () => {
+    open(UnitType.INFANTRY);
+    tapHex(ADJACENT);
+    choose("Infantería");
+    fireEvent.click(screen.getByRole("switch", { name: /Sacos terreros/ }));
+    choose("Disparar 3 dados");
+
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("ignora 1 bandera");
+  });
+
+  it("reaches 6 hexes with artillery", () => {
+    open(UnitType.ARTILLERY);
+
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance 6: 3 / 3 / 2 / 2 / 1 / 1 dados");
+    expect(hasBadge({ row: 1, col: 1 })).toBe(true); // 6 hexes up
+  });
+
+  it("starts with no target every time it is opened", () => {
+    open(UnitType.INFANTRY);
+    tapHex(ADJACENT);
+    choose("Cerrar");
+
+    fireEvent.click(screen.getByText("abrir"));
+
+    expect(screen.getByText("Toca una casilla en el mapa.")).toBeInTheDocument();
+  });
+
+  it("goes back from a quick roll to the map", () => {
+    open(UnitType.TANK);
+    choose(/Tirada rápida/);
+    choose("Atrás");
+
+    expect(screen.getByTestId("fire-map")).toBeInTheDocument();
+  });
+
+  it("lets armour take ground after a close assault and fire again, only adjacent to the hex taken", () => {
+    const session = open(UnitType.TANK);
+    tapHex(ADJACENT);
+    choose("Infantería");
+    choose("Disparar 3 dados");
+
+    expect(screen.getByTestId("take-ground")).toBeInTheDocument();
+    choose("Tomar terreno");
+    choose("Disparar otra vez (queda 1)");
+
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Solo asalto cercano");
+    expect(hasBadge({ row: 5, col: 1 })).toBe(true); // next to the hex taken
+    expect(hasBadge({ row: 4, col: 1 })).toBe(false);
+    tapHex({ row: 5, col: 1 });
+    choose("Tanque");
+    choose("Disparar 3 dados");
+
+    expect(session.getSnapshot().shots).toHaveLength(2);
+    expect(screen.queryByTestId("take-ground")).not.toBeInTheDocument();
+  });
+
+  it("doesn't offer taking ground to infantry, or after a shot at range", () => {
+    open(UnitType.INFANTRY);
+    tapHex(ADJACENT);
+    choose("Infantería");
+    choose("Disparar 3 dados");
+
+    expect(screen.queryByTestId("take-ground")).not.toBeInTheDocument();
   });
 
   it("applies fewer results than were rolled: the dice not picked show as discarded", () => {
@@ -148,24 +256,6 @@ describe("FireDialog", () => {
     choose("Aplicar todos");
     expect(session.getSnapshot().shots[0]!.kept).toBeNull();
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("3Impactos");
-  });
-
-  it("rolls the 8-sided die at a target that isn't adjacent, when the game uses it", () => {
-    const session = makeSession(UnitType.INFANTRY, 1, true);
-    render(<Harness session={session} />);
-    fireEvent.click(screen.getByText("abrir"));
-    choose("2");
-    choose("Sí");
-    choose("Tanque");
-    choose("Campo abierto");
-    choose("No");
-
-    expect(screen.getByTestId("fire-total")).toHaveTextContent("Total: 2 dados de 8 caras");
-    choose("Disparar 2 dados de 8 caras");
-
-    expect(session.getSnapshot().shots[0]!.faces).toEqual(["grenade", "grenade"]);
-    expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · a distancia · dado de 8 caras");
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("0Impactos"); // infantry's grenades don't hit a tank
   });
 
   it("fires a quick roll with the number of dice chosen", () => {
@@ -236,71 +326,6 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("shot-result")).toHaveTextContent("Tirada rápida +2 · Carta Observador +1");
   });
 
-  it("goes back from a quick roll, and one question at a time", () => {
-    open(UnitType.TANK);
-    choose(/Tirada rápida/);
-    choose("Atrás");
-    choose("1 (adyacente)");
-    choose("Tanque");
-    choose("Pueblo");
-
-    choose("Atrás");
-    expect(screen.getByText("¿En qué terreno está el objetivo?")).toBeInTheDocument();
-    choose("Atrás");
-    expect(screen.getByText("¿Qué tipo de unidad es el objetivo?")).toBeInTheDocument();
-    choose("Atrás");
-    expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Atrás" })).not.toBeInTheDocument();
-  });
-
-  it("says a target out of sight can't be shot, and offers no roll", () => {
-    const session = open(UnitType.INFANTRY);
-    choose("2");
-    choose("No");
-
-    expect(screen.getByTestId("fire-blocked")).toHaveTextContent("Sin línea de visión");
-    expect(screen.queryByRole("button", { name: /^Disparar|Registrar/ })).not.toBeInTheDocument();
-    choose("Atrás");
-    expect(screen.getByText("¿Tiene línea de visión al objetivo?")).toBeInTheDocument();
-    expect(session.getSnapshot().shots).toHaveLength(0);
-  });
-
-  it("reminds about sandbags before and after the roll", () => {
-    open(UnitType.INFANTRY);
-    choose("1 (adyacente)");
-    choose("Infantería");
-    choose("Campo abierto");
-    choose("Sí");
-
-    expect(screen.getByTestId("shot-notes")).toHaveTextContent("ignora 1 bandera");
-    choose("Disparar 3 dados");
-
-    expect(screen.getByTestId("shot-result")).toHaveTextContent("ignora 1 bandera");
-  });
-
-  it("offers artillery its full range of 6 hexes", () => {
-    open(UnitType.ARTILLERY);
-
-    for (const label of ["1 (adyacente)", "2", "3", "4", "5", "6"]) {
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
-    }
-  });
-
-  it("records a shot with no dice as fired, without rolling", () => {
-    const session = open(UnitType.INFANTRY);
-    choose("3");
-    choose("Sí");
-    choose("Infantería");
-    choose("Pueblo");
-    choose("No");
-
-    expect(screen.getByTestId("fire-total")).toHaveTextContent("no tiene efecto");
-    choose("Registrar disparo sin efecto");
-
-    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [] });
-    expect(screen.getByTestId("shot-result")).toHaveTextContent("no tuvo efecto");
-  });
-
   it("only undoes a shot after ticking the confirmation", () => {
     const session = open(UnitType.TANK);
     choose(/Tirada rápida/);
@@ -318,7 +343,7 @@ describe("FireDialog", () => {
     choose("Anular disparo");
 
     expect(session.getSnapshot().shots).toHaveLength(0);
-    expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
+    expect(screen.getByTestId("fire-map")).toBeInTheDocument();
   });
 
   it("lets a unit fire again when the card allows more than one shot", () => {
@@ -337,15 +362,5 @@ describe("FireDialog", () => {
     expect(session.getSnapshot().shots.map((s) => s.dice)).toEqual([3, 2]);
     expect(screen.getAllByTestId("shot-result")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /Disparar otra vez/ })).not.toBeInTheDocument();
-  });
-
-  it("starts from the first question every time it is opened", () => {
-    open(UnitType.INFANTRY);
-    choose("2");
-    choose("Cerrar");
-
-    fireEvent.click(screen.getByText("abrir"));
-
-    expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
   });
 });

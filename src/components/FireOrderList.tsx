@@ -228,7 +228,9 @@ function FireOrderList({
     const unit = UNIT_LABELS[summary.unitType];
     const hasShots = summary.shots.length > 0;
     const canFireNow = summary.shotsLeft > 0 && !summary.waiting && onFire !== undefined;
-    const tags = [summary.extra && "orden extra", summary.closeAssaultOnly && "asalto cercano"].filter(Boolean).join(" · ");
+    const tags = [summary.extra && "orden extra", summary.tookGround && "tomó terreno", summary.closeAssaultOnly && "asalto cercano"]
+      .filter(Boolean)
+      .join(" · ");
     let status: ReactNode;
     if (hasShots) status = <Stamp angle={-7}>Disparó</Stamp>;
     else if (summary.removed) status = <StatusText>Eliminada</StatusText>;

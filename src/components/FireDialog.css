@@ -1,0 +1,31 @@
+/*
+ * Aiming on the map: a big dialog with the map on the left and the questions
+ * on the right (stacked in portrait). Full screen on small screens; the map
+ * is as big as the screen's height allows.
+ */
+.fire-aim {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+.fire-aim__board .board__svg {
+  display: block;
+  width: 100%;
+  max-height: 55vh;
+}
+
+@media (orientation: landscape) {
+  .fire-aim {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(300px, 3fr);
+    align-items: start;
+    gap: 24px;
+  }
+
+  .fire-aim__board .board__svg {
+    /* the dialog's title, padding and actions take about 190px */
+    max-height: calc(92vh - 190px);
+  }
+}

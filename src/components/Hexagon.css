@@ -35,6 +35,20 @@
   stroke-linecap: round;
 }
 
+/* A unit can fire at this hex */
+.hexagon__tile--target {
+  fill: color-mix(in srgb, var(--m44-accent, #e53935) 22%, transparent);
+  stroke: var(--m44-accent, #e53935);
+  stroke-width: 3;
+}
+
+/* The target picked */
+.hexagon__tile--target-selected {
+  fill: color-mix(in srgb, var(--m44-accent, #e53935) 55%, transparent);
+  stroke: var(--m44-accent, #e53935);
+  stroke-width: 6;
+}
+
 /* Red flash for a tap that can't be ordered or reached */
 .hexagon__flash-invalid {
   fill: rgba(220, 38, 38, 0.55);

@@ -20,8 +20,12 @@ export interface OrderSummary {
   hexesMoved: number;
   destinationTerrain: HexType;
   canFire: boolean;
-  /** Marked for a Close Assault card: it fires only at an adjacent enemy */
+  /** It fires only at an adjacent enemy: marked for a Close Assault card, or its shot after taking ground */
   closeAssaultOnly: boolean;
+  /** Where it fires from: where the order left it, or the hex it took ground on */
+  firingFrom: Position;
+  /** It took ground after a close assault and gets one more shot, in close assault */
+  tookGround: boolean;
   /** An extra order bought with coins: it fires without the card's bonuses */
   extra: boolean;
   /** The unit has since been removed from the board (destroyed in battle) */
@@ -65,7 +69,11 @@ function summarizeEach(
     const hold = samePosition(order.start, order.end);
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
-    const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < order.shots;
+    // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)
+    const groundShot = unitShots.find((shot) => shot.tookGround);
+    const allowed = order.shots + (groundShot ? 1 : 0);
+    const overrunPending = !!groundShot && unitShots.at(-1) === groundShot;
+    const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;
     return {
       index,
       unitType: order.unit.getUnitType(),
@@ -75,12 +83,14 @@ function summarizeEach(
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
-      closeAssaultOnly: order.closeAssaultOnly,
+      closeAssaultOnly: order.closeAssaultOnly || overrunPending,
+      firingFrom: (groundShot && groundShot.targetPosition) || order.end,
+      tookGround: !!groundShot,
       extra: order.extra,
       removed,
       shots: unitShots,
       skipped,
-      shotsLeft: order.canFire && !removed && !skipped ? Math.max(0, order.shots - unitShots.length) : 0,
+      shotsLeft: order.canFire && !removed && !skipped ? Math.max(0, allowed - unitShots.length) : 0,
     };
   });
 }

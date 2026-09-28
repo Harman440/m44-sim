@@ -2283,3 +2283,134 @@ describe("GameSession taking back the card picked", () => {
     expect(session.unpickCard()).toBe(true);
   });
 });
+
+describe("GameSession firing at a hex on the map", () => {
+  // The tank at (4,6) holds; forest to its east at (4,7)
+  const tankBattle = () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("tank"));
+    orderAllAndFight(session);
+    return session;
+  };
+  const target = (session: GameSession, p: Position) =>
+    session.fireTargetsFor(0).find((t) => samePosition(t.position, p));
+
+  it("lists the hexes the unit can fire at, with their dice", () => {
+    const session = tankBattle();
+
+    expect(target(session, { row: 4, col: 7 })).toMatchObject({ distance: 1, terrain: HexType.FOREST, dice: 1 });
+    expect(target(session, { row: 4, col: 3 })).toMatchObject({ distance: 3, terrain: HexType.PLAINS, dice: 3 });
+    expect(target(session, { row: 4, col: 2 })).toBeUndefined(); // out of range
+    expect(target(session, TANK)).toBeUndefined();
+  });
+
+  it("fires at a hex: its distance and terrain answer those questions", () => {
+    const session = tankBattle();
+
+    expect(session.fireAt(0, { position: { row: 4, col: 7 }, unitType: UnitType.INFANTRY, sandbags: true })).toBe(true);
+
+    const [shot] = session.getSnapshot().shots;
+    expect(shot).toMatchObject({ dice: 1, targetPosition: { row: 4, col: 7 }, target: { unitType: "infantry", closeAssault: true } });
+    expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+  });
+
+  it("won't fire at a hex out of range, out of sight, with a unit of its own or with no dice", () => {
+    const session = tankBattle();
+
+    expect(session.fireAt(0, { position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 9 }, unitType: UnitType.INFANTRY, sandbags: false })).toBe(false); // behind the forest
+    expect(session.fireAt(0, { position: LEFT_INF, unitType: UnitType.INFANTRY, sandbags: false })).toBe(false);
+    expect(session.getSnapshot().shots).toHaveLength(0);
+  });
+});
+
+describe("GameSession taking ground", () => {
+  const tankBattle = () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("tank"));
+    orderAllAndFight(session);
+    return session;
+  };
+  const FOREST: Position = { row: 4, col: 7 };
+
+  it("lets armour take ground after a close assault and fire once more, adjacent to the hex it took", () => {
+    const session = tankBattle();
+    expect(session.canTakeGround(0)).toBe(false); // hasn't fired
+    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+
+    expect(session.takeGround(0)).toBe(true);
+
+    expect(session.shotsLeft(0)).toBe(1);
+    const targets = session.fireTargetsFor(0);
+    expect(targets.every((t) => t.distance === 1)).toBe(true);
+    expect(targets.some((t) => samePosition(t.position, { row: 4, col: 8 }))).toBe(true); // next to the forest
+    expect(session.fireAt(0, { position: { row: 4, col: 3 }, unitType: UnitType.TANK, sandbags: false })).toBe(false);
+    expect(session.fireQuick(0, 2, AT_INFANTRY)).toBe(false); // not in close assault
+    expect(session.fireAt(0, { position: { row: 4, col: 8 }, unitType: UnitType.TANK, sandbags: false })).toBe(true);
+    // Once per turn
+    expect(session.canTakeGround(0)).toBe(false);
+    expect(session.shotsLeft(0)).toBe(0);
+  });
+
+  it("only after a close assault", () => {
+    const session = tankBattle();
+    session.fireAt(0, { position: { row: 4, col: 4 }, unitType: UnitType.INFANTRY, sandbags: false });
+
+    expect(session.canTakeGround(0)).toBe(false);
+    expect(session.takeGround(0)).toBe(false);
+  });
+
+  it("takes it back while the extra shot hasn't been fired", () => {
+    const session = tankBattle();
+    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.takeGround(0);
+
+    expect(session.undoTakeGround(0)).toBe(true);
+
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.canTakeGround(0)).toBe(true);
+  });
+
+  it("keeps it after a reload", () => {
+    const session = tankBattle();
+    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.takeGround(0);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+
+    expect(restored.shotsLeft(0)).toBe(1);
+    expect(restored.getSnapshot().shots[0]).toMatchObject({ tookGround: true, targetPosition: FOREST });
+  });
+
+  it("lets infantry take ground only with Fragor del combate, for one unit", () => {
+    const heat: CombatCard = {
+      id: "heat-of-battle",
+      name: "Fragor del combate",
+      description: "",
+      cost: 1,
+      phase: "battle",
+      effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 },
+    };
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({
+      scenario: { ...scenario, attacker: "Axis" },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards,
+      combatCards: [heat, { ...heat, id: "other" }],
+    });
+    session.startFirstTurn();
+    session.adjustCoins(1);
+    session.pickCard(commandCards[0]!);
+    orderAllAndFight(session);
+    // Orders 0 and 1: the infantry at (7,1) and (7,3)
+    session.fireAt(0, { position: { row: 6, col: 1 }, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(1, { position: { row: 6, col: 3 }, unitType: UnitType.INFANTRY, sandbags: false });
+    expect(session.canTakeGround(0)).toBe(false);
+
+    expect(session.playBattleCombatCard(heat)).toBe(true);
+
+    expect(session.takeGround(0)).toBe(true);
+    expect(session.canTakeGround(1)).toBe(false);
+  });
+});

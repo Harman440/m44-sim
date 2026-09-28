@@ -115,13 +115,14 @@ describe("BattleView summary screen", () => {
     expect(session.getSnapshot().shots).toHaveLength(1);
   });
 
-  it("opens the fire questionnaire from a unit that can fire", () => {
+  it("opens the fire map from a unit that can fire", () => {
     setup({ openMap: false });
 
     fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[1]!);
 
     expect(screen.getByRole("dialog")).toHaveTextContent("Disparo: Tanque");
-    expect(screen.getByText("¿A cuántas casillas está el objetivo?")).toBeInTheDocument();
+    expect(screen.getByTestId("fire-map")).toBeInTheDocument();
+    expect(screen.getByText("Toca una casilla en el mapa.")).toBeInTheDocument();
   });
 
   it("asks before ending the battle and warns about units that haven't fired", async () => {
@@ -163,6 +164,7 @@ describe("BattleView firing order", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Cómo se juega la batalla");
+    expect(screen.getByTestId("take-ground-rule")).toHaveTextContent("solo con la carta Fragor del combate");
   });
 
   it("groups the units that didn't move, which fire first, and the units that moved", () => {
@@ -285,9 +287,9 @@ describe("BattleView Close Assault card", () => {
     const row = screen.getByTestId("order-summary");
     expect(row).toHaveTextContent("asalto cercano");
     fireEvent.click(within(row).getByRole("button", { name: "Disparar con Infantería" }));
-    // Only adjacent targets: the distance question offers 1 hex only
-    expect(screen.getByRole("button", { name: "1 (adyacente)" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "2" })).not.toBeInTheDocument();
+    // Only adjacent targets
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Solo asalto cercano");
+    expect(document.querySelectorAll('[data-testid="fire-map"] .board__target-dice').length).toBeLessThanOrEqual(6);
     expect(session.getSnapshot().orders).toHaveLength(1);
   });
 
@@ -443,12 +445,12 @@ describe("BattleView combat card effects", () => {
     session.playBattleCombatCard(spotter);
     fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[0]!);
 
-    fireEvent.click(screen.getByRole("button", { name: "2" }));
-    fireEvent.click(screen.getByRole("button", { name: "Sí" })); // line of sight
+    fireEvent.click(document.querySelector('[data-testid="fire-map"] [data-position="5-1"]')!);
     fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
-    fireEvent.click(screen.getByRole("button", { name: "Campo abierto" }));
-    fireEvent.click(screen.getByRole("button", { name: "No" })); // sandbags
 
-    expect(screen.getByText("Lucha callejera: ¿En un edificio? Si es así, ¿la usas en este disparo?")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Lucha callejera: ¿En un edificio? Si es así, ¿la usas en este disparo? (+1)" })).toBeChecked();
+    expect(screen.getByTestId("fire-breakdown")).toHaveTextContent("Carta Lucha callejera+1");
+    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
   });
 });
