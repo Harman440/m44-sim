@@ -1,0 +1,61 @@
+/* A hand of cards (CardHand.tsx): fanned, overlapping, scrolling sideways */
+.card-hand {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* room above for a lifted card, and at the sides for the fan's tilt */
+  padding: 28px 28px 36px;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 28px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--m44-border) transparent;
+  touch-action: pan-x pan-y;
+}
+
+.card-hand--dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+.card-hand__slot {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  transform-origin: 50% 110%;
+  transform: translateY(var(--drop)) rotate(var(--tilt));
+  transition: transform 0.18s ease;
+}
+
+.card-hand__slot + .card-hand__slot {
+  margin-left: calc(var(--card-width, 180px) * var(--overlap) * -1);
+}
+
+/* Picked or being looked at: out of the fan, above the others */
+.card-hand__slot--lifted,
+.card-hand__slot:has(:focus-visible) {
+  z-index: 100 !important;
+  transform: translateY(-20px);
+}
+
+/* Pressed: the card comes up to the finger */
+.card-hand__slot:active {
+  z-index: 100 !important;
+  transform: translateY(-12px) scale(0.98);
+}
+
+/* A mouse can raise a card to read it; touch doesn't need this */
+@media (hover: hover) {
+  .card-hand:not(.card-hand--dragging) .card-hand__slot:hover {
+    z-index: 100 !important;
+    transform: translateY(-20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-hand__slot {
+    transition: none;
+  }
+}

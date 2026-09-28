@@ -1,22 +1,46 @@
-/* Command card, drawn like the game's cards; colours and fonts come from the look (--m44-*) */
+/*
+ * Cards are drawn like the game's: playing-card shaped (5:7). Everything on a
+ * card is sized in em from its width, so the same card can be shown small in
+ * the hand or large in a preview: set --card-width on the card or a parent.
+ * Text that doesn't fit fades out at the bottom (see useFadeWhenClipped).
+ */
+/* A command card is a <button>: drop the button look first, before the card's own */
 .command-card {
   all: unset;
+}
+
+.game-card {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: 170px;
-  min-height: 250px;
+  width: var(--card-width, 180px);
+  aspect-ratio: 5 / 7;
+  font-size: calc(var(--card-width, 180px) / 11.25); /* 16px on a 180px card */
   overflow: hidden;
-  cursor: pointer;
   background: var(--m44-paper);
   color: var(--m44-ink);
   border: calc(var(--m44-border-width) + 1px) solid var(--m44-border);
-  border-radius: var(--m44-radius);
+  border-radius: calc(var(--m44-radius) * 1.5);
   box-shadow: var(--m44-shadow);
+}
+
+/* Long text: shown down to the card's edge, then faded */
+.game-card__text {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game-card__text--clipped {
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+
+/* Command card; colours and fonts come from the look (--m44-*) */
+.command-card {
+  cursor: pointer;
   font-family: var(--m44-font-body);
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease;
   --card-accent: var(--m44-primary);
   --card-on-accent: var(--m44-on-primary);
 }
@@ -26,16 +50,8 @@
   --card-on-accent: var(--m44-on-accent);
 }
 
-.command-card:active {
-  transform: translateY(2px);
-}
-
 .command-card--static {
   cursor: default;
-}
-
-.command-card--static:active {
-  transform: none;
 }
 
 .command-card:focus-visible {
@@ -46,7 +62,8 @@
 /* Title band, with a printed-ink sheen and a rule under it */
 .command-card__band {
   display: block;
-  padding: 8px 10px 7px;
+  flex: none;
+  padding: 0.5em 0.62em 0.44em;
   background:
     linear-gradient(180deg, color-mix(in srgb, #fff 14%, transparent), transparent 60%),
     var(--card-accent);
@@ -58,14 +75,15 @@
 .command-card__art {
   position: relative;
   display: block;
-  padding: 8px 8px 0;
+  flex: none;
+  padding: 0.5em 0.5em 0;
 }
 
 .card-title {
   margin: 0;
   font-family: var(--m44-font-display);
   font-weight: 400;
-  font-size: 1rem;
+  font-size: 0.95em;
   line-height: 1.15;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -77,38 +95,40 @@
 .command-card__body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  padding: 10px;
+  gap: 0.4em;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0.55em 0.62em 0.62em;
 }
 
 .command-card__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0.25em;
+  flex: none;
 }
 
 .command-card__unit {
   align-self: flex-start;
-  padding: 2px 8px;
+  padding: 0.1em 0.45em;
   border: 1px solid var(--m44-border);
   border-radius: var(--m44-radius);
-  font-size: 0.85rem;
+  font-size: 0.72em;
 }
 
 .command-card__orders {
   position: absolute;
-  right: 12px;
-  bottom: 4px;
+  right: 0.75em;
+  bottom: 0.25em;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 46px;
-  height: 46px;
-  padding: 0 6px;
+  min-width: 2.9em;
+  height: 2.9em;
+  padding: 0 0.4em;
   box-sizing: border-box;
-  border-radius: 23px;
+  border-radius: 1.45em;
   background: var(--card-accent);
   color: var(--card-on-accent);
   border: 2px solid var(--m44-paper);
@@ -118,25 +138,25 @@
 
 .command-card__count {
   font-family: var(--m44-font-display);
-  font-size: 1.7rem;
+  font-size: 1.7em;
   line-height: 0.95;
 }
 
 /* A word ("Todas") instead of a number */
 .command-card__count--word {
-  font-size: 0.95rem;
+  font-size: 0.95em;
   text-transform: uppercase;
 }
 
 .command-card__orders-unit {
-  font-size: 0.58rem;
+  font-size: 0.58em;
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .card-description {
-  font-size: 0.9rem;
+  font-size: 0.8em;
   line-height: 1.3;
   color: var(--m44-muted);
 }

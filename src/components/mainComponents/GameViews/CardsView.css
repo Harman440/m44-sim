@@ -1,40 +1,50 @@
+/*
+ * The command zone: the title and deck piles on top, the table in the middle
+ * (what is about to be played), and the hands at the bottom, command cards
+ * on the left and combat cards on the right. In landscape it is one screen
+ * high (see GameView.css); the hands scroll sideways when they don't fit.
+ */
 .cards-view {
-  min-height: 400px;
-}
-
-.cards-grid {
-  position: relative;
-}
-
-.cards-grid .grid {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 0;
-  overflow-x: auto;
-  padding-bottom: 16px;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
 }
 
-/* Compact mode for smaller screens */
-@media (max-width: 768px) {
-  .cards-view {
-    padding: 16px;
-  }
+.cards-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 3px double var(--m44-border);
+}
+
+.cards-header h3 {
+  font-size: 1.6rem;
 }
 
 .top-area {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 3rem;
+  gap: 16px;
 }
 
-/* Deck and discard drawn as card backs in the look's colours */
+.pile {
+  flex-direction: row !important;
+  gap: 8px;
+}
+
+.pile__label {
+  font-size: 0.9rem;
+}
+
 .deck-pile,
 .discard-pile {
   position: relative; /* contains the absolutely positioned .deck-back */
-  width: 8rem;
-  height: 12rem;
+  width: 2.25rem;
+  height: 3.25rem;
   border: calc(var(--m44-border-width) + 1px) solid var(--m44-border);
   border-radius: var(--m44-radius);
   box-shadow: var(--m44-shadow);
@@ -65,9 +75,8 @@
   align-items: center;
   justify-content: center;
   font-family: var(--m44-font-display);
-  font-size: 2rem;
+  font-size: 0.6rem;
   color: var(--m44-on-primary);
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
 }
 
 .discard-pile .deck-back {
@@ -82,104 +91,50 @@
   top: 20%;
 }
 
-.pile__label {
-  margin-bottom: 8px;
+/* The table: a felt-like open space above the hands */
+.cards-table {
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: calc(var(--m44-radius) * 2);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--m44-paper) 55%, transparent), transparent 70%);
 }
 
-/*
- * Landscape: one screen high (see GameView.css). The title and small deck
- * piles share one row; the hand fills the left and wraps, the combat cards
- * are a column on the right. Each scrolls in its own box if it doesn't fit.
- */
-@media (orientation: landscape) {
-  .cards-view {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
+.cards-hands {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 16px;
+}
 
-  .cards-top {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 8px;
-    border-bottom: 3px double var(--m44-border);
-  }
+.hand-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 
-  .cards-top .cards-header {
-    text-align: left !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-  }
+.cards-grid {
+  flex: 1 1 480px;
+}
 
-  .cards-header h3 {
-    font-size: 1.6rem;
-    margin-bottom: 0;
-  }
+.hand-group--combat {
+  flex: 0 1 auto;
+  padding-left: 16px;
+  border-left: 3px double var(--m44-border);
+}
 
-  .top-area {
-    gap: 16px;
-    margin: 0;
-  }
+.hand-group__title {
+  line-height: 1.5 !important;
+  padding-left: 12px;
+  color: var(--m44-muted);
+}
 
-  .pile {
-    flex-direction: row !important;
-    gap: 8px;
-  }
-
-  .pile__label {
-    margin: 0;
-    font-size: 0.9rem;
-  }
-
-  .deck-pile,
-  .discard-pile {
-    width: 2.25rem;
-    height: 3.25rem;
-    border-width: var(--m44-border-width);
-  }
-
-  .deck-back {
-    font-size: 0.6rem;
-    text-shadow: none;
-  }
-
-  .cards-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    gap: 16px;
-  }
-
-  .cards-grid {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .cards-grid .grid {
-    flex-wrap: wrap;
-    align-content: flex-start;
-    overflow-x: visible;
-    padding-bottom: 0;
-  }
-
-  .cards-body .cards-combat {
-    flex: 0 0 232px;
-    margin: 0;
-    padding: 0 0 0 16px;
-    border-top: none;
-    border-left: 3px double var(--m44-border);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .cards-combat__list {
-    gap: 12px !important;
-  }
+.hand-group__empty {
+  padding: 12px;
 }

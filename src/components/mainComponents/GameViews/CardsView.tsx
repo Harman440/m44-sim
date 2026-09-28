@@ -6,6 +6,7 @@ import { SECTION_LABELS } from "../../../labels";
 import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
+import CardHand from "../../CardHand";
 import { CombatCard } from "../../../game-core/combatCard";
 import { useSound } from "../../../sound";
 import "./CardsView.css";
@@ -112,17 +113,8 @@ function CardsView({
   return (
     <div className="cards-view">
       <div className="cards-top">
-        <Box
-          className="cards-header"
-          sx={{
-            textAlign: "center",
-            pb: 2.5,
-            mb: 3,
-            borderBottom: "3px double",
-            borderColor: "divider",
-          }}
-        >
-          <Typography variant="h4" component="h3" sx={{ mb: 1 }}>
+        <Box className="cards-header">
+          <Typography variant="h4" component="h3">
             Zona de Mando
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -146,56 +138,64 @@ function CardsView({
         </div>
       </div>
 
-      <div className="cards-body">
-        {/* Hand */}
-        <div className="cards-grid">
-          <div className="grid">
-            {visibleHand.map((card) => (
-              <CommandCardComponent key={card.id} faction={faction} cardData={card} onClick={playCard} />
-            ))}
-          </div>
-        </div>
+      {/* The table: what the player is about to play */}
+      <Box className="cards-table">
+        <Typography variant="body1" color={combatPick ? "primary" : "text.secondary"} sx={{ textAlign: "center", maxWidth: 560 }}>
+          {!canPlayCombatCards
+            ? "En el turno extra no se juegan cartas de combate."
+            : combatPick
+              ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas. Ponla boca abajo en la mesa.`
+              : "Para jugar una carta de órdenes este turno, tócala antes de elegir la carta de mando. Las de batalla se juegan en la batalla."}
+        </Typography>
+      </Box>
 
-        {/* Combat cards: an order card can be played with the command card */}
-        <Box
-          component="section"
-          className="cards-combat"
-          sx={{ mt: 3, pt: 2, borderTop: "3px double", borderColor: "divider" }}
-          aria-labelledby="combat-hand-title"
-        >
-          <Typography variant="h6" component="h3" id="combat-hand-title">
+      {/* The hands: command cards, and the combat cards on the right */}
+      <div className="cards-hands">
+        <section className="cards-grid hand-group" aria-labelledby="command-hand-title">
+          <Typography variant="overline" component="h3" id="command-hand-title" className="hand-group__title">
+            Cartas de mando ({visibleHand.length})
+          </Typography>
+          <CardHand
+            label="Cartas de mando"
+            cards={visibleHand.map((card) => ({
+              key: card.id,
+              node: <CommandCardComponent faction={faction} cardData={card} onClick={playCard} />,
+            }))}
+          />
+        </section>
+
+        <section className="cards-combat hand-group hand-group--combat" aria-labelledby="combat-hand-title">
+          <Typography variant="overline" component="h3" id="combat-hand-title" className="hand-group__title">
             Cartas de combate ({combatHand.length})
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {!canPlayCombatCards
-              ? "En el turno extra no se juegan cartas de combate."
-              : combatPick
-                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas. Ponla boca abajo en la mesa.`
-                : "Para jugar una carta de órdenes este turno, tócala antes de elegir la carta de mando. Las de batalla se juegan en la batalla."}
-          </Typography>
           {combatHand.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" className="hand-group__empty">
               No tienes cartas de combate.
             </Typography>
           ) : (
-            <Box className="cards-combat__list" sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-              {combatHand.map((card) => {
+            <CardHand
+              label="Cartas de combate"
+              overlap={0.3}
+              cards={combatHand.map((card) => {
                 const playable = canPlayCombatCards && card.phase === "order" && card.cost <= coins;
-                return playable ? (
-                  <CombatCardComponent
-                    key={card.id}
-                    faction={faction}
-                    card={card}
-                    selected={combatPick === card}
-                    onClick={(c) => setCombatPick((picked) => (picked === c ? null : c))}
-                  />
-                ) : (
-                  <CombatCardComponent key={card.id} faction={faction} card={card} disabled={card.phase === "order"} />
-                );
+                return {
+                  key: card.id,
+                  lifted: combatPick === card,
+                  node: playable ? (
+                    <CombatCardComponent
+                      faction={faction}
+                      card={card}
+                      selected={combatPick === card}
+                      onClick={(c) => setCombatPick((picked) => (picked === c ? null : c))}
+                    />
+                  ) : (
+                    <CombatCardComponent faction={faction} card={card} disabled={card.phase === "order"} />
+                  ),
+                };
               })}
-            </Box>
+            />
           )}
-        </Box>
+        </section>
       </div>
 
       <Dialog open={choosingSection !== null} onClose={() => setChoosingSection(null)}>

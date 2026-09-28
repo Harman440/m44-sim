@@ -2,6 +2,7 @@ import CommandCard from "../game-core/commandCard";
 import { Faction } from "../types/faction";
 import { UNIT_LABELS } from "../labels";
 import { CommandCardArt } from "./CardArt";
+import { useFadeWhenClipped } from "./useFadeWhenClipped";
 import "./CommandCard.css";
 
 interface CommandCardProps {
@@ -37,11 +38,13 @@ function ruleTags(card: CommandCard): string[] {
 /** A command card, drawn like the game's: title band, art with the sections it orders, order count */
 function CommandCardComponent({ cardData, onClick, faction = "Allies" }: CommandCardProps) {
     const { count, unit } = orderCount(cardData);
+    const [textRef, clipped] = useFadeWhenClipped<HTMLSpanElement>(cardData.description);
+    const tags = ruleTags(cardData);
     const Root = onClick ? "button" : "div";
     return (
         <Root
             {...(onClick ? { type: "button", onClick: () => onClick(cardData) } : {})}
-            className={`command-card command-card--${cardData.tactic ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
+            className={`game-card command-card command-card--${cardData.tactic ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
         >
             <span className="command-card__band">
                 <h3 className="card-title" lang="es">{cardData.name}</h3>
@@ -56,14 +59,16 @@ function CommandCardComponent({ cardData, onClick, faction = "Allies" }: Command
                 </span>
             </span>
             <span className="command-card__body">
-                {ruleTags(cardData).length > 0 && (
+                {tags.length > 0 && (
                     <span className="command-card__tags">
-                        {ruleTags(cardData).map((tag) => (
+                        {tags.map((tag) => (
                             <span key={tag} className="command-card__unit">{tag}</span>
                         ))}
                     </span>
                 )}
-                <span className="card-description">{cardData.description}</span>
+                <span ref={textRef} className={`game-card__text card-description${clipped ? " game-card__text--clipped" : ""}`}>
+                    {cardData.description}
+                </span>
             </span>
         </Root>
     );
