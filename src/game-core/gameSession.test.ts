@@ -1006,7 +1006,7 @@ describe("GameSession collisions", () => {
     session.fireCollision(0, UnitType.INFANTRY);
 
     expect(session.getSnapshot().shots[0]!.dice).toBe(3);
-    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: "Carta Blindados", dice: 1 });
+    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: "Carta Blindados", dice: 1, kind: "card" });
   });
 
   it("only lets a unit that moved, can fire and hasn't fired yet roll a collision", () => {

@@ -6,6 +6,7 @@ import { coinsText } from "../../../labels";
 import CombatCardComponent from "../../CombatCardComponent";
 import CardDialog, { ShownCard } from "../../CardDialog";
 import GameIcon from "../../GameIcon";
+import CoinCount from "../../CoinCount";
 
 interface BattleReserveProps {
   faction: Faction;
@@ -63,7 +64,7 @@ function BattleReserve({
         <GameIcon name="coins" size={56} />
         <Stack sx={{ alignItems: "flex-start" }}>
           <Typography component="span" sx={{ fontFamily: "var(--m44-font-display)", fontSize: 64, lineHeight: 1 }}>
-            {coins}
+            <CoinCount coins={coins} />
           </Typography>
           <Typography component="span" variant="body2" color="text.secondary">
             {coins === 1 ? "moneda" : "monedas"} · ver cuentas

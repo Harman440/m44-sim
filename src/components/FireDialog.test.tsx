@@ -118,7 +118,7 @@ describe("FireDialog", () => {
     choose("Disparar 1 dado");
 
     expect(grenades()).toHaveLength(1);
-    expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra infantería · a distancia");
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra infantería · a distancia"));
     expect(session.getSnapshot().shots).toHaveLength(1);
     expect(session.getSnapshot().shots[0]!.targetPosition).toEqual(TWO_AWAY);
     expect(screen.queryByRole("button", { name: /^Disparar/ })).not.toBeInTheDocument();
@@ -157,8 +157,8 @@ describe("FireDialog", () => {
     fireEvent.click(screen.getByText("abrir"));
 
     expect(grenades()).toHaveLength(3);
-    expect(screen.getByTestId("shot-result")).toHaveTextContent("Base: Infantería a 1 casilla +3");
-    expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · asalto cercano");
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Base: Infantería a 1 casilla +3"));
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra tanque · asalto cercano"));
     expect(screen.queryByTestId("fire-map")).not.toBeInTheDocument();
   });
 
@@ -173,7 +173,7 @@ describe("FireDialog", () => {
     choose("Disparar 2 dados de 8 caras");
 
     expect(session.getSnapshot().shots[0]!.faces).toEqual(["grenade", "grenade"]);
-    expect(screen.getByTestId("roll-reading")).toHaveTextContent("Contra tanque · a distancia · dado de 8 caras");
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra tanque · a distancia · dado de 8 caras"));
   });
 
   it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", () => {
@@ -211,17 +211,17 @@ describe("FireDialog", () => {
 
     choose("Aplicar menos resultados");
     choose("Dado 2: Granada");
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2Impactos");
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2impactos");
     choose("Aplicar 2 de 3");
 
     expect(session.getSnapshot().shots[0]!.kept).toEqual([0, 2]);
     expect(grenades()).toHaveLength(3); // the full roll stays on show
     expect(screen.getByText("(descartado)", { exact: false })).toBeInTheDocument();
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2Impactos");
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2impactos");
 
     choose("Aplicar todos");
     expect(session.getSnapshot().shots[0]!.kept).toBeNull();
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("3Impactos");
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("3impactos");
   });
 
   it("uses a dice combat card when its switch is on", () => {
@@ -303,7 +303,11 @@ describe("FireDialog", () => {
     const session = open(UnitType.TANK);
     fireAt(ADJACENT, "Infantería", "3 dados"); // grenades: hits
 
-    expect(screen.getByTestId("take-ground")).toBeInTheDocument();
+    const takeGround = screen.getByTestId("take-ground");
+    // The explanation is behind the info button
+    expect(takeGround).not.toHaveTextContent("se mueve a su casilla");
+    fireEvent.click(within(takeGround).getByRole("button", { name: "Más información" }));
+    expect(takeGround).toHaveTextContent("se mueve a su casilla y combate otra vez");
     choose("Tomar terreno");
     // The unit is on the hex it took, as the player will leave it on the table
     expect(session.board.getHex(ADJACENT)!.hasUnit()).toBe(true);

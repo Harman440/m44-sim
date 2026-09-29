@@ -63,10 +63,10 @@ describe("Collisions in the battle phase", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Tirar 2 dados" }));
 
     expect(session.getSnapshot().shots).toEqual([expect.objectContaining({ orderIndex: 1, dice: 2, collision: true })]);
-    expect(within(dialog).getByTestId("collision-result")).toHaveTextContent("2 dados");
+    expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Choque −1"));
     // Grenades hit artillery; the attacker's extra first turn earns no coins
-    expect(within(dialog).getByTestId("roll-reading")).toHaveTextContent("Contra artillería · asalto cercano");
-    expect(within(dialog).getByTestId("roll-hits")).toHaveTextContent("2Impactos");
+    expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra artillería · asalto cercano"));
+    expect(within(dialog).getByTestId("roll-hits")).toHaveTextContent("2impactos");
     expect(within(dialog).queryByTestId("roll-coins")).not.toBeInTheDocument();
     expect(within(dialog).getByTestId("collision-outcome")).toHaveTextContent("retroceden una casilla");
     // The roll is the tank's shot for the turn

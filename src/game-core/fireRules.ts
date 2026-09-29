@@ -27,10 +27,15 @@ export interface FireOption {
   label: string;
 }
 
+/** What a line of the dice calculation is about, to draw it as an icon */
+export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision";
+
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {
   label: string;
   dice: number;
+  /** Left out in shots saved before the steps had kinds; those show their label */
+  kind?: DiceStepKind;
 }
 
 export interface FireQuestion {

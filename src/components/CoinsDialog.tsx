@@ -10,10 +10,14 @@ import {
   IconButton,
   Stack,
   Typography,
+  alpha,
+  useTheme,
 } from "@mui/material";
 import GameSession, { GameSnapshot } from "../game-core/gameSession";
 import { describeCoinEntry, signedCoins } from "../labels";
 import GameIcon from "./GameIcon";
+import CoinCount from "./CoinCount";
+import { AnimatePresence, motion } from "motion/react";
 
 interface CoinsDialogProps {
   open: boolean;
@@ -29,6 +33,7 @@ interface CoinsDialogProps {
  */
 function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
   const [amount, setAmount] = useState(1);
+  const { palette } = useTheme();
   const { coins, coinEntries, canAdjustCoins } = game;
   const lastAdjustment = coinEntries.findLast((entry) => entry.kind === "adjustment");
 
@@ -39,7 +44,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
         <Stack direction="row" sx={{ alignItems: "center", justifyContent: "center", gap: 1, mb: 2 }}>
           <GameIcon name="coins" size={40} />
           <Typography variant="h3" component="p" data-testid="coin-balance" color={coins < 0 ? "error" : "text.primary"}>
-            {coins}
+            <CoinCount coins={coins} />
           </Typography>
         </Stack>
 
@@ -58,14 +63,25 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
           </Typography>
         ) : (
           <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none" }} data-testid="coin-ledger">
-            {coinEntries.map((entry, i) => (
-              <Box component="li" key={i} sx={{ display: "flex", justifyContent: "space-between", gap: 1, py: 0.25 }}>
-                <Typography variant="body2">{describeCoinEntry(entry)}</Typography>
-                <Typography variant="body2" color={entry.amount < 0 ? "error" : "success.main"}>
-                  {signedCoins(entry.amount)}
-                </Typography>
-              </Box>
-            ))}
+            {/* New lines slide in and undone ones slide out; the lines already there when it opens stay still */}
+            <AnimatePresence initial={false}>
+              {coinEntries.map((entry, i) => (
+                <motion.li
+                  key={i}
+                  layout
+                  initial={{ opacity: 0, x: entry.amount < 0 ? -24 : 24, backgroundColor: alpha(palette.warning.main, 0.35) }}
+                  animate={{ opacity: 1, x: 0, backgroundColor: alpha(palette.warning.main, 0) }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.35, backgroundColor: { duration: 1.2 } }}
+                  style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "2px 0", overflow: "hidden" }}
+                >
+                  <Typography variant="body2">{describeCoinEntry(entry)}</Typography>
+                  <Typography variant="body2" color={entry.amount < 0 ? "error" : "success.main"}>
+                    {signedCoins(entry.amount)}
+                  </Typography>
+                </motion.li>
+              ))}
+            </AnimatePresence>
           </Box>
         )}
 

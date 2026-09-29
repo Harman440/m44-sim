@@ -1,20 +1,22 @@
 .dice-result {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
 }
 
-/* Tumbles in with motion (see DiceResult); MotionConfig honours "reduce motion" */
+/* Thrown in with motion (see DiceResult); MotionConfig honours "reduce motion" */
 .dice-result__die {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  min-width: 64px;
 }
 
 .die {
-  width: 68px;
-  height: 68px;
+  width: 60px;
+  height: 60px;
   overflow: visible;
   filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--m44-ink, #333) 55%, transparent));
 }
@@ -25,15 +27,37 @@
   stroke-width: 2.5;
 }
 
+/* The long-range die: its own colour, and an 8 in the corner */
+.die--d8 .die__face {
+  fill: color-mix(in srgb, var(--m44-accent, #1976d2) 28%, var(--m44-die, #f5f0e6));
+}
+
+.die__d8-mark {
+  font: 700 9px var(--m44-font-display, sans-serif);
+  fill: var(--m44-ink, #333);
+  opacity: 0.7;
+}
+
+/* What the die does once it lands: a glow round a hit and a word under the die (colours from the theme, see DiceResult) */
+.dice-result__die--hit .die {
+  filter: drop-shadow(0 0 6px var(--die-effect-color))
+    drop-shadow(0 4px 0 color-mix(in srgb, var(--m44-ink, #333) 55%, transparent));
+}
+
+.dice-result__effect {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--die-effect-color);
+  color: var(--die-effect-on);
+  font: 700 0.75rem/1.4 var(--m44-font-body, sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* A die whose result isn't applied: still visible, for reference */
 .dice-result__die--discarded .die {
   opacity: 0.35;
   filter: grayscale(1);
-}
-
-.dice-result__die--discarded .MuiTypography-root {
-  text-decoration: line-through;
-  opacity: 0.7;
 }
 
 /* Picking the dice to apply: each die is a toggle */
@@ -60,7 +84,7 @@
   filter: grayscale(1);
 }
 
-/* Read out to screen readers only; the line-through shows it on screen */
+/* Read out to screen readers only; the greyed-out die shows it on screen */
 .dice-result__discarded {
   position: absolute;
   width: 1px;

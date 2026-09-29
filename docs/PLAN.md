@@ -55,9 +55,10 @@ The two decisions from the first plan still hold:
 - [x] **Decided:** line of sight from the terrain (forest, town, hill, hedgerow) and this side's units in between; enemy units in between can't be known, so the player still checks the table.
 
 ### Step 40: Dice and coin animations
-- [ ] Better dice roll animations, and different dice (the 8-sided long-range die looks like its own die)
-- [ ] Coins animate when earned or spent (the counter, and in the ledger)
-- [ ] Respect reduced motion; keep sounds optional
+- [x] Better dice roll animations, and different dice (the 8-sided long-range die looks like its own die): a fresh roll throws the dice in, spinning through faces until they land, then each die is marked (impacto / retirada / moneda) and the totals show. Opening an old shot again doesn't replay it. The 8-sided die is an octagon in its own colour with an 8 in the corner
+- [x] Coins animate when earned or spent (the counter, and in the ledger): the number pops and the change floats up (`CoinCount`); new ledger lines slide in
+- [x] Respect reduced motion; keep sounds optional
+- [x] Also: the shot result is compact. The calculation is a row of icons (`ShotSteps`: the unit and its base dice, the target's hex, sandbags, cards ➜ the target and asalto/distancia), no "N dados" line, the hits, retreats and coins as one row of small tallies, and "Tomar terreno" as one line with an info button for the explanation
 
 ## Part D: Rules
 

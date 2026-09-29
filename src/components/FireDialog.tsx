@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Checkbox,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   Stack,
   Typography,
   useMediaQuery,
@@ -22,6 +24,8 @@ import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
 import { BASE_DICE_BY_DISTANCE } from "../data/fireQuestions";
 import ShotDice from "./ShotDice";
+import ShotSteps from "./ShotSteps";
+import { UnitType } from "../game-core/unit";
 import { UNIT_LABELS } from "../labels";
 import FireAim, { FireAimChoice } from "./FireAim";
 import HexThumbnail from "./HexThumbnail";
@@ -57,7 +61,6 @@ interface FireDialogProps {
   onClose: () => void;
 }
 
-const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 const diceText = (dice: number, eightSided = false) =>
   `${dice} ${dice === 1 ? "dado" : "dados"}${eightSided ? " de 8 caras" : ""}`;
 
@@ -65,9 +68,9 @@ const diceText = (dice: number, eightSided = false) =>
 function ShotNotes({ notes }: { notes: readonly string[] }) {
   if (notes.length === 0) return null;
   return (
-    <Stack sx={{ gap: 1, mt: 1.5 }} data-testid="shot-notes">
+    <Stack sx={{ gap: 0.5, mt: 1 }} data-testid="shot-notes">
       {notes.map((note) => (
-        <Alert key={note} severity="info">
+        <Alert key={note} severity="info" sx={{ py: 0 }}>
           {note}
         </Alert>
       ))}
@@ -75,16 +78,70 @@ function ShotNotes({ notes }: { notes: readonly string[] }) {
   );
 }
 
+/** An "i" in a circle */
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={24} height={24} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="7.5" r="1.4" fill="currentColor" />
+      <rect x="10.9" y="10.5" width="2.2" height="7" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * A short line with its action, and an info button that shows the
+ * explanation underneath (a tap, not a hover, for the tablet).
+ */
+function ExplainedAction({
+  children,
+  info,
+  action,
+  testId,
+}: {
+  children: ReactNode;
+  info: string;
+  action: ReactNode;
+  testId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Box data-testid={testId} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "var(--m44-radius)", px: 1 }}>
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+        <GameIcon name="battle" size={22} />
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {children}
+        </Typography>
+        <IconButton aria-label="Más información" aria-expanded={open} onClick={() => setOpen((o) => !o)} sx={{ width: 48, height: 48 }}>
+          <InfoIcon />
+        </IconButton>
+        <Box sx={{ ml: "auto" }}>{action}</Box>
+      </Stack>
+      <Collapse in={open} unmountOnExit>
+        <Typography variant="body2" color="text.secondary" sx={{ pb: 1 }}>
+          {info}
+        </Typography>
+      </Collapse>
+    </Box>
+  );
+}
+
 interface ShotResultProps {
   shot: Shot;
   number: number | null;
+  /** The firing unit's type */
+  unitType: UnitType;
   faction: Faction;
+  board: BoardManager;
+  image?: string;
   withCoins: boolean;
+  /** Just rolled: throw the dice in */
+  rolling?: boolean;
   /** Apply only some of the dice (or all, with null) */
   onKeepResults?: (kept: number[] | null) => boolean;
 }
 
-export function ShotResult({ shot, number, faction, withCoins, onKeepResults }: ShotResultProps) {
+export function ShotResult({ shot, number, unitType, faction, board, image, withCoins, rolling, onKeepResults }: ShotResultProps) {
   return (
     <Box data-testid="shot-result">
       {(number !== null || shot.collision) && (
@@ -92,21 +149,27 @@ export function ShotResult({ shot, number, faction, withCoins, onKeepResults }: 
           {[number !== null && `Disparo ${number}`, shot.collision && "Choque"].filter(Boolean).join(" · ")}
         </Typography>
       )}
-      {shot.steps.length > 0 && (
-        <Typography variant="body2" color="text.secondary">
-          {shot.steps.map((step) => `${step.label} ${formatDice(step.dice)}`).join(" · ")}
+      <ShotSteps
+        shot={shot}
+        unitType={unitType}
+        faction={faction}
+        targetHex={
+          shot.targetPosition && (
+            <HexThumbnail board={board} position={shot.targetPosition} image={image} faction={faction} size={28} />
+          )
+        }
+      />
+      {shot.dice === 0 && (
+        <Typography variant="h6" sx={{ mt: 1 }}>
+          0 dados: el disparo no tuvo efecto
         </Typography>
       )}
-      <Typography variant="h6">
-        {shot.dice > 0
-          ? diceText(shot.dice, shot.target.longRangeFirer !== undefined)
-          : "0 dados: el disparo no tuvo efecto"}
-      </Typography>
       <ShotDice
         shot={shot}
         rollId={number ?? 1}
         faction={faction}
         withCoins={withCoins}
+        rolling={rolling}
         onKeepResults={onKeepResults}
       />
       <ShotNotes notes={shot.notes} />
@@ -208,40 +271,39 @@ function FireDialog({
               key={i}
               shot={shot}
               number={numbered ? i + 1 : null}
+              unitType={summary.unitType}
               faction={faction}
+              board={board}
+              image={image}
               withCoins={withCoins}
+              rolling={justFired && i === summary.shots.length - 1}
               onKeepResults={(kept) => onKeepResults(i, kept)}
             />
           ))}
           {canTakeGround && (
-            <Alert
-              severity="success"
-              icon={<GameIcon name="battle" />}
-              data-testid="take-ground"
+            <ExplainedAction
+              testId="take-ground"
+              info="¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno: se mueve a su casilla y combate otra vez, solo en asalto cercano."
               action={
                 <Button color="success" onClick={() => onTakeGround?.() && setJustFired(false)}>
                   Tomar terreno
                 </Button>
               }
-              sx={{ flexWrap: "wrap", "& .MuiAlert-action": { ml: "auto" } }}
             >
-              ¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno: se mueve a su casilla y combate
-              otra vez, solo en asalto cercano.
-            </Alert>
+              ¿Casilla libre?
+            </ExplainedAction>
           )}
           {takenGround && canFire && (
-            <Alert
-              severity="info"
-              icon={<GameIcon name="battle" />}
+            <ExplainedAction
+              info="Ya está en la casilla tomada en el mapa, y combate otra vez desde ahí en asalto cercano."
               action={
-                <Button color="inherit" onClick={() => onUndoTakeGround?.()}>
+                <Button variant="text" onClick={() => onUndoTakeGround?.()}>
                   Deshacer
                 </Button>
               }
-              sx={{ flexWrap: "wrap", "& .MuiAlert-action": { ml: "auto" } }}
             >
-              Ha tomado terreno: ya está en la casilla tomada en el mapa, y combate otra vez desde ahí en asalto cercano.
-            </Alert>
+              Terreno tomado
+            </ExplainedAction>
           )}
           {justFired && !canTakeGround && (
             <Alert severity="warning" data-testid="opponent-turn">

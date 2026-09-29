@@ -3,7 +3,7 @@ import { Alert, Button, Stack } from "@mui/material";
 import { Shot } from "../game-core/gameSession";
 import { appliedFaces } from "../game-core/rollResult";
 import { Faction } from "../types/faction";
-import DiceResult from "./DiceResult";
+import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
 
 interface ShotDiceProps {
@@ -12,6 +12,8 @@ interface ShotDiceProps {
   rollId: number;
   faction: Faction;
   withCoins: boolean;
+  /** The dice were just rolled: throw them in, then show what they mean */
+  rolling?: boolean;
   /** Apply only these dice (indexes into the faces), or all of them with null; left out, the results can't be changed */
   onKeepResults?: (kept: number[] | null) => boolean;
 }
@@ -22,7 +24,7 @@ interface ShotDiceProps {
  * results as it has): they tap the dice to apply, and the rest stay on show,
  * greyed out as discarded.
  */
-function ShotDice({ shot, rollId, faction, withCoins, onKeepResults }: ShotDiceProps) {
+function ShotDice({ shot, rollId, faction, withCoins, rolling = false, onKeepResults }: ShotDiceProps) {
   /** The dice picked so far while choosing; null when not choosing */
   const [picked, setPicked] = useState<number[] | null>(null);
   if (shot.dice === 0) return null;
@@ -48,10 +50,18 @@ function ShotDice({ shot, rollId, faction, withCoins, onKeepResults }: ShotDiceP
         kept={shot.kept}
         eightSided={shot.target.longRangeFirer !== undefined}
         picking={picked ? { selected: picked, onToggle: toggle } : undefined}
+        target={shot.target}
+        withCoins={withCoins}
+        rolling={rolling}
       />
-      <RollReading faces={faces} target={shot.target} withCoins={withCoins} />
+      <RollReading
+        faces={faces}
+        target={shot.target}
+        withCoins={withCoins}
+        delay={rolling ? rollDuration(shot.faces.length) : 0}
+      />
       {onKeepResults && (
-        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1.5 }}>
+        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}>
           {picked ? (
             <>
               <Button onClick={apply}>
@@ -63,11 +73,11 @@ function ShotDice({ shot, rollId, faction, withCoins, onKeepResults }: ShotDiceP
             </>
           ) : (
             <>
-              <Button variant="outlined" onClick={() => setPicked(shot.kept ? [...shot.kept] : allDice)}>
+              <Button variant="text" size="small" onClick={() => setPicked(shot.kept ? [...shot.kept] : allDice)}>
                 {shot.kept ? "Cambiar resultados aplicados" : "Aplicar menos resultados"}
               </Button>
               {shot.kept && (
-                <Button variant="text" onClick={() => onKeepResults(null)}>
+                <Button variant="text" size="small" onClick={() => onKeepResults(null)}>
                   Aplicar todos
                 </Button>
               )}

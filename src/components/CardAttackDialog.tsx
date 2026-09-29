@@ -14,7 +14,7 @@ import { CardAttack, CARD_ATTACK_NOTE } from "../game-core/gameSession";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { UNIT_LABELS } from "../labels";
-import DiceResult from "./DiceResult";
+import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
 
 interface CardAttackDialogProps {
@@ -41,6 +41,8 @@ const EMPTY = "empty";
 function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack, onUndo, onClose }: CardAttackDialogProps) {
   const [target, setTarget] = useState<string | null>(null);
   const [confirmingUndo, setConfirmingUndo] = useState(false);
+  /** Just rolled here: throw the dice in (the dialog is keyed by hex, so this starts false for each) */
+  const [rolled, setRolled] = useState(false);
 
   const close = () => {
     setTarget(null);
@@ -62,8 +64,18 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack
         {attack ? (
           attack.target ? (
             <>
-              <DiceResult roll={{ faces: [...attack.faces], id: attack.marker + 1 }} faction={faction} />
-              <RollReading faces={attack.faces} target={attack.target} withCoins={false} />
+              <DiceResult
+                roll={{ faces: [...attack.faces], id: attack.marker + 1 }}
+                faction={faction}
+                target={attack.target}
+                rolling={rolled}
+              />
+              <RollReading
+                faces={attack.faces}
+                target={attack.target}
+                withCoins={false}
+                delay={rolled ? rollDuration(attack.faces.length) : 0}
+              />
               <Alert severity="warning" sx={{ mt: 1.5 }}>
                 {CARD_ATTACK_NOTE}
               </Alert>
@@ -129,7 +141,10 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack
           <Button
             disabled={target === null}
             onClick={() => {
-              if (onAttack(target === EMPTY ? null : (target as UnitType))) setTarget(null);
+              if (onAttack(target === EMPTY ? null : (target as UnitType))) {
+                setTarget(null);
+                setRolled(true);
+              }
             }}
           >
             {target === EMPTY ? "Casilla vacía" : `Tirar ${dice}`}

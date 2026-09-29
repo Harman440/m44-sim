@@ -1,6 +1,8 @@
-import { Box, Chip, Stack, Typography } from "@mui/material";
-import { motion } from "motion/react";
-import { DieFace, countFaces } from "../game-core/dice";
+import { CSSProperties, useEffect, useState } from "react";
+import { Box, useTheme } from "@mui/material";
+import { motion, useReducedMotion } from "motion/react";
+import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES } from "../game-core/dice";
+import { ShotTarget, faceEarnsCoin, faceHits, faceRetreats } from "../data/hitRules";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { unitSprite } from "./UnitComponent";
@@ -47,9 +49,15 @@ export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFa
   })();
 
   return (
-    <svg viewBox="0 0 48 48" className="die" role="img" aria-label={DIE_FACE_LABELS[face]}>
+    <svg viewBox="0 0 48 48" className={eightSided ? "die die--d8" : "die"} role="img" aria-label={DIE_FACE_LABELS[face]}>
       {eightSided ? (
-        <polygon className="die__face" points={OCTAGON} strokeLinejoin="round" />
+        <>
+          <polygon className="die__face" points={OCTAGON} strokeLinejoin="round" />
+          {/* "8" in the corner, so the long-range die reads as its own die */}
+          <text x="40" y="44" className="die__d8-mark" textAnchor="middle">
+            8
+          </text>
+        </>
       ) : (
         <rect className="die__face" x="2" y="2" width="44" height="44" rx="9" />
       )}
@@ -64,6 +72,73 @@ export interface DiceRoll {
   id: number;
 }
 
+/** What a die does to the target once it lands: marked on the die */
+type DieEffect = "hit" | "retreat" | "coin" | null;
+
+const dieEffect = (face: DieFace, target: ShotTarget | undefined, withCoins: boolean): DieEffect => {
+  if (!target) return null;
+  if (faceHits(face, target)) return "hit";
+  if (faceRetreats(face)) return "retreat";
+  if (withCoins && faceEarnsCoin(face, target)) return "coin";
+  return null;
+};
+
+/** How long the dice take to land, in seconds, so what they mean can show after */
+export const rollDuration = (dice: number): number => ROLL_TIME + Math.max(0, dice - 1) * DIE_STAGGER;
+const ROLL_TIME = 0.75;
+const DIE_STAGGER = 0.12;
+
+interface RollingDieProps {
+  face: DieFace;
+  index: number;
+  faction: Faction;
+  eightSided: boolean;
+  /** Tumble in; otherwise the die is simply there */
+  rolling: boolean;
+}
+
+/**
+ * One die. When rolled it's thrown in, spinning, showing random faces until
+ * it lands on its result. With reduced motion it just appears.
+ */
+function RollingDie({ face, index, faction, eightSided, rolling }: RollingDieProps) {
+  const reduceMotion = useReducedMotion();
+  const tumble = rolling && !reduceMotion;
+  const [shown, setShown] = useState<DieFace | null>(tumble ? null : face);
+
+  useEffect(() => {
+    if (!tumble) return;
+    const sides = eightSided ? LONG_RANGE_DIE_SIDES : DIE_SIDES;
+    const spin = setInterval(() => setShown(sides[Math.floor(Math.random() * sides.length)]!), 70);
+    const land = setTimeout(() => {
+      clearInterval(spin);
+      setShown(face);
+    }, (ROLL_TIME * 0.8 + index * DIE_STAGGER) * 1000);
+    return () => {
+      clearInterval(spin);
+      clearTimeout(land);
+    };
+  }, [tumble, face, index, eightSided]);
+
+  const direction = index % 2 === 0 ? 1 : -1;
+  return (
+    <motion.div
+      className="dice-result__throw"
+      initial={tumble ? { x: -80 * direction, y: -70, rotate: -400 * direction, scale: 0.5, opacity: 0 } : false}
+      animate={{ x: 0, y: [null, 0, -12, 0], rotate: 0, scale: [null, 1.08, 0.97, 1], opacity: 1 }}
+      transition={{ duration: ROLL_TIME, delay: index * DIE_STAGGER, times: [0, 0.6, 0.8, 1], ease: "easeOut" }}
+    >
+      <DieFaceIcon face={shown ?? face} faction={faction} eightSided={eightSided} />
+    </motion.div>
+  );
+}
+
+const EFFECT_LABELS: Record<Exclude<DieEffect, null>, string> = {
+  hit: "impacto",
+  retreat: "retirada",
+  coin: "moneda",
+};
+
 interface DiceResultProps {
   roll: DiceRoll;
   faction: Faction;
@@ -73,25 +148,55 @@ interface DiceResultProps {
   eightSided?: boolean;
   /** Picking the dice to apply: every die is a toggle button */
   picking?: { selected: readonly number[]; onToggle: (index: number) => void };
+  /** What the dice were rolled at: each die is marked with what it does (hit, retreat, coin) */
+  target?: ShotTarget;
+  withCoins?: boolean;
+  /** The dice were just rolled: throw them in */
+  rolling?: boolean;
 }
 
-/** The faces of a roll, plus how many of each symbol are applied */
-function DiceResult({ roll, faction, kept = null, eightSided = false, picking }: DiceResultProps) {
+/** The faces of a roll, each marked with what it does to the target */
+function DiceResult({
+  roll,
+  faction,
+  kept = null,
+  eightSided = false,
+  picking,
+  target,
+  withCoins = false,
+  rolling = false,
+}: DiceResultProps) {
   const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
-  const counts = countFaces(roll.faces.filter((_, i) => applied(i)));
+  const reduceMotion = useReducedMotion();
+  const { palette } = useTheme();
+  const effectColors = {
+    hit: palette.error,
+    retreat: palette.primary,
+    coin: palette.warning,
+  } as const;
+  const landed = (i: number) => (rolling && !reduceMotion ? ROLL_TIME + i * DIE_STAGGER : 0);
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 1.5 }}>
       {/* Keyed by roll so every roll replays the animation */}
       <div key={roll.id} className="dice-result" data-testid="dice-result">
         {roll.faces.map((face, i) => {
+          const effect = applied(i) ? dieEffect(face, target, withCoins) : null;
+          const die = <RollingDie face={face} index={i} faction={faction} eightSided={eightSided} rolling={rolling} />;
           return (
-            <motion.div
+            <div
               key={i}
-              className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}`}
-              initial={{ rotate: -220, y: -36, scale: 0.4, opacity: 0 }}
-              animate={{ rotate: 0, y: 0, scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 320, damping: 18, delay: i * 0.08 }}
+              className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}${
+                effect ? ` dice-result__die--${effect}` : ""
+              }`}
+              style={
+                effect
+                  ? ({
+                      "--die-effect-color": effectColors[effect].main,
+                      "--die-effect-on": effectColors[effect].contrastText,
+                    } as CSSProperties)
+                  : undefined
+              }
             >
               {picking ? (
                 <button
@@ -101,26 +206,26 @@ function DiceResult({ roll, faction, kept = null, eightSided = false, picking }:
                   aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
                   onClick={() => picking.onToggle(i)}
                 >
-                  <DieFaceIcon face={face} faction={faction} eightSided={eightSided} />
+                  {die}
                 </button>
               ) : (
-                <DieFaceIcon face={face} faction={faction} eightSided={eightSided} />
+                die
               )}
-              <Typography variant="caption">
-                {DIE_FACE_LABELS[face]}
-                {!applied(i) && <span className="dice-result__discarded"> (descartado)</span>}
-              </Typography>
-            </motion.div>
+              {effect && (
+                <motion.span
+                  className="dice-result__effect"
+                  initial={landed(i) ? { scale: 0, opacity: 0 } : false}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 16, delay: landed(i) }}
+                >
+                  {EFFECT_LABELS[effect]}
+                </motion.span>
+              )}
+              {!applied(i) && <span className="dice-result__discarded">(descartado)</span>}
+            </div>
           );
         })}
       </div>
-      <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1.5 }}>
-        {Object.values(DieFace)
-          .filter((face) => counts[face] > 0)
-          .map((face) => (
-            <Chip key={face} label={`${counts[face]} × ${DIE_FACE_LABELS[face]}`} />
-          ))}
-      </Stack>
     </Box>
   );
 }

@@ -33,6 +33,7 @@ import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
+import CoinCount from "../CoinCount";
 import SettingsDialog from "../SettingsDialog";
 import HistoryDialog from "../HistoryDialog";
 import CoinsDialog from "../CoinsDialog";
@@ -141,7 +142,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
                 data-testid="coin-counter"
                 color={game.coins < 0 ? "error" : "primary"}
               >
-                {game.coins}
+                <CoinCount coins={game.coins} />
               </Button>
             )}
             <IconButton

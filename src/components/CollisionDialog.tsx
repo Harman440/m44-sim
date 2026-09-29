@@ -20,6 +20,7 @@ import { COLLISION_NOTES, collisionSteps } from "../data/fireQuestions";
 import { Faction } from "../types/faction";
 import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS } from "../labels";
 import ShotDice from "./ShotDice";
+import ShotSteps from "./ShotSteps";
 import OrderToken from "./OrderToken";
 
 interface CollisionDialogProps {
@@ -82,12 +83,15 @@ function CollisionDialog({
 }: CollisionDialogProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [targetType, setTargetType] = useState<UnitType | null>(null);
+  /** The collision was just rolled here: throw the dice in */
+  const [rolled, setRolled] = useState(false);
   const moved = summaries.filter((s) => !s.hold && !s.removed);
   const summary = selected === null ? null : (summaries[selected] ?? null);
 
   const select = (index: number | null) => {
     setSelected(index);
     setTargetType(null);
+    setRolled(false);
   };
 
   const close = () => {
@@ -135,14 +139,18 @@ function CollisionDialog({
     if (collisionShot) {
       return (
         <Box data-testid="collision-result">
-          <Typography variant="h6">
-            {collisionShot.dice > 0 ? diceText(collisionShot.dice) : "0 dados: el choque no tuvo efecto"}
-          </Typography>
+          <ShotSteps shot={collisionShot} unitType={summary.unitType} faction={faction} />
+          {collisionShot.dice === 0 && (
+            <Typography variant="h6" sx={{ mt: 1 }}>
+              0 dados: el choque no tuvo efecto
+            </Typography>
+          )}
           <ShotDice
             shot={collisionShot}
             rollId={1}
             faction={faction}
             withCoins={withCoins}
+            rolling={rolled}
             onKeepResults={(kept) => onKeepResults(summary.index, summary.shots.indexOf(collisionShot), kept)}
           />
           <Alert severity="warning" sx={{ mt: 1.5 }}>
@@ -219,7 +227,7 @@ function CollisionDialog({
           fullWidth
           size="large"
           disabled={targetType === null}
-          onClick={() => targetType && onRoll(summary.index, targetType)}
+          onClick={() => targetType && onRoll(summary.index, targetType) && setRolled(true)}
           sx={{ mt: 2 }}
         >
           Tirar {diceText(dice)}

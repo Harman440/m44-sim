@@ -116,7 +116,7 @@ describe("fire questions (house rules)", () => {
     const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps);
 
     expect(result.dice).toBe(2);
-    expect(result.steps).toContainEqual({ label: "Sacos terreros en campo abierto", dice: -1 });
+    expect(result.steps).toContainEqual({ label: "Sacos terreros en campo abierto", dice: -1, kind: "sandbags" });
     expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
@@ -179,8 +179,8 @@ describe("fire questions (house rules)", () => {
     );
 
     expect(steps).toEqual([
-      { label: "Base: Infantería a 2 casillas", dice: 2 },
-      { label: "Objetivo en bosque", dice: -1 },
+      { label: "Base: Infantería a 2 casillas", dice: 2, kind: "base" },
+      { label: "Objetivo en bosque", dice: -1, kind: "terrain" },
     ]);
   });
 });

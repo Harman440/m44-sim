@@ -57,7 +57,7 @@ const distanceQuestion: FireQuestion = {
     const distance = Number(answer);
     const dice = BASE_DICE_BY_DISTANCE[unitType][distance - 1] ?? 0;
     const hexes = distance === 1 ? "casilla" : "casillas";
-    return { label: `Base: ${UNIT_LABELS[unitType]} a ${distance} ${hexes}`, dice };
+    return { label: `Base: ${UNIT_LABELS[unitType]} a ${distance} ${hexes}`, dice, kind: "base" };
   },
 };
 
@@ -84,7 +84,7 @@ const targetTerrainQuestion: FireQuestion = {
   effect: (context, answer) => {
     const terrain = TARGET_TERRAIN_MODIFIERS[effectiveTerrain(context, answer)!];
     if (!terrain) return null;
-    return { label: `Objetivo en ${terrain.label.toLowerCase()}`, dice: terrain.dice[context.unitType] };
+    return { label: `Objetivo en ${terrain.label.toLowerCase()}`, dice: terrain.dice[context.unitType], kind: "terrain" };
   },
 };
 
@@ -122,7 +122,7 @@ const sandbagsQuestion: FireQuestion = {
     answer === "yes" &&
     effectiveTerrain(context, answers.targetTerrain) === HexType.PLAINS &&
     SANDBAGS_IN_THE_OPEN[context.unitType] !== 0
-      ? { label: "Sacos terreros en campo abierto", dice: SANDBAGS_IN_THE_OPEN[context.unitType] }
+      ? { label: "Sacos terreros en campo abierto", dice: SANDBAGS_IN_THE_OPEN[context.unitType], kind: "sandbags" }
       : null,
   note: (_, answer) => (answer === "yes" ? "Sacos terreros: el objetivo ignora 1 bandera." : null),
 };
@@ -141,7 +141,7 @@ export const combatBonusQuestion: FireQuestion = {
     !!answers.distance &&
     (combatBonus.closeAssault === undefined || combatBonus.closeAssault === (answers.distance === "1")),
   effect: ({ combatBonus }, answer) =>
-    combatBonus && answer === "yes" ? { label: `Carta ${combatBonus.name}`, dice: combatBonus.dice } : null,
+    combatBonus && answer === "yes" ? { label: `Carta ${combatBonus.name}`, dice: combatBonus.dice, kind: "card" } : null,
 };
 
 /** Asked in this order; add new situations here */
@@ -157,7 +157,7 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
 /** The command card's dice, when it changes them in this situation */
 const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): DiceStep[] => {
   const dice = card?.fireBonusFor(unitType, closeAssault) ?? 0;
-  return card && dice !== 0 ? [{ label: `Carta ${card.name}`, dice }] : [];
+  return card && dice !== 0 ? [{ label: `Carta ${card.name}`, dice, kind: "card" }] : [];
 };
 
 /** Extra dice that don't need a question: the command card's bonuses */
@@ -169,8 +169,12 @@ export const fireBonusSteps = (context: FireContext, answers: FireAnswers): Dice
  * close assault dice − 1, plus the card's close-assault bonus. Terrain is ignored.
  */
 export const collisionSteps = (context: FireContext): DiceStep[] => [
-  { label: `Base: ${UNIT_LABELS[context.unitType]} en choque`, dice: BASE_DICE_BY_DISTANCE[context.unitType][0] ?? 0 },
-  { label: "Choque", dice: -1 },
+  {
+    label: `Base: ${UNIT_LABELS[context.unitType]} en choque`,
+    dice: BASE_DICE_BY_DISTANCE[context.unitType][0] ?? 0,
+    kind: "base",
+  },
+  { label: "Choque", dice: -1, kind: "collision" },
   ...cardSteps(context, true),
 ];
 
