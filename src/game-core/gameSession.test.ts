@@ -1286,7 +1286,8 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 16 as 17 })).toThrow();
+    expect(broken({ version: 17 as 18 })).toThrow();
+    expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
@@ -2437,5 +2438,170 @@ describe("GameSession taking ground", () => {
 
     expect(session.takeGround(0)).toBe(true);
     expect(session.canTakeGround(1)).toBe(false);
+  });
+});
+
+describe("GameSession barbed wire", () => {
+  // Wire under the left infantry (7,1) and next to the tank at (4,5)
+  const WIRE: Position = { row: 4, col: 5 };
+  const wireSession = () => {
+    const commandCards = cards();
+    return new GameSession({
+      scenario: { ...scenario, wire: [LEFT_INF, WIRE] },
+      faction: "Allies",
+      initialHandSize: commandCards.length,
+      commandCards,
+    });
+  };
+  const pick = (session: GameSession, id: string) =>
+    session.pickCard(session.getSnapshot().hand.find((c) => c.id === id)!);
+  /** Hold orders on the left, then battle; the index of the left infantry's order */
+  const leftBattle = () => {
+    const session = wireSession();
+    pick(session, "left");
+    orderAllAndFight(session);
+    const index = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
+    return { session, index };
+  };
+  const hasWire = (session: GameSession, p: Position) => session.board.getHex(p)!.wire;
+
+  it("stops a unit that moves onto it", () => {
+    const session = wireSession();
+
+    for (const rules of [{}, { ignoreTerrain: true }]) {
+      const results = session.board.calculatePossibleMovesWithPaths(session.board.getHex(TANK)!, 3, false, rules);
+      expect(results.map((r) => positionKey(r.position))).toContain(positionKey(WIRE));
+      // No path goes on through the wire, even with a card that ignores terrain
+      for (const { path } of results) expect(path.slice(1, -1).map(positionKey)).not.toContain(positionKey(WIRE));
+    }
+  });
+
+  it("takes a die from infantry firing from it, and none from armour", () => {
+    const { session, index } = leftBattle();
+    const adjacent = session.fireTargetsFor(index).find((t) => samePosition(t.position, { row: 7, col: 2 }));
+
+    expect(adjacent?.dice).toBe(2);
+    expect(session.getSnapshot().canRemoveWire[index]).toBe(true);
+    expect(session.fireAt(index, { position: { row: 7, col: 2 }, unitType: UnitType.INFANTRY, sandbags: false })).toBe(true);
+    expect(session.getSnapshot().shots[0]!.steps).toContainEqual({ label: "Desde una alambrada", dice: -1, kind: "wire" });
+  });
+
+  it("lets infantry remove it instead of firing, which uses its shot; undoing the shot puts it back", () => {
+    const { session, index } = leftBattle();
+
+    expect(session.removeWire(index)).toBe(true);
+    expect(hasWire(session, LEFT_INF)).toBe(false);
+    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [], removedWire: LEFT_INF });
+    expect(session.shotsLeft(index)).toBe(0);
+    expect(session.removeWire(index)).toBe(false);
+
+    expect(session.undoShot(index)).toBe(true);
+    expect(hasWire(session, LEFT_INF)).toBe(true);
+    expect(session.shotsLeft(index)).toBe(1);
+  });
+
+  it("isn't removed by armour", () => {
+    const session = wireSession();
+    pick(session, "tank");
+    expect(session.issueOrder(TANK, WIRE)).toBe(true);
+    expect(session.commitOrders()).toBe(true);
+    session.startMovement();
+    session.startBattle();
+
+    expect(session.getSnapshot().canRemoveWire).toEqual([false]);
+    expect(session.removeWire(0)).toBe(false);
+  });
+
+  it("can be taken off the map in the final phase, and put back with Deshacer", () => {
+    const { session } = leftBattle();
+    expect(session.removeWireAt(WIRE)).toBe(false); // not in the battle
+    session.endBattle();
+
+    expect(session.removeWireAt({ row: 0, col: 0 })).toBe(false); // no wire there
+    expect(session.removeWireAt(WIRE)).toBe(true);
+    expect(hasWire(session, WIRE)).toBe(false);
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(hasWire(session, WIRE)).toBe(true);
+
+    session.removeWireAt(WIRE);
+    finishTurn(session);
+    expect(session.getSnapshot().log[0]!.battleEdits).toEqual([{ kind: "wire", position: WIRE }]);
+  });
+
+  it("is saved with the game, flipped for the Axis", () => {
+    const { session, index } = leftBattle();
+    session.removeWire(index);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), { ...scenario, wire: [LEFT_INF, WIRE] }, cards());
+    expect(hasWire(restored, LEFT_INF)).toBe(false);
+    expect(hasWire(restored, WIRE)).toBe(true);
+    expect(restored.getSnapshot().shots[0]!.removedWire).toEqual(LEFT_INF);
+
+    const axis = new GameSession({ scenario: { ...scenario, wire: [WIRE] }, faction: "Axis", initialHandSize: 1, commandCards: cards() });
+    expect(hasWire(axis, { row: 4, col: 7 })).toBe(true);
+  });
+});
+
+describe("GameSession extra draws (Pegasus Bridge)", () => {
+  const defender = (faction: "Allies" | "Axis") =>
+    new GameSession({
+      scenario: {
+        ...scenario,
+        attacker: "Allies",
+        extraDraws: { faction: "Axis", turns: 2 },
+        // Axis units in every section, so any card has a unit to order
+        units: { ...scenario.units, axis: { infantry: [0, 2, 3, 5, 8, 9, 11].map((col) => ({ row: 1, col })) } },
+      },
+      faction,
+      initialHandSize: 1,
+      commandCards: cards(),
+    });
+  const playTurn = (session: GameSession) => {
+    const card = session.getSnapshot().hand[0]!;
+    expect(session.pickCard(card, session.cardNeedsSection(card) ? Side.CENTER : undefined)).toBe(true);
+    orderAllAndFight(session);
+    session.endBattle();
+    expect(session.drawCard()).toBe(true);
+  };
+
+  it("draws 2 cards after each of the side's first two turns, then 1", () => {
+    const session = defender("Axis");
+    expect(session.startFirstTurn()).toBe(true);
+    const handSizes = [];
+    for (let turn = 2; turn <= 4; turn++) {
+      expect(session.getSnapshot().turn).toBe(turn);
+      expect(session.getSnapshot().drawsExtra).toBe(turn <= 3);
+      playTurn(session);
+      const { hand, extraDrawn, drawnCard } = session.getSnapshot();
+      expect(extraDrawn !== null).toBe(turn <= 3);
+      if (extraDrawn) expect(hand).toContain(extraDrawn);
+      expect(extraDrawn).not.toBe(drawnCard);
+      handSizes.push(hand.length);
+      if (session.getSnapshot().needsRewardChoice) session.chooseReward("coins");
+      expect(session.endTurn()).toBe(true);
+      expect(session.getSnapshot().extraDrawn).toBeNull();
+    }
+    expect(handSizes).toEqual([2, 3, 3]);
+  });
+
+  it("gives the other side nothing extra", () => {
+    const session = defender("Allies");
+    expect(session.getSnapshot().drawsExtra).toBe(false);
+    playTurn(session);
+    expect(session.getSnapshot().extraDrawn).toBeNull();
+  });
+
+  it("keeps the extra card through a save", () => {
+    const session = defender("Axis");
+    session.startFirstTurn();
+    playTurn(session);
+    const extra = session.getSnapshot().extraDrawn!;
+
+    const restored = GameSession.restore(
+      JSON.parse(JSON.stringify(session.save())),
+      { ...scenario, extraDraws: { faction: "Axis", turns: 2 }, units: { ...scenario.units, axis: { infantry: [0, 2, 3, 5, 8, 9, 11].map((col) => ({ row: 1, col })) } } },
+      cards()
+    );
+    expect(restored.getSnapshot().extraDrawn?.id).toBe(extra.id);
   });
 });

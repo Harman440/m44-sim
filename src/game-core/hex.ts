@@ -13,6 +13,8 @@ class Hex {
   private readonly canMoveAndFire: boolean;
 
   private _unit: Unit | null = null;
+  /** Barbed wire on the hex: removable, so it isn't part of the terrain */
+  private _wire = false;
 
   constructor(position: Position, type: HexType = HexType.PLAINS, overrides?: Partial<TerrainProperties>) {
     this.position = position;
@@ -137,12 +139,19 @@ class Hex {
     return this.movementRule !== MovementRule.BLOCK && this.unit === null && this.movementCost < Infinity;
   }
 
-  // Check if a hex allows continued movement
+  // Check if a hex allows continued movement: stop terrain and barbed wire end the move
   canContinueMovement(): boolean {
-    return this.movementRule !== MovementRule.STOP;
+    return this.movementRule !== MovementRule.STOP && !this._wire;
   }
 
   get unit(): Unit | null { return this._unit; }
+
+  get wire(): boolean { return this._wire; }
+
+  /** Lay or remove barbed wire (only GameSession and BoardManager call this) */
+  setWire(wire: boolean) {
+    this._wire = wire;
+  }
 
   // Unit management
   placeUnit(unit: Unit): boolean {

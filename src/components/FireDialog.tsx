@@ -30,6 +30,7 @@ import { UNIT_LABELS } from "../labels";
 import FireAim, { FireAimChoice } from "./FireAim";
 import HexThumbnail from "./HexThumbnail";
 import GameIcon from "./GameIcon";
+import { BarbedWireIcon } from "./BarbedWire";
 import "./FireDialog.css";
 
 interface FireDialogProps {
@@ -50,6 +51,9 @@ interface FireDialogProps {
   canTakeGround?: boolean;
   onTakeGround?: () => boolean;
   onUndoTakeGround?: () => boolean;
+  /** The unit stands on barbed wire and may remove it instead of firing (infantry) */
+  canRemoveWire?: boolean;
+  onRemoveWire?: () => boolean;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
   longRangeDie?: boolean;
   /** Take back the unit's last shot (a mistake) */
@@ -139,6 +143,14 @@ interface ShotResultProps {
 }
 
 export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults }: ShotResultProps) {
+  if (shot.removedWire) {
+    return (
+      <Stack direction="row" data-testid="shot-result" sx={{ alignItems: "center", gap: 1.5 }}>
+        <BarbedWireIcon size={48} />
+        <Typography variant="h6">{number !== null ? `Disparo ${number}: ` : ""}quitó la alambrada, sin disparar</Typography>
+      </Stack>
+    );
+  }
   return (
     <Box data-testid="shot-result">
       {(number !== null || shot.collision) && (
@@ -194,6 +206,8 @@ function FireDialog({
   onTakeGround,
   onUndoTakeGround,
   longRangeDie = false,
+  canRemoveWire = false,
+  onRemoveWire,
   onUndoShot,
   onKeepResults,
   onClose,
@@ -206,6 +220,8 @@ function FireDialog({
   const [undoChecked, setUndoChecked] = useState(false);
   /** A shot was just rolled here: the opponent fires next */
   const [justFired, setJustFired] = useState(false);
+  /** Infantry on barbed wire chose to fire (with a die less) rather than remove it */
+  const [firingFromWire, setFiringFromWire] = useState(false);
 
   if (!summary) return null;
 
@@ -215,13 +231,17 @@ function FireDialog({
     closeAssaultOnly: summary.closeAssaultOnly,
     combatBonus,
     fromTerrain: board.getHex(summary.firingFrom)?.getType(),
+    fromWire: board.getHex(summary.firingFrom)?.wire ?? false,
   };
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
   // After taking ground the unit fires again, from the hex it took
   const takenGround = summary.tookGround && summary.shots.at(-1)?.tookGround === true;
   const aiming = canFire && (summary.shots.length === 0 || firingAgain);
 
-  const resetAim = () => setFiringAgain(false);
+  const resetAim = () => {
+    setFiringAgain(false);
+    setFiringFromWire(false);
+  };
 
   const handleFire = (choice: FireAimChoice) => {
     if (!onFireAt(choice)) return;
@@ -321,6 +341,32 @@ function FireDialog({
       );
     }
 
+    if (canRemoveWire && !firingFromWire) {
+      return (
+        <Stack sx={{ gap: 2, alignItems: "flex-start" }} data-testid="wire-choice">
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+            <BarbedWireIcon size={56} />
+            <Typography variant="h6">La unidad está en una alambrada</Typography>
+          </Stack>
+          <Typography>¿La quita (y no dispara este turno) o dispara con 1 dado menos?</Typography>
+          <Stack direction="row" sx={{ gap: 1.5, flexWrap: "wrap" }}>
+            <Button
+              size="large"
+              startIcon={<BarbedWireIcon size={32} />}
+              onClick={() => {
+                if (onRemoveWire?.()) setJustFired(true);
+              }}
+            >
+              Quitar alambrada
+            </Button>
+            <Button size="large" variant="outlined" startIcon={<GameIcon name="fire" />} onClick={() => setFiringFromWire(true)}>
+              Disparar (−1 dado)
+            </Button>
+          </Stack>
+        </Stack>
+      );
+    }
+
     return (
       <FireAim
         board={board}
@@ -349,7 +395,7 @@ function FireDialog({
         </>
       );
     }
-    const canGoBack = aiming && firingAgain;
+    const canGoBack = aiming && (firingAgain || (canRemoveWire && firingFromWire));
     return (
       <>
         {!aiming && summary.shots.length > 0 && (
@@ -358,7 +404,7 @@ function FireDialog({
           </Button>
         )}
         {canGoBack && (
-          <Button variant="outlined" onClick={resetAim}>
+          <Button variant="outlined" onClick={firingFromWire ? () => setFiringFromWire(false) : resetAim}>
             Atrás
           </Button>
         )}

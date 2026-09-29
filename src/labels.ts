@@ -60,9 +60,9 @@ export const DIE_FACE_LABELS: Record<DieFace, string> = {
 export const describePlace = (hex: Hex | null): string =>
   hex ? `${TERRAIN_LABELS[hex.getType()]}, ${SECTION_LABELS[hex.getSide()]}` : "fuera del mapa";
 
-/** "Tanque en bosque", or just the terrain for an empty hex */
+/** "Tanque en bosque", or just the terrain for an empty hex; "… con alambrada" on barbed wire */
 export const describeHex = (hex: Hex): string => {
-  const terrain = TERRAIN_LABELS[hex.getType()];
+  const terrain = TERRAIN_LABELS[hex.getType()] + (hex.wire ? " con alambrada" : "");
   return hex.unit ? `${UNIT_LABELS[hex.unit.getUnitType()]} en ${terrain}` : terrain;
 };
 

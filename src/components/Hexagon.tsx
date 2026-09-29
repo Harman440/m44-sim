@@ -4,6 +4,7 @@ import { Faction } from '../types/faction';
 import Hex from '../game-core/hex';
 import { positionKey } from '../game-core/position';
 import UnitComponent from './UnitComponent';
+import { BarbedWireArt } from './BarbedWire';
 
 /** How a hex is highlighted: the selected unit, a destination for it, or a hex it can fire at */
 export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | 'mark' | 'target' | 'target-selected' | null;
@@ -66,6 +67,7 @@ function Hexagon({
         d={pathData}
         className={highlight ? `hexagon__tile hexagon__tile--${highlight}` : 'hexagon__tile'}
       />
+      {hexData.wire && <BarbedWireArt x={x} y={y} hexSize={hexSize} />}
       {hexData.unit && (
         <UnitComponent
           x={x}

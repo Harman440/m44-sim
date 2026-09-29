@@ -72,6 +72,9 @@ class BoardManager {
       });
     }
 
+    // Barbed wire (flipped for Axis)
+    (scenario.wire ?? []).forEach((position) => this.getHex(flipPosition(position))?.setWire(true));
+
     // Place initial units (flipped for Axis)
     const factionKey = faction.toLowerCase() as keyof Factions;
     const unitGroups = scenario.units[factionKey];
@@ -118,7 +121,7 @@ class BoardManager {
 
   /**
    * Every hex a unit at `startHex` can reach within `maxRange`, with the
-   * cheapest path to each (Dijkstra). Stop terrain ends movement; with
+   * cheapest path to each (Dijkstra). Stop terrain and barbed wire end movement; with
    * `forFirePositions`, only destinations the unit can still fire from.
    * A hedgerow can only be entered by a unit that starts next to it, and a
    * unit that starts on one moves 1 hex.
@@ -211,7 +214,8 @@ class BoardManager {
         queue.push({
           position: neighborPos,
           cost: newCost,
-          canContinue: rules.ignoreTerrain || neighborHex.canContinueMovement(),
+          // A card that ignores terrain doesn't lift barbed wire: the unit still stops there
+          canContinue: rules.ignoreTerrain ? !neighborHex.wire : neighborHex.canContinueMovement(),
           path: [...current.path, neighborPos], // Extend the path
         });
       }
@@ -256,6 +260,13 @@ class BoardManager {
     const unit = hex?.unit ?? null;
     if (unit) hex!.removeUnit();
     return unit;
+  }
+
+  /** Hexes with barbed wire, in board order */
+  wirePositions(): Position[] {
+    return this.getAllHexes()
+      .filter((hex) => hex.wire)
+      .map((hex) => hex.getPosition());
   }
 
   /** Put a unit back on an empty hex */

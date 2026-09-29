@@ -16,6 +16,7 @@ import {
   TAKE_GROUND_UNIT_TYPES,
   combatBonusQuestion,
   fireBonusSteps,
+  wireChoiceFor,
 } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
@@ -55,6 +56,10 @@ export interface GameSnapshot {
   hand: readonly CommandCard[];
   /** The command card drawn in the final phase, once kept (it is already in the hand) */
   drawnCard: CommandCard | null;
+  /** The second card drawn this turn, straight into the hand (the scenario's `extraDraws`) */
+  extraDrawn: CommandCard | null;
+  /** This turn's draw brings a second card (the scenario's `extraDraws`) */
+  drawsExtra: boolean;
   /** Cards drawn in the final phase waiting for the player to keep one (Recon: 3); a single card is kept at once */
   drawOptions: readonly CommandCard[];
   /** The one card drawn (already kept) may be discarded once for another, which must be kept */
@@ -130,6 +135,8 @@ export interface GameSnapshot {
   combatCardDue: boolean;
   /** The hand has more combat cards than allowed: one must be discarded before the next turn */
   mustDiscardCombatCard: boolean;
+  /** The unit of each order fires from a hex with barbed wire and may remove it instead (infantry), by order index */
+  canRemoveWire: readonly boolean[];
   /** Paratroopers placed so far, in order (PARADROP) */
   drops: readonly Position[];
   /** Paratroopers that can still be placed (PARADROP) */
@@ -175,6 +182,8 @@ export interface Shot {
   targetPosition?: Position;
   /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
   tookGround?: boolean;
+  /** Instead of firing, the unit removed the barbed wire on this hex (no dice) */
+  removedWire?: Position;
 }
 
 /** The roll of an attack combat card on one marked hex (Barrage, Air Power, Air Bombardment) */
@@ -227,6 +236,8 @@ export type BattleEdit = (
   | { kind: "move"; from: Position; to: Position }
   /** A unit that arrived: the Reinforcements card */
   | { kind: "add"; position: Position; unit: Unit }
+  /** Barbed wire removed at the table (by the other side, or missed here) */
+  | { kind: "wire"; position: Position }
 ) & { beforeOrders?: boolean };
 
 /**
@@ -256,6 +267,7 @@ class GameSession {
   private chosenCard: CommandCard | null = null;
   private chosenSection: Section | null = null;
   private drawnCard: CommandCard | null = null;
+  private extraDrawn: CommandCard | null = null;
   private drawOptions: CommandCard[] = [];
   private drewAgain = false;
   private orders: Order[] = [];
@@ -730,6 +742,7 @@ class GameSession {
       closeAssaultOnly: summary.closeAssaultOnly,
       combatBonus: this.combatBonusFor(orderIndex),
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
+      fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
     };
   }
 
@@ -844,6 +857,28 @@ class GameSession {
     return this.publish();
   }
 
+  // Barbed wire: infantry standing on it fires with a die less (fireBonusSteps),
+  // or removes it instead of firing, which uses up the shot
+
+  /** The unit of this order can remove the wire it stands on now, instead of its next shot */
+  private canRemoveWire(orderIndex: number): boolean {
+    const order = this.orders[orderIndex];
+    const summary = this.summaries()[orderIndex];
+    if (!order || !summary || !this.canFireNow(orderIndex)) return false;
+    return !!this.board.getHex(summary.firingFrom)?.wire && wireChoiceFor(order.unit.getUnitType());
+  }
+
+  /** Remove the barbed wire under this unit instead of firing: it counts as the unit's shot */
+  removeWire(orderIndex: number): boolean {
+    if (!this.canRemoveWire(orderIndex)) return false;
+    const position = { ...this.summaries()[orderIndex]!.firingFrom };
+    this.board.getHex(position)!.setWire(false);
+    const target = { unitType: this.orders[orderIndex]!.unit.getUnitType(), closeAssault: false };
+    const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, removedWire: position };
+    this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
   /** The target of a shot, marked as rolled on the long-range die when the game uses it and the target isn't adjacent */
   private targetFor(order: Order, { unitType, closeAssault }: ShotTarget): ShotTarget {
     return this.longRangeDie && !closeAssault
@@ -917,6 +952,8 @@ class GameSession {
     const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
     if (index === -1) return false;
 
+    const wire = this.shots[index]!.removedWire;
+    if (wire) this.board.getHex(wire)?.setWire(true);
     this.shots = this.shots.filter((_, i) => i !== index);
     return this.publish();
   }
@@ -1181,6 +1218,17 @@ class GameSession {
     return this.publish();
   }
 
+  /** Take off barbed wire removed at the table */
+  removeWireAt(position: Position): boolean {
+    if (!this.canEditMap()) return false;
+    const hex = this.board.getHex(position);
+    if (!hex?.wire) return false;
+
+    hex.setWire(false);
+    this.addBattleEdit({ kind: "wire", position: { ...position } });
+    return this.publish();
+  }
+
   undoBattleEdit(): boolean {
     if (!this.canUndoMapEdit()) return false;
     const edit = this.battleEdits.at(-1)!;
@@ -1189,6 +1237,8 @@ class GameSession {
       this.board.placeUnitAt(edit.position, edit.unit);
     } else if (edit.kind === "add") {
       this.board.removeUnitAt(edit.position);
+    } else if (edit.kind === "wire") {
+      this.board.getHex(edit.position)?.setWire(true);
     } else {
       this.board.moveUnit(edit.to, edit.from);
     }
@@ -1263,7 +1313,26 @@ class GameSession {
     // A single card is kept unless the player swaps it (drawAgain)
     if (playedCard.drawChoice === 1) this.keep(drawn[0]!);
     else this.drawOptions = drawn;
+    // The scenario's extra card goes straight to the hand
+    if (this.drawsExtra()) {
+      const [extra] = this.deck.draw(1);
+      if (extra) {
+        this.hand = [...this.hand, extra];
+        this.extraDrawn = extra;
+      }
+    }
     return this.publish();
+  }
+
+  /** This side's turns so far, counting this one: the defender's first turn is turn 2 */
+  private ownTurn(): number {
+    return this.attacking ? this.turn : this.turn - 1;
+  }
+
+  /** This turn's draw brings a second card (Pegasus Bridge: the Axis, after its first two turns) */
+  private drawsExtra(): boolean {
+    const rule = this.scenario.extraDraws;
+    return !!rule && rule.faction === this.faction && this.ownTurn() <= rule.turns;
   }
 
   /** Keep one of the cards drawn; the others are discarded */
@@ -1341,6 +1410,7 @@ class GameSession {
     this.chosenCard = null;
     this.chosenSection = null;
     this.drawnCard = null;
+    this.extraDrawn = null;
     this.drewAgain = false;
     this.orders = [];
     this.ordersCommitted = false;
@@ -1364,6 +1434,7 @@ class GameSession {
       chosenCard: this.chosenCard,
       chosenSection: this.chosenSection,
       drawnCard: this.drawnCard,
+      extraDrawn: this.extraDrawn,
       drawOptions: this.drawOptions,
       drewAgain: this.drewAgain,
       orders: this.orders,
@@ -1414,6 +1485,7 @@ class GameSession {
     session.chosenCard = state.chosenCard;
     session.chosenSection = state.chosenSection;
     session.drawnCard = state.drawnCard;
+    session.extraDrawn = state.extraDrawn;
     session.drawOptions = state.drawOptions;
     session.drewAgain = state.drewAgain;
     session.orders = state.orders;
@@ -1450,6 +1522,8 @@ class GameSession {
       activeCard: this.activeCard(),
       chosenSection: this.chosenSection,
       drawnCard: this.drawnCard,
+      extraDrawn: this.extraDrawn,
+      drawsExtra: this.drawsExtra(),
       drawOptions: [...this.drawOptions],
       canDrawAgain: this.canDrawAgain(),
       drewAgain: this.drewAgain,
@@ -1486,6 +1560,7 @@ class GameSession {
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),
       mustDiscardCombatCard: this.mustDiscardCombatCard(),
+      canRemoveWire: this.orders.map((_, i) => this.canRemoveWire(i)),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
       canUnpickCard: this.canUnpickCard(),

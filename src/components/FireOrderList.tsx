@@ -229,7 +229,9 @@ function FireOrderList({
       .filter(Boolean)
       .join(" · ");
     let status: ReactNode;
-    if (hasShots) status = <Stamp angle={-7}>Disparó</Stamp>;
+    const onlyWire = hasShots && summary.shots.every((shot) => shot.removedWire);
+    if (onlyWire) status = <Stamp angle={-7}>Alambrada</Stamp>;
+    else if (hasShots) status = <Stamp angle={-7}>Disparó</Stamp>;
     else if (summary.removed) status = <StatusText>Eliminada</StatusText>;
     else if (summary.waiting) status = <StatusText>Espera</StatusText>;
     else if (canFireNow) status = <Action color="var(--m44-move-fire)">Disparar</Action>;
@@ -258,14 +260,17 @@ function FireOrderList({
         detail={where(summary.firingFrom)}
         result={
           hasShots &&
-          `Disparó: ${summary.shots
-            .map(
-              (shot) =>
-                `${shot.collision ? "choque, " : ""}${describeAppliedFaces(shot.faces, shot.kept)}${
-                  shot.dice > 0 ? ` → ${describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
-                }`
-            )
-            .join(" / ")}`
+          (onlyWire
+            ? "Quitó la alambrada"
+            : `Disparó: ${summary.shots
+                .map((shot) =>
+                  shot.removedWire
+                    ? "quitó la alambrada"
+                    : `${shot.collision ? "choque, " : ""}${describeAppliedFaces(shot.faces, shot.kept)}${
+                        shot.dice > 0 ? ` → ${describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
+                      }`
+                )
+                .join(" / ")}`)
         }
         status={status}
         tone={canFireNow ? "go" : summary.removed || summary.waiting || (!summary.canFire && !hasShots) ? "dim" : "plain"}

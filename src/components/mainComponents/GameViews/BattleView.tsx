@@ -193,6 +193,8 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         onTakeGround={() => firingIndex !== null && session.takeGround(firingIndex)}
         onUndoTakeGround={() => firingIndex !== null && session.undoTakeGround(firingIndex)}
         longRangeDie={session.longRangeDie}
+        canRemoveWire={firingIndex !== null && (game.canRemoveWire[firingIndex] ?? false)}
+        onRemoveWire={() => withSound(firingIndex !== null && session.removeWire(firingIndex))}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}

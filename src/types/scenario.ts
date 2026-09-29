@@ -39,6 +39,10 @@ export interface Scenario {
    * side's app first asks where they landed. Units off the board or on another unit are lost.
    */
   paradrop?: { faction: Faction; unitType: UnitType; units: number };
+  /** Hexes with barbed wire: a unit that enters one stops; infantry on it fires with a die less or removes it */
+  wire?: Position[];
+  /** One side draws 2 command cards instead of 1 after each of its first `turns` turns (Pegasus Bridge: the Germans were surprised) */
+  extraDraws?: { faction: Faction; turns: number };
   /** The combat deck each side uses; the standard deck when omitted */
   combatDecks?: { allies?: CombatDeckId; axis?: CombatDeckId };
 }

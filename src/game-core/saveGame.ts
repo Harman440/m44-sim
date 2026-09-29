@@ -18,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 interface SavedUnit {
   type: UnitType;
@@ -40,9 +40,12 @@ export interface SavedGame {
   chosenCard: string | null;
   chosenSection: Section | null;
   drawnCard: string | null;
+  extraDrawn: string | null;
   drawOptions: string[];
   drewAgain: boolean;
   units: SavedUnit[];
+  /** Hexes that still have barbed wire */
+  wire: Position[];
   orders: {
     unit: number;
     start: Position;
@@ -62,6 +65,7 @@ export interface SavedGame {
     | { kind: "remove"; position: Position; unit: number }
     | { kind: "move"; from: Position; to: Position }
     | { kind: "add"; position: Position; unit: number }
+    | { kind: "wire"; position: Position }
   ) & { beforeOrders?: boolean })[];
   shots: Shot[];
   log: TurnRecord[];
@@ -90,6 +94,8 @@ export interface SessionState {
   chosenCard: CommandCard | null;
   chosenSection: Section | null;
   drawnCard: CommandCard | null;
+  /** The scenario's second card drawn this turn (already in the hand) */
+  extraDrawn: CommandCard | null;
   drawOptions: CommandCard[];
   drewAgain: boolean;
   orders: Order[];
@@ -177,6 +183,7 @@ export function writeSave(
     chosenCard: state.chosenCard?.id ?? null,
     chosenSection: state.chosenSection,
     drawnCard: state.drawnCard?.id ?? null,
+    extraDrawn: state.extraDrawn?.id ?? null,
     drawOptions: ids(state.drawOptions),
     drewAgain: state.drewAgain,
     // Orders and edits first, so units they reference get indexes; the list is read after
@@ -194,7 +201,7 @@ export function writeSave(
       closeAssaultOnly: order.closeAssaultOnly,
     })),
     battleEdits: state.battleEdits.map((edit) =>
-      edit.kind === "move"
+      edit.kind === "move" || edit.kind === "wire"
         ? edit
         : { kind: edit.kind, position: edit.position, unit: unitIndex(edit.unit), ...(edit.beforeOrders && { beforeOrders: true }) }
     ),
@@ -228,6 +235,7 @@ export function writeSave(
     drops: state.drops.map((p) => ({ ...p })),
     reinforcementFace: state.reinforcementFace,
     units: savedUnits,
+    wire: board.wirePositions(),
   };
 }
 
@@ -282,9 +290,18 @@ export function readSave(
     return units[index];
   };
 
+  board.getAllHexes().forEach((hex) => hex.setWire(false));
+  readPositions(saved.wire, "Barbed wire").forEach((position) => {
+    const hex = board.getHex(position);
+    if (!hex) throw new Error(`No hex for barbed wire at ${positionKey(position)}`);
+    hex.setWire(true);
+  });
+
   const hand = cards(saved.hand);
   const drawnCard = saved.drawnCard === null ? null : card(saved.drawnCard);
   if (drawnCard && !hand.includes(drawnCard)) throw new Error("Drawn card not in hand");
+  const extraDrawn = saved.extraDrawn === null ? null : card(saved.extraDrawn);
+  if (extraDrawn && !hand.includes(extraDrawn)) throw new Error("Extra card not in hand");
 
   const orders = saved.orders.map(
     (order) =>
@@ -312,6 +329,7 @@ export function readSave(
       throw new Error(`Unknown firer ${shot.target.longRangeFirer}`);
     }
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
+    if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
     return shot;
   });
 
@@ -345,13 +363,14 @@ export function readSave(
     chosenCard: saved.chosenCard === null ? null : card(saved.chosenCard),
     chosenSection: section(saved.chosenSection),
     drawnCard,
+    extraDrawn,
     drawOptions: cards(saved.drawOptions),
     drewAgain: saved.drewAgain === true,
     orders,
     ordersCommitted: saved.ordersCommitted,
     unmovedFireSkipped: saved.unmovedFireSkipped,
     battleEdits: saved.battleEdits.map((edit) =>
-      edit.kind === "move"
+      edit.kind === "move" || edit.kind === "wire"
         ? edit
         : { kind: edit.kind, position: edit.position, unit: unit(edit.unit), ...(edit.beforeOrders === true && { beforeOrders: true }) }
     ),

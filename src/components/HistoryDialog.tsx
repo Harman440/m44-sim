@@ -126,15 +126,21 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       key={i}
                       sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(shot.order) }}
                     >
-                      {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
-                      {shot.collision && " en un choque"}
-                      {" → "}
-                      {describeAppliedFaces(shot.faces, shot.kept)}
-                      {shot.dice > 0 &&
-                        ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
-                          readRoll(appliedFaces(shot.faces, shot.kept), shot.target)
-                        )})`}
-                      {shot.notes.map((note) => ` · ${note}`).join("")}
+                      {shot.removedWire ? (
+                        `${UNIT_LABELS[shot.unit]}: quitó la alambrada (${placeOf(shot.removedWire)})`
+                      ) : (
+                        <>
+                          {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
+                          {shot.collision && " en un choque"}
+                          {" → "}
+                          {describeAppliedFaces(shot.faces, shot.kept)}
+                          {shot.dice > 0 &&
+                            ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
+                              readRoll(appliedFaces(shot.faces, shot.kept), shot.target)
+                            )})`}
+                          {shot.notes.map((note) => ` · ${note}`).join("")}
+                        </>
+                      )}
                     </Typography>
                   ))}
                 </Box>
@@ -151,7 +157,9 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                 <Box component="ul" sx={{ m: 0, pl: 2 }}>
                   {record.battleEdits.map((edit, i) => (
                     <Typography component="li" variant="body2" key={i}>
-                      {edit.kind === "remove"
+                      {edit.kind === "wire"
+                        ? `Alambrada quitada (${placeOf(edit.position)})`
+                        : edit.kind === "remove"
                         ? `Eliminada: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
                         : edit.kind === "add"
                           ? `Refuerzo: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`

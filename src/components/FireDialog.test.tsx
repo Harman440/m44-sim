@@ -16,7 +16,13 @@ const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
 const UNIT: Position = { row: 7, col: 1 };
 
 /** A session in battle with one unit of `unitType` ordered to hold and fire; dice always show a grenade */
-const makeSession = (unitType: UnitType, holdShots = 1, longRangeDie = false, tiles: Scenario["tiles"] = {}) => {
+const makeSession = (
+  unitType: UnitType,
+  holdShots = 1,
+  longRangeDie = false,
+  tiles: Scenario["tiles"] = {},
+  wire: Position[] = []
+) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -25,6 +31,7 @@ const makeSession = (unitType: UnitType, holdShots = 1, longRangeDie = false, ti
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles,
+      wire,
       units: { allies: { [unitType]: [UNIT] }, axis: {} },
     },
     faction: "Allies",
@@ -62,6 +69,8 @@ function Harness({ session }: { session: GameSession }) {
         onUndoTakeGround={() => session.undoTakeGround(0)}
         combatBonus={session.combatBonusFor(0)}
         longRangeDie={session.longRangeDie}
+        canRemoveWire={game.canRemoveWire[0]}
+        onRemoveWire={() => session.removeWire(0)}
         onUndoShot={() => session.undoShot(0)}
         onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}
         onClose={() => setOpen(false)}
@@ -330,5 +339,38 @@ describe("FireDialog", () => {
     fireAt(ADJACENT, "Infantería", "3 dados");
 
     expect(screen.queryByTestId("take-ground")).not.toBeInTheDocument();
+  });
+});
+
+describe("FireDialog on barbed wire", () => {
+  const openOnWire = (unitType: UnitType) => {
+    const session = makeSession(unitType, 1, false, {}, [UNIT]);
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByText("abrir"));
+    return session;
+  };
+
+  it("asks infantry to remove the wire or fire with a die less", () => {
+    const session = openOnWire(UnitType.INFANTRY);
+
+    expect(screen.getByTestId("wire-choice")).toBeInTheDocument();
+    choose("Quitar alambrada");
+
+    expect(session.board.getHex(UNIT)!.wire).toBe(false);
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("quitó la alambrada");
+  });
+
+  it("goes on to the map when infantry fires, and back to the choice with Atrás", () => {
+    openOnWire(UnitType.INFANTRY);
+
+    choose(/Disparar \(−1 dado\)/);
+    expect(screen.queryByTestId("wire-choice")).not.toBeInTheDocument();
+    choose("Atrás");
+    expect(screen.getByTestId("wire-choice")).toBeInTheDocument();
+  });
+
+  it("doesn't ask armour", () => {
+    openOnWire(UnitType.TANK);
+    expect(screen.queryByTestId("wire-choice")).not.toBeInTheDocument();
   });
 });

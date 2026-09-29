@@ -8,6 +8,7 @@ import { describeTarget } from "../labels";
 import { unitSprite } from "./UnitComponent";
 import SandbagsIcon from "./SandbagsIcon";
 import GameIcon from "./GameIcon";
+import { BarbedWireIcon } from "./BarbedWire";
 
 interface ShotStepsProps {
   shot: Shot;
@@ -98,6 +99,8 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
         );
       case "collision":
         return <CloseAssaultIcon />;
+      case "wire":
+        return <BarbedWireIcon size={34} />;
       default:
         // Saved before the steps had kinds
         // An older step that isn't any of these

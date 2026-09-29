@@ -43,12 +43,15 @@ export interface TurnRecord {
     collision: boolean;
     /** What it was rolled against */
     target: ShotTarget;
+    /** Instead of firing, the unit removed the barbed wire on this hex */
+    removedWire?: Position;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
     | { kind: "remove"; unit: UnitType; position: Position }
     | { kind: "move"; unit: UnitType; from: Position; to: Position }
     | { kind: "add"; unit: UnitType; position: Position }
+    | { kind: "wire"; position: Position }
   )[];
   /** How the turn earned and spent coins */
   coins: CoinEntry[];
@@ -123,12 +126,14 @@ export function recordTurn({
       notes: [...shot.notes],
       collision: shot.collision,
       target: { ...shot.target },
+      ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
     })),
-    battleEdits: editedUnits(battleEdits, board).map((unit, i) => {
+    battleEdits: editedUnits(battleEdits, board).map((unit, i): TurnRecord["battleEdits"][number] => {
       const edit = battleEdits[i]!;
+      if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
       return edit.kind === "move"
-        ? { kind: "move", unit, from: { ...edit.from }, to: { ...edit.to } }
-        : { kind: edit.kind, unit, position: { ...edit.position } };
+        ? { kind: "move", unit: unit!, from: { ...edit.from }, to: { ...edit.to } }
+        : { kind: edit.kind, unit: unit!, position: { ...edit.position } };
     }),
     coins: coins.map((entry) => ({ ...entry })),
     coinsAfter,
@@ -146,16 +151,16 @@ export function recordTurn({
 }
 
 /**
- * The unit type each edit applied to. A move only knows its hexes, so the
- * edits are undone one by one, newest first, on a copy of the board.
+ * The unit type each edit applied to (null for wire removed). A move only knows its
+ * hexes, so the edits are undone one by one, newest first, on a copy of the board.
  */
-function editedUnits(edits: readonly BattleEdit[], board: BoardManager): UnitType[] {
+function editedUnits(edits: readonly BattleEdit[], board: BoardManager): (UnitType | null)[] {
   const units = new Map<string, Unit>();
   board.getAllHexes().forEach((hex) => {
     if (hex.unit) units.set(positionKey(hex.getPosition()), hex.unit);
   });
 
-  const types: UnitType[] = [];
+  const types: (UnitType | null)[] = [];
   for (let i = edits.length - 1; i >= 0; i--) {
     const edit = edits[i]!;
     if (edit.kind === "remove") {
@@ -164,6 +169,8 @@ function editedUnits(edits: readonly BattleEdit[], board: BoardManager): UnitTyp
     } else if (edit.kind === "add") {
       units.delete(positionKey(edit.position));
       types[i] = edit.unit.getUnitType();
+    } else if (edit.kind === "wire") {
+      types[i] = null;
     } else {
       const unit = units.get(positionKey(edit.to));
       if (!unit) throw new Error(`No unit at ${positionKey(edit.to)} to undo a move`);

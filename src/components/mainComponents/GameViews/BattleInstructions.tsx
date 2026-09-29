@@ -66,6 +66,15 @@ function BattleInstructions({ open, onClose, attacking }: BattleInstructionsProp
           </Box>
 
           <Box>
+            {heading("Alambradas")}
+            <Typography variant="body1">
+              La infantería que está en una alambrada elige al disparar: la quita (y no dispara) o dispara con 1 dado
+              menos. Los blindados y la artillería disparan como siempre. Si el rival quita una, quítala del mapa en la
+              fase final.
+            </Typography>
+          </Box>
+
+          <Box>
             {heading("Cartas de combate")}
             <Typography variant="body1">
               Una por batalla, en cualquier momento; normalmente cuando dispara el rival. Se paga al jugarla.

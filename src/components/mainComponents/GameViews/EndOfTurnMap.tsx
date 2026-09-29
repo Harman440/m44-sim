@@ -8,6 +8,7 @@ import { useHexFlash } from "../../useHexFlash";
 import { UNIT_LABELS, describeHex } from "../../../labels";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
+import { BarbedWireIcon } from "../../BarbedWire";
 import "./PhaseLayout.css";
 
 interface EndOfTurnMapProps {
@@ -52,12 +53,21 @@ function EndOfTurnMap({
       setSelected(position);
       return;
     }
-    if (selected) {
+    if (selected && boardManager.getHex(selected)?.hasUnit()) {
       if (session.relocateUnit(selected, position)) setSelected(null);
       else flashInvalid(position);
       return;
     }
-    if (game.reinforcementToPlace && !session.placeReinforcement(position)) flashInvalid(position);
+    if (game.reinforcementToPlace) {
+      if (!session.placeReinforcement(position)) flashInvalid(position);
+      return;
+    }
+    // An empty hex with barbed wire: select it to take the wire off
+    setSelected(hex.wire ? position : null);
+  };
+
+  const handleRemoveWire = () => {
+    if (selected && session.removeWireAt(selected) && !boardManager.getHex(selected)?.hasUnit()) setSelected(null);
   };
 
   const handleRemove = () => {
@@ -91,7 +101,9 @@ function EndOfTurnMap({
           {title}
         </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
-          {selectedHex
+          {selectedHex && !selectedHex.hasUnit()
+            ? "Alambrada: quítala si ya no está en la mesa"
+            : selectedHex
             ? "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala"
             : game.reinforcementToPlace
               ? `Refuerzo (${UNIT_LABELS[game.reinforcementToPlace].toLowerCase()}): toca la casilla libre donde lo pones`
@@ -104,9 +116,16 @@ function EndOfTurnMap({
               Seleccionado: {describeHex(selectedHex)}
             </Typography>
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-              <Button color="error" onClick={handleRemove} startIcon={<GameIcon name="cancel" />}>
-                Eliminar unidad
-              </Button>
+              {selectedHex.hasUnit() && (
+                <Button color="error" onClick={handleRemove} startIcon={<GameIcon name="cancel" />}>
+                  Eliminar unidad
+                </Button>
+              )}
+              {selectedHex.wire && (
+                <Button color="warning" onClick={handleRemoveWire} startIcon={<BarbedWireIcon size={28} />}>
+                  Quitar alambrada
+                </Button>
+              )}
               <Button variant="outlined" onClick={() => setSelected(null)}>
                 Cancelar
               </Button>

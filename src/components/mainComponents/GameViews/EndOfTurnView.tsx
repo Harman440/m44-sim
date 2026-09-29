@@ -55,6 +55,18 @@ const CARD_WIDTH = "clamp(120px, 36cqh, 190px)";
  * both, in its own amounts). Each step is one line; its explanation is behind
  * an info button, and tapping a card shows its full text.
  */
+/** The scenario's extra card (Pegasus Bridge), already in the hand */
+function ExtraCard({ card }: { card: ReactNode }) {
+  return (
+    <Stack sx={{ alignItems: "center", gap: 0.5 }} data-testid="extra-card">
+      {card}
+      <Typography variant="body2" color="text.secondary">
+        Carta extra
+      </Typography>
+    </Stack>
+  );
+}
+
 function EndOfTurnView({
   faction,
   session,
@@ -182,6 +194,8 @@ function EndOfTurnView({
                 {drawChoice > 1
                   ? `${chosenCard!.name}: roba ${drawChoice} cartas de tu mazo y quédate con 1.`
                   : "Roba una carta de tu mazo y te la quedas. Puedes descartarla una vez y robar otra, pero entonces te quedas la nueva."}{" "}
+                {game.drawsExtra &&
+                  `En este escenario robas además una carta extra, que va directa a la mano, al final de tus ${session.scenario.extraDraws!.turns} primeros turnos. `}
                 Toca una carta para ver su texto.
               </Typography>
             }
@@ -189,13 +203,18 @@ function EndOfTurnView({
             {!drawnCard && drawOptions.length === 0 && (
               <Button onClick={onDrawCard} startIcon={<GameIcon name="cards" />}>
                 {drawChoice > 1 ? `Robar ${drawChoice} cartas` : "Robar carta"}
+                {game.drawsExtra && " +1"}
               </Button>
             )}
           </StepHeading>
           {drawnCard ? (
             <Stack direction="row" sx={{ alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 2 }}>
-              {commandCard(drawnCard)}
-              <Stack sx={{ gap: 1, alignItems: "flex-start" }}>
+              {/* With the scenario's extra card, the two cards side by side and the text under them */}
+              <Stack direction="row" sx={{ alignItems: "flex-start", gap: 2 }}>
+                {commandCard(drawnCard)}
+                {game.extraDrawn && <ExtraCard card={commandCard(game.extraDrawn)} />}
+              </Stack>
+              <Stack sx={{ gap: 1, alignItems: game.extraDrawn ? "center" : "flex-start", width: game.extraDrawn ? "100%" : undefined }}>
                 <Typography variant="body2" color="text.secondary">
                   {game.drewAgain ? "Has descartado la primera y robado esta." : "Te la quedas."}
                 </Typography>
@@ -209,6 +228,7 @@ function EndOfTurnView({
           ) : (
             drawOptions.length > 0 && (
               <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 1.5 }}>
+                {game.extraDrawn && <ExtraCard card={commandCard(game.extraDrawn)} />}
                 {drawOptions.map((card) => (
                   <Stack key={card.id} sx={{ alignItems: "center", gap: 1 }}>
                     {commandCard(card)}

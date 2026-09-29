@@ -83,7 +83,9 @@ The two decisions from the first plan still hold:
 - [x] Sainte-Mère-Église, the official base-game scenario, with its paradrop (`Scenario.paradrop`, the PARADROP phase)
 - [x] Rivers, bridges and lakes: `HexType.RIVER`, `BRIDGE` and `LAKE`, drawn by `npm run board` (a river flows through the edges it shares with the next river or bridge hexes; a lake joins the lake hexes next to it)
 - [x] **Decided:** a river or a lake is impassable (as official) and doesn't block line of sight; a bridge plays exactly like plains (moving, firing, cover)
-- [x] Pegasus Bridge, the official base-game scenario 1 (Allies 6 cards, Axis 2; Allies attack). The barbed wire and sandbags round Pegasus Bridge are only on the table, and the medals on the bridges aren't tracked (the app doesn't count medals)
+- [x] Pegasus Bridge, the official base-game scenario 1 (Allies 6 cards, Axis 2; Allies attack). The sandbags by the bridge are only on the table, and medals stay on the table (**Decided:** the app doesn't count them)
+- [x] Barbed wire (`Scenario.wire`, drawn on the board over the hex art since it can be removed): any unit that enters it stops. **Decided:** in the battle, infantry on wire is asked whether to remove it (instead of firing) or fire with a die less; armour and artillery fire as usual. Wire the opponent removes is taken off in "Actualizar mapa"
+- [x] The Axis' surprise in Pegasus Bridge (`Scenario.extraDraws`): 2 cards to start, and 2 drawn instead of 1 after each of its first two turns, so 4 in hand from then on
 - [ ] **Decide:** the Pegasus Bridge reinforcement table is a proposal (grenade and star → infantry, flag → none), like Sainte-Mère-Église
 - [x] **Decide:** the Sainte-Mère-Église reinforcement table is a proposal (grenade and star → infantry, flag → none), like the other two
 

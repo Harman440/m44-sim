@@ -166,9 +166,26 @@ const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): Dice
   return card && dice !== 0 ? [{ label: `Carta ${card.name}`, dice, kind: "card" }] : [];
 };
 
-/** Extra dice that don't need a question: the command card's bonuses */
+/**
+ * Dice lost by a unit firing from a hex with barbed wire, by its type. Infantry
+ * can remove the wire instead of firing (GameSession.removeWire); armour and
+ * artillery fire as usual.
+ */
+export const WIRE_FIRE_DICE: Record<UnitType, number> = {
+  [UnitType.INFANTRY]: -1,
+  [UnitType.TANK]: 0,
+  [UnitType.ARTILLERY]: 0,
+};
+
+/** The unit types asked whether to remove the wire they stand on or fire with fewer dice */
+export const wireChoiceFor = (unitType: UnitType) => WIRE_FIRE_DICE[unitType] !== 0;
+
+const wireSteps = ({ unitType, fromWire }: FireContext): DiceStep[] =>
+  fromWire && WIRE_FIRE_DICE[unitType] !== 0 ? [{ label: "Desde una alambrada", dice: WIRE_FIRE_DICE[unitType], kind: "wire" }] : [];
+
+/** Extra dice that don't need a question: the command card's bonuses, and barbed wire under the firing unit */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
-  answers.distance ? cardSteps(context, answers.distance === "1") : [];
+  answers.distance ? [...cardSteps(context, answers.distance === "1"), ...wireSteps(context)] : [];
 
 /**
  * A collision in the movement phase (two units cross or land on the same hex):

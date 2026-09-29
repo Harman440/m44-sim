@@ -17,6 +17,8 @@ export interface FireContext {
   combatBonus?: DiceBonusEffect & { name: string };
   /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground) */
   fromTerrain?: HexType;
+  /** The unit fires from a hex with barbed wire (infantry loses a die) */
+  fromWire?: boolean;
 }
 
 /** Answers so far, by question id -> option value */
@@ -28,7 +30,7 @@ export interface FireOption {
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
-export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision";
+export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {
