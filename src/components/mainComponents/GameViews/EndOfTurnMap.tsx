@@ -14,6 +14,10 @@ interface EndOfTurnMapProps {
   faction: Faction;
   session: GameSession;
   game: GameSnapshot;
+  /** The phase it is opened from: "Fase final", or "Órdenes" to fix the map before giving orders */
+  title: string;
+  /** What to do, before a unit is tapped */
+  hint?: string;
   onDone: () => void;
 }
 
@@ -21,9 +25,17 @@ interface EndOfTurnMapProps {
  * Map of the final phase. The battle is fought and the retreats are made on
  * the physical table; this lets the player mirror the result: remove destroyed
  * units and move units that retreated or took ground (to any empty hex; the
- * table is the source of truth).
+ * table is the source of truth). Also opened from Órdenes, before any order,
+ * when the map turns out not to match the table.
  */
-function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
+function EndOfTurnMap({
+  faction,
+  session,
+  game,
+  title,
+  hint = "Refleja aquí las bajas, retiradas y terreno tomado de la mesa: toca una unidad",
+  onDone,
+}: EndOfTurnMapProps) {
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
   const { flash, flashInvalid } = useHexFlash();
@@ -76,14 +88,14 @@ function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
 
       <div className="phase-layout__controls">
         <Typography variant="h6" sx={{ textAlign: "center" }}>
-          Fase final
+          {title}
         </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
           {selectedHex
             ? "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala"
             : game.reinforcementToPlace
               ? `Refuerzo (${UNIT_LABELS[game.reinforcementToPlace].toLowerCase()}): toca la casilla libre donde lo pones`
-              : "Refleja aquí las bajas, retiradas y terreno tomado de la mesa: toca una unidad"}
+              : hint}
         </Typography>
 
         {selectedHex && (
@@ -103,7 +115,7 @@ function EndOfTurnMap({ faction, session, game, onDone }: EndOfTurnMapProps) {
         )}
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-          {game.battleEdits > 0 && !selected && (
+          {game.canUndoMapEdit && !selected && (
             <Button variant="outlined" onClick={() => session.undoBattleEdit()} startIcon={<GameIcon name="undo" />}>
               Deshacer
             </Button>

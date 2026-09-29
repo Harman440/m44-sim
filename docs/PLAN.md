@@ -67,6 +67,13 @@ The two decisions from the first plan still hold:
 - [x] **Decided:** stars rolled count in the extra turn; the final-phase reward (2 coins or a combat card, and Preparations' reward) is skipped
 - [x] **Decided:** the defender gets nothing in return
 
+### Step 41b: Final phase and card faces
+- [x] Final phase: each step is one line, its explanation behind an info button; step 1 is the title with "Actualizar mapa" beside it; "Empezar turno N" is always in sight (disabled, with what's missing, until it can be pressed)
+- [x] The command card drawn is kept at once: no "Quedármela" (only "Descartar y robar otra", or "Elegir" among Recon's 3)
+- [x] The final-phase reward defaults to 2 suministros; the combat card can still be picked instead
+- [x] "Actualizar mapa" in Órdenes, before any order and after a confirmation, to fix a map that doesn't match the table (a roll changed at the table). Those fixes can't be undone after the orders
+- [x] Card faces: no text; the art fills the card, with a token per ordered unit and a row of pictograms per special rule. Tapping a card anywhere shows its full text
+
 ## Part E: Maps and scenarios
 
 ### Step 42: More terrain

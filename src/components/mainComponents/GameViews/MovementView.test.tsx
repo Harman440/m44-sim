@@ -105,22 +105,16 @@ describe("EndOfTurnView", () => {
     return session;
   };
 
-  it("draws the command card, shows it, and only then offers the next turn", () => {
+  it("draws the command card and keeps it, and only then starts the next turn", () => {
     const session = finalPhase();
-    expect(screen.getByText(/Roba una carta de tu mazo/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Empezar turno 2" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
 
-    const [drawn] = session.getSnapshot().drawOptions;
-    expect(screen.getByText("Has robado:")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: drawn!.name })).toBeInTheDocument();
+    const drawn = session.getSnapshot().drawnCard!;
+    expect(screen.getByText("Te la quedas.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: drawn.name })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Robar carta" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Empezar turno 2" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: `Quedármela: ${drawn!.name}` }));
-    expect(screen.getByText("Te quedas:")).toBeInTheDocument();
-    expect(session.getSnapshot().drawnCard).toBe(drawn);
 
     fireEvent.click(screen.getByRole("button", { name: "Empezar turno 2" }));
     expect(session.getSnapshot()).toMatchObject({ turn: 2, phase: TurnPhase.PICK_CARDS });
@@ -132,10 +126,9 @@ describe("EndOfTurnView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Descartar y robar otra" }));
 
-    expect(screen.getByText("Has descartado la primera y robado:")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: session.getSnapshot().drawnCard!.name })).toBeInTheDocument();
+    expect(screen.getByText("Has descartado la primera y robado esta.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: session.getSnapshot().drawnCard!.name })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Quedármela/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
   });
 });

@@ -58,11 +58,11 @@ export interface SavedGame {
   }[];
   ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
-  battleEdits: (
+  battleEdits: ((
     | { kind: "remove"; position: Position; unit: number }
     | { kind: "move"; from: Position; to: Position }
     | { kind: "add"; position: Position; unit: number }
-  )[];
+  ) & { beforeOrders?: boolean })[];
   shots: Shot[];
   log: TurnRecord[];
   startCoins: number;
@@ -194,7 +194,9 @@ export function writeSave(
       closeAssaultOnly: order.closeAssaultOnly,
     })),
     battleEdits: state.battleEdits.map((edit) =>
-      edit.kind === "move" ? edit : { kind: edit.kind, position: edit.position, unit: unitIndex(edit.unit) }
+      edit.kind === "move"
+        ? edit
+        : { kind: edit.kind, position: edit.position, unit: unitIndex(edit.unit), ...(edit.beforeOrders && { beforeOrders: true }) }
     ),
     ordersCommitted: state.ordersCommitted,
     unmovedFireSkipped: state.unmovedFireSkipped,
@@ -349,7 +351,9 @@ export function readSave(
     ordersCommitted: saved.ordersCommitted,
     unmovedFireSkipped: saved.unmovedFireSkipped,
     battleEdits: saved.battleEdits.map((edit) =>
-      edit.kind === "move" ? edit : { kind: edit.kind, position: edit.position, unit: unit(edit.unit) }
+      edit.kind === "move"
+        ? edit
+        : { kind: edit.kind, position: edit.position, unit: unit(edit.unit), ...(edit.beforeOrders === true && { beforeOrders: true }) }
     ),
     shots,
     log: saved.log,

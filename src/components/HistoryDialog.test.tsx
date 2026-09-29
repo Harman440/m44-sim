@@ -47,7 +47,6 @@ const playedSession = () => {
     session.endBattle();
     final();
     session.drawCard();
-    session.keepCard(session.getSnapshot().drawOptions[0]!);
     session.chooseReward("coins"); // not asked in the extra turn 1
     session.endTurn();
   };

@@ -1,8 +1,8 @@
-/* Portrait: the three steps one below the other */
+/* Portrait: the steps one below the other, the next turn button last */
 .end-of-turn {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
@@ -11,7 +11,7 @@
 .end-of-turn__steps {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .end-of-turn__footer {
@@ -21,35 +21,36 @@
   gap: 8px;
 }
 
-.end-of-turn__footer:empty {
-  display: none;
-}
-
 /*
- * Landscape: one screen high (see GameView.css). The three steps side by
- * side, each scrolling in its own box, and the next turn button below.
+ * Landscape: one screen high (see GameView.css). Step 1 is one line across
+ * the top, steps 2 and 3 side by side, each scrolling in its own box, and the
+ * next turn button always in sight below them.
  */
 @media (orientation: landscape) {
   .end-of-turn {
     max-width: none;
     min-height: 0;
-    gap: 12px;
   }
 
-  .end-of-turn > h2 {
+  .end-of-turn__table {
     flex: none;
+    max-height: 30%;
+    overflow-y: auto;
   }
 
   .end-of-turn__steps {
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    /* The cards are sized from its height (cqh) */
+    container-type: size;
   }
 
   .end-of-turn__steps > * {
     min-height: 0;
+    max-height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
   }

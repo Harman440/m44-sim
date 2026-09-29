@@ -16,27 +16,23 @@ describe("CommandCardComponent", () => {
     expect(container.querySelector(".command-card--section")).not.toBeNull();
   });
 
-  it("tags the card's special rules", () => {
-    renderCard(new CommandCard({ name: "Sondeo", sections: [Side.LEFT], orders: 2, onTheMove: 1 }));
-    renderCard(new CommandCard({ name: "Avance", orders: 6, perSection: 2 }));
-    renderCard(
-      new CommandCard({ name: "Asalto", tactic: true, sections: "chosen", unitTypes: [UnitType.INFANTRY], orders: "all" })
+  it("draws the card's rules as pictures, with no text on the card", () => {
+    const container = renderCard(
+      new CommandCard({ name: "Asalto", description: "Texto", tactic: true, sections: "chosen", unitTypes: [UnitType.INFANTRY], orders: "all", moveBonus: 1 })
     );
 
-    expect(screen.getByText("+1 en movimiento")).toBeInTheDocument();
-    expect(screen.getByText("2 por sección")).toBeInTheDocument();
-    expect(screen.getByText("Sección a elegir")).toBeInTheDocument();
-    expect(screen.getByText("Solo infantería")).toBeInTheDocument();
     expect(screen.getByText("Todas")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Secciones: una a elegir" })).toBeInTheDocument();
+    expect(container.querySelectorAll(".card-art__rule")).toHaveLength(1);
+    expect(screen.queryByText("Texto")).not.toBeInTheDocument();
   });
 
-  it("tags a card paid in coins, and counts no orders for Close Assault", () => {
+  it("counts no orders for Close Assault, and shows the costs of a card paid in coins", () => {
     const paid = renderCard(new CommandCard({ tactic: true, orders: 4, coinCost: { [UnitType.TANK]: 2 } }));
     const none = renderCard(new CommandCard({ tactic: true, closeAssaultOnly: true }));
 
     expect(paid.querySelector(".command-card__orders")).toHaveTextContent("4órdenes");
-    expect(within(paid).getByText("Cuesta suministros")).toBeInTheDocument();
+    expect(paid.querySelector(".card-art__crate")).not.toBeNull();
     expect(paid.querySelector(".command-card--tactic")).not.toBeNull();
     expect(none.querySelector(".command-card__orders")).toHaveTextContent("0órdenes");
   });

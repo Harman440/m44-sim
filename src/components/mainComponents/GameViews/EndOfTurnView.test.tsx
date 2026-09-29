@@ -26,7 +26,7 @@ const makeFinalSession = () => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })],
+    commandCards: [new CommandCard({ id: "left", name: "Ataque", sections: [Side.LEFT], orders: 2 })],
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(INFANTRY, INFANTRY);
@@ -78,7 +78,7 @@ describe("EndOfTurnView map", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
     expect(container.querySelector("svg.board__svg")).toBeNull();
-    expect(screen.getByTestId("map-edits")).toHaveTextContent("1 cambio en el mapa");
+    expect(screen.getByTestId("map-edits")).toHaveTextContent("1 cambio");
   });
 
   it("removes a destroyed unit and undoes it", () => {
@@ -186,17 +186,18 @@ describe("EndOfTurnView after a special card", () => {
     const session = finalAfter(
       new CommandCard({ id: "recon", name: "Reconocimiento", sections: [Side.LEFT], orders: 1, drawChoice: 3 })
     );
-    expect(screen.getByText("Reconocimiento: roba 3 cartas de tu mazo y quédate con 1.")).toBeInTheDocument();
-
     fireEvent.click(screen.getByRole("button", { name: "Robar 3 cartas" }));
 
-    expect(screen.getByText("Elige la carta que te quedas:")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Quedármela/ })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: /^Elegir / })).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Quedármela: Y" }));
+    fireEvent.click(screen.getByRole("button", { name: "Elegir Y" }));
     expect(session.getSnapshot().hand.map((c) => c.name)).toEqual(["Y"]);
-    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Información: Carta de mando" }));
+    expect(screen.getByText(/Reconocimiento: roba 3 cartas de tu mazo y quédate con 1\./)).toBeInTheDocument();
   });
 
   it("adds the Preparations coins and draws its combat card, with no choice", () => {
@@ -210,36 +211,32 @@ describe("EndOfTurnView after a special card", () => {
       2
     );
 
-    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "En lugar de elegir: +3 suministros, ya sumados al contador, y una carta de combate."
-    );
+    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("+3 suministros y una carta de combate.");
     expect(screen.queryByRole("button", { name: /2 suministros/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().coins).toBe(3);
 
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Robar carta de combate" }));
 
-    expect(screen.getByText("Has robado:")).toBeInTheDocument();
+    expect(screen.getByText("Has robado esta carta.")).toBeInTheDocument();
     expect(session.getSnapshot().combatHand).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
-  it("asks for 2 coins or a combat card before the next turn; coins can still change to the card", () => {
+  it("takes 2 coins by default before the next turn; they can still change to a combat card", () => {
     const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2);
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
-    const start = screen.getByRole("button", { name: "Empezar turno 3" });
-    expect(start).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: /2 suministros/ }));
     expect(session.getSnapshot().coins).toBe(2);
+    expect(screen.getByRole("button", { name: /2 suministros/ })).toHaveAttribute("aria-pressed", "true");
+    const start = screen.getByRole("button", { name: "Empezar turno 3" });
+    expect(start).toBeDisabled(); // no command card drawn yet
+
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     expect(start).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
     expect(session.getSnapshot().coins).toBe(0);
-    expect(screen.getByText("Has robado:")).toBeInTheDocument();
+    expect(screen.getByText("Has robado esta carta.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /2 suministros/ })).toBeDisabled();
     fireEvent.click(start);
     expect(session.getSnapshot().turn).toBe(3);
@@ -248,8 +245,7 @@ describe("EndOfTurnView after a special card", () => {
   it("makes the player discard a combat card when the hand goes over 3", () => {
     const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2, 3);
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
-    fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
 
     expect(screen.getByTestId("discard-combat-card")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeDisabled();
@@ -263,12 +259,23 @@ describe("EndOfTurnView after a special card", () => {
   it("gives no final-phase reward in the attacker's extra turn", () => {
     finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }));
 
-    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "En el turno extra no hay recompensa: ni suministros ni carta de combate."
-    );
+    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("Sin recompensa en el turno extra.");
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
+  });
+});
+
+describe("EndOfTurnView cards", () => {
+  it("shows a card's full text when it is tapped", () => {
+    const session = makeFinalSession();
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
+    const drawn = session.getSnapshot().drawnCard!;
+
+    fireEvent.click(screen.getByRole("button", { name: drawn.name }));
+
+    expect(screen.getByRole("dialog", { name: "Carta" })).toBeInTheDocument();
+    expect(screen.getByTestId("card-details")).toBeInTheDocument();
   });
 });
 

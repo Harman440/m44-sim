@@ -1,11 +1,9 @@
-import { ReactNode } from "react";
 import { Box, ButtonBase, Typography } from "@mui/material";
 import { CombatCard } from "../game-core/combatCard";
 import { COMBAT_PHASE_LABELS } from "../labels";
 import GameIcon from "./GameIcon";
 import { Faction } from "../types/faction";
 import { CombatCardArt } from "./CardArt";
-import { useFadeWhenClipped } from "./useFadeWhenClipped";
 import "./CommandCard.css";
 
 interface CombatCardProps {
@@ -16,19 +14,17 @@ interface CombatCardProps {
   selected?: boolean;
   /** Shown faded: it can't be played now (it can still be tapped to look at it) */
   disabled?: boolean;
-  /** Buttons under the text */
-  children?: ReactNode;
   /** Whose unit tokens the art shows */
   faction?: Faction;
 }
 
 /**
  * A combat card: name band with its cost in coins, art showing what it does,
- * when it's played and its text. Order cards are tinted like section cards,
- * battle (reaction) cards like tactic cards.
+ * and when it's played. Order cards are tinted like section cards, battle
+ * (reaction) cards like tactic cards. Its text is in its details
+ * (CardDetails), shown when it is tapped.
  */
-function CombatCardComponent({ card, onClick, selected = false, disabled = false, children, faction = "Allies" }: CombatCardProps) {
-  const [textRef, clipped] = useFadeWhenClipped<HTMLDivElement>(card.description);
+function CombatCardComponent({ card, onClick, selected = false, disabled = false, faction = "Allies" }: CombatCardProps) {
   const face = (
     <>
       <Box
@@ -86,27 +82,28 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
           {card.cost}
         </Box>
       </Box>
-      <Box sx={{ flex: "none", px: "0.5em", pt: "0.5em" }}>
+      <Box className="game-card__art">
         <CombatCardArt card={card} faction={faction} />
       </Box>
-      <Box sx={{ p: "0.6em", pt: "0.5em", display: "flex", flexDirection: "column", gap: "0.4em", flex: "1 1 0", minHeight: 0 }}>
-        <Box sx={{ flex: "none", display: "flex", alignItems: "center", gap: "0.4em" }}>
-          <GameIcon name={card.phase === "order" ? "battle" : "fire"} size="1em" />
-          <Typography
-            component="span"
-            sx={{ fontSize: "0.68em", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}
-          >
-            {COMBAT_PHASE_LABELS[card.phase]}
-          </Typography>
-        </Box>
-        <Box
-          ref={textRef}
-          className={`game-card__text${clipped ? " game-card__text--clipped" : ""}`}
-          sx={{ fontSize: "0.8em", lineHeight: 1.3, color: "var(--m44-ink)" }}
+      <Box
+        sx={{
+          flex: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.4em",
+          py: "0.35em",
+          bgcolor: "var(--card-accent)",
+          color: "var(--m44-paper)",
+        }}
+      >
+        <GameIcon name={card.phase === "order" ? "battle" : "fire"} size="1em" />
+        <Typography
+          component="span"
+          sx={{ fontSize: "0.68em", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}
         >
-          {card.description}
-        </Box>
-        {children && <Box sx={{ flex: "none", display: "flex", flexWrap: "wrap", gap: 1 }}>{children}</Box>}
+          {COMBAT_PHASE_LABELS[card.phase]}
+        </Typography>
       </Box>
     </>
   );

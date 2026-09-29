@@ -463,3 +463,23 @@ describe("OrdersView changing the card", () => {
     expect(session.getSnapshot().phase).toBe(TurnPhase.PICK_CARDS);
   });
 });
+
+describe("OrdersView fixing the map", () => {
+  it("updates the map before any order, only after confirming, and hides it once an order is given", () => {
+    const { tap, session } = setup();
+
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar mapa" }));
+    expect(screen.getByRole("dialog", { name: "¿Actualizar el mapa?" })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Actualizar mapa" }).at(-1)!);
+    act(() => vi.runAllTimers());
+
+    tap(RIGHT);
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar unidad" }));
+    expect(session.board.getHex(RIGHT)!.hasUnit()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+
+    tap(LEFT_A);
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    expect(screen.queryByRole("button", { name: "Actualizar mapa" })).not.toBeInTheDocument();
+  });
+});

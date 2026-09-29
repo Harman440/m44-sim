@@ -25,18 +25,21 @@ describe("CommandCardArt", () => {
     expect(tinted.length).toBeLessThan(hexes.length / 2);
   });
 
-  it("shows a token for each unit type the card orders, in the player's colours", () => {
+  it("puts a token on the board for each unit the card orders", () => {
     const card = new CommandCard({ tactic: true, unitTypes: [UnitType.TANK], orders: 4 });
     const { container } = render(<CommandCardArt card={card} faction="Axis" />);
 
-    expect(container.querySelectorAll(".card-art__token")).toHaveLength(1);
+    expect(container.querySelectorAll(".card-art__token")).toHaveLength(4);
   });
 
-  it("adds badges for the card's special rules", () => {
+  it("draws a row of pictograms for each special rule, with the unit that only moves", () => {
     const card = new CommandCard({ sections: [Side.CENTER], orders: 1, onTheMove: 1, drawChoice: 3 });
     const { container } = render(<CommandCardArt card={card} faction="Allies" />);
 
-    expect(container.querySelectorAll(".card-art__badge")).toHaveLength(2);
+    expect(container.querySelectorAll(".card-art__rule")).toHaveLength(2);
+    expect(container.querySelectorAll(".card-art__rule-text")[1]).toHaveTextContent("3→1");
+    // 1 ordered unit, the one on the move on the board and in its pictogram
+    expect(container.querySelectorAll(".card-art__token--ghost")).toHaveLength(2);
   });
 });
 
@@ -45,7 +48,8 @@ describe("CombatCardArt", () => {
     const card = combat({ marker: { kind: "target", count: 4, chain: true }, effect: { kind: "attack", dicePerHex: 1 } });
     const { container } = render(<CombatCardArt card={card} faction="Allies" />);
 
-    expect(container.querySelectorAll(".card-art__reticle")).toHaveLength(4);
+    expect(container.querySelectorAll(".card-art__reticle")).toHaveLength(4 + 1); // and one in the pictogram
+    expect(container.querySelector(".card-art__rule")).toHaveTextContent("4×1");
   });
 
   it("draws the extra die of a dice card", () => {
@@ -57,7 +61,7 @@ describe("CombatCardArt", () => {
 
   it("strikes out the enemy unit of Out of Fuel, and stamps the phase on cards without art of their own", () => {
     const fuel = render(<CombatCardArt card={combat({ id: "out-of-fuel-2", phase: "battle" })} faction="Allies" />);
-    const plain = render(<CombatCardArt card={combat({ id: "rifles-up-1", phase: "battle" })} faction="Allies" />);
+    const plain = render(<CombatCardArt card={combat({ id: "personal-armor-1", phase: "battle" })} faction="Allies" />);
 
     expect(fuel.container.querySelector(".card-art__denied")).not.toBeNull();
     expect(plain.container.querySelector(".card-art__seal")).not.toBeNull();

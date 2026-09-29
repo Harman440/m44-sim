@@ -2,7 +2,6 @@ import CommandCard from "../game-core/commandCard";
 import { Faction } from "../types/faction";
 import { UNIT_LABELS } from "../labels";
 import { CommandCardArt } from "./CardArt";
-import { useFadeWhenClipped } from "./useFadeWhenClipped";
 import "./CommandCard.css";
 
 interface CommandCardProps {
@@ -35,40 +34,30 @@ export function ruleTags(card: CommandCard): string[] {
     return tags;
 }
 
-/** A command card, drawn like the game's: title band, art with the sections it orders, order count */
+/**
+ * A command card, drawn like the game's: title band with the order count, and
+ * art showing what it orders. Its text is in its details (CardDetails), shown
+ * when it is tapped.
+ */
 function CommandCardComponent({ cardData, onClick, faction = "Allies" }: CommandCardProps) {
     const { count, unit } = orderCount(cardData);
-    const [textRef, clipped] = useFadeWhenClipped<HTMLSpanElement>(cardData.description);
-    const tags = ruleTags(cardData);
     const Root = onClick ? "button" : "div";
     return (
         <Root
-            {...(onClick ? { type: "button", onClick: () => onClick(cardData) } : {})}
+            {...(onClick ? { type: "button", onClick: () => onClick(cardData), "aria-label": cardData.name } : {})}
             className={`game-card command-card command-card--${cardData.tactic ? "tactic" : "section"}${onClick ? "" : " command-card--static"}`}
         >
             <span className="command-card__band">
                 <h3 className="card-title" lang="es">{cardData.name}</h3>
-            </span>
-            <span className="command-card__art">
-                <CommandCardArt card={cardData} faction={faction} />
-                <span className="command-card__orders">
+                <span className="command-card__orders" aria-label={`${count} ${unit}`}>
                     <span className={`command-card__count${/^\d+$/.test(count) ? "" : " command-card__count--word"}`}>
                         {count}
                     </span>
                     <span className="command-card__orders-unit">{unit}</span>
                 </span>
             </span>
-            <span className="command-card__body">
-                {tags.length > 0 && (
-                    <span className="command-card__tags">
-                        {tags.map((tag) => (
-                            <span key={tag} className="command-card__unit">{tag}</span>
-                        ))}
-                    </span>
-                )}
-                <span ref={textRef} className={`game-card__text card-description${clipped ? " game-card__text--clipped" : ""}`}>
-                    {cardData.description}
-                </span>
+            <span className="command-card__art">
+                <CommandCardArt card={cardData} faction={faction} />
             </span>
         </Root>
     );

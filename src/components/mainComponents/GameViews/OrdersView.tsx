@@ -1,5 +1,18 @@
 import { useState } from "react";
-import { Alert, Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from "@mui/material";
 import { Position } from "../../../types/scenario";
 import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
@@ -14,6 +27,7 @@ import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameS
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
 import { HexType } from "../../../types/hex";
+import EndOfTurnMap from "./EndOfTurnMap";
 import "./PhaseLayout.css";
 
 interface OrdersViewProps {
@@ -86,6 +100,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
   const play = useSound();
+  /** Fixing the map before any order: asked first, then the map editor of the final phase */
+  const [confirmMapFix, setConfirmMapFix] = useState(false);
+  const [fixingMap, setFixingMap] = useState(false);
 
   const clearSelection = () => {
     setUnitHexPosition(null);
@@ -212,6 +229,19 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     }
     return "Toca una unidad resaltada para darle una orden";
   };
+
+  if (fixingMap && game.canEditMap) {
+    return (
+      <EndOfTurnMap
+        faction={faction}
+        session={session}
+        game={game}
+        title="Órdenes: actualizar mapa"
+        hint="Corrige el mapa para que coincida con la mesa: toca una unidad"
+        onDone={() => setFixingMap(false)}
+      />
+    );
+  }
 
   return (
     <div className="phase-layout">
@@ -406,7 +436,46 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             </Button>
           )}
         </Stack>
+
+        {/* Out of the way, and asked first: only when the map doesn't match the table */}
+        {game.canEditMap && !unitHexPosition && !marking && !extraMode && (
+          <Button
+            variant="text"
+            color="inherit"
+            size="small"
+            onClick={() => setConfirmMapFix(true)}
+            startIcon={<GameIcon name="map" />}
+            sx={{ mt: "auto", color: "text.secondary" }}
+          >
+            Actualizar mapa
+          </Button>
+        )}
       </div>
+
+      <Dialog open={confirmMapFix} onClose={() => setConfirmMapFix(false)}>
+        <DialogTitle>¿Actualizar el mapa?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Solo si el mapa no coincide con la mesa: por ejemplo, si se cambió una tirada o falta una retirada del
+            turno anterior. Se puede hacer mientras no hayas dado ninguna orden.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" onClick={() => setConfirmMapFix(false)}>
+            Cancelar
+          </Button>
+          <Button
+            color="warning"
+            onClick={() => {
+              setConfirmMapFix(false);
+              setFixingMap(true);
+            }}
+            startIcon={<GameIcon name="map" />}
+          >
+            Actualizar mapa
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

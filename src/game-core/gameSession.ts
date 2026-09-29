@@ -55,9 +55,9 @@ export interface GameSnapshot {
   hand: readonly CommandCard[];
   /** The command card drawn in the final phase, once kept (it is already in the hand) */
   drawnCard: CommandCard | null;
-  /** Cards drawn in the final phase waiting for the player to keep one (Recon: 3; otherwise 1, which may be swapped) */
+  /** Cards drawn in the final phase waiting for the player to keep one (Recon: 3); a single card is kept at once */
   drawOptions: readonly CommandCard[];
-  /** The one card drawn may be discarded for another, which must be kept */
+  /** The one card drawn (already kept) may be discarded once for another, which must be kept */
   canDrawAgain: boolean;
   /** The first card drawn this turn was discarded and the kept card is its replacement */
   drewAgain: boolean;
@@ -81,8 +81,12 @@ export interface GameSnapshot {
   /** With a Close Assault card, in the battle: units that can still be marked as in close assault */
   closeAssaultMarkable: readonly Position[];
   ordersCommitted: boolean;
-  /** Board changes made in the final phase to mirror the table after the battle (undoable) */
+  /** Board changes made to mirror the table: after the battle, or in Órdenes before any order */
   battleEdits: number;
+  /** The map can be changed by hand now: in the final phase, or in Órdenes before any order or mark */
+  canEditMap: boolean;
+  /** The last map change can be taken back now */
+  canUndoMapEdit: boolean;
   drawPileCount: number;
   discardPileCount: number;
   /** Shots fired this turn, in the order they were rolled */
@@ -213,12 +217,17 @@ interface GameSessionOptions {
   random?: () => number;
 }
 
-/** A change made in END_OF_TURN to match the physical table after the battle */
-export type BattleEdit =
+/**
+ * A change made to match the physical table: in END_OF_TURN after the battle,
+ * or in ORDER_UNITS before any order (`beforeOrders`), when the map turns out
+ * not to match the table (a roll changed at the table, a missed retreat)
+ */
+export type BattleEdit = (
   | { kind: "remove"; position: Position; unit: Unit }
   | { kind: "move"; from: Position; to: Position }
   /** A unit that arrived: the Reinforcements card */
-  | { kind: "add"; position: Position; unit: Unit };
+  | { kind: "add"; position: Position; unit: Unit }
+) & { beforeOrders?: boolean };
 
 /**
  * Owns one player's game: board, command cards and the turn flow
@@ -614,6 +623,8 @@ class GameSession {
     if (this.phase !== TurnPhase.BATTLE) return false;
 
     this.phase = TurnPhase.END_OF_TURN;
+    // The 2 coins unless the player picks the combat card instead
+    if (this.needsRewardChoice()) this.rewardChoice = "coins";
     return this.publish();
   }
 
@@ -1129,32 +1140,50 @@ class GameSession {
   // --- END_OF_TURN
 
   // The battle is fought on the physical table and the retreats are made
-  // after it; these then bring the app's board in line with the table
+  // after it; these then bring the app's board in line with the table. In
+  // Órdenes, before any order, they fix a map that doesn't match the table.
+
+  private canEditMap(): boolean {
+    if (this.phase === TurnPhase.END_OF_TURN) return true;
+    return (
+      this.phase === TurnPhase.ORDER_UNITS && !this.ordersCommitted && this.orders.length === 0 && this.markers.length === 0
+    );
+  }
+
+  /** Edits made in Órdenes can't be undone after the orders: the orders start from them */
+  private canUndoMapEdit(): boolean {
+    const edit = this.battleEdits.at(-1);
+    return this.canEditMap() && !!edit && (this.phase === TurnPhase.ORDER_UNITS || !edit.beforeOrders);
+  }
+
+  private addBattleEdit(edit: BattleEdit) {
+    const beforeOrders = this.phase === TurnPhase.ORDER_UNITS;
+    this.battleEdits = [...this.battleEdits, beforeOrders ? { ...edit, beforeOrders } : edit];
+  }
 
   /** Remove a unit destroyed on the table */
   removeUnit(position: Position): boolean {
-    if (this.phase !== TurnPhase.END_OF_TURN) return false;
+    if (!this.canEditMap()) return false;
     const unit = this.board.removeUnitAt(position);
     if (!unit) return false;
 
-    this.battleEdits = [...this.battleEdits, { kind: "remove", position, unit }];
+    this.addBattleEdit({ kind: "remove", position, unit });
     return this.publish();
   }
 
   /** Move a unit to any empty hex, to mirror a retreat or taking ground */
   relocateUnit(from: Position, to: Position): boolean {
-    if (this.phase !== TurnPhase.END_OF_TURN || samePosition(from, to)) return false;
+    if (!this.canEditMap() || samePosition(from, to)) return false;
     if (!this.board.getHex(to)?.isPassable()) return false;
     if (!this.board.moveUnit(from, to)) return false;
 
-    this.battleEdits = [...this.battleEdits, { kind: "move", from, to }];
+    this.addBattleEdit({ kind: "move", from, to });
     return this.publish();
   }
 
   undoBattleEdit(): boolean {
-    if (this.phase !== TurnPhase.END_OF_TURN) return false;
-    const edit = this.battleEdits.at(-1);
-    if (!edit) return false;
+    if (!this.canUndoMapEdit()) return false;
+    const edit = this.battleEdits.at(-1)!;
 
     if (edit.kind === "remove") {
       this.board.placeUnitAt(edit.position, edit.unit);
@@ -1215,9 +1244,10 @@ class GameSession {
   }
 
   /**
-   * Discard the played card and draw command cards to choose from (once per
-   * turn): as many as the card says (Recon: 3), otherwise 1, which the player
-   * may swap with `drawAgain`. `keepCard` then puts one in the hand.
+   * Discard the played card and draw a command card (once per turn). A single
+   * card goes straight to the hand, and the player may swap it with
+   * `drawAgain`; a card that draws more (Recon: 3) leaves them in
+   * `drawOptions` and `keepCard` puts one in the hand.
    */
   drawCard(): boolean {
     if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard) return false;
@@ -1230,7 +1260,9 @@ class GameSession {
     this.hand = this.hand.filter((c) => c !== playedCard);
     const drawn = this.deck.draw(playedCard.drawChoice);
     if (drawn.length === 0) throw new Error("No command card to draw");
-    this.drawOptions = drawn;
+    // A single card is kept unless the player swaps it (drawAgain)
+    if (playedCard.drawChoice === 1) this.keep(drawn[0]!);
+    else this.drawOptions = drawn;
     return this.publish();
   }
 
@@ -1243,8 +1275,10 @@ class GameSession {
     return this.publish();
   }
 
+  /** The single card drawn can be swapped once (a save from before it was kept at once still has it in drawOptions) */
   private canDrawAgain(): boolean {
-    return this.drawOptions.length === 1 && this.chosenCard?.drawChoice === 1;
+    if (this.chosenCard?.drawChoice !== 1 || this.drewAgain) return false;
+    return this.drawOptions.length === 1 || this.drawnCard !== null;
   }
 
   /** Gamble: discard the card drawn and draw another, which must be kept */
@@ -1253,9 +1287,10 @@ class GameSession {
 
     // Draw before discarding, so a reshuffle can't bring the same card back
     // (unless it's the only card left to draw)
-    const [first] = this.drawOptions;
+    const first = this.drawnCard ?? this.drawOptions[0]!;
     const [next] = this.deck.draw(1);
-    this.deck.discard(first!);
+    this.hand = this.hand.filter((c) => c !== first);
+    this.deck.discard(first);
     this.keep(next ?? this.deck.draw(1)[0]!);
     this.drewAgain = true;
     return this.publish();
@@ -1426,6 +1461,8 @@ class GameSession {
       closeAssaultMarkable: this.closeAssaultMarkable(),
       ordersCommitted: this.ordersCommitted,
       battleEdits: this.battleEdits.length,
+      canEditMap: this.canEditMap(),
+      canUndoMapEdit: this.canUndoMapEdit(),
       drawPileCount: this.deck.getDrawPileCount(),
       discardPileCount: this.deck.getDiscardPileCount(),
       shots: this.shots,

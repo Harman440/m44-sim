@@ -81,7 +81,6 @@ const orderAllAndFight = (session: GameSession) => {
 const finishTurn = (session: GameSession) => {
   if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
   expect(session.drawCard()).toBe(true);
-  expect(session.keepCard(session.getSnapshot().drawOptions[0]!)).toBe(true);
   if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("combatCard")).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
@@ -468,21 +467,16 @@ describe("GameSession movement and final phases", () => {
 
     expect(session.endTurn()).toBe(false); // nothing drawn yet
     expect(session.drawCard()).toBe(true);
-    const [option] = session.getSnapshot().drawOptions;
-    expect(session.getSnapshot()).toMatchObject({ drawnCard: null, canDrawAgain: true });
-    expect(session.getSnapshot().hand).not.toContain(played);
-    expect(session.getSnapshot().hand).not.toContain(option);
-    expect(session.drawCard()).toBe(false);
-    expect(session.endTurn()).toBe(false); // the card drawn isn't kept yet
-
-    expect(session.keepCard(option!)).toBe(true);
-    const { drawnCard, drawOptions, hand, turn, phase } = session.getSnapshot();
-    expect(drawnCard).toBe(option);
+    // A single card is kept at once, and can still be swapped
+    const { drawnCard, drawOptions, hand, turn, phase, canDrawAgain } = session.getSnapshot();
+    expect(drawnCard).not.toBeNull();
     expect(drawOptions).toEqual([]);
+    expect(canDrawAgain).toBe(true);
+    expect(hand).not.toContain(played);
     expect(hand).toContain(drawnCard);
     expect({ turn, phase }).toEqual({ turn: 1, phase: TurnPhase.END_OF_TURN });
     expect(session.drawCard()).toBe(false);
-    expect(session.drawAgain()).toBe(false);
+    expect(session.keepCard(drawnCard!)).toBe(false);
 
     expect(session.endTurn()).toBe(true);
     expect(session.getSnapshot().drawnCard).toBeNull();
@@ -494,7 +488,6 @@ describe("GameSession movement and final phases", () => {
     orderAllAndFight(session);
     session.endBattle();
     session.drawCard();
-    session.keepCard(session.getSnapshot().drawOptions[0]!);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
 
@@ -575,7 +568,8 @@ describe("GameSession drawing a command card", () => {
     const session = finalPhaseWith(played!, [first!, second!, third!]);
 
     session.drawCard();
-    expect(session.getSnapshot().drawOptions).toEqual([first]);
+    expect(session.getSnapshot()).toMatchObject({ drawnCard: first, drawOptions: [], canDrawAgain: true });
+    expect(session.getSnapshot().hand).toEqual([first]);
     expect(session.drawAgain()).toBe(true);
 
     const snapshot = session.getSnapshot();
@@ -640,16 +634,47 @@ describe("GameSession syncing the table in the final phase", () => {
     return session;
   };
 
-  it("only allows board edits in the final phase, after the battle", () => {
+  it("only allows board edits in the final phase, or in Órdenes before any order", () => {
     const { session, card } = sessionWithAllCards();
 
-    expect(session.removeUnit(TANK)).toBe(false);
+    expect(session.removeUnit(TANK)).toBe(false); // picking cards
     session.pickCard(card("left"));
-    expect(session.relocateUnit(TANK, { row: 3, col: 3 })).toBe(false);
+    const left = session.getSnapshot().orderable[0]!;
+    session.issueOrder(left, left);
+    expect(session.getSnapshot().canEditMap).toBe(false);
+    expect(session.relocateUnit(TANK, { row: 3, col: 3 })).toBe(false); // an order was given
+    session.undoLastOrder();
     orderAllAndFight(session);
     expect(session.removeUnit(TANK)).toBe(false); // retreats are made after the battle
     expect(session.relocateUnit(TANK, { row: 3, col: 3 })).toBe(false);
     expect(unitAt(session, TANK)).not.toBeNull();
+  });
+
+  it("fixes the map in Órdenes before any order; those fixes can't be undone after the orders", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    const tank = unitAt(session, TANK);
+    const fixed = { row: 3, col: 3 };
+
+    expect(session.getSnapshot()).toMatchObject({ canEditMap: true, canUndoMapEdit: false });
+    expect(session.relocateUnit(TANK, fixed)).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ battleEdits: 1, canUndoMapEdit: true });
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(unitAt(session, TANK)).toBe(tank);
+    expect(session.relocateUnit(TANK, fixed)).toBe(true);
+
+    orderAllAndFight(session);
+    session.endBattle();
+    expect(session.getSnapshot()).toMatchObject({ canEditMap: true, canUndoMapEdit: false });
+    expect(session.undoBattleEdit()).toBe(false);
+    expect(unitAt(session, fixed)).toBe(tank);
+
+    // The fix survives a reload and is in the turn's map edits
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+    expect(restored.getSnapshot()).toMatchObject({ battleEdits: 1, canUndoMapEdit: false });
+    expect(restored.removeUnit(LEFT_INF)).toBe(true);
+    expect(restored.undoBattleEdit()).toBe(true);
+    expect(restored.undoBattleEdit()).toBe(false);
   });
 
   it("removes a destroyed unit and can undo it", () => {
@@ -1440,19 +1465,13 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().orders).toHaveLength(1);
   });
 
-  it("asks for 2 coins or a combat card in the final phase, and carries the coins into the next turn", () => {
+  it("takes 2 coins in the final phase unless the player picks a combat card, and carries the coins into the next turn", () => {
     const session = turnWithCoins(0, "left");
     orderAllAndFight(session);
     session.endBattle();
+    // The 2 coins are the default
+    expect(session.getSnapshot()).toMatchObject({ needsRewardChoice: true, rewardChoice: "coins", coins: 2 });
     session.drawCard();
-    session.keepCard(session.getSnapshot().drawOptions[0]!);
-    expect(session.getSnapshot().needsRewardChoice).toBe(true);
-    expect(session.endTurn()).toBe(false);
-
-    session.chooseReward("combatCard");
-    expect(session.getSnapshot().coins).toBe(0);
-    session.chooseReward("coins");
-    expect(session.getSnapshot().coins).toBe(2);
     expect(session.endTurn()).toBe(true);
 
     const snapshot = session.getSnapshot();
@@ -1519,7 +1538,6 @@ describe("GameSession combat cards", () => {
     orderAllAndFight(session);
     session.endBattle();
     session.drawCard();
-    session.keepCard(session.getSnapshot().drawOptions[0]!);
   };
 
   it("deals 2 combat cards at the start", () => {
@@ -2154,7 +2172,6 @@ describe("GameSession Reinforcements", () => {
   it("can't end the turn before the die is rolled", () => {
     const session = finalPhase(0);
     session.drawCard();
-    session.keepCard(session.getSnapshot().drawOptions[0]!);
     session.chooseReward("coins");
 
     expect(session.endTurn()).toBe(false);

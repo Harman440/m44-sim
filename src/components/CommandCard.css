@@ -2,7 +2,7 @@
  * Cards are drawn like the game's: playing-card shaped (5:7). Everything on a
  * card is sized in em from its width, so the same card can be shown small in
  * the hand or large in a preview: set --card-width on the card or a parent.
- * Text that doesn't fit fades out at the bottom (see useFadeWhenClipped).
+ * A card shows its name and its art; the text is in its details (CardDetails).
  */
 /* A command card is a <button>: drop the button look first, before the card's own */
 .command-card {
@@ -25,15 +25,12 @@
   box-shadow: var(--m44-shadow);
 }
 
-/* Long text: shown down to the card's edge, then faded */
-.game-card__text {
+/* The art fills the card under the title band */
+.game-card__art {
   flex: 1 1 0;
   min-height: 0;
-  overflow: hidden;
-}
-
-.game-card__text--clipped {
-  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  display: flex;
+  padding: 0.45em;
 }
 
 /* Command card; colours and fonts come from the look (--m44-*) */
@@ -59,10 +56,14 @@
   outline-offset: 3px;
 }
 
-/* Title band, with a printed-ink sheen and a rule under it */
+/* Title band, with a printed-ink sheen and a rule under it; the order count on its right */
 .command-card__band {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
   flex: none;
+  min-height: 2.9em;
+  box-sizing: border-box;
   padding: 0.5em 0.62em 0.44em;
   background:
     linear-gradient(180deg, color-mix(in srgb, #fff 14%, transparent), transparent 60%),
@@ -71,15 +72,17 @@
   border-bottom: 2px solid color-mix(in srgb, var(--card-accent) 55%, var(--m44-ink));
 }
 
-/* The art, with the order count stamped on its corner */
+/* The art fills the rest of the card */
 .command-card__art {
-  position: relative;
-  display: block;
-  flex: none;
-  padding: 0.5em 0.5em 0;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  padding: 0.45em;
 }
 
 .card-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-family: var(--m44-font-display);
   font-weight: 400;
@@ -92,34 +95,8 @@
   overflow-wrap: anywhere;
 }
 
-.command-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4em;
-  flex: 1 1 0;
-  min-height: 0;
-  padding: 0.55em 0.62em 0.62em;
-}
-
-.command-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25em;
-  flex: none;
-}
-
-.command-card__unit {
-  align-self: flex-start;
-  padding: 0.1em 0.45em;
-  border: 1px solid var(--m44-border);
-  border-radius: var(--m44-radius);
-  font-size: 0.72em;
-}
-
 .command-card__orders {
-  position: absolute;
-  right: 0.75em;
-  bottom: 0.25em;
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -131,8 +108,8 @@
   border-radius: 1.45em;
   background: var(--card-accent);
   color: var(--card-on-accent);
-  border: 2px solid var(--m44-paper);
-  box-shadow: 0 0 0 1.5px var(--card-accent), 0 2px 4px color-mix(in srgb, #000 35%, transparent);
+  border: 2px solid var(--card-on-accent);
+  box-shadow: 0 2px 4px color-mix(in srgb, #000 35%, transparent);
   transform: rotate(-6deg);
 }
 
@@ -155,8 +132,3 @@
   letter-spacing: 0.04em;
 }
 
-.card-description {
-  font-size: 0.8em;
-  line-height: 1.3;
-  color: var(--m44-muted);
-}

@@ -10,10 +10,9 @@
   --art-ink: #2f3326;
   --art-paper: #f4efdc;
   display: block;
+  /* Fills the card's art box; the viewBox keeps its shape, centred */
   width: 100%;
-  height: auto;
-  border-radius: calc(var(--m44-radius) * 0.6);
-  box-shadow: inset 0 0 0 1px var(--m44-border);
+  height: 100%;
 }
 
 .card-art__ground {
@@ -167,4 +166,90 @@
   stroke: #3f5523;
   stroke-width: 2;
   stroke-dasharray: 3 2;
+}
+
+/* A unit only on the move (Probe's extra unit), or where a unit was */
+.card-art__token--ghost {
+  opacity: 0.6;
+}
+
+.card-art__token--ghost circle {
+  stroke-dasharray: 3 2;
+}
+
+/* The hex of an ordered unit, a little darker than its section */
+.card-art__hex--ordered {
+  fill: color-mix(in srgb, var(--card-accent) 75%, var(--art-hex));
+}
+
+/* --- pictogram rows under the board */
+
+.card-art__rule-bg {
+  fill: var(--art-paper);
+  stroke: color-mix(in srgb, var(--card-accent) 60%, var(--art-ink));
+  stroke-width: 1.2;
+}
+
+.card-art__rule-text {
+  font-family: var(--m44-font-display);
+  font-size: 16px;
+  text-anchor: middle;
+  fill: var(--art-ink);
+}
+
+.card-art__move {
+  fill: var(--art-ink);
+}
+
+.card-art__fire {
+  fill: #b3261e;
+}
+
+/* "Not this": a red line struck through a pictogram */
+.card-art__strike {
+  stroke: #b3261e;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+.card-art__pip {
+  fill: var(--art-ink);
+}
+
+.card-art__crate {
+  fill: #b98a4e;
+  stroke: #6b4521;
+  stroke-width: 1.4;
+}
+
+.card-art__crate-planks {
+  fill: none;
+  stroke: #6b4521;
+  stroke-width: 1;
+}
+
+.card-art__mini-card {
+  fill: var(--art-hex);
+  stroke: var(--art-ink);
+  stroke-width: 1;
+}
+
+.card-art__mini-card--picked {
+  fill: var(--card-accent);
+}
+
+.card-art__reach {
+  fill: var(--art-hex);
+  stroke: var(--art-ink);
+  stroke-width: 1;
+}
+
+.card-art__reach--target {
+  fill: color-mix(in srgb, #c62828 40%, var(--art-hex));
+}
+
+.card-art__reach-gap {
+  stroke: var(--art-ink);
+  stroke-width: 1.4;
+  stroke-dasharray: 1.5 2;
 }
