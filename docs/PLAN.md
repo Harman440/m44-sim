@@ -65,7 +65,7 @@ The two decisions from the first plan still hold:
 ### Step 41: Coins on the attacker's extra turn
 - [x] The attacker earns coins on the extra first turn but can't spend them (no extra orders, combat cards or changes by hand there); they carry over to turn 2
 - [x] **Decided:** stars rolled count in the extra turn; the final-phase reward (2 coins or a combat card, and Preparations' reward) is skipped
-- [ ] **Decide:** whether the defender gets anything in return
+- [x] **Decided:** the defender gets nothing in return
 
 ## Part E: Maps and scenarios
 
@@ -76,20 +76,20 @@ The two decisions from the first plan still hold:
 - [x] Sainte-Mère-Église, the official base-game scenario, with its paradrop (`Scenario.paradrop`, the PARADROP phase)
 - [ ] Rivers: the art is drawn (a stony river from any edge to any other). Officially a river is impassable except at a bridge, so it also needs a bridge tile
 - [ ] **Decide:** river and bridge rules in the house variant, then a scenario that uses them (e.g. Pegasus Bridge)
-- [ ] **Decide:** the Sainte-Mère-Église reinforcement table is a proposal (grenade and star → infantry, flag → none), like the other two
-
-### Step 43: Scenario tools
-- [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario
-- [ ] Import a scenario from a PDF or a map image. Sainte-Mère-Église was read by hand from the map image with a hex grid laid over it; **Decide:** how much of that to automate, and whether a scenario file format (e.g. the official editor's `.m44` JSON) is worth reading
+- [x] **Decide:** the Sainte-Mère-Église reinforcement table is a proposal (grenade and star → infantry, flag → none), like the other two
 
 ## Part F: The deck
 
-### Step 44: Deck visualizer
+### Step 43: Deck visualizer
 - [ ] A view of the command deck: every card, how many copies, and how likely each kind is to be drawn (the probability notes in house-rules.md)
 
-### Step 45: A smaller deck
+### Step 44: A smaller deck
 - [ ] Fewer cards, split into two decks, so each card turns up more often and the game is less random
 - [ ] **Decide:** how the deck is split, and which cards stay
+
+### Step 45: Scenario tools
+- [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario
+- [ ] Import a scenario from a PDF or a map image. Sainte-Mère-Église was read by hand from the map image with a hex grid laid over it; **Decide:** how much of that to automate, and whether a scenario file format (e.g. the official editor's `.m44` JSON) is worth reading
 
 ## Part G: Carried over from the first plan (postponed)
 
