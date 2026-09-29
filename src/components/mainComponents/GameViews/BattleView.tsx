@@ -144,7 +144,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               onMarkCloseAssault={closeAssaultCard ? () => setMarkingCloseAssault(true) : undefined}
               // Units wait for the attack combat card's rolls
               onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
-              withCoins={!game.extraTurn}
               onSkipUnmoved={() => setConfirmingSkip(true)}
               emptyText={
                 closeAssaultCard ? "Marca las unidades en asalto cercano para que disparen." : "No se dieron órdenes este turno."
@@ -193,7 +192,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         canTakeGround={firingIndex !== null && session.canTakeGround(firingIndex)}
         onTakeGround={() => firingIndex !== null && session.takeGround(firingIndex)}
         onUndoTakeGround={() => firingIndex !== null && session.undoTakeGround(firingIndex)}
-        withCoins={!game.extraTurn}
         longRangeDie={session.longRangeDie}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
@@ -228,7 +226,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         card={game.activeCard}
         faction={faction}
         onRoll={(orderIndex, targetType) => withSound(session.fireCollision(orderIndex, targetType))}
-        withCoins={!game.extraTurn}
         onKeepResults={(orderIndex, shotNumber, kept) => session.keepResults(orderIndex, shotNumber, kept)}
         onClose={() => setCollisionOpen(false)}
       />

@@ -31,8 +31,6 @@ interface CollisionDialogProps {
   faction: Faction;
   /** Roll the collision for this order's unit against the unit it met; the session rolls the dice */
   onRoll: (orderIndex: number, targetType: UnitType) => boolean;
-  /** Rolls earn coins this turn (not in the attacker's extra first turn) */
-  withCoins: boolean;
   /** Apply only some of the dice of the order's shot `shotNumber` (or all, with null) */
   onKeepResults: (orderIndex: number, shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
@@ -77,7 +75,6 @@ function CollisionDialog({
   card,
   faction,
   onRoll,
-  withCoins,
   onKeepResults,
   onClose,
 }: CollisionDialogProps) {
@@ -149,7 +146,6 @@ function CollisionDialog({
             shot={collisionShot}
             rollId={1}
             faction={faction}
-            withCoins={withCoins}
             rolling={rolled}
             onKeepResults={(kept) => onKeepResults(summary.index, summary.shots.indexOf(collisionShot), kept)}
           />

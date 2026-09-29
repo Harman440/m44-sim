@@ -50,7 +50,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
 
         {game.extraTurn && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            En el turno extra no se ganan suministros ni se cogen cartas de combate.
+            En el turno extra las estrellas dan suministros, pero no se gastan hasta el turno siguiente.
           </Alert>
         )}
 

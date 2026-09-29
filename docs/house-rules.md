@@ -21,7 +21,7 @@ Some units have new rules (some rules are still the same):
 ## Simultaneous turns
 
 ### First turn in the game
-The attacking side, being the side that would normally start, stated in the map overview, gets one extra turn at the start. This turn is played normally. The reasoning is that the starting side is the "attacking" side and their first move and attack is a surprise so the defenders should not have any chance to reply and certainly should not get the advantage of shooting first.
+The attacking side, being the side that would normally start, stated in the map overview, gets one extra turn at the start. This turn is played normally. The reasoning is that the starting side is the "attacking" side and their first move and attack is a surprise so the defenders should not have any chance to reply and certainly should not get the advantage of shooting first. In this extra turn the stars rolled still earn coins, but nothing can be bought with them (no extra orders, no combat cards) until the next turn, and there is no end-of-turn reward.
 
 He can't pick up combat cards or get coins though.
 

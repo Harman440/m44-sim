@@ -32,7 +32,7 @@ export interface TurnCoinsState {
   reward: RewardChoice | null;
   /** Coins the played card gives in the final phase instead of the choice (Preparations); 0 before then */
   cardReward: number;
-  /** The attacker's extra first turn earns no coins */
+  /** The attacker's extra first turn: stars earn coins, but there is no final-phase reward */
   extraTurn: boolean;
 }
 
@@ -53,11 +53,13 @@ export function turnCoins({
       entries.push({ kind: order.extra ? "extraOrder" : "cardOrder", amount: -order.cost, unit: order.unit.getUnitType() });
     }
   });
+  // Stars earn coins in every turn, the attacker's extra first turn included
+  shots.forEach((shot) => {
+    const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
+    if (coins > 0) entries.push({ kind: "stars", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
+  });
+  // The extra first turn has no final-phase reward (nor Preparations' coins)
   if (!extraTurn) {
-    shots.forEach((shot) => {
-      const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
-      if (coins > 0) entries.push({ kind: "stars", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
-    });
     if (reward === "coins") entries.push({ kind: "endOfTurn", amount: END_OF_TURN_COINS });
     if (cardReward > 0) entries.push({ kind: "cardReward", amount: cardReward });
   }

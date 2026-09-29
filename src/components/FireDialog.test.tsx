@@ -61,7 +61,6 @@ function Harness({ session }: { session: GameSession }) {
         onTakeGround={() => session.takeGround(0)}
         onUndoTakeGround={() => session.undoTakeGround(0)}
         combatBonus={session.combatBonusFor(0)}
-        withCoins
         longRangeDie={session.longRangeDie}
         onUndoShot={() => session.undoShot(0)}
         onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}

@@ -50,8 +50,6 @@ interface FireDialogProps {
   canTakeGround?: boolean;
   onTakeGround?: () => boolean;
   onUndoTakeGround?: () => boolean;
-  /** Rolls earn coins this turn (not in the attacker's extra first turn) */
-  withCoins: boolean;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
   longRangeDie?: boolean;
   /** Take back the unit's last shot (a mistake) */
@@ -134,14 +132,13 @@ interface ShotResultProps {
   faction: Faction;
   board: BoardManager;
   image?: string;
-  withCoins: boolean;
   /** Just rolled: throw the dice in */
   rolling?: boolean;
   /** Apply only some of the dice (or all, with null) */
   onKeepResults?: (kept: number[] | null) => boolean;
 }
 
-export function ShotResult({ shot, number, unitType, faction, board, image, withCoins, rolling, onKeepResults }: ShotResultProps) {
+export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults }: ShotResultProps) {
   return (
     <Box data-testid="shot-result">
       {(number !== null || shot.collision) && (
@@ -168,7 +165,6 @@ export function ShotResult({ shot, number, unitType, faction, board, image, with
         shot={shot}
         rollId={number ?? 1}
         faction={faction}
-        withCoins={withCoins}
         rolling={rolling}
         onKeepResults={onKeepResults}
       />
@@ -197,7 +193,6 @@ function FireDialog({
   canTakeGround = false,
   onTakeGround,
   onUndoTakeGround,
-  withCoins,
   longRangeDie = false,
   onUndoShot,
   onKeepResults,
@@ -275,7 +270,6 @@ function FireDialog({
               faction={faction}
               board={board}
               image={image}
-              withCoins={withCoins}
               rolling={justFired && i === summary.shots.length - 1}
               onKeepResults={(kept) => onKeepResults(i, kept)}
             />

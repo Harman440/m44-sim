@@ -132,9 +132,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       {describeAppliedFaces(shot.faces, shot.kept)}
                       {shot.dice > 0 &&
                         ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
-                          readRoll(appliedFaces(shot.faces, shot.kept), shot.target),
-                          // The attacker's extra first turn earns no coins
-                          !(session.attacking && record.turn === 1)
+                          readRoll(appliedFaces(shot.faces, shot.kept), shot.target)
                         )})`}
                       {shot.notes.map((note) => ` · ${note}`).join("")}
                     </Typography>

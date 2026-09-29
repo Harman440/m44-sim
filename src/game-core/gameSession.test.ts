@@ -1340,18 +1340,27 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coins).toBe(0);
   });
 
-  it("earns nothing in the attacker's extra turn, and can't be changed by hand there", () => {
+  it("earns coins for stars in the attacker's extra turn, but no final-phase reward, and can't spend them there", () => {
     const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0.7 });
     expect(session.adjustCoins(4)).toBe(false);
     session.pickCard(commandCards[0]!);
+    expect(session.getSnapshot().extraOrderable).toEqual([]);
     orderAllAndFight(session);
 
-    shoot(session, 0, AT_INFANTRY);
+    shoot(session, 0, AT_INFANTRY); // every die a star: a coin each
+    const earned = session.getSnapshot().coins;
+    expect(earned).toBeGreaterThan(0);
+    expect(session.getSnapshot().coinEntries.map((entry) => entry.kind)).toEqual(["stars"]);
     session.endBattle();
 
-    expect(session.getSnapshot()).toMatchObject({ coins: 0, canAdjustCoins: false, needsRewardChoice: false });
+    expect(session.getSnapshot()).toMatchObject({ coins: earned, canAdjustCoins: false, needsRewardChoice: false });
     expect(session.chooseReward("coins")).toBe(false);
+    expect(session.adjustCoins(-1)).toBe(false);
+
+    // They carry over into the attacker's next turn, where they can be spent
+    finishTurn(session);
+    expect(session.getSnapshot()).toMatchObject({ turn: 2, extraTurn: false, coins: earned, canAdjustCoins: true });
   });
 
   it("buys an extra order for 4 coins, for any unit, without using the card's orders", () => {

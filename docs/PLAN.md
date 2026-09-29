@@ -63,8 +63,9 @@ The two decisions from the first plan still hold:
 ## Part D: Rules
 
 ### Step 41: Coins on the attacker's extra turn
-- [ ] The attacker earns coins on the extra first turn but can't spend them
-- [ ] **Decide:** which coins count (stars rolled, the final-phase reward), and whether the defender gets anything in return
+- [x] The attacker earns coins on the extra first turn but can't spend them (no extra orders, combat cards or changes by hand there); they carry over to turn 2
+- [x] **Decided:** stars rolled count in the extra turn; the final-phase reward (2 coins or a combat card, and Preparations' reward) is skipped
+- [ ] **Decide:** whether the defender gets anything in return
 
 ## Part E: Maps and scenarios
 

@@ -260,11 +260,11 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
-  it("gives no coins or combat card in the attacker's extra turn", () => {
+  it("gives no final-phase reward in the attacker's extra turn", () => {
     finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }));
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "En el turno extra no se ganan suministros ni se cogen cartas de combate."
+      "En el turno extra no hay recompensa: ni suministros ni carta de combate."
     );
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));

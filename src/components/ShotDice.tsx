@@ -11,7 +11,6 @@ interface ShotDiceProps {
   /** Changes on every roll so the dice animate again */
   rollId: number;
   faction: Faction;
-  withCoins: boolean;
   /** The dice were just rolled: throw them in, then show what they mean */
   rolling?: boolean;
   /** Apply only these dice (indexes into the faces), or all of them with null; left out, the results can't be changed */
@@ -24,7 +23,7 @@ interface ShotDiceProps {
  * results as it has): they tap the dice to apply, and the rest stay on show,
  * greyed out as discarded.
  */
-function ShotDice({ shot, rollId, faction, withCoins, rolling = false, onKeepResults }: ShotDiceProps) {
+function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: ShotDiceProps) {
   /** The dice picked so far while choosing; null when not choosing */
   const [picked, setPicked] = useState<number[] | null>(null);
   if (shot.dice === 0) return null;
@@ -53,7 +52,7 @@ function ShotDice({ shot, rollId, faction, withCoins, rolling = false, onKeepRes
           eightSided={shot.target.longRangeFirer !== undefined}
           picking={picked ? { selected: picked, onToggle: toggle } : undefined}
           target={shot.target}
-          withCoins={withCoins}
+          withCoins
           rolling={rolling}
         />
         {onKeepResults && (
@@ -85,7 +84,7 @@ function ShotDice({ shot, rollId, faction, withCoins, rolling = false, onKeepRes
       <RollReading
         faces={faces}
         target={shot.target}
-        withCoins={withCoins}
+        withCoins
         delay={rolling ? rollDuration(shot.faces.length) : 0}
       />
     </>

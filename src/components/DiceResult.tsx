@@ -6,6 +6,7 @@ import { ShotTarget, faceEarnsCoin, faceHits, faceRetreats } from "../data/hitRu
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { unitSprite } from "./UnitComponent";
+import GameIcon from "./GameIcon";
 import { DIE_FACE_LABELS } from "../labels";
 import "./DiceResult.css";
 
@@ -218,7 +219,15 @@ function DiceResult({
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 16, delay: landed(i) }}
                 >
-                  {EFFECT_LABELS[effect]}
+                  {/* A supply shows as its crate, the same icon as the counter */}
+                  {effect === "coin" ? (
+                    <>
+                      <GameIcon name="coins" size="1.35em" />
+                      <span className="dice-result__sr-only">{EFFECT_LABELS.coin}</span>
+                    </>
+                  ) : (
+                    EFFECT_LABELS[effect]
+                  )}
                 </motion.span>
               )}
               {!applied(i) && <span className="dice-result__discarded">(descartado)</span>}

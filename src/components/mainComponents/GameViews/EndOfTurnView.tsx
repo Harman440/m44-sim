@@ -192,7 +192,7 @@ function EndOfTurnView({
             3. {reward ? chosenCard!.name : "Suministros o carta de combate"}
           </Typography>
           {game.extraTurn ? (
-            <Typography variant="body1">En el turno extra no se ganan suministros ni se cogen cartas de combate.</Typography>
+            <Typography variant="body1">En el turno extra no hay recompensa: ni suministros ni carta de combate.</Typography>
           ) : reward ? (
             <Typography variant="body1">
               En lugar de elegir: +{reward.coins} suministros, ya sumados al contador

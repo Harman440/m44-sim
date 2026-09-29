@@ -45,6 +45,8 @@
 }
 
 .dice-result__effect {
+  display: inline-flex;
+  align-items: center;
   padding: 1px 8px;
   border-radius: 999px;
   background: var(--die-effect-color);
@@ -81,8 +83,9 @@
   border: 3px solid var(--m44-accent, #1976d2);
 }
 
-/* Read out to screen readers only; the greyed-out die shows it on screen */
-.dice-result__discarded {
+/* Read out to screen readers only (a discarded die, a supply's crate) */
+.dice-result__discarded,
+.dice-result__sr-only {
   position: absolute;
   width: 1px;
   height: 1px;

@@ -36,8 +36,6 @@ interface FireOrderListProps {
   onMarkCloseAssault?: () => void;
   /** Open the fire dialog for a unit: to fire, or to see its roll. Missing while the card attacks are pending */
   onFire?: (summary: OrderSummary) => void;
-  /** Rolls earn coins this turn (not in the attacker's extra first turn) */
-  withCoins?: boolean;
   /** Give up the unfired shots of the units that didn't move, so the moved units can fire */
   onSkipUnmoved?: () => void;
   /** Shown when no unit has an order */
@@ -156,7 +154,6 @@ function FireOrderList({
   attack,
   onMarkCloseAssault,
   onFire,
-  withCoins = true,
   onSkipUnmoved,
   emptyText,
 }: FireOrderListProps) {
@@ -265,7 +262,7 @@ function FireOrderList({
             .map(
               (shot) =>
                 `${shot.collision ? "choque, " : ""}${describeAppliedFaces(shot.faces, shot.kept)}${
-                  shot.dice > 0 ? ` → ${describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target), withCoins)}` : ""
+                  shot.dice > 0 ? ` → ${describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
                 }`
             )
             .join(" / ")}`
