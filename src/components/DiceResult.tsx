@@ -136,7 +136,7 @@ function RollingDie({ face, index, faction, eightSided, rolling }: RollingDiePro
 const EFFECT_LABELS: Record<Exclude<DieEffect, null>, string> = {
   hit: "impacto",
   retreat: "retirada",
-  coin: "moneda",
+  coin: "suministro",
 };
 
 interface DiceResultProps {

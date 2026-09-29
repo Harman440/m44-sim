@@ -36,7 +36,7 @@ describe("CommandCardComponent", () => {
     const none = renderCard(new CommandCard({ tactic: true, closeAssaultOnly: true }));
 
     expect(paid.querySelector(".command-card__orders")).toHaveTextContent("4órdenes");
-    expect(within(paid).getByText("Cuesta monedas")).toBeInTheDocument();
+    expect(within(paid).getByText("Cuesta suministros")).toBeInTheDocument();
     expect(paid.querySelector(".command-card--tactic")).not.toBeNull();
     expect(none.querySelector(".command-card__orders")).toHaveTextContent("0órdenes");
   });

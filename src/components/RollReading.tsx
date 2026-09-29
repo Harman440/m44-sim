@@ -115,7 +115,7 @@ function RollReading({ faces, target, withCoins, delay: rollingDelay = 0 }: Roll
           <Tally
             icon={<GameIcon name="coins" size={22} />}
             value={`+${coins}`}
-            label={coins === 1 ? "moneda" : "monedas"}
+            label={coins === 1 ? "suministro" : "suministros"}
             color="warning.main"
             testId="roll-coins"
           />

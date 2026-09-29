@@ -56,7 +56,7 @@ function EndOfTurnView({
     : game.reinforcementToPlace
       ? "Coloca el refuerzo en el mapa para empezar el siguiente turno."
       : game.needsRewardChoice && !game.rewardChoice
-      ? "Elige monedas o carta de combate para empezar el siguiente turno."
+      ? "Elige suministros o carta de combate para empezar el siguiente turno."
       : game.combatCardDue
         ? "Roba la carta de combate para empezar el siguiente turno."
         : game.mustDiscardCombatCard
@@ -189,13 +189,13 @@ function EndOfTurnView({
 
         <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }} data-testid="end-of-turn-reward">
           <Typography variant="h6" component="h3">
-            3. {reward ? chosenCard!.name : "Monedas o carta de combate"}
+            3. {reward ? chosenCard!.name : "Suministros o carta de combate"}
           </Typography>
           {game.extraTurn ? (
-            <Typography variant="body1">En el turno extra no se ganan monedas ni se cogen cartas de combate.</Typography>
+            <Typography variant="body1">En el turno extra no se ganan suministros ni se cogen cartas de combate.</Typography>
           ) : reward ? (
             <Typography variant="body1">
-              En lugar de elegir: +{reward.coins} monedas, ya sumadas al contador
+              En lugar de elegir: +{reward.coins} suministros, ya sumados al contador
               {reward.combatCard ? ", y una carta de combate" : ""}.
             </Typography>
           ) : (
@@ -208,11 +208,11 @@ function EndOfTurnView({
                 value={game.rewardChoice}
                 onChange={(_, choice: RewardChoice | null) => choice && onChooseReward(choice)}
                 disabled={game.drawnCombatCard !== null}
-                aria-label="Monedas o carta de combate"
+                aria-label="Suministros o carta de combate"
                 sx={{ flexWrap: "wrap" }}
               >
                 <ToggleButton value="coins" sx={{ minHeight: 48, gap: 1 }}>
-                  <GameIcon name="coins" /> {END_OF_TURN_COINS} monedas
+                  <GameIcon name="coins" /> {END_OF_TURN_COINS} suministros
                 </ToggleButton>
                 <ToggleButton value="combatCard" sx={{ minHeight: 48, gap: 1 }}>
                   <GameIcon name="cards" /> Carta de combate

@@ -61,23 +61,26 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
         >
           {card.name}
         </Typography>
-        {/* The cost as a coin */}
+        {/* The cost on a supply crate */}
         <Box
           component="span"
-          aria-label={`Cuesta ${card.cost} ${card.cost === 1 ? "moneda" : "monedas"}`}
+          aria-label={`Cuesta ${card.cost} ${card.cost === 1 ? "suministro" : "suministros"}`}
           sx={{
             flexShrink: 0,
             display: "grid",
             placeItems: "center",
             width: "1.8em",
             height: "1.8em",
-            borderRadius: "50%",
-            background: "radial-gradient(circle at 35% 30%, #f3d98b, #c9a227 60%, #9a7a17)",
-            color: "#3b2f0b",
+            borderRadius: "0.15em",
+            // Planks, with a darker frame round them
+            background:
+              "repeating-linear-gradient(0deg, #b98a4e 0 0.36em, #a2743c 0.36em 0.4em), #b98a4e",
+            color: "#fff6e0",
+            textShadow: "0 1px 1px rgba(0,0,0,0.6)",
             fontFamily: "var(--m44-font-display)",
             fontSize: "1em",
             fontWeight: 700,
-            boxShadow: "inset 0 0 0 2px #a8871f, 0 1px 2px rgba(0,0,0,0.4)",
+            boxShadow: "inset 0 0 0 0.14em #6b4521, 0 1px 2px rgba(0,0,0,0.4)",
           }}
         >
           {card.cost}
@@ -133,7 +136,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
         // Faded but still tappable, to look at a card that can't be played now
         onClick={() => onClick(card)}
         aria-pressed={selected}
-        aria-label={`${card.name}, ${card.cost} ${card.cost === 1 ? "moneda" : "monedas"}`}
+        aria-label={`${card.name}, ${card.cost} ${card.cost === 1 ? "suministro" : "suministros"}`}
         className="game-card combat-card"
         sx={{ ...frame, "&:focus-visible": { outline: "3px solid var(--m44-primary)", outlineOffset: 3 } }}
       >

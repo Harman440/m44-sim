@@ -187,9 +187,9 @@ describe("CardsView combat cards", () => {
   it("plays the order card picked with the command card", () => {
     const { card, onCardClick, playCommandCard } = renderWith();
 
-    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 monedas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 suministros" }));
     fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
-    expect(screen.getByText(/Jugarás Barrera \(4 monedas\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Jugarás Barrera \(4 suministros\)/)).toBeInTheDocument();
     playCommandCard();
 
     expect(onCardClick).toHaveBeenCalledWith(card, undefined, expect.objectContaining({ id: "Barrera" }));
@@ -198,11 +198,11 @@ describe("CardsView combat cards", () => {
   it("offers only the order cards the player can pay for, but shows them all", () => {
     renderWith();
 
-    fireEvent.click(screen.getByRole("button", { name: "Refuerzos, 6 monedas" }));
-    expect(screen.getByText("Te faltan monedas: cuesta 6 monedas y tienes 5 monedas.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refuerzos, 6 suministros" }));
+    expect(screen.getByText("Te faltan suministros: cuesta 6 suministros y tienes 5 suministros.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Emboscada, 3 monedas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Emboscada, 3 suministros" }));
     expect(screen.getByText("Se juega durante la batalla.")).toBeInTheDocument();
     expect(within(screen.getByTestId("card-details")).getAllByText("Texto de Emboscada").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
@@ -212,7 +212,7 @@ describe("CardsView combat cards", () => {
     const { card, onCardClick, playCommandCard } = renderWith({ canPlayCombatCards: false });
 
     expect(screen.getByText("En el turno extra no se juegan cartas de combate.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 monedas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 suministros" }));
     expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
     playCommandCard();
     expect(onCardClick).toHaveBeenCalledWith(card, undefined, undefined);
@@ -239,7 +239,7 @@ describe("CardsView Tactician", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 monedas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 suministros" }));
     fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
     playFromHand(container, card.name);
     expect(screen.getByText("Táctico: ¿a qué sección cambias Ataque en el flanco izquierdo?")).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe("CardsView Tactician with a card for several sections", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 monedas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 suministros" }));
     fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
     playFromHand(container, card.name);
     expect(screen.getByText("Táctico no sirve con Avance general")).toBeInTheDocument();

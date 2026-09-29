@@ -114,7 +114,7 @@ const cardTemplates: CardTemplate[] = [
       id: 'finest-hour',
       name: 'Su mejor hora',
       description:
-        'Da órdenes a hasta 4 unidades pagando monedas: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
+        'Da órdenes a hasta 4 unidades pagando suministros: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
       tactic: true,
       orders: 4,
       coinCost: { [UnitType.INFANTRY]: 1, [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
@@ -205,7 +205,7 @@ const cardTemplates: CardTemplate[] = [
       id: 'preparations',
       name: 'Preparativos',
       description:
-        'Da una orden a 1 unidad. En la fase final recibes 3 monedas y una carta de combate, en lugar de elegir entre ellas.',
+        'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas.',
       tactic: true,
       orders: 1,
       endOfTurnReward: { coins: 3, combatCard: true },

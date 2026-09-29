@@ -107,16 +107,16 @@ export const describeTarget = ({ unitType, closeAssault, longRangeFirer }: ShotT
     longRangeFirer ? " · dado de 8 caras" : ""
   }`;
 
-/** "2 impactos · 1 retirada · +1 moneda"; coins are left out when the turn earns none */
+/** "2 impactos · 1 retirada · +1 suministro"; coins are left out when the turn earns none */
 export const describeRoll = ({ hits, retreats, coins }: RollResult, withCoins = true): string =>
   [
     count(hits, "impacto", "impactos"),
     count(retreats, "retirada", "retiradas"),
-    ...(withCoins && coins > 0 ? [`+${count(coins, "moneda", "monedas")}`] : []),
+    ...(withCoins && coins > 0 ? [`+${count(coins, "suministro", "suministros")}`] : []),
   ].join(" · ");
 
-/** "1 moneda", "3 monedas" */
-export const coinsText = (n: number): string => `${n} ${n === 1 ? "moneda" : "monedas"}`;
+/** "1 suministro", "3 suministros" */
+export const coinsText = (n: number): string => `${n} ${n === 1 ? "suministro" : "suministros"}`;
 
 /** "+2" or "−4": a signed number of coins */
 export const signedCoins = (amount: number): string => (amount < 0 ? `−${-amount}` : `+${amount}`);
@@ -131,7 +131,7 @@ export const describeCoinEntry = (entry: CoinEntry): string => {
     case "stars":
       return `Estrellas: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
     case "endOfTurn":
-      return "Fase final: monedas";
+      return "Fase final: suministros";
     case "cardReward":
       return "Fase final: recompensa de la carta";
     case "combatCard":

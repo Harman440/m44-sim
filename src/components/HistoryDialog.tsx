@@ -164,7 +164,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
               )}
 
               <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                Monedas
+                Suministros
               </Typography>
               <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-coins">
                 {record.coins.map((entry, i) => (

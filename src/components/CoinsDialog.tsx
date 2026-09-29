@@ -39,7 +39,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Monedas</DialogTitle>
+      <DialogTitle>Suministros</DialogTitle>
       <DialogContent dividers>
         <Stack direction="row" sx={{ alignItems: "center", justifyContent: "center", gap: 1, mb: 2 }}>
           <GameIcon name="coins" size={40} />
@@ -50,7 +50,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
 
         {game.extraTurn && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            En el turno extra no se ganan monedas ni se cogen cartas de combate.
+            En el turno extra no se ganan suministros ni se cogen cartas de combate.
           </Alert>
         )}
 
@@ -59,7 +59,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
         </Typography>
         {coinEntries.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            Nada todavía. Las estrellas que no son impacto dan 1 moneda cada una.
+            Nada todavía. Las estrellas que no son impacto dan 1 suministro cada una.
           </Typography>
         ) : (
           <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none" }} data-testid="coin-ledger">
@@ -95,7 +95,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
             </Typography>
             <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
               <IconButton
-                aria-label="Una moneda menos"
+                aria-label="Un suministro menos"
                 onClick={() => setAmount((n) => Math.max(1, n - 1))}
                 disabled={amount <= 1}
                 sx={{ width: 48, height: 48, border: 1, borderColor: "divider" }}
@@ -106,7 +106,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
                 {amount}
               </Typography>
               <IconButton
-                aria-label="Una moneda más"
+                aria-label="Un suministro más"
                 onClick={() => setAmount((n) => n + 1)}
                 sx={{ width: 48, height: 48, border: 1, borderColor: "divider" }}
               >

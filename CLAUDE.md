@@ -49,6 +49,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 
 ## Conventions
 - UI text is in **Spanish**. Code, identifiers and comments are in English.
+- Coins are called **suministros** in the UI (a supply crate icon, `GameIcon name="coins"`); the code keeps "coins".
 - UI uses **MUI 9** (`@mui/material`, Emotion) with the theme of the chosen look (`src/looks/`). Use MUI components (`Button`, `Stack`, `Typography`, …) for new UI and style them with `sx`: MUI 9 removed the style-shorthand props on layout components. The SVG board and the card art stay custom.
 - Keep rules logic in `game-core/` and cover it with Vitest tests. Components only render and call into game-core.
 - Game objects are mutable class instances. Only `GameSession` may change them, and every change must end with it publishing a snapshot; that's what re-renders React. Don't mutate game objects from components. Don't move game logic into a React reducer either: React runs reducers twice in StrictMode, so side effects like `deck.draw()` would happen twice.

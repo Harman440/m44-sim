@@ -72,9 +72,9 @@ describe("HistoryDialog", () => {
     expect(first).toHaveTextContent("Infantería: 2 dados → 2 × Granada");
     expect(first).toHaveTextContent("(contra infantería · a distancia: 2 impactos · 0 retiradas)");
     expect(first).toHaveTextContent("Sin bajas ni retiradas.");
-    expect(first).toHaveTextContent("Al terminar el turno: 0 monedas");
-    expect(second).toHaveTextContent("Fase final: monedas: +2");
-    expect(second).toHaveTextContent("Al terminar el turno: 2 monedas");
+    expect(first).toHaveTextContent("Al terminar el turno: 0 suministros");
+    expect(second).toHaveTextContent("Fase final: suministros: +2");
+    expect(second).toHaveTextContent("Al terminar el turno: 2 suministros");
   });
 
   it("says so when no turn has finished yet", () => {

@@ -37,10 +37,10 @@ describe("CoinsDialog", () => {
     expect(screen.getByTestId("coin-balance")).toHaveTextContent("0");
     expect(screen.getByRole("button", { name: "Pagar 1" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Una moneda más" }));
-    fireEvent.click(screen.getByRole("button", { name: "Una moneda más" }));
+    fireEvent.click(screen.getByRole("button", { name: "Un suministro más" }));
+    fireEvent.click(screen.getByRole("button", { name: "Un suministro más" }));
     fireEvent.click(screen.getByRole("button", { name: "Añadir 3" }));
-    fireEvent.click(screen.getByRole("button", { name: "Una moneda menos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Un suministro menos" }));
     fireEvent.click(screen.getByRole("button", { name: "Pagar 2" }));
 
     expect(screen.getByTestId("coin-balance")).toHaveTextContent("1");

@@ -16,7 +16,7 @@ import exitDoor from "../assets/icons/exit-door.svg";
 import bugleCall from "../assets/icons/bugle-call.svg";
 import scroll from "../assets/icons/scroll-unfurled.svg";
 import save from "../assets/icons/save.svg";
-import twoCoins from "../assets/icons/two-coins.svg";
+import woodenCrate from "../assets/icons/wooden-crate.svg";
 
 const ICONS = {
   settings: cog,
@@ -34,7 +34,8 @@ const ICONS = {
   battle: bugleCall,
   history: scroll,
   download: save,
-  coins: twoCoins,
+  /** The supplies ("suministros"; "coins" in the code) */
+  coins: woodenCrate,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;

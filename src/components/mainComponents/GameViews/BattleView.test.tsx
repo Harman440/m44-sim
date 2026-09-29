@@ -352,7 +352,7 @@ describe("BattleView combat cards", () => {
     // 3 coins, has 2: tapping the card shows it, and says what's missing
     fireEvent.click(within(section).getByRole("button", { name: /^Emboscada/ }));
     expect(screen.getByRole("button", { name: "Jugar Emboscada" })).toBeDisabled();
-    expect(screen.getByRole("dialog")).toHaveTextContent("Te falta 1 moneda");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Te falta 1 suministro");
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
@@ -360,7 +360,7 @@ describe("BattleView combat cards", () => {
     fireEvent.click(screen.getByRole("button", { name: "Jugar Observador" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
-    expect(section).toHaveTextContent("Jugada · pagada: 1 moneda");
+    expect(section).toHaveTextContent("Jugada · pagada: 1 suministro");
     expect(within(section).queryByRole("button", { name: /^Emboscada/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().coins).toBe(1);
 

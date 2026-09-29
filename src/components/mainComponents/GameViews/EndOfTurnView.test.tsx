@@ -211,9 +211,9 @@ describe("EndOfTurnView after a special card", () => {
     );
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "En lugar de elegir: +3 monedas, ya sumadas al contador, y una carta de combate."
+      "En lugar de elegir: +3 suministros, ya sumados al contador, y una carta de combate."
     );
-    expect(screen.queryByRole("button", { name: /2 monedas/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /2 suministros/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().coins).toBe(3);
 
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
@@ -233,14 +233,14 @@ describe("EndOfTurnView after a special card", () => {
     const start = screen.getByRole("button", { name: "Empezar turno 3" });
     expect(start).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /2 monedas/ }));
+    fireEvent.click(screen.getByRole("button", { name: /2 suministros/ }));
     expect(session.getSnapshot().coins).toBe(2);
     expect(start).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /Carta de combate/ }));
     expect(session.getSnapshot().coins).toBe(0);
     expect(screen.getByText("Has robado:")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /2 monedas/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /2 suministros/ })).toBeDisabled();
     fireEvent.click(start);
     expect(session.getSnapshot().turn).toBe(3);
   });
@@ -264,7 +264,7 @@ describe("EndOfTurnView after a special card", () => {
     finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }));
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent(
-      "En el turno extra no se ganan monedas ni se cogen cartas de combate."
+      "En el turno extra no se ganan suministros ni se cogen cartas de combate."
     );
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     fireEvent.click(screen.getByRole("button", { name: "Quedármela: X" }));

@@ -34,7 +34,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 
 /** What an order slot means, for picking one */
 const slotLabel = (slot: OrderSlot) => {
-  if (slot.extra) return `Orden extra (${EXTRA_ORDER_COST} monedas)`;
+  if (slot.extra) return `Orden extra (${EXTRA_ORDER_COST} suministros)`;
   if (slot.onTheMove) return "En movimiento (no dispara)";
   return slot.section ? `Orden del ${SECTION_LABELS[slot.section]}` : "Orden de la carta";
 };
@@ -191,11 +191,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     if (extraMode) {
       return selectedHex
         ? "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción"
-        : `Orden extra (${EXTRA_ORDER_COST} monedas): toca cualquier unidad sin orden. No tiene las ventajas de la carta`;
+        : `Orden extra (${EXTRA_ORDER_COST} suministros): toca cualquier unidad sin orden. No tiene las ventajas de la carta`;
     }
     if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
       return game.orderable.length > 0
-        ? `Cada orden de la carta cuesta monedas (${describeCoinCost(game.activeCard!)}): da las que quieras pagar y confirma`
+        ? `Cada orden de la carta cuesta suministros (${describeCoinCost(game.activeCard!)}): da las que quieras pagar y confirma`
         : "No te llega para más órdenes de la carta: confirma las órdenes o deshaz la última";
     }
     if (game.activeCard?.closeAssaultOnly) {
@@ -307,7 +307,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             <Typography variant="body2">Seleccionado: {describeHex(selectedHex)}</Typography>
             {slot?.extra && (
               <Typography variant="body2" color="warning.main">
-                Orden extra: cuesta {EXTRA_ORDER_COST} monedas y no tiene las ventajas de la carta
+                Orden extra: cuesta {EXTRA_ORDER_COST} suministros y no tiene las ventajas de la carta
               </Typography>
             )}
             {paidCard && !slot?.extra && !slot?.onTheMove && game.activeCard && selectedHex.unit && (
@@ -384,7 +384,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               startIcon={<GameIcon name={extraMode ? "cancel" : "coins"} />}
               aria-pressed={extraMode}
             >
-              {extraMode ? "Cancelar orden extra" : `Orden extra (${EXTRA_ORDER_COST} monedas)`}
+              {extraMode ? "Cancelar orden extra" : `Orden extra (${EXTRA_ORDER_COST} suministros)`}
             </Button>
           )}
           {!ordersCommitted && orders.length > 0 && !unitHexPosition && (

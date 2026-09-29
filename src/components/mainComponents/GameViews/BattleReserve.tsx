@@ -48,7 +48,7 @@ function BattleReserve({
     <Box className="battle-reserve">
       <ButtonBase
         onClick={onShowCoins}
-        aria-label={`Monedas: ${coinsText(coins)}`}
+        aria-label={`Suministros: ${coinsText(coins)}`}
         data-testid="coin-counter"
         sx={{
           display: "flex",
@@ -67,7 +67,7 @@ function BattleReserve({
             <CoinCount coins={coins} />
           </Typography>
           <Typography component="span" variant="body2" color="text.secondary">
-            {coins === 1 ? "moneda" : "monedas"} · ver cuentas
+            {coins === 1 ? "suministro" : "suministros"} · ver cuentas
           </Typography>
         </Stack>
       </ButtonBase>

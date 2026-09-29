@@ -138,7 +138,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
                 variant="outlined"
                 onClick={() => setCoinsOpen(true)}
                 startIcon={<GameIcon name="coins" />}
-                aria-label={`Monedas: ${coinsText(game.coins)}`}
+                aria-label={`Suministros: ${coinsText(game.coins)}`}
                 data-testid="coin-counter"
                 color={game.coins < 0 ? "error" : "primary"}
               >

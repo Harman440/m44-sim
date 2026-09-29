@@ -104,7 +104,7 @@ function CardsView({
   const cantPlay = (card: CombatCard): string | null => {
     if (!canPlayCombatCards) return "En el turno extra no se juegan cartas de combate.";
     if (card.phase === "battle") return "Se juega durante la batalla.";
-    if (card.cost > coins) return `Te faltan monedas: cuesta ${coinsText(card.cost)} y tienes ${coinsText(coins)}.`;
+    if (card.cost > coins) return `Te faltan suministros: cuesta ${coinsText(card.cost)} y tienes ${coinsText(coins)}.`;
     return null;
   };
 
@@ -172,7 +172,7 @@ function CardsView({
             {!canPlayCombatCards
               ? "En el turno extra no se juegan cartas de combate."
               : combatPick
-                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "moneda" : "monedas"}) con la carta de mando que elijas.`
+                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "suministro" : "suministros"}) con la carta de mando que elijas.`
                 : "Para jugar una carta de órdenes este turno, elígela antes que la carta de mando. Las de batalla se juegan en la batalla."}
           </Typography>
         )}

@@ -282,30 +282,30 @@ describe("OrdersView orders paid in coins", () => {
   it("buys an extra order for any unit with 4 coins", () => {
     const { session, tap } = withCoins(4, { sections: [Side.LEFT], orders: 1 });
 
-    fireEvent.click(screen.getByRole("button", { name: "Orden extra (4 monedas)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Orden extra (4 suministros)" }));
     expect(screen.getByText(/toca cualquier unidad sin orden/)).toBeInTheDocument();
     tap(RIGHT);
-    expect(screen.getByText(/cuesta 4 monedas y no tiene las ventajas de la carta/)).toBeInTheDocument();
+    expect(screen.getByText(/cuesta 4 suministros y no tiene las ventajas de la carta/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
 
     expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
     expect(session.getSnapshot().coins).toBe(0);
-    expect(screen.queryByRole("button", { name: "Orden extra (4 monedas)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Orden extra (4 suministros)" })).not.toBeInTheDocument();
   });
 
   it("hides the extra order without 4 coins", () => {
     withCoins(3, { sections: [Side.LEFT], orders: 1 });
 
-    expect(screen.queryByRole("button", { name: "Orden extra (4 monedas)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Orden extra (4 suministros)" })).not.toBeInTheDocument();
   });
 
   it("lets a card paid in coins be confirmed with the orders the player wants to pay", () => {
     const { session, tap } = withCoins(1, { orders: 4, coinCost: { [UnitType.INFANTRY]: 1 } });
-    expect(screen.getByText(/Cada orden de la carta cuesta monedas \(infantería 1\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Cada orden de la carta cuesta suministros \(infantería 1\)/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar Órdenes" })).toBeInTheDocument();
 
     tap(LEFT_A);
-    expect(screen.getByText("Esta orden cuesta 1 moneda")).toBeInTheDocument();
+    expect(screen.getByText("Esta orden cuesta 1 suministro")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
 
     expect(session.getSnapshot().coins).toBe(0);

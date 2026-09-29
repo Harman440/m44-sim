@@ -26,12 +26,12 @@ export function ruleTags(card: CommandCard): string[] {
     if (card.unitTypes) tags.push(`Solo ${card.unitTypes.map((type) => UNIT_LABELS[type].toLowerCase()).join(", ")}`);
     if (card.choosesSection) tags.push("Sección a elegir");
     if (card.perSection !== null) tags.push(`${card.perSection} por sección`);
-    if (card.paidInCoins) tags.push("Cuesta monedas");
+    if (card.paidInCoins) tags.push("Cuesta suministros");
     if (card.onTheMove > 0) tags.push(`+${card.onTheMove} en movimiento`);
     if (card.noMove) tags.push("Sin mover");
     if (card.closeAssaultOnly) tags.push("Asalto cercano");
     if (card.drawChoice > 1) tags.push(`Roba ${card.drawChoice}, elige 1`);
-    if (card.endOfTurnReward) tags.push(`${card.endOfTurnReward.coins} monedas + carta de combate`);
+    if (card.endOfTurnReward) tags.push(`${card.endOfTurnReward.coins} suministros + carta de combate`);
     return tags;
 }
 
