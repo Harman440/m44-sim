@@ -18,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 interface SavedUnit {
   type: UnitType;

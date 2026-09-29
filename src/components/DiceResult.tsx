@@ -1,12 +1,12 @@
-import { CSSProperties, useEffect, useState } from "react";
+import { CSSProperties, useEffect, useId, useState } from "react";
 import { Box, useTheme } from "@mui/material";
 import { motion, useReducedMotion } from "motion/react";
 import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES } from "../game-core/dice";
-import { ShotTarget, faceEarnsCoin, faceHits, faceRetreats } from "../data/hitRules";
+import { ShotTarget, faceHits } from "../data/hitRules";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { unitSprite } from "./UnitComponent";
-import GameIcon from "./GameIcon";
+import { iconUrl } from "./GameIcon";
 import { DIE_FACE_LABELS } from "../labels";
 import "./DiceResult.css";
 
@@ -15,6 +15,7 @@ const OCTAGON = "16,2 32,2 46,16 46,32 32,46 16,46 2,32 2,16";
 
 /** One die showing `face`; infantry and tank faces reuse the player's unit art */
 export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFace; faction: Faction; eightSided?: boolean }) {
+  const maskId = useId();
   const symbol = (() => {
     switch (face) {
       case DieFace.INFANTRY:
@@ -29,12 +30,15 @@ export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFa
             <path d="M28 14 q9 -3 6 9" stroke="#333" strokeWidth="3" fill="none" />
           </g>
         );
-      case DieFace.STAR:
+      case DieFace.SUPPLY:
+        // The supply crate, the same icon as the counter
         return (
-          <polygon
-            points="24,7 28.9,18.6 41.5,19.5 31.9,27.7 34.9,40 24,33.3 13.1,40 16.1,27.7 6.5,19.5 19.1,18.6"
-            fill="#d4a017"
-          />
+          <>
+            <mask id={maskId} style={{ maskType: "alpha" }}>
+              <image href={iconUrl("coins")} x="9" y="9" width="30" height="30" />
+            </mask>
+            <rect x="9" y="9" width="30" height="30" mask={`url(#${maskId})`} fill="#8d5a2b" />
+          </>
         );
       case DieFace.FLAG:
         return (
@@ -72,17 +76,6 @@ export interface DiceRoll {
   /** Changes on every roll so the dice animate again */
   id: number;
 }
-
-/** What a die does to the target once it lands: marked on the die */
-type DieEffect = "hit" | "retreat" | "coin" | null;
-
-const dieEffect = (face: DieFace, target: ShotTarget | undefined, withCoins: boolean): DieEffect => {
-  if (!target) return null;
-  if (faceHits(face, target)) return "hit";
-  if (faceRetreats(face)) return "retreat";
-  if (withCoins && faceEarnsCoin(face, target)) return "coin";
-  return null;
-};
 
 /** How long the dice take to land, in seconds, so what they mean can show after */
 export const rollDuration = (dice: number): number => ROLL_TIME + Math.max(0, dice - 1) * DIE_STAGGER;
@@ -134,12 +127,6 @@ function RollingDie({ face, index, faction, eightSided, rolling }: RollingDiePro
   );
 }
 
-const EFFECT_LABELS: Record<Exclude<DieEffect, null>, string> = {
-  hit: "impacto",
-  retreat: "retirada",
-  coin: "suministro",
-};
-
 interface DiceResultProps {
   roll: DiceRoll;
   faction: Faction;
@@ -149,14 +136,13 @@ interface DiceResultProps {
   eightSided?: boolean;
   /** Picking the dice to apply: every die is a toggle button */
   picking?: { selected: readonly number[]; onToggle: (index: number) => void };
-  /** What the dice were rolled at: each die is marked with what it does (hit, retreat, coin) */
+  /** What the dice were rolled at: a die that hits it glows */
   target?: ShotTarget;
-  withCoins?: boolean;
   /** The dice were just rolled: throw them in */
   rolling?: boolean;
 }
 
-/** The faces of a roll, each marked with what it does to the target */
+/** The faces of a roll; a die that hits glows */
 function DiceResult({
   roll,
   faction,
@@ -164,40 +150,23 @@ function DiceResult({
   eightSided = false,
   picking,
   target,
-  withCoins = false,
   rolling = false,
 }: DiceResultProps) {
   const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
-  const reduceMotion = useReducedMotion();
-  const { palette } = useTheme();
-  const effectColors = {
-    hit: palette.error,
-    retreat: palette.primary,
-    coin: palette.warning,
-  } as const;
-  const landed = (i: number) => (rolling && !reduceMotion ? ROLL_TIME + i * DIE_STAGGER : 0);
+  const hitColor = useTheme().palette.error.main;
 
   return (
     <Box sx={{ mt: 1.5 }}>
       {/* Keyed by roll so every roll replays the animation */}
       <div key={roll.id} className="dice-result" data-testid="dice-result">
         {roll.faces.map((face, i) => {
-          const effect = applied(i) ? dieEffect(face, target, withCoins) : null;
+          const hit = applied(i) && !!target && faceHits(face, target);
           const die = <RollingDie face={face} index={i} faction={faction} eightSided={eightSided} rolling={rolling} />;
           return (
             <div
               key={i}
-              className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}${
-                effect ? ` dice-result__die--${effect}` : ""
-              }`}
-              style={
-                effect
-                  ? ({
-                      "--die-effect-color": effectColors[effect].main,
-                      "--die-effect-on": effectColors[effect].contrastText,
-                    } as CSSProperties)
-                  : undefined
-              }
+              className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}${hit ? " dice-result__die--hit" : ""}`}
+              style={hit ? ({ "--die-effect-color": hitColor } as CSSProperties) : undefined}
             >
               {/* The die stays mounted whether or not the dice are being picked, so it doesn't roll again */}
               <div className="dice-result__slot">
@@ -212,24 +181,6 @@ function DiceResult({
                   />
                 )}
               </div>
-              {effect && (
-                <motion.span
-                  className="dice-result__effect"
-                  initial={landed(i) ? { scale: 0, opacity: 0 } : false}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 16, delay: landed(i) }}
-                >
-                  {/* A supply shows as its crate, the same icon as the counter */}
-                  {effect === "coin" ? (
-                    <>
-                      <GameIcon name="coins" size="1.35em" />
-                      <span className="dice-result__sr-only">{EFFECT_LABELS.coin}</span>
-                    </>
-                  ) : (
-                    EFFECT_LABELS[effect]
-                  )}
-                </motion.span>
-              )}
               {!applied(i) && <span className="dice-result__discarded">(descartado)</span>}
             </div>
           );

@@ -6,7 +6,7 @@ import { ShotTarget, faceEarnsCoin, faceHits, faceRetreats } from "../data/hitRu
 export interface RollResult {
   hits: number;
   retreats: number;
-  /** Coins earned from stars that didn't count as hits */
+  /** Coins earned from supply faces that didn't count as hits */
   coins: number;
   /** The faces that hit, in the order rolled */
   hitFaces: DieFace[];

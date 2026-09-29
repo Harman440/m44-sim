@@ -1286,7 +1286,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 15 as 16 })).toThrow();
+    expect(broken({ version: 16 as 17 })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
@@ -1334,19 +1334,19 @@ describe("GameSession coins", () => {
     expect(makeSession().getSnapshot()).toMatchObject({ coins: 0, coinEntries: [] });
   });
 
-  it("earns 1 coin per star rolled in battle, and gives it back if the shot is undone", () => {
-    const session = turnWithCoins(0, "left", () => 0.7); // every die a star
+  it("earns 1 coin per supply rolled in battle, and gives it back if the shot is undone", () => {
+    const session = turnWithCoins(0, "left", () => 0.7); // every die a supply
     orderAllAndFight(session);
 
     shoot(session, 0, AT_INFANTRY);
 
     expect(session.getSnapshot().coins).toBe(3);
-    expect(session.getSnapshot().coinEntries).toEqual([{ kind: "stars", amount: 3, unit: UnitType.INFANTRY }]);
+    expect(session.getSnapshot().coinEntries).toEqual([{ kind: "supplies", amount: 3, unit: UnitType.INFANTRY }]);
     session.undoShot(0);
     expect(session.getSnapshot().coins).toBe(0);
   });
 
-  it("only counts the stars of the results applied", () => {
+  it("only counts the supplies of the results applied", () => {
     const session = turnWithCoins(0, "left", () => 0.7);
     orderAllAndFight(session);
     shoot(session, 0, AT_INFANTRY);
@@ -1356,7 +1356,7 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coins).toBe(1);
   });
 
-  it("earns nothing for a star that hit (artillery in close assault)", () => {
+  it("earns nothing for a supply that hit (artillery in close assault)", () => {
     const session = turnWithCoins(0, "left", () => 0.7);
     orderAllAndFight(session);
 
@@ -1365,7 +1365,7 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coins).toBe(0);
   });
 
-  it("earns coins for stars in the attacker's extra turn, but no final-phase reward, and can't spend them there", () => {
+  it("earns coins for supplies in the attacker's extra turn, but no final-phase reward, and can't spend them there", () => {
     const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0.7 });
     expect(session.adjustCoins(4)).toBe(false);
@@ -1373,10 +1373,10 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().extraOrderable).toEqual([]);
     orderAllAndFight(session);
 
-    shoot(session, 0, AT_INFANTRY); // every die a star: a coin each
+    shoot(session, 0, AT_INFANTRY); // every die a supply: a coin each
     const earned = session.getSnapshot().coins;
     expect(earned).toBeGreaterThan(0);
-    expect(session.getSnapshot().coinEntries.map((entry) => entry.kind)).toEqual(["stars"]);
+    expect(session.getSnapshot().coinEntries.map((entry) => entry.kind)).toEqual(["supplies"]);
     session.endBattle();
 
     expect(session.getSnapshot()).toMatchObject({ coins: earned, canAdjustCoins: false, needsRewardChoice: false });
@@ -1786,7 +1786,7 @@ describe("GameSession combat card effects", () => {
       initialHandSize: commandCards.length,
       commandCards,
       combatCards,
-      random: () => 0.7, // stars
+      random: () => 0.7, // supplies
     });
     session.startFirstTurn();
     return { session, commandCards };
@@ -1883,7 +1883,7 @@ describe("GameSession combat card effects", () => {
       return session;
     };
 
-    it("rolls the card's dice on each marked hex before any unit fires; stars hit", () => {
+    it("rolls the card's dice on each marked hex before any unit fires; supplies hit", () => {
       const session = barrageBattle();
       expect(session.getSnapshot().attacksPending).toBe(true);
       expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
@@ -1891,7 +1891,7 @@ describe("GameSession combat card effects", () => {
       expect(session.attackHex(0, UnitType.TANK)).toBe(true);
 
       const [attack] = session.getSnapshot().cardAttacks;
-      expect(attack).toMatchObject({ marker: 0, dice: 4, target: { unitType: UnitType.TANK, starsHit: true } });
+      expect(attack).toMatchObject({ marker: 0, dice: 4, target: { unitType: UnitType.TANK, suppliesHit: true } });
       expect(readRoll(attack!.faces, attack!.target!).hits).toBe(4);
       expect(session.getSnapshot().attacksPending).toBe(false);
       expect(session.attackHex(0, UnitType.TANK)).toBe(false);
@@ -2118,7 +2118,7 @@ describe("GameSession Reinforcements", () => {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
       [DieFace.TANK]: UnitType.TANK,
       [DieFace.GRENADE]: UnitType.INFANTRY,
-      [DieFace.STAR]: UnitType.ARTILLERY,
+      [DieFace.SUPPLY]: UnitType.ARTILLERY,
       [DieFace.FLAG]: null,
     },
   };
@@ -2143,14 +2143,14 @@ describe("GameSession Reinforcements", () => {
   };
 
   it("rolls the die in the final phase and puts the unit on the cross", () => {
-    const session = finalPhase(0.7); // star
+    const session = finalPhase(0.7); // supply
     expect(session.getSnapshot().reinforcementDue).toBe(true);
     expect(session.board.getHex(FAR)!.unit).toBeNull();
 
     expect(session.rollReinforcements()).toBe(true);
 
     expect(session.getSnapshot()).toMatchObject({
-      reinforcement: { face: DieFace.STAR, unitType: UnitType.ARTILLERY },
+      reinforcement: { face: DieFace.SUPPLY, unitType: UnitType.ARTILLERY },
       reinforcementDue: false,
       reinforcementToPlace: null,
       battleEdits: 1,
@@ -2354,7 +2354,7 @@ describe("GameSession taking ground", () => {
   });
 
   it("only when the roll could have pushed back or eliminated the target (a flag or a hit)", () => {
-    // Stars: no hit on infantry, no flag
+    // Supplies: no hit on infantry, no flag
     const session = tankBattle(() => 0.7);
     session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
 

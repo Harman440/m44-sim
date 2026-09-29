@@ -1,7 +1,7 @@
 // game-core/coins.ts
 // The coins a turn earns and spends, worked out from the turn's orders, shots
 // and choices, so undoing an order or a shot gives its coins back. The numbers
-// are in data/coinRules.ts; which stars earn a coin in data/hitRules.ts.
+// are in data/coinRules.ts; which supply faces earn a coin in data/hitRules.ts.
 import Order from "./order";
 import { UnitType } from "./unit";
 import { appliedFaces, readRoll } from "./rollResult";
@@ -17,7 +17,7 @@ export const isRewardChoice = (value: unknown): value is RewardChoice => value =
 /** One line of the coin ledger: positive earns, negative spends */
 export type CoinEntry =
   | { kind: "extraOrder" | "cardOrder"; amount: number; unit: UnitType }
-  | { kind: "stars"; amount: number; unit: UnitType }
+  | { kind: "supplies"; amount: number; unit: UnitType }
   | { kind: "endOfTurn" | "cardReward"; amount: number }
   | { kind: "combatCard"; amount: number; card: string }
   | { kind: "adjustment"; amount: number };
@@ -32,11 +32,11 @@ export interface TurnCoinsState {
   reward: RewardChoice | null;
   /** Coins the played card gives in the final phase instead of the choice (Preparations); 0 before then */
   cardReward: number;
-  /** The attacker's extra first turn: stars earn coins, but there is no final-phase reward */
+  /** The attacker's extra first turn: supply faces earn coins, but there is no final-phase reward */
   extraTurn: boolean;
 }
 
-/** This turn's ledger: combat cards and orders paid, stars rolled, the final phase's coins and changes by hand */
+/** This turn's ledger: combat cards and orders paid, supply faces rolled, the final phase's coins and changes by hand */
 export function turnCoins({
   orders,
   combatCards,
@@ -53,10 +53,10 @@ export function turnCoins({
       entries.push({ kind: order.extra ? "extraOrder" : "cardOrder", amount: -order.cost, unit: order.unit.getUnitType() });
     }
   });
-  // Stars earn coins in every turn, the attacker's extra first turn included
+  // Supply faces earn coins in every turn, the attacker's extra first turn included
   shots.forEach((shot) => {
     const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
-    if (coins > 0) entries.push({ kind: "stars", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
+    if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
   });
   // The extra first turn has no final-phase reward (nor Preparations' coins)
   if (!extraTurn) {

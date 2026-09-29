@@ -38,22 +38,10 @@
   opacity: 0.7;
 }
 
-/* What the die does once it lands: a glow round a hit and a word under the die (colours from the theme, see DiceResult) */
+/* What the die does once it lands: a glow round a hit (colours from the theme, see DiceResult) */
 .dice-result__die--hit .die {
   filter: drop-shadow(0 0 6px var(--die-effect-color))
     drop-shadow(0 4px 0 color-mix(in srgb, var(--m44-ink, #333) 55%, transparent));
-}
-
-.dice-result__effect {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--die-effect-color);
-  color: var(--die-effect-on);
-  font: 700 0.75rem/1.4 var(--m44-font-body, sans-serif);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 /* A die whose result isn't applied: still visible, for reference */
@@ -83,9 +71,8 @@
   border: 3px solid var(--m44-accent, #1976d2);
 }
 
-/* Read out to screen readers only (a discarded die, a supply's crate) */
-.dice-result__discarded,
-.dice-result__sr-only {
+/* Read out to screen readers only (a discarded die) */
+.dice-result__discarded {
   position: absolute;
   width: 1px;
   height: 1px;

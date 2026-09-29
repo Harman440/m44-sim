@@ -412,7 +412,7 @@ describe("BattleView combat card effects", () => {
       initialHandSize: 1,
       commandCards: [card],
       combatCards,
-      random: () => 0.7, // stars
+      random: () => 0.7, // supplies
     });
     session.startFirstTurn();
     session.pickCard(card, undefined, orderCard);

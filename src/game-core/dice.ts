@@ -4,7 +4,7 @@ export enum DieFace {
   INFANTRY = "infantry",
   TANK = "tank",
   GRENADE = "grenade",
-  STAR = "star",
+  SUPPLY = "supply",
   FLAG = "flag",
   /** Only on the 8-sided long-range die */
   MISS = "miss",
@@ -16,7 +16,7 @@ export const SIX_SIDED_FACES: readonly SixSidedFace[] = [
   DieFace.INFANTRY,
   DieFace.TANK,
   DieFace.GRENADE,
-  DieFace.STAR,
+  DieFace.SUPPLY,
   DieFace.FLAG,
 ];
 
@@ -26,7 +26,7 @@ export const DIE_SIDES: readonly DieFace[] = [
   DieFace.INFANTRY,
   DieFace.TANK,
   DieFace.GRENADE,
-  DieFace.STAR,
+  DieFace.SUPPLY,
   DieFace.FLAG,
 ];
 
@@ -40,7 +40,7 @@ export const LONG_RANGE_DIE_SIDES: readonly DieFace[] = [
   DieFace.INFANTRY,
   DieFace.TANK,
   DieFace.GRENADE,
-  DieFace.STAR,
+  DieFace.SUPPLY,
   DieFace.FLAG,
   DieFace.MISS,
 ];

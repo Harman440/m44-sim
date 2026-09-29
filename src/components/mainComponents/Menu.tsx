@@ -136,7 +136,7 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
         />
         <Typography variant="body2" color="text.secondary">
           Los disparos a una unidad no adyacente se tiran con un dado de 8 caras: 3 infantería, tanque,
-          granada, estrella, bandera y fallo. La granada no cuenta si la infantería dispara a un tanque.
+          granada, suministro, bandera y fallo. La granada no cuenta si la infantería dispara a un tanque.
           Actívalo en los dos dispositivos.
         </Typography>
       </Box>

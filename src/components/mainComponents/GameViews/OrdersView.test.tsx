@@ -386,7 +386,7 @@ describe("OrdersView Reinforcements card", () => {
         attacker: "Axis",
         tiles: {},
         units: { allies: { infantry: [LEFT_A] }, axis: {} },
-        reinforcements: { infantry: UnitType.INFANTRY, tank: UnitType.TANK, grenade: UnitType.TANK, star: UnitType.ARTILLERY, flag: null },
+        reinforcements: { infantry: UnitType.INFANTRY, tank: UnitType.TANK, grenade: UnitType.TANK, supply: UnitType.ARTILLERY, flag: null },
       },
       faction: "Allies",
       initialHandSize: 1,
@@ -398,7 +398,7 @@ describe("OrdersView Reinforcements card", () => {
     render(<Harness session={session} />);
 
     expect(screen.getByTestId("reinforcements-table")).toHaveTextContent(
-      "Infantería → infantería · Tanque → tanque · Granada → tanque · Estrella → artillería · Bandera → sin refuerzos"
+      "Infantería → infantería · Tanque → tanque · Granada → tanque · Suministro → artillería · Bandera → sin refuerzos"
     );
   });
 });

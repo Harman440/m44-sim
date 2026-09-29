@@ -48,7 +48,7 @@ export const DIE_FACE_LABELS: Record<DieFace, string> = {
   [DieFace.INFANTRY]: "Infantería",
   [DieFace.TANK]: "Tanque",
   [DieFace.GRENADE]: "Granada",
-  [DieFace.STAR]: "Estrella",
+  [DieFace.SUPPLY]: "Suministro",
   [DieFace.FLAG]: "Bandera",
   [DieFace.MISS]: "Fallo",
 };
@@ -128,8 +128,8 @@ export const describeCoinEntry = (entry: CoinEntry): string => {
       return `Orden extra: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
     case "cardOrder":
       return `Orden de la carta: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
-    case "stars":
-      return `Estrellas: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
+    case "supplies":
+      return `Suministros: ${UNIT_LABELS[entry.unit].toLowerCase()}`;
     case "endOfTurn":
       return "Fase final: suministros";
     case "cardReward":

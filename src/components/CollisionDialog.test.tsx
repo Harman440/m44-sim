@@ -64,7 +64,7 @@ describe("Collisions in the battle phase", () => {
 
     expect(session.getSnapshot().shots).toEqual([expect.objectContaining({ orderIndex: 1, dice: 2, collision: true })]);
     expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Choque −1"));
-    // Grenades hit artillery, and no star: no coins, even in the attacker's extra first turn
+    // Grenades hit artillery, and no supply: no coins, even in the attacker's extra first turn
     expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra artillería · asalto cercano"));
     expect(within(dialog).getByTestId("roll-hits")).toHaveTextContent("2impactos");
     expect(within(dialog).getByTestId("roll-coins")).toHaveTextContent("+0");

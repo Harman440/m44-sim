@@ -28,7 +28,7 @@ interface CoinsDialogProps {
 
 /**
  * The coin counter: what this turn earned and spent, and paying or adding
- * coins by hand (e.g. a combat card played at the table). Orders and stars
+ * coins by hand (e.g. a combat card played at the table). Orders and supply faces
  * add up by themselves; undoing them gives the coins back.
  */
 function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
@@ -50,7 +50,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
 
         {game.extraTurn && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            En el turno extra las estrellas dan suministros, pero no se gastan hasta el turno siguiente.
+            En el turno extra los dados de suministro dan suministros, pero no se gastan hasta el turno siguiente.
           </Alert>
         )}
 
@@ -59,7 +59,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
         </Typography>
         {coinEntries.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            Nada todavía. Las estrellas que no son impacto dan 1 suministro cada una.
+            Nada todavía. Cada dado de suministro que no es impacto da 1 suministro.
           </Typography>
         ) : (
           <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none" }} data-testid="coin-ledger">

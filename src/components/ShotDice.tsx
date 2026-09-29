@@ -52,7 +52,6 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
           eightSided={shot.target.longRangeFirer !== undefined}
           picking={picked ? { selected: picked, onToggle: toggle } : undefined}
           target={shot.target}
-          withCoins
           rolling={rolling}
         />
         {onKeepResults && (

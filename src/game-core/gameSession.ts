@@ -188,7 +188,7 @@ export interface CardAttack {
 }
 
 /** Reminder kept with every attack combat card roll */
-export const CARD_ATTACK_NOTE = "Las estrellas cuentan como impacto y las retiradas no se pueden ignorar.";
+export const CARD_ATTACK_NOTE = "Los suministros cuentan como impacto y las retiradas no se pueden ignorar.";
 
 export interface MoveOptions {
   moves: Position[];
@@ -685,7 +685,7 @@ class GameSession {
 
   /**
    * Roll the attack combat card on a marked hex: `targetType` is the enemy
-   * unit on it, or null when the hex was empty (nothing to roll). Stars hit.
+   * unit on it, or null when the hex was empty (nothing to roll). Supplies hit.
    */
   attackHex(marker: number, targetType: UnitType | null): boolean {
     const effect = this.attackEffect();
@@ -698,7 +698,7 @@ class GameSession {
         ? { marker, target: null, dice: 0, faces: [] }
         : {
             marker,
-            target: { unitType: targetType, closeAssault: false, starsHit: true },
+            target: { unitType: targetType, closeAssault: false, suppliesHit: true },
             dice: effect.dicePerHex,
             faces: rollDice(effect.dicePerHex, this.random),
           };

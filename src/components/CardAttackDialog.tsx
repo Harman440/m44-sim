@@ -36,7 +36,7 @@ const EMPTY = "empty";
 /**
  * An attack combat card's roll on one marked hex (Barrage, Air Power, Air
  * Bombardment): the player says what enemy unit, if any, is on it at the
- * table, and the app rolls. Stars hit; retreats can't be ignored.
+ * table, and the app rolls. Supplies hit; retreats can't be ignored.
  */
 function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack, onUndo, onClose }: CardAttackDialogProps) {
   const [target, setTarget] = useState<string | null>(null);

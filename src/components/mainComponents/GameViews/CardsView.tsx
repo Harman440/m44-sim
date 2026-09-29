@@ -187,6 +187,7 @@ function CardsView({
             name={looking.command.name}
             tags={ruleTags(looking.command)}
             text={looking.command.description}
+            actionsBeside
           >
             <Button size="large" onClick={() => playCard(looking.command)} startIcon={<GameIcon name="cards" />}>
               {combatPick ? `Jugar con ${combatPick.name}` : "Jugar esta carta"}
@@ -202,6 +203,7 @@ function CardsView({
             name={looking.combat.name}
             tags={[COMBAT_PHASE_LABELS[looking.combat.phase], `Cuesta ${coinsText(looking.combat.cost)}`]}
             text={looking.combat.description}
+            actionsBeside
           >
             {cantPlay(looking.combat) ? (
               <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>

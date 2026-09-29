@@ -12,17 +12,19 @@ interface CardDetailsProps {
   text: string;
   /** Buttons under the text */
   children?: ReactNode;
+  /** Put the buttons in their own column beside the text (under it when there's no room), so a wide space stays short */
+  actionsBeside?: boolean;
 }
 
 /** A card looked at closely: the card, and beside it its name, rules and full text */
-function CardDetails({ card, cardWidth = 170, name, tags = [], text, children }: CardDetailsProps) {
+function CardDetails({ card, cardWidth = 170, name, tags = [], text, children, actionsBeside = false }: CardDetailsProps) {
   return (
     <Box
       data-testid="card-details"
-      sx={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "center", gap: 2, width: "100%" }}
+      sx={{ display: "flex", flexWrap: "wrap", alignItems: actionsBeside ? "center" : "flex-start", justifyContent: "center", gap: 2, width: "100%" }}
     >
       <Box className="card-details__card" sx={{ flex: "none", "--card-width": typeof cardWidth === "number" ? `${cardWidth}px` : cardWidth }}>{card}</Box>
-      <Stack sx={{ flex: "1 1 220px", minWidth: 0, maxWidth: 420, gap: 1 }}>
+      <Stack sx={{ flex: "1 1 220px", minWidth: 0, maxWidth: actionsBeside ? 560 : 420, gap: 1 }}>
         {/* The card drawn beside it already has the name as a heading */}
         <Typography variant="h6" component="p">
           {name}
@@ -35,8 +37,11 @@ function CardDetails({ card, cardWidth = 170, name, tags = [], text, children }:
           </Stack>
         )}
         <Typography variant="body1">{text}</Typography>
-        {children && <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 0.5 }}>{children}</Stack>}
+        {children && !actionsBeside && <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 0.5 }}>{children}</Stack>}
       </Stack>
+      {children && actionsBeside && (
+        <Stack sx={{ flex: "0 1 220px", minWidth: 180, gap: 1, "& > .MuiButton-root": { width: "100%" } }}>{children}</Stack>
+      )}
     </Box>
   );
 }

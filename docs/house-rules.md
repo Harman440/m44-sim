@@ -5,7 +5,7 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 ---
 
 ## General rules
-- When firing against artillery in close assault stars count as a hit.
+- When firing against artillery in close assault supplies count as a hit.
 - When using the card Dig-in 4 units can move 1 hex and place a sandbag.
 - Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a recon card was used, you can pick three cards up and choose between them (And pick a combat card, if using old rules).
 - When an infantry unit is left with one figure its fire power is max 2 dice after applying any dice modifications.
@@ -21,7 +21,7 @@ Some units have new rules (some rules are still the same):
 ## Simultaneous turns
 
 ### First turn in the game
-The attacking side, being the side that would normally start, stated in the map overview, gets one extra turn at the start. This turn is played normally. The reasoning is that the starting side is the "attacking" side and their first move and attack is a surprise so the defenders should not have any chance to reply and certainly should not get the advantage of shooting first. In this extra turn the stars rolled still earn coins, but nothing can be bought with them (no extra orders, no combat cards) until the next turn, and there is no end-of-turn reward.
+The attacking side, being the side that would normally start, stated in the map overview, gets one extra turn at the start. This turn is played normally. The reasoning is that the starting side is the "attacking" side and their first move and attack is a surprise so the defenders should not have any chance to reply and certainly should not get the advantage of shooting first. In this extra turn the supplies rolled still earn coins, but nothing can be bought with them (no extra orders, no combat cards) until the next turn, and there is no end-of-turn reward.
 
 He can't pick up combat cards or get coins though.
 
@@ -71,7 +71,7 @@ If a new unit is to be placed on the field because of a combat card (Reinforceme
 
 Payment is done in the movement phase before any units are moved. When using a reaction to a battle combat card, payment is done immediately.
 
-During battle, you get a coin for every star you roll by dice used in combat, not any other rolls. If a star counts as a hit because of any special rules, you do not get a coin.
+During battle, you get a coin for every supply you roll by dice used in combat, not any other rolls. If a supply counts as a hit because of any special rules, you do not get a coin.
 
 At the end of each turn (in the last phase) when battling has finished and after picking up command cards, you can decide between picking a new combat card from the pile or picking up 2 coins. You can only have a maximum of 3 combat cards. If you already have 3 combat cards and still want to pick one up, you can substitute a combat card with one in your hand.
 
@@ -82,7 +82,7 @@ When you order a plane for the first time pick up the number of tokens (9 bullet
 
 Airplanes can move 5 hexes in the movement phase. Decide on 3 adjacent hexes and place the desired marker on those hexes. Planes attack on the movement phase. If there is no enemy unit on the hex with ammo you can get the ammo back.
 
-Bullets roll one normal die. Bombs 1 die and stars count. Retreats can't be ignored; units may still battle though if possible.
+Bullets roll one normal die. Bombs 1 die and supplies count. Retreats can't be ignored; units may still battle though if possible.
 
 After strafing aircraft can also dogfight on to an enemy aircraft (play using simultaneous rules as if it had moved).
 
@@ -139,11 +139,11 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Rattenkrieg (town to town) — 2: 1 infantry on/next to building moves up to 3 hexes, through any terrain, but must end on a building hex; can still battle
 - Forest (forest fight) — 1: 1 unit moves into forest and can still battle
 - Armor Forward — 2: 3 armor ignore terrain movement (battle restrictions still apply)
-- Return to duty (Medics) — 4: roll 2 dice for every weak infantry unit ordered; matching unit symbol or star recovers 1 figure
+- Return to duty (Medics) — 4: roll 2 dice for every weak infantry unit ordered; matching unit symbol or supply recovers 1 figure
 - Infiltrators (Behind enemy lines) — 4
 - ~~Sniper — 6: place a sniper next to an infantry unit; it can't battle this turn~~ (taken out of the game)
 - Frozen Ground (Dry ground / improve movement) — 3: 3 units +1 hex
-- Air bombardment — 4: 2 dice on 2 hexes (if they have units); can't ignore flags, stars count; hexes can't be next to your units
+- Air bombardment — 4: 2 dice on 2 hexes (if they have units); can't ignore flags, supplies count; hexes can't be next to your units
 - House to House — 1: 1 infantry may move into a building and still battle
 - Reinforcements — 6: roll a die (depending on the map add the unit rolled; flag = no reinforcements)
 
@@ -152,8 +152,8 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Mechanic — 2: 1 weak ordered armor/artillery unit receives 1 figure
 - Lost Message — 5: opponent loses 2 orders of his choice
 - Tactician — 2: change the section of a section card
-- Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; stars count and retreats can't be ignored
-- Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 1 die; stars count, retreats can't be ignored
+- Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; supplies count and retreats can't be ignored
+- Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 1 die; supplies count, retreats can't be ignored
 
 ### Original battle combat cards (cost)
 - Heat of battle: 1 infantry successful close assault (retreat or eliminated) can "overrun" like armor, take ground and battle again even if the hex would normally prevent battling
