@@ -120,6 +120,15 @@ describe("fire questions (house rules)", () => {
     expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
+  it("never takes a die from artillery for sandbags, but the flag is still ignored", () => {
+    const answers = { distance: "1", targetTerrain: "plains", sandbags: "yes" };
+    const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.ARTILLERY), answers, fireBonusSteps);
+
+    expect(result.dice).toBe(3);
+    expect(result.steps.map((step) => step.label)).not.toContain("Sacos terreros en campo abierto");
+    expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+  });
+
   it("doesn't take a die for sandbags where the terrain already protects", () => {
     const answers = { distance: "1", targetTerrain: "forest", sandbags: "yes" };
     expect(calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps).dice).toBe(2);

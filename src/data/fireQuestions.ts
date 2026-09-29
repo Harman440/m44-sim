@@ -99,23 +99,29 @@ const lineOfSightQuestion: FireQuestion = {
     answer === "no" ? "Sin línea de visión no puede disparar a este objetivo. Elige otro objetivo." : null,
 };
 
-/** Dice lost against a target behind sandbags in the open (house rule), by the firing unit's type */
+/**
+ * Dice lost against a target behind sandbags in the open (house rule), by the
+ * firing unit's type. Artillery never loses dice to cover, sandbags included.
+ */
 export const SANDBAGS_IN_THE_OPEN: Record<UnitType, number> = {
   [UnitType.INFANTRY]: -1,
   [UnitType.TANK]: -1,
-  [UnitType.ARTILLERY]: -1,
+  [UnitType.ARTILLERY]: 0,
 };
 
 /**
- * Sandbags: the target ignores 1 flag when the hits are resolved and, in the
- * open (where no terrain protects it), the shot loses a die too.
+ * Sandbags: the target ignores 1 flag when the hits are resolved (whoever
+ * fires) and, in the open (where no terrain protects it), the shot loses a die
+ * too, except artillery's.
  */
 const sandbagsQuestion: FireQuestion = {
   id: "sandbags",
   text: "¿El objetivo está protegido con sacos terreros?",
   options: () => YES_NO,
   effect: (context, answer, answers) =>
-    answer === "yes" && effectiveTerrain(context, answers.targetTerrain) === HexType.PLAINS
+    answer === "yes" &&
+    effectiveTerrain(context, answers.targetTerrain) === HexType.PLAINS &&
+    SANDBAGS_IN_THE_OPEN[context.unitType] !== 0
       ? { label: "Sacos terreros en campo abierto", dice: SANDBAGS_IN_THE_OPEN[context.unitType] }
       : null,
   note: (_, answer) => (answer === "yes" ? "Sacos terreros: el objetivo ignora 1 bandera." : null),
