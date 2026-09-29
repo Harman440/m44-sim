@@ -40,19 +40,35 @@
     width: min(100cqw, (100cqh - 8px) * var(--board-aspect));
   }
 
-  /* Narrow column so the board gets most of the width */
+  /* Narrow column so the board gets most of the width: only what the player
+     needs now is in it, the rest behind "i" and "Instrucciones" (InfoButton) */
   .phase-layout__controls {
-    flex: 0 0 280px;
+    flex: 0 0 216px;
     align-items: stretch;
-    gap: 12px;
+    gap: 10px;
     max-height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
+  /* Still 48px high for touch, but with smaller type so labels fit on one line */
   .phase-layout__controls .MuiButton-root {
     width: 100%;
-    padding-inline: 8px;
+    padding-inline: 6px;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+
+  .phase-layout__controls .MuiButton-startIcon {
+    margin-right: 4px;
+  }
+
+  .phase-layout__controls .MuiToggleButton-root {
+    padding: 6px;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
   }
 
   /* An alert's buttons go below its text, so the text keeps the column's width */
@@ -77,12 +93,12 @@
   }
 
   .phase-layout__controls .MuiPaper-root {
-    padding: 12px;
+    padding: 8px;
   }
 }
 
 /* The cards played this turn (PlayedCards, in Movimiento and the battle map),
-   side by side above the instructions: two fit in the 280px landscape column */
+   side by side: two fit in the 216px landscape column */
 .played-cards {
   display: flex;
   justify-content: center;
@@ -93,11 +109,12 @@
 
 @media (orientation: landscape) {
   .played-cards {
-    --card-width: 130px;
+    gap: 8px;
+    --card-width: 104px;
   }
 
   /* Only the command card: it can take more of the column */
   .played-cards:has(> :only-child) {
-    --card-width: 180px;
+    --card-width: 170px;
   }
 }

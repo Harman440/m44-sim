@@ -1,10 +1,11 @@
-import { Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
 import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
+import InfoButton from "../../InfoButton";
 import "./PhaseLayout.css";
 
 interface ParadropViewProps {
@@ -46,10 +47,6 @@ function ParadropView({ faction, session, game }: ParadropViewProps) {
         <Typography variant="h6" sx={{ textAlign: "center" }}>
           Lanzamiento de paracaidistas
         </Typography>
-        <Typography variant="body1" sx={{ textAlign: "center" }}>
-          Deja caer tus {total} paracaidistas sobre el tablero de la mesa. Los que caigan fuera o encima de
-          otra unidad se pierden.
-        </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
           {game.dropsLeft > 0
             ? `Toca la casilla donde ha caído cada uno (quedan ${game.dropsLeft} de ${total})`
@@ -68,6 +65,14 @@ function ParadropView({ faction, session, game }: ParadropViewProps) {
               : "Empezar la partida"}
           </Button>
         </Stack>
+        <Box sx={{ mt: "auto" }}>
+          <InfoButton title="Lanzamiento de paracaidistas" label="Instrucciones">
+            <Typography variant="body1">
+              Deja caer tus {total} paracaidistas sobre el tablero de la mesa. Los que caigan fuera o encima de otra
+              unidad se pierden. Después toca en el mapa la casilla donde ha caído cada uno.
+            </Typography>
+          </InfoButton>
+        </Box>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
-import { Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
 import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import PlayedCards from "../../PlayedCards";
+import InfoButton from "../../InfoButton";
 import "./PhaseLayout.css";
 
 interface BattleMapProps {
@@ -58,9 +59,6 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           section={game.chosenSection}
           combat={game.orderCombatCard}
         />
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-          Toca una carta para leerla entera. Las bajas y retiradas se reflejan en el mapa en la fase final.
-        </Typography>
 
         <Stack sx={{ gap: 1, width: "100%" }}>
           <Button variant="outlined" onClick={onShowSummary} startIcon={<GameIcon name="battle" />}>
@@ -70,6 +68,14 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
             Terminar batalla
           </Button>
         </Stack>
+        <Box sx={{ mt: "auto" }}>
+          <InfoButton title="Mapa de batalla" label="Instrucciones">
+            <Typography variant="body1">
+              El mapa muestra las órdenes y qué unidades ya han disparado. Toca una carta para leerla entera. Las bajas y
+              retiradas se reflejan en el mapa en la fase final.
+            </Typography>
+          </InfoButton>
+        </Box>
       </div>
     </div>
   );

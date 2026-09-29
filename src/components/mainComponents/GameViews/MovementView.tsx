@@ -4,6 +4,7 @@ import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import PlayedCards from "../../PlayedCards";
+import InfoButton from "../../InfoButton";
 import { coinsText } from "../../../labels";
 import "./PhaseLayout.css";
 
@@ -50,29 +51,36 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           section={game.chosenSection}
           combat={game.orderCombatCard}
         />
-        <Box component="ol" sx={{ m: 0, pl: 3, display: "flex", flexDirection: "column", gap: 1 }}>
-          <Typography component="li" variant="body1">
-            Enseña esta pantalla al rival, con el mapa y las cartas, y mira la suya. Toca una carta para leerla entera.
-          </Typography>
-          {game.orderCombatCard && (
-            <Typography component="li" variant="body1" data-testid="order-combat-card">
-              Juegas <strong>{game.orderCombatCard.name}</strong> (coste: {coinsText(game.orderCombatCard.cost)}, ya restado
-              del contador): {game.orderCombatCard.description}
-            </Typography>
-          )}
-          <Typography component="li" variant="body1">
-            Mueve en la mesa las unidades con flecha.
-          </Typography>
-          {firing > 0 && (
-            <Typography component="li" variant="body1">
-              Pon un marcador de batalla en{" "}
-              {firing === 1 ? "la unidad que dispara" : `las ${firing} unidades que disparan`}.
-            </Typography>
-          )}
-        </Box>
+        <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
+          Enseña el mapa al rival y mueve en la mesa las unidades con flecha
+        </Typography>
         <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
           Fase Batalla
         </Button>
+        <Box sx={{ mt: "auto" }}>
+          <InfoButton title="Fase Movimiento" label="Instrucciones">
+            <Box component="ol" sx={{ m: 0, pl: 3, display: "flex", flexDirection: "column", gap: 1 }}>
+              <Typography component="li" variant="body1">
+                Enseña esta pantalla al rival, con el mapa y las cartas, y mira la suya. Toca una carta para leerla entera.
+              </Typography>
+              {game.orderCombatCard && (
+                <Typography component="li" variant="body1" data-testid="order-combat-card">
+                  Juegas <strong>{game.orderCombatCard.name}</strong> (coste: {coinsText(game.orderCombatCard.cost)}, ya
+                  restado del contador): {game.orderCombatCard.description}
+                </Typography>
+              )}
+              <Typography component="li" variant="body1">
+                Mueve en la mesa las unidades con flecha.
+              </Typography>
+              {firing > 0 && (
+                <Typography component="li" variant="body1">
+                  Pon un marcador de batalla en{" "}
+                  {firing === 1 ? "la unidad que dispara" : `las ${firing} unidades que disparan`}.
+                </Typography>
+              )}
+            </Box>
+          </InfoButton>
+        </Box>
       </div>
     </div>
   );

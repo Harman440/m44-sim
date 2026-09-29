@@ -167,7 +167,7 @@ describe("OrdersView after committing", () => {
 
     expect(container.querySelector(".board__svg--locked")).not.toBeNull();
     expect(container.querySelector(".board__stamp")).toHaveTextContent("Órdenes confirmadas");
-    expect(screen.getByText(/Ya no se pueden cambiar/)).toBeInTheDocument();
+    expect(screen.getByText(/ya no se pueden cambiar/)).toBeInTheDocument();
     tap(LEFT_A);
     expect(isSelected(LEFT_A)).toBe(false);
     expect(screen.queryByRole("button", { name: "Volver" })).not.toBeInTheDocument();
@@ -200,7 +200,9 @@ describe("OrdersView card rules", () => {
   it("shows the card being played", () => {
     withCard({ sections: [Side.LEFT], orders: 2 });
 
-    expect(screen.getByText(/Texto de la carta\./)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Carta" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Información: Carta" }));
+    expect(screen.getByRole("dialog", { name: "Carta" })).toHaveTextContent("Texto de la carta.");
   });
 
   it("asks which section's order a border unit takes before ordering it", () => {
@@ -221,7 +223,12 @@ describe("OrdersView card rules", () => {
     const { session, tap } = withCard({ sections: [Side.LEFT], orders: 1, onTheMove: 1 });
 
     tap(RIGHT);
-    expect(screen.getByText("Mueve hasta 2 casillas; no puede disparar")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Información: Unidad seleccionada" }));
+    expect(screen.getByRole("dialog", { name: "Unidad seleccionada" })).toHaveTextContent(
+      "Mueve hasta 2 casillas; no puede disparar"
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    act(() => vi.runAllTimers());
     fireEvent.click(screen.getByRole("button", { name: "Mantener (no dispara)" }));
 
     expect(session.getSnapshot().orders[0]).toMatchObject({ onTheMove: true, shots: 0 });
@@ -285,7 +292,7 @@ describe("OrdersView orders paid in coins", () => {
     fireEvent.click(screen.getByRole("button", { name: "Orden extra (4 suministros)" }));
     expect(screen.getByText(/toca cualquier unidad sin orden/)).toBeInTheDocument();
     tap(RIGHT);
-    expect(screen.getByText(/cuesta 4 suministros y no tiene las ventajas de la carta/)).toBeInTheDocument();
+    expect(screen.getByText("Orden extra: cuesta 4 suministros")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
 
     expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
@@ -301,7 +308,13 @@ describe("OrdersView orders paid in coins", () => {
 
   it("lets a card paid in coins be confirmed with the orders the player wants to pay", () => {
     const { session, tap } = withCoins(1, { orders: 4, coinCost: { [UnitType.INFANTRY]: 1 } });
-    expect(screen.getByText(/Cada orden de la carta cuesta suministros \(infantería 1\)/)).toBeInTheDocument();
+    expect(screen.getByText("Da las órdenes que quieras pagar y confirma")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
+    expect(screen.getByRole("dialog", { name: "Cómo dar órdenes" })).toHaveTextContent(
+      "Cada orden de la carta cuesta suministros (infantería 1)"
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    act(() => vi.runAllTimers());
     expect(screen.getByRole("button", { name: "Confirmar Órdenes" })).toBeInTheDocument();
 
     tap(LEFT_A);
@@ -397,6 +410,7 @@ describe("OrdersView Reinforcements card", () => {
     session.pickCard(card, undefined, reinforcements);
     render(<Harness session={session} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Información: Carta de combate: Refuerzos" }));
     expect(screen.getByTestId("reinforcements-table")).toHaveTextContent(
       "Infantería → infantería · Tanque → tanque · Granada → tanque · Suministro → artillería · Bandera → sin refuerzos"
     );

@@ -60,6 +60,8 @@ describe("MovementView", () => {
   it("says what to do at the table and counts the units that fire", () => {
     render(<Harness session={makeMovementSession()} />);
 
+    expect(screen.getByText(/mueve en la mesa las unidades con flecha/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
     expect(screen.getByText(/Enseña esta pantalla al rival/)).toBeInTheDocument();
     expect(screen.getByText(/Pon un marcador de batalla en\s+la unidad que dispara\./)).toBeInTheDocument();
   });
