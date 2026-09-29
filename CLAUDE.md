@@ -65,7 +65,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - Bundle: `GameView` is lazy-loaded (`LazyGameView`, preloaded from the menu), and `vite.config.ts` splits react, MUI and motion into their own chunks.
 
 ## Roadmap
-The step-by-step plan is in [docs/PLAN.md](docs/PLAN.md) (from Step 35). Work through it one step at a time and tick items off when they're done. The first plan (Steps 0–34, finished) is in [docs/oldPlans/PLAN.md](docs/oldPlans/PLAN.md). New bugs and ideas the player finds go into [docs/FoundBugs.md](docs/FoundBugs.md) first, then into a step of the plan. The player's house rules, which most of the later steps come from, are in [docs/house-rules.md](docs/house-rules.md): they were written for pen and paper and may change, so confirm a rule with the player before building it.
+The step-by-step plan is in [docs/PLAN.md](docs/PLAN.md) (from Step 35). Work through it one step at a time and tick items off when they're done. The first plan (Steps 0–34, finished) is in [docs/oldPlans/PLAN.md](docs/oldPlans/PLAN.md). The player's house rules, which most of the later steps come from, are in [docs/house-rules.md](docs/house-rules.md): they were written for pen and paper and may change, so confirm a rule with the player before building it.
 
 ## MCP servers (`.mcp.json`)
 - `playwright`: drive the dev server, click through a turn and take screenshots to check UI changes. It runs headless Chromium (`--browser chromium --headless`); if the browser is missing, run `npx playwright install chromium`.

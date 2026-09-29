@@ -2,7 +2,7 @@
 
 We work through this one step at a time. Each step is its own commit on `main`. Tick items off (`[x]`) when they're done. Items marked **Decide** need an answer from the player before they are built: the rules are a house variant, so don't assume official M44.
 
-The first plan (Steps 0–34) is finished and kept in [oldPlans/PLAN.md](oldPlans/PLAN.md); commits and code comments that mention a step number up to 34 refer to it. This plan carries on from Step 35. It comes from the notes in [FoundBugs.md](FoundBugs.md), which is the inbox: new findings go there first, then into a step here. The house rules are in [house-rules.md](house-rules.md).
+The first plan (Steps 0–34) is finished and kept in [oldPlans/PLAN.md](oldPlans/PLAN.md); commits and code comments that mention a step number up to 34 refer to it. This plan carries on from Step 35. The house rules are in [house-rules.md](house-rules.md).
 
 ## Where we are
 
