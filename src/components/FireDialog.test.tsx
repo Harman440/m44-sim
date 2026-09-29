@@ -209,7 +209,10 @@ describe("FireDialog", () => {
     const session = open(UnitType.TANK);
     fireAt(ADJACENT, "Infantería", "3 dados");
 
+    const dieBefore = grenades()[0];
     choose("Aplicar menos resultados");
+    // The dice stay as they are (not remounted, which would roll them again)
+    expect(grenades()[0]).toBe(dieBefore);
     choose("Dado 2: Granada");
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("2impactos");
     choose("Aplicar 2 de 3");

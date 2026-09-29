@@ -198,19 +198,19 @@ function DiceResult({
                   : undefined
               }
             >
-              {picking ? (
-                <button
-                  type="button"
-                  className="dice-result__pick"
-                  aria-pressed={applied(i)}
-                  aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
-                  onClick={() => picking.onToggle(i)}
-                >
-                  {die}
-                </button>
-              ) : (
-                die
-              )}
+              {/* The die stays mounted whether or not the dice are being picked, so it doesn't roll again */}
+              <div className="dice-result__slot">
+                {die}
+                {picking && (
+                  <button
+                    type="button"
+                    className="dice-result__pick"
+                    aria-pressed={applied(i)}
+                    aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
+                    onClick={() => picking.onToggle(i)}
+                  />
+                )}
+              </div>
               {effect && (
                 <motion.span
                   className="dice-result__effect"

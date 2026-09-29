@@ -44,47 +44,50 @@ function ShotDice({ shot, rollId, faction, withCoins, rolling = false, onKeepRes
           Toca los dados cuyo resultado aplicas. Los demás se descartan.
         </Alert>
       )}
-      <DiceResult
-        roll={{ faces: [...shot.faces], id: rollId }}
-        faction={faction}
-        kept={shot.kept}
-        eightSided={shot.target.longRangeFirer !== undefined}
-        picking={picked ? { selected: picked, onToggle: toggle } : undefined}
-        target={shot.target}
-        withCoins={withCoins}
-        rolling={rolling}
-      />
+      {/* The dice, with changing which results apply on their right */}
+      <Stack direction="row" sx={{ flexWrap: "wrap", alignItems: "center", columnGap: 3 }}>
+        <DiceResult
+          roll={{ faces: [...shot.faces], id: rollId }}
+          faction={faction}
+          kept={shot.kept}
+          eightSided={shot.target.longRangeFirer !== undefined}
+          picking={picked ? { selected: picked, onToggle: toggle } : undefined}
+          target={shot.target}
+          withCoins={withCoins}
+          rolling={rolling}
+        />
+        {onKeepResults && (
+          <Stack sx={{ alignItems: "flex-start", gap: 0.5, mt: 1.5 }}>
+            {picked ? (
+              <>
+                <Button onClick={apply}>
+                  Aplicar {picked.length} de {shot.faces.length}
+                </Button>
+                <Button variant="outlined" onClick={() => setPicked(null)}>
+                  Cancelar
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="text" size="small" onClick={() => setPicked(shot.kept ? [...shot.kept] : allDice)}>
+                  {shot.kept ? "Cambiar resultados aplicados" : "Aplicar menos resultados"}
+                </Button>
+                {shot.kept && (
+                  <Button variant="text" size="small" onClick={() => onKeepResults(null)}>
+                    Aplicar todos
+                  </Button>
+                )}
+              </>
+            )}
+          </Stack>
+        )}
+      </Stack>
       <RollReading
         faces={faces}
         target={shot.target}
         withCoins={withCoins}
         delay={rolling ? rollDuration(shot.faces.length) : 0}
       />
-      {onKeepResults && (
-        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}>
-          {picked ? (
-            <>
-              <Button onClick={apply}>
-                Aplicar {picked.length} de {shot.faces.length}
-              </Button>
-              <Button variant="outlined" onClick={() => setPicked(null)}>
-                Cancelar
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="text" size="small" onClick={() => setPicked(shot.kept ? [...shot.kept] : allDice)}>
-                {shot.kept ? "Cambiar resultados aplicados" : "Aplicar menos resultados"}
-              </Button>
-              {shot.kept && (
-                <Button variant="text" size="small" onClick={() => onKeepResults(null)}>
-                  Aplicar todos
-                </Button>
-              )}
-            </>
-          )}
-        </Stack>
-      )}
     </>
   );
 }

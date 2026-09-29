@@ -60,10 +60,16 @@
   filter: grayscale(1);
 }
 
-/* Picking the dice to apply: each die is a toggle */
+/* Picking the dice to apply: a toggle laid over each die */
+.dice-result__slot {
+  position: relative;
+}
+
 .dice-result__pick {
-  padding: 4px;
-  border: 3px dashed transparent;
+  position: absolute;
+  inset: -6px;
+  padding: 0;
+  border: 3px dashed var(--m44-border, #9ca3af);
   border-radius: 14px;
   background: none;
   cursor: pointer;
@@ -73,15 +79,6 @@
 
 .dice-result__pick[aria-pressed="true"] {
   border: 3px solid var(--m44-accent, #1976d2);
-}
-
-.dice-result__pick[aria-pressed="false"] {
-  border-color: var(--m44-border, #9ca3af);
-}
-
-.dice-result__pick[aria-pressed="false"] .die {
-  opacity: 0.35;
-  filter: grayscale(1);
 }
 
 /* Read out to screen readers only; the greyed-out die shows it on screen */
