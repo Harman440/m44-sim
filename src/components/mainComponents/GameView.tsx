@@ -37,6 +37,7 @@ import CoinCount from "../CoinCount";
 import SettingsDialog from "../SettingsDialog";
 import HistoryDialog from "../HistoryDialog";
 import CoinsDialog from "../CoinsDialog";
+import DeckVisualizerDialog from "../DeckVisualizerDialog";
 import "./GameView.css";
 
 export interface GameViewProps {
@@ -64,6 +65,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [coinsOpen, setCoinsOpen] = useState(false);
+  const [deckOpen, setDeckOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -174,6 +176,18 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);
+                setDeckOpen(true);
+              }}
+              sx={{ minHeight: 48 }}
+            >
+              <ListItemIcon sx={{ color: "inherit" }}>
+                <GameIcon name="cards" />
+              </ListItemIcon>
+              <ListItemText>Ver mazo</ListItemText>
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchor(null);
                 setHistoryOpen(true);
               }}
               sx={{ minHeight: 48 }}
@@ -274,6 +288,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
 
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <CoinsDialog open={coinsOpen} onClose={() => setCoinsOpen(false)} session={session} game={game} />
+        <DeckVisualizerDialog open={deckOpen} onClose={() => setDeckOpen(false)} />
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
 
         <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>
