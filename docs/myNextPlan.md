@@ -4,3 +4,4 @@
     - Like air rules and more
     - Take into account sometimes a side does not have a type of unit
 
+- Correct Foret de Ecouves
