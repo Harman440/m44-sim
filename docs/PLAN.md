@@ -92,7 +92,7 @@ The two decisions from the first plan still hold:
 ## Part F: The deck
 
 ### Step 43: Deck visualizer
-- [ ] A view of the command deck: every card, how many copies, and how likely each kind is to be drawn (the probability notes in house-rules.md)
+- [x] A view of the command deck: every card, how many copies, and how likely each kind is to be drawn (the probability notes in house-rules.md)
 
 ### Step 44: A smaller deck
 - [ ] Fewer cards, split into two decks, so each card turns up more often and the game is less random
