@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
+import Unit, { UnitType } from "./unit";
 import { HexType } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -166,6 +167,25 @@ describe("BoardManager pathfinding", () => {
       .map((r) => key(r.position));
 
     expect(moves).toContain("4-9");
+  });
+
+  it("cannot enter a river or a lake, but crosses a river by its bridge", () => {
+    // A river along column 7 (4-7 and the hexes above and below), with a bridge on 4-7
+    const river = [{ row: 3, col: 6 }, { row: 5, col: 6 }, { row: 2, col: 7 }, { row: 6, col: 7 }];
+    const scenario = makeScenario({ tiles: { river, bridge: [{ row: 4, col: 7 }], lake: [{ row: 4, col: 5 }] } });
+    const board = new BoardManager(scenario);
+
+    const moves = destinations(board, 2);
+
+    for (const water of [...river, { row: 4, col: 5 }]) expect(moves).not.toContain(key(water));
+    expect(moves).toContain("4-7"); // the bridge, like plains: the move goes on
+    expect(moves).toContain("4-8");
+    expect(destinations(board, 1, true)).toContain("4-7");
+  });
+
+  it("puts no unit on water", () => {
+    const board = new BoardManager(makeScenario({ tiles: { river: [start] } }));
+    expect(board.placeUnitAt(start, new Unit(UnitType.INFANTRY))).toBe(false);
   });
 
   it("looks up the path from start to each destination by key", () => {

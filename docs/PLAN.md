@@ -6,7 +6,7 @@ The first plan (Steps 0–34) is finished and kept in [oldPlans/PLAN.md](oldPlan
 
 ## Where we are
 
-The full turn loop works on each player's device and survives reloads: Menu → Carta → Órdenes → Movimiento → Batalla → Final → next turn, with the attacker's extra first turn, the house command and combat decks, coins, combat card effects and the long-range die. Three scenarios: Forêt d'Écouves, Arracourt and Sainte-Mère-Église (official map, with hedgerows, a hill and the paratrooper drop).
+The full turn loop works on each player's device and survives reloads: Menu → Carta → Órdenes → Movimiento → Batalla → Final → next turn, with the attacker's extra first turn, the house command and combat decks, coins, combat card effects and the long-range die. Four scenarios: Forêt d'Écouves, Arracourt, Sainte-Mère-Église (official map, with hedgerows, a hill and the paratrooper drop) and Pegasus Bridge (official map, with rivers, bridges and a pond).
 
 The two decisions from the first plan still hold:
 - **Each tablet stays independent** and knows only its own side. Anything about the opponent is done at the table, and the app reminds the player when.
@@ -81,8 +81,10 @@ The two decisions from the first plan still hold:
 - [x] Hills drawn by `npm run board` (`scripts/terrain-tiles.mjs`)
 - [x] Hedgerows: `HexType.HEDGEROW` with the official rules (enter only from an adjacent hex and stop, no firing that turn, leave 1 hex; infantry −1, tanks −2) and their art
 - [x] Sainte-Mère-Église, the official base-game scenario, with its paradrop (`Scenario.paradrop`, the PARADROP phase)
-- [ ] Rivers: the art is drawn (a stony river from any edge to any other). Officially a river is impassable except at a bridge, so it also needs a bridge tile
-- [ ] **Decide:** river and bridge rules in the house variant, then a scenario that uses them (e.g. Pegasus Bridge)
+- [x] Rivers, bridges and lakes: `HexType.RIVER`, `BRIDGE` and `LAKE`, drawn by `npm run board` (a river flows through the edges it shares with the next river or bridge hexes; a lake joins the lake hexes next to it)
+- [x] **Decided:** a river or a lake is impassable (as official) and doesn't block line of sight; a bridge plays exactly like plains (moving, firing, cover)
+- [x] Pegasus Bridge, the official base-game scenario 1 (Allies 6 cards, Axis 2; Allies attack). The barbed wire and sandbags round Pegasus Bridge are only on the table, and the medals on the bridges aren't tracked (the app doesn't count medals)
+- [ ] **Decide:** the Pegasus Bridge reinforcement table is a proposal (grenade and star → infantry, flag → none), like Sainte-Mère-Église
 - [x] **Decide:** the Sainte-Mère-Église reinforcement table is a proposal (grenade and star → infantry, flag → none), like the other two
 
 ## Part F: The deck

@@ -9,6 +9,8 @@ import arracourtImage from "../assets/scenarios/Arracourt.webp";
 import arracourtTiles from "./boards/arracourt.json";
 import sainteMereEgliseImage from "../assets/scenarios/SainteMereEglise.webp";
 import sainteMereEgliseTiles from "./boards/sainte-mere-eglise.json";
+import pegasusBridgeImage from "../assets/scenarios/PegasusBridge.webp";
+import pegasusBridgeTiles from "./boards/pegasus-bridge.json";
 
 export const scenarios: Scenario[] = [
   {
@@ -136,6 +138,40 @@ export const scenarios: Scenario[] = [
           { row: 2, col: 0 }, { row: 2, col: 10 }, { row: 4, col: 6 },
         ],
         tank: [{ row: 0, col: 12 }],
+      },
+    },
+  },
+  {
+    // Memoir '44 base game, scenario 1 (6 June 1944): British gliders land by the bridges over
+    // the Caen canal and the Orne at night. The map and units are the official ones (the barbed
+    // wire and sandbags round Pegasus Bridge are only on the table); the reinforcement table is ours
+    id: 'pegasus-bridge',
+    name: 'Pegasus Bridge',
+    description: 'Los planeadores británicos aterrizan junto a los puentes del canal de Caen y del Orne: hay que tomarlos.',
+    image: pegasusBridgeImage,
+    initialHandSize: { allies: 6, axis: 2 },
+    attacker: 'Allies',
+    reinforcements: {
+      [DieFace.INFANTRY]: UnitType.INFANTRY,
+      [DieFace.TANK]: UnitType.TANK,
+      [DieFace.GRENADE]: UnitType.INFANTRY,
+      [DieFace.SUPPLY]: UnitType.INFANTRY,
+      [DieFace.FLAG]: null,
+    },
+    tiles: pegasusBridgeTiles as Tiles,
+    units: {
+      allies: {
+        infantry: [
+          { row: 5, col: 2 }, { row: 6, col: 2 }, { row: 6, col: 3 },
+          { row: 7, col: 4 }, { row: 7, col: 5 }, { row: 7, col: 7 },
+          { row: 8, col: 5 }, { row: 8, col: 7 }, { row: 8, col: 8 },
+        ],
+      },
+      axis: {
+        infantry: [
+          { row: 0, col: 0 }, { row: 1, col: 10 }, { row: 2, col: 2 },
+          { row: 2, col: 4 }, { row: 3, col: 3 }, { row: 6, col: 12 },
+        ],
       },
     },
   },

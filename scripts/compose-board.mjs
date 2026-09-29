@@ -3,8 +3,10 @@
 // Usage: npm run board -- <tiles.json> <out.webp>
 // Example: npm run board -- src/data/boards/arracourt.json src/assets/scenarios/Arracourt.webp
 // tiles.json: { "forest": [{ "row": 3, "col": 9 }], "town": [...] }, in the scenario's
-// positions; every other hex is plains. Plains, forest and town are cut out of the art,
-// hills and hedgerows are drawn by terrain-tiles.mjs. On the outer ring, the frame
+// positions; every other hex is plains. Plains, forest and town are cut out of the art;
+// hills, hedgerows, rivers, bridges and lakes are drawn by terrain-tiles.mjs (a river runs
+// through the edges it shares with the next river or bridge hexes, a lake joins the lake
+// hexes next to it). On the outer ring, the frame
 // (the medal tracks along the top and bottom) is put back over the new hexes.
 import sharp from "sharp";
 import { readFileSync } from "node:fs";
@@ -96,15 +98,37 @@ const tile = (key) => {
     .toBuffer();
 };
 
+// The hex across each edge (0 = east, then clockwise), odd rows shifted right
+const neighbor = (key, d) => {
+  const [row, col] = key.split("-").map(Number);
+  const shift = row % 2;
+  const [dr, dc] = [[0, 1], [1, shift], [1, shift - 1], [0, -1], [-1, shift - 1], [-1, shift]][d];
+  return `${row + dr}-${col + dc}`;
+};
+const edgesTo = (key, types) => [...Array(6)].map((_, d) => types.includes(wanted.get(neighbor(key, d))));
+// Where a river flows through a hex: the edges it shares with the next river or bridge hexes.
+// At the end of a river (on the board's edge) it carries straight on off the board.
+const riverEdges = (key) => {
+  const edges = edgesTo(key, ["river", "bridge"]).flatMap((water, d) => (water ? [d] : []));
+  if (edges.length > 2) throw new Error(`River at ${key} joins more than two river hexes`);
+  if (edges.length === 2) return edges;
+  if (edges.length === 1) return [edges[0], (edges[0] + 3) % 6];
+  return [0, 3];
+};
 // A drawn tile, rendered at the board's hex size; seeded by the hex so every hill differs
 const drawn = (type, key) => {
   const [row, col] = key.split("-").map(Number);
-  return sharp(Buffer.from(TILES[type](row * 13 + col + 1)))
+  const seed = row * 13 + col + 1;
+  const svg =
+    type === "river" || type === "bridge" ? TILES[type](...riverEdges(key), seed)
+    : type === "lake" ? TILES.lake(edgesTo(key, ["lake"]), seed)
+    : TILES[type](seed);
+  return sharp(Buffer.from(svg))
     .resize(Math.round(hexWidth), Math.round(radius * 2))
     .png()
     .toBuffer();
 };
-const DRAWN = new Set(["hill", "hedgerow"]);
+const DRAWN = new Set(["hill", "hedgerow", "river", "bridge", "lake"]);
 
 const tiles = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const out = process.argv[3];

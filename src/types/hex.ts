@@ -5,6 +5,12 @@ export enum HexType {
   HILL = "hill",
   TOWN = "town",
   HEDGEROW = "hedgerow",
+  /** Impassable; doesn't block line of sight */
+  RIVER = "river",
+  /** A river hex with a bridge: plays like plains (house rule) */
+  BRIDGE = "bridge",
+  /** A pond or lake: impassable, doesn't block line of sight */
+  LAKE = "lake",
 }
 
 // Enum for movement rules

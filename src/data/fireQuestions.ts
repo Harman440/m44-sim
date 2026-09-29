@@ -27,8 +27,11 @@ export const SIGHT_BLOCKING_TERRAIN: readonly HexType[] = [HexType.FOREST, HexTy
  */
 export const TAKE_GROUND_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
 
-/** Where the target can be: the board's terrain types plus a bunker */
-export type TargetTerrain = HexType | "bunker";
+/**
+ * Where the target can be: the board's terrain types plus a bunker. No unit can
+ * be on water, and a bridge counts as open ground (`effectiveTerrain`).
+ */
+export type TargetTerrain = Exclude<HexType, HexType.RIVER | HexType.LAKE | HexType.BRIDGE> | "bunker";
 
 /** Dice lost when the target is in this terrain, by the firing unit's type; answers are the keys, in this order */
 export const TARGET_TERRAIN_MODIFIERS: Record<TargetTerrain, { label: string; dice: Record<UnitType, number> }> = {
@@ -70,11 +73,14 @@ export const targetTypeQuestion: FireQuestion = {
 };
 
 /**
- * The terrain that counts for the shot: official hill rule, a unit on a hill
- * fires at a unit on another hill (the same height) as if it were open ground.
+ * The terrain that counts for the shot: a bridge is open ground (house rule),
+ * and, official hill rule, a unit on a hill fires at a unit on another hill
+ * (the same height) as if it were open ground.
  */
 export const effectiveTerrain = ({ fromTerrain }: FireContext, answer: string | undefined): TargetTerrain | undefined =>
-  answer === HexType.HILL && fromTerrain === HexType.HILL ? HexType.PLAINS : (answer as TargetTerrain | undefined);
+  answer === HexType.BRIDGE || (answer === HexType.HILL && fromTerrain === HexType.HILL)
+    ? HexType.PLAINS
+    : (answer as TargetTerrain | undefined);
 
 const targetTerrainQuestion: FireQuestion = {
   id: "targetTerrain",

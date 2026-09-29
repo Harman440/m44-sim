@@ -63,5 +63,5 @@ React 19, TypeScript, Vite, MUI 9, motion, Vitest + Testing Library.
 - Icons: [game-icons.net](https://game-icons.net), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/): *cog*, *treasure map*, *hourglass*, *bugle call* and *scroll unfurled* by Lorc; *speaker*, *speaker off*, *crosshair*, *rolling dices*, *anticlockwise rotation*, *check mark*, *exit door*, *save* and *wooden crate* by Delapouite; *card draw* by Faithtoken; *cancel* by Sbed. The background of each icon was removed so it takes the text colour.
 - Textures: [ambientCG](https://ambientcg.com) (Paper002, Paper003, Fabric045), CC0.
 - Sounds: [Kenney](https://kenney.nl) Casino Audio and Impact Sounds, CC0.
-- Scenarios: Sainte-Mère-Église is the map and units of the official Memoir '44 scenario (base game, scenario 2) by Days of Wonder, for personal use with the physical game.
+- Scenarios: Pegasus Bridge and Sainte-Mère-Église are the maps and units of the official Memoir '44 scenarios (base game, scenarios 1 and 2) by Days of Wonder, for personal use with the physical game.
 - Fonts (SIL Open Font License, via Fontsource): Stardos Stencil, Special Elite, Black Ops One, Barlow Condensed, Allerta Stencil, IBM Plex Sans Condensed.

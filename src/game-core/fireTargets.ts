@@ -102,7 +102,8 @@ export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): Fi
 });
 
 /**
- * Every hex in range of a unit at `from` that has none of this side's units,
+ * Every hex in range of a unit at `from` that has none of this side's units
+ * and could hold one (not water),
  * with the dice a shot at it would roll and whether it's in sight. A unit that
  * may only fire in close assault (Close Assault card, taking ground) reaches
  * adjacent hexes only.
@@ -112,7 +113,7 @@ export function fireTargets(board: BoardManager, from: Position, firing: FireCon
   const range = context.closeAssaultOnly ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
   return board
     .getAllHexes()
-    .filter((hex) => !hex.hasUnit() && !samePosition(hex.getPosition(), from))
+    .filter((hex) => hex.canEnter() && !samePosition(hex.getPosition(), from))
     .map((hex) => ({ hex, distance: hexDistance(from, hex.getPosition()) }))
     .filter(({ distance }) => distance >= 1 && distance <= range)
     .map(({ hex, distance }) => {

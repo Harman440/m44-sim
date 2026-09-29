@@ -50,6 +50,12 @@ describe("hasLineOfSight", () => {
     expect(hasLineOfSight(board({ forest: [to, from] }), from, to)).toBe(true);
   });
 
+  it("sees over rivers, lakes and bridges", () => {
+    for (const terrain of ["river", "lake", "bridge"] as const) {
+      expect(hasLineOfSight(board({ [terrain]: [{ row: 4, col: 3 }] }), from, to)).toBe(true);
+    }
+  });
+
   it("from a hill to a hill, sees over the hills in between (official hill rule)", () => {
     const hills = board({ hill: [from, { row: 4, col: 3 }, { row: 4, col: 4 }, to] });
     expect(hasLineOfSight(hills, from, to)).toBe(true);
@@ -105,6 +111,15 @@ describe("fireTargets", () => {
     expect(at(fireTargets(b, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(3);
     const low = board({ hill: [{ row: 4, col: 5 }] });
     expect(at(fireTargets(low, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(2);
+  });
+
+  it("never offers water, and fires at a bridge as at open ground", () => {
+    const b = board({ river: [{ row: 4, col: 5 }], lake: [{ row: 3, col: 4 }], bridge: [{ row: 5, col: 4 }] });
+    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null });
+    expect(at(targets, { row: 4, col: 5 })).toBeUndefined();
+    expect(at(targets, { row: 3, col: 4 })).toBeUndefined();
+    expect(at(targets, { row: 5, col: 4 })).toMatchObject({ terrain: HexType.BRIDGE, dice: 3 });
+    expect(at(targets, { row: 4, col: 6 })).toMatchObject({ distance: 2, dice: 2, lineOfSight: true }); // over the river
   });
 
   it("marks hexes out of sight", () => {

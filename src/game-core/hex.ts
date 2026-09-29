@@ -87,6 +87,15 @@ class Hex {
           movementCost: 1
         };
 
+      // Water: no unit can enter or be placed there (a bridge plays like plains, the default)
+      case HexType.RIVER:
+      case HexType.LAKE:
+        return {
+          movementRule: MovementRule.BLOCK,
+          canMoveAndFire: false,
+          movementCost: Infinity
+        };
+
       default:
         return {
           movementRule: MovementRule.NORMAL,

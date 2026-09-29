@@ -194,7 +194,9 @@ const band = (line, w, amp, rand) => {
   return smoothOpen(left) + "L" + smoothOpen(right.reverse()).slice(1) + "Z";
 };
 // Deep, dark water between grey pebble banks
-const RIVER = { ground: ["#94ab5e", "#b6c282", "#728b40"], bankOuter: ["#5f7a32", 31], bank: ["#a8a390", 25], water: ["#28586f", "#4f8aa5", 19], reeds: 6, stones: 110 };
+// The bevel round a water tile, as faint as the plains' hex lines around it
+const WATER_RIM = "#b3bb8c";
+const RIVER = { ground: ["#a6b684", "#c3cb9c", "#879a5e"], bankOuter: ["#5f7a32", 31], bank: ["#a8a390", 25], water: ["#28586f", "#4f8aa5", 19], reeds: 6, stones: 110 };
 // Short light streaks that follow the current
 const ripples = (line, w, rand) => {
   let r = `<g fill="none" stroke="#e4f4fb" stroke-linecap="round">`;
@@ -210,11 +212,12 @@ const ripples = (line, w, rand) => {
   }
   return r + "</g>";
 };
-export function river(a, b, seed = 5) {
+// The river's body (ground, banks, water, reeds), its defs and its centre line
+function riverBody(a, b, seed) {
   const s = RIVER;
   const rand = rng(seed * 31 + a * 7 + b);
   const line = riverLine(a, b);
-  let body = ground(...s.ground, seed, 0.03) + grass(rand, 24, "#5a7430", 0.3);
+  let body = ground(...s.ground, seed, 0.03) + grass(rand, 24, "#6d8246", 0.25);
   const defs = `<linearGradient id="wg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${s.water[1]}"/><stop offset="1" stop-color="${s.water[0]}"/></linearGradient>` +
     `<filter id="rip" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="${seed}"/><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -3 1.35"/></filter>` +
     `<filter id="blur3" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>`;
@@ -242,10 +245,139 @@ export function river(a, b, seed = 5) {
     let nx = -(q[1] - p[1]), ny = q[0] - p[0]; const len = Math.hypot(nx, ny); nx /= len; ny /= len;
     const side = rand() < 0.5 ? -1 : 1, d = side * (s.water[2] + 2 + rand() * 3);
     const x = p[0] + nx * d, y = p[1] + ny * d;
-    body += `<g stroke="#4d6a22" stroke-width="1.1" stroke-linecap="round" fill="none">` +
-      [-3, -1, 1, 3].map((k) => `<path d="M${f(x)},${f(y)}q${f(k * 0.6)},-4 ${f(k * 1.3)},-${f(6 + rand() * 3)}"/>`).join("") + `</g>`;
+    body += reeds(x, y, rand);
   }
-  return frame(body, "#8f9a52", defs);
+  return { body, defs, line, rand };
+}
+const reeds = (x, y, rand) =>
+  `<g stroke="#4d6a22" stroke-width="1.1" stroke-linecap="round" fill="none">` +
+  [-3, -1, 1, 3].map((k) => `<path d="M${f(x)},${f(y)}q${f(k * 0.6)},-4 ${f(k * 1.3)},-${f(6 + rand() * 3)}"/>`).join("") + `</g>`;
+export function river(a, b, seed = 5) {
+  const { body, defs } = riverBody(a, b, seed);
+  return frame(body, WATER_RIM, defs);
+}
+
+// ---------- BRIDGES ----------
+// The river with a bridge across it where it crosses the hex's centre: a plank deck between
+// steel girders, on stone abutments, with a dirt track running on from each end
+export function bridge(a, b, seed = 5) {
+  const { body: river, defs, line, rand } = riverBody(a, b, seed);
+  const i = Math.floor(line.length / 2), mid = line[i], next = line[i + 1];
+  // The bridge runs square to the river
+  const angle = (Math.atan2(next[1] - mid[1], next[0] - mid[0]) * 180) / Math.PI + 90;
+  const L = 62, D = 17; // half the deck's length and width
+  let g = "";
+  // The track, worn into the grass up to the hex's edge
+  g += `<rect x="-130" y="${-D - 3}" width="260" height="${2 * D + 6}" fill="#7d6a44" opacity=".45" filter="url(#blur3)"/>`;
+  g += `<rect x="-130" y="${-D + 3}" width="260" height="${2 * D - 6}" fill="#bba676" opacity=".9"/>`;
+  g += `<defs>${mottle("tr", seed + 5, 0.08, rgb("#6f5c38"), 3)}</defs><rect x="-130" y="${-D + 3}" width="260" height="${2 * D - 6}" filter="url(#tr)" opacity=".5"/>`;
+  for (const k of [-1, 1]) g += `<path d="M-130,${k * 6}H130" stroke="#8c7a52" stroke-width="2.2" stroke-dasharray="9 5" opacity=".55"/>`;
+  // Its shadow on the water and banks
+  g += `<rect x="${-L + 5}" y="${-D + 7}" width="${2 * L}" height="${2 * D}" fill="#0f2230" opacity=".45" filter="url(#blur3)"/>`;
+  // Stone abutments on the banks
+  for (const k of [-1, 1]) {
+    const x = k * (L - 9);
+    g += `<rect x="${x - 11}" y="${-D - 5}" width="22" height="${2 * D + 10}" rx="2" fill="#8e8878" stroke="#57524a" stroke-width="1.2"/>`;
+    for (let i = 0; i < 4; i++) g += `<path d="M${x - 11},${-D - 5 + (i + 1) * ((2 * D + 10) / 5)}h22" stroke="#6e695d" stroke-width=".7"/>`;
+    g += `<path d="M${x - 11},${-D - 5}h22" stroke="#cfc8b4" stroke-width="1.2"/>`;
+  }
+  // The plank deck
+  g += `<rect x="${-L}" y="${-D}" width="${2 * L}" height="${2 * D}" fill="#9b7446" stroke="#4a3620" stroke-width="1.2"/>`;
+  for (let x = -L + 5; x < L; x += 5) {
+    g += `<path d="M${x},${-D}V${D}" stroke="#5c4228" stroke-width=".8" opacity="${f(0.5 + rand() * 0.4)}"/>`;
+    if (rand() < 0.35) g += `<rect x="${x - 4.2}" y="${-D + 1}" width="3.4" height="${2 * D - 2}" fill="${rand() < 0.5 ? "#b88d58" : "#86623a"}" opacity=".6"/>`;
+  }
+  g += `<path d="M${-L},${-D + 3}H${L}M${-L},${D - 3}H${L}" stroke="#d8b886" stroke-width=".7" opacity=".45"/>`;
+  // Steel girders along both sides, with their cross bracing and rivets
+  for (const k of [-1, 1]) {
+    const y = k * (D + 2.5);
+    g += `<rect x="${-L - 2}" y="${y - 3.5}" width="${2 * L + 4}" height="7" fill="#5d6468" stroke="#23282b" stroke-width="1"/>`;
+    for (let x = -L; x < L; x += 12) g += `<path d="M${x},${y - 3.5}l12,7M${x + 12},${y - 3.5}l-12,7" stroke="#2e3437" stroke-width=".9"/>`;
+    g += `<path d="M${-L - 2},${y - 2.6}H${L + 2}" stroke="#aab3b6" stroke-width=".9" opacity=".7"/>`;
+  }
+  const deck = `<g transform="rotate(${f(angle)})">${g}</g>`;
+  return frame(river + deck, WATER_RIM, defs);
+}
+
+// ---------- LAKES ----------
+// A pond across several hexes: each hex draws its part, the water running out through the
+// edges it shares with other lake hexes (`open`: six booleans, edge 0 = east, clockwise) and
+// ending on a reedy shore elsewhere. Where the shore crosses a shared edge it does so at the
+// same point and square to the edge in both hexes, so the tiles join up.
+const cornerAt = (d, k = 1) => { const a = ((d * 60 + 30) * Math.PI) / 180; return [Math.cos(a) * R * k, Math.sin(a) * R * k]; };
+function lakeOutline(open, rand) {
+  const wet = (d) => open[d] && open[(d + 1) % 6]; // the corner after edge d: all three hexes are lake
+  const OUT = 1.35;
+  const nodes = []; // [x, y, tangent direction or null]
+  const cross = (d, towards, outward) => {
+    const m = edgeMid(d), c = towards;
+    const [nx, ny] = edgeDir(d);
+    nodes.push([m[0] + (c[0] - m[0]) * 0.5, m[1] + (c[1] - m[1]) * 0.5, outward ? [nx, ny] : [-nx, -ny]]);
+  };
+  for (let d = 0; d < 6; d++) {
+    if (open[d]) {
+      if (!wet((d + 5) % 6)) cross(d, cornerAt((d + 5) % 6), true);
+      const m = edgeMid(d, OUT);
+      nodes.push([m[0], m[1], null]);
+      if (!wet(d)) cross(d, cornerAt(d), false);
+    } else {
+      const [x, y] = edgeDir(d), r = (W / 2) * (0.6 + rand() * 0.08);
+      nodes.push([x * r, y * r, null]);
+    }
+    if (wet(d)) { const c = cornerAt(d, OUT); nodes.push([c[0], c[1], null]); }
+  }
+  // Catmull-Rom tangents, except square to the edge where the shore crosses one
+  const n = nodes.length;
+  let path = `M${f(nodes[0][0])},${f(nodes[0][1])}`;
+  const tangent = (i) => {
+    const p = nodes[(i - 1 + n) % n], q = nodes[(i + 1) % n], [, , dir] = nodes[i];
+    const tx = (q[0] - p[0]) / 2, ty = (q[1] - p[1]) / 2;
+    if (!dir) return [tx, ty];
+    const len = Math.hypot(tx, ty);
+    return [dir[0] * len, dir[1] * len];
+  };
+  for (let i = 0; i < n; i++) {
+    const p = nodes[i], q = nodes[(i + 1) % n], tp = tangent(i), tq = tangent((i + 1) % n);
+    path += `C${f(p[0] + tp[0] / 3)},${f(p[1] + tp[1] / 3)} ${f(q[0] - tq[0] / 3)},${f(q[1] - tq[1] / 3)} ${f(q[0])},${f(q[1])}`;
+  }
+  return path + "Z";
+}
+export function lake(open = [false, false, false, false, false, false], seed = 7) {
+  const rand = rng(seed * 17 + 3);
+  const water = lakeOutline(open, rand);
+  const defs = `<radialGradient id="lg" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#5b95ad"/><stop offset=".6" stop-color="#3c7189"/><stop offset="1" stop-color="#2a5a70"/></radialGradient>` +
+    `<filter id="rip" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="${seed}"/><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -3 1.35"/></filter>` +
+    `<filter id="blur3" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>`;
+  let b = ground(...RIVER.ground, seed, 0.03) + grass(rand, 24, "#6d8246", 0.25);
+  // Damp dark grass, then a pale muddy shore round the water
+  b += `<path d="${water}" fill="none" stroke="#5f7a32" stroke-width="22" opacity=".8" filter="url(#blur3)"/>`;
+  b += `<path d="${water}" fill="none" stroke="#a8a390" stroke-width="11"/>`;
+  b += `<path d="${water}" fill="#1c3d52" opacity=".5" transform="translate(1.2 1.6)"/>`;
+  b += `<path d="${water}" fill="url(#lg)"/><clipPath id="lc"><path d="${water}"/></clipPath>`;
+  b += `<g clip-path="url(#lc)"><rect x="-130" y="-130" width="260" height="260" filter="url(#rip)" opacity=".16"/>`;
+  // Light ripples and a few lily pads on the still water
+  b += `<g fill="none" stroke="#e4f4fb" stroke-linecap="round">`;
+  for (let i = 0; i < 14; i++) {
+    const x = (rand() - 0.5) * 150, y = (rand() - 0.5) * 150, w = 6 + rand() * 10;
+    b += `<path d="M${f(x)},${f(y)}q${f(w / 2)},-2 ${f(w)},0" stroke-width="${f(0.6 + rand() * 0.8)}" opacity="${f(0.2 + rand() * 0.35)}"/>`;
+  }
+  b += `</g>`;
+  for (let i = 0; i < 5; i++) {
+    const x = (rand() - 0.5) * 110, y = (rand() - 0.5) * 110, r = 3 + rand() * 2.5, a = rand() * 360;
+    b += `<path d="M${f(x)},${f(y)}l${f(r)},0A${f(r)},${f(r)} 0 1 1 ${f(x + r * Math.cos(0.5))},${f(y + r * Math.sin(0.5))}Z" transform="rotate(${f(a)} ${f(x)} ${f(y)})" fill="#5e8a34" stroke="#3d5e1e" stroke-width=".6"/>`;
+  }
+  b += `<path d="${water}" fill="none" stroke="#173447" stroke-width="4" opacity=".35" transform="translate(1.5 2)"/></g>`;
+  b += `<path d="${water}" fill="none" stroke="#e9f6fb" stroke-width=".8" opacity=".5" transform="translate(-.6 -.8)"/>`;
+  // Reeds on the shore, where it's inside the hex
+  const shore = [];
+  for (let d = 0; d < 6; d++) if (!open[d]) shore.push(d);
+  shore.forEach((d) => {
+    for (let i = 0; i < 3; i++) {
+      const a = ((d * 60 + (rand() - 0.5) * 50) * Math.PI) / 180, r = (W / 2) * (0.68 + rand() * 0.08);
+      b += reeds(Math.cos(a) * r, Math.sin(a) * r, rand);
+    }
+  });
+  return frame(b, WATER_RIM, defs);
 }
 
 // ---------- HEDGEROWS ----------
@@ -297,4 +429,4 @@ export function hedgerow(seed = 53) {
   b += hedgeLine([0, 1, 2, 3].map((i) => ring[(start + i) % 6]), rand, { r: 9.5, trees: 0.15 });
   return frame(b, "#7f9a45", fieldDefs(seed));
 }
-export const TILES = { hill, river, hedgerow };
+export const TILES = { hill, river, bridge, lake, hedgerow };
