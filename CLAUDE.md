@@ -14,7 +14,10 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `npm run typecheck`: `tsc --noEmit` (must report 0 errors)
 - `npm test`: Vitest in watch mode; use `npx vitest run` for a single run
 - `npm run build`: production build to `dist/`, with the service worker (`vite-plugin-pwa`, config in `vite.config.ts`)
-- `npm run tablet`: build and serve the production app on the network (port 4173); the only way to test install and offline, since the service worker doesn't run in `npm run dev`. Service workers need HTTPS or localhost; see the README for the tablet.
+- `npm run tablet`: build and serve the production app on the network (port 4173), to test install and offline locally, since the service worker doesn't run in `npm run dev`. Service workers need HTTPS or localhost; see the README for the tablet.
+
+## Deploy
+Every push to `main` publishes to GitHub Pages at https://harman440.github.io/m44-sim/ (`.github/workflows/deploy.yml`: typecheck, tests, `vite build --base=/m44-sim/`). The tablet installs the app from there. Keep asset URLs relative to the base (import assets, or use `import.meta.env.BASE_URL`), never a hard-coded `/…` path, or they break under `/m44-sim/`.
 - `npm run icons`: regenerate the app icon PNGs from `public/icons/icon.svg`
 - `npm run board -- <tiles.json> <out.webp>`: build a scenario's board art from its terrain (plains, forest and town hexes cut out of the Forêt d'Écouves art; hills, hedgerows, rivers, bridges and lakes drawn as SVG by `scripts/terrain-tiles.mjs`, a river flowing through the edges it shares with the next river or bridge hexes and a lake joining its lake neighbours; on the outer ring the frame is put back over the new hexes); the terrain file in `src/data/boards/` is also what `scenarios.ts` imports
 

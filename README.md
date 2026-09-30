@@ -26,25 +26,21 @@ npm run dev        # http://localhost:3000
 | `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
 | `npm test` | Vitest in watch mode (`npx vitest run` for a single run) |
 | `npm run build` | Production build to `dist/` (includes the service worker for offline use) |
-| `npm run tablet` | Build and serve the production app on your network (port 4173), for installing on the tablet |
+| `npm run tablet` | Build and serve the production app on your network (port 4173), for testing on the tablet before publishing |
 | `npm run icons` | Regenerate the app icon PNGs from `public/icons/icon.svg` |
 | `npm run optimize-image -- <file> [maxWidth]` | Convert an image to WebP, scaled down, next to the original |
 
 ### Playing on an Android tablet
 
-Run `npm run tablet` (a production build served on your network) and open `http://<your computer's IP>:4173` in Chrome on the tablet (both on the same network). On WSL2, enable mirrored networking (`networkingMode=mirrored` under `[wsl2]` in `%UserProfile%\.wslconfig`) and allow port 4173 through the Windows firewall. `npm run dev -- --host` (port 3000) also works for trying out changes, but without the offline app.
+Every push to `main` publishes the app to **https://harman440.github.io/m44-sim/** (GitHub Pages, `.github/workflows/deploy.yml`: typecheck, tests, then `vite build --base=/m44-sim/`; the run is in the repo's Actions tab). The Pages source in the repo settings must be "GitHub Actions".
 
-### Installing it as an app (works offline)
+To install it, open that address in Chrome on the tablet and use the menu → **Instalar aplicación** (or "Añadir a pantalla de inicio"), then open it once from the icon so it caches everything. From then on it runs fullscreen and works with no connection. When a new version has been published, the app shows "Nueva versión disponible" the next time it's opened online; the game in progress is kept when you update.
 
-The app can be installed on the tablet's home screen and then works with no connection (fullscreen, no browser bar). Chrome only allows that on HTTPS or `localhost`, so a plain `http://<IP>` address needs one extra step on the tablet:
+Saved games belong to the address they were played on: a game saved on one address (Pages, `npm run tablet`, the dev server) isn't seen on another.
 
-1. In Chrome on the tablet, open `chrome://flags/#unsafely-treat-insecure-origin-as-secure`.
-2. Enable it and add `http://<your computer's IP>:4173`, then restart Chrome.
-3. Open that address, then use Chrome's menu → **Instalar aplicación** (or "Añadir a pantalla de inicio").
+### Testing on the local network
 
-Once installed it runs from the tablet's cache, so the computer only needs to be on to install or update it. When a new version is available the app shows "Nueva versión disponible"; the game in progress is kept when you update.
-
-Hosting the app on an HTTPS site (for example GitHub Pages) removes steps 1 and 2.
+`npm run tablet` serves a production build on your network (port 4173), and `npm run dev -- --host` the dev server (port 3000, without the offline app), at `http://<your computer's IP>:<port>` in Chrome on the tablet. On WSL2 the tablet can only reach them with mirrored networking (`networkingMode=mirrored` under `[wsl2]` in `%UserProfile%\.wslconfig`, Windows 11 22H2 or later) and the port allowed through the Windows firewall, or on older Windows with a `netsh interface portproxy` rule to the WSL IP. Installing from a plain `http://<IP>` address also needs `chrome://flags/#unsafely-treat-insecure-origin-as-secure` enabled for that address on the tablet.
 
 ## Project layout
 
