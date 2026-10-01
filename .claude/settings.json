@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__playwright__browser_navigate",
+      "Bash(gh repo *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://api.github.com/repos/Harman440/m44-sim)",
+      "Bash(npx vite *)",
+      "Bash(git commit -q -m 'docs: install on the tablet from GitHub Pages *)"
+    ]
+  }
+}
