@@ -201,6 +201,7 @@ Plus 4 cards depending on the units the player has in the scenario:
 - Infantry and armour: Move Out 1, Armour Overrun (Armor Assault) 1, Orders from HQ 2
 - Infantry and artillery: Move Out 1, Artillery Bombardment 1, Orders from HQ 2
 - All three: Move Out 1, Armour Overrun 1, Artillery Bombardment 1, Orders from HQ 1
+- A player without infantry gets the set for the armour, artillery or both that they have
 
 The Breakthrough-based deck below was used before.
 

@@ -204,7 +204,10 @@ const directFromHq: CommandCardProps & { id: string } = {
   orders: 4,
 };
 
-/** The 4 unit-type cards for a side with (or without) tanks and artillery */
+/**
+ * The 4 unit-type cards for a side with (or without) tanks and artillery. Infantry
+ * isn't checked: a side without it gets the set for its armour and artillery
+ */
 const unitTemplates = (tanks: boolean, artillery: boolean): CardTemplate[] => {
   if (tanks && artillery) {
     return [moveOut, armorAssault, artilleryBombardment, directFromHq].map((props) => ({ count: 1, props }));

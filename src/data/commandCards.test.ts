@@ -59,6 +59,10 @@ describe("command card data", () => {
       [UnitType.INFANTRY, UnitType.TANK, UnitType.ARTILLERY],
       { "move-out": 1, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 },
     ],
+    // Without infantry, the set still follows the armour and artillery
+    [[UnitType.TANK], { "move-out": 1, "armor-assault": 1, "direct-from-hq": 2 }],
+    [[UnitType.ARTILLERY], { "move-out": 1, "artillery-bombardment": 1, "direct-from-hq": 2 }],
+    [[UnitType.TANK, UnitType.ARTILLERY], { "move-out": 1, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 }],
   ])("adds the unit-type cards for %j", (types, expected) => {
     const counts = countsById(withAlliedUnits(types));
     const unitCards = ["move-out", "armor-assault", "artillery-bombardment", "direct-from-hq"];
