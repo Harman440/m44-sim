@@ -1758,6 +1758,9 @@ describe("GameSession map markers", () => {
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, commandCards, [barrage]);
     expect(restored.getSnapshot().markers).toEqual([FAR]);
+    // The whole decks, for the deck view
+    expect(restored.combatCards).toEqual([barrage]);
+    expect(restored.commandCards).toBe(commandCards);
 
     restored.commitOrders();
     restored.startMovement();

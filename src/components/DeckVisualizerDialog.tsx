@@ -1,153 +1,139 @@
-import {
-  Box,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Paper,
-  Stack,
-  Typography,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from "@mui/material";
+import { ReactNode, useState } from "react";
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
+import { CombatCard } from "../game-core/combatCard";
+import { Faction } from "../types/faction";
+import CommandCardComponent from "./CommandCardComponent";
+import CombatCardComponent from "./CombatCardComponent";
+import CardDialog, { ShownCard } from "./CardDialog";
+import GameIcon from "./GameIcon";
 
 interface DeckVisualizerDialogProps {
   open: boolean;
   onClose: () => void;
+  faction: Faction;
   /** This side's command deck */
   commandCards: readonly CommandCard[];
+  /** This side's combat deck */
+  combatCards: readonly CombatCard[];
 }
 
-function DeckVisualizerDialog({ open, onClose, commandCards }: DeckVisualizerDialogProps) {
-  // Group cards by unique name and count how many of each
-  const cardMap = new Map<string, { card: CommandCard; count: number }>();
+interface Copies<T> {
+  card: T;
+  count: number;
+}
 
-  commandCards.forEach((card) => {
-    const existing = cardMap.get(card.name);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      cardMap.set(card.name, { card, count: 1 });
-    }
+/** One entry per card name, with how many copies the deck has, in deck order */
+function groupByName<T extends { name: string }>(cards: readonly T[]): Copies<T>[] {
+  const groups = new Map<string, Copies<T>>();
+  cards.forEach((card) => {
+    const group = groups.get(card.name);
+    if (group) group.count += 1;
+    else groups.set(card.name, { card, count: 1 });
   });
+  return [...groups.values()];
+}
 
-  // Separate section cards and tactic cards
-  const sectionCards: Array<{ card: CommandCard; count: number }> = [];
-  const tacticCards: Array<{ card: CommandCard; count: number }> = [];
+const percent = (count: number, total: number) => `${Math.round((count / total) * 100)} %`;
 
-  cardMap.forEach(({ card, count }) => {
-    if (card.tactic) {
-      tacticCards.push({ card, count });
-    } else {
-      sectionCards.push({ card, count });
-    }
-  });
+interface CardGroupProps<T> {
+  title: string;
+  hint: string;
+  groups: Copies<T>[];
+  /** Cards in the whole deck, for the chance of drawing each */
+  deckSize: number;
+  renderCard: (card: T) => ReactNode;
+}
 
-  // Sort alphabetically
-  sectionCards.sort((a, b) => a.card.name.localeCompare(b.card.name));
-  tacticCards.sort((a, b) => a.card.name.localeCompare(b.card.name));
-
-  const totalCards = commandCards.length;
-  const totalSectionCards = sectionCards.reduce((sum, { count }) => sum + count, 0);
-  const totalTacticCards = tacticCards.reduce((sum, { count }) => sum + count, 0);
-
-  const CardRow = ({ card, count }: { card: CommandCard; count: number }) => (
-    <TableRow hover>
-      <TableCell>
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-          {card.name}
+function CardGroup<T>({ title, hint, groups, deckSize, renderCard }: CardGroupProps<T>) {
+  const total = groups.reduce((sum, { count }) => sum + count, 0);
+  if (total === 0) return null;
+  return (
+    <Stack component="section" sx={{ gap: 1 }}>
+      <Box>
+        <Typography variant="h6" component="h3">
+          {title} ({total})
         </Typography>
-      </TableCell>
-      <TableCell align="center">
-        <Chip label={count} size="small" variant="outlined" />
-      </TableCell>
-      <TableCell>
         <Typography variant="body2" color="text.secondary">
-          {card.description}
+          {hint}
         </Typography>
-      </TableCell>
-    </TableRow>
+      </Box>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(116px, 1fr))",
+          gap: 2,
+          justifyItems: "center",
+          "--card-width": "116px",
+        }}
+      >
+        {groups.map(({ card, count }, i) => (
+          <Stack key={i} sx={{ alignItems: "center", gap: 0.5 }}>
+            {renderCard(card)}
+            <Chip
+              size="small"
+              label={`×${count} · ${percent(count, deckSize)}`}
+              aria-label={`${count} ${count === 1 ? "copia" : "copias"}, ${percent(count, deckSize)} de robarla`}
+            />
+          </Stack>
+        ))}
+      </Box>
+    </Stack>
+  );
+}
+
+/** The side's command and combat decks: every card with its art and copies; tapping one shows its text */
+function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCards }: DeckVisualizerDialogProps) {
+  const [looking, setLooking] = useState<ShownCard | null>(null);
+
+  const commandGroups = groupByName(commandCards);
+  const commandCard = (card: CommandCard) => (
+    <CommandCardComponent faction={faction} cardData={card} onClick={() => setLooking({ command: card })} />
+  );
+  const combatCard = (card: CombatCard) => (
+    <CombatCardComponent faction={faction} card={card} onClick={() => setLooking({ combat: card })} />
   );
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" scroll="paper">
-      <DialogTitle>Mazo de cartas de mando</DialogTitle>
-      <DialogContent dividers>
-        <Stack sx={{ gap: 3 }}>
-          {/* Summary stats */}
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Chip label={`Total: ${totalCards}`} color="primary" />
-            <Chip label={`Cartas de sección: ${totalSectionCards}`} variant="outlined" />
-            <Chip label={`Cartas de táctica: ${totalTacticCards}`} variant="outlined" />
-          </Box>
-
-          {/* Section cards */}
-          <Paper variant="outlined">
-            <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
-              <Typography variant="h6" component="h3">
-                Cartas de sección ({totalSectionCards})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Cartas que ordenan unidades en un flanco específico o en toda la zona
-              </Typography>
-            </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "action.hover" }}>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell align="center" sx={{ width: 60 }}>
-                      Copias
-                    </TableCell>
-                    <TableCell>Descripción</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sectionCards.map(({ card, count }) => (
-                    <CardRow key={card.id} card={card} count={count} />
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-
-          {/* Tactic cards */}
-          <Paper variant="outlined">
-            <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
-              <Typography variant="h6" component="h3">
-                Cartas de táctica ({totalTacticCards})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Cartas especiales con capacidades únicas
-              </Typography>
-            </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "action.hover" }}>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell align="center" sx={{ width: 60 }}>
-                      Copias
-                    </TableCell>
-                    <TableCell>Descripción</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {tacticCards.map(({ card, count }) => (
-                    <CardRow key={card.id} card={card} count={count} />
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Stack>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" scroll="paper">
+        <DialogTitle>Mazos</DialogTitle>
+        <DialogContent dividers>
+          <Stack sx={{ gap: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Toca una carta para leerla. Debajo, cuántas copias tiene el mazo y la probabilidad de robarla.
+            </Typography>
+            <CardGroup
+              title="Cartas de sección"
+              hint="Dan órdenes en un flanco, en el centro o en varias secciones"
+              groups={commandGroups.filter(({ card }) => !card.tactic)}
+              deckSize={commandCards.length}
+              renderCard={commandCard}
+            />
+            <CardGroup
+              title="Cartas tácticas"
+              hint="Dan órdenes con reglas especiales"
+              groups={commandGroups.filter(({ card }) => card.tactic)}
+              deckSize={commandCards.length}
+              renderCard={commandCard}
+            />
+            <CardGroup
+              title="Cartas de combate"
+              hint="Se pagan con suministros, con las órdenes o en la batalla"
+              groups={groupByName(combatCards)}
+              deckSize={combatCards.length}
+              renderCard={combatCard}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={onClose} startIcon={<GameIcon name="cancel" />}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label="Carta del mazo" />
+    </>
   );
 }
 

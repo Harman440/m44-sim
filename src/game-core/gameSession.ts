@@ -282,6 +282,8 @@ class GameSession {
   private startCoins = STARTING_COINS;
   private coinAdjustments: number[] = [];
   private rewardChoice: RewardChoice | null = null;
+  /** Every combat card in this side's deck */
+  readonly combatCards: readonly CombatCard[];
   private readonly combatDeck: Deck<CombatCard>;
   private combatHand: CombatCard[];
   private orderCombatCard: CombatCard | null = null;
@@ -315,6 +317,7 @@ class GameSession {
     this.commandCards = commandCards;
     this.deck = new Deck(commandCards);
     this.hand = this.deck.draw(initialHandSize);
+    this.combatCards = combatCards;
     this.combatDeck = new Deck(combatCards);
     this.combatHand = this.combatDeck.draw(STARTING_COMBAT_CARDS);
     this.snapshot = this.createSnapshot();
@@ -1477,6 +1480,7 @@ class GameSession {
       faction: saved.faction,
       initialHandSize: 0,
       commandCards,
+      combatCards,
       longRangeDie: saved.longRangeDie,
       random,
     });

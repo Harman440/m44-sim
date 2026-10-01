@@ -288,7 +288,13 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
 
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <CoinsDialog open={coinsOpen} onClose={() => setCoinsOpen(false)} session={session} game={game} />
-        <DeckVisualizerDialog open={deckOpen} onClose={() => setDeckOpen(false)} commandCards={session.commandCards} />
+        <DeckVisualizerDialog
+          open={deckOpen}
+          onClose={() => setDeckOpen(false)}
+          faction={faction}
+          commandCards={session.commandCards}
+          combatCards={session.combatCards}
+        />
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
 
         <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>

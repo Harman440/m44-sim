@@ -2,7 +2,8 @@
 // The house command-card decks (docs/house-rules.md, "Command cards database",
 // and the smaller deck of Step 44). Each side gets 25 cards: 21 shared by every
 // side, plus 4 that depend on the unit types it has in the scenario
-// (`commandDeckFor`). The counts are meant to be tuned here.
+// (`commandDeckFor`). The counts are meant to be tuned here. Names are the
+// official Spanish edition's where we found them (Overlord supplement, Days of Wonder).
 //
 // Not in the deck: Recon, Counter Attack (not in the game) and Behind Enemy
 // Lines, Ambush, Barrage, Air Power, Dig In and Medics (combat cards, Step 24).
@@ -48,7 +49,7 @@ const ON_THE_MOVE = 'Además, 1 unidad en cualquier lugar puede moverse, pero no
 /** The cards every side gets */
 const sharedTemplates: CardTemplate[] = [
   // --- Section cards (16)
-  ...perSection('probe', 'Sondeo', [2, 2, 2], (_, where) => ({
+  ...perSection('probe', 'Batida', [2, 2, 2], (_, where) => ({
     description: `Da órdenes a 2 unidades del ${where}. ${ON_THE_MOVE} En la fase final, roba 2 cartas y quédate con 1.`,
     orders: 2,
     onTheMove: 1,
@@ -66,7 +67,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'recon-in-force',
-      name: 'Reconocimiento en fuerza',
+      name: 'Tropa de Reconocimiento',
       description: 'Da una orden a 1 unidad en cada sección.',
       orders: 3,
       perSection: 1,
@@ -76,7 +77,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 2,
     props: {
       id: 'general-advance',
-      name: 'Avance general',
+      name: 'Avance General',
       description: 'Da órdenes a 2 unidades en cada sección.',
       orders: 6,
       perSection: 2,
@@ -86,7 +87,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'pincer',
-      name: 'Movimiento en pinza',
+      name: 'Movimiento en Pinza',
       description: 'Da órdenes a 2 unidades del flanco izquierdo y 2 del flanco derecho.',
       sections: [Side.LEFT, Side.RIGHT],
       orders: 4,
@@ -99,7 +100,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'finest-hour',
-      name: 'Su mejor hora',
+      name: 'La Hora de la Verdad',
       description:
         'Da órdenes a hasta 4 unidades pagando suministros: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
       tactic: true,
@@ -112,7 +113,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'infantry-assault',
-      name: 'Asalto de infantería',
+      name: 'Asalto de Infantería',
       description:
         'Da órdenes a toda la infantería de una sección a elegir. Se mueve 1 casilla más, también para mover y disparar.',
       tactic: true,
@@ -176,7 +177,7 @@ const moveOut: CommandCardProps & { id: string } = {
 
 const armorAssault: CommandCardProps & { id: string } = {
   id: 'armor-assault',
-  name: 'Asalto blindado',
+  name: 'Asalto de Blindados',
   description: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
   tactic: true,
   unitTypes: [UnitType.TANK],
@@ -186,7 +187,7 @@ const armorAssault: CommandCardProps & { id: string } = {
 
 const artilleryBombardment: CommandCardProps & { id: string } = {
   id: 'artillery-bombardment',
-  name: 'Bombardeo de artillería',
+  name: 'Bombardeo de Artillería',
   description:
     'Da órdenes a toda la artillería: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
   tactic: true,

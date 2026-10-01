@@ -80,7 +80,7 @@ describe("command card data", () => {
     const deck = commandDeckFor(base, "Allies");
     const names = new Set(deck.map((card) => card.name));
 
-    expect(names).toContain("Sondeo en el flanco izquierdo");
+    expect(names).toContain("Batida en el flanco izquierdo");
     expect(names).toContain("Ataque en el centro");
     expect(deck.find((card) => card.id === "assault-right-1")!.description).toBe(
       "Da órdenes a todas las unidades del flanco derecho."
