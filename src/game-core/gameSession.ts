@@ -42,7 +42,7 @@ import {
   slotCost,
 } from "./orderRules";
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
-import { STARTING_COINS } from "../data/coinRules";
+import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
 import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, markablePositions } from "./markerRules";
@@ -222,6 +222,11 @@ interface GameSessionOptions {
   combatCards?: CombatCard[];
   /** Shots at range roll the 8-sided long-range die (an experiment, chosen per game) */
   longRangeDie?: boolean;
+  /**
+   * Test mode, to try every combat card: the whole combat deck starts in the hand, there's no
+   * hand limit, cards played come back to the hand, and each turn starts with plenty of coins
+   */
+  testMode?: boolean;
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
   random?: () => number;
 }
@@ -258,6 +263,8 @@ class GameSession {
   readonly attacking: boolean;
   /** Shots at range roll the 8-sided long-range die */
   readonly longRangeDie: boolean;
+  /** Test mode: every combat card in hand, played cards come back, plenty of coins */
+  readonly testMode: boolean;
   readonly board: BoardManager;
   /** Every command card in this side's deck, wherever it is now */
   readonly commandCards: readonly CommandCard[];
@@ -305,10 +312,12 @@ class GameSession {
     commandCards,
     combatCards = [],
     longRangeDie = false,
+    testMode = false,
     random = () => Math.random(),
   }: GameSessionOptions) {
     this.scenario = scenario;
     this.longRangeDie = longRangeDie;
+    this.testMode = testMode;
     this.random = random;
     this.faction = faction;
     this.attacking = scenario.attacker === faction;
@@ -319,7 +328,8 @@ class GameSession {
     this.hand = this.deck.draw(initialHandSize);
     this.combatCards = combatCards;
     this.combatDeck = new Deck(combatCards);
-    this.combatHand = this.combatDeck.draw(STARTING_COMBAT_CARDS);
+    this.combatHand = this.combatDeck.draw(testMode ? combatCards.length : STARTING_COMBAT_CARDS);
+    if (testMode) this.startCoins = TEST_MODE_COINS;
     this.snapshot = this.createSnapshot();
   }
 
@@ -1167,7 +1177,7 @@ class GameSession {
   }
 
   private mustDiscardCombatCard(): boolean {
-    return this.combatHand.length > MAX_COMBAT_HAND;
+    return !this.testMode && this.combatHand.length > MAX_COMBAT_HAND;
   }
 
   /** With one combat card too many after drawing, discard one (it may be the new one) */
@@ -1402,10 +1412,13 @@ class GameSession {
       reinforcement: this.reinforcementRoll(),
     });
     this.log = [...this.log, record];
-    this.startCoins = coins;
+    this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
     this.coinAdjustments = [];
     this.rewardChoice = null;
-    [this.orderCombatCard, this.battleCombatCard].forEach((card) => card && this.combatDeck.discard(card));
+    const played = [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null);
+    // Test mode: played cards come back to the hand so they can be tried again
+    if (this.testMode) this.combatHand = [...this.combatHand, ...played];
+    else played.forEach((card) => this.combatDeck.discard(card));
     this.orderCombatCard = null;
     this.markers = [];
     this.cardAttacks = [];
@@ -1431,7 +1444,7 @@ class GameSession {
   // --- saving
 
   save(): SavedGame {
-    return writeSave(this.scenario.id, this.faction, this.longRangeDie, this.board, {
+    return writeSave(this.scenario.id, this.faction, this.longRangeDie, this.testMode, this.board, {
       turn: this.turn,
       phase: this.phase,
       drawPile: this.deck.drawPile,
@@ -1482,6 +1495,7 @@ class GameSession {
       commandCards,
       combatCards,
       longRangeDie: saved.longRangeDie,
+      testMode: saved.testMode,
       random,
     });
     const state: SessionState = readSave(saved, session.board, commandCards, combatCards);

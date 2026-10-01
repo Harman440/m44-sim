@@ -1,3 +1,4 @@
+import { TEST_MODE_COINS } from "../data/coinRules";
 import { UnitType } from "./unit";
 import { shoot } from "../test/shots";
 import { DieFace } from "./dice";
@@ -1286,7 +1287,8 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 18 as 19 })).toThrow();
+    expect(broken({ version: 19 as 20 })).toThrow();
+    expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();
@@ -1618,6 +1620,30 @@ describe("GameSession combat cards", () => {
 
     expect(session.save().combatDiscardPile).toEqual(["barrage"]);
     expect(session.getSnapshot().log.at(-1)).toMatchObject({ combatCardsPlayed: [{ id: "barrage", name: "barrage" }] });
+  });
+
+  it("test mode: every combat card in hand, no limit, played cards come back, plenty of coins", () => {
+    const deck = ["a", "b", "c", "d", "e"].map((id) => combat(id, "order", 5));
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }), ...cards().slice(1)];
+    const session = new GameSession({
+      scenario: defender, faction: "Allies", initialHandSize: 4, commandCards, combatCards: deck, testMode: true,
+    });
+    session.startFirstTurn();
+    expect(session.getSnapshot()).toMatchObject({ coins: TEST_MODE_COINS, mustDiscardCombatCard: false });
+    expect(session.getSnapshot().combatHand).toHaveLength(5);
+
+    expect(session.pickCard(commandCards[0]!, undefined, deck[0])).toBe(true);
+    toFinalPhase(session);
+    session.chooseReward("coins");
+    expect(session.endTurn()).toBe(true);
+
+    expect(session.getSnapshot().combatHand).toHaveLength(5);
+    expect(session.getSnapshot().combatHand).toContain(deck[0]);
+    expect(session.getSnapshot().coins).toBe(TEST_MODE_COINS);
+
+    const restored = GameSession.restore(session.save(), defender, commandCards, deck);
+    expect(restored.testMode).toBe(true);
+    expect(restored.getSnapshot().combatHand).toHaveLength(5);
   });
 
   it("draws the combat card chosen in the final phase, and then the choice stays", () => {

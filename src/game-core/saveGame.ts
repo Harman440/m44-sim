@@ -18,7 +18,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
 
 interface SavedUnit {
   type: UnitType;
@@ -32,6 +32,8 @@ export interface SavedGame {
   faction: Faction;
   /** Shots at range roll the 8-sided long-range die */
   longRangeDie: boolean;
+  /** Test mode: every combat card in hand (the session's `testMode`) */
+  testMode: boolean;
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -152,6 +154,7 @@ export function writeSave(
   scenarioId: string,
   faction: Faction,
   longRangeDie: boolean,
+  testMode: boolean,
   board: BoardManager,
   state: SessionState
 ): SavedGame {
@@ -175,6 +178,7 @@ export function writeSave(
     scenarioId,
     faction,
     longRangeDie,
+    testMode,
     turn: state.turn,
     phase: state.phase,
     drawPile: ids(state.drawPile),
@@ -253,6 +257,7 @@ export function readSave(
     throw new Error(`Unsupported save version ${(saved as { version: unknown }).version}`);
   }
   if (typeof saved.longRangeDie !== "boolean") throw new Error("Long-range die setting is missing");
+  if (typeof saved.testMode !== "boolean") throw new Error("Test mode setting is missing");
   if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
     throw new Error(`Unknown phase ${saved.phase}`);
   }

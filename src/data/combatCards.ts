@@ -162,6 +162,11 @@ function buildDeck(templates: CombatCardTemplate[], side: SideContext): CombatCa
   );
 }
 
+/** One of every combat card, whatever the scenario: the test mode's hand */
+export function allCombatCards(): CombatCard[] {
+  return TEMPLATES.map(({ copies: _, ...card }) => ({ ...card, id: `${card.id}-1` }));
+}
+
 /** The combat deck this side gets in the scenario */
 export function combatDeckFor(scenario: Scenario, faction: Faction): CombatCard[] {
   const enemy: Faction = faction === "Axis" ? "Allies" : "Axis";

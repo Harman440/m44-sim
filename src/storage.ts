@@ -6,7 +6,7 @@ import GameSession from "./game-core/gameSession";
 import { SavedGame } from "./game-core/saveGame";
 import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
-import { combatDeckFor } from "./data/combatCards";
+import { allCombatCards, combatDeckFor } from "./data/combatCards";
 import { commandDeckFor } from "./data/commandCards";
 import { Settings, normalizeSettings } from "./settings";
 
@@ -58,7 +58,8 @@ export const loadSavedGame = (scenarios: Scenario[]): GameSession | null => {
     const saved: SavedGame = JSON.parse(json);
     const scenario = scenarios.find((s) => s.id === saved.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario ${saved.scenarioId}`);
-    return GameSession.restore(saved, scenario, commandDeckFor(scenario, saved.faction), combatDeckFor(scenario, saved.faction));
+    const combatCards = saved.testMode ? allCombatCards() : combatDeckFor(scenario, saved.faction);
+    return GameSession.restore(saved, scenario, commandDeckFor(scenario, saved.faction), combatCards);
   } catch {
     // A save we can't read (older version, changed scenario) is dropped: start from the menu
     clearSavedGame();

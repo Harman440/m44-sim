@@ -3,6 +3,7 @@ import SettingsDialog from "../SettingsDialog";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import ScenarioDetails from "./ScenarioDetails";
+import { TEST_MODE_COINS } from "../../data/coinRules";
 import {
   Box,
   Button,
@@ -41,6 +42,8 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
   );
 
   const [longRangeDie, setLongRangeDie] = useState(initialSetup?.longRangeDie === true);
+  // Not remembered: a real game shouldn't start in test mode by accident
+  const [testMode, setTestMode] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scenario = scenarios.find((s) => s.id === scenarioId);
@@ -145,12 +148,22 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           granada, suministro, bandera y fallo. La granada no cuenta si la infantería dispara a un tanque.
           Actívalo en los dos dispositivos.
         </Typography>
+        <FormControlLabel
+          control={<Switch checked={testMode} onChange={(e) => setTestMode(e.target.checked)} />}
+          label="Modo prueba: todas las cartas de combate"
+          sx={{ minHeight: 48, mt: 1 }}
+        />
+        <Typography variant="body2" color="text.secondary">
+          Para probar las cartas: empiezas con una de cada carta de combate en la mano, sin límite, las
+          que juegas vuelven a la mano al acabar el turno y cada turno empieza con al menos{" "}
+          {TEST_MODE_COINS} suministros.
+        </Typography>
       </Box>
 
       <Button
         size="large"
         disabled={!scenarioId || !faction}
-        onClick={() => scenarioId && faction && onStart({ scenarioId, faction, longRangeDie })}
+        onClick={() => scenarioId && faction && onStart({ scenarioId, faction, longRangeDie, testMode })}
         startIcon={<GameIcon name="battle" />}
         sx={{ alignSelf: "flex-start", minWidth: 240, fontSize: "1.2rem" }}
       >

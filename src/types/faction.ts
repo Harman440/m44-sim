@@ -14,4 +14,6 @@ export interface GameSetup {
   faction: Faction;
   /** Shots at range roll the 8-sided long-range die (both players should agree) */
   longRangeDie: boolean;
+  /** Test mode: every combat card in hand, to try them all */
+  testMode?: boolean;
 }
