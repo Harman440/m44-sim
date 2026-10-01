@@ -139,7 +139,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'firefight',
-      name: 'Tiroteo',
+      name: 'Escaramuza',
       description:
         'Da órdenes a 4 unidades que no se mueven. Disparan con 1 dado más a distancia y 1 menos en asalto cercano.',
       tactic: true,

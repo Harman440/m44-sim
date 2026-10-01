@@ -91,7 +91,7 @@ const STANDARD: CombatCardTemplate[] = [
     { marker: { kind: "cross", count: 1 }, effect: { kind: "reinforcements" } }),
   order("tactician", "Táctico", 2, 1, "Cambia la sección de una carta de sección.",
     { effect: { kind: "changeSection" } }),
-  order("barrage", "Barrera", 4, 1,
+  order("barrage", "Cortina de Fuego", 4, 1,
     "Marca una casilla: si hay una unidad enemiga, tira 4 dados contra ella. Los suministros cuentan como impacto y las retiradas no se pueden ignorar.",
     { marker: { kind: "target", count: 1 }, effect: { kind: "attack", dicePerHex: 4 } }),
   order("air-power", "Poder aéreo", 3, 1,

@@ -174,7 +174,7 @@ describe("CardsView combat cards", () => {
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
-        combatHand={[combat("Barrera", "order", 4), combat("Emboscada", "battle", 3), combat("Refuerzos", "order", 6)]}
+        combatHand={[combat("Cortina de Fuego", "order", 4), combat("Emboscada", "battle", 3), combat("Refuerzos", "order", 6)]}
         canPlayCombatCards
         coins={5}
         {...props}
@@ -187,12 +187,12 @@ describe("CardsView combat cards", () => {
   it("plays the order card picked with the command card", () => {
     const { card, onCardClick, playCommandCard } = renderWith();
 
-    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 suministros" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cortina de Fuego, 4 suministros" }));
     fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
-    expect(screen.getByText(/Jugarás Barrera \(4 suministros\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Jugarás Cortina de Fuego \(4 suministros\)/)).toBeInTheDocument();
     playCommandCard();
 
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, expect.objectContaining({ id: "Barrera" }));
+    expect(onCardClick).toHaveBeenCalledWith(card, undefined, expect.objectContaining({ id: "Cortina de Fuego" }));
   });
 
   it("offers only the order cards the player can pay for, but shows them all", () => {
@@ -212,7 +212,7 @@ describe("CardsView combat cards", () => {
     const { card, onCardClick, playCommandCard } = renderWith({ canPlayCombatCards: false });
 
     expect(screen.getByText("En el turno extra no se juegan cartas de combate.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Barrera, 4 suministros" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cortina de Fuego, 4 suministros" }));
     expect(screen.queryByRole("button", { name: "Jugarla con la carta de mando" })).not.toBeInTheDocument();
     playCommandCard();
     expect(onCardClick).toHaveBeenCalledWith(card, undefined, undefined);

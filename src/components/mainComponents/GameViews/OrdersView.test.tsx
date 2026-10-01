@@ -330,7 +330,7 @@ describe("OrdersView combat card markers", () => {
   it("marks the Barrage hex on the map before the orders can be confirmed", () => {
     const barrage: CombatCard = {
       id: "barrage",
-      name: "Barrera",
+      name: "Cortina de Fuego",
       description: "4 dados.",
       cost: 0,
       phase: "order",

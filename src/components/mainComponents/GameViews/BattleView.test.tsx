@@ -379,7 +379,7 @@ describe("BattleView combat cards", () => {
 describe("BattleView combat card effects", () => {
   const barrage: CombatCard = {
     id: "barrage",
-    name: "Barrera",
+    name: "Cortina de Fuego",
     description: "",
     cost: 0,
     phase: "order",

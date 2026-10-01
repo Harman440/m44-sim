@@ -9,7 +9,7 @@ interface BattleInstructionsProps {
 
 const STEPS = [
   "Choques: una unidad que se movió y chocó con una enemiga tira antes que nada. Cuenta como su disparo.",
-  "Ataques de cartas de combate (Barrera, Bombardeo aéreo…): se tiran en cada casilla marcada antes de que dispare ninguna unidad.",
+  "Ataques de cartas de combate (Cortina de Fuego, Bombardeo aéreo…): se tiran en cada casilla marcada antes de que dispare ninguna unidad.",
   "Unidades sin mover, de los dos bandos.",
   "Unidades movidas, cuando ya han disparado todas las sin mover.",
 ];

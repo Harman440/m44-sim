@@ -14,7 +14,7 @@ import HexThumbnail from "./HexThumbnail";
 import SectionIcon from "./SectionIcon";
 import Stamp from "./Stamp";
 
-/** An attack combat card (Barrera…): rolled on each marked hex before any unit fires */
+/** An attack combat card (Cortina de Fuego…): rolled on each marked hex before any unit fires */
 export interface CardAttackStep {
   card: CombatCard;
   markers: readonly Position[];

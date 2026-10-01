@@ -1699,7 +1699,7 @@ describe("GameSession map markers", () => {
   const defender = { ...scenario, attacker: "Axis" as const };
   const barrage: CombatCard = {
     id: "barrage",
-    name: "Barrera",
+    name: "Cortina de Fuego",
     description: "",
     cost: 0,
     phase: "order",
@@ -2228,7 +2228,7 @@ describe("GameSession Reinforcements", () => {
 describe("GameSession taking back the card picked", () => {
   const barrage: CombatCard = {
     id: "barrage",
-    name: "Barrera",
+    name: "Cortina de Fuego",
     description: "",
     cost: 4,
     phase: "order",
