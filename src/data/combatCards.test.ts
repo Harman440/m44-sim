@@ -72,16 +72,19 @@ describe("combat card data", () => {
   it("gives Cortina de Fuego to the sides with big guns, both when the scenario doesn't say", () => {
     expect(names(scenario("arracourt"), "Allies")).toContain("Cortina de Fuego");
     expect(names(scenario("arracourt"), "Axis")).not.toContain("Cortina de Fuego");
-    expect(names(scenario("pegasus-bridge"), "Allies")).toContain("Cortina de Fuego");
-    expect(names(scenario("pegasus-bridge"), "Axis")).toContain("Cortina de Fuego");
+    expect(names(scenario("pegasus-bridge"), "Allies")).not.toContain("Cortina de Fuego");
+    const unsaid = { ...scenario("pegasus-bridge"), bigGuns: undefined };
+    expect(names(unsaid, "Allies")).toContain("Cortina de Fuego");
+    expect(names(unsaid, "Axis")).toContain("Cortina de Fuego");
   });
 
   it("deals the air cards by air power: 1 each by default, none against air superiority, more with more sorties", () => {
-    const pegasus = scenario("pegasus-bridge");
-    expect(copies(pegasus, "Axis", "Poder aéreo")).toBe(1);
-    expect(copies(pegasus, "Axis", "Bombardeo aéreo")).toBe(1);
+    const sme = scenario("sainte-mere-eglise");
+    expect(copies(sme, "Axis", "Poder aéreo")).toBe(1);
+    expect(copies(sme, "Axis", "Bombardeo aéreo")).toBe(1);
     expect(names(scenario("arracourt"), "Axis")).not.toContain("Poder aéreo");
-    const sorties = { ...pegasus, airPower: { allies: 2, axis: 0 } };
+    expect(names(scenario("pegasus-bridge"), "Allies")).not.toContain("Poder aéreo");
+    const sorties = { ...sme, airPower: { allies: 2, axis: 0 } };
     expect(copies(sorties, "Allies", "Poder aéreo")).toBe(2);
     expect(copies(sorties, "Allies", "Bombardeo aéreo")).toBe(2);
     expect(names(sorties, "Axis")).not.toContain("Bombardeo aéreo");

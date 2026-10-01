@@ -102,7 +102,8 @@ The two decisions from the first plan still hold:
 - [x] 1 copy of each card, the deck built per side from the scenario (`combatDeckFor`). Both sides: Tras las líneas enemigas, Emboscada, Médico, Sin munición, Refuerzos, Lucha callejera, Táctico, Blindaje personal, Explosivos, ¡Fusiles arriba!. Defender: Fortificar, Ni un paso atrás, Camuflaje, Repliegue. Attacker: Motorizado (was Terreno helado), Fragor del combate and 2 Sin tregua (Forest and House to House in one: any unit enters a forest, town or hedgerow and can still fire). With armour: Mecánico, Blindados adelante; artillery: Observador, Reposicionamiento; enemy armour: Sin combustible, Escasez de proyectiles; towns on the map: Rattenkrieg
 - [x] Cortina de Fuego only for the sides with big guns (`Scenario.bigGuns`, both when omitted); Poder aéreo and Bombardeo aéreo by `Scenario.airPower` (1 each when omitted, 0 against air superiority, more with more air sorties)
 - [x] Vuelta al servicio is out of the deck (Médico stays)
-- [ ] **Decide:** big guns and air per scenario are historical guesses: Écouves and Arracourt Allies only (guns and air), Sainte-Mère-Église big guns Axis only, Pegasus Bridge both
+- [x] The menu shows the chosen scenario's details per side: role, command cards to start, units, big guns, air and the combat deck
+- [ ] **Decide:** big guns and air per scenario are historical guesses: Écouves and Arracourt Allies only (guns and air), Sainte-Mère-Église big guns Axis only and air for both. **Decided:** Pegasus Bridge has neither for either side
 - [ ] Read `.m44` files to set air superiority and air sorties from the scenario (Step 45)
 
 ### Step 45: Scenario tools

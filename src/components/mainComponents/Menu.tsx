@@ -2,6 +2,7 @@ import { useState } from "react";
 import SettingsDialog from "../SettingsDialog";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
+import ScenarioDetails from "./ScenarioDetails";
 import {
   Box,
   Button,
@@ -96,6 +97,11 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
             </Card>
           ))}
         </Box>
+        {scenario && (
+          <Box sx={{ mt: 2 }}>
+            <ScenarioDetails scenario={scenario} />
+          </Box>
+        )}
       </Box>
 
       <Box>

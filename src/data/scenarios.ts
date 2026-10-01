@@ -162,6 +162,9 @@ export const scenarios: Scenario[] = [
     initialHandSize: { allies: 6, axis: 2 },
     extraDraws: { faction: 'Axis', turns: 2 },
     attacker: 'Allies',
+    // A night glider raid on two bridges: no heavy guns or aircraft on either side
+    bigGuns: [],
+    airPower: { allies: 0, axis: 0 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
       [DieFace.TANK]: UnitType.TANK,
