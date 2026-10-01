@@ -1,10 +1,9 @@
-import { Box, Chip, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import FactionInsignia from "../FactionInsignia";
 import { Scenario } from "../../types/scenario";
 import { FACTIONS, Faction } from "../../types/faction";
 import { FACTION_LABELS, UNIT_LABELS } from "../../labels";
 import { UnitType } from "../../game-core/unit";
-import { combatDeckFor } from "../../data/combatCards";
 
 const sideKey = (faction: Faction) => (faction === "Axis" ? "axis" : "allies");
 
@@ -27,13 +26,6 @@ function airText(scenario: Scenario, faction: Faction): string {
   return air === 1 ? "Sí: 1 carta de cada aérea" : `Sí: ${air} cartas de cada aérea`;
 }
 
-/** The combat deck's cards with their copies, in deck order */
-function deckCards(scenario: Scenario, faction: Faction): { name: string; copies: number }[] {
-  const copies = new Map<string, number>();
-  combatDeckFor(scenario, faction).forEach((card) => copies.set(card.name, (copies.get(card.name) ?? 0) + 1));
-  return [...copies].map(([name, count]) => ({ name, copies: count }));
-}
-
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Box sx={{ display: "flex", gap: 1 }}>
@@ -53,8 +45,6 @@ function ScenarioDetails({ scenario }: { scenario: Scenario }) {
       sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))" }}
     >
       {FACTIONS.map((faction) => {
-        const deck = deckCards(scenario, faction);
-        const total = deck.reduce((sum, card) => sum + card.copies, 0);
         const extra = scenario.extraDraws?.faction === faction ? scenario.extraDraws : null;
         return (
           <Box
@@ -84,14 +74,6 @@ function ScenarioDetails({ scenario }: { scenario: Scenario }) {
               </Row>
               <Row label="Aviación">{airText(scenario, faction)}</Row>
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 0.5 }}>
-              Mazo de combate: {total} cartas
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-              {deck.map(({ name, copies }) => (
-                <Chip key={name} size="small" variant="outlined" label={copies > 1 ? `${name} ×${copies}` : name} />
-              ))}
-            </Box>
           </Box>
         );
       })}

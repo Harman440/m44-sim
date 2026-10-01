@@ -63,10 +63,12 @@ describe("combat card data", () => {
     expect(names(sme, "Axis")).toContain("Mecánico");
   });
 
-  it("gives Rattenkrieg only on a map with towns", () => {
-    const ecouves = scenario("foret-decouves");
-    expect(copies(ecouves, "Allies", "Rattenkrieg")).toBe(1);
-    expect(names({ ...ecouves, tiles: { forest: ecouves.tiles.forest } }, "Allies")).not.toContain("Rattenkrieg");
+  it("gives Rattenkrieg only on a map with more than 8 town hexes", () => {
+    const ecouves = scenario("foret-decouves"); // 8 towns
+    expect(names(ecouves, "Allies")).not.toContain("Rattenkrieg");
+    const town = [...ecouves.tiles.town!, { row: 8, col: 0 }];
+    expect(copies({ ...ecouves, tiles: { ...ecouves.tiles, town } }, "Allies", "Rattenkrieg")).toBe(1);
+    expect(copies({ ...ecouves, tiles: { ...ecouves.tiles, town } }, "Axis", "Rattenkrieg")).toBe(1);
   });
 
   it("gives Cortina de Fuego to the sides with big guns, both when the scenario doesn't say", () => {

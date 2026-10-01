@@ -6,7 +6,7 @@ import { scenarios } from "../../data/scenarios";
 const scenario = (id: string) => scenarios.find((s) => s.id === id)!;
 
 describe("ScenarioDetails", () => {
-  it("shows each side's role, units, big guns, air and combat deck", () => {
+  it("shows each side's role, units, big guns and air, not the combat deck", () => {
     render(<ScenarioDetails scenario={scenario("arracourt")} />);
     const allies = within(screen.getByRole("region", { name: "Aliados" }));
     const axis = within(screen.getByRole("region", { name: "Eje" }));
@@ -16,8 +16,7 @@ describe("ScenarioDetails", () => {
     expect(axis.getByText("4 Infantería, 6 Tanque, 1 Artillería")).toBeInTheDocument();
     expect(allies.getByText("Sí: Cortina de Fuego")).toBeInTheDocument();
     expect(axis.getByText("Sin aviación")).toBeInTheDocument();
-    expect(axis.getByText("Sin tregua ×2")).toBeInTheDocument();
-    expect(allies.queryByText(/Sin tregua/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mazo de combate/)).not.toBeInTheDocument();
   });
 
   it("counts the paratroopers and gives Pegasus Bridge no guns or aircraft", () => {

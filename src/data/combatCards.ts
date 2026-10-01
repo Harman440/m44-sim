@@ -3,7 +3,8 @@
 // cards in the player's set"); costs are the ones marked with a pen. Each side's
 // deck is built from the scenario (`combatDeckFor`): 1 copy of each card the side
 // gets, the defensive cards for the defender, the offensive ones for the attacker,
-// and the rest by its units, its enemy's, the map, its big guns and its air power.
+// and the rest by its units, its enemy's, the towns on the map, its big guns and
+// its air power.
 // Tune them here.
 //
 // Not in the deck yet: the command combat cards that act on the opponent's
@@ -15,6 +16,9 @@ import { HexType } from "../types/hex";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
 import { hasUnits } from "./commandCards";
+
+/** Rattenkrieg is only dealt on a map with more town hexes than this */
+export const RATTENKRIEG_MIN_TOWNS = 8;
 
 /** Combat cards each side starts the game with */
 export const STARTING_COMBAT_CARDS = 2;
@@ -41,8 +45,8 @@ interface SideContext {
   tanks: boolean;
   artillery: boolean;
   enemyTanks: boolean;
-  /** The map has towns */
-  towns: boolean;
+  /** Town hexes on the map */
+  towns: number;
   bigGuns: boolean;
   /** Copies of each air card */
   air: number;
@@ -77,7 +81,7 @@ const battle = (
 
 const TEMPLATES: CombatCardTemplate[] = [
   // Played with the command card
-  order("rattenkrieg", "Rattenkrieg", 2, ifSide((side) => side.towns),
+  order("rattenkrieg", "Rattenkrieg", 2, ifSide((side) => side.towns > RATTENKRIEG_MIN_TOWNS),
     "1 infantería en un edificio o junto a uno se mueve hasta 3 casillas por cualquier terreno y debe terminar en un edificio. Aun así puede combatir.",
     {
       effect: {
@@ -166,7 +170,7 @@ export function combatDeckFor(scenario: Scenario, faction: Faction): CombatCard[
     tanks: hasUnits(scenario, faction, UnitType.TANK),
     artillery: hasUnits(scenario, faction, UnitType.ARTILLERY),
     enemyTanks: hasUnits(scenario, enemy, UnitType.TANK),
-    towns: (scenario.tiles[HexType.TOWN]?.length ?? 0) > 0,
+    towns: scenario.tiles[HexType.TOWN]?.length ?? 0,
     bigGuns: scenario.bigGuns?.includes(faction) ?? true,
     air: scenario.airPower?.[faction === "Axis" ? "axis" : "allies"] ?? 1,
   });
