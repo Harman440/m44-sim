@@ -7,7 +7,7 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 ## General rules
 - When firing against artillery in close assault supplies count as a hit.
 - When using the card Dig-in 4 units can move 1 hex and place a sandbag.
-- Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a recon card was used, you can pick three cards up and choose between them (And pick a combat card, if using old rules).
+- Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a probe card was used, you pick two cards up and choose between them instead (there are no recon cards in the smaller deck).
 - When an infantry unit is left with one figure its fire power is max 2 dice after applying any dice modifications.
 - Cards that have 'on the move' in standard map have 1 less on the move unit.
 
@@ -180,6 +180,29 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Message interception — 1: opponent shows you the cards he will use
 
 ## Deck composition
+
+### The smaller deck (Step 44, the one in use)
+Each player gets 25 cards:
+- Assault (all units in the section): 1 1 1
+- Attack (3 units in the section): 1 1 1
+- Probe (2 units in the section + 1 on the move; in the final phase choose 1 of 2 cards instead of gambling): 2 2 2
+- No Recon
+- Recon in Force (1 1 1): 1
+- General Advance (2 2 2): 2
+- Pincer (2 0 2): 1
+- Preparations: 1
+- Finest Hour: 1
+- Infantry Assault: 1
+- Close Assault: 1
+- Fire Fight: 1
+
+Plus 4 cards depending on the units the player has in the scenario:
+- Only infantry: Move Out 4
+- Infantry and armour: Move Out 1, Armour Overrun (Armor Assault) 1, Orders from HQ 2
+- Infantry and artillery: Move Out 1, Artillery Bombardment 1, Orders from HQ 2
+- All three: Move Out 1, Armour Overrun 1, Artillery Bombardment 1, Orders from HQ 1
+
+The Breakthrough-based deck below was used before.
 
 ### Number of cards in the Breakthrough deck (left, center, right)
 - All: 3 3 3 (−1 ×3)

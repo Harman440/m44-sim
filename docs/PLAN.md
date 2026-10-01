@@ -95,8 +95,8 @@ The two decisions from the first plan still hold:
 - [x] A view of the command deck: every card, how many copies, and how likely each kind is to be drawn (the probability notes in house-rules.md)
 
 ### Step 44: A smaller deck
-- [ ] Fewer cards, split into two decks, so each card turns up more often and the game is less random
-- [ ] **Decide:** how the deck is split, and which cards stay
+- [x] Fewer cards, so each card turns up more often and the game is less random: each side gets its own 25-card deck (`commandDeckFor`), 21 shared cards plus 4 that depend on the unit types it has in the scenario
+- [x] **Decided:** shared: Assault and Attack 1 per section, Probe 2 per section, Recon in Force 1, General Advance 2, Pincer 1, Preparations 1, Finest Hour 1, Infantry Assault 1, Close Assault 1, Firefight 1. Only infantry: Move Out 4; infantry and armour: Move Out 1, Armor Assault 1, Direct from HQ 2; infantry and artillery: Move Out 1, Artillery Bombardment 1, Direct from HQ 2; all three: 1 of each. No Recon: Probe now draws 2 cards in the final phase and keeps 1, instead of the gamble
 
 ### Step 45: Scenario tools
 - [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario

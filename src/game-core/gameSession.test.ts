@@ -1286,7 +1286,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 17 as 18 })).toThrow();
+    expect(broken({ version: 18 as 19 })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();

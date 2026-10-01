@@ -15,14 +15,15 @@ import {
   TableRow,
 } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
-import commandCards from "../data/commandCards";
 
 interface DeckVisualizerDialogProps {
   open: boolean;
   onClose: () => void;
+  /** This side's command deck */
+  commandCards: readonly CommandCard[];
 }
 
-function DeckVisualizerDialog({ open, onClose }: DeckVisualizerDialogProps) {
+function DeckVisualizerDialog({ open, onClose, commandCards }: DeckVisualizerDialogProps) {
   // Group cards by unique name and count how many of each
   const cardMap = new Map<string, { card: CommandCard; count: number }>();
 

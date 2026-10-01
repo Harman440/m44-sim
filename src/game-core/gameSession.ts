@@ -259,6 +259,8 @@ class GameSession {
   /** Shots at range roll the 8-sided long-range die */
   readonly longRangeDie: boolean;
   readonly board: BoardManager;
+  /** Every command card in this side's deck, wherever it is now */
+  readonly commandCards: readonly CommandCard[];
   private readonly deck: Deck;
   private hand: CommandCard[];
 
@@ -310,6 +312,7 @@ class GameSession {
     this.attacking = scenario.attacker === faction;
     this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
     this.board = new BoardManager(scenario, faction);
+    this.commandCards = commandCards;
     this.deck = new Deck(commandCards);
     this.hand = this.deck.draw(initialHandSize);
     this.combatDeck = new Deck(combatCards);
@@ -1296,7 +1299,7 @@ class GameSession {
   /**
    * Discard the played card and draw a command card (once per turn). A single
    * card goes straight to the hand, and the player may swap it with
-   * `drawAgain`; a card that draws more (Recon: 3) leaves them in
+   * `drawAgain`; a card that draws more (Probe: 2) leaves them in
    * `drawOptions` and `keepCard` puts one in the hand.
    */
   drawCard(): boolean {

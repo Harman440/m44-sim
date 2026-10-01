@@ -10,8 +10,7 @@ import {
 } from "./storage";
 import { DEFAULT_SETTINGS } from "./settings";
 import GameSession from "./game-core/gameSession";
-import CommandCard from "./game-core/commandCard";
-import { Side } from "./types/hex";
+import { commandDeckFor } from "./data/commandCards";
 import { TurnPhase } from "./types/gameManager";
 import { Scenario } from "./types/scenario";
 
@@ -27,14 +26,9 @@ const scenario: Scenario = {
   units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },
 };
 
-const cards = () => [
-  new CommandCard({ id: "a", sections: [Side.LEFT], orders: 1 }),
-  new CommandCard({ id: "b", sections: [Side.RIGHT], orders: 1 }),
-  new CommandCard({ id: "c", sections: [Side.CENTER], orders: 1 }),
-];
-
+// The saved game is read back with the side's own deck
 const newSession = () =>
-  new GameSession({ scenario, faction: "Axis", initialHandSize: 2, commandCards: cards() });
+  new GameSession({ scenario, faction: "Axis", initialHandSize: 2, commandCards: commandDeckFor(scenario, "Axis") });
 
 beforeEach(() => {
   localStorage.clear();
@@ -82,7 +76,7 @@ describe("saved game", () => {
     session.pickCard(session.getSnapshot().hand[0]!);
     saveGame(session);
 
-    const restored = loadSavedGame([scenario], cards());
+    const restored = loadSavedGame([scenario]);
 
     expect(restored?.faction).toBe("Axis");
     expect(restored?.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
@@ -90,7 +84,7 @@ describe("saved game", () => {
   });
 
   it("has nothing to load when no game was saved", () => {
-    expect(loadSavedGame([scenario], cards())).toBeNull();
+    expect(loadSavedGame([scenario])).toBeNull();
   });
 
   it.each([
@@ -99,14 +93,14 @@ describe("saved game", () => {
   ])("drops a save that %s", (_, json) => {
     localStorage.setItem(SAVED_GAME_KEY, json);
 
-    expect(loadSavedGame([scenario], cards())).toBeNull();
+    expect(loadSavedGame([scenario])).toBeNull();
     expect(localStorage.getItem(SAVED_GAME_KEY)).toBeNull();
   });
 
   it("drops a save for a scenario that no longer exists", () => {
     saveGame(newSession());
 
-    expect(loadSavedGame([{ ...scenario, id: "other" }], cards())).toBeNull();
+    expect(loadSavedGame([{ ...scenario, id: "other" }])).toBeNull();
     expect(localStorage.getItem(SAVED_GAME_KEY)).toBeNull();
   });
 
@@ -115,7 +109,7 @@ describe("saved game", () => {
 
     clearSavedGame();
 
-    expect(loadSavedGame([scenario], cards())).toBeNull();
+    expect(loadSavedGame([scenario])).toBeNull();
   });
 
   it("keeps going quietly when storage is unavailable", () => {
@@ -128,7 +122,7 @@ describe("saved game", () => {
 
     expect(() => saveGame(newSession())).not.toThrow();
     expect(() => saveLastSetup({ scenarioId: "test", faction: "Allies", longRangeDie: false })).not.toThrow();
-    expect(loadSavedGame([scenario], cards())).toBeNull();
+    expect(loadSavedGame([scenario])).toBeNull();
     expect(loadLastSetup()).toBeUndefined();
   });
 });

@@ -1,14 +1,16 @@
 // data/commandCards.ts
-// The house command-card deck (docs/house-rules.md, "Command cards database").
-// Counts are the Breakthrough deck with the notes' "(−1)" changes, which bring
-// it to about a standard deck (40 section cards + 17 tactic cards). They are
-// provisional: tune them here.
+// The house command-card decks (docs/house-rules.md, "Command cards database",
+// and the smaller deck of Step 44). Each side gets 25 cards: 21 shared by every
+// side, plus 4 that depend on the unit types it has in the scenario
+// (`commandDeckFor`). The counts are meant to be tuned here.
 //
-// Not in the deck: Counter Attack (not in the game) and Behind Enemy Lines,
-// Ambush, Barrage, Air Power, Dig In and Medics (combat cards, Step 24).
+// Not in the deck: Recon, Counter Attack (not in the game) and Behind Enemy
+// Lines, Ambush, Barrage, Air Power, Dig In and Medics (combat cards, Step 24).
 import CommandCard, { CommandCardProps, Section } from '../game-core/commandCard';
 import { UnitType } from '../game-core/unit';
 import { Side } from '../types/hex';
+import { Faction } from '../types/faction';
+import { Scenario } from '../types/scenario';
 
 interface CardTemplate {
   count: number;
@@ -43,29 +45,25 @@ const perSection = (
 
 const ON_THE_MOVE = 'Además, 1 unidad en cualquier lugar puede moverse, pero no disparar.';
 
-const cardTemplates: CardTemplate[] = [
-  // --- Section cards (40)
-  ...perSection('recon', 'Reconocimiento', [2, 2, 2], (_, where) => ({
-    description: `Da una orden a 1 unidad del ${where}. ${ON_THE_MOVE} En la fase final, roba 3 cartas y quédate con 1.`,
-    orders: 1,
-    onTheMove: 1,
-    drawChoice: 3,
-  })),
-  ...perSection('probe', 'Sondeo', [4, 5, 4], (_, where) => ({
-    description: `Da órdenes a 2 unidades del ${where}. ${ON_THE_MOVE}`,
+/** The cards every side gets */
+const sharedTemplates: CardTemplate[] = [
+  // --- Section cards (16)
+  ...perSection('probe', 'Sondeo', [2, 2, 2], (_, where) => ({
+    description: `Da órdenes a 2 unidades del ${where}. ${ON_THE_MOVE} En la fase final, roba 2 cartas y quédate con 1.`,
     orders: 2,
     onTheMove: 1,
+    drawChoice: 2,
   })),
-  ...perSection('attack', 'Ataque', [3, 4, 3], (_, where) => ({
+  ...perSection('attack', 'Ataque', [1, 1, 1], (_, where) => ({
     description: `Da órdenes a 3 unidades del ${where}.`,
     orders: 3,
   })),
-  ...perSection('assault', 'Asalto', [2, 2, 2], (_, where) => ({
+  ...perSection('assault', 'Asalto', [1, 1, 1], (_, where) => ({
     description: `Da órdenes a todas las unidades del ${where}.`,
     orders: 'all',
   })),
   {
-    count: 2,
+    count: 1,
     props: {
       id: 'recon-in-force',
       name: 'Reconocimiento en fuerza',
@@ -96,18 +94,7 @@ const cardTemplates: CardTemplate[] = [
     },
   },
 
-  // --- Tactic cards (17)
-  {
-    count: 3,
-    props: {
-      id: 'move-out',
-      name: 'En marcha',
-      description: 'Da órdenes a 4 unidades de infantería.',
-      tactic: true,
-      unitTypes: [UnitType.INFANTRY],
-      orders: 4,
-    },
-  },
+  // --- Tactic cards (5)
   {
     count: 1,
     props: {
@@ -119,30 +106,6 @@ const cardTemplates: CardTemplate[] = [
       orders: 4,
       coinCost: { [UnitType.INFANTRY]: 1, [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
       fireBonus: [{ dice: 1 }],
-    },
-  },
-  {
-    count: 2,
-    props: {
-      id: 'direct-from-hq',
-      name: 'Directo del Cuartel General',
-      description: 'Da órdenes a 4 unidades en cualquier sección.',
-      tactic: true,
-      orders: 4,
-    },
-  },
-  {
-    count: 1,
-    props: {
-      id: 'artillery-bombardment',
-      name: 'Bombardeo de artillería',
-      description:
-        'Da órdenes a toda la artillería: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
-      tactic: true,
-      unitTypes: [UnitType.ARTILLERY],
-      orders: 'all',
-      maxMove: 3,
-      holdShots: 2,
     },
   },
   {
@@ -172,19 +135,7 @@ const cardTemplates: CardTemplate[] = [
     },
   },
   {
-    count: 2,
-    props: {
-      id: 'armor-assault',
-      name: 'Asalto blindado',
-      description: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
-      tactic: true,
-      unitTypes: [UnitType.TANK],
-      orders: 4,
-      fireBonus: [{ dice: 1, closeAssault: true }],
-    },
-  },
-  {
-    count: 2,
+    count: 1,
     props: {
       id: 'firefight',
       name: 'Tiroteo',
@@ -200,7 +151,7 @@ const cardTemplates: CardTemplate[] = [
     },
   },
   {
-    count: 4,
+    count: 1,
     props: {
       id: 'preparations',
       name: 'Preparativos',
@@ -213,13 +164,73 @@ const cardTemplates: CardTemplate[] = [
   },
 ];
 
-const commandCards: CommandCard[] = [];
+// --- The tactic cards that depend on the side's units
+const moveOut: CommandCardProps & { id: string } = {
+  id: 'move-out',
+  name: 'En marcha',
+  description: 'Da órdenes a 4 unidades de infantería.',
+  tactic: true,
+  unitTypes: [UnitType.INFANTRY],
+  orders: 4,
+};
 
-cardTemplates.forEach(template => {
-  for (let i = 0; i < template.count; i++) {
-    // Suffix each copy so ids stay unique when a template has count > 1
-    commandCards.push(new CommandCard({ ...template.props, id: `${template.props.id}-${i + 1}` }));
+const armorAssault: CommandCardProps & { id: string } = {
+  id: 'armor-assault',
+  name: 'Asalto blindado',
+  description: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
+  tactic: true,
+  unitTypes: [UnitType.TANK],
+  orders: 4,
+  fireBonus: [{ dice: 1, closeAssault: true }],
+};
+
+const artilleryBombardment: CommandCardProps & { id: string } = {
+  id: 'artillery-bombardment',
+  name: 'Bombardeo de artillería',
+  description:
+    'Da órdenes a toda la artillería: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
+  tactic: true,
+  unitTypes: [UnitType.ARTILLERY],
+  orders: 'all',
+  maxMove: 3,
+  holdShots: 2,
+};
+
+const directFromHq: CommandCardProps & { id: string } = {
+  id: 'direct-from-hq',
+  name: 'Directo del Cuartel General',
+  description: 'Da órdenes a 4 unidades en cualquier sección.',
+  tactic: true,
+  orders: 4,
+};
+
+/** The 4 unit-type cards for a side with (or without) tanks and artillery */
+const unitTemplates = (tanks: boolean, artillery: boolean): CardTemplate[] => {
+  if (tanks && artillery) {
+    return [moveOut, armorAssault, artilleryBombardment, directFromHq].map((props) => ({ count: 1, props }));
   }
-});
+  if (tanks) return [{ count: 1, props: moveOut }, { count: 1, props: armorAssault }, { count: 2, props: directFromHq }];
+  if (artillery) {
+    return [{ count: 1, props: moveOut }, { count: 1, props: artilleryBombardment }, { count: 2, props: directFromHq }];
+  }
+  return [{ count: 4, props: moveOut }];
+};
 
-export default commandCards;
+const buildDeck = (templates: CardTemplate[]): CommandCard[] =>
+  templates.flatMap((template) =>
+    // Suffix each copy so ids stay unique when a template has count > 1
+    Array.from({ length: template.count }, (_, i) => new CommandCard({ ...template.props, id: `${template.props.id}-${i + 1}` }))
+  );
+
+/** Whether a side starts with (or is dropped) units of a type in the scenario */
+const hasUnits = (scenario: Scenario, faction: Faction, type: UnitType): boolean =>
+  (scenario.units[faction === 'Axis' ? 'axis' : 'allies'][type]?.length ?? 0) > 0 ||
+  (scenario.paradrop?.faction === faction && scenario.paradrop.unitType === type);
+
+/** A side's 25-card command deck: the shared cards plus 4 for the unit types it has */
+export function commandDeckFor(scenario: Scenario, faction: Faction): CommandCard[] {
+  return buildDeck([
+    ...sharedTemplates,
+    ...unitTemplates(hasUnits(scenario, faction, UnitType.TANK), hasUnits(scenario, faction, UnitType.ARTILLERY)),
+  ]);
+}

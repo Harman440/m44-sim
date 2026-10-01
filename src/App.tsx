@@ -4,7 +4,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import CircularProgress from '@mui/material/CircularProgress';
 import './App.css';
 import { scenarios } from './data/scenarios';
-import commandCards from './data/commandCards';
+import { commandDeckFor } from './data/commandCards';
 import { combatDeckFor } from './data/combatCards';
 import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/LazyGameView';
@@ -51,7 +51,7 @@ const App = () => {
   }, [look]);
 
   const [game, setGame] = useState<CurrentGame | null>(() => {
-    const session = loadSavedGame(scenarios, commandCards);
+    const session = loadSavedGame(scenarios);
     return session && { session, resumed: true, number: 0 };
   });
 
@@ -76,7 +76,7 @@ const App = () => {
       scenario,
       faction: setup.faction,
       initialHandSize: scenario.initialHandSize[setup.faction === "Axis" ? "axis" : "allies"],
-      commandCards,
+      commandCards: commandDeckFor(scenario, setup.faction),
       combatCards: combatDeckFor(scenario, setup.faction),
       longRangeDie: setup.longRangeDie,
     });

@@ -2,12 +2,12 @@
 // What this device remembers between visits. localStorage can be unavailable
 // (private mode) or hold data from an older version, so every read and write
 // is allowed to fail quietly.
-import CommandCard from "./game-core/commandCard";
 import GameSession from "./game-core/gameSession";
 import { SavedGame } from "./game-core/saveGame";
 import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
 import { combatDeckFor } from "./data/combatCards";
+import { commandDeckFor } from "./data/commandCards";
 import { Settings, normalizeSettings } from "./settings";
 
 const LAST_SETUP_KEY = "m44-sim:last-setup";
@@ -51,14 +51,14 @@ export const saveLastSetup = (setup: GameSetup) => {
 };
 
 /** The game in progress, so a reload or the tablet sleeping doesn't lose it */
-export const loadSavedGame = (scenarios: Scenario[], commandCards: CommandCard[]): GameSession | null => {
+export const loadSavedGame = (scenarios: Scenario[]): GameSession | null => {
   try {
     const json = localStorage.getItem(SAVED_GAME_KEY);
     if (!json) return null;
     const saved: SavedGame = JSON.parse(json);
     const scenario = scenarios.find((s) => s.id === saved.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario ${saved.scenarioId}`);
-    return GameSession.restore(saved, scenario, commandCards, combatDeckFor(scenario, saved.faction));
+    return GameSession.restore(saved, scenario, commandDeckFor(scenario, saved.faction), combatDeckFor(scenario, saved.faction));
   } catch {
     // A save we can't read (older version, changed scenario) is dropped: start from the menu
     clearSavedGame();
