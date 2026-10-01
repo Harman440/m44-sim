@@ -20,6 +20,9 @@ export const scenarios: Scenario[] = [
     image: foretDEcouvesImage,
     initialHandSize: { allies: 5, axis: 3 },
     attacker: 'Allies',
+    // August 1944: the French 2e DB attacks with American guns and Allied fighter-bombers overhead
+    bigGuns: ['Allies'],
+    airPower: { allies: 1, axis: 0 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
       [DieFace.TANK]: UnitType.TANK,
@@ -82,6 +85,9 @@ export const scenarios: Scenario[] = [
     image: arracourtImage,
     initialHandSize: { allies: 4, axis: 5 },
     attacker: 'Axis',
+    // The American artillery and, once the fog lifted, the P-47s broke the German attacks
+    bigGuns: ['Allies'],
+    airPower: { allies: 1, axis: 0 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
       [DieFace.TANK]: UnitType.TANK,
@@ -115,6 +121,9 @@ export const scenarios: Scenario[] = [
     image: sainteMereEgliseImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
+    // The paratroopers landed without heavy guns, while German artillery shelled the town;
+    // the scenario says nothing about air superiority, so both sides keep their air cards
+    bigGuns: ['Axis'],
     paradrop: { faction: 'Allies', unitType: UnitType.INFANTRY, units: 4 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,

@@ -1,7 +1,6 @@
 import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "./faction";
-import type { CombatDeckId } from "../data/combatCards";
 import type { SixSidedFace } from "../game-core/dice";
 
 // src/types/scenario.ts
@@ -43,6 +42,14 @@ export interface Scenario {
   wire?: Position[];
   /** One side draws 2 command cards instead of 1 after each of its first `turns` turns (Pegasus Bridge: the Germans were surprised) */
   extraDraws?: { faction: Faction; turns: number };
-  /** The combat deck each side uses; the standard deck when omitted */
-  combatDecks?: { allies?: CombatDeckId; axis?: CombatDeckId };
+  /**
+   * Sides that historically had heavy guns to bombard with: only they get Cortina de Fuego.
+   * Both sides when omitted
+   */
+  bigGuns?: Faction[];
+  /**
+   * Copies of each air card (Poder aéreo, Bombardeo aéreo) per side: 0 for a side whose enemy
+   * has air superiority, more for a side with several air sorties. 1 each when omitted
+   */
+  airPower?: { allies: number; axis: number };
 }

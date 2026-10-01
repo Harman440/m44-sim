@@ -98,6 +98,13 @@ The two decisions from the first plan still hold:
 - [x] Fewer cards, so each card turns up more often and the game is less random: each side gets its own 25-card deck (`commandDeckFor`), 21 shared cards plus 4 that depend on the unit types it has in the scenario
 - [x] **Decided:** shared: Assault and Attack 1 per section, Probe 2 per section, Recon in Force 1, General Advance 2, Pincer 1, Preparations 1, Finest Hour 1, Infantry Assault 1, Close Assault 1, Firefight 1. Only infantry: Move Out 4; infantry and armour: Move Out 1, Armor Assault 1, Direct from HQ 2; infantry and artillery: Move Out 1, Artillery Bombardment 1, Direct from HQ 2; all three: 1 of each. No Recon: Probe now draws 2 cards in the final phase and keeps 1, instead of the gamble
 
+### Step 44b: Combat decks by scenario
+- [x] 1 copy of each card, the deck built per side from the scenario (`combatDeckFor`). Both sides: Tras las líneas enemigas, Emboscada, Médico, Sin munición, Refuerzos, Lucha callejera, Táctico, Blindaje personal, Explosivos, ¡Fusiles arriba!. Defender: Fortificar, Ni un paso atrás, Camuflaje, Repliegue. Attacker: Motorizado (was Terreno helado), Fragor del combate and 2 Sin tregua (Forest and House to House in one: any unit enters a forest, town or hedgerow and can still fire). With armour: Mecánico, Blindados adelante; artillery: Observador, Reposicionamiento; enemy armour: Sin combustible, Escasez de proyectiles; towns on the map: Rattenkrieg
+- [x] Cortina de Fuego only for the sides with big guns (`Scenario.bigGuns`, both when omitted); Poder aéreo and Bombardeo aéreo by `Scenario.airPower` (1 each when omitted, 0 against air superiority, more with more air sorties)
+- [x] Vuelta al servicio is out of the deck (Médico stays)
+- [ ] **Decide:** big guns and air per scenario are historical guesses: Écouves and Arracourt Allies only (guns and air), Sainte-Mère-Église big guns Axis only, Pegasus Bridge both
+- [ ] Read `.m44` files to set air superiority and air sorties from the scenario (Step 45)
+
 ### Step 45: Scenario tools
 - [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario
 - [ ] Import a scenario from a PDF or a map image. Sainte-Mère-Église was read by hand from the map image with a hex grid laid over it; **Decide:** how much of that to automate, and whether a scenario file format (e.g. the official editor's `.m44` JSON) is worth reading

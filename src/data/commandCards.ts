@@ -227,7 +227,7 @@ const buildDeck = (templates: CardTemplate[]): CommandCard[] =>
   );
 
 /** Whether a side starts with (or is dropped) units of a type in the scenario */
-const hasUnits = (scenario: Scenario, faction: Faction, type: UnitType): boolean =>
+export const hasUnits = (scenario: Scenario, faction: Faction, type: UnitType): boolean =>
   (scenario.units[faction === 'Axis' ? 'axis' : 'allies'][type]?.length ?? 0) > 0 ||
   (scenario.paradrop?.faction === faction && scenario.paradrop.unitType === type);
 
