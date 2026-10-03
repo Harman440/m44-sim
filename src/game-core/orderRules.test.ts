@@ -315,6 +315,9 @@ describe("boostedLimits", () => {
 
   it("replaces the move, and lets it fire when it can fire into the card's terrain", () => {
     expect(boostedLimits(limits, { kind: "move", units: 1, maxMove: 3, fireInto: [] })).toMatchObject({ maxMove: 3, moveAndFire: 3 });
+    // A unit on the move still can't fire (Rattenkrieg with Batida's extra unit)
+    const onTheMove = { maxMove: 1, moveAndFire: 0, holdShots: 0 };
+    expect(boostedLimits(onTheMove, { kind: "move", units: 1, maxMove: 3, fireInto: [] })).toEqual({ ...onTheMove, maxMove: 3 });
   });
 
   it("leaves a unit that can't move as it is", () => {

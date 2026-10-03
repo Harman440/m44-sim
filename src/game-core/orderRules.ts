@@ -78,7 +78,9 @@ export function moveLimits(card: CommandCard, unit: Unit, slot: OrderSlot): Move
 export function boostedLimits(limits: MoveLimits, effect: MoveEffect): MoveLimits {
   if (limits.maxMove === 0) return limits; // a card whose units can't move
   if (effect.maxMove !== undefined) {
-    return { ...limits, maxMove: effect.maxMove, moveAndFire: effect.fireInto ? effect.maxMove : limits.moveAndFire };
+    // A unit that can't fire after moving (on the move) still can't
+    const canFire = effect.fireInto && limits.moveAndFire > 0;
+    return { ...limits, maxMove: effect.maxMove, moveAndFire: canFire ? effect.maxMove : limits.moveAndFire };
   }
   const bonus = effect.moveBonus ?? 0;
   return {
