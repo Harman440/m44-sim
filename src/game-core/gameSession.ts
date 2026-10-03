@@ -45,7 +45,7 @@ import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
 import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
-import { canMark, markablePositions } from "./markerRules";
+import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
@@ -573,7 +573,8 @@ class GameSession {
   private movePlan(hex: Hex, limits: MoveLimits, boost: boolean) {
     const effect = boost ? this.moveEffect() : null;
     const rules = effect ? { ignoreTerrain: effect.ignoreTerrain, fireInto: effect.fireInto } : {};
-    const endsOk = (key: string) => !effect?.endOn || effect.endOn.includes(this.board.getHex(fromKey(key))!.getType());
+    const endsOk = (key: string) =>
+      (!effect?.endOn || effect.endOn.includes(this.board.getHex(fromKey(key))!.getType())) && !this.breaksMark(fromKey(key));
     return {
       limits: effect ? boostedLimits(limits, effect) : limits,
       paths: (range: number, forFire = false) =>
@@ -636,6 +637,10 @@ class GameSession {
 
     if (!samePosition(lastOrder.start, lastOrder.end)) {
       this.board.moveUnit(lastOrder.end, lastOrder.start);
+      // Back on (or next to) a hex marked meanwhile: those marks, and the ones after them, are erased
+      const rule = this.markerRule();
+      const broken = rule ? firstConflictingMark(rule, this.board, this.markers, lastOrder.start) : -1;
+      if (broken !== -1) this.markers = this.markers.slice(0, broken);
     }
     this.orders = this.orders.slice(0, -1);
     return this.publish();
@@ -1209,6 +1214,12 @@ class GameSession {
   private markerRule() {
     if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return null;
     return this.orderCombatCard?.marker ?? null;
+  }
+
+  /** A unit ending its move here would stand on a marked hex (or next to one, for Air Bombardment) */
+  private breaksMark(position: Position): boolean {
+    const rule = this.markerRule();
+    return !!rule && firstConflictingMark(rule, this.board, this.markers, position) !== -1;
   }
 
   private markersLeft(): number {

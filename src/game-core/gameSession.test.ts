@@ -1915,6 +1915,40 @@ describe("GameSession combat card effects", () => {
       return session;
     };
 
+    it("keeps your units off the marked hexes, and next to them for Air Bombardment", () => {
+      const bombardment = card({
+        id: "air-bombardment",
+        phase: "order",
+        marker: { kind: "target", count: 2, awayFromOwnUnits: true },
+        effect: { kind: "attack", dicePerHex: 2 },
+      });
+      const { session, commandCards } = turnTwo([barrage, bombardment]);
+      session.pickCard(commandCards[0]!, undefined, barrage);
+      const target = session.getMoveOptions(LEFT_INF)!.moves[0]!;
+      expect(session.markHex(target)).toBe(true);
+      expect(session.getMoveOptions(LEFT_INF)!.moves).not.toContainEqual(target);
+      expect(session.issueOrder(LEFT_INF, target)).toBe(false);
+
+      session.cancelOrderCombatCard();
+      session.unpickCard();
+      session.pickCard(commandCards[0]!, undefined, bombardment);
+      const mark = { row: 4, col: 2 };
+      const nextToMark = new Hex(mark).getNeighbors();
+      expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(true);
+      expect(session.markHex(mark)).toBe(true);
+      expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(false);
+    });
+
+    it("erases a mark when undoing an order brings a unit back on it", () => {
+      const { session, commandCards } = turnTwo([barrage]);
+      session.pickCard(commandCards[0]!, undefined, barrage);
+      const to = session.getMoveOptions(LEFT_INF)!.moves[0]!;
+      session.issueOrder(LEFT_INF, to);
+      expect(session.markHex(LEFT_INF)).toBe(true); // empty now
+      session.undoLastOrder();
+      expect(session.getSnapshot().markers).toEqual([]);
+    });
+
     it("rolls the card's dice on each marked hex before any unit fires; supplies hit", () => {
       const session = barrageBattle();
       expect(session.getSnapshot().attacksPending).toBe(true);
