@@ -17,7 +17,8 @@ import {
 } from "@mui/material";
 import CommandCard from "../game-core/commandCard";
 import { Faction } from "../types/faction";
-import { Shot } from "../game-core/gameSession";
+import { ShotRoll } from "../game-core/gameSession";
+import { Position } from "../types/scenario";
 import { FireContext } from "../game-core/fireRules";
 import { FireTarget } from "../game-core/fireTargets";
 import BoardManager from "../game-core/BoardManager";
@@ -129,7 +130,7 @@ function ExplainedAction({
 }
 
 interface ShotResultProps {
-  shot: Shot;
+  shot: ShotRoll & { removedWire?: Position };
   number: number | null;
   /** The firing unit's type */
   unitType: UnitType;

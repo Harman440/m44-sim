@@ -33,7 +33,9 @@ export type CombatEffect =
   /** Heat of Battle: units of these types can take ground after a close assault and fire again, like armour */
   | { kind: "takeGround"; unitTypes: readonly UnitType[]; units: number }
   /** Reinforcements: the orders screen shows the scenario's table of which unit each die face brings */
-  | { kind: "reinforcements" };
+  | { kind: "reinforcements" }
+  /** Ambush: a unit attacked in close assault fires first, picked on the map when the card is played */
+  | { kind: "ambush" };
 
 /** A battle card: +dice on one shot by a unit of these types (Spotter, Street Fight, Explosives) */
 export interface DiceBonusEffect {

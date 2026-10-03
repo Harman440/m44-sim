@@ -25,6 +25,7 @@ import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
 import { describePlace } from "../../../labels";
 import CardAttackDialog from "../../CardAttackDialog";
+import AmbushDialog from "../../AmbushDialog";
 import { useSound } from "../../../sound";
 
 interface BattleViewProps {
@@ -50,6 +51,8 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const [collisionOpen, setCollisionOpen] = useState(false);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
   const [markingCloseAssault, setMarkingCloseAssault] = useState(false);
+  const [ambushOpen, setAmbushOpen] = useState(false);
+  const ambushPlayed = game.battleCombatCard?.effect?.kind === "ambush";
   const closeAssaultCard = game.activeCard?.closeAssaultOnly ?? false;
   const summaries = summarizeOrders(
     game.orders,
@@ -159,10 +162,19 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               canPlayCombatCards={game.canPlayCombatCards}
               battleCards={battleCards}
               played={game.battleCombatCard}
-              canUndo={!bonusUsed}
+              canUndo={!bonusUsed && !game.ambush}
+              playedAction={
+                ambushPlayed && (
+                  <Button onClick={() => setAmbushOpen(true)} startIcon={<GameIcon name="fire" />}>
+                    {game.ambush ? "Ver emboscada" : "Disparar primero"}
+                  </Button>
+                )
+              }
               onPlay={(card) => {
                 const done = session.playBattleCombatCard(card);
                 if (done) play("cardPlay");
+                // Ambush: straight to the map, to pick the unit attacked and fire first
+                if (done && card.effect?.kind === "ambush") setAmbushOpen(true);
                 return done;
               }}
               onUndo={() => session.undoBattleCombatCard()}
@@ -221,6 +233,15 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           onClose={() => setAttackingHex(null)}
         />
       )}
+
+      <AmbushDialog
+        open={ambushOpen && ambushPlayed}
+        faction={faction}
+        session={session}
+        game={game}
+        onFired={() => play((session.getSnapshot().ambush?.dice ?? 0) > 0 ? "dice" : "stamp")}
+        onClose={() => setAmbushOpen(false)}
+      />
 
       <CollisionDialog
         open={collisionOpen}

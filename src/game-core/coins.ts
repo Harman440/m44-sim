@@ -6,7 +6,7 @@ import Order from "./order";
 import { UnitType } from "./unit";
 import { appliedFaces, readRoll } from "./rollResult";
 import { END_OF_TURN_COINS } from "../data/coinRules";
-import type { Shot } from "./gameSession";
+import type { AmbushShot, Shot } from "./gameSession";
 import type { CombatCard } from "./combatCard";
 
 /** Final phase: 2 coins, or a combat card from the combat deck */
@@ -27,6 +27,8 @@ export interface TurnCoinsState {
   /** Combat cards played this turn, paid when played */
   combatCards: readonly CombatCard[];
   shots: readonly Shot[];
+  /** The Ambush card's shot, whose supply faces earn coins too */
+  ambush?: AmbushShot | null;
   /** Coins added or taken by hand (to match the table) */
   adjustments: readonly number[];
   reward: RewardChoice | null;
@@ -41,6 +43,7 @@ export function turnCoins({
   orders,
   combatCards,
   shots,
+  ambush = null,
   adjustments,
   reward,
   cardReward,
@@ -58,6 +61,10 @@ export function turnCoins({
     const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
     if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
   });
+  if (ambush) {
+    const coins = readRoll(appliedFaces(ambush.faces, ambush.kept), ambush.target).coins;
+    if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: ambush.unitType });
+  }
   // The extra first turn has no final-phase reward (nor Preparations' coins)
   if (!extraTurn) {
     if (reward === "coins") entries.push({ kind: "endOfTurn", amount: END_OF_TURN_COINS });

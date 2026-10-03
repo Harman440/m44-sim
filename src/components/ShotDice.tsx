@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Alert, Button, Stack } from "@mui/material";
-import { Shot } from "../game-core/gameSession";
+import { ShotRoll } from "../game-core/gameSession";
 import { appliedFaces } from "../game-core/rollResult";
 import { Faction } from "../types/faction";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
 
 interface ShotDiceProps {
-  shot: Shot;
+  shot: ShotRoll;
   /** Changes on every roll so the dice animate again */
   rollId: number;
   faction: Faction;

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Stack, Typography } from "@mui/material";
-import { Shot } from "../game-core/gameSession";
+import { ShotRoll } from "../game-core/gameSession";
 import { DiceStep, DiceStepKind } from "../game-core/fireRules";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
@@ -11,7 +11,7 @@ import GameIcon from "./GameIcon";
 import { BarbedWireIcon } from "./BarbedWire";
 
 interface ShotStepsProps {
-  shot: Shot;
+  shot: ShotRoll;
   /** The firing unit's type, drawn for the base dice */
   unitType: UnitType;
   faction: Faction;

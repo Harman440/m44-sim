@@ -210,6 +210,14 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                           : "vacía"}
                       </Typography>
                     ))}
+                    {record.ambush && (
+                      <Typography component="li" variant="body2">
+                        Emboscada: {UNIT_LABELS[record.ambush.unitType].toLowerCase()} ({placeOf(record.ambush.from)}),{" "}
+                        {plural(record.ambush.dice, "dado", "dados")} → {describeAppliedFaces(record.ambush.faces, record.ambush.kept)} (
+                        {describeTarget(record.ambush.target).toLowerCase()}:{" "}
+                        {describeRoll(readRoll(appliedFaces(record.ambush.faces, record.ambush.kept), record.ambush.target))})
+                      </Typography>
+                    )}
                     {record.reinforcement && (
                       <Typography component="li" variant="body2">
                         Refuerzos: {DIE_FACE_LABELS[record.reinforcement.face].toLowerCase()} →{" "}

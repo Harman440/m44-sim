@@ -129,6 +129,10 @@ export interface GameSnapshot {
   attacksPending: boolean;
   /** The battle combat card played in this turn's battle (one per battle) */
   battleCombatCard: CombatCard | null;
+  /** Ambush was played and hasn't fired yet: this side's units that can fire first, at an adjacent hex */
+  ambushUnits: readonly Position[];
+  /** The Ambush card's shot, once rolled */
+  ambush: AmbushShot | null;
   /** The combat card drawn in the final phase */
   drawnCombatCard: CombatCard | null;
   /** The final phase still owes a combat card: drawing it is the next step */
@@ -156,10 +160,8 @@ export interface ReinforcementRoll {
   unitType: UnitType | null;
 }
 
-/** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
-export interface Shot {
-  /** Index of the firing unit's order in this turn's orders */
-  orderIndex: number;
+/** A roll at an enemy unit: how the dice were worked out, the faces and what was applied */
+export interface ShotRoll {
   /** How the dice were worked out (a collision's steps; empty only in shots saved from before the quick roll was removed) */
   steps: readonly DiceStep[];
   dice: number;
@@ -180,10 +182,28 @@ export interface Shot {
   kept: readonly number[] | null;
   /** The hex fired at, when it was picked on the map */
   targetPosition?: Position;
+}
+
+/** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
+export interface Shot extends ShotRoll {
+  /** Index of the firing unit's order in this turn's orders */
+  orderIndex: number;
   /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
   tookGround?: boolean;
   /** Instead of firing, the unit removed the barbed wire on this hex (no dice) */
   removedWire?: Position;
+}
+
+/**
+ * Ambush (a battle combat card): one of this side's units, ordered or not,
+ * fires first at the enemy unit attacking it in close assault. It isn't one
+ * of the unit's own shots, and the command card adds nothing to it.
+ */
+export interface AmbushShot extends ShotRoll {
+  /** Where the ambushing unit stands */
+  from: Position;
+  unitType: UnitType;
+  targetPosition: Position;
 }
 
 /** The roll of an attack combat card on one marked hex (Barrage, Air Power, Air Bombardment) */
@@ -297,6 +317,7 @@ class GameSession {
   private markers: Position[] = [];
   private cardAttacks: CardAttack[] = [];
   private battleCombatCard: CombatCard | null = null;
+  private ambush: AmbushShot | null = null;
   private drawnCombatCard: CombatCard | null = null;
   private drops: Position[] = [];
   private reinforcementFace: SixSidedFace | null = null;
@@ -873,6 +894,83 @@ class GameSession {
     return this.publish();
   }
 
+  // Ambush: a unit of this side fires first at the enemy that attacks it in close assault
+
+  private ambushPlayed(): boolean {
+    return this.phase === TurnPhase.BATTLE && this.battleCombatCard?.effect?.kind === "ambush";
+  }
+
+  /** What the fire questions need to know about an ambush from this hex: close assault, no command card */
+  ambushContext(from: Position): FireContext | null {
+    const hex = this.board.getHex(from);
+    if (!hex?.hasUnit()) return null;
+    return {
+      unitType: hex.unit.getUnitType(),
+      card: null,
+      closeAssaultOnly: true,
+      fromTerrain: hex.getType(),
+      fromWire: hex.wire,
+    };
+  }
+
+  /** The adjacent hexes a unit at `from` can fire at with Ambush, with their dice */
+  ambushTargets(from: Position): FireTarget[] {
+    const context = this.ambushContext(from);
+    if (!this.ambushPlayed() || !context) return [];
+    return fireTargets(this.board, from, context);
+  }
+
+  /** This side's units that can fire with Ambush now: at least one adjacent hex worth a die */
+  private ambushUnits(): Position[] {
+    if (!this.ambushPlayed() || this.ambush) return [];
+    return this.board
+      .getAllHexes()
+      .filter((hex) => hex.hasUnit() && this.ambushTargets(hex.getPosition()).some((t) => t.dice > 0))
+      .map((hex) => hex.getPosition());
+  }
+
+  /** Fire first with the unit at `from`, at the adjacent hex of the enemy unit attacking it (Ambush) */
+  ambushAt(from: Position, { position, unitType, sandbags }: { position: Position; unitType: UnitType; sandbags: boolean }): boolean {
+    if (!this.ambushPlayed() || this.ambush || !isUnitType(unitType)) return false;
+    const target = this.ambushTargets(from).find((t) => samePosition(t.position, position));
+    if (!target || target.dice <= 0) return false;
+    const context = this.ambushContext(from)!;
+    const answers = { ...mapAnswers(target), targetType: unitType, sandbags: sandbags ? "yes" : "no" };
+    const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
+    if (blocked) return false;
+
+    this.ambush = {
+      from: { ...from },
+      unitType: context.unitType,
+      targetPosition: { ...position },
+      steps,
+      dice,
+      faces: rollDice(dice, this.random),
+      notes,
+      collision: false,
+      target: { unitType, closeAssault: true },
+      combatBonus: false,
+      kept: null,
+    };
+    return this.publish();
+  }
+
+  /** Take back the Ambush shot, recorded by mistake */
+  undoAmbush(): boolean {
+    if (this.phase !== TurnPhase.BATTLE || !this.ambush) return false;
+    this.ambush = null;
+    return this.publish();
+  }
+
+  /** Apply only some of the Ambush shot's results (or all again, with null) */
+  keepAmbushResults(kept: readonly number[] | null): boolean {
+    if (this.phase !== TurnPhase.BATTLE || !this.ambush) return false;
+    if (kept !== null && !isKeptList(kept, this.ambush.faces.length)) return false;
+    const sorted = kept && kept.length < this.ambush.faces.length ? [...kept].sort((a, b) => a - b) : null;
+    this.ambush = { ...this.ambush, kept: sorted };
+    return this.publish();
+  }
+
   // Barbed wire: infantry standing on it fires with a die less (fireBonusSteps),
   // or removes it instead of firing, which uses up the shot
 
@@ -1019,6 +1117,7 @@ class GameSession {
       orders: this.orders,
       combatCards: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
       shots: this.shots,
+      ambush: this.ambush,
       adjustments: this.coinAdjustments,
       reward: this.rewardChoice,
       cardReward: endOfTurn ? (this.chosenCard?.endOfTurnReward?.coins ?? 0) : 0,
@@ -1146,8 +1245,8 @@ class GameSession {
   /** Take back the battle combat card played by mistake; its coins come back */
   undoBattleCombatCard(): boolean {
     if (this.phase !== TurnPhase.BATTLE || !this.battleCombatCard) return false;
-    // A shot already used its dice: undo that shot first
-    if (this.shots.some((shot) => shot.combatBonus)) return false;
+    // A shot already used its dice, or Ambush fired: undo that shot first
+    if (this.shots.some((shot) => shot.combatBonus) || this.ambush) return false;
 
     this.combatHand = [...this.combatHand, this.battleCombatCard];
     this.battleCombatCard = null;
@@ -1409,6 +1508,7 @@ class GameSession {
       combatCardDrawn: this.drawnCombatCard,
       markers: this.markers,
       cardAttacks: this.cardAttacks,
+      ambush: this.ambush,
       reinforcement: this.reinforcementRoll(),
     });
     this.log = [...this.log, record];
@@ -1423,6 +1523,7 @@ class GameSession {
     this.markers = [];
     this.cardAttacks = [];
     this.battleCombatCard = null;
+    this.ambush = null;
     this.drawnCombatCard = null;
     this.reinforcementFace = null;
 
@@ -1472,6 +1573,7 @@ class GameSession {
       markers: this.markers,
       cardAttacks: this.cardAttacks,
       battleCombatCard: this.battleCombatCard,
+      ambush: this.ambush,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
       reinforcementFace: this.reinforcementFace,
@@ -1524,6 +1626,7 @@ class GameSession {
     session.markers = state.markers;
     session.cardAttacks = state.cardAttacks;
     session.battleCombatCard = state.battleCombatCard;
+    session.ambush = state.ambush;
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
     session.reinforcementFace = state.reinforcementFace;
@@ -1578,6 +1681,8 @@ class GameSession {
       cardAttacks: this.cardAttacks,
       attacksPending: this.attacksPending(),
       battleCombatCard: this.battleCombatCard,
+      ambushUnits: this.ambushUnits(),
+      ambush: this.ambush,
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),
       mustDiscardCombatCard: this.mustDiscardCombatCard(),

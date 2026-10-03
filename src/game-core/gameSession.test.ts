@@ -1287,7 +1287,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 19 as 20 })).toThrow();
+    expect(broken({ version: 20 as 21 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
@@ -2467,6 +2467,75 @@ describe("GameSession taking ground", () => {
 
     expect(session.takeGround(0)).toBe(true);
     expect(session.canTakeGround(1)).toBe(false);
+  });
+});
+
+describe("GameSession Ambush", () => {
+  const ambushCard: CombatCard = { id: "ambush", name: "Emboscada", description: "", cost: 1, phase: "battle", effect: { kind: "ambush" } };
+  // The right infantry gets no order with the left card
+  const RIGHT_INF: Position = { row: 8, col: 11 };
+  const ATTACKER: Position = { row: 7, col: 10 };
+  const ambushSession = () => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({
+      scenario: { ...scenario, attacker: "Axis" },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards,
+      combatCards: [ambushCard, { ...ambushCard, id: "other" }],
+      random: () => 0.99,
+    });
+    session.startFirstTurn();
+    session.adjustCoins(1);
+    session.pickCard(commandCards[0]!);
+    orderAllAndFight(session);
+    return session;
+  };
+  const shoot = { position: ATTACKER, unitType: UnitType.TANK, sandbags: false };
+
+  it("lets any unit fire first, in close assault, once the card is played", () => {
+    const session = ambushSession();
+    expect(session.getSnapshot().ambushUnits).toEqual([]);
+    expect(session.ambushAt(RIGHT_INF, shoot)).toBe(false);
+
+    expect(session.playBattleCombatCard(ambushCard)).toBe(true);
+    expect(session.getSnapshot().ambushUnits).toContainEqual(RIGHT_INF);
+    expect(session.ambushTargets(RIGHT_INF).every((t) => t.distance === 1)).toBe(true);
+    expect(session.ambushAt(RIGHT_INF, { ...shoot, position: { row: 6, col: 11 } })).toBe(false); // not adjacent
+
+    expect(session.ambushAt(RIGHT_INF, shoot)).toBe(true);
+    const { ambush, ambushUnits, shots } = session.getSnapshot();
+    expect(ambush).toMatchObject({ from: RIGHT_INF, unitType: UnitType.INFANTRY, dice: 3, target: { unitType: UnitType.TANK, closeAssault: true } });
+    expect(ambush!.faces).toHaveLength(3);
+    expect(ambushUnits).toEqual([]);
+    // It isn't one of the orders' shots
+    expect(shots).toEqual([]);
+    expect(session.ambushAt(RIGHT_INF, shoot)).toBe(false);
+  });
+
+  it("keeps the card played until the shot is undone", () => {
+    const session = ambushSession();
+    session.playBattleCombatCard(ambushCard);
+    session.ambushAt(RIGHT_INF, shoot);
+    expect(session.undoBattleCombatCard()).toBe(false);
+
+    expect(session.keepAmbushResults([0])).toBe(true);
+    expect(session.getSnapshot().ambush!.kept).toEqual([0]);
+    expect(session.undoAmbush()).toBe(true);
+    expect(session.getSnapshot().ambush).toBeNull();
+    expect(session.undoBattleCombatCard()).toBe(true);
+  });
+
+  it("is saved, and logged at the end of the turn", () => {
+    const session = ambushSession();
+    session.playBattleCombatCard(ambushCard);
+    session.ambushAt(RIGHT_INF, shoot);
+    const restored = GameSession.restore(session.save(), { ...scenario, attacker: "Axis" }, [...session.commandCards], [...session.combatCards]);
+    expect(restored.getSnapshot().ambush).toEqual(session.getSnapshot().ambush);
+
+    finishTurn(session);
+    expect(session.getSnapshot().ambush).toBeNull();
+    expect(session.getSnapshot().log.at(-1)!.ambush).toMatchObject({ from: RIGHT_INF, dice: 3 });
   });
 });
 

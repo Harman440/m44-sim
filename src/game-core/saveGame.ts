@@ -12,13 +12,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { BattleEdit, CardAttack, Shot } from "./gameSession";
-import type { TurnRecord } from "./turnLog";
+import type { AmbushShot, BattleEdit, CardAttack, Shot } from "./gameSession";
+import { TurnRecord, copyAmbush } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21;
 
 interface SavedUnit {
   type: UnitType;
@@ -81,6 +81,7 @@ export interface SavedGame {
   markers: Position[];
   cardAttacks: CardAttack[];
   battleCombatCard: string | null;
+  ambush: AmbushShot | null;
   drawnCombatCard: string | null;
   drops: Position[];
   reinforcementFace: SixSidedFace | null;
@@ -118,6 +119,8 @@ export interface SessionState {
   markers: Position[];
   cardAttacks: CardAttack[];
   battleCombatCard: CombatCard | null;
+  /** The Ambush card's shot */
+  ambush: AmbushShot | null;
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
@@ -135,6 +138,17 @@ const isPosition = (value: unknown): value is Position =>
 function readPositions(positions: unknown, what: string): Position[] {
   if (!Array.isArray(positions) || !positions.every(isPosition)) throw new Error(`${what} are not a list of hexes`);
   return positions.map(({ row, col }) => ({ row, col }));
+}
+
+function readAmbush(ambush: unknown): AmbushShot | null {
+  if (ambush === null) return null;
+  const shot = ambush as AmbushShot;
+  const faces = new Set<string>(Object.values(DieFace));
+  if (!isPosition(shot?.from) || !isPosition(shot.targetPosition)) throw new Error("Unknown ambush hexes");
+  if (!isUnitType(shot.unitType) || !isUnitType(shot.target?.unitType)) throw new Error("Unknown ambush units");
+  if (!Array.isArray(shot.faces) || !shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
+  if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
+  return shot;
 }
 
 function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
@@ -235,6 +249,7 @@ export function writeSave(
       faces: [...attack.faces],
     })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
+    ambush: state.ambush && copyAmbush(state.ambush),
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     drops: state.drops.map((p) => ({ ...p })),
     reinforcementFace: state.reinforcementFace,
@@ -391,6 +406,7 @@ export function readSave(
     markers: readPositions(saved.markers, "Markers"),
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
+    ambush: readAmbush(saved.ambush),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
     reinforcementFace,

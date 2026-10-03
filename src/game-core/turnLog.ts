@@ -7,7 +7,7 @@ import { DieFace } from "./dice";
 import { DiceStep } from "./fireRules";
 import { positionKey } from "./position";
 import { Position } from "../types/scenario";
-import type { BattleEdit, CardAttack, ReinforcementRoll, Shot } from "./gameSession";
+import type { AmbushShot, BattleEdit, CardAttack, ReinforcementRoll, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
@@ -69,6 +69,8 @@ export interface TurnRecord {
   cardAttacks: CardAttack[];
   /** The Reinforcements card's roll and the unit it brought */
   reinforcement: ReinforcementRoll | null;
+  /** The Ambush card's shot (missing in turns saved before Ambush fired in the app) */
+  ambush?: AmbushShot | null;
 }
 
 interface TurnState {
@@ -86,6 +88,7 @@ interface TurnState {
   combatCardDrawn: CombatCard | null;
   markers: readonly Position[];
   cardAttacks: readonly CardAttack[];
+  ambush: AmbushShot | null;
   reinforcement: ReinforcementRoll | null;
 }
 
@@ -104,6 +107,7 @@ export function recordTurn({
   combatCardDrawn,
   markers,
   cardAttacks,
+  ambush,
   reinforcement,
 }: TurnState): TurnRecord {
   return {
@@ -147,8 +151,21 @@ export function recordTurn({
       faces: [...attack.faces],
     })),
     reinforcement: reinforcement && { ...reinforcement },
+    ambush: ambush && copyAmbush(ambush),
   };
 }
+
+/** A copy of an Ambush shot as plain data */
+export const copyAmbush = (ambush: AmbushShot): AmbushShot => ({
+  ...ambush,
+  from: { ...ambush.from },
+  targetPosition: { ...ambush.targetPosition },
+  steps: ambush.steps.map((step) => ({ ...step })),
+  faces: [...ambush.faces],
+  kept: ambush.kept && [...ambush.kept],
+  notes: [...ambush.notes],
+  target: { ...ambush.target },
+});
 
 /**
  * The unit type each edit applied to (null for wire removed). A move only knows its

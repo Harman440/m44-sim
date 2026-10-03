@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
 import { CombatCard } from "../../../game-core/combatCard";
 import { Faction } from "../../../types/faction";
@@ -21,6 +21,8 @@ interface BattleReserveProps {
   played: CombatCard | null;
   /** The played card can still be taken back (its bonus isn't used yet) */
   canUndo: boolean;
+  /** Shown under the played card: what it still lets the player do (Ambush's shot) */
+  playedAction?: ReactNode;
   onPlay: (card: CombatCard) => boolean;
   onUndo: () => void;
 }
@@ -37,6 +39,7 @@ function BattleReserve({
   battleCards,
   played,
   canUndo,
+  playedAction,
   onPlay,
   onUndo,
 }: BattleReserveProps) {
@@ -93,6 +96,7 @@ function BattleReserve({
               <Typography variant="body2">
                 <strong>Jugada</strong> · pagada: {coinsText(played.cost)}
               </Typography>
+              {playedAction}
               {canUndo && (
                 <Button variant="outlined" onClick={onUndo} startIcon={<GameIcon name="undo" />}>
                   Deshacer
