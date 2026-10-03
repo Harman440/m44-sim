@@ -527,7 +527,7 @@ class GameSession {
     const slots = this.slotsFor(context, unit, hex.getSide(), slot);
     const moveSlot = slot ? this.slotFor(slots, slot) : (slots.find((s) => !s.onTheMove) ?? slots[0]);
     if (!moveSlot) return null;
-    const canBoost = this.canBoost(hex);
+    const canBoost = this.canBoost(hex, moveSlot);
     if (boost && !canBoost) return null;
 
     const plan = this.movePlan(hex, moveLimits(context.card, unit, moveSlot), boost);
@@ -553,11 +553,12 @@ class GameSession {
     return effect ? effect.units - this.orders.filter((order) => order.boosted).length : 0;
   }
 
-  /** The unit on this hex can use the order combat card's movement */
-  private canBoost(hex: Hex): boolean {
+  /** The unit on this hex, in this order slot, can use the order combat card's movement */
+  private canBoost(hex: Hex, slot: OrderSlot): boolean {
     const effect = this.moveEffect();
     const unit = hex.unit;
     if (!effect || !unit || this.boostsLeft() <= 0) return false;
+    if (effect.notOnTheMove && slot.onTheMove) return false;
     if (effect.unitTypes && !effect.unitTypes.includes(unit.getUnitType())) return false;
     if (effect.startNear) {
       const near = [hex.getPosition(), ...hex.getNeighbors()].some((p) =>
@@ -591,7 +592,7 @@ class GameSession {
     if (!context || !hex || !unit) return false;
     const chosen = this.slotFor(this.slotsFor(context, unit, hex.getSide(), slot), slot);
     if (!chosen) return false;
-    if (boost && !this.canBoost(hex)) return false;
+    if (boost && !this.canBoost(hex, chosen)) return false;
     const plan = this.movePlan(hex, moveLimits(context.card, unit, chosen), boost);
     const limits = plan.limits;
     const cost = slotCost(context.card, unit, chosen);

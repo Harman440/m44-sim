@@ -73,6 +73,8 @@ export interface MoveEffect {
   endOn?: readonly HexType[];
   /** It must start on or next to these terrains */
   startNear?: readonly HexType[];
+  /** Not for a unit on the move (Rattenkrieg) */
+  notOnTheMove?: boolean;
 }
 
 /** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */

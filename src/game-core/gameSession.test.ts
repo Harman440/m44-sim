@@ -2015,6 +2015,26 @@ describe("GameSession combat card effects", () => {
       expect(session.getMoveOptions({ row: 7, col: 3 })!.canBoost).toBe(false); // not near a town
     });
 
+    it("isn't for a unit on the move (Rattenkrieg)", () => {
+      const rattenkrieg = card({
+        id: "rattenkrieg",
+        phase: "order",
+        effect: { kind: "move", units: 1, maxMove: 3, fireInto: [HexType.TOWN], endOn: [HexType.TOWN], notOnTheMove: true },
+      });
+      const towns: Position[] = [{ row: 6, col: 1 }, { row: 4, col: 2 }];
+      const scenarioWithTowns = { ...defender, tiles: { town: towns } };
+      const commandCards = [new CommandCard({ id: "probe", sections: [Side.LEFT], orders: 1, onTheMove: 1 })];
+      const session = new GameSession({ scenario: scenarioWithTowns, faction: "Allies", initialHandSize: 1, commandCards, combatCards: [rattenkrieg] });
+      session.startFirstTurn();
+      session.pickCard(commandCards[0]!, undefined, rattenkrieg);
+
+      const onTheMove = { section: null, onTheMove: true };
+      expect(session.getMoveOptions(LEFT_INF)!.canBoost).toBe(true);
+      expect(session.getMoveOptions(LEFT_INF, onTheMove)!.canBoost).toBe(false);
+      expect(session.getMoveOptions(LEFT_INF, onTheMove, true)).toBeNull();
+      expect(session.issueOrder(LEFT_INF, towns[0]!, onTheMove, true)).toBe(false);
+    });
+
     it("adds hexes to the move (Frozen Ground) and not to units of other types", () => {
       const frozen = card({ id: "frozen", phase: "order", effect: { kind: "move", units: 1, moveBonus: 1, unitTypes: [UnitType.INFANTRY] } });
       const { session, commandCards } = turnTwo([frozen]);

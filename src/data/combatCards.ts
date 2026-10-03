@@ -93,6 +93,7 @@ const TEMPLATES: CombatCardTemplate[] = [
         fireInto: [HexType.TOWN],
         endOn: [HexType.TOWN],
         startNear: [HexType.TOWN],
+        notOnTheMove: true,
       },
     }),
   order("no-respite", "Sin tregua", 1, (side) => (side.attacker ? 2 : 0),

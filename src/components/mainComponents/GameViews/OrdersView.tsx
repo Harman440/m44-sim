@@ -154,7 +154,10 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     if (!picked || !unitHexPosition) return;
     setSlot(picked);
     setSlotHint(false);
-    setMoveOptions(session.getMoveOptions(unitHexPosition, picked, boost));
+    // The card's movement may not apply to this slot (Rattenkrieg on the move): drop it
+    const boosted = boost ? session.getMoveOptions(unitHexPosition, picked, true) : null;
+    if (boost && !boosted) setBoost(false);
+    setMoveOptions(boosted ?? session.getMoveOptions(unitHexPosition, picked, false));
   };
 
   // One tap per action so it works the same with a mouse or on a tablet
