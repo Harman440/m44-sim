@@ -396,8 +396,8 @@ describe("BattleView combat card effects", () => {
   };
 
   /** The defender at turn 2, with the combat cards given and `before` run before the battle */
-  const effectSetup = (combatCards: CombatCard[], orderCard?: CombatCard, { orderTank = true } = {}) => {
-    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: orderTank ? 2 : 1 });
+  const effectSetup = (combatCards: CombatCard[], orderCard?: CombatCard) => {
+    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 });
     const session = new GameSession({
       scenario: {
         id: "test",
@@ -418,7 +418,7 @@ describe("BattleView combat card effects", () => {
     session.pickCard(card, undefined, orderCard);
     if (orderCard) session.markHex({ row: 1, col: 10 });
     session.issueOrder(INFANTRY, INFANTRY);
-    if (orderTank) session.issueOrder(TANK, TANK);
+    session.issueOrder(TANK, TANK);
     session.commitOrders();
     session.startMovement();
     session.startBattle();
@@ -459,22 +459,20 @@ describe("BattleView combat card effects", () => {
 
   it("opens the map as soon as Ambush is played, to fire first with the unit attacked", async () => {
     const ambush: CombatCard = { id: "ambush", name: "Emboscada", description: "", cost: 0, phase: "battle", effect: { kind: "ambush" } };
-    // Only the tank has no order
-    const session = effectSetup([ambush], undefined, { orderTank: false });
+    const session = effectSetup([ambush]);
     const section = screen.getByTestId("battle-combat-cards");
     fireEvent.click(within(section).getByRole("button", { name: /^Emboscada/ }));
     fireEvent.click(screen.getByRole("button", { name: "Jugar Emboscada" }));
 
     // Pick the unit attacked, then the attacker's hex, as when firing
     expect(await screen.findByText("¿Qué unidad atacan?")).toBeInTheDocument();
-    expect(session.getSnapshot().ambushUnits).toEqual([TANK]);
-    fireEvent.click(document.querySelector(`[data-testid="ambush-map"] [data-position="${TANK.row}-${TANK.col}"]`)!);
-    aimAt({ row: 6, col: 3 });
+    fireEvent.click(document.querySelector(`[data-testid="ambush-map"] [data-position="${INFANTRY.row}-${INFANTRY.col}"]`)!);
+    aimAt({ row: 6, col: 1 });
     fireEvent.click(screen.getByRole("button", { name: "Tanque" }));
     expect(screen.getByTestId("fire-total")).toHaveTextContent("3 dados");
     fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
 
-    expect(session.getSnapshot().ambush).toMatchObject({ from: TANK, dice: 3 });
+    expect(session.getSnapshot().ambush).toMatchObject({ from: INFANTRY, dice: 3 });
     expect(session.getSnapshot().shots).toEqual([]);
     expect(screen.getByTestId("shot-result")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));

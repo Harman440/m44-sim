@@ -2493,16 +2493,13 @@ describe("GameSession Ambush", () => {
   };
   const shoot = { position: ATTACKER, unitType: UnitType.TANK, sandbags: false };
 
-  it("lets a unit without an order fire first, in close assault, once the card is played", () => {
+  it("lets any unit fire first, in close assault, once the card is played", () => {
     const session = ambushSession();
     expect(session.getSnapshot().ambushUnits).toEqual([]);
     expect(session.ambushAt(RIGHT_INF, shoot)).toBe(false);
 
     expect(session.playBattleCombatCard(ambushCard)).toBe(true);
     expect(session.getSnapshot().ambushUnits).toContainEqual(RIGHT_INF);
-    // The left infantry has an order
-    expect(session.getSnapshot().ambushUnits).not.toContainEqual(LEFT_INF);
-    expect(session.ambushAt(LEFT_INF, { ...shoot, position: { row: 6, col: 1 } })).toBe(false);
     expect(session.ambushTargets(RIGHT_INF).every((t) => t.distance === 1)).toBe(true);
     expect(session.ambushAt(RIGHT_INF, { ...shoot, position: { row: 6, col: 11 } })).toBe(false); // not adjacent
 
