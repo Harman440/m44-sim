@@ -12,7 +12,8 @@ import Hex from "./hex";
 import { HexType, Side } from "../types/hex";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
-import { positionKey, samePosition } from "./position";
+import { includesPosition, positionKey, samePosition } from "./position";
+import { hexDistance } from "./fireTargets";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
@@ -2013,6 +2014,39 @@ describe("GameSession combat card effects", () => {
       expect(options.moves.map(positionKey).sort()).toEqual(towns.map(positionKey).sort());
       expect(options.moveAndFire.map(positionKey).sort()).toEqual(towns.map(positionKey).sort());
       expect(session.getMoveOptions({ row: 7, col: 3 })!.canBoost).toBe(false); // not near a town
+    });
+
+    it("moves 3 through any terrain, still fires, and fires first (Tras las líneas enemigas)", () => {
+      const infiltrators = card({
+        id: "infiltrators",
+        phase: "order",
+        effect: { kind: "move", units: 1, unitTypes: [UnitType.INFANTRY], maxMove: 3, ignoreTerrain: true, moveAndFire: true, firesFirst: true },
+      });
+      // The infantry is ringed by forest, which stops any move at the first hex and doesn't let it fire
+      const ring = new Hex(LEFT_INF).getNeighbors();
+      const ringed = { ...defender, tiles: { forest: ring } };
+      const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+      const session = new GameSession({ scenario: ringed, faction: "Allies", initialHandSize: 1, commandCards, combatCards: [infiltrators] });
+      session.startFirstTurn();
+      session.pickCard(commandCards[0]!, undefined, infiltrators);
+
+      const options = session.getMoveOptions(LEFT_INF, undefined, true)!;
+      expect(options.limits).toMatchObject({ maxMove: 3, moveAndFire: 3 });
+      // Not into the forest (it couldn't fire there), but 3 hexes away on open ground
+      expect(options.moveAndFire.some((p) => includesPosition(ring, p))).toBe(false);
+      const far = options.moveAndFire.find((p) => hexDistance(LEFT_INF, p) === 3)!;
+      expect(far).toBeDefined();
+      expect(session.getMoveOptions({ row: 4, col: 6 }, undefined, true)).toBeNull(); // not infantry
+
+      expect(session.issueOrder(LEFT_INF, far, undefined, true)).toBe(true);
+      expect(session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 })).toBe(true);
+      session.commitOrders();
+      session.startMovement();
+      session.startBattle();
+
+      // It doesn't wait for the unit that held
+      expect(session.getSnapshot().orders[0]).toMatchObject({ boosted: true, shots: 1 });
+      expect(session.fire(0, answersAt("2"))).toBe(true);
     });
 
     it("isn't for a unit on the move (Rattenkrieg)", () => {

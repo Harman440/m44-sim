@@ -75,6 +75,10 @@ export interface MoveEffect {
   startNear?: readonly HexType[];
   /** Not for a unit on the move (Rattenkrieg) */
   notOnTheMove?: boolean;
+  /** It can still fire after the whole move (`maxMove`), where the terrain lets a moved unit fire */
+  moveAndFire?: boolean;
+  /** It fires before any other unit, whatever the firing order (Behind Enemy Lines) */
+  firesFirst?: boolean;
 }
 
 /** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */

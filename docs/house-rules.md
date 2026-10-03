@@ -140,7 +140,7 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Forest (forest fight) — 1: 1 unit moves into forest and can still battle
 - Armor Forward — 2: 3 armor ignore terrain movement (battle restrictions still apply)
 - Return to duty (Medics) — 4: roll 2 dice for every weak infantry unit ordered; matching unit symbol or supply recovers 1 figure
-- Infiltrators (Behind enemy lines) — 4
+- Infiltrators (Behind enemy lines) — 4: 1 ordered infantry moves up to 3 hexes ignoring terrain movement restrictions (battle restrictions still apply) and battles before anyone else; in the final phase it moves up to 3 more hexes
 - ~~Sniper — 6: place a sniper next to an infantry unit; it can't battle this turn~~ (taken out of the game)
 - Frozen Ground (Dry ground / improve movement) — 3: 3 units +1 hex
 - Air bombardment — 4: 2 dice on 2 hexes (if they have units); can't ignore flags, supplies count; hexes can't be next to your units

@@ -141,8 +141,9 @@ const StatusText = ({ children, color = "text.secondary" }: { children: ReactNod
 );
 
 /**
- * The battle in the order it's fought: collisions, an attack combat card, the
- * units that didn't move, then the units that moved. Each unit shows its hex
+ * The battle in the order it's fought: collisions, an attack combat card, a
+ * unit that fires first (Tras las líneas enemigas), the units that didn't
+ * move, then the units that moved. Each unit shows its hex
  * and section; tapping it opens the fire dialog.
  */
 function FireOrderList({
@@ -280,8 +281,9 @@ function FireOrderList({
     );
   };
 
-  const unmoved = summaries.filter((s) => s.hold);
-  const moved = summaries.filter((s) => !s.hold);
+  const first = summaries.filter((s) => s.firesFirst);
+  const unmoved = summaries.filter((s) => s.hold && !s.firesFirst);
+  const moved = summaries.filter((s) => !s.hold && !s.firesFirst);
 
   return (
     <Box data-testid="fire-order-list">
@@ -371,6 +373,7 @@ function FireOrderList({
         </Typography>
       ) : (
         <>
+          {first.length > 0 && group("Dispara primero", "antes que cualquier otra unidad", first.map(unitRow), "group-first")}
           {unmoved.length > 0 && group("Sin mover", null, unmoved.map(unitRow), "group-unmoved")}
           {moved.length > 0 &&
             group(

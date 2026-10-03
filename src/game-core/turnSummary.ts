@@ -3,6 +3,7 @@ import BoardManager from "./BoardManager";
 import Order from "./order";
 import { samePosition } from "./position";
 import type { Shot } from "./gameSession";
+import type { CombatCard } from "./combatCard";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
 import { Position } from "../types/scenario";
@@ -36,6 +37,8 @@ export interface OrderSummary {
   shotsLeft: number;
   /** It didn't move and lost its unfired shot when the player moved on to the moved units */
   skipped: boolean;
+  /** It fires before any other unit, whatever the firing order (Tras las líneas enemigas) */
+  firesFirst: boolean;
   /** It moved, so it must wait until every unit that didn't move has fired (or been skipped) */
   waiting: boolean;
 }
@@ -49,11 +52,18 @@ export function summarizeOrders(
   orders: readonly Order[],
   board: BoardManager,
   shots: readonly Shot[] = [],
-  unmovedFireSkipped = false
+  unmovedFireSkipped = false,
+  orderCombatCard: CombatCard | null = null
 ): OrderSummary[] {
   const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped);
   const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
-  return summaries.map((s) => ({ ...s, waiting: !s.hold && s.shotsLeft > 0 && unmovedLeft }));
+  // The unit that used the order combat card's movement, when the card makes it fire first
+  const effect = orderCombatCard?.effect;
+  const cardFiresFirst = effect?.kind === "move" && !!effect.firesFirst;
+  return summaries.map((s, i) => {
+    const first = cardFiresFirst && orders[i]!.boosted;
+    return { ...s, firesFirst: first, waiting: !first && !s.hold && s.shotsLeft > 0 && unmovedLeft };
+  });
 }
 
 function summarizeEach(
@@ -61,7 +71,7 @@ function summarizeEach(
   board: BoardManager,
   shots: readonly Shot[],
   unmovedFireSkipped: boolean
-): Omit<OrderSummary, "waiting">[] {
+): Omit<OrderSummary, "waiting" | "firesFirst">[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
 
   return orders.map((order, index) => {

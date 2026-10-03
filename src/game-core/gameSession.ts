@@ -692,7 +692,7 @@ class GameSession {
   // Firing: the dice are rolled here, once, and the result is kept
 
   private summaries() {
-    return summarizeOrders(this.orders, this.board, this.shots, this.unmovedFireSkipped);
+    return summarizeOrders(this.orders, this.board, this.shots, this.unmovedFireSkipped, this.orderCombatCard);
   }
 
   /** No unit that didn't move has a shot left (or the player skipped them) */

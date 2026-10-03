@@ -58,7 +58,8 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
     game.orders,
     session.board,
     game.shots,
-    game.unmovedFireSkipped
+    game.unmovedFireSkipped,
+    game.orderCombatCard
   );
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;

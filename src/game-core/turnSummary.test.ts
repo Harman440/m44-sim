@@ -61,6 +61,7 @@ describe("summarizeOrders", () => {
       shots: [],
       shotsLeft: 0,
       skipped: false,
+      firesFirst: false,
       waiting: false,
     });
     expect(infantry).toMatchObject({
