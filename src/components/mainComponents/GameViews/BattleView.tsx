@@ -53,13 +53,16 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const [markingCloseAssault, setMarkingCloseAssault] = useState(false);
   const [ambushOpen, setAmbushOpen] = useState(false);
   const ambushPlayed = game.battleCombatCard?.effect?.kind === "ambush";
+  // ¡Fusiles arriba! goes before any unit fires (collisions aside)
+  const unitFired = game.shots.some((shot) => !shot.collision);
+  const anyFiresFirst = game.battleCombatCard?.effect?.kind === "firesFirst";
   const closeAssaultCard = game.activeCard?.closeAssaultOnly ?? false;
   const summaries = summarizeOrders(
     game.orders,
     session.board,
     game.shots,
     game.unmovedFireSkipped,
-    game.orderCombatCard
+    { orderCombatCard: game.orderCombatCard, battleCombatCard: game.battleCombatCard }
   );
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
@@ -165,11 +168,21 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               played={game.battleCombatCard}
               canUndo={!bonusUsed && !game.ambush}
               playedAction={
-                ambushPlayed && (
+                ambushPlayed ? (
                   <Button onClick={() => setAmbushOpen(true)} startIcon={<GameIcon name="fire" />}>
                     {game.ambush ? "Ver emboscada" : "Disparar primero"}
                   </Button>
+                ) : (
+                  anyFiresFirst &&
+                  !unitFired && (
+                    <Typography variant="body2" sx={{ textAlign: "center" }}>
+                      Toca en el orden de fuego la unidad que dispara primero.
+                    </Typography>
+                  )
                 )
+              }
+              blockedReason={(card) =>
+                card.effect?.kind === "firesFirst" && unitFired ? "Solo antes de que dispare ninguna unidad." : null
               }
               onPlay={(card) => {
                 const done = session.playBattleCombatCard(card);

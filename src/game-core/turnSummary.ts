@@ -37,10 +37,16 @@ export interface OrderSummary {
   shotsLeft: number;
   /** It didn't move and lost its unfired shot when the player moved on to the moved units */
   skipped: boolean;
-  /** It fires before any other unit, whatever the firing order (Tras las líneas enemigas) */
+  /** It fires before any other unit, whatever the firing order (Tras las líneas enemigas, ¡Fusiles arriba!) */
   firesFirst: boolean;
   /** It moved, so it must wait until every unit that didn't move has fired (or been skipped) */
   waiting: boolean;
+}
+
+/** The combat cards played this turn that change the firing order */
+export interface PlayedCombatCards {
+  orderCombatCard?: CombatCard | null;
+  battleCombatCard?: CombatCard | null;
 }
 
 /**
@@ -53,16 +59,20 @@ export function summarizeOrders(
   board: BoardManager,
   shots: readonly Shot[] = [],
   unmovedFireSkipped = false,
-  orderCombatCard: CombatCard | null = null
+  { orderCombatCard = null, battleCombatCard = null }: PlayedCombatCards = {}
 ): OrderSummary[] {
   const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped);
   const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
   // The unit that used the order combat card's movement, when the card makes it fire first
   const effect = orderCombatCard?.effect;
-  const cardFiresFirst = effect?.kind === "move" && !!effect.firesFirst;
+  const movedFiresFirst = effect?.kind === "move" && !!effect.firesFirst;
+  // ¡Fusiles arriba!: any unit may fire first; the first to fire (collisions aside) is the one
+  const anyFiresFirst = battleCombatCard?.effect?.kind === "firesFirst";
+  const firstShot = anyFiresFirst ? shots.find((shot) => !shot.collision) : undefined;
+  const nobodyWaits = anyFiresFirst && !firstShot;
   return summaries.map((s, i) => {
-    const first = cardFiresFirst && orders[i]!.boosted;
-    return { ...s, firesFirst: first, waiting: !first && !s.hold && s.shotsLeft > 0 && unmovedLeft };
+    const first = (movedFiresFirst && orders[i]!.boosted) || firstShot?.orderIndex === i;
+    return { ...s, firesFirst: first, waiting: !first && !nobodyWaits && !s.hold && s.shotsLeft > 0 && unmovedLeft };
   });
 }
 

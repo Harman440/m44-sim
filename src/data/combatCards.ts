@@ -166,7 +166,8 @@ const TEMPLATES: CombatCardTemplate[] = [
   battle("explosives", "Explosivos", 1, always, "1 infantería tira 1 dado más en asalto cercano.",
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true } }),
   battle("shells-shortage", "Escasez de proyectiles", 2, ifSide((side) => side.enemyTanks), "1 unidad de artillería o blindados enemiga no puede disparar."),
-  battle("rifles-up", "¡Fusiles arriba!", 1, always, "Elige una unidad tuya: dispara antes que nadie."),
+  battle("rifles-up", "¡Fusiles arriba!", 1, always, "Elige una unidad tuya: dispara antes que nadie.",
+    { effect: { kind: "firesFirst" } }),
 ];
 
 /** One card per copy; copies get a numbered id so saves can tell them apart */

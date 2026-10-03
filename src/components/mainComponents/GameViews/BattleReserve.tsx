@@ -23,6 +23,8 @@ interface BattleReserveProps {
   canUndo: boolean;
   /** Shown under the played card: what it still lets the player do (Ambush's shot) */
   playedAction?: ReactNode;
+  /** Why a card can't be played now, e.g. ¡Fusiles arriba! once a unit has fired; null when it can */
+  blockedReason?: (card: CombatCard) => string | null;
   onPlay: (card: CombatCard) => boolean;
   onUndo: () => void;
 }
@@ -40,12 +42,14 @@ function BattleReserve({
   played,
   canUndo,
   playedAction,
+  blockedReason = () => null,
   onPlay,
   onUndo,
 }: BattleReserveProps) {
   const [looking, setLooking] = useState<CombatCard | null>(null);
   const shown: ShownCard | null = looking && { combat: looking };
   const missing = (card: CombatCard) => card.cost - coins;
+  const blocked = looking ? blockedReason(looking) : null;
 
   return (
     <Box className="battle-reserve">
@@ -127,14 +131,20 @@ function BattleReserve({
       <CardDialog card={shown} faction={faction} onClose={() => setLooking(null)} label="Carta de combate">
         {looking && !played && (
           <>
-            {missing(looking) > 0 && (
+            {missing(looking) > 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>
                 Te {missing(looking) === 1 ? "falta" : "faltan"} {coinsText(missing(looking))}
               </Typography>
+            ) : (
+              blocked && (
+                <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>
+                  {blocked}
+                </Typography>
+              )
             )}
             <Button
               onClick={() => onPlay(looking) && setLooking(null)}
-              disabled={missing(looking) > 0}
+              disabled={missing(looking) > 0 || !!blocked}
               aria-label={`Jugar ${looking.name}`}
               startIcon={<GameIcon name="cards" />}
             >

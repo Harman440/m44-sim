@@ -35,7 +35,9 @@ export type CombatEffect =
   /** Reinforcements: the orders screen shows the scenario's table of which unit each die face brings */
   | { kind: "reinforcements" }
   /** Ambush: a unit attacked in close assault fires first, picked on the map when the card is played */
-  | { kind: "ambush" };
+  | { kind: "ambush" }
+  /** Rifles Up: played before any unit fires, the first unit to fire can be any of them, whatever the firing order */
+  | { kind: "firesFirst" };
 
 /** A battle card: +dice on one shot by a unit of these types (Spotter, Street Fight, Explosives) */
 export interface DiceBonusEffect {

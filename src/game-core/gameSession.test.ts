@@ -14,6 +14,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
+import { summarizeOrders } from "./turnSummary";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
@@ -2047,6 +2048,40 @@ describe("GameSession combat card effects", () => {
       // It doesn't wait for the unit that held
       expect(session.getSnapshot().orders[0]).toMatchObject({ boosted: true, shots: 1 });
       expect(session.fire(0, answersAt("2"))).toBe(true);
+    });
+
+    describe("¡Fusiles arriba!", () => {
+      const riflesUp = card({ id: "rifles-up", phase: "battle", effect: { kind: "firesFirst" } });
+
+      /** In the battle, the left infantry moved and the other held */
+      const battle = () => {
+        const { session, commandCards } = turnTwo([riflesUp]);
+        session.pickCard(commandCards[0]!);
+        const to = session.getMoveOptions(LEFT_INF)!.moveAndFire[0]!;
+        session.issueOrder(LEFT_INF, to);
+        session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
+        session.commitOrders();
+        session.startMovement();
+        session.startBattle();
+        return session;
+      };
+
+      it("lets the moved unit fire first once played", () => {
+        const session = battle();
+        expect(session.fire(0, answersAt("2"))).toBe(false); // it waits for the unit that held
+        expect(session.playBattleCombatCard(riflesUp)).toBe(true);
+        expect(session.fire(0, answersAt("2"))).toBe(true);
+        const game = session.getSnapshot();
+        const summaries = summarizeOrders(game.orders, session.board, game.shots, false, { battleCombatCard: riflesUp });
+        expect(summaries[0]!.firesFirst).toBe(true);
+        expect(summaries[1]!.firesFirst).toBe(false);
+      });
+
+      it("can't be played once a unit has fired", () => {
+        const session = battle();
+        expect(session.fire(1, answersAt("2"))).toBe(true);
+        expect(session.playBattleCombatCard(riflesUp)).toBe(false);
+      });
     });
 
     it("isn't for a unit on the move (Rattenkrieg)", () => {

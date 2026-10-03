@@ -692,7 +692,10 @@ class GameSession {
   // Firing: the dice are rolled here, once, and the result is kept
 
   private summaries() {
-    return summarizeOrders(this.orders, this.board, this.shots, this.unmovedFireSkipped, this.orderCombatCard);
+    return summarizeOrders(this.orders, this.board, this.shots, this.unmovedFireSkipped, {
+      orderCombatCard: this.orderCombatCard,
+      battleCombatCard: this.battleCombatCard,
+    });
   }
 
   /** No unit that didn't move has a shot left (or the player skipped them) */
@@ -1238,6 +1241,8 @@ class GameSession {
   playBattleCombatCard(card: CombatCard): boolean {
     if (this.phase !== TurnPhase.BATTLE || this.battleCombatCard) return false;
     if (!this.canPlayCombatCard(card, "battle")) return false;
+    // ¡Fusiles arriba! is played before any unit fires (collisions aside)
+    if (card.effect?.kind === "firesFirst" && this.shots.some((shot) => !shot.collision)) return false;
 
     this.playCombatCard(card);
     return this.publish();
