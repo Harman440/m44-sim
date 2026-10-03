@@ -124,8 +124,15 @@ describe("fireTargets", () => {
 
   it("marks hexes out of sight", () => {
     const b = board({ town: [{ row: 4, col: 5 }] });
-    const targets = fireTargets(b, from, { unitType: UnitType.ARTILLERY, card: null });
+    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null });
     expect(at(targets, { row: 4, col: 5 })!.lineOfSight).toBe(true);
     expect(at(targets, { row: 4, col: 6 })!.lineOfSight).toBe(false);
+  });
+
+  it("lets artillery fire without line of sight", () => {
+    const b = board({ town: [{ row: 4, col: 5 }] }, { infantry: [{ row: 4, col: 6 }] });
+    const targets = fireTargets(b, from, { unitType: UnitType.ARTILLERY, card: null });
+    expect(at(targets, { row: 4, col: 7 })!.lineOfSight).toBe(true); // behind the town and a unit
+    expect(targets.every((t) => t.lineOfSight)).toBe(true);
   });
 });

@@ -6,7 +6,7 @@
 // The numbers start from the official Memoir '44 values; change them to match
 // the house rules.
 import { DiceStep, FireAnswers, FireContext, FireQuestion } from "../game-core/fireRules";
-import { UnitType } from "../game-core/unit";
+import { UnitType, checksLineOfSight } from "../game-core/unit";
 import { HexType } from "../types/hex";
 import { UNIT_LABELS } from "../labels";
 
@@ -94,12 +94,15 @@ const targetTerrainQuestion: FireQuestion = {
   },
 };
 
-/** Adjacent targets are always in sight; further away, blocking terrain or units can hide them */
+/**
+ * Adjacent targets are always in sight; further away, blocking terrain or units
+ * can hide them. Artillery doesn't need line of sight.
+ */
 const lineOfSightQuestion: FireQuestion = {
   id: "lineOfSight",
   text: "¿Tiene línea de visión al objetivo?",
   options: () => YES_NO,
-  appliesTo: (_, answers) => Number(answers.distance) > 1,
+  appliesTo: ({ unitType }, answers) => checksLineOfSight(unitType) && Number(answers.distance) > 1,
   effect: () => null,
   blocks: (_, answer) =>
     answer === "no" ? "Sin línea de visión no puede disparar a este objetivo. Elige otro objetivo." : null,

@@ -2,11 +2,15 @@
 
 export enum UnitType {INFANTRY = "infantry", TANK = "tank", ARTILLERY = "artillery"};
 
-const UNIT_STATS: Record<UnitType, { maxMove: number; moveAndFire: number }> = {
-  infantry: { maxMove: 2, moveAndFire: 1 },
-  tank: { maxMove: 3, moveAndFire: 3 },
-  artillery: { maxMove: 1, moveAndFire: 0 }, // can't move and fire
+const UNIT_STATS: Record<UnitType, { maxMove: number; moveAndFire: number; checkLineOfSight: boolean }> = {
+  infantry: { maxMove: 2, moveAndFire: 1, checkLineOfSight: true },
+  tank: { maxMove: 3, moveAndFire: 3, checkLineOfSight: true },
+  // can't move and fire; fires over anything in between (house rule)
+  artillery: { maxMove: 1, moveAndFire: 0, checkLineOfSight: false },
 };
+
+/** Whether this unit type needs line of sight to fire (artillery doesn't) */
+export const checksLineOfSight = (unitType: UnitType): boolean => UNIT_STATS[unitType].checkLineOfSight;
 
 /** A unit on the board. What it may do this turn comes from its Order and the card played. */
 class Unit {
@@ -31,6 +35,10 @@ class Unit {
 
   getMoveAndFire(): number {
     return this.moveAndFire;
+  }
+
+  checkLineOfSight(): boolean {
+    return checksLineOfSight(this.unitType);
   }
 }
 

@@ -8,6 +8,7 @@ import { HexType } from "../types/hex";
 import { FireAnswers, FireContext, calculateFireDice } from "./fireRules";
 import { BASE_DICE_BY_DISTANCE, FIRE_QUESTIONS, SIGHT_BLOCKING_TERRAIN, fireBonusSteps } from "../data/fireQuestions";
 import { samePosition } from "./position";
+import { checksLineOfSight } from "./unit";
 
 interface Cube {
   x: number;
@@ -104,12 +105,14 @@ export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): Fi
 /**
  * Every hex in range of a unit at `from` that has none of this side's units
  * and could hold one (not water),
- * with the dice a shot at it would roll and whether it's in sight. A unit that
+ * with the dice a shot at it would roll and whether it's in sight (always, for
+ * a unit that doesn't need line of sight, like artillery). A unit that
  * may only fire in close assault (Close Assault card, taking ground) reaches
  * adjacent hexes only.
  */
 export function fireTargets(board: BoardManager, from: Position, firing: FireContext): FireTarget[] {
   const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
+  const needsSight = checksLineOfSight(context.unitType);
   const range = context.closeAssaultOnly ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
   return board
     .getAllHexes()
@@ -121,6 +124,6 @@ export function fireTargets(board: BoardManager, from: Position, firing: FireCon
       // The combat card's dice count: it can make a hex worth firing at
       const answers = { ...mapAnswers({ distance, terrain }), combatCard: "yes" };
       const { dice } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight: hasLineOfSight(board, from, hex.getPosition()) };
+      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight: !needsSight || hasLineOfSight(board, from, hex.getPosition()) };
     });
 }

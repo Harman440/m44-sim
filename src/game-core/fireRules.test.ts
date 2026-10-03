@@ -96,6 +96,8 @@ describe("fire questions (house rules)", () => {
     expect(next({})).toBe("distance");
     expect(next({ distance: "1" })).toBe("targetType");
     expect(next({ distance: "2" })).toBe("lineOfSight");
+    // Artillery doesn't need line of sight
+    expect(nextFireQuestion(FIRE_QUESTIONS, context(UnitType.ARTILLERY), { distance: "2" })?.id).toBe("targetType");
     expect(next({ distance: "2", lineOfSight: "yes" })).toBe("targetType");
     expect(next({ distance: "2", lineOfSight: "yes", targetType: "tank" })).toBe("targetTerrain");
     expect(next({ distance: "2", lineOfSight: "yes", targetType: "tank", targetTerrain: "plains" })).toBe("sandbags");
