@@ -453,8 +453,15 @@ describe("OrdersView movement combat cards", () => {
     const movesBefore = container.querySelectorAll(".hexagon__tile--move, .hexagon__tile--move-and-fire").length;
     fireEvent.click(toggle);
     expect(container.querySelectorAll(".hexagon__tile--move, .hexagon__tile--move-and-fire").length).toBeGreaterThan(movesBefore);
+    // Holding doesn't use the card up
     fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    expect(session.getSnapshot().orders[0]!.boosted).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Volver" }));
 
+    tap(LEFT_A);
+    fireEvent.click(screen.getByRole("button", { name: /Usar Terreno helado/ }));
+    const move = container.querySelector(".hexagon__tile--move, .hexagon__tile--move-and-fire")!.closest("[data-position]")!;
+    fireEvent.click(move);
     expect(session.getSnapshot().orders[0]!.boosted).toBe(true);
     tap(LEFT_B);
     expect(screen.queryByRole("button", { name: /Usar Terreno helado/ })).not.toBeInTheDocument();

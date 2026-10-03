@@ -2144,7 +2144,12 @@ describe("GameSession combat card effects", () => {
       session.pickCard(commandCards[0]!, undefined, frozen);
 
       expect(session.getMoveOptions(LEFT_INF, undefined, true)!.limits).toMatchObject({ maxMove: 3, moveAndFire: 2 });
+      // Holding doesn't use the card up
       session.issueOrder(LEFT_INF, LEFT_INF, undefined, true);
+      expect(session.getSnapshot().orders[0]!.boosted).toBe(false);
+      expect(session.getMoveOptions({ row: 7, col: 3 })!.canBoost).toBe(true);
+      session.undoLastOrder();
+      session.issueOrder(LEFT_INF, session.getMoveOptions(LEFT_INF, undefined, true)!.moves[0]!, undefined, true);
       expect(session.getMoveOptions({ row: 7, col: 3 })!.canBoost).toBe(false); // used up
       expect(session.getMoveOptions({ row: 7, col: 3 }, undefined, true)).toBeNull();
     });

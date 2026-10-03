@@ -585,8 +585,11 @@ class GameSession {
   /**
    * Order the unit at `from` to move to `to`, or to hold when `to` equals `from`.
    * `slot` is needed when the unit can fill more than one section's orders.
+   * `boost` uses the order combat card's movement; a unit that holds doesn't
+   * move, so it doesn't use up the card.
    */
-  issueOrder(from: Position, to: Position, slot?: OrderSlot, boost = false): boolean {
+  issueOrder(from: Position, to: Position, slot?: OrderSlot, boostMove = false): boolean {
+    const boost = boostMove && !samePosition(from, to);
     const context = this.orderContext();
     const hex = this.board.getHex(from);
     const unit = hex?.unit;
