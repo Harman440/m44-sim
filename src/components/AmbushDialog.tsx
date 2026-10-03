@@ -159,11 +159,11 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
             ¿Qué unidad atacan?
           </Typography>
           <Typography>
-            Toca tu unidad que la unidad enemiga ataca en asalto cercano. Luego toca la casilla del atacante: tu
-            unidad dispara primero.
+            Toca tu unidad sin orden que la unidad enemiga ataca en asalto cercano. Luego toca la casilla del
+            atacante: tu unidad dispara primero.
           </Typography>
           {game.ambushUnits.length === 0 && (
-            <Alert severity="warning">Ninguna unidad tuya puede disparar en asalto cercano.</Alert>
+            <Alert severity="warning">Ninguna unidad tuya sin orden puede disparar en asalto cercano.</Alert>
           )}
         </Stack>
       </Box>

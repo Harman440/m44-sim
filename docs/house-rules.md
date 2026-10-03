@@ -159,7 +159,7 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Heat of battle: 1 infantry successful close assault (retreat or eliminated) can "overrun" like armor, take ground and battle again even if the hex would normally prevent battling
 - Out of ammo — 4: 1 enemy unit can't battle and moves to a vacant baseline hex
 - Street fight — 1: +1 die if on or next to a building hex (change: infantry)
-- Ambuscade (ambush) — 3
+- Ambuscade (ambush) — 2 (only a unit without an order)
 - Pull back — 3: before the enemy battles, retreat your unit up to 2 hexes
 - Out of fuel — 3: enemy armor can't battle and returns to its starting hex
 - Not a step back — 1: unit ignores all retreats

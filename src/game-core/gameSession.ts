@@ -129,7 +129,7 @@ export interface GameSnapshot {
   attacksPending: boolean;
   /** The battle combat card played in this turn's battle (one per battle) */
   battleCombatCard: CombatCard | null;
-  /** Ambush was played and hasn't fired yet: this side's units that can fire first, at an adjacent hex */
+  /** Ambush was played and hasn't fired yet: this side's units without an order that can fire first, at an adjacent hex */
   ambushUnits: readonly Position[];
   /** The Ambush card's shot, once rolled */
   ambush: AmbushShot | null;
@@ -195,9 +195,9 @@ export interface Shot extends ShotRoll {
 }
 
 /**
- * Ambush (a battle combat card): one of this side's units, ordered or not,
- * fires first at the enemy unit attacking it in close assault. It isn't one
- * of the unit's own shots, and the command card adds nothing to it.
+ * Ambush (a battle combat card): one of this side's units without an order
+ * this turn fires first at the enemy unit attacking it in close assault. The
+ * command card adds nothing to it.
  */
 export interface AmbushShot extends ShotRoll {
   /** Where the ambushing unit stands */
@@ -903,7 +903,8 @@ class GameSession {
   /** What the fire questions need to know about an ambush from this hex: close assault, no command card */
   ambushContext(from: Position): FireContext | null {
     const hex = this.board.getHex(from);
-    if (!hex?.hasUnit()) return null;
+    // Only a unit without an order this turn can ambush
+    if (!hex?.hasUnit() || this.orders.some((order) => order.unit === hex.unit)) return null;
     return {
       unitType: hex.unit.getUnitType(),
       card: null,
@@ -920,7 +921,7 @@ class GameSession {
     return fireTargets(this.board, from, context);
   }
 
-  /** This side's units that can fire with Ambush now: at least one adjacent hex worth a die */
+  /** This side's units without an order that can fire with Ambush now: at least one adjacent hex worth a die */
   private ambushUnits(): Position[] {
     if (!this.ambushPlayed() || this.ambush) return [];
     return this.board
