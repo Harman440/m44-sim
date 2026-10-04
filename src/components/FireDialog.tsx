@@ -29,6 +29,7 @@ import ShotSteps from "./ShotSteps";
 import { UnitType } from "../game-core/unit";
 import { UNIT_LABELS } from "../labels";
 import FireAim, { FireAimChoice } from "./FireAim";
+import { TargetKinds } from "../data/hitRules";
 import HexThumbnail from "./HexThumbnail";
 import GameIcon from "./GameIcon";
 import { BarbedWireIcon } from "./BarbedWire";
@@ -57,6 +58,8 @@ interface FireDialogProps {
   onRemoveWire?: () => boolean;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
   longRangeDie?: boolean;
+  /** What the enemy can have in the scenario */
+  targetKinds: TargetKinds;
   /** Take back the unit's last shot (a mistake) */
   onUndoShot: () => boolean;
   /** Apply only some of the dice of the unit's shot `shotNumber` (or all, with null) */
@@ -207,6 +210,7 @@ function FireDialog({
   onTakeGround,
   onUndoTakeGround,
   longRangeDie = false,
+  targetKinds,
   canRemoveWire = false,
   onRemoveWire,
   onUndoShot,
@@ -378,6 +382,7 @@ function FireDialog({
         context={context}
         card={card}
         longRangeDie={longRangeDie}
+        targetKinds={targetKinds}
         onFire={handleFire}
       />
     );

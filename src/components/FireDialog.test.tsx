@@ -11,7 +11,7 @@ import { Position, Scenario } from "../types/scenario";
 import { CombatCard } from "../game-core/combatCard";
 
 /** Default target for shots whose reading the test doesn't check */
-const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
+const AT_INFANTRY = { infantry: true, closeAssault: false };
 
 const UNIT: Position = { row: 7, col: 1 };
 
@@ -69,6 +69,7 @@ function Harness({ session }: { session: GameSession }) {
         onUndoTakeGround={() => session.undoTakeGround(0)}
         combatBonus={session.combatBonusFor(0)}
         longRangeDie={session.longRangeDie}
+        targetKinds={session.targetKinds}
         canRemoveWire={game.canRemoveWire[0]}
         onRemoveWire={() => session.removeWire(0)}
         onUndoShot={() => session.undoShot(0)}
@@ -159,14 +160,14 @@ describe("FireDialog", () => {
 
   it("shows the stored shot read-only when the unit is opened again", () => {
     open(UnitType.INFANTRY);
-    fireAt(ADJACENT, "Tanque", "3 dados");
+    fireAt(ADJACENT, "Blindados o artillería", "3 dados");
     choose("Cerrar");
 
     fireEvent.click(screen.getByText("abrir"));
 
     expect(grenades()).toHaveLength(3);
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Base: Infantería a 1 casilla +3"));
-    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra tanque · asalto cercano"));
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · asalto cercano"));
     expect(screen.queryByTestId("fire-map")).not.toBeInTheDocument();
   });
 
@@ -175,13 +176,13 @@ describe("FireDialog", () => {
     render(<Harness session={session} />);
     fireEvent.click(screen.getByText("abrir"));
     tapHex(TWO_AWAY);
-    choose("Tanque");
+    choose("Blindados o artillería");
 
     expect(screen.getByTestId("fire-total")).toHaveTextContent("Total: 2 dados de 8 caras");
     choose("Disparar 2 dados de 8 caras");
 
-    expect(session.getSnapshot().shots[0]!.faces).toEqual(["grenade", "grenade"]);
-    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra tanque · a distancia · dado de 8 caras"));
+    expect(session.getSnapshot().shots[0]!.faces).toEqual(["infantry", "infantry"]);
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · a distancia · dado de 8 caras"));
   });
 
   it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", () => {
@@ -303,7 +304,7 @@ describe("FireDialog", () => {
 
     choose("Disparar otra vez (queda 1)");
     expect(screen.getByRole("button", { name: "Disparar" })).toBeDisabled(); // a new target each shot
-    fireAt(TWO_AWAY, "Tanque", "3 dados");
+    fireAt(TWO_AWAY, "Blindados o artillería", "3 dados");
 
     expect(session.getSnapshot().shots.map((s) => s.dice)).toEqual([3, 3]);
     expect(screen.getAllByTestId("shot-result")).toHaveLength(2);
@@ -328,7 +329,7 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("firing-unit")).toHaveTextContent("Solo asalto cercano");
     expect(hasBadge(TWO_AWAY)).toBe(true); // next to the hex taken
     expect(hasBadge({ row: 4, col: 1 })).toBe(false);
-    fireAt(TWO_AWAY, "Tanque", "3 dados");
+    fireAt(TWO_AWAY, "Blindados o artillería", "3 dados");
 
     expect(session.getSnapshot().shots).toHaveLength(2);
     expect(screen.queryByTestId("take-ground")).not.toBeInTheDocument();

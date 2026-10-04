@@ -122,7 +122,7 @@ const TEMPLATES: CombatCardTemplate[] = [
   order("motorized", "Motorizado", 3, offensive, "3 unidades mueven 1 casilla más.",
     { effect: { kind: "move", units: 3, moveBonus: 1 } }),
   order("air-bombardment", "Bombardeo aéreo", 4, (side) => side.air,
-    "Elige 2 casillas que no estén junto a tus unidades: 2 dados en cada una si hay una unidad. Los suministros cuentan como impacto y las banderas no se pueden ignorar.",
+    "Elige 2 casillas que no estén junto a tus unidades: 2 dados de ataque (con una granada en lugar del suministro) en cada una si hay una unidad. Las banderas no se pueden ignorar.",
     { marker: { kind: "target", count: 2, awayFromOwnUnits: true }, effect: { kind: "attack", dicePerHex: 2 } }),
   order("reinforcements", "Refuerzos", 6, always,
     "En la fase final se tira 1 dado y, según el mapa, llega la unidad que salga (bandera: no hay refuerzos).",
@@ -130,10 +130,10 @@ const TEMPLATES: CombatCardTemplate[] = [
   order("tactician", "Táctico", 2, always, "Cambia la sección de una carta de sección.",
     { effect: { kind: "changeSection" } }),
   order("barrage", "Cortina de Fuego", 4, ifSide((side) => side.bigGuns),
-    "Marca una casilla: si hay una unidad enemiga, tira 4 dados contra ella. Los suministros cuentan como impacto y las retiradas no se pueden ignorar.",
+    "Marca una casilla: si hay una unidad enemiga, tira 4 dados de ataque (con una granada en lugar del suministro) contra ella. Las retiradas no se pueden ignorar.",
     { marker: { kind: "target", count: 1 }, effect: { kind: "attack", dicePerHex: 4 } }),
   order("air-power", "Poder aéreo", 3, (side) => side.air,
-    "Marca 4 casillas adyacentes, en cadena: 1 dado contra cada unidad enemiga que haya en ellas. Los suministros cuentan como impacto y las retiradas no se pueden ignorar.",
+    "Marca 4 casillas adyacentes, en cadena: 1 dado de ataque (con una granada en lugar del suministro) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
     { marker: { kind: "target", count: 4, chain: true }, effect: { kind: "attack", dicePerHex: 1 } }),
 
   // Played during the battle, as a reaction

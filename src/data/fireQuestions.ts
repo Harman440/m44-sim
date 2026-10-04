@@ -8,7 +8,7 @@
 import { DiceStep, FireAnswers, FireContext, FireQuestion } from "../game-core/fireRules";
 import { UnitType, checksLineOfSight } from "../game-core/unit";
 import { HexType } from "../types/hex";
-import { UNIT_LABELS } from "../labels";
+import { UNIT_LABELS, targetLabel } from "../labels";
 
 /** Base dice by distance to the target (index 0 = adjacent); its length is the unit's range */
 export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
@@ -64,11 +64,22 @@ const distanceQuestion: FireQuestion = {
   },
 };
 
-/** Doesn't change the dice: the target's type decides which faces hit (data/hitRules.ts) */
+/** The answers to the target question: infantry, or any other unit */
+export const TARGET_INFANTRY = "infantry";
+export const TARGET_OTHER = "other";
+
+/** The target question's answer: true for infantry, false for any other unit, null when it isn't one of them */
+export const targetAnswer = (answer: string | undefined): boolean | null =>
+  answer === TARGET_INFANTRY ? true : answer === TARGET_OTHER ? false : null;
+
+/** Doesn't change the dice: whether the target is infantry decides which faces hit (data/hitRules.ts) */
 export const targetTypeQuestion: FireQuestion = {
   id: "targetType",
-  text: "¿Qué tipo de unidad es el objetivo?",
-  options: () => Object.values(UnitType).map((value) => ({ value, label: UNIT_LABELS[value] })),
+  text: "¿El objetivo es infantería?",
+  options: () => [
+    { value: TARGET_INFANTRY, label: targetLabel(true) },
+    { value: TARGET_OTHER, label: targetLabel(false) },
+  ],
   effect: () => null,
 };
 

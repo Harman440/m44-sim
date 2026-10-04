@@ -130,6 +130,7 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
           context={context}
           card={null}
           longRangeDie={false}
+          targetKinds={session.targetKinds}
           onFire={handleFire}
         />
       );

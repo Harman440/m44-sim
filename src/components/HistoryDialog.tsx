@@ -15,6 +15,7 @@ import { Position } from "../types/scenario";
 import {
   DIE_FACE_LABELS,
   UNIT_LABELS,
+  targetLabel,
   coinsText,
   describeCoinEntry,
   describePlace,
@@ -203,7 +204,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       <Typography component="li" variant="body2" key={`attack-${attack.marker}`}>
                         Ataque en la casilla {attack.marker + 1}:{" "}
                         {attack.target
-                          ? `${UNIT_LABELS[attack.target.unitType].toLowerCase()} → ${describeFaces(attack.faces)} (${describeRoll(
+                          ? `${targetLabel(attack.target.infantry).toLowerCase()} → ${describeFaces(attack.faces)} (${describeRoll(
                               readRoll(attack.faces, attack.target),
                               false
                             )})`

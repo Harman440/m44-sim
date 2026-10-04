@@ -5,7 +5,7 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 ---
 
 ## General rules
-- When firing against artillery in close assault supplies count as a hit.
+- ~~When firing against artillery in close assault supplies count as a hit.~~ Changed (custom dice): the tank symbol hits armour and artillery alike, so a shot only asks whether the target is infantry, and a supply never hits.
 - When using the card Dig-in 4 units can move 1 hex and place a sandbag.
 - Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a probe card was used, you pick two cards up and choose between them instead (there are no recon cards in the smaller deck).
 - When an infantry unit is left with one figure its fire power is max 2 dice after applying any dice modifications.
@@ -268,6 +268,12 @@ Firefight:
 - Infantry on tank: 1/8 → one side → 1/8 grenade
 
 An 8-sided die would look like: tank, grenade, inf, inf, inf, retreat, miss, miss. If infantry fires on a tank the grenade doesn't count. Used for long range. Maybe add an infantry figure on artillery if they seem weak.
+
+**Built (custom dice):** the tank symbol hits any unit that isn't infantry (armour and artillery).
+- Battle die (close assault, and at range without the long-range die): 2 infantry, tank, grenade, supply, flag. Infantry 3/6, anything else 2/6.
+- Long-range die (8 sides, a per-game option, only at targets that aren't adjacent): 2 tanks, 3 infantry, flag, 2 supplies. Infantry 3/8, anything else 2/8 (also when infantry fires), retreat 1/8, supply 2/8.
+- Attack cards' die (Barrage, Air Power, Air Bombardment): 2 infantry, tank, 2 grenades, flag (a grenade where the supply was, since supplies hit on these cards). Infantry 4/6, anything else 3/6.
+- The app only asks "infantry or not" when the enemy starts the scenario with both (paratroopers count); it doesn't track the enemy's losses, and a reinforcement of the other kind is picked by hand ("Cambiar").
 
 While programming make sure there is at least one side that is a coin and a retreat. Calculate for special units.
 

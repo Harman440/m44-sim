@@ -1,23 +1,24 @@
 import { useState } from "react";
-import { Box, Button, FormControlLabel, Stack, Switch, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { Box, Button, FormControlLabel, Stack, Switch, Typography } from "@mui/material";
 import BoardManager from "../game-core/BoardManager";
 import CommandCard from "../game-core/commandCard";
 import { FireContext, calculateFireDice } from "../game-core/fireRules";
 import { FireTarget, mapAnswers } from "../game-core/fireTargets";
-import { UnitType } from "../game-core/unit";
 import { samePosition } from "../game-core/position";
-import { FIRE_QUESTIONS, combatBonusQuestion, fireBonusSteps } from "../data/fireQuestions";
+import { FIRE_QUESTIONS, TARGET_INFANTRY, TARGET_OTHER, combatBonusQuestion, fireBonusSteps } from "../data/fireQuestions";
+import { TargetKinds } from "../data/hitRules";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
-import { TERRAIN_LABELS, UNIT_LABELS } from "../labels";
+import { TERRAIN_LABELS } from "../labels";
 import Board from "./Board";
 import HexThumbnail from "./HexThumbnail";
-import { unitSprite } from "./UnitComponent";
 import SandbagsIcon from "./SandbagsIcon";
+import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
 
 export interface FireAimChoice {
   position: Position;
-  unitType: UnitType;
+  /** The target is infantry (otherwise armour or artillery) */
+  infantry: boolean;
   sandbags: boolean;
   useCombatBonus: boolean;
 }
@@ -34,6 +35,8 @@ interface FireAimProps {
   context: FireContext;
   card: CommandCard | null;
   longRangeDie: boolean;
+  /** What the enemy can have in the scenario */
+  targetKinds: TargetKinds;
   onFire: (choice: FireAimChoice) => void;
 }
 
@@ -48,9 +51,9 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
  * The player taps the target's hex, then says what unit is there and whether
  * it has sandbags; the dice are worked out as they go.
  */
-function FireAim({ board, image, faction, from, targets, context, longRangeDie, onFire }: FireAimProps) {
+function FireAim({ board, image, faction, from, targets, context, longRangeDie, targetKinds, onFire }: FireAimProps) {
   const [picked, setPicked] = useState<Position | null>(null);
-  const [unitType, setUnitType] = useState<UnitType | null>(null);
+  const [kind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const [sandbags, setSandbags] = useState(false);
   const [useBonus, setUseBonus] = useState(true);
   const [missed, setMissed] = useState(false);
@@ -60,7 +63,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
 
   const answers: Record<string, string> = target
-    ? { ...mapAnswers(target), targetType: unitType ?? UnitType.INFANTRY, sandbags: sandbags ? "yes" : "no" }
+    ? { ...mapAnswers(target), targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY, sandbags: sandbags ? "yes" : "no" }
     : {};
   const asksBonus = !!target && (combatBonusQuestion.appliesTo?.(context, answers) ?? false);
   if (asksBonus) answers.combatCard = useBonus ? "yes" : "no";
@@ -146,24 +149,8 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         </Stack>
 
         <Stack sx={{ gap: 1 }}>
-          {step(2, "¿Qué unidad es?")}
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={unitType}
-            onChange={(_, value: UnitType | null) => value && setUnitType(value)}
-            aria-label="Tipo de objetivo"
-            sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}
-          >
-            {Object.values(UnitType).map((type) => (
-              <ToggleButton key={type} value={type} aria-label={UNIT_LABELS[type]} sx={{ gap: 0.75, px: 1, minHeight: 48 }}>
-                <Box component="img" src={unitSprite(enemy, type)} alt="" sx={{ width: 26, height: 26 }} />
-                <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
-                  {UNIT_LABELS[type]}
-                </Typography>
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+          {step(2, "¿Es infantería?")}
+          <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
         </Stack>
 
         <Stack sx={{ gap: 0.5 }}>
@@ -206,10 +193,12 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         <Button
           size="large"
           fullWidth
-          disabled={!target || !unitType}
-          onClick={() => target && unitType && onFire({ position: target.position, unitType, sandbags, useCombatBonus: asksBonus && useBonus })}
+          disabled={!target || !kind}
+          onClick={() =>
+            target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags, useCombatBonus: asksBonus && useBonus })
+          }
         >
-          {result && unitType ? `Disparar ${diceText(result.dice, eightSided)}` : "Disparar"}
+          {result && kind ? `Disparar ${diceText(result.dice, eightSided)}` : "Disparar"}
         </Button>
       </Stack>
     </Box>

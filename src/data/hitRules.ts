@@ -1,39 +1,40 @@
 // data/hitRules.ts
 // What each die face means for the target, from the house rules. Change the
 // rules here; game-core/rollResult.ts adds them up.
-import { DieFace } from "../game-core/dice";
+import { DieFace, DieKind } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
+import { Faction } from "../types/faction";
+import { Scenario } from "../types/scenario";
+import { hasUnits } from "./commandCards";
 
-/** What the dice were rolled against */
+/**
+ * What the dice were rolled against. Only whether the target is infantry
+ * matters: the tank face hits armour and artillery alike.
+ */
 export interface ShotTarget {
-  unitType: UnitType;
+  infantry: boolean;
   /** The target is adjacent (or it was a collision) */
   closeAssault: boolean;
-  /** Supplies hit too (Barrage, Air Power, Air Bombardment) */
-  suppliesHit?: boolean;
-  /** Rolled on the 8-sided long-range die by this type of unit (its grenade doesn't hit a tank fired on by infantry) */
-  longRangeFirer?: UnitType;
+  /** The die rolled: the battle die, the 8-sided long-range die or the attack cards' die */
+  die: DieKind;
 }
 
 /**
  * Whether a face is a hit on the target:
- * - a miss (long-range die) never hits
- * - the matching unit symbol hits (there is no artillery face)
- * - a grenade hits any unit, except a tank when infantry fires the long-range die
- * - a supply hits artillery in close assault (house rule), and any unit for the attack combat cards
+ * - the infantry face hits infantry, the tank face any other unit
+ * - a grenade hits any unit
+ * - a supply never hits (it earns a coin) and a flag makes the target retreat
  */
-export function faceHits(face: DieFace, { unitType, closeAssault, suppliesHit = false, longRangeFirer }: ShotTarget): boolean {
+export function faceHits(face: DieFace, { infantry }: ShotTarget): boolean {
   switch (face) {
     case DieFace.INFANTRY:
-      return unitType === UnitType.INFANTRY;
+      return infantry;
     case DieFace.TANK:
-      return unitType === UnitType.TANK;
+      return !infantry;
     case DieFace.GRENADE:
-      return !(longRangeFirer === UnitType.INFANTRY && unitType === UnitType.TANK);
+      return true;
     case DieFace.SUPPLY:
-      return suppliesHit || (closeAssault && unitType === UnitType.ARTILLERY);
     case DieFace.FLAG:
-    case DieFace.MISS:
       return false;
   }
 }
@@ -44,3 +45,27 @@ export const faceRetreats = (face: DieFace): boolean => face === DieFace.FLAG;
 /** A supply face earns a coin, unless it counted as a hit */
 export const faceEarnsCoin = (face: DieFace, target: ShotTarget): boolean =>
   face === DieFace.SUPPLY && !faceHits(face, target);
+
+/** What an enemy unit fired at can be: infantry, and any other unit (armour or artillery) */
+export interface TargetKinds {
+  infantry: boolean;
+  other: boolean;
+}
+
+/**
+ * What the enemy starts the scenario with (paratroopers included), so a shot
+ * only asks whether its target is infantry when the enemy has both. The app
+ * doesn't track the enemy's losses, and a unit the Reinforcements card brings
+ * is rare enough to be picked by hand (the picker's "Cambiar").
+ */
+export function enemyTargetKinds(scenario: Scenario, faction: Faction): TargetKinds {
+  const enemy: Faction = faction === "Axis" ? "Allies" : "Axis";
+  const has = (type: UnitType) => hasUnits(scenario, enemy, type);
+  const kinds = { infantry: has(UnitType.INFANTRY), other: has(UnitType.TANK) || has(UnitType.ARTILLERY) };
+  // A scenario without enemy units shouldn't leave nothing to pick
+  return kinds.infantry || kinds.other ? kinds : { infantry: true, other: true };
+}
+
+/** The only kind the target can be (true: infantry), or null when the player has to say */
+export const onlyTargetKind = ({ infantry, other }: TargetKinds): boolean | null =>
+  infantry && other ? null : infantry;

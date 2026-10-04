@@ -3,9 +3,9 @@ import BoardManager from "./BoardManager";
 import CommandCard, { Section, isSection } from "./commandCard";
 import Deck from "./deck";
 import Order from "./order";
-import Unit, { UnitType, isUnitType } from "./unit";
-import { ShotTarget } from "../data/hitRules";
-import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES, SixSidedFace, rollDice } from "./dice";
+import Unit, { UnitType } from "./unit";
+import { ShotTarget, TargetKinds, enemyTargetKinds } from "../data/hitRules";
+import { ATTACK_DIE_SIDES, DieFace, SIDES_OF, SixSidedFace, rollDice } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
@@ -14,8 +14,11 @@ import {
   FIRE_QUESTIONS,
   collisionSteps,
   TAKE_GROUND_UNIT_TYPES,
+  TARGET_INFANTRY,
+  TARGET_OTHER,
   combatBonusQuestion,
   fireBonusSteps,
+  targetAnswer,
   wireChoiceFor,
 } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
@@ -217,7 +220,7 @@ export interface CardAttack {
 }
 
 /** Reminder kept with every attack combat card roll */
-export const CARD_ATTACK_NOTE = "Los suministros cuentan como impacto y las retiradas no se pueden ignorar.";
+export const CARD_ATTACK_NOTE = "Las retiradas no se pueden ignorar.";
 
 export interface MoveOptions {
   moves: Position[];
@@ -283,6 +286,8 @@ class GameSession {
   readonly attacking: boolean;
   /** Shots at range roll the 8-sided long-range die */
   readonly longRangeDie: boolean;
+  /** What the enemy starts with (from the scenario), so a shot only asks whether its target is infantry when it has both */
+  readonly targetKinds: TargetKinds;
   /** Test mode: every combat card in hand, played cards come back, plenty of coins */
   readonly testMode: boolean;
   readonly board: BoardManager;
@@ -342,6 +347,7 @@ class GameSession {
     this.random = random;
     this.faction = faction;
     this.attacking = scenario.attacker === faction;
+    this.targetKinds = enemyTargetKinds(scenario, faction);
     this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
     this.board = new BoardManager(scenario, faction);
     this.commandCards = commandCards;
@@ -745,23 +751,24 @@ class GameSession {
   }
 
   /**
-   * Roll the attack combat card on a marked hex: `targetType` is the enemy
-   * unit on it, or null when the hex was empty (nothing to roll). Supplies hit.
+   * Roll the attack combat card on a marked hex, on the attack die: `infantry`
+   * says whether the enemy unit on it is infantry, or null when the hex was
+   * empty (nothing to roll).
    */
-  attackHex(marker: number, targetType: UnitType | null): boolean {
+  attackHex(marker: number, infantry: boolean | null): boolean {
     const effect = this.attackEffect();
     if (this.phase !== TurnPhase.BATTLE || !effect || !this.markers[marker]) return false;
     if (this.cardAttacks.some((attack) => attack.marker === marker)) return false;
-    if (targetType !== null && !isUnitType(targetType)) return false;
+    if (infantry !== null && !this.canBeTarget(infantry)) return false;
 
     const attack: CardAttack =
-      targetType === null
+      infantry === null
         ? { marker, target: null, dice: 0, faces: [] }
         : {
             marker,
-            target: { unitType: targetType, closeAssault: false, suppliesHit: true },
+            target: { infantry, closeAssault: false, die: "attack" },
             dice: effect.dicePerHex,
-            faces: rollDice(effect.dicePerHex, this.random),
+            faces: rollDice(effect.dicePerHex, this.random, ATTACK_DIE_SIDES),
           };
     this.cardAttacks = [...this.cardAttacks, attack];
     return this.publish();
@@ -816,14 +823,14 @@ class GameSession {
    */
   fireAt(
     orderIndex: number,
-    { position, unitType, sandbags, useCombatBonus = false }: { position: Position; unitType: UnitType; sandbags: boolean; useCombatBonus?: boolean }
+    { position, infantry, sandbags, useCombatBonus = false }: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
   ): boolean {
     const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
     if (!target || !target.lineOfSight || target.dice <= 0) return false;
     const context = this.fireContextFor(orderIndex)!;
     const answers: Record<string, string> = {
       ...mapAnswers(target),
-      targetType: unitType,
+      targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
       sandbags: sandbags ? "yes" : "no",
     };
     if (combatBonusQuestion.appliesTo?.(context, answers) ?? false) answers.combatCard = useCombatBonus ? "yes" : "no";
@@ -832,16 +839,15 @@ class GameSession {
 
   private fireWith(orderIndex: number, answers: FireAnswers, targetPosition?: Position): boolean {
     if (!this.canFireNow(orderIndex)) return false;
-    const order = this.orders[orderIndex]!;
     const context = this.fireContextFor(orderIndex)!;
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
     if (context.closeAssaultOnly && answers.distance !== "1") return false;
 
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
     if (blocked) return false;
-    const unitType = answers.targetType as UnitType;
-    if (!isUnitType(unitType)) return false;
-    const target = this.targetFor(order, { unitType, closeAssault: answers.distance === "1" });
+    const infantry = targetAnswer(answers.targetType);
+    if (infantry === null || !this.canBeTarget(infantry)) return false;
+    const target = this.targetFor(infantry, answers.distance === "1");
     const usedBonus =
       !!context.combatBonus && answers.combatCard === "yes" && (combatBonusQuestion.appliesTo?.(context, answers) ?? true);
     return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus, targetPosition);
@@ -942,12 +948,12 @@ class GameSession {
   }
 
   /** Fire first with the unit at `from`, at the adjacent hex of the enemy unit attacking it (Ambush) */
-  ambushAt(from: Position, { position, unitType, sandbags }: { position: Position; unitType: UnitType; sandbags: boolean }): boolean {
-    if (!this.ambushPlayed() || this.ambush || !isUnitType(unitType)) return false;
+  ambushAt(from: Position, { position, infantry, sandbags }: { position: Position; infantry: boolean; sandbags: boolean }): boolean {
+    if (!this.ambushPlayed() || this.ambush || !this.canBeTarget(infantry)) return false;
     const target = this.ambushTargets(from).find((t) => samePosition(t.position, position));
     if (!target || target.dice <= 0) return false;
     const context = this.ambushContext(from)!;
-    const answers = { ...mapAnswers(target), targetType: unitType, sandbags: sandbags ? "yes" : "no" };
+    const answers = { ...mapAnswers(target), targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER, sandbags: sandbags ? "yes" : "no" };
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
     if (blocked) return false;
 
@@ -960,7 +966,7 @@ class GameSession {
       faces: rollDice(dice, this.random),
       notes,
       collision: false,
-      target: { unitType, closeAssault: true },
+      target: { infantry, closeAssault: true, die: "battle" },
       combatBonus: false,
       kept: null,
     };
@@ -999,17 +1005,23 @@ class GameSession {
     if (!this.canRemoveWire(orderIndex)) return false;
     const position = { ...this.summaries()[orderIndex]!.firingFrom };
     this.board.getHex(position)!.setWire(false);
-    const target = { unitType: this.orders[orderIndex]!.unit.getUnitType(), closeAssault: false };
+    const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
     const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, removedWire: position };
     this.shots = [...this.shots, shot];
     return this.publish();
   }
 
-  /** The target of a shot, marked as rolled on the long-range die when the game uses it and the target isn't adjacent */
-  private targetFor(order: Order, { unitType, closeAssault }: ShotTarget): ShotTarget {
-    return this.longRangeDie && !closeAssault
-      ? { unitType, closeAssault, longRangeFirer: order.unit.getUnitType() }
-      : { unitType, closeAssault };
+  /** The target of a shot: rolled on the long-range die when the game uses it and the target isn't adjacent */
+  private targetFor(infantry: boolean, closeAssault: boolean): ShotTarget {
+    return { infantry, closeAssault, die: this.longRangeDie && !closeAssault ? "longRange" : "battle" };
+  }
+
+  /**
+   * A target is infantry or not. Either is accepted, whatever the enemy
+   * started with: the Reinforcements card can bring it a new kind of unit.
+   */
+  private canBeTarget(infantry: unknown): infantry is boolean {
+    return typeof infantry === "boolean";
   }
 
   /**
@@ -1018,8 +1030,8 @@ class GameSession {
    * hasn't fired yet; the roll uses up its shot. Collisions come before any
    * other shot, so they don't wait for the units that didn't move.
    */
-  fireCollision(orderIndex: number, targetType: UnitType): boolean {
-    if (!isUnitType(targetType)) return false;
+  fireCollision(orderIndex: number, infantry: boolean): boolean {
+    if (!this.canBeTarget(infantry)) return false;
     if (this.shotsLeft(orderIndex) <= 0) return false;
     const order = this.orders[orderIndex]!;
     if (samePosition(order.start, order.end)) return false;
@@ -1027,7 +1039,7 @@ class GameSession {
 
     const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.cardFor(order) });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
-    const target = { unitType: targetType, closeAssault: true };
+    const target: ShotTarget = { infantry, closeAssault: true, die: "battle" };
     return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true);
   }
 
@@ -1110,7 +1122,7 @@ class GameSession {
     combatBonus = false,
     targetPosition?: Position
   ): true {
-    const faces = rollDice(dice, this.random, target.longRangeFirer ? LONG_RANGE_DIE_SIDES : DIE_SIDES);
+    const faces = rollDice(dice, this.random, SIDES_OF[target.die]);
     const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null };
     if (targetPosition) shot.targetPosition = targetPosition;
     this.shots = [...this.shots, shot];

@@ -6,7 +6,8 @@ import BoardManager from "./BoardManager";
 import CommandCard, { Section, isSection } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
-import { DieFace, SIX_SIDED_FACES, SixSidedFace } from "./dice";
+import { DIE_KINDS, DieFace, SIX_SIDED_FACES, SixSidedFace } from "./dice";
+import type { ShotTarget } from "../data/hitRules";
 import { isKeptList } from "./rollResult";
 import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
@@ -18,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 21;
+export const SAVE_VERSION = 22;
 
 interface SavedUnit {
   type: UnitType;
@@ -140,12 +141,15 @@ function readPositions(positions: unknown, what: string): Position[] {
   return positions.map(({ row, col }) => ({ row, col }));
 }
 
+const isShotTarget = (target: ShotTarget | undefined): boolean =>
+  typeof target?.infantry === "boolean" && typeof target.closeAssault === "boolean" && DIE_KINDS.includes(target.die);
+
 function readAmbush(ambush: unknown): AmbushShot | null {
   if (ambush === null) return null;
   const shot = ambush as AmbushShot;
   const faces = new Set<string>(Object.values(DieFace));
   if (!isPosition(shot?.from) || !isPosition(shot.targetPosition)) throw new Error("Unknown ambush hexes");
-  if (!isUnitType(shot.unitType) || !isUnitType(shot.target?.unitType)) throw new Error("Unknown ambush units");
+  if (!isUnitType(shot.unitType) || !isShotTarget(shot.target)) throw new Error("Unknown ambush units");
   if (!Array.isArray(shot.faces) || !shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
   if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
   return shot;
@@ -158,7 +162,7 @@ function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
     if (!Number.isInteger(attack.marker) || attack.marker < 0 || attack.marker >= markerCount) {
       throw new Error(`Attack on unknown marker ${attack.marker}`);
     }
-    if (attack.target !== null && !isUnitType(attack.target?.unitType)) throw new Error("Unknown attack target");
+    if (attack.target !== null && !isShotTarget(attack.target)) throw new Error("Unknown attack target");
     if (!attack.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
     return attack;
   });
@@ -344,10 +348,7 @@ export function readSave(
   const shots = saved.shots.map((shot) => {
     if (!orders[shot.orderIndex]) throw new Error(`Shot for unknown order ${shot.orderIndex}`);
     if (!shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
-    if (!isUnitType(shot.target?.unitType)) throw new Error(`Unknown target ${shot.target?.unitType}`);
-    if (shot.target.longRangeFirer !== undefined && !isUnitType(shot.target.longRangeFirer)) {
-      throw new Error(`Unknown firer ${shot.target.longRangeFirer}`);
-    }
+    if (!isShotTarget(shot.target)) throw new Error("Unknown shot target");
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
     return shot;

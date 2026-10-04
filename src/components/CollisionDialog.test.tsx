@@ -59,13 +59,13 @@ describe("Collisions in the battle phase", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /^Tanque/ }));
     expect(within(dialog).getByTestId("collision-breakdown")).toHaveTextContent("Choque-1");
     expect(within(dialog).getByRole("button", { name: "Tirar 2 dados" })).toBeDisabled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Artillería" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Blindados o artillería" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Tirar 2 dados" }));
 
     expect(session.getSnapshot().shots).toEqual([expect.objectContaining({ orderIndex: 1, dice: 2, collision: true })]);
     expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Choque −1"));
-    // Grenades hit artillery, and no supply: no coins, even in the attacker's extra first turn
-    expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra artillería · asalto cercano"));
+    // Grenades hit any unit, and no supply: no coins, even in the attacker's extra first turn
+    expect(within(dialog).getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · asalto cercano"));
     expect(within(dialog).getByTestId("roll-hits")).toHaveTextContent("2impactos");
     expect(within(dialog).getByTestId("roll-coins")).toHaveTextContent("+0");
     expect(within(dialog).getByTestId("collision-outcome")).toHaveTextContent("retroceden una casilla");

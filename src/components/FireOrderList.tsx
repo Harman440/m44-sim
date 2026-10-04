@@ -7,7 +7,7 @@ import type { CardAttack } from "../game-core/gameSession";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
-import { SECTION_SHORT_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeAppliedFaces, describeRoll } from "../labels";
+import { SECTION_SHORT_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeAppliedFaces, describeRoll, targetLabel } from "../labels";
 import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
 import HexThumbnail from "./HexThumbnail";
@@ -322,7 +322,7 @@ function FireOrderList({
           attack.markers.map((position, i) => {
             const done = attack.attackOn(i);
             const result = done?.target
-              ? `${UNIT_LABELS[done.target.unitType]}: ${done.faces.length} ${done.faces.length === 1 ? "dado" : "dados"}`
+              ? `${targetLabel(done.target.infantry)}: ${done.faces.length} ${done.faces.length === 1 ? "dado" : "dados"}`
               : done
                 ? "Vacía"
                 : null;

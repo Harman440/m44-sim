@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DieFace, DIE_SIDES, LONG_RANGE_DIE_SIDES, countFaces, rollDice } from "./dice";
+import { ATTACK_DIE_SIDES, DieFace, DIE_SIDES, LONG_RANGE_DIE_SIDES, SIDES_OF, countFaces, rollDice } from "./dice";
 
 describe("battle dice", () => {
   it("has the Memoir '44 faces: 2 infantry, 1 tank, 1 grenade, 1 supply, 1 flag", () => {
@@ -9,7 +9,6 @@ describe("battle dice", () => {
       [DieFace.GRENADE]: 1,
       [DieFace.SUPPLY]: 1,
       [DieFace.FLAG]: 1,
-      [DieFace.MISS]: 0,
     });
   });
 
@@ -43,12 +42,22 @@ describe("battle dice", () => {
 });
 
 describe("the long-range die", () => {
-  it("has 8 sides: 3 infantry, tank, grenade, supply, flag and a miss", () => {
+  it("has 8 sides: 2 tanks, 3 infantry, a flag and 2 supplies, and no grenade", () => {
     expect(LONG_RANGE_DIE_SIDES).toHaveLength(8);
-    expect(countFaces(LONG_RANGE_DIE_SIDES)).toEqual({ infantry: 3, tank: 1, grenade: 1, supply: 1, flag: 1, miss: 1 });
+    expect(countFaces(LONG_RANGE_DIE_SIDES)).toEqual({ infantry: 3, tank: 2, grenade: 0, supply: 2, flag: 1 });
   });
 
   it("rolls with its own sides", () => {
-    expect(rollDice(1, () => 0.99, LONG_RANGE_DIE_SIDES)).toEqual([DieFace.MISS]);
+    expect(rollDice(1, () => 0.99, LONG_RANGE_DIE_SIDES)).toEqual([DieFace.SUPPLY]);
+  });
+});
+
+describe("the attack cards' die", () => {
+  it("is the battle die with a second grenade for the supply", () => {
+    expect(countFaces(ATTACK_DIE_SIDES)).toEqual({ infantry: 2, tank: 1, grenade: 2, supply: 0, flag: 1 });
+  });
+
+  it("is listed by kind", () => {
+    expect(SIDES_OF).toEqual({ battle: DIE_SIDES, longRange: LONG_RANGE_DIE_SIDES, attack: ATTACK_DIE_SIDES });
   });
 });

@@ -6,14 +6,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import { CardAttack, CARD_ATTACK_NOTE } from "../game-core/gameSession";
-import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
-import { UNIT_LABELS } from "../labels";
+import { TargetKinds } from "../data/hitRules";
+import TargetKindPicker, { TargetChoice } from "./TargetKindPicker";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
 
@@ -25,21 +23,23 @@ interface CardAttackDialogProps {
   /** The roll already made on this hex */
   attack: CardAttack | null;
   faction: Faction;
-  /** Roll on the hex (null: it was empty) */
-  onAttack: (targetType: UnitType | null) => boolean;
+  /** What the enemy can have in the scenario */
+  targetKinds: TargetKinds;
+  /** Roll on the hex: whether its enemy unit is infantry (null: it was empty) */
+  onAttack: (infantry: boolean | null) => boolean;
   onUndo: () => boolean;
   onClose: () => void;
 }
 
-const EMPTY = "empty";
-
 /**
  * An attack combat card's roll on one marked hex (Barrage, Air Power, Air
  * Bombardment): the player says what enemy unit, if any, is on it at the
- * table, and the app rolls. Supplies hit; retreats can't be ignored.
+ * table, and the app rolls the attack die (a grenade where the battle die has
+ * a supply); retreats can't be ignored.
  */
-function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack, onUndo, onClose }: CardAttackDialogProps) {
-  const [target, setTarget] = useState<string | null>(null);
+function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, targetKinds, onAttack, onUndo, onClose }: CardAttackDialogProps) {
+  const [target, setTarget] = useState<TargetChoice | null>(null);
+  const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
   const [confirmingUndo, setConfirmingUndo] = useState(false);
   /** Just rolled here: throw the dice in (the dialog is keyed by hex, so this starts false for each) */
   const [rolled, setRolled] = useState(false);
@@ -67,6 +67,7 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack
               <DiceResult
                 roll={{ faces: [...attack.faces], id: attack.marker + 1 }}
                 faction={faction}
+                die="attack"
                 target={attack.target}
                 rolling={rolled}
               />
@@ -88,24 +89,9 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack
             <Typography variant="h6" sx={{ mb: 1 }}>
               ¿Hay una unidad enemiga en la casilla?
             </Typography>
-            <ToggleButtonGroup
-              exclusive
-              value={target}
-              onChange={(_, value: string | null) => value && setTarget(value)}
-              aria-label="Unidad enemiga en la casilla"
-              sx={{ flexWrap: "wrap" }}
-            >
-              {Object.values(UnitType).map((type) => (
-                <ToggleButton key={type} value={type} sx={{ minHeight: 48 }}>
-                  {UNIT_LABELS[type]}
-                </ToggleButton>
-              ))}
-              <ToggleButton value={EMPTY} sx={{ minHeight: 48 }}>
-                Vacía
-              </ToggleButton>
-            </ToggleButtonGroup>
+            <TargetKindPicker kinds={targetKinds} value={target} onChange={setTarget} enemy={enemy} emptyLabel="Vacía" />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Se tiran {dice}. {CARD_ATTACK_NOTE}
+              Se tiran {dice} de ataque: llevan una granada donde el dado normal tiene el suministro. {CARD_ATTACK_NOTE}
             </Typography>
           </>
         )}
@@ -141,13 +127,13 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, onAttack
           <Button
             disabled={target === null}
             onClick={() => {
-              if (onAttack(target === EMPTY ? null : (target as UnitType))) {
+              if (onAttack(target === "empty" ? null : target === "infantry")) {
                 setTarget(null);
                 setRolled(true);
               }
             }}
           >
-            {target === EMPTY ? "Casilla vacía" : `Tirar ${dice}`}
+            {target === "empty" ? "Casilla vacía" : `Tirar ${dice}`}
           </Button>
         )}
       </DialogActions>

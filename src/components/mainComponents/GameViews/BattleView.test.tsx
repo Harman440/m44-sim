@@ -15,7 +15,7 @@ const aimAt = (p: Position) =>
   fireEvent.click(document.querySelector(`[data-testid="fire-map"] [data-position="${p.row}-${p.col}"]`)!);
 
 /** Default target for shots whose reading the test doesn't check */
-const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
+const AT_INFANTRY = { infantry: true, closeAssault: false };
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -433,7 +433,7 @@ describe("BattleView combat card effects", () => {
     expect(screen.queryByRole("button", { name: /^Disparar con/ })).not.toBeInTheDocument();
 
     fireEvent.click(within(section).getByRole("button", { name: "Tirar casilla 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Tanque" }));
+    fireEvent.click(screen.getByRole("button", { name: "Blindados o artillería" }));
     fireEvent.click(screen.getByRole("button", { name: "Tirar 4 dados" }));
 
     expect(session.getSnapshot().cardAttacks[0]).toMatchObject({ dice: 4 });
@@ -468,7 +468,7 @@ describe("BattleView combat card effects", () => {
     expect(await screen.findByText("¿Qué unidad atacan?")).toBeInTheDocument();
     fireEvent.click(document.querySelector(`[data-testid="ambush-map"] [data-position="${INFANTRY.row}-${INFANTRY.col}"]`)!);
     aimAt({ row: 6, col: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Tanque" }));
+    fireEvent.click(screen.getByRole("button", { name: "Blindados o artillería" }));
     expect(screen.getByTestId("fire-total")).toHaveTextContent("3 dados");
     fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
 

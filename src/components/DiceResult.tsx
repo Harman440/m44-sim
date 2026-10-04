@@ -1,7 +1,7 @@
 import { CSSProperties, useEffect, useId, useState } from "react";
 import { Box, useTheme } from "@mui/material";
 import { motion, useReducedMotion } from "motion/react";
-import { DIE_SIDES, DieFace, LONG_RANGE_DIE_SIDES } from "../game-core/dice";
+import { DieFace, DieKind, SIDES_OF } from "../game-core/dice";
 import { ShotTarget, faceHits } from "../data/hitRules";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
@@ -47,9 +47,6 @@ export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFa
             <path d="M17 9 L38 15 L17 22 Z" fill="#c62828" />
           </g>
         );
-      case DieFace.MISS:
-        // A blank side: only a faint dash
-        return <rect x="16" y="22.5" width="16" height="3" rx="1.5" fill="#333" opacity="0.35" />;
     }
   })();
 
@@ -86,7 +83,7 @@ interface RollingDieProps {
   face: DieFace;
   index: number;
   faction: Faction;
-  eightSided: boolean;
+  die: DieKind;
   /** Tumble in; otherwise the die is simply there */
   rolling: boolean;
 }
@@ -95,14 +92,14 @@ interface RollingDieProps {
  * One die. When rolled it's thrown in, spinning, showing random faces until
  * it lands on its result. With reduced motion it just appears.
  */
-function RollingDie({ face, index, faction, eightSided, rolling }: RollingDieProps) {
+function RollingDie({ face, index, faction, die, rolling }: RollingDieProps) {
   const reduceMotion = useReducedMotion();
   const tumble = rolling && !reduceMotion;
   const [shown, setShown] = useState<DieFace | null>(tumble ? null : face);
 
   useEffect(() => {
     if (!tumble) return;
-    const sides = eightSided ? LONG_RANGE_DIE_SIDES : DIE_SIDES;
+    const sides = SIDES_OF[die];
     const spin = setInterval(() => setShown(sides[Math.floor(Math.random() * sides.length)]!), 70);
     const land = setTimeout(() => {
       clearInterval(spin);
@@ -112,7 +109,7 @@ function RollingDie({ face, index, faction, eightSided, rolling }: RollingDiePro
       clearInterval(spin);
       clearTimeout(land);
     };
-  }, [tumble, face, index, eightSided]);
+  }, [tumble, face, index, die]);
 
   const direction = index % 2 === 0 ? 1 : -1;
   return (
@@ -122,7 +119,7 @@ function RollingDie({ face, index, faction, eightSided, rolling }: RollingDiePro
       animate={{ x: 0, y: [null, 0, -12, 0], rotate: 0, scale: [null, 1.08, 0.97, 1], opacity: 1 }}
       transition={{ duration: ROLL_TIME, delay: index * DIE_STAGGER, times: [0, 0.6, 0.8, 1], ease: "easeOut" }}
     >
-      <DieFaceIcon face={shown ?? face} faction={faction} eightSided={eightSided} />
+      <DieFaceIcon face={shown ?? face} faction={faction} eightSided={die === "longRange"} />
     </motion.div>
   );
 }
@@ -132,8 +129,8 @@ interface DiceResultProps {
   faction: Faction;
   /** The dice whose results are applied (indexes into the faces); the rest show as discarded. Null: all */
   kept?: readonly number[] | null;
-  /** Rolled on the 8-sided long-range die */
-  eightSided?: boolean;
+  /** The die rolled (the battle die by default) */
+  die?: DieKind;
   /** Picking the dice to apply: every die is a toggle button */
   picking?: { selected: readonly number[]; onToggle: (index: number) => void };
   /** What the dice were rolled at: a die that hits it glows */
@@ -147,7 +144,7 @@ function DiceResult({
   roll,
   faction,
   kept = null,
-  eightSided = false,
+  die = "battle",
   picking,
   target,
   rolling = false,
@@ -161,7 +158,7 @@ function DiceResult({
       <div key={roll.id} className="dice-result" data-testid="dice-result">
         {roll.faces.map((face, i) => {
           const hit = applied(i) && !!target && faceHits(face, target);
-          const die = <RollingDie face={face} index={i} faction={faction} eightSided={eightSided} rolling={rolling} />;
+          const thrown = <RollingDie face={face} index={i} faction={faction} die={die} rolling={rolling} />;
           return (
             <div
               key={i}
@@ -170,7 +167,7 @@ function DiceResult({
             >
               {/* The die stays mounted whether or not the dice are being picked, so it doesn't roll again */}
               <div className="dice-result__slot">
-                {die}
+                {thrown}
                 {picking && (
                   <button
                     type="button"

@@ -144,9 +144,9 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           sx={{ minHeight: 48 }}
         />
         <Typography variant="body2" color="text.secondary">
-          Los disparos a una unidad no adyacente se tiran con un dado de 8 caras: 3 infantería, tanque,
-          granada, suministro, bandera y fallo. La granada no cuenta si la infantería dispara a un tanque.
-          Actívalo en los dos dispositivos.
+          Los disparos a una unidad no adyacente se tiran con un dado de 8 caras: 3 infantería, 2 tanques,
+          bandera y 2 suministros. El tanque impacta a blindados y artillería. Actívalo en los dos
+          dispositivos.
         </Typography>
         <FormControlLabel
           control={<Switch checked={testMode} onChange={(e) => setTestMode(e.target.checked)} />}

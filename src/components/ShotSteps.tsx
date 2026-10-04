@@ -8,6 +8,7 @@ import { describeTarget } from "../labels";
 import { unitSprite } from "./UnitComponent";
 import SandbagsIcon from "./SandbagsIcon";
 import GameIcon from "./GameIcon";
+import { TargetSprites } from "./TargetKindPicker";
 import { BarbedWireIcon } from "./BarbedWire";
 
 interface ShotStepsProps {
@@ -140,7 +141,7 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
         ➜
       </Typography>
       <Pill testId="shot-target">
-        <Box component="img" src={unitSprite(enemy, target.unitType)} alt="" sx={{ width: 28, height: 28 }} />
+        <TargetSprites infantry={target.infantry} enemy={enemy} size={28} />
         {target.closeAssault ? <CloseAssaultIcon /> : <GameIcon name="fire" size={20} />}
         <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
           {target.closeAssault ? "asalto" : "distancia"}

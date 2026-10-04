@@ -8,7 +8,7 @@ import { HexType, Side } from "../types/hex";
 import { Position } from "../types/scenario";
 
 /** Default target for shots whose reading the test doesn't check */
-const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
+const AT_INFANTRY = { infantry: true, closeAssault: false };
 
 const TANK: Position = { row: 4, col: 6 };
 const FOREST: Position = { row: 4, col: 7 };

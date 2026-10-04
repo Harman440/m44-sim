@@ -49,7 +49,7 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
           roll={{ faces: [...shot.faces], id: rollId }}
           faction={faction}
           kept={shot.kept}
-          eightSided={shot.target.longRangeFirer !== undefined}
+          die={shot.target.die}
           picking={picked ? { selected: picked, onToggle: toggle } : undefined}
           target={shot.target}
           rolling={rolling}

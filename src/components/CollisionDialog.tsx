@@ -9,15 +9,14 @@ import {
   DialogTitle,
   Divider,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { UnitType } from "../game-core/unit";
 import CommandCard from "../game-core/commandCard";
 import { OrderSummary } from "../game-core/turnSummary";
 import { COLLISION_NOTES, collisionSteps } from "../data/fireQuestions";
 import { Faction } from "../types/faction";
+import { TargetKinds } from "../data/hitRules";
+import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
 import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS } from "../labels";
 import ShotDice from "./ShotDice";
 import ShotSteps from "./ShotSteps";
@@ -30,7 +29,9 @@ interface CollisionDialogProps {
   card: CommandCard | null;
   faction: Faction;
   /** Roll the collision for this order's unit against the unit it met; the session rolls the dice */
-  onRoll: (orderIndex: number, targetType: UnitType) => boolean;
+  /** What the enemy can have in the scenario */
+  targetKinds: TargetKinds;
+  onRoll: (orderIndex: number, infantry: boolean) => boolean;
   /** Apply only some of the dice of the order's shot `shotNumber` (or all, with null) */
   onKeepResults: (orderIndex: number, shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
@@ -74,12 +75,14 @@ function CollisionDialog({
   summaries,
   card,
   faction,
+  targetKinds,
   onRoll,
   onKeepResults,
   onClose,
 }: CollisionDialogProps) {
   const [selected, setSelected] = useState<number | null>(null);
-  const [targetType, setTargetType] = useState<UnitType | null>(null);
+  const [kind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
+  const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
   /** The collision was just rolled here: throw the dice in */
   const [rolled, setRolled] = useState(false);
   const moved = summaries.filter((s) => !s.hold && !s.removed);
@@ -87,7 +90,7 @@ function CollisionDialog({
 
   const select = (index: number | null) => {
     setSelected(index);
-    setTargetType(null);
+    setKind(initialChoice(targetKinds));
     setRolled(false);
   };
 
@@ -204,26 +207,14 @@ function CollisionDialog({
           La tirada del choque cuenta como el disparo de la unidad este turno.
         </Typography>
         <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-          ¿Con qué tipo de unidad ha chocado?
+          ¿Ha chocado con infantería?
         </Typography>
-        <ToggleButtonGroup
-          exclusive
-          value={targetType}
-          onChange={(_, value: UnitType | null) => value && setTargetType(value)}
-          aria-label="Tipo de unidad rival"
-          sx={{ flexWrap: "wrap" }}
-        >
-          {Object.values(UnitType).map((type) => (
-            <ToggleButton key={type} value={type} sx={{ minHeight: 48 }}>
-              {UNIT_LABELS[type]}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
         <Button
           fullWidth
           size="large"
-          disabled={targetType === null}
-          onClick={() => targetType && onRoll(summary.index, targetType) && setRolled(true)}
+          disabled={kind === null}
+          onClick={() => kind && onRoll(summary.index, kind === "infantry") && setRolled(true)}
           sx={{ mt: 2 }}
         >
           Tirar {diceText(dice)}

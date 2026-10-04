@@ -6,12 +6,10 @@ export enum DieFace {
   GRENADE = "grenade",
   SUPPLY = "supply",
   FLAG = "flag",
-  /** Only on the 8-sided long-range die */
-  MISS = "miss",
 }
 
-/** The faces of the normal 6-sided die (the 8-sided die adds MISS) */
-export type SixSidedFace = Exclude<DieFace, DieFace.MISS>;
+/** The faces of the normal battle die, which also name the Reinforcements table */
+export type SixSidedFace = DieFace;
 export const SIX_SIDED_FACES: readonly SixSidedFace[] = [
   DieFace.INFANTRY,
   DieFace.TANK,
@@ -31,19 +29,44 @@ export const DIE_SIDES: readonly DieFace[] = [
 ];
 
 /**
- * The eight sides of the house long-range die (an experiment, switched on per
- * game): fewer hits than the normal die at range, and a blank side
+ * The eight sides of the house long-range die (switched on per game, rolled
+ * at targets that aren't adjacent): no grenade, so infantry is hit 3/8 and
+ * any other unit 2/8, and two supplies
  */
 export const LONG_RANGE_DIE_SIDES: readonly DieFace[] = [
+  DieFace.TANK,
+  DieFace.TANK,
   DieFace.INFANTRY,
+  DieFace.INFANTRY,
+  DieFace.INFANTRY,
+  DieFace.FLAG,
+  DieFace.SUPPLY,
+  DieFace.SUPPLY,
+];
+
+/**
+ * The die of the attack combat cards (Barrage, Air Power, Air Bombardment):
+ * the battle die with a second grenade for the supply, since the supply hit
+ * on these cards. Infantry is hit 4/6, any other unit 3/6.
+ */
+export const ATTACK_DIE_SIDES: readonly DieFace[] = [
   DieFace.INFANTRY,
   DieFace.INFANTRY,
   DieFace.TANK,
   DieFace.GRENADE,
-  DieFace.SUPPLY,
+  DieFace.GRENADE,
   DieFace.FLAG,
-  DieFace.MISS,
 ];
+
+/** Which die a roll uses */
+export type DieKind = "battle" | "longRange" | "attack";
+export const DIE_KINDS: readonly DieKind[] = ["battle", "longRange", "attack"];
+
+export const SIDES_OF: Record<DieKind, readonly DieFace[]> = {
+  battle: DIE_SIDES,
+  longRange: LONG_RANGE_DIE_SIDES,
+  attack: ATTACK_DIE_SIDES,
+};
 
 /** Roll `count` dice with these sides (the normal battle die by default); `random` returns [0, 1) like Math.random */
 export function rollDice(

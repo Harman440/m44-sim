@@ -17,7 +17,7 @@ import { hexDistance } from "./fireTargets";
 import { summarizeOrders } from "./turnSummary";
 
 /** Default target for shots whose reading the test doesn't check */
-const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
+const AT_INFANTRY = { infantry: true, closeAssault: false };
 
 // Allies (no flip): infantry left (7,1), left-center (7,3), right (8,11);
 // tank in the open center at (4,6) with forest to its east at (4,7)
@@ -364,7 +364,7 @@ describe("GameSession unit-type cards with none of their units", () => {
 });
 
 describe("GameSession Close Assault card", () => {
-  const ADJACENT = { unitType: UnitType.INFANTRY, closeAssault: true };
+  const ADJACENT = { infantry: true, closeAssault: true };
 
   /** In battle with a Close Assault card: no orders were given */
   const closeAssault = () => {
@@ -811,12 +811,12 @@ describe("GameSession firing", () => {
   it("keeps the target with the shot: close assault when the target is adjacent", () => {
     const session = battle();
 
-    session.fire(0, { distance: "1", targetType: "tank", targetTerrain: "plains", sandbags: "no" });
-    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "artillery", targetTerrain: "plains", sandbags: "no" });
+    session.fire(0, { distance: "1", targetType: "other", targetTerrain: "plains", sandbags: "no" });
+    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "other", targetTerrain: "plains", sandbags: "no" });
 
     expect(session.getSnapshot().shots.map((s) => s.target)).toEqual([
-      { unitType: "tank", closeAssault: true },
-      { unitType: "artillery", closeAssault: false },
+      { infantry: false, closeAssault: true, die: "battle" },
+      { infantry: false, closeAssault: false, die: "battle" },
     ]);
   });
 
@@ -824,7 +824,7 @@ describe("GameSession firing", () => {
     const session = battle();
 
     expect(session.fire(0, { distance: "1", targetType: "horse", targetTerrain: "plains", sandbags: "no" })).toBe(false);
-    expect(shoot(session, 0, { unitType: "horse" as UnitType, closeAssault: false })).toBe(false);
+    expect(session.fire(0, { distance: "1", targetType: "tank", targetTerrain: "plains", sandbags: "no" })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
   });
 
@@ -852,7 +852,7 @@ describe("GameSession firing", () => {
 
   it("applies fewer results than were rolled, and all of them again", () => {
     const session = battle({ holdShots: 2 });
-    shoot(session, 0, { unitType: UnitType.INFANTRY, closeAssault: true }); // 3 dice
+    shoot(session, 0, { infantry: true, closeAssault: true }); // 3 dice
     shoot(session, 0, AT_INFANTRY); // 2 dice
 
     expect(session.keepResults(0, 1, [1])).toBe(true);
@@ -880,7 +880,7 @@ describe("GameSession firing", () => {
 
   it("keeps the kept dice after a reload and in the turn log", () => {
     const session = battle();
-    shoot(session, 0, { unitType: UnitType.INFANTRY, closeAssault: true });
+    shoot(session, 0, { infantry: true, closeAssault: true });
     session.keepResults(0, 0, [0, 2]);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
@@ -913,24 +913,28 @@ describe("GameSession long-range die", () => {
   };
 
   it("rolls the 8-sided die at range when the game uses it", () => {
-    const session = battle(true); // the last side: a miss
+    const session = battle(true); // the last side: a supply
 
     shoot(session, 0, AT_INFANTRY);
-    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no" });
+    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "other", targetTerrain: "plains", sandbags: "no" });
 
     const shots = session.getSnapshot().shots;
-    expect(shots.map((s) => s.faces)).toEqual([["miss", "miss"], ["miss", "miss"]]);
-    expect(shots.map((s) => s.target.longRangeFirer)).toEqual([UnitType.INFANTRY, UnitType.INFANTRY]);
+    expect(shots.map((s) => s.faces)).toEqual([["supply", "supply"], ["supply", "supply"]]);
+    expect(shots.map((s) => s.target)).toEqual([
+      { infantry: true, closeAssault: false, die: "longRange" },
+      { infantry: false, closeAssault: false, die: "longRange" },
+    ]);
   });
 
   it("keeps the normal die in close assault, and when the game doesn't use it", () => {
     const withIt = battle(true);
-    shoot(withIt, 0, { unitType: UnitType.INFANTRY, closeAssault: true });
+    shoot(withIt, 0, { infantry: true, closeAssault: true });
     const without = battle(false);
     shoot(without, 0, AT_INFANTRY);
 
     expect(withIt.getSnapshot().shots[0]!.faces).toEqual(["flag", "flag", "flag"]);
-    expect(withIt.getSnapshot().shots[0]!.target.longRangeFirer).toBeUndefined();
+    expect(withIt.getSnapshot().shots[0]!.target.die).toBe("battle");
+    expect(without.getSnapshot().shots[0]!.target.die).toBe("battle");
     expect(without.getSnapshot().shots[0]!.faces).toEqual(["flag", "flag"]);
   });
 
@@ -1007,7 +1011,7 @@ describe("GameSession collisions", () => {
   it("rolls close assault dice minus 1, ignoring terrain, and uses up the unit's shot", () => {
     const session = tankMoved();
 
-    expect(session.fireCollision(0, UnitType.INFANTRY)).toBe(true);
+    expect(session.fireCollision(0, true)).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
     expect(shot).toMatchObject({ orderIndex: 0, dice: 2, collision: true });
@@ -1016,22 +1020,22 @@ describe("GameSession collisions", () => {
     expect(shot!.notes[0]).toMatch(/retiradas no se pueden ignorar/);
     expect(session.shotsLeft(0)).toBe(0);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
-    expect(session.fireCollision(0, UnitType.INFANTRY)).toBe(false);
+    expect(session.fireCollision(0, true)).toBe(false);
   });
 
   it("rolls a collision in close assault against the unit met", () => {
     const session = tankMoved();
 
-    expect(session.fireCollision(0, "horse" as UnitType)).toBe(false);
-    expect(session.fireCollision(0, UnitType.ARTILLERY)).toBe(true);
+    expect(session.fireCollision(0, "horse" as unknown as boolean)).toBe(false);
+    expect(session.fireCollision(0, false)).toBe(true);
 
-    expect(session.getSnapshot().shots[0]!.target).toEqual({ unitType: "artillery", closeAssault: true });
+    expect(session.getSnapshot().shots[0]!.target).toEqual({ infantry: false, closeAssault: true, die: "battle" });
   });
 
   it("adds the card's close-assault bonus", () => {
     const session = tankMoved(1);
 
-    session.fireCollision(0, UnitType.INFANTRY);
+    session.fireCollision(0, true);
 
     expect(session.getSnapshot().shots[0]!.dice).toBe(3);
     expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: "Carta Blindados", dice: 1, kind: "card" });
@@ -1042,7 +1046,7 @@ describe("GameSession collisions", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
     orderAllAndFight(session);
-    expect(session.fireCollision(0, UnitType.INFANTRY)).toBe(false);
+    expect(session.fireCollision(0, true)).toBe(false);
 
     // Infantry that moved 2 hexes can't fire this turn, so it doesn't roll either
     const { session: moved, card: movedCard } = sessionWithAllCards();
@@ -1050,17 +1054,17 @@ describe("GameSession collisions", () => {
     moved.issueOrder(LEFT_INF, { row: 5, col: 1 });
     orderAllAndFight(moved);
     expect(moved.getSnapshot().orders[0]!.canFire).toBe(false);
-    expect(moved.fireCollision(0, UnitType.INFANTRY)).toBe(false);
+    expect(moved.fireCollision(0, true)).toBe(false);
 
     // A unit that already fired normally
     const fired = tankMoved();
     shoot(fired, 0, AT_INFANTRY);
-    expect(fired.fireCollision(0, UnitType.INFANTRY)).toBe(false);
+    expect(fired.fireCollision(0, true)).toBe(false);
   });
 
   it("keeps the collision flag after a reload and in the turn log", () => {
     const session = tankMoved();
-    session.fireCollision(0, UnitType.INFANTRY);
+    session.fireCollision(0, true);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
       new CommandCard({ id: "tank", name: "Blindados", unitTypes: [UnitType.TANK], orders: 1 }),
@@ -1100,7 +1104,7 @@ describe("GameSession firing order", () => {
   it("lets a moved unit roll a collision straight away: collisions come first", () => {
     const session = oneHeldOneMoved();
 
-    expect(session.fireCollision(1, UnitType.INFANTRY)).toBe(true);
+    expect(session.fireCollision(1, true)).toBe(true);
   });
 
   it("skips the unfired units that didn't move, so the moved units can fire", () => {
@@ -1161,7 +1165,7 @@ describe("GameSession turn log", () => {
     expect(record!.orders).toHaveLength(4);
     expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true });
     expect(record!.shots).toEqual([
-      { order: tankOrder, unit: "tank", dice: 3, steps: expect.any(Array), faces: expect.any(Array), kept: null, notes: [], collision: false, target: AT_INFANTRY },
+      { order: tankOrder, unit: "tank", dice: 3, steps: expect.any(Array), faces: expect.any(Array), kept: null, notes: [], collision: false, target: { ...AT_INFANTRY, die: "battle" } },
     ]);
     expect(record!.shots[0]!.faces).toHaveLength(3);
     expect(record!.battleEdits).toEqual([
@@ -1289,7 +1293,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 20 as 21 })).toThrow();
+    expect(broken({ version: 21 as 22 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
@@ -1299,8 +1303,9 @@ describe("GameSession saving and restoring", () => {
     expect(broken({ phase: "BATTLE" as never })).toThrow();
     expect(broken({ hand: ["no-such-card"] })).toThrow();
     expect(broken({ drawOptions: ["no-such-card"] })).toThrow();
-    const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, combatBonus: false, kept: null, target: { unitType: UnitType.INFANTRY, closeAssault: false } };
+    const shot = { steps: [], dice: 1, faces: [], notes: [], collision: false, combatBonus: false, kept: null, target: { infantry: true, closeAssault: false, die: "battle" as const } };
     expect(broken({ shots: [{ ...shot, orderIndex: 5 }] })).toThrow();
+    expect(broken({ shots: [{ ...shot, orderIndex: 0, target: { ...shot.target, die: "d20" as never } }] })).toThrow();
     expect(broken({ chosenSection: "middle" as never })).toThrow();
     expect(broken({ startCoins: "3" as never })).toThrow();
     expect(broken({ coinAdjustments: [1.5] })).toThrow();
@@ -1361,13 +1366,15 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coins).toBe(1);
   });
 
-  it("earns nothing for a supply that hit (artillery in close assault)", () => {
+  it("earns a coin for every supply, in close assault on armour or artillery too", () => {
     const session = turnWithCoins(0, "left", () => 0.7);
     orderAllAndFight(session);
 
-    shoot(session, 0, { unitType: UnitType.ARTILLERY, closeAssault: true });
+    shoot(session, 0, { infantry: false, closeAssault: true });
 
-    expect(session.getSnapshot().coins).toBe(0);
+    const [shot] = session.getSnapshot().shots;
+    expect(shot!.faces.every((face) => face === "supply")).toBe(true);
+    expect(session.getSnapshot().coins).toBe(shot!.faces.length);
   });
 
   it("earns coins for supplies in the attacker's extra turn, but no final-phase reward, and can't spend them there", () => {
@@ -1887,7 +1894,7 @@ describe("GameSession combat card effects", () => {
     it("adds its dice to a shot at a hex on the map when the player uses it", () => {
       const session = inBattle(streetFight);
 
-      expect(session.fireAt(0, { position: { row: 5, col: 1 }, unitType: UnitType.INFANTRY, sandbags: false, useCombatBonus: true })).toBe(true);
+      expect(session.fireAt(0, { position: { row: 5, col: 1 }, infantry: true, sandbags: false, useCombatBonus: true })).toBe(true);
 
       expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
       expect(session.combatBonusFor(1)).toBeUndefined(); // used up
@@ -1949,18 +1956,18 @@ describe("GameSession combat card effects", () => {
       expect(session.getSnapshot().markers).toEqual([]);
     });
 
-    it("rolls the card's dice on each marked hex before any unit fires; supplies hit", () => {
+    it("rolls the card's dice on each marked hex before any unit fires on the attack die", () => {
       const session = barrageBattle();
       expect(session.getSnapshot().attacksPending).toBe(true);
       expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
 
-      expect(session.attackHex(0, UnitType.TANK)).toBe(true);
+      expect(session.attackHex(0, false)).toBe(true);
 
       const [attack] = session.getSnapshot().cardAttacks;
-      expect(attack).toMatchObject({ marker: 0, dice: 4, target: { unitType: UnitType.TANK, suppliesHit: true } });
+      expect(attack).toMatchObject({ marker: 0, dice: 4, target: { infantry: false, closeAssault: false, die: "attack" } });
       expect(readRoll(attack!.faces, attack!.target!).hits).toBe(4);
       expect(session.getSnapshot().attacksPending).toBe(false);
-      expect(session.attackHex(0, UnitType.TANK)).toBe(false);
+      expect(session.attackHex(0, false)).toBe(false);
       expect(shoot(session, 0, AT_INFANTRY)).toBe(true);
     });
 
@@ -1975,7 +1982,7 @@ describe("GameSession combat card effects", () => {
 
     it("keeps the rolls after a reload and in the turn log", () => {
       const session = barrageBattle();
-      session.attackHex(0, UnitType.INFANTRY);
+      session.attackHex(0, true);
       const restored = GameSession.restore(
         JSON.parse(JSON.stringify(session.save())),
         defender,
@@ -2464,19 +2471,19 @@ describe("GameSession firing at a hex on the map", () => {
   it("fires at a hex: its distance and terrain answer those questions", () => {
     const session = tankBattle();
 
-    expect(session.fireAt(0, { position: { row: 4, col: 7 }, unitType: UnitType.INFANTRY, sandbags: true })).toBe(true);
+    expect(session.fireAt(0, { position: { row: 4, col: 7 }, infantry: true, sandbags: true })).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
-    expect(shot).toMatchObject({ dice: 1, targetPosition: { row: 4, col: 7 }, target: { unitType: "infantry", closeAssault: true } });
+    expect(shot).toMatchObject({ dice: 1, targetPosition: { row: 4, col: 7 }, target: { infantry: true, closeAssault: true, die: "battle" } });
     expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
   it("won't fire at a hex out of range, out of sight, with a unit of its own or with no dice", () => {
     const session = tankBattle();
 
-    expect(session.fireAt(0, { position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, sandbags: false })).toBe(false);
-    expect(session.fireAt(0, { position: { row: 4, col: 9 }, unitType: UnitType.INFANTRY, sandbags: false })).toBe(false); // behind the forest
-    expect(session.fireAt(0, { position: LEFT_INF, unitType: UnitType.INFANTRY, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 2 }, infantry: true, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 9 }, infantry: true, sandbags: false })).toBe(false); // behind the forest
+    expect(session.fireAt(0, { position: LEFT_INF, infantry: true, sandbags: false })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
   });
 });
@@ -2495,7 +2502,7 @@ describe("GameSession taking ground", () => {
   it("lets armour take ground after a close assault and fire once more, adjacent to the hex it took", () => {
     const session = tankBattle();
     expect(session.canTakeGround(0)).toBe(false); // hasn't fired
-    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
 
     expect(session.takeGround(0)).toBe(true);
 
@@ -2503,9 +2510,9 @@ describe("GameSession taking ground", () => {
     const targets = session.fireTargetsFor(0);
     expect(targets.every((t) => t.distance === 1)).toBe(true);
     expect(targets.some((t) => samePosition(t.position, { row: 4, col: 8 }))).toBe(true); // next to the forest
-    expect(session.fireAt(0, { position: { row: 4, col: 3 }, unitType: UnitType.TANK, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 3 }, infantry: false, sandbags: false })).toBe(false);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false); // not in close assault
-    expect(session.fireAt(0, { position: { row: 4, col: 8 }, unitType: UnitType.TANK, sandbags: false })).toBe(true);
+    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false, sandbags: false })).toBe(true);
     // Once per turn
     expect(session.canTakeGround(0)).toBe(false);
     expect(session.shotsLeft(0)).toBe(0);
@@ -2514,14 +2521,14 @@ describe("GameSession taking ground", () => {
   it("only when the roll could have pushed back or eliminated the target (a flag or a hit)", () => {
     // Supplies: no hit on infantry, no flag
     const session = tankBattle(() => 0.7);
-    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
 
     expect(session.canTakeGround(0)).toBe(false);
   });
 
   it("moves the unit to the hex it took, as a map edit, and back when taken back", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
 
     session.takeGround(0);
     expect(session.board.getHex(FOREST)!.hasUnit()).toBe(true);
@@ -2536,7 +2543,7 @@ describe("GameSession taking ground", () => {
 
   it("only after a close assault", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: { row: 4, col: 4 }, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: { row: 4, col: 4 }, infantry: true, sandbags: false });
 
     expect(session.canTakeGround(0)).toBe(false);
     expect(session.takeGround(0)).toBe(false);
@@ -2544,7 +2551,7 @@ describe("GameSession taking ground", () => {
 
   it("takes it back while the extra shot hasn't been fired", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
     session.takeGround(0);
 
     expect(session.undoTakeGround(0)).toBe(true);
@@ -2555,7 +2562,7 @@ describe("GameSession taking ground", () => {
 
   it("keeps it after a reload", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: FOREST, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
     session.takeGround(0);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
@@ -2587,8 +2594,8 @@ describe("GameSession taking ground", () => {
     session.pickCard(commandCards[0]!);
     orderAllAndFight(session);
     // Orders 0 and 1: the infantry at (7,1) and (7,3)
-    session.fireAt(0, { position: { row: 6, col: 1 }, unitType: UnitType.INFANTRY, sandbags: false });
-    session.fireAt(1, { position: { row: 6, col: 3 }, unitType: UnitType.INFANTRY, sandbags: false });
+    session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true, sandbags: false });
+    session.fireAt(1, { position: { row: 6, col: 3 }, infantry: true, sandbags: false });
     expect(session.canTakeGround(0)).toBe(false);
 
     expect(session.playBattleCombatCard(heat)).toBe(true);
@@ -2619,7 +2626,7 @@ describe("GameSession Ambush", () => {
     orderAllAndFight(session);
     return session;
   };
-  const shoot = { position: ATTACKER, unitType: UnitType.TANK, sandbags: false };
+  const shoot = { position: ATTACKER, infantry: false, sandbags: false };
 
   it("lets any unit fire first, in close assault, once the card is played", () => {
     const session = ambushSession();
@@ -2633,7 +2640,7 @@ describe("GameSession Ambush", () => {
 
     expect(session.ambushAt(RIGHT_INF, shoot)).toBe(true);
     const { ambush, ambushUnits, shots } = session.getSnapshot();
-    expect(ambush).toMatchObject({ from: RIGHT_INF, unitType: UnitType.INFANTRY, dice: 3, target: { unitType: UnitType.TANK, closeAssault: true } });
+    expect(ambush).toMatchObject({ from: RIGHT_INF, unitType: UnitType.INFANTRY, dice: 3, target: { infantry: false, closeAssault: true, die: "battle" } });
     expect(ambush!.faces).toHaveLength(3);
     expect(ambushUnits).toEqual([]);
     // It isn't one of the orders' shots
@@ -2708,7 +2715,7 @@ describe("GameSession barbed wire", () => {
 
     expect(adjacent?.dice).toBe(2);
     expect(session.getSnapshot().canRemoveWire[index]).toBe(true);
-    expect(session.fireAt(index, { position: { row: 7, col: 2 }, unitType: UnitType.INFANTRY, sandbags: false })).toBe(true);
+    expect(session.fireAt(index, { position: { row: 7, col: 2 }, infantry: true, sandbags: false })).toBe(true);
     expect(session.getSnapshot().shots[0]!.steps).toContainEqual({ label: "Desde una alambrada", dice: -1, kind: "wire" });
   });
 

@@ -219,6 +219,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         onTakeGround={() => firingIndex !== null && session.takeGround(firingIndex)}
         onUndoTakeGround={() => firingIndex !== null && session.undoTakeGround(firingIndex)}
         longRangeDie={session.longRangeDie}
+        targetKinds={session.targetKinds}
         canRemoveWire={firingIndex !== null && (game.canRemoveWire[firingIndex] ?? false)}
         onRemoveWire={() => withSound(firingIndex !== null && session.removeWire(firingIndex))}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
@@ -238,9 +239,10 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           dicePerHex={attackCard.effect.dicePerHex}
           attack={attackingHex === null ? null : attackOn(attackingHex)}
           faction={faction}
-          onAttack={(targetType) => {
-            const done = attackingHex !== null && session.attackHex(attackingHex, targetType);
-            if (done && targetType !== null) play("dice");
+          targetKinds={session.targetKinds}
+          onAttack={(infantry) => {
+            const done = attackingHex !== null && session.attackHex(attackingHex, infantry);
+            if (done && infantry !== null) play("dice");
             return done;
           }}
           onUndo={() => attackingHex !== null && session.undoCardAttack(attackingHex)}
@@ -262,7 +264,8 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         summaries={summaries}
         card={game.activeCard}
         faction={faction}
-        onRoll={(orderIndex, targetType) => withSound(session.fireCollision(orderIndex, targetType))}
+        targetKinds={session.targetKinds}
+        onRoll={(orderIndex, infantry) => withSound(session.fireCollision(orderIndex, infantry))}
         onKeepResults={(orderIndex, shotNumber, kept) => session.keepResults(orderIndex, shotNumber, kept)}
         onClose={() => setCollisionOpen(false)}
       />

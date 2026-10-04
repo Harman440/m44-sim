@@ -11,7 +11,7 @@ import { Position } from "../types/scenario";
 import { downloadJson } from "../download";
 
 /** Default target for shots whose reading the test doesn't check */
-const AT_INFANTRY = { unitType: UnitType.INFANTRY, closeAssault: false };
+const AT_INFANTRY = { infantry: true, closeAssault: false };
 
 vi.mock("../download", () => ({ downloadJson: vi.fn() }));
 
