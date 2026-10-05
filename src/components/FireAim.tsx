@@ -11,7 +11,9 @@ import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { TERRAIN_LABELS } from "../labels";
 import Board from "./Board";
+import DicePool, { diceText } from "./DicePool";
 import HexThumbnail from "./HexThumbnail";
+import InfoButton from "./InfoButton";
 import SandbagsIcon from "./SandbagsIcon";
 import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
 
@@ -41,8 +43,6 @@ interface FireAimProps {
 }
 
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
-const diceText = (dice: number, eightSided = false) =>
-  `${dice} ${dice === 1 ? "dado" : "dados"}${eightSided ? " de 8 caras" : ""}`;
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
@@ -176,17 +176,21 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
 
         {result && (
           <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-            <Stack sx={{ gap: 0.25 }} data-testid="fire-breakdown">
-              {result.steps.map((s) => (
-                <Stack key={s.label} direction="row" sx={{ justifyContent: "space-between" }}>
-                  <Typography variant="body2">{s.label}</Typography>
-                  <Typography variant="body2">{formatDice(s.dice)}</Typography>
+            <DicePool dice={result.dice} eightSided={eightSided} faction={faction}>
+              <InfoButton title="De dónde salen los dados">
+                <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
+                  {result.steps.map((s) => (
+                    <Stack key={s.label} direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
+                      <Typography variant="body1">{s.label}</Typography>
+                      <Typography variant="body1">{formatDice(s.dice)}</Typography>
+                    </Stack>
+                  ))}
+                  <Typography variant="h6" sx={{ mt: 1 }}>
+                    Total: {diceText(result.dice, eightSided)}
+                  </Typography>
                 </Stack>
-              ))}
-            </Stack>
-            <Typography variant="h6" data-testid="fire-total" sx={{ mt: 1 }}>
-              Total: {diceText(result.dice, eightSided)}
-            </Typography>
+              </InfoButton>
+            </DicePool>
           </Box>
         )}
 
@@ -198,7 +202,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
             target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags, useCombatBonus: asksBonus && useBonus })
           }
         >
-          {result && kind ? `Disparar ${diceText(result.dice, eightSided)}` : "Disparar"}
+          Disparar
         </Button>
       </Stack>
     </Box>

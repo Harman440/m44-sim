@@ -104,7 +104,8 @@ describe("BattleView summary screen", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[1]!);
     aimAt({ row: 5, col: 3 }); // 2 hexes up from the tank
     fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
-    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
+    fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
@@ -215,7 +216,8 @@ describe("BattleView firing order", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[0]!);
     aimAt({ row: 6, col: 1 }); // next to the infantry
     fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
-    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
+    fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
 
     expect(screen.getByTestId("opponent-turn")).toHaveTextContent("Ahora dispara el rival.");
   });
@@ -443,7 +445,7 @@ describe("BattleView combat card effects", () => {
     expect(screen.getAllByRole("button", { name: /^Disparar con/ }).length).toBeGreaterThan(0);
   });
 
-  it("asks whether to use a dice card on a shot by a unit that fits", () => {
+  it("asks whether to use a dice card on a shot by a unit that fits", async () => {
     const session = effectSetup([spotter]);
     session.playBattleCombatCard(spotter);
     fireEvent.click(screen.getAllByRole("button", { name: /^Disparar con/ })[0]!);
@@ -452,8 +454,12 @@ describe("BattleView combat card effects", () => {
     fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
 
     expect(screen.getByRole("switch", { name: "Lucha callejera: ¿En un edificio? Si es así, ¿la usas en este disparo? (+1)" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Información: De dónde salen los dados" }));
     expect(screen.getByTestId("fire-breakdown")).toHaveTextContent("Carta Lucha callejera+1");
-    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "De dónde salen los dados" })).getByRole("button", { name: "Cerrar" }));
+    await waitFor(() => expect(screen.queryByTestId("fire-breakdown")).not.toBeInTheDocument());
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
+    fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
   });
 
@@ -469,8 +475,8 @@ describe("BattleView combat card effects", () => {
     fireEvent.click(document.querySelector(`[data-testid="ambush-map"] [data-position="${INFANTRY.row}-${INFANTRY.col}"]`)!);
     aimAt({ row: 6, col: 1 });
     fireEvent.click(screen.getByRole("button", { name: "Blindados o artillería" }));
-    expect(screen.getByTestId("fire-total")).toHaveTextContent("3 dados");
-    fireEvent.click(screen.getByRole("button", { name: "Disparar 3 dados" }));
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
+    fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
 
     expect(session.getSnapshot().ambush).toMatchObject({ from: INFANTRY, dice: 3 });
     expect(session.getSnapshot().shots).toEqual([]);

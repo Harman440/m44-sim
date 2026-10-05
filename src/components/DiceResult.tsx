@@ -15,11 +15,11 @@ export { rollDuration } from "./diceTiming";
 
 /** The 3D dice (three.js) load in their own chunk, fetched early so the first roll is already 3D */
 const Dice3D = lazy(() => import("./dice3d/Dice3D"));
-const supports3D = typeof window !== "undefined" && typeof window.WebGL2RenderingContext !== "undefined";
+export const supports3D = typeof window !== "undefined" && typeof window.WebGL2RenderingContext !== "undefined";
 if (supports3D) void import("./dice3d/Dice3D").catch(() => {});
 
 /** Falls back to the 2D dice if the 3D ones fail (no WebGL context, a lost chunk) */
-class Dice3DBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+export class Dice3DBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
@@ -83,6 +83,24 @@ export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFa
         <rect className="die__face" x="2" y="2" width="44" height="44" rx="9" />
       )}
       {symbol}
+    </svg>
+  );
+}
+
+/** A die before it's rolled: its shape (the battle die or the 8-sided one) with no face showing */
+export function BlankDie({ eightSided = false }: { eightSided?: boolean }) {
+  return (
+    <svg viewBox="0 0 48 48" className={eightSided ? "die die--d8" : "die"} aria-hidden="true">
+      {eightSided ? (
+        <>
+          <polygon className="die__face" points={OCTAGON} strokeLinejoin="round" />
+          <text x="24" y="30" className="die__d8-mark die__d8-mark--blank" textAnchor="middle">
+            8
+          </text>
+        </>
+      ) : (
+        <rect className="die__face" x="2" y="2" width="44" height="44" rx="9" />
+      )}
     </svg>
   );
 }

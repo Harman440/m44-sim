@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import FireDialog from "./FireDialog";
 import GameSession from "../game-core/gameSession";
@@ -87,6 +87,15 @@ const open = (unitType: UnitType, holdShots?: number, tiles: Scenario["tiles"] =
   return session;
 };
 const choose = (label: string | RegExp) => fireEvent.click(screen.getByRole("button", { name: label }));
+
+/** How the dice add up, from behind the "i" (opened and closed again) */
+const readBreakdown = async () => {
+  fireEvent.click(screen.getByRole("button", { name: "Información: De dónde salen los dados" }));
+  const text = screen.getByTestId("fire-breakdown").textContent ?? "";
+  fireEvent.click(within(screen.getByRole("dialog", { name: "De dónde salen los dados" })).getByRole("button", { name: "Cerrar" }));
+  await waitFor(() => expect(screen.queryByTestId("fire-breakdown")).not.toBeInTheDocument());
+  return text;
+};
 /** Tap a hex on the fire map */
 const tapHex = (p: Position) =>
   fireEvent.click(document.querySelector(`[data-testid="fire-map"] [data-position="${p.row}-${p.col}"]`)!);
@@ -104,10 +113,11 @@ describe("FireDialog", () => {
   const fireAt = (p: Position, unit: string, dice: string) => {
     tapHex(p);
     choose(unit);
-    choose(`Disparar ${dice}`);
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName(dice);
+    choose("Disparar");
   };
 
-  it("shows the hexes in range with their dice; the target is tapped, then its unit, and the dice are rolled once", () => {
+  it("shows the hexes in range with their dice; the target is tapped, then its unit, and the dice are rolled once", async () => {
     const session = open(UnitType.INFANTRY, 1, { forest: [TWO_AWAY] });
 
     expect(screen.getByRole("dialog")).toHaveTextContent("Disparo: Infantería");
@@ -119,12 +129,13 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("fire-target")).toHaveTextContent("Bosque · a 2 casillas");
     choose("Infantería");
 
-    const breakdown = screen.getByTestId("fire-breakdown");
-    expect(breakdown).toHaveTextContent("Base: Infantería a 2 casillas+2");
-    expect(breakdown).toHaveTextContent("Objetivo en bosque-1");
-    expect(screen.getByTestId("fire-total")).toHaveTextContent("Total: 1 dado");
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("1 dado");
+    const breakdown = await readBreakdown();
+    expect(breakdown).toContain("Base: Infantería a 2 casillas+2");
+    expect(breakdown).toContain("Objetivo en bosque-1");
+    expect(breakdown).toContain("Total: 1 dado");
 
-    choose("Disparar 1 dado");
+    choose("Disparar");
 
     expect(grenades()).toHaveLength(1);
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra infantería · a distancia"));
@@ -178,23 +189,35 @@ describe("FireDialog", () => {
     tapHex(TWO_AWAY);
     choose("Blindados o artillería");
 
-    expect(screen.getByTestId("fire-total")).toHaveTextContent("Total: 2 dados de 8 caras");
-    choose("Disparar 2 dados de 8 caras");
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("2 dados de 8 caras");
+    choose("Disparar");
 
     expect(session.getSnapshot().shots[0]!.faces).toEqual(["infantry", "infantry"]);
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · a distancia · dado de 8 caras"));
   });
 
-  it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", () => {
+  it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", async () => {
     open(UnitType.INFANTRY);
     tapHex(ADJACENT);
     choose("Infantería");
     fireEvent.click(screen.getByRole("switch", { name: "¿Sacos terreros?" }));
 
-    expect(screen.getByTestId("fire-breakdown")).toHaveTextContent("Sacos terreros en campo abierto-1");
-    choose("Disparar 2 dados");
+    expect(await readBreakdown()).toContain("Sacos terreros en campo abierto-1");
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("2 dados");
+    choose("Disparar");
 
     expect(screen.getByTestId("shot-result")).toHaveTextContent("ignora 1 bandera");
+  });
+
+  it("shows no dice when sandbags in the open take the last one", async () => {
+    open(UnitType.INFANTRY);
+    tapHex({ row: 4, col: 1 }); // 3 hexes: 1 die
+    choose("Infantería");
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("1 dado");
+    fireEvent.click(screen.getByRole("switch", { name: "¿Sacos terreros?" }));
+
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("0 dados");
+    await waitFor(() => expect(screen.getByTestId("fire-total").querySelector(".dice-pool__die")).toBeNull());
   });
 
   it("reaches 6 hexes with artillery", () => {
@@ -236,7 +259,7 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("3impactos");
   });
 
-  it("uses a dice combat card when its switch is on", () => {
+  it("uses a dice combat card when its switch is on", async () => {
     const spotter: CombatCard = {
       id: "spotter",
       name: "Observador",
@@ -274,8 +297,9 @@ describe("FireDialog", () => {
     tapHex(TWO_AWAY);
     choose("Infantería");
     expect(screen.getByRole("switch", { name: /Observador/ })).toBeChecked();
-    expect(screen.getByTestId("fire-breakdown")).toHaveTextContent("Carta Observador+1");
-    choose("Disparar 4 dados");
+    expect(await readBreakdown()).toContain("Carta Observador+1");
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("4 dados");
+    choose("Disparar");
 
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 4, combatBonus: true });
   });

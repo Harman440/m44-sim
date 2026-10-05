@@ -193,7 +193,8 @@ export function prepareWood() {
   idle(next);
 }
 
-function drawSide(face: DieFace, side: DieSideLayout, wood: Wood, seed: number, art: FaceArt): SideTextures {
+/** A side's textures; with no `art` the side is left blank (a die not rolled yet) */
+function drawSide(face: DieFace, side: DieSideLayout, wood: Wood, seed: number, art: FaceArt | null): SideTextures {
   const size = TEXTURE_SIZE;
   const cached = cachedWood(wood, seed);
   const canvas = document.createElement("canvas");
@@ -210,6 +211,8 @@ function drawSide(face: DieFace, side: DieSideLayout, wood: Wood, seed: number, 
   ctx.lineWidth = (CONTOUR_WIDTH * size) / side.textureSpan;
   ctx.lineJoin = "round";
   ctx.stroke();
+
+  if (!art) return { map: texture(canvas, true), bump: texture(cached.grain, false) };
 
   // Stamped in ink, so the grain shows through the symbol
   ctx.save();
@@ -228,16 +231,21 @@ function drawSide(face: DieFace, side: DieSideLayout, wood: Wood, seed: number, 
 const artCache = new Map<Faction, Promise<FaceArt>>();
 const textureCache = new Map<string, Promise<SideTextures[]>>();
 
-/** The textures of each side of the die, in the order of `SIDES_OF`; drawn once per die and faction */
-export function sideTextures(die: DieKind, faction: Faction): Promise<SideTextures[]> {
-  const key = `${die}|${faction}`;
+/**
+ * The textures of each side of the die, in the order of `SIDES_OF`; drawn
+ * once per die and faction. `blank`: the wood and contours only, no symbols
+ * (the dice a shot will roll, before it's rolled).
+ */
+export function sideTextures(die: DieKind, faction: Faction, blank = false): Promise<SideTextures[]> {
+  const key = blank ? `${die}|blank` : `${die}|${faction}`;
   let textures = textureCache.get(key);
   if (!textures) {
-    let art = artCache.get(faction);
+    let art: Promise<FaceArt | null> | undefined = blank ? Promise.resolve(null) : artCache.get(faction);
     if (!art) {
-      art = loadArt(faction);
-      artCache.set(faction, art);
-      art.catch(() => artCache.delete(faction));
+      const loading = loadArt(faction);
+      artCache.set(faction, loading);
+      loading.catch(() => artCache.delete(faction));
+      art = loading;
     }
     const { sides } = dieShape(die);
     textures = art.then((loaded) =>

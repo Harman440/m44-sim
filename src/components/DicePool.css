@@ -1,0 +1,39 @@
+/* The dice a shot will roll (DicePool): a row of blank dice */
+
+/* Room for a die flipping over or popping out without moving the rest */
+.dice-pool__row-wrap {
+  flex: 1;
+  perspective: 600px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+}
+
+.dice-pool__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The 3D dice: the canvas is laid over the row (dice3d/DicePool3D) */
+.dice-pool__row--3d {
+  position: relative;
+  gap: 12px;
+  min-height: 60px;
+  flex: 1;
+}
+
+.dice-pool__die {
+  display: inline-flex;
+}
+
+.dice-pool__die .die {
+  width: 44px;
+  height: 44px;
+}
+
+/* The 8 on a blank long-range die sits in the middle, larger */
+.die__d8-mark--blank {
+  font-size: 16px;
+  opacity: 0.45;
+}

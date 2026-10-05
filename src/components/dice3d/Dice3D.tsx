@@ -11,7 +11,7 @@ import { SideTextures, prepareWood, sideTextures } from "./faceTextures";
 prepareWood();
 
 /** How far round the dice the canvas reaches, in CSS pixels, so a thrown die isn't cut off */
-const MARGIN = 72;
+export const MARGIN = 72;
 /**
  * The resting die leans a little so it reads as 3D, with its result facing
  * the player. The octahedron barely leans: tipped, its neighbouring sides
@@ -23,7 +23,7 @@ const LEAN: Record<DieKind, Quaternion> = {
   longRange: new Quaternion().setFromEuler(new Euler(-0.06, 0.07, 0)),
 };
 
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
@@ -47,7 +47,7 @@ export interface Dice3DProps {
 }
 
 /** Where each slot's centre is, in scene units (1 per CSS pixel, from the canvas centre, y up). Layout offsets, so a dialog's transform doesn't skew them */
-function measureSlots(container: HTMLElement): Point[] {
+export function measureSlots(container: HTMLElement): Point[] {
   const slots = [...container.querySelectorAll<HTMLElement>("[data-die-slot]")];
   return slots.map((slot) => {
     let left = slot.offsetWidth / 2;
