@@ -1,0 +1,38 @@
+/* A card leaning toward the pointer (TiltCard.tsx), with a gloss where the light catches it */
+.tilt-card {
+  position: relative;
+  transform: perspective(700px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.25s ease-out;
+  /* The card's own corner, scaled like its face (see CommandCard.css) */
+  border-radius: calc(var(--m44-radius) * 1.5 * tan(atan2(var(--card-width, 180px), 180px)));
+}
+
+.tilt-card--active {
+  transition-duration: 0.08s;
+}
+
+.tilt-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--gloss-x, 50%) var(--gloss-y, 50%), rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tilt-card--active::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt-card {
+    transform: none;
+  }
+
+  .tilt-card::after {
+    display: none;
+  }
+}

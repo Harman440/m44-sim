@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import { Faction } from "../../../types/faction";
 import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
@@ -8,6 +8,9 @@ import CommandCardComponent from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
 import CardHand from "../../CardHand";
 import CardDetails from "../../CardDetails";
+import CardFlip from "../../CardFlip";
+import CardPlay, { canPlayIn3D } from "../../CardPlay";
+import type { PlayedCard3D } from "../../card3d/CardPlay3D";
 import GameIcon from "../../GameIcon";
 import { ruleTags } from "../../CommandCardComponent";
 import { CombatCard } from "../../../game-core/combatCard";
@@ -65,6 +68,15 @@ function CardsView({
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
   /** The card being looked at on the table; a command card is played from there */
   const [looking, setLooking] = useState<{ command: CommandCard } | { combat: CombatCard } | null>(null);
+  /** The cards being played, flying to the table in 3D before the turn goes on */
+  const [playing, setPlaying] = useState<{
+    cards: PlayedCard3D[];
+    landing: { x: number; y: number };
+    play: () => void;
+  } | null>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  /** The cards in flight have been played: the flight's end and its time limit both try */
+  const played = useRef(false);
   const play = useSound();
 
   const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
@@ -108,6 +120,37 @@ function CardsView({
     return null;
   };
 
+  /**
+   * Plays the card: the card on the table and the combat card picked fly to
+   * the middle of the table in 3D, then the turn goes on. Straight away
+   * without WebGL or with reduced motion.
+   */
+  const commit = (card: CommandCard, section?: Section, combatCard?: CombatCard) => {
+    const go = () => onCardClick(card, section, combatCard);
+    const table = tableRef.current;
+    const command = table?.querySelector<HTMLElement>(".card-details__card .game-card");
+    if (!table || !command || !canPlayIn3D()) {
+      go();
+      return;
+    }
+    const combat = combatCard && document.querySelector<HTMLElement>(`.hand-group--combat [data-card-key="${combatCard.id}"] .game-card`);
+    const box = table.getBoundingClientRect();
+    played.current = false;
+    setPlaying({
+      cards: [{ element: command }, ...(combat ? [{ element: combat }] : [])],
+      landing: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
+      play: go,
+    });
+  };
+
+  const finishPlaying = useCallback(() => {
+    if (played.current || !playing) return;
+    played.current = true;
+    setPlaying(null);
+    playing.play();
+  }, [playing]);
+  const landed = useCallback(() => play("cardDeal"), [play]);
+
   const playCard = (card: CommandCard) => {
     if (combatPick && !combatCardFits(card, combatPick)) {
       setMisfit(card);
@@ -117,7 +160,7 @@ function CardsView({
       setChoosingSection(card);
       return;
     }
-    onCardClick(card, undefined, combatPick ?? undefined);
+    commit(card, undefined, combatPick ?? undefined);
   };
 
   /** Play the card without the combat card, which stays in the hand unpaid */
@@ -127,12 +170,12 @@ function CardsView({
     setMisfit(null);
     setCombatPick(null);
     if (needsSection(card)) setChoosingSection(card);
-    else onCardClick(card);
+    else commit(card);
   };
 
   const playInSection = (section: Section) => {
     if (!choosingSection) return;
-    onCardClick(choosingSection, section, combatPick ?? undefined);
+    commit(choosingSection, section, combatPick ?? undefined);
     setChoosingSection(null);
   };
 
@@ -165,7 +208,7 @@ function CardsView({
       </div>
 
       {/* The table: what the player is about to play */}
-      <Box className="cards-table">
+      <Box className="cards-table" ref={tableRef}>
         {/* While a card is looked at, its buttons say what will be played */}
         {looking === null && (
           <Typography variant="body1" color={combatPick ? "primary" : "text.secondary"} sx={{ textAlign: "center", maxWidth: 560 }}>
@@ -182,7 +225,11 @@ function CardsView({
           </Typography>
         ) : "command" in looking ? (
           <CardDetails
-            card={<CommandCardComponent faction={faction} cardData={looking.command} />}
+            card={
+              <CardFlip key={looking.command.id}>
+                <CommandCardComponent faction={faction} cardData={looking.command} />
+              </CardFlip>
+            }
             cardWidth={TABLE_CARD_WIDTH}
             name={looking.command.name}
             tags={ruleTags(looking.command)}
@@ -198,7 +245,11 @@ function CardsView({
           </CardDetails>
         ) : (
           <CardDetails
-            card={<CombatCardComponent faction={faction} card={looking.combat} />}
+            card={
+              <CardFlip key={looking.combat.id}>
+                <CombatCardComponent faction={faction} card={looking.combat} />
+              </CardFlip>
+            }
             cardWidth={TABLE_CARD_WIDTH}
             name={looking.combat.name}
             tags={[COMBAT_PHASE_LABELS[looking.combat.phase], `Cuesta ${coinsText(looking.combat.cost)}`]}
@@ -320,6 +371,8 @@ function CardsView({
           <Button onClick={playAlone}>Jugar sin {combatPick?.name}</Button>
         </DialogActions>
       </Dialog>
+
+      {playing && <CardPlay cards={playing.cards} landing={playing.landing} onLanded={landed} onDone={finishPlaying} />}
 
       {/* Animating Card Overlay */}
       {/* Flies from the deck into the hand; keyed so each card gets its own flight */}

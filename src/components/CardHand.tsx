@@ -1,4 +1,5 @@
 import { ReactNode, useRef, useState, type PointerEvent, type WheelEvent } from "react";
+import TiltCard from "./TiltCard";
 import "./CardHand.css";
 
 export interface HandCard {
@@ -23,7 +24,8 @@ const DRAG_THRESHOLD = 6;
 /**
  * Cards held in the hand: a slight fan, each overlapping the one before it.
  * When they don't fit, the row scrolls sideways: swipe on a tablet, drag or
- * use the wheel with a mouse. A pressed or lifted card rises out of the fan.
+ * use the wheel with a mouse. A pressed or lifted card rises out of the fan,
+ * and leans toward the finger (TiltCard).
  */
 function CardHand({ cards, label, overlap = 0.12, className }: CardHandProps) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -90,6 +92,7 @@ function CardHand({ cards, label, overlap = 0.12, className }: CardHandProps) {
           <div
             key={key}
             role="listitem"
+            data-card-key={key}
             className={`card-hand__slot${lifted ? " card-hand__slot--lifted" : ""}`}
             style={
               {
@@ -99,7 +102,7 @@ function CardHand({ cards, label, overlap = 0.12, className }: CardHandProps) {
               } as React.CSSProperties
             }
           >
-            {node}
+            <TiltCard>{node}</TiltCard>
           </div>
         );
       })}

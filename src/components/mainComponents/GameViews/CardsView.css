@@ -146,6 +146,16 @@
 @media (orientation: landscape) {
   .cards-hands {
     --card-width: clamp(164px, 25vh, 220px);
+    /* Both hands on one row, so a big hand of combat cards scrolls instead of pushing the table off the screen */
+    flex-wrap: nowrap;
+  }
+
+  .cards-grid {
+    flex: 1 1 auto;
+  }
+
+  .hand-group--combat {
+    max-width: 50%;
   }
 
   .cards-table {

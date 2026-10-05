@@ -1,0 +1,31 @@
+.card-flip {
+  position: relative;
+}
+
+/* The back of a card, as on the deck pile (CardsView.css): striped, with the game's mark */
+.card-back {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 10px, rgba(0, 0, 0, 0.12) 10px 20px),
+    var(--m44-primary);
+  border: calc(var(--m44-border-width) + 1px) solid var(--m44-border);
+  border-radius: calc(var(--m44-radius) * 1.5);
+  box-shadow: var(--m44-shadow);
+}
+
+.card-back__mark {
+  font-family: var(--m44-font-display);
+  font-size: 1.6rem;
+  color: var(--m44-on-primary);
+  /* seen from behind: read the right way round */
+  transform: scaleX(-1);
+}
+
+.card-flip__back {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}

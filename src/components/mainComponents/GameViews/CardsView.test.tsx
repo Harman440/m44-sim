@@ -276,7 +276,7 @@ describe("CardsView Tactician with a card for several sections", () => {
     expect(onCardClick).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Jugar sin Táctico" }));
-    expect(onCardClick).toHaveBeenCalledWith(card);
+    expect(onCardClick).toHaveBeenCalledWith(card, undefined, undefined);
   });
 });
 
