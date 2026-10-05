@@ -98,23 +98,27 @@
 }
 
 /* The cards played this turn (PlayedCards, in Movimiento and the battle map),
-   side by side: two fit in the 216px landscape column */
+   side by side in portrait */
 .played-cards {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   gap: 12px;
-  --card-width: 150px;
+  --card-width: 190px;
 }
 
+/* Landscape: one above the other, as wide as the 216px column allows, and
+   smaller on a short screen so the prompt and button below stay in sight
+   (about 320px of the height is the header, the prompt and the button) */
 @media (orientation: landscape) {
   .played-cards {
+    flex-direction: column;
+    align-items: center;
     gap: 8px;
-    --card-width: 104px;
+    --card-width: clamp(110px, (100vh - 320px) * 5 / 14, 190px);
   }
 
-  /* Only the command card: it can take more of the column */
   .played-cards:has(> :only-child) {
-    --card-width: 170px;
+    --card-width: clamp(110px, (100vh - 300px) * 5 / 7, 200px);
   }
 }

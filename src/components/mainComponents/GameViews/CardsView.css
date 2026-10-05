@@ -106,7 +106,7 @@
 }
 
 .cards-hands {
-  --card-width: 164px;
+  --card-width: 196px;
   flex: none;
   display: flex;
   flex-wrap: wrap;
@@ -140,9 +140,14 @@
   padding: 12px;
 }
 
-/* Landscape: the table has the height the hands leave it. The card looked at
-   is sized from that height (cqh), and a table too short for its text scrolls */
+/* Landscape: the hands grow with the screen height (a 1280×800 tablet gets
+   200px cards), and the table has the height they leave it. The card looked
+   at is sized from that height (cqh), and a table too short for its text scrolls */
 @media (orientation: landscape) {
+  .cards-hands {
+    --card-width: clamp(164px, 25vh, 220px);
+  }
+
   .cards-table {
     container-type: size;
     overflow-y: auto;
