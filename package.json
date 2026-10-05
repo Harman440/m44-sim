@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "optimize-image": "node scripts/optimize-image.mjs",
+    "card-art": "node scripts/card-art.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "board": "node scripts/compose-board.mjs",
     "tablet": "vite build && vite preview --host --port 4173"

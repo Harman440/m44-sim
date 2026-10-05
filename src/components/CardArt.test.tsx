@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CombatCardArt, CommandCardArt } from "./CardArt";
+import { CombatCardArt } from "./CardArt";
 import CommandCard from "../game-core/commandCard";
 import { CombatCard } from "../game-core/combatCard";
 import { UnitType } from "../game-core/unit";
@@ -13,34 +13,6 @@ const combat = (extra: Partial<CombatCard>): CombatCard => ({
   cost: 1,
   phase: "order",
   ...extra,
-});
-
-describe("CommandCardArt", () => {
-  it("tints the sections the card orders", () => {
-    const { container } = render(<CommandCardArt card={new CommandCard({ sections: [Side.LEFT], orders: 2 })} faction="Allies" />);
-
-    const hexes = container.querySelectorAll(".card-art__hex");
-    const tinted = container.querySelectorAll(".card-art__hex--on");
-    expect(tinted.length).toBeGreaterThan(0);
-    expect(tinted.length).toBeLessThan(hexes.length / 2);
-  });
-
-  it("puts a token on the board for each unit the card orders", () => {
-    const card = new CommandCard({ tactic: true, unitTypes: [UnitType.TANK], orders: 4 });
-    const { container } = render(<CommandCardArt card={card} faction="Axis" />);
-
-    expect(container.querySelectorAll(".card-art__token")).toHaveLength(4);
-  });
-
-  it("draws a row of pictograms for each special rule, with the unit that only moves", () => {
-    const card = new CommandCard({ sections: [Side.CENTER], orders: 1, onTheMove: 1, drawChoice: 3 });
-    const { container } = render(<CommandCardArt card={card} faction="Allies" />);
-
-    expect(container.querySelectorAll(".card-art__rule")).toHaveLength(2);
-    expect(container.querySelectorAll(".card-art__rule-text")[1]).toHaveTextContent("3→1");
-    // 1 ordered unit, the one on the move on the board and in its pictogram
-    expect(container.querySelectorAll(".card-art__token--ghost")).toHaveLength(2);
-  });
 });
 
 describe("CombatCardArt", () => {

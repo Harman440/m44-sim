@@ -39,6 +39,7 @@ const perSection = (
     props: {
       id: `${id}-${SECTION_NAMES[section].id}`,
       name: `${name} ${SECTION_NAMES[section].name}`,
+      title: name,
       sections: [section],
       ...props(section, SECTION_NAMES[section].name.replace(/^en (el )?/, '')),
     },
@@ -67,7 +68,7 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'recon-in-force',
-      name: 'Tropa de Reconocimiento',
+      name: 'Vanguardia',
       description: 'Da una orden a 1 unidad en cada sección.',
       orders: 3,
       perSection: 1,
@@ -101,6 +102,7 @@ const sharedTemplates: CardTemplate[] = [
     props: {
       id: 'finest-hour',
       name: 'La Hora de la Verdad',
+      summary: 'Hasta 4 órdenes pagadas con suministros. Disparan con +1 dado.',
       description:
         'Da órdenes a hasta 4 unidades pagando suministros: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
       tactic: true,
@@ -114,6 +116,7 @@ const sharedTemplates: CardTemplate[] = [
     props: {
       id: 'infantry-assault',
       name: 'Asalto de Infantería',
+      summary: 'Toda la infantería de una sección. Mueve 1 casilla más.',
       description:
         'Da órdenes a toda la infantería de una sección a elegir. Se mueve 1 casilla más, también para mover y disparar.',
       tactic: true,
@@ -128,6 +131,7 @@ const sharedTemplates: CardTemplate[] = [
     props: {
       id: 'close-assault',
       name: 'Asalto cercano',
+      summary: 'Sin órdenes. Tus unidades en asalto cercano tiran +1 dado.',
       description:
         'Sin órdenes. En la batalla, cada unidad tuya adyacente a una unidad enemiga dispara en asalto cercano con 1 dado más.',
       tactic: true,
@@ -140,6 +144,7 @@ const sharedTemplates: CardTemplate[] = [
     props: {
       id: 'firefight',
       name: 'Escaramuza',
+      summary: '4 órdenes sin mover. +1 dado a distancia, −1 en asalto cercano.',
       description:
         'Da órdenes a 4 unidades que no se mueven. Disparan con 1 dado más a distancia y 1 menos en asalto cercano.',
       tactic: true,
@@ -156,6 +161,7 @@ const sharedTemplates: CardTemplate[] = [
     props: {
       id: 'preparations',
       name: 'Preparativos',
+      summary: '1 orden. Al final: 3 suministros y 1 carta de combate.',
       description:
         'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas.',
       tactic: true,
@@ -169,6 +175,7 @@ const sharedTemplates: CardTemplate[] = [
 const moveOut: CommandCardProps & { id: string } = {
   id: 'move-out',
   name: 'En marcha',
+  summary: '4 órdenes a infantería.',
   description: 'Da órdenes a 4 unidades de infantería.',
   tactic: true,
   unitTypes: [UnitType.INFANTRY],
@@ -178,6 +185,7 @@ const moveOut: CommandCardProps & { id: string } = {
 const armorAssault: CommandCardProps & { id: string } = {
   id: 'armor-assault',
   name: 'Asalto de Blindados',
+  summary: '4 órdenes a tanques. +1 dado en asalto cercano.',
   description: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
   tactic: true,
   unitTypes: [UnitType.TANK],
@@ -188,6 +196,7 @@ const armorAssault: CommandCardProps & { id: string } = {
 const artilleryBombardment: CommandCardProps & { id: string } = {
   id: 'artillery-bombardment',
   name: 'Bombardeo de Artillería',
+  summary: 'Toda la artillería: dispara 2 veces, o mueve 3 sin disparar.',
   description:
     'Da órdenes a toda la artillería: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
   tactic: true,
@@ -200,6 +209,7 @@ const artilleryBombardment: CommandCardProps & { id: string } = {
 const directFromHq: CommandCardProps & { id: string } = {
   id: 'direct-from-hq',
   name: 'Directo del Cuartel General',
+  summary: '4 órdenes en cualquier sección.',
   description: 'Da órdenes a 4 unidades en cualquier sección.',
   tactic: true,
   orders: 4,

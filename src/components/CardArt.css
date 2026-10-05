@@ -43,30 +43,12 @@
   fill: #5d8a3a;
 }
 
-.card-art__hatch-bg {
-  fill: var(--art-hex);
-}
-
-.card-art__hatch-line {
-  stroke: var(--card-accent);
-  stroke-width: 2.4;
-}
-
 .card-art__divider {
   stroke: color-mix(in srgb, #b3261e 75%, var(--m44-ink));
   stroke-width: 1;
   stroke-dasharray: 3 2.5;
 }
 
-.card-art__quota {
-  font-family: var(--m44-font-display);
-  font-size: 13px;
-  text-anchor: middle;
-  fill: var(--art-ink);
-  paint-order: stroke;
-  stroke: var(--art-paper);
-  stroke-width: 3px;
-}
 
 .card-art__badge circle {
   fill: var(--art-paper);
@@ -177,10 +159,6 @@
   stroke-dasharray: 3 2;
 }
 
-/* The hex of an ordered unit, a little darker than its section */
-.card-art__hex--ordered {
-  fill: color-mix(in srgb, var(--card-accent) 75%, var(--art-hex));
-}
 
 /* --- pictogram rows under the board */
 
@@ -252,4 +230,90 @@
   stroke: var(--art-ink);
   stroke-width: 1.4;
   stroke-dasharray: 1.5 2;
+}
+
+/* Section cards (SectionCardArt): the painting, cut out, sits on the card; the board fills the rest */
+.section-art__top {
+  display: flex;
+  align-items: center;
+  gap: 0.2em;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.section-art__painting {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0.15em 0.2em color-mix(in srgb, #000 30%, transparent));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* The special rules, small chips stacked to the right of the painting */
+.section-art__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  flex: none;
+}
+
+.section-art__chip {
+  width: auto;
+  height: 1.5em;
+}
+
+.section-art__board {
+  flex: none;
+  height: auto;
+}
+
+.section-art__arrow {
+  filter: drop-shadow(0.6px 1px 0.8px color-mix(in srgb, #000 45%, transparent));
+}
+
+/* The shaft is drawn twice: a light edge, then the colour over it */
+.section-art__arrow-edge {
+  fill: none;
+  stroke: var(--art-paper);
+  stroke-width: 8.5;
+  stroke-linecap: round;
+}
+
+.section-art__arrow-shaft {
+  fill: none;
+  stroke: var(--m44-accent);
+  stroke-width: 5.5;
+  stroke-linecap: round;
+}
+
+.section-art__arrow-head {
+  fill: var(--m44-accent);
+  stroke: var(--art-paper);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+/* The number of units, in a circle on the arrow */
+.section-art__badge circle {
+  fill: var(--art-paper);
+  stroke: var(--m44-accent);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0.6px 1px color-mix(in srgb, #000 35%, transparent));
+}
+
+.section-art__badge text {
+  fill: var(--art-ink);
+  font-family: var(--m44-font-display);
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* "Todas" in the same circle */
+.section-art__badge text.section-art__badge-word {
+  font-size: 4.6px;
+  text-transform: uppercase;
 }

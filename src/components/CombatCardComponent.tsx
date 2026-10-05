@@ -108,24 +108,19 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
     </>
   );
 
-  const frame = {
+  // The face is laid out at 180px and scaled (.game-card in CommandCard.css); its look is set here
+  const faceStyle = {
     "--card-accent": card.phase === "order" ? "var(--m44-primary)" : "var(--m44-accent)",
-    // The card shape is in CommandCard.css (.game-card); repeated here so the
-    // button base's reset can't undo it
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "stretch",
-    justifyContent: "flex-start",
-    bgcolor: "var(--m44-paper)",
-    color: "var(--m44-ink)",
-    border: "calc(var(--m44-border-width) + 1px) solid var(--m44-border)",
-    borderRadius: "calc(var(--m44-radius) * 1.5)",
-    boxShadow: "var(--m44-shadow)",
     textAlign: "left",
     fontFamily: "var(--m44-font-body)",
     ...(selected && { border: "3px solid var(--m44-primary)" }),
-    opacity: disabled ? 0.55 : 1,
   } as const;
+  const faceBox = (
+    <Box component="span" className="game-card__face" sx={faceStyle}>
+      {face}
+    </Box>
+  );
+  const rootStyle = { display: "block", opacity: disabled ? 0.55 : 1 } as const;
 
   if (onClick) {
     return (
@@ -135,15 +130,15 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
         aria-pressed={selected}
         aria-label={`${card.name}, ${card.cost} ${card.cost === 1 ? "suministro" : "suministros"}`}
         className="game-card combat-card"
-        sx={{ ...frame, "&:focus-visible": { outline: "3px solid var(--m44-primary)", outlineOffset: 3 } }}
+        sx={{ ...rootStyle, "&:focus-visible": { outline: "3px solid var(--m44-primary)", outlineOffset: 3 } }}
       >
-        {face}
+        {faceBox}
       </ButtonBase>
     );
   }
   return (
-    <Box component="article" className="game-card combat-card" sx={frame} data-testid="combat-card">
-      {face}
+    <Box component="article" className="game-card combat-card" sx={rootStyle} data-testid="combat-card">
+      {faceBox}
     </Box>
   );
 }

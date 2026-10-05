@@ -27,3 +27,6 @@ yarn-error.log*
 
 # Playwright MCP snapshots, screenshots and console logs
 /.playwright-mcp
+
+# Original art (large PNGs); the app uses the small WebPs made from them in src/assets/cards
+/images

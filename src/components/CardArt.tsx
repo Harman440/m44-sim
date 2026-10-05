@@ -12,6 +12,10 @@ import { Faction } from "../types/faction";
 import { FACTION_COLORS } from "../looks/looks";
 import { unitSprite } from "./UnitComponent";
 import { GameIconName, iconUrl } from "./GameIcon";
+import generalsArt from "../assets/cards/british-generals.webp";
+import armourAssaultArt from "../assets/cards/armour-assault.webp";
+import hqArt from "../assets/cards/hq.webp";
+import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
 import "./CardArt.css";
 
 // --- shared pieces
@@ -308,174 +312,158 @@ function CardFace({
   );
 }
 
-// --- command cards
+const SECTION_NAMES: Record<Section, string> = { left: "Izquierda", center: "Centro", right: "Derecha" };
 
-const COMMAND_HEX = 13.4;
-const COMMAND_ROWS = 5;
-const COMMAND_BOARD_HEIGHT = 4 + COMMAND_HEX * 2 + (COMMAND_ROWS - 1) * COMMAND_HEX * 1.5 + 4;
+// --- section cards (Batida, Ataque, Asalto, Vanguardia, Avance General, Movimiento en Pinza)
 
-/** The unit art used for a card that orders any type: a mix, as on the table */
-const ANY_UNIT = [UnitType.INFANTRY, UnitType.TANK, UnitType.INFANTRY, UnitType.ARTILLERY, UnitType.INFANTRY, UnitType.TANK];
+/** A card that orders units of any type in fixed sections: drawn with the painting and an arrow per section */
+export const isSectionCard = (card: CommandCard): boolean =>
+  !card.tactic && card.sections !== "chosen" && card.unitTypes === null;
 
-/** The special rules of a command card, as rows of pictograms */
-function commandRules(card: CommandCard): Glyph[][] {
+const SECTION_HEX = 10.5;
+const SECTION_BOARD_TOP = 4;
+const SECTION_ROWS = 4;
+const SECTION_HEIGHT = SECTION_BOARD_TOP + SECTION_HEX * 2 + (SECTION_ROWS - 1) * SECTION_HEX * 1.5 + 2;
+const CHIP_HEIGHT = 26;
+
+/** A section card's special rules, each a chip of pictograms beside the painting */
+function sectionRules(card: CommandCard): Glyph[][] {
   const rules: Glyph[][] = [];
-  if (card.onTheMove > 0) {
-    rules.push([
-      { kind: "text", text: `+${card.onTheMove}` },
-      { kind: "token", type: UnitType.INFANTRY, ghost: true },
-      { kind: "move" },
-      { kind: "fire", struck: true },
-    ]);
-  }
-  if (card.noMove) rules.push([{ kind: "move", struck: true }, { kind: "fire" }]);
-  if (card.moveBonus > 0) rules.push([{ kind: "move" }, { kind: "text", text: `+${card.moveBonus}` }, { kind: "fire" }]);
-  if (card.holdShots > 1) {
-    rules.push([{ kind: "move", struck: true }, ...Array.from({ length: card.holdShots }, (): Glyph => ({ kind: "fire" }))]);
-  }
-  if (card.maxMove !== null) {
-    rules.push([{ kind: "move" }, { kind: "text", text: `${card.maxMove}` }, { kind: "fire", struck: true }]);
-  }
-  card.fireBonus.forEach((bonus) => rules.push(fireBonusGlyphs(bonus)));
-  if (card.paidInCoins) {
-    rules.push([
-      { kind: "crate" },
-      ...Object.values(UnitType)
-        .filter((type) => card.coinCostOf(type) > 0)
-        .flatMap((type): Glyph[] => [
-          { kind: "token", type },
-          { kind: "text", text: String(card.coinCostOf(type)) },
-        ]),
-    ]);
-  }
-  if (card.drawChoice > 1) {
-    rules.push([{ kind: "cards", count: card.drawChoice }, { kind: "text", text: `${card.drawChoice}→1` }]);
-  }
-  if (card.endOfTurnReward) {
-    rules.push([
-      { kind: "crate" },
-      { kind: "text", text: `+${card.endOfTurnReward.coins}` },
-      ...(card.endOfTurnReward.combatCard ? [{ kind: "cards", count: 1 } as Glyph, { kind: "text", text: "+1" } as Glyph] : []),
-    ]);
-  }
+  if (card.drawChoice > 1) rules.push([{ kind: "cards", count: card.drawChoice }]);
+  if (card.onTheMove > 0) rules.push([{ kind: "token", type: UnitType.INFANTRY, ghost: true }, { kind: "move" }]);
   return rules;
 }
 
-/** Hexes of a section, the ones nearest its middle first */
-function sectionHexes(hexes: ArtHex[], section: Section): ArtHex[] {
-  const i = SECTIONS.indexOf(section);
-  const cx = (ART_WIDTH / 6) * (1 + 2 * i);
-  const cy = COMMAND_BOARD_HEIGHT / 2;
-  return hexes
-    .filter((hex) => hex.section === section)
-    .sort((a, b) => Math.hypot(a.x - cx, (a.y - cy) * 1.4) - Math.hypot(b.x - cx, (b.y - cy) * 1.4));
+/** A special rule as a small rounded chip, its own SVG so it can sit beside the painting */
+function RuleChip({ glyphs, faction }: { glyphs: Glyph[]; faction: Faction }) {
+  const pad = 6;
+  const width = glyphs.reduce((sum, glyph) => sum + glyphWidth(glyph), 0) + GLYPH_GAP * (glyphs.length - 1) + pad * 2;
+  let x = pad;
+  return (
+    <svg className="card-art section-art__chip" viewBox={`0 0 ${width} ${CHIP_HEIGHT}`} aria-hidden>
+      <rect x={1} y={1} width={width - 2} height={CHIP_HEIGHT - 2} rx={(CHIP_HEIGHT - 2) / 2} className="card-art__rule-bg" />
+      {glyphs.map((glyph, i) => {
+        const piece = <GlyphPiece key={i} glyph={glyph} x={x} y={CHIP_HEIGHT / 2} faction={faction} />;
+        x += glyphWidth(glyph) + GLYPH_GAP;
+        return piece;
+      })}
+    </svg>
+  );
 }
-
-/** Where the ordered units stand: how many in each section, as the card deals them out */
-function orderedPerSection(card: CommandCard, active: readonly Section[]): Map<Section, number> {
-  const counts = new Map<Section, number>();
-  if (card.orders === "all") {
-    // Enough to read as "all of them" without hiding the section
-    active.forEach((section) => counts.set(section, active.length === 1 ? 5 : 3));
-  } else if (card.perSection !== null) {
-    active.forEach((section) => counts.set(section, card.perSection!));
-  } else {
-    // Dealt out from the middle: centre, left, right, centre…
-    const order = active.length === 3 ? [SECTIONS[1]!, SECTIONS[0]!, SECTIONS[2]!] : active;
-    for (let i = 0; i < card.orders; i++) {
-      const section = order[i % order.length]!;
-      counts.set(section, (counts.get(section) ?? 0) + 1);
-    }
-  }
-  return counts;
-}
-
-const SECTION_NAMES: Record<Section, string> = { left: "Izquierda", center: "Centro", right: "Derecha" };
 
 /**
- * A command card's art: a piece of the board with the sections it orders
- * tinted (hatched when the player picks one) and a token on a hex for each
- * unit it orders, then a row of pictograms per special rule
+ * A section card's art: the painting of the generals over their map, with a
+ * chip per special rule to its right, and under it a piece of board with a
+ * slim brush-stroke arrow into each section the card orders, curving up from
+ * the bottom of the board, with the number of units it orders there in a
+ * circle on the arrow (a number, or "Todas").
  */
-export function CommandCardArt({ card, faction }: { card: CommandCard; faction: Faction }) {
-  const hatch = useId();
-  const hexes = boardStrip(ART_WIDTH, COMMAND_ROWS, 4, COMMAND_HEX);
-  const chosen = card.sections === "chosen";
-  const sections = chosen ? SECTIONS : (card.sections as readonly Section[]);
-  const tinted = (section: Section) => !chosen && sections.includes(section);
-  const label = chosen ? "una a elegir" : SECTIONS.filter(tinted).map((s) => SECTION_NAMES[s]).join(", ");
-  const types = card.unitTypes ?? ANY_UNIT;
-  const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
-
-  // The ordered units: in one section (the middle one stands for "any") when the player picks it
-  const tokens: { hex: ArtHex; type: UnitType; enemy?: boolean; ghost?: boolean }[] = [];
-  if (card.closeAssaultOnly) {
-    // Own units next to enemy units, along the middle of the board
-    [SECTIONS[0]!, SECTIONS[2]!].forEach((section) => {
-      const [own, ...rest] = sectionHexes(hexes, section).filter((hex) => hex.row === 2);
-      const next = rest.find((hex) => Math.abs(hex.x - own!.x) < COMMAND_HEX * 2);
-      tokens.push({ hex: own!, type: types[tokens.length % types.length]! });
-      if (next) tokens.push({ hex: next, type: UnitType.INFANTRY, enemy: true });
-    });
-  } else {
-    const counts = orderedPerSection(card, chosen ? [SECTIONS[1]!] : sections);
-    counts.forEach((count, section) => {
-      sectionHexes(hexes, section)
-        .slice(0, count)
-        .forEach((hex) => tokens.push({ hex, type: types[tokens.length % types.length]! }));
-    });
-    if (card.onTheMove > 0) {
-      // A unit anywhere that only moves: in a section the card doesn't order, if there is one
-      const away = SECTIONS.find((section) => !sections.includes(section)) ?? SECTIONS[2]!;
-      const taken = new Set(tokens.map((t) => t.hex));
-      const hex = sectionHexes(hexes, away).find((h) => !taken.has(h) && h.row === 3) ?? sectionHexes(hexes, away)[0]!;
-      tokens.push({ hex, type: UnitType.INFANTRY, ghost: true });
-    }
-  }
-  const tokenAt = new Set(tokens.map((t) => t.hex));
-
+export function SectionCardArt({ card, faction }: { card: CommandCard; faction: Faction }) {
+  const brush = useId();
+  const sections = card.sections as readonly Section[];
+  const hexes = boardStrip(ART_WIDTH, SECTION_ROWS, SECTION_BOARD_TOP, SECTION_HEX);
+  const boardBottom = SECTION_HEIGHT - 2;
+  const mid = ART_WIDTH / 2;
+  const count = card.orders === "all" ? "Todas" : String(card.perSection ?? card.orders);
+  const word = !/^\d+$/.test(count);
+  const rules = sectionRules(card);
+  // A lone arrow sets off near the middle; several set off spread apart so they don't cross
+  const spread = sections.length === 1 ? 0.2 : 0.5;
+  const [headLength, headWidth] = [11, 8];
+  const tipY = SECTION_BOARD_TOP + 4;
+  const arrows = sections.map((section) => {
+    const cx = (ART_WIDTH / 6) * (1 + 2 * SECTIONS.indexOf(section));
+    // A quadratic curve from the bottom edge, ending upright in the section
+    const start = { x: mid + (cx - mid) * spread, y: boardBottom - 3 };
+    const end = { x: cx, y: tipY + headLength };
+    const bend = { x: cx, y: (start.y + end.y) / 2 + 6 };
+    return {
+      section,
+      shaft: `M${start.x} ${start.y} Q${bend.x} ${bend.y} ${end.x} ${end.y}`,
+      head: `M${cx} ${tipY} L${cx + headWidth} ${end.y + 1} L${cx} ${end.y - 2} L${cx - headWidth} ${end.y + 1} Z`,
+      // The badge sits on the middle of the curve
+      badge: { x: (start.x + 2 * bend.x + end.x) / 4, y: (start.y + 2 * bend.y + end.y) / 4 },
+    };
+  });
   return (
-    <CardFace
-      label={`Secciones: ${label}`}
-      boardHeight={COMMAND_BOARD_HEIGHT}
-      rules={commandRules(card)}
-      faction={faction}
-      defs={
-        <pattern id={hatch} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="5" height="5" className="card-art__hatch-bg" />
-          <line x1="0" y1="0" x2="0" y2="5" className="card-art__hatch-line" />
-        </pattern>
-      }
-    >
-      {hexes.map((hex) => (
-        <polygon
-          key={`${hex.x}-${hex.y}`}
-          points={hexShape(hex)}
-          className={`card-art__hex${tinted(hex.section) ? " card-art__hex--on" : ""}${tokenAt.has(hex) && !chosen ? " card-art__hex--ordered" : ""}`}
-          fill={chosen ? `url(#${hatch})` : undefined}
-        />
-      ))}
-      {[1, 2].map((i) => (
-        <line key={i} x1={(ART_WIDTH / 3) * i} y1={0} x2={(ART_WIDTH / 3) * i} y2={COMMAND_BOARD_HEIGHT} className="card-art__divider" />
-      ))}
-      {tokens.map(({ hex, type, enemy: isEnemy, ghost }, i) => (
-        <Token key={i} type={type} faction={isEnemy ? enemy : faction} x={hex.x} y={hex.y} r={COMMAND_HEX * 0.82} ghost={ghost} />
-      ))}
-      {chosen &&
-        // "Which one?": a question mark on each section
-        SECTIONS.map((section, i) => (
-          <text key={section} x={(ART_WIDTH / 6) * (1 + 2 * i)} y={16} className="card-art__quota">
-            ?
-          </text>
+    <>
+      <span className="section-art__top">
+        <img className="section-art__painting" src={generalsArt} alt="" draggable={false} />
+        {rules.length > 0 && (
+          <span className="section-art__chips">
+            {rules.map((glyphs, i) => (
+              <RuleChip key={i} glyphs={glyphs} faction={faction} />
+            ))}
+          </span>
+        )}
+      </span>
+      <svg
+        className="card-art section-art__board"
+        viewBox={`0 0 ${ART_WIDTH} ${SECTION_HEIGHT}`}
+        role="img"
+        aria-label={`Secciones: ${sections.map((section) => SECTION_NAMES[section]).join(", ")}`}
+      >
+        <defs>
+          <filter id={brush} x="-10%" y="-10%" width="120%" height="120%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.12 0.05" numOctaves={2} seed={4} result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale={2} xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+        <rect y={SECTION_BOARD_TOP - 2} width={ART_WIDTH} height={boardBottom - SECTION_BOARD_TOP + 4} rx={4} className="card-art__ground" />
+        {hexes.map((hex) => (
+          <polygon
+            key={`${hex.x}-${hex.y}`}
+            points={hexShape(hex)}
+            className={`card-art__hex${sections.includes(hex.section) ? " card-art__hex--on" : ""}`}
+          />
         ))}
-      {card.perSection !== null &&
-        !chosen &&
-        sections.map((section) => (
-          <text key={section} x={(ART_WIDTH / 6) * (1 + 2 * SECTIONS.indexOf(section))} y={COMMAND_BOARD_HEIGHT - 5} className="card-art__quota">
-            ×{card.perSection}
-          </text>
+        {[1, 2].map((i) => (
+          <line key={i} x1={(ART_WIDTH / 3) * i} y1={SECTION_BOARD_TOP - 2} x2={(ART_WIDTH / 3) * i} y2={boardBottom + 2} className="card-art__divider" />
         ))}
-    </CardFace>
+        {arrows.map(({ section, shaft, head }) => (
+          <g key={section} className="section-art__arrow" filter={`url(#${brush})`}>
+            <path d={shaft} className="section-art__arrow-edge" />
+            <path d={head} className="section-art__arrow-head" />
+            <path d={shaft} className="section-art__arrow-shaft" />
+          </g>
+        ))}
+        {arrows.map(({ section, badge }) => (
+          <g key={section} className="section-art__badge">
+            <circle cx={badge.x} cy={badge.y} r={9} />
+            <text x={badge.x} y={badge.y} className={word ? "section-art__badge-word" : undefined}>
+              {count}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </>
+  );
+}
+
+// --- tactic cards (La Hora de la Verdad, Escaramuza, En marcha…)
+
+/** Each tactic card's painting, by the card's id without its copy number; the rest show the generals for now */
+const TACTIC_PAINTINGS: Record<string, string> = {
+  "armor-assault": armourAssaultArt,
+  "infantry-assault": infantryAssaultArt,
+  "direct-from-hq": hqArt,
+};
+
+/**
+ * A tactic card's art: its painting (the generals as a placeholder), with the card's
+ * short summary under it. Its full text is in its details (CardDetails).
+ */
+export function TacticCardArt({ card }: { card: CommandCard }) {
+  const painting = TACTIC_PAINTINGS[card.id.replace(/-\d+$/, "")] ?? generalsArt;
+  return (
+    <>
+      <span className="tactic-art__painting-frame">
+        <img className="tactic-art__painting" src={painting} alt="" draggable={false} />
+      </span>
+      <span className="tactic-art__summary" lang="es">
+        {card.summary}
+      </span>
+    </>
   );
 }
 

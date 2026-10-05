@@ -1,0 +1,102 @@
+// Make a card painting for the app from a large original PNG (kept in /images, outside git):
+// a small WebP in src/assets/cards/, named after the PNG in lower case.
+// A PNG with no alpha channel is taken to have a transparent background drawn as the
+// grey-and-white checkerboard: light neutral greys reached from the edges, and larger
+// enclosed patches with both checker tones (between an arm and a body), become see-through.
+// Usage: npm run card-art -- <file.png> [maxWidth]
+// Example: npm run card-art -- images/infantry-assault.png 480
+import sharp from "sharp";
+import { statSync } from "node:fs";
+import { basename } from "node:path";
+
+const [file, maxWidthArg] = process.argv.slice(2);
+if (!file) {
+  console.error("Usage: npm run card-art -- <file.png> [maxWidth]");
+  process.exit(1);
+}
+
+const MIN_HOLE = 150;
+
+const isChecker = (data, i) => {
+  const r = data[i * 3], g = data[i * 3 + 1], b = data[i * 3 + 2];
+  return Math.min(r, g, b) >= 218 && Math.max(r, g, b) - Math.min(r, g, b) <= 8;
+};
+
+/** The checkerboard pixels: those connected to the edges, and enclosed patches with both tones */
+function checkerboard(data, w, h) {
+  const bg = new Uint8Array(w * h);
+  const neighbours = (i) => {
+    const x = i % w, y = (i / w) | 0;
+    return [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1].filter((n) => n >= 0);
+  };
+  const stack = [];
+  for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+  for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+  while (stack.length) {
+    const i = stack.pop();
+    if (bg[i] || !isChecker(data, i)) continue;
+    bg[i] = 1;
+    stack.push(...neighbours(i));
+  }
+  const seen = new Uint8Array(w * h);
+  for (let start = 0; start < w * h; start++) {
+    if (bg[start] || seen[start] || !isChecker(data, start)) continue;
+    const region = [];
+    let light = 0, dark = 0;
+    const queue = [start];
+    seen[start] = 1;
+    while (queue.length) {
+      const i = queue.pop();
+      region.push(i);
+      if (data[i * 3] >= 248) light++;
+      else if (data[i * 3] <= 238) dark++;
+      for (const n of neighbours(i)) {
+        if (!seen[n] && !bg[n] && isChecker(data, n)) {
+          seen[n] = 1;
+          queue.push(n);
+        }
+      }
+    }
+    if (region.length > MIN_HOLE && light > region.length * 0.15 && dark > region.length * 0.15) region.forEach((i) => (bg[i] = 1));
+  }
+  return bg;
+}
+
+/** The PNG with its checkerboard see-through, and the pixels along the cut half see-through to soften it */
+async function cutOut(input) {
+  const { data, info } = await sharp(input).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: w, height: h } = info;
+  const bg = checkerboard(data, w, h);
+  const rgba = Buffer.alloc(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    let alpha = 255;
+    if (bg[i]) alpha = 0;
+    else {
+      const x = i % w, y = (i / w) | 0;
+      let near = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < w && ny < h && bg[ny * w + nx]) near++;
+        }
+      }
+      if (near) alpha = Math.max(60, 255 - near * 40);
+    }
+    rgba.set([data[i * 3], data[i * 3 + 1], data[i * 3 + 2], alpha], i * 4);
+  }
+  return sharp(rgba, { raw: { width: w, height: h, channels: 4 } });
+}
+
+const { width, height, hasAlpha } = await sharp(file).metadata();
+// About 3 times its size on the largest card (220px): landscape art fills the card's width, portrait art less
+const maxWidth = maxWidthArg ? Number(maxWidthArg) : width > height ? 640 : 480;
+const out = `src/assets/cards/${basename(file).replace(/\.png$/i, "").toLowerCase()}.webp`;
+const image = hasAlpha ? sharp(file) : await cutOut(file);
+
+await image
+  .resize({ width: Math.min(width, maxWidth), withoutEnlargement: true })
+  .webp({ quality: 75, alphaQuality: 80, effort: 6 })
+  .toFile(out);
+
+const kb = (f) => Math.round(statSync(f).size / 1024);
+console.log(`${file} (${kb(file)} KB)${hasAlpha ? "" : ", checkerboard removed,"} -> ${out} (${kb(out)} KB)`);

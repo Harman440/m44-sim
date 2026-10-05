@@ -24,7 +24,11 @@ export interface FireBonus {
 export interface CommandCardProps {
   id?: string;
   name?: string;
+  /** The name printed on the card face when it is shorter than `name` ("Batida" for "Batida en el centro"); defaults to `name` */
+  title?: string;
   description?: string;
+  /** A few words printed on a tactic card's face; defaults to `description` */
+  summary?: string;
   /** A tactic card (drawn differently); otherwise a section card */
   tactic?: boolean;
   /** Sections it orders units in, or "chosen": one section the player picks when playing it. Defaults to all three. */
@@ -73,7 +77,9 @@ class CommandCard {
   private static counter = 1;
   readonly id: string;
   readonly name: string;
+  readonly title: string;
   readonly description: string;
+  readonly summary: string;
   readonly tactic: boolean;
   readonly sections: readonly Section[] | "chosen";
   readonly unitTypes: readonly UnitType[] | null;
@@ -93,7 +99,9 @@ class CommandCard {
   constructor({
     id = `command-card-${CommandCard.counter++}`,
     name = "",
+    title,
     description = "",
+    summary,
     tactic = false,
     sections = SECTIONS,
     unitTypes,
@@ -112,7 +120,9 @@ class CommandCard {
   }: CommandCardProps) {
     this.id = id;
     this.name = name;
+    this.title = title ?? name;
     this.description = description;
+    this.summary = summary ?? description;
     this.tactic = tactic;
     this.sections = sections;
     this.unitTypes = unitTypes ?? null;

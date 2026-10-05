@@ -1,7 +1,8 @@
 /*
- * Cards are drawn like the game's: playing-card shaped (5:7). Everything on a
- * card is sized in em from its width, so the same card can be shown small in
- * the hand or large in a preview: set --card-width on the card or a parent.
+ * Cards are drawn like the game's: playing-card shaped (5:7). A card is laid
+ * out once, at 180px wide (its face, 16px text), and scaled to --card-width,
+ * so it looks exactly the same small in the hand or large in a preview: it
+ * only zooms. Set --card-width on the card or a parent.
  * A card shows its name and its art; the text is in its details (CardDetails).
  */
 /* A command card is a <button>: drop the button look first, before the card's own */
@@ -9,14 +10,30 @@
   all: unset;
 }
 
+/* The card's place on the page, at its size; the face inside is scaled to fill it */
 .game-card {
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  display: block;
   flex: 0 0 auto;
   width: var(--card-width, 180px);
   aspect-ratio: 5 / 7;
-  font-size: calc(var(--card-width, 180px) / 11.25); /* 16px on a 180px card */
+  /* --card-width / 180px as a number (tan(atan2()) divides two lengths) */
+  --card-scale: tan(atan2(var(--card-width, 180px), 180px));
+}
+
+.game-card__face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 180px;
+  height: 252px;
+  font-size: 16px;
+  transform: scale(var(--card-scale));
+  transform-origin: 0 0;
   overflow: hidden;
   background: var(--m44-paper);
   color: var(--m44-ink);
@@ -56,11 +73,11 @@
   outline-offset: 3px;
 }
 
-/* Title band, with a printed-ink sheen and a rule under it; the order count on its right */
+/* Title band, with a printed-ink sheen and a rule under it */
 .command-card__band {
   display: flex;
   align-items: center;
-  gap: 0.4em;
+  justify-content: center;
   flex: none;
   min-height: 2.9em;
   box-sizing: border-box;
@@ -72,63 +89,89 @@
   border-bottom: 2px solid color-mix(in srgb, var(--card-accent) 55%, var(--m44-ink));
 }
 
-/* The art fills the rest of the card */
+/* The art fills the rest of the card: the painting, then the board or the summary */
 .command-card__art {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
-  padding: 0.45em;
+  flex-direction: column;
+  gap: 0.3em;
+  padding: 0.4em 0.45em 0.45em;
 }
 
 .card-title {
-  flex: 1;
   min-width: 0;
   margin: 0;
   font-family: var(--m44-font-display);
   font-weight: 400;
-  font-size: 0.95em;
+  font-size: 1.2em;
   line-height: 1.15;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.1em;
+  text-align: center;
   text-transform: uppercase;
   /* Long single words (Reconocimiento) break instead of running off the card */
   hyphens: auto;
   overflow-wrap: anywhere;
 }
 
-.command-card__orders {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.9em;
-  height: 2.9em;
-  padding: 0 0.4em;
-  box-sizing: border-box;
-  border-radius: 1.45em;
-  background: var(--card-accent);
-  color: var(--card-on-accent);
-  border: 2px solid var(--card-on-accent);
-  box-shadow: 0 2px 4px color-mix(in srgb, #000 35%, transparent);
-  transform: rotate(-6deg);
-}
-
-.command-card__count {
-  font-family: var(--m44-font-display);
-  font-size: 1.7em;
-  line-height: 0.95;
-}
-
-/* A word ("Todas") instead of a number */
-.command-card__count--word {
+/* A long name (Movimiento en Pinza) on two lines, smaller */
+.card-title--long {
   font-size: 0.95em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-wrap: balance;
 }
 
-.command-card__orders-unit {
-  font-size: 0.58em;
-  line-height: 1.1;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+/*
+ * Section cards (Batida, Ataque, Asalto): a green card, very light or dark
+ * with the look's paper, with the cut-out painting and the arrow under the title
+ */
+.command-card--section .game-card__face {
+  background:
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, #fff 12%, transparent), transparent 65%),
+    color-mix(in srgb, var(--m44-paper) 84%, #5f8a3a);
 }
 
+/* A lighter tint on the ordered section, so the arrow in the same colour stands out */
+.command-card--section .card-art__hex--on {
+  fill: color-mix(in srgb, var(--card-accent) 22%, var(--art-hex));
+  stroke: color-mix(in srgb, var(--card-accent) 40%, var(--art-line));
+}
+
+/* Tactic cards: the look's accent, the painting and a few words under it */
+.command-card--tactic .game-card__face {
+  background:
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, #fff 12%, transparent), transparent 65%),
+    color-mix(in srgb, var(--m44-paper) 86%, var(--m44-accent));
+}
+
+.tactic-art__painting-frame {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.tactic-art__painting {
+  display: block;
+  max-width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0.15em 0.2em color-mix(in srgb, #000 30%, transparent));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* The summary, on a strip of the card's paper */
+.tactic-art__summary {
+  flex: none;
+  box-sizing: border-box;
+  padding: 0.4em 0.5em;
+  border-radius: var(--m44-radius);
+  background: color-mix(in srgb, var(--m44-paper) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, var(--m44-ink));
+  color: var(--m44-ink);
+  font-size: 0.78em;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
