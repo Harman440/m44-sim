@@ -1,11 +1,15 @@
-import type { ReactNode } from "react";
-import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, ToggleButton, Typography } from "@mui/material";
+import { lazy, ReactNode, Suspense, useState } from "react";
+import { Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, ToggleButton, Typography } from "@mui/material";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon, { GameIconName } from "../GameIcon";
 import InfoButton from "../InfoButton";
 import { Scenario } from "../../types/scenario";
 import { FACTIONS, Faction } from "../../types/faction";
 import { FACTION_LABELS } from "../../labels";
+import { STARTING_COMBAT_CARDS, combatDeckEntries } from "../../data/combatCards";
+
+// The card art is the game screen's code, left out of the menu's first download
+const CombatDeckDialog = lazy(() => import("./CombatDeckDialog"));
 
 const sideKey = (faction: Faction) => (faction === "Axis" ? "axis" : "allies");
 
@@ -17,7 +21,7 @@ interface ScenarioDetailsProps {
 }
 
 /** An icon with a count beside it, e.g. the cards in the starting hand */
-function IconCount({ icon, count, label, size = 26 }: { icon: GameIconName; count: number; label: string; size?: number }) {
+function IconCount({ icon, count, label, size = 26 }: { icon: GameIconName; count: number; label?: string; size?: number }) {
   return (
     <Box component="span" aria-label={label} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, whiteSpace: "nowrap" }}>
       <GameIcon name={icon} size={size} />
@@ -28,12 +32,6 @@ function IconCount({ icon, count, label, size = 26 }: { icon: GameIconName; coun
   );
 }
 
-const No = () => (
-  <Typography variant="body2" color="text.secondary" component="span">
-    No
-  </Typography>
-);
-
 interface DetailRow {
   label: string;
   /** What the row means, behind an "i" */
@@ -41,7 +39,7 @@ interface DetailRow {
   value: (faction: Faction) => ReactNode;
 }
 
-function detailRows(scenario: Scenario): DetailRow[] {
+function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void): DetailRow[] {
   return [
     {
       label: "Papel",
@@ -83,52 +81,44 @@ function detailRows(scenario: Scenario): DetailRow[] {
       },
     },
     {
-      label: "Artillería pesada",
-      info: (
-        <Typography variant="body1">
-          Un bando con artillería pesada tiene en su mazo de combate la carta <strong>Cortina de Fuego</strong>:
-          4 dados de ataque contra una casilla.
-        </Typography>
-      ),
-      value: (faction) =>
-        (scenario.bigGuns?.includes(faction) ?? true) ? (
-          <Box component="span" aria-label="Sí" sx={{ display: "inline-flex" }}>
-            <GameIcon name="bigGuns" size={40} />
-          </Box>
-        ) : (
-          <No />
-        ),
-    },
-    {
-      label: "Aviación",
+      label: "Cartas de combate",
       info: (
         <Stack spacing={1}>
           <Typography variant="body1">
-            Las cartas aéreas que entran en el mazo de combate, de cada una:
+            Cada bando tiene su mazo de cartas de combate, que se pagan con suministros, y empieza con{" "}
+            {STARTING_COMBAT_CARDS} en la mano. Unas cartas las tienen los dos bandos; otras dependen del escenario:
+            de si ataca o defiende, de sus unidades y las del enemigo, del mapa, de su artillería pesada y de su
+            aviación. Toca el número de un bando para ver sus cartas y por qué las tiene.
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <GameIcon name="strafe" size={36} />
-            <Typography variant="body1">
-              <strong>Poder aéreo</strong>: un ametrallamiento, 1 dado contra cada casilla de una cadena de 4.
-            </Typography>
+            <GameIcon name="bigGuns" size={32} />
+            <Typography variant="body1">Tiene artillería pesada: la carta Cortina de Fuego.</Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <GameIcon name="bomb" size={28} />
-            <Typography variant="body1">
-              <strong>Bombardeo aéreo</strong>: 2 dados en cada una de 2 casillas.
-            </Typography>
+            <GameIcon name="strafe" size={32} />
+            <Typography variant="body1">Tiene aviación: Poder aéreo y Bombardeo aéreo.</Typography>
           </Stack>
-          <Typography variant="body1">Sin aviación, el enemigo domina el cielo.</Typography>
         </Stack>
       ),
       value: (faction) => {
-        const air = scenario.airPower?.[sideKey(faction)] ?? 1;
-        if (air === 0) return <No />;
+        const entries = combatDeckEntries(scenario, faction);
+        const count = entries.reduce((sum, { copies }) => sum + copies, 0);
+        // At a glance: whether the deck has the big guns' and the air cards
+        const bigGuns = entries.some(({ reason }) => reason === "bigGuns");
+        const air = entries.some(({ reason }) => reason === "air");
+        const extras = [bigGuns && "artillería pesada", air && "aviación"].filter(Boolean).join(" y ");
         return (
-          <Stack direction="row" spacing={1.5} sx={{ justifyContent: "center", flexWrap: "wrap" }}>
-            <IconCount icon="strafe" count={air} label={`${air} Poder aéreo`} size={36} />
-            <IconCount icon="bomb" count={air} label={`${air} Bombardeo aéreo`} size={30} />
-          </Stack>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => onShowDeck(faction)}
+            aria-label={`Ver las ${count} cartas de combate de ${FACTION_LABELS[faction]}${extras && `, con ${extras}`}`}
+            sx={{ minWidth: 0, px: 1.5, gap: 1, flexWrap: "wrap" }}
+          >
+            <IconCount icon="cards" count={count} />
+            {bigGuns && <GameIcon name="bigGuns" size={34} />}
+            {air && <GameIcon name="strafe" size={34} />}
+          </Button>
         );
       },
     },
@@ -140,47 +130,60 @@ function detailRows(scenario: Scenario): DetailRow[] {
  * device plays, and the rows show what each starts with
  */
 function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsProps) {
+  const [deckShown, setDeckShown] = useState<Faction | null>(null);
   const picked = (f: Faction) => (f === faction ? { bgcolor: "action.selected" } : {});
   return (
-    <Table size="small" aria-label={`Bandos de ${scenario.name}`} sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
-      <TableHead>
-        <TableRow>
-          <TableCell sx={{ width: "34%" }} />
-          {FACTIONS.map((f) => (
-            <TableCell key={f} align="center" sx={{ ...picked(f), pb: 1 }}>
-              <ToggleButton
-                value={f}
-                selected={f === faction}
-                onChange={() => onPickFaction(f)}
-                sx={{ width: "100%", minHeight: 56, fontSize: "1.05rem", gap: 1, flexWrap: "wrap" }}
-              >
-                <FactionInsignia faction={f} size={28} decorative />
-                {FACTION_LABELS[f]}
-              </ToggleButton>
-            </TableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {detailRows(scenario).map((row) => (
-          <TableRow key={row.label}>
-            <TableCell component="th" scope="row">
-              <Stack direction="row" sx={{ alignItems: "center" }}>
-                <Typography variant="body2" color="text.secondary" component="span" sx={{ minWidth: 0 }}>
-                  {row.label}
-                </Typography>
-                <InfoButton title={row.label}>{row.info}</InfoButton>
-              </Stack>
-            </TableCell>
+    <>
+      <Table size="small" aria-label={`Bandos de ${scenario.name}`} sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ width: "34%" }} />
             {FACTIONS.map((f) => (
-              <TableCell key={f} align="center" sx={picked(f)}>
-                {row.value(f)}
+              <TableCell key={f} align="center" sx={{ ...picked(f), pb: 1 }}>
+                <ToggleButton
+                  value={f}
+                  selected={f === faction}
+                  onChange={() => onPickFaction(f)}
+                  sx={{ width: "100%", minHeight: 56, fontSize: "1.05rem", gap: 1, flexWrap: "wrap" }}
+                >
+                  <FactionInsignia faction={f} size={28} decorative />
+                  {FACTION_LABELS[f]}
+                </ToggleButton>
               </TableCell>
             ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHead>
+        <TableBody>
+          {detailRows(scenario, setDeckShown).map((row) => (
+            <TableRow key={row.label}>
+              <TableCell component="th" scope="row">
+                <Stack direction="row" sx={{ alignItems: "center" }}>
+                  <Typography variant="body2" color="text.secondary" component="span" sx={{ minWidth: 0 }}>
+                    {row.label}
+                  </Typography>
+                  <InfoButton title={row.label}>{row.info}</InfoButton>
+                </Stack>
+              </TableCell>
+              {FACTIONS.map((f) => (
+                <TableCell key={f} align="center" sx={picked(f)}>
+                  {row.value(f)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {deckShown && (
+        <Suspense fallback={null}>
+          <CombatDeckDialog
+            open
+            onClose={() => setDeckShown(null)}
+            faction={deckShown}
+            entries={combatDeckEntries(scenario, deckShown)}
+          />
+        </Suspense>
+      )}
+    </>
   );
 }
 

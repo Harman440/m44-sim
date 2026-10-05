@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combatDeckFor } from "./combatCards";
+import { combatDeckEntries, combatDeckFor } from "./combatCards";
 import { scenarios } from "./scenarios";
 import { Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -90,5 +90,19 @@ describe("combat card data", () => {
     expect(copies(sorties, "Allies", "Poder aéreo")).toBe(2);
     expect(copies(sorties, "Allies", "Bombardeo aéreo")).toBe(2);
     expect(names(sorties, "Axis")).not.toContain("Bombardeo aéreo");
+  });
+
+  it("lists a side's deck one entry per card, with its copies and why the side gets it", () => {
+    const arracourt = scenario("arracourt");
+    const entries = combatDeckEntries(arracourt, "Axis");
+    const reason = (name: string) => entries.find(({ card }) => card.name === name)?.reason;
+
+    expect(entries.reduce((sum, { copies }) => sum + copies, 0)).toBe(combatDeckFor(arracourt, "Axis").length);
+    expect(reason("Fragor del combate")).toBe("attacker");
+    expect(entries.find(({ card }) => card.name === "Sin tregua")?.copies).toBe(2);
+    expect(reason("Médico")).toBe("shared");
+    expect(reason("Cortina de Fuego")).toBeUndefined();
+    expect(combatDeckEntries(arracourt, "Allies").find(({ card }) => card.name === "Cortina de Fuego")?.reason).toBe("bigGuns");
+    expect(combatDeckEntries(arracourt, "Allies").find(({ card }) => card.name === "Poder aéreo")?.reason).toBe("air");
   });
 });

@@ -32,8 +32,8 @@ interface CombatCardTemplate {
   description: string;
   cost: number;
   phase: CombatPhase;
-  /** Copies in this side's deck (0: not in it) */
-  copies: Copies;
+  /** Why a side gets it, and how many copies */
+  rule: DeckRule;
   marker?: MarkerRule;
   tableReminder?: string;
   effect?: CombatEffect;
@@ -52,12 +52,32 @@ interface SideContext {
   air: number;
 }
 
-type Copies = (side: SideContext) => number;
+/** Why a card is in a side's deck: what the side (or the map, or the enemy) has */
+export type DeckReason =
+  | "shared"
+  | "attacker"
+  | "defender"
+  | "tanks"
+  | "artillery"
+  | "enemyTanks"
+  | "towns"
+  | "bigGuns"
+  | "air";
 
-const always: Copies = () => 1;
-const defensive: Copies = (side) => (side.attacker ? 0 : 1);
-const offensive: Copies = (side) => (side.attacker ? 1 : 0);
-const ifSide = (has: (side: SideContext) => boolean): Copies => (side) => (has(side) ? 1 : 0);
+interface DeckRule {
+  reason: DeckReason;
+  /** Copies in this side's deck (0: not in it) */
+  copies: (side: SideContext) => number;
+}
+
+const always: DeckRule = { reason: "shared", copies: () => 1 };
+const defensive: DeckRule = { reason: "defender", copies: (side) => (side.attacker ? 0 : 1) };
+const offensive: DeckRule = { reason: "attacker", copies: (side) => (side.attacker ? 1 : 0) };
+const ifSide = (reason: DeckReason, has: (side: SideContext) => boolean): DeckRule => ({
+  reason,
+  copies: (side) => (has(side) ? 1 : 0),
+});
+const airCards: DeckRule = { reason: "air", copies: (side) => side.air };
 
 type Extra = Pick<CombatCardTemplate, "marker" | "tableReminder" | "effect">;
 
@@ -65,23 +85,23 @@ const order = (
   id: string,
   name: string,
   cost: number,
-  copies: Copies,
+  rule: DeckRule,
   description: string,
   extra: Extra = {}
-): CombatCardTemplate => ({ id, name, description, cost, phase: "order", copies, ...extra });
+): CombatCardTemplate => ({ id, name, description, cost, phase: "order", rule, ...extra });
 
 const battle = (
   id: string,
   name: string,
   cost: number,
-  copies: Copies,
+  rule: DeckRule,
   description: string,
   extra: Extra = {}
-): CombatCardTemplate => ({ id, name, description, cost, phase: "battle", copies, ...extra });
+): CombatCardTemplate => ({ id, name, description, cost, phase: "battle", rule, ...extra });
 
 const TEMPLATES: CombatCardTemplate[] = [
   // Played with the command card
-  order("rattenkrieg", "Rattenkrieg", 2, ifSide((side) => side.towns > RATTENKRIEG_MIN_TOWNS),
+  order("rattenkrieg", "Rattenkrieg", 2, ifSide("towns", (side) => side.towns > RATTENKRIEG_MIN_TOWNS),
     "1 infantería en un edificio o junto a uno se mueve hasta 3 casillas por cualquier terreno y debe terminar en un edificio. Aun así puede combatir.",
     {
       effect: {
@@ -96,14 +116,14 @@ const TEMPLATES: CombatCardTemplate[] = [
         notOnTheMove: true,
       },
     }),
-  order("no-respite", "Sin tregua", 1, (side) => (side.attacker ? 2 : 0),
+  order("no-respite", "Sin tregua", 1, { reason: "attacker", copies: (side) => (side.attacker ? 2 : 0) },
     "1 unidad entra en un bosque, un pueblo o un seto y aun así puede combatir.",
     { effect: { kind: "move", units: 1, fireInto: [HexType.FOREST, HexType.TOWN, HexType.HEDGEROW] } }),
-  order("armor-forward", "Blindados adelante", 2, ifSide((side) => side.tanks),
+  order("armor-forward", "Blindados adelante", 2, ifSide("tanks", (side) => side.tanks),
     "3 unidades de blindados ignoran el terreno al moverse (las restricciones de combate se mantienen).",
     { effect: { kind: "move", units: 3, unitTypes: [UnitType.TANK], ignoreTerrain: true } }),
   order("medic", "Médico", 2, always, "1 infantería debilitada con orden recupera hasta 2 figuras."),
-  order("mechanic", "Mecánico", 2, ifSide((side) => side.tanks), "1 unidad de blindados o artillería debilitada con orden recupera 1 figura."),
+  order("mechanic", "Mecánico", 2, ifSide("tanks", (side) => side.tanks), "1 unidad de blindados o artillería debilitada con orden recupera 1 figura."),
   order("infiltrators", "Tras las líneas enemigas", 4, always,
     "1 infantería con orden se mueve hasta 3 casillas sin que el terreno la detenga y aun así combate, antes que cualquier otra unidad (las restricciones de combate se mantienen). En la fase final se mueve otras 3 casillas.",
     {
@@ -121,7 +141,7 @@ const TEMPLATES: CombatCardTemplate[] = [
     }),
   order("motorized", "Motorizado", 3, offensive, "3 unidades mueven 1 casilla más.",
     { effect: { kind: "move", units: 3, moveBonus: 1 } }),
-  order("air-bombardment", "Bombardeo aéreo", 4, (side) => side.air,
+  order("air-bombardment", "Bombardeo aéreo", 4, airCards,
     "Elige 2 casillas que no estén junto a tus unidades: 2 dados de ataque (con una granada en lugar del suministro) en cada una si hay una unidad. Las banderas no se pueden ignorar.",
     { marker: { kind: "target", count: 2, awayFromOwnUnits: true }, effect: { kind: "attack", dicePerHex: 2 } }),
   order("reinforcements", "Refuerzos", 6, always,
@@ -129,10 +149,10 @@ const TEMPLATES: CombatCardTemplate[] = [
     { marker: { kind: "cross", count: 1 }, effect: { kind: "reinforcements" } }),
   order("tactician", "Táctico", 2, always, "Cambia la sección de una carta de sección.",
     { effect: { kind: "changeSection" } }),
-  order("barrage", "Cortina de Fuego", 4, ifSide((side) => side.bigGuns),
+  order("barrage", "Cortina de Fuego", 4, ifSide("bigGuns", (side) => side.bigGuns),
     "Marca una casilla: si hay una unidad enemiga, tira 4 dados de ataque (con una granada en lugar del suministro) contra ella. Las retiradas no se pueden ignorar.",
     { marker: { kind: "target", count: 1 }, effect: { kind: "attack", dicePerHex: 4 } }),
-  order("air-power", "Poder aéreo", 3, (side) => side.air,
+  order("air-power", "Poder aéreo", 3, airCards,
     "Marca 4 casillas adyacentes, en cadena: 1 dado de ataque (con una granada en lugar del suministro) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
     { marker: { kind: "target", count: 4, chain: true }, effect: { kind: "attack", dicePerHex: 1 } }),
 
@@ -149,43 +169,42 @@ const TEMPLATES: CombatCardTemplate[] = [
     { effect: { kind: "ambush" } }),
   battle("pull-back", "Repliegue", 3, defensive, "Antes de que el enemigo combata, retira tu unidad hasta 2 casillas.",
     { tableReminder: "Repliegue: refleja en «Actualizar mapa» la unidad que se replegó." }),
-  battle("out-of-fuel", "Sin combustible", 3, ifSide((side) => side.enemyTanks),
+  battle("out-of-fuel", "Sin combustible", 3, ifSide("enemyTanks", (side) => side.enemyTanks),
     "1 unidad de blindados enemiga no puede combatir y vuelve a su casilla de salida."),
   battle("not-a-step-back", "Ni un paso atrás", 1, defensive, "1 unidad ignora todas las retiradas."),
   battle("camouflage", "Camuflaje", 2, defensive, "Después de la batalla, pon 1 ficha de camuflaje en una unidad con orden.", {
     tableReminder: "Camuflaje: pon la ficha de camuflaje en la mesa, en una unidad con orden.",
   }),
-  battle("reposition", "Reposicionamiento", 2, ifSide((side) => side.artillery), "Después de la batalla, toda la artillería con orden se mueve 2 casillas.",
+  battle("reposition", "Reposicionamiento", 2, ifSide("artillery", (side) => side.artillery), "Después de la batalla, toda la artillería con orden se mueve 2 casillas.",
     { tableReminder: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con orden y refléjalo en «Actualizar mapa»." }),
   battle("fortify", "Fortificar", 1, defensive, "Después de la batalla, pon sacos terreros en una infantería o artillería.", {
     tableReminder: "Fortificar: pon sacos terreros en la mesa, en una infantería o artillería.",
   }),
-  battle("spotter", "Observador", 1, ifSide((side) => side.artillery), "1 artillería tira 1 dado más.",
+  battle("spotter", "Observador", 1, ifSide("artillery", (side) => side.artillery), "1 artillería tira 1 dado más.",
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } }),
   battle("personal-armor", "Blindaje personal", 1, always, "Después de que el rival tire, ignora 1 resultado de infantería."),
   battle("explosives", "Explosivos", 1, always, "1 infantería tira 1 dado más en asalto cercano.",
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true } }),
-  battle("shells-shortage", "Escasez de proyectiles", 2, ifSide((side) => side.enemyTanks), "1 unidad de artillería o blindados enemiga no puede disparar."),
+  battle("shells-shortage", "Escasez de proyectiles", 2, ifSide("enemyTanks", (side) => side.enemyTanks), "1 unidad de artillería o blindados enemiga no puede disparar."),
   battle("rifles-up", "¡Fusiles arriba!", 1, always, "Elige una unidad tuya: dispara antes que nadie.",
     { effect: { kind: "firesFirst" } }),
 ];
 
 /** One card per copy; copies get a numbered id so saves can tell them apart */
 function buildDeck(templates: CombatCardTemplate[], side: SideContext): CombatCard[] {
-  return templates.flatMap(({ copies, ...card }) =>
-    Array.from({ length: copies(side) }, (_, i) => ({ ...card, id: `${card.id}-${i + 1}` }))
+  return templates.flatMap(({ rule, ...card }) =>
+    Array.from({ length: rule.copies(side) }, (_, i) => ({ ...card, id: `${card.id}-${i + 1}` }))
   );
 }
 
 /** One of every combat card, whatever the scenario: the test mode's hand */
 export function allCombatCards(): CombatCard[] {
-  return TEMPLATES.map(({ copies: _, ...card }) => ({ ...card, id: `${card.id}-1` }));
+  return TEMPLATES.map(({ rule: _, ...card }) => ({ ...card, id: `${card.id}-1` }));
 }
 
-/** The combat deck this side gets in the scenario */
-export function combatDeckFor(scenario: Scenario, faction: Faction): CombatCard[] {
+function sideContext(scenario: Scenario, faction: Faction): SideContext {
   const enemy: Faction = faction === "Axis" ? "Allies" : "Axis";
-  return buildDeck(TEMPLATES, {
+  return {
     attacker: scenario.attacker === faction,
     tanks: hasUnits(scenario, faction, UnitType.TANK),
     artillery: hasUnits(scenario, faction, UnitType.ARTILLERY),
@@ -193,5 +212,26 @@ export function combatDeckFor(scenario: Scenario, faction: Faction): CombatCard[
     towns: scenario.tiles[HexType.TOWN]?.length ?? 0,
     bigGuns: scenario.bigGuns?.includes(faction) ?? true,
     air: scenario.airPower?.[faction === "Axis" ? "axis" : "allies"] ?? 1,
+  };
+}
+
+/** The combat deck this side gets in the scenario */
+export function combatDeckFor(scenario: Scenario, faction: Faction): CombatCard[] {
+  return buildDeck(TEMPLATES, sideContext(scenario, faction));
+}
+
+/** A card in a side's combat deck, with its copies and why the side gets it */
+export interface CombatDeckEntry {
+  card: CombatCard;
+  copies: number;
+  reason: DeckReason;
+}
+
+/** The side's combat deck one entry per card, to show what it holds and why */
+export function combatDeckEntries(scenario: Scenario, faction: Faction): CombatDeckEntry[] {
+  const side = sideContext(scenario, faction);
+  return TEMPLATES.flatMap(({ rule, ...card }) => {
+    const copies = rule.copies(side);
+    return copies > 0 ? [{ card: { ...card, id: `${card.id}-1` }, copies, reason: rule.reason }] : [];
   });
 }
