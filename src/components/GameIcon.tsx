@@ -17,6 +17,9 @@ import bugleCall from "../assets/icons/bugle-call.svg";
 import scroll from "../assets/icons/scroll-unfurled.svg";
 import save from "../assets/icons/save.svg";
 import woodenCrate from "../assets/icons/wooden-crate.svg";
+import fieldGun from "../assets/icons/field-gun.svg";
+import airplane from "../assets/icons/airplane.svg";
+import fallingBomb from "../assets/icons/falling-bomb.svg";
 
 const ICONS = {
   settings: cog,
@@ -36,6 +39,12 @@ const ICONS = {
   download: save,
   /** The supplies ("suministros"; "coins" in the code) */
   coins: woodenCrate,
+  /** Heavy artillery (Cortina de Fuego) */
+  bigGuns: fieldGun,
+  /** Strafing (Poder aéreo) */
+  strafe: airplane,
+  /** Air bombardment (Bombardeo aéreo) */
+  bomb: fallingBomb,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;

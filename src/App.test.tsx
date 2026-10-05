@@ -5,9 +5,12 @@ import GameView from "./components/mainComponents/LazyGameView";
 import { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./components/mainComponents/GameViews/CardsView";
 
 const start = (faction: "Aliados" | "Eje") => {
+  fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
   fireEvent.click(screen.getByRole("button", { name: faction }));
-  fireEvent.click(screen.getByRole("button", { name: "Empezar partida" }));
+  fireEvent.click(screen.getByRole("button", { name: `Empezar con ${faction}` }));
 };
+
+const menuHeading = () => screen.getByRole("heading", { name: "Elige escenario:" });
 
 const openExitDialog = () => {
   fireEvent.click(screen.getByRole("button", { name: "Menú" }));
@@ -43,14 +46,26 @@ afterEach(() => {
 });
 
 describe("App menu and game flow", () => {
-  it("only starts once a side is chosen, and shows its starting hand", () => {
+  it("asks for a scenario, then shows its sides and only starts once one is chosen", () => {
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Aliados" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
+    expect(screen.getByRole("button", { name: "Elige bando" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Eje" }));
-    expect(screen.getByText(/^Empiezas con 3 cartas de mando\. Defiendes/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
-    expect(screen.getByText(/^Empiezas con 5 cartas de mando\. Atacas/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Eje" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Empezar con Eje" })).toBeEnabled();
+  });
+
+  it("keeps the test rules in Ajustes and warns when one is on", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustes" }));
+    fireEvent.click(screen.getByLabelText("Dado de 8 caras a distancia"));
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+    fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
+
+    expect(screen.getByText(/Reglas de prueba: dado de 8 caras a distancia/)).toBeInTheDocument();
   });
 
   it("starts a game for the chosen side, with the turn and phase in the header", () => {
@@ -91,20 +106,7 @@ describe("App menu and game flow", () => {
 
     openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Salir" }));
-    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
-  });
-
-  it("remembers the last side chosen on this device", () => {
-    const { unmount } = render(<App />);
-    start("Eje");
-    openExitDialog();
-    fireEvent.click(screen.getByRole("button", { name: "Salir" }));
-    unmount();
-
-    render(<App />);
-
-    expect(screen.getByRole("button", { name: "Eje" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeEnabled();
+    expect(menuHeading()).toBeInTheDocument();
   });
 
   it("shows a resumed hand straight away, without dealing it again", () => {
@@ -147,7 +149,7 @@ describe("App menu and game flow", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
+    expect(menuHeading()).toBeInTheDocument();
   });
 
   it("starts from the menu when the saved game can't be read", () => {
@@ -155,7 +157,7 @@ describe("App menu and game flow", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Empezar partida" })).toBeInTheDocument();
+    expect(menuHeading()).toBeInTheDocument();
     expect(localStorage.getItem("m44-sim:saved-game")).toBeNull();
   });
 

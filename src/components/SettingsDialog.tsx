@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Box,
   Button,
@@ -16,6 +17,8 @@ import { useSettings } from "../settings";
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  /** More settings shown after the device's own, e.g. the menu's rules for the next game */
+  children?: ReactNode;
 }
 
 /** A small painted sample of a look: its panel, ink, button and stamp colours in its fonts */
@@ -82,7 +85,7 @@ function LookSample({ look }: { look: Look }) {
 }
 
 /** Per-device settings: the visual look (applied straight away) and sound */
-function SettingsDialog({ open, onClose }: SettingsDialogProps) {
+function SettingsDialog({ open, onClose, children }: SettingsDialogProps) {
   const { settings, updateSettings } = useSettings();
 
   return (
@@ -140,6 +143,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           label="Efectos de sonido (dados, cartas, sellos)"
           sx={{ minHeight: 48 }}
         />
+        {children}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Listo</Button>
