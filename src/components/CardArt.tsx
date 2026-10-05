@@ -16,6 +16,7 @@ import generalsArt from "../assets/cards/british-generals.webp";
 import armourAssaultArt from "../assets/cards/armour-assault.webp";
 import hqArt from "../assets/cards/hq.webp";
 import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
+import moveOutArt from "../assets/cards/move-out.webp";
 import "./CardArt.css";
 
 // --- shared pieces
@@ -447,6 +448,7 @@ const TACTIC_PAINTINGS: Record<string, string> = {
   "armor-assault": armourAssaultArt,
   "infantry-assault": infantryAssaultArt,
   "direct-from-hq": hqArt,
+  "move-out": moveOutArt,
 };
 
 /**
