@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useId, useState } from "react";
+import { Component, CSSProperties, ReactNode, Suspense, lazy, useEffect, useId, useState } from "react";
 import { Box, useTheme } from "@mui/material";
 import { motion, useReducedMotion } from "motion/react";
 import { DieFace, DieKind, SIDES_OF } from "../game-core/dice";
@@ -8,7 +8,26 @@ import { Faction } from "../types/faction";
 import { unitSprite } from "./UnitComponent";
 import { iconUrl } from "./GameIcon";
 import { DIE_FACE_LABELS } from "../labels";
+import { DIE_STAGGER, ROLL_TIME } from "./diceTiming";
 import "./DiceResult.css";
+
+export { rollDuration } from "./diceTiming";
+
+/** The 3D dice (three.js) load in their own chunk, fetched early so the first roll is already 3D */
+const Dice3D = lazy(() => import("./dice3d/Dice3D"));
+const supports3D = typeof window !== "undefined" && typeof window.WebGL2RenderingContext !== "undefined";
+if (supports3D) void import("./dice3d/Dice3D").catch(() => {});
+
+/** Falls back to the 2D dice if the 3D ones fail (no WebGL context, a lost chunk) */
+class Dice3DBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 /** The outline of an 8-sided die, drawn as an octagon so it can't be mistaken for the normal die */
 const OCTAGON = "16,2 32,2 46,16 46,32 32,46 16,46 2,32 2,16";
@@ -74,11 +93,6 @@ export interface DiceRoll {
   id: number;
 }
 
-/** How long the dice take to land, in seconds, so what they mean can show after */
-export const rollDuration = (dice: number): number => ROLL_TIME + Math.max(0, dice - 1) * DIE_STAGGER;
-const ROLL_TIME = 0.75;
-const DIE_STAGGER = 0.12;
-
 interface RollingDieProps {
   face: DieFace;
   index: number;
@@ -124,6 +138,17 @@ function RollingDie({ face, index, faction, die, rolling }: RollingDieProps) {
   );
 }
 
+/** One roll's row of 3D dice: holds the row from its ref and when the roll was shown, and forgets both on a new roll (remounted) */
+function ThrownRow({
+  children,
+}: {
+  children: (row: HTMLDivElement | null, setRow: (row: HTMLDivElement | null) => void, shownAt: number) => ReactNode;
+}) {
+  const [row, setRow] = useState<HTMLDivElement | null>(null);
+  const [shownAt] = useState(() => performance.now());
+  return children(row, setRow, shownAt);
+}
+
 interface DiceResultProps {
   roll: DiceRoll;
   faction: Faction;
@@ -151,38 +176,84 @@ function DiceResult({
 }: DiceResultProps) {
   const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
   const hitColor = useTheme().palette.error.main;
+  const reduceMotion = useReducedMotion();
 
+  /** The row of dice; each die is drawn by `drawDie`, and `over` is laid over the row */
+  const dice = (
+    drawDie: (face: DieFace, i: number) => ReactNode,
+    rowRef?: (row: HTMLDivElement | null) => void,
+    over?: ReactNode
+  ) => (
+    // Keyed by roll so every roll replays the animation
+    <div key={roll.id} ref={rowRef} className="dice-result" data-testid="dice-result">
+      {roll.faces.map((face, i) => {
+        const hit = applied(i) && !!target && faceHits(face, target);
+        return (
+          <div
+            key={i}
+            className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}${hit ? " dice-result__die--hit" : ""}`}
+            style={hit ? ({ "--die-effect-color": hitColor } as CSSProperties) : undefined}
+          >
+            {/* The die stays mounted whether or not the dice are being picked, so it doesn't roll again */}
+            <div className="dice-result__slot">
+              {drawDie(face, i)}
+              {picking && (
+                <button
+                  type="button"
+                  className="dice-result__pick"
+                  aria-pressed={applied(i)}
+                  aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
+                  onClick={() => picking.onToggle(i)}
+                />
+              )}
+            </div>
+            {!applied(i) && <span className="dice-result__discarded">(descartado)</span>}
+          </div>
+        );
+      })}
+      {over}
+    </div>
+  );
+
+  const flat = dice((face, i) => <RollingDie face={face} index={i} faction={faction} die={die} rolling={rolling} />);
+  if (!supports3D) return <Box sx={{ mt: 1.5 }}>{flat}</Box>;
+
+  // In 3D each slot is an empty spot of the die's size, for the layout and the glow of a hit
   return (
     <Box sx={{ mt: 1.5 }}>
-      {/* Keyed by roll so every roll replays the animation */}
-      <div key={roll.id} className="dice-result" data-testid="dice-result">
-        {roll.faces.map((face, i) => {
-          const hit = applied(i) && !!target && faceHits(face, target);
-          const thrown = <RollingDie face={face} index={i} faction={faction} die={die} rolling={rolling} />;
-          return (
-            <div
-              key={i}
-              className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}${hit ? " dice-result__die--hit" : ""}`}
-              style={hit ? ({ "--die-effect-color": hitColor } as CSSProperties) : undefined}
-            >
-              {/* The die stays mounted whether or not the dice are being picked, so it doesn't roll again */}
-              <div className="dice-result__slot">
-                {thrown}
-                {picking && (
-                  <button
-                    type="button"
-                    className="dice-result__pick"
-                    aria-pressed={applied(i)}
-                    aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
-                    onClick={() => picking.onToggle(i)}
+      <Dice3DBoundary fallback={flat}>
+        <ThrownRow key={roll.id}>
+          {(row, setRow, shownAt) =>
+            dice(
+              (face, i) => (
+                <div
+                  className="die die-3d"
+                  data-die-slot
+                  role="img"
+                  aria-label={DIE_FACE_LABELS[face]}
+                  // A hit glows once its die has landed
+                  style={{ animationDelay: rolling && !reduceMotion ? `${ROLL_TIME + i * DIE_STAGGER}s` : "0s" }}
+                />
+              ),
+              setRow,
+              row && (
+                // Only the canvas waits for its chunk (fetched early, above): suspending the row would drop its ref
+                <Suspense fallback={null}>
+                  <Dice3D
+                    container={row}
+                    faces={roll.faces}
+                    die={die}
+                    faction={faction}
+                    dimmed={roll.faces.map((_, i) => !applied(i))}
+                    tumble={rolling && !reduceMotion}
+                    thrownAt={shownAt}
                   />
-                )}
-              </div>
-              {!applied(i) && <span className="dice-result__discarded">(descartado)</span>}
-            </div>
-          );
-        })}
-      </div>
+                </Suspense>
+              )
+            )
+          }
+        </ThrownRow>
+      </Dice3DBoundary>
     </Box>
   );
 }

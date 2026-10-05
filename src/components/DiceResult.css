@@ -80,3 +80,47 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The 3D dice: each slot is an empty spot the canvas draws the die over (dice3d/Dice3D) */
+.dice-result {
+  position: relative;
+}
+
+.die-3d,
+.dice-result__die--hit .die-3d {
+  position: relative;
+  filter: none;
+}
+
+/* A hit glows softly under its die, from when it lands (the slot's animation delay, set per die) */
+.dice-result__die--hit .die-3d::before {
+  content: "";
+  position: absolute;
+  inset: -22px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--die-effect-color) 45%, transparent);
+  animation: die-3d-glow-in 0.25s ease-out both;
+  animation-delay: inherit;
+}
+
+@keyframes die-3d-glow-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-result__die--hit .die-3d::before {
+    animation: none;
+  }
+}
+
+.dice-result__die--discarded .die-3d {
+  opacity: 1;
+  filter: none;
+}
+
+.dice-3d canvas {
+  filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--m44-ink, #333) 45%, transparent));
+}

@@ -42,6 +42,7 @@ export default defineConfig({
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
           if (/node_modules\/(@mui|@emotion|stylis)/.test(id)) return "mui";
           if (/node_modules\/(motion|framer-motion|motion-dom|motion-utils)\//.test(id)) return "motion";
+          if (/node_modules\/(three|@react-three)\//.test(id)) return "three";
         },
       },
     },
