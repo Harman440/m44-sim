@@ -1,19 +1,18 @@
 - Make every card work and improve art work. combat especially and command cards too
 
+- Add to each combat card a small token to tell the player why it was added: offensive, defensive, artillery, etc..
+
 - Think about special unit that hit with star
     - Use same dice as air power and create new 8 sided dice with one more tank or one more infantry depending on the unit it can hit with stars. remove one supplies
 - More air powers?? double when air superiority
 
 - Artillery when destroyed show infantry
 
-- Improve Starting Menu. Clicking on a scenario should open up another menu with the scenario information a the choose side selection
-- Show in menu different card decks for each scenario with the cards added and removed when clicked
+- Show in menu different card decks for each scenario with the cards added and removed when clicked --> improve menu when showing cards. less text
 
-- Remove the unit confirmed state. This should add an extra step to movement phase that reads "Wait for opponent to finish"
+- Improve chosen cards animation
 
-- Create the decks that depend on the scenario/side
-    - Like air rules and more
-    - Take into account sometimes a side does not have a type of unit
+- Improve choosing combat cards when choosing command cards.
 
 - Correct Foret de Ecouves
 
