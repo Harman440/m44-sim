@@ -15,6 +15,7 @@ import { GameIconName, iconUrl } from "./GameIcon";
 import generalsArt from "../assets/cards/british-generals.webp";
 import armourAssaultArt from "../assets/cards/armour-assault.webp";
 import artilleryBombardmentArt from "../assets/cards/artillery-bombardment.webp";
+import closeAssaultArt from "../assets/cards/close-assault.webp";
 import hqArt from "../assets/cards/hq.webp";
 import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
 import moveOutArt from "../assets/cards/move-out.webp";
@@ -448,6 +449,7 @@ export function SectionCardArt({ card, faction }: { card: CommandCard; faction: 
 const TACTIC_PAINTINGS: Record<string, string> = {
   "armor-assault": armourAssaultArt,
   "artillery-bombardment": artilleryBombardmentArt,
+  "close-assault": closeAssaultArt,
   "infantry-assault": infantryAssaultArt,
   "direct-from-hq": hqArt,
   "move-out": moveOutArt,
