@@ -14,11 +14,18 @@ import pegasusBridgeTiles from "./boards/pegasus-bridge.json";
 
 export const scenarios: Scenario[] = [
   {
+    // Official scenario 7045 by jdrommel (Days of Wonder archives, 12 August 1944): Leclerc's
+    // French 2e DB attacks the Germans dug into the Écouves forest. The map, units, sandbags,
+    // elite badges and hands are the official ones (in the .m44 file a column is twice ours).
+    // Écouché, the Allies' temporary medal objective, and the medals stay on the table; big
+    // guns, air and the reinforcement table are ours
     id: 'foret-decouves',
     name: "Forêt d'Écouves",
-    description: 'Bosque denso con claros dispersos y pueblos que disputar.',
+    description:
+      'Agosto de 1944: la 2.ª División Blindada de Leclerc ataca a los alemanes atrincherados en el bosque de Écouves. ' +
+      'Toda la infantería francesa es de élite: mueve 2 casillas y aún dispara; también las unidades alemanas con distintivo.',
     image: foretDEcouvesImage,
-    initialHandSize: { allies: 5, axis: 3 },
+    initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
     // August 1944: the French 2e DB attacks with American guns and Allied fighter-bombers overhead
     bigGuns: ['Allies'],
@@ -49,32 +56,29 @@ export const scenarios: Scenario[] = [
         { "row": 8, "col": 6 },
       ]
     },
+    // The German infantry dug in at Carrouges, Sées and in the forest
+    sandbags: [{ row: 3, col: 1 }, { row: 3, col: 10 }, { row: 4, col: 5 }],
+    // Every French infantry unit, and the German units with a badge (2 infantry, 1 tank)
+    elite: [
+      { row: 7, col: 3 }, { row: 7, col: 8 }, { row: 8, col: 1 }, { row: 8, col: 6 }, { row: 8, col: 7 }, { row: 8, col: 10 },
+      { row: 1, col: 2 }, { row: 1, col: 7 }, { row: 2, col: 4 },
+    ],
     units: {
-      allies:
-      {
+      allies: {
         infantry: [
-          { row: 7, col: 1 }, { row: 7, col: 2 }
+          { row: 7, col: 3 }, { row: 7, col: 8 }, { row: 8, col: 1 },
+          { row: 8, col: 6 }, { row: 8, col: 7 }, { row: 8, col: 10 },
         ],
         tank: [
-          { row: 7, col: 3 }, { row: 7, col: 4 }
+          { row: 7, col: 1 }, { row: 7, col: 7 }, { row: 7, col: 9 },
+          { row: 8, col: 3 }, { row: 8, col: 5 }, { row: 8, col: 11 },
         ],
-        artillery: [
-          { row: 7, col: 5 }, { row: 7, col: 6 }
-        ]
       },
-      axis:
-      {
-        infantry: [
-          { row: 0, col: 4 }, { row: 0, col: 5 }, { row: 0, col: 6 }, { row: 0, col: 7 }
-        ],
-        tank: [
-          { row: 0, col: 8 }, { row: 0, col: 9 }
-        ],
-        artillery: [
-          { row: 0, col: 10 }, { row: 0, col: 11 }, { row: 0, col: 12 }
-        ]
-      }
-    }
+      axis: {
+        infantry: [{ row: 1, col: 7 }, { row: 2, col: 4 }, { row: 3, col: 1 }, { row: 3, col: 10 }, { row: 4, col: 5 }],
+        tank: [{ row: 0, col: 5 }, { row: 1, col: 2 }, { row: 3, col: 8 }, { row: 4, col: 3 }],
+      },
+    },
   },
   {
     // Made up for the app, loosely after the tank battle of Arracourt (September 1944):

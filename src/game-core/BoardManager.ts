@@ -4,7 +4,7 @@ import { Factions, Position, Scenario } from "../types/scenario";
 import { Faction, isFaction } from "../types/faction";
 import { HexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
-import { positionKey } from "./position";
+import { includesPosition, positionKey } from "./position";
 
 /** Terrain rules a combat card loosens for one unit's move */
 export interface MoveRules {
@@ -85,7 +85,7 @@ class BoardManager {
       positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
-          const unit = new Unit(typedUnitType);
+          const unit = new Unit(typedUnitType, includesPosition(scenario.elite ?? [], originalPosition));
 
           const hex: Hex | null = this.getHex(position);
           if (!hex) {

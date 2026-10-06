@@ -45,6 +45,18 @@ describe("UnitComponent", () => {
     expect(spriteFor("Allies").getAttribute("href")).toBe(alliedInfantry);
   });
 
+  it("marks an elite unit with a star badge", () => {
+    const badge = (unit: Unit) =>
+      render(
+        <svg>
+          <UnitComponent x={0} y={0} faction="Allies" unitData={unit} />
+        </svg>
+      ).container.querySelector('[data-testid="elite-badge"]');
+
+    expect(badge(new Unit(UnitType.INFANTRY, true))).not.toBeNull();
+    expect(badge(new Unit(UnitType.INFANTRY))).toBeNull();
+  });
+
   it("shows a crosshair badge only when its order lets it fire", () => {
     expect(renderUnit("Allies", UnitType.TANK, true).querySelector(".unit__badge--fire")).not.toBeNull();
     expect(renderUnit("Allies", UnitType.TANK).querySelector(".unit__badge--fire")).toBeNull();

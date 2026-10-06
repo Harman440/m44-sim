@@ -53,9 +53,13 @@ describe("combat card data", () => {
     ["Mecánico", "Blindados adelante", "Observador", "Reposicionamiento", "Sin combustible", "Escasez de proyectiles"]
       .forEach((name) => expect(names(pegasus, "Allies")).not.toContain(name));
 
-    const ecouves = scenario("foret-decouves"); // both sides have tanks and artillery
+    const arracourt = scenario("arracourt"); // both sides have tanks and artillery
     ["Mecánico", "Blindados adelante", "Observador", "Reposicionamiento", "Sin combustible", "Escasez de proyectiles"]
-      .forEach((name) => expect(copies(ecouves, "Axis", name)).toBe(1));
+      .forEach((name) => expect(copies(arracourt, "Axis", name)).toBe(1));
+
+    const ecouves = scenario("foret-decouves"); // tanks but no artillery on either side
+    expect(names(ecouves, "Allies")).toContain("Mecánico");
+    expect(names(ecouves, "Allies")).not.toContain("Observador");
 
     const sme = scenario("sainte-mere-eglise"); // only the Axis has a tank
     expect(names(sme, "Allies")).toContain("Sin combustible");

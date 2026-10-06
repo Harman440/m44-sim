@@ -19,10 +19,12 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 24;
+export const SAVE_VERSION = 25;
 
 interface SavedUnit {
   type: UnitType;
+  /** An elite unit (the scenario's badge) */
+  elite?: true;
   /** null for a unit removed in this turn's battle (an undo can bring it back) */
   position: Position | null;
 }
@@ -188,7 +190,7 @@ export function writeSave(
   const savedUnits: SavedUnit[] = [];
   const addUnit = (unit: Unit, position: Position | null) => {
     units.push(unit);
-    savedUnits.push({ type: unit.getUnitType(), position });
+    savedUnits.push({ type: unit.getUnitType(), position, ...(unit.elite && { elite: true as const }) });
   };
   const unitIndex = (unit: Unit) => {
     if (!units.includes(unit)) addUnit(unit, null);
@@ -321,7 +323,7 @@ export function readSave(
   board.getAllHexes().forEach((hex) => hex.removeUnit());
   const units = saved.units.map((savedUnit) => {
     if (!isUnitType(savedUnit.type)) throw new Error(`Unknown unit type ${savedUnit.type}`);
-    const unit = new Unit(savedUnit.type);
+    const unit = new Unit(savedUnit.type, savedUnit.elite === true);
     if (savedUnit.position && !board.placeUnitAt(savedUnit.position, unit)) {
       throw new Error(`Can't place unit at ${positionKey(savedUnit.position)}`);
     }

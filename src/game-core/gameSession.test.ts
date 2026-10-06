@@ -1293,7 +1293,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 23 as 24 })).toThrow();
+    expect(broken({ version: 24 as 25 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
@@ -3058,5 +3058,34 @@ describe("GameSession sandbags", () => {
     expect(restored.board.sandbagPositions()).toEqual([ENEMY_BAGS]);
     expect(restored.undoLastOrder()).toBe(true);
     expect(restored.board.sandbagPositions()).toEqual([ENEMY_BAGS, LEFT_INF]);
+  });
+});
+
+describe("GameSession elite units", () => {
+  // The left infantry at (7,1) is elite; the one at (7,3) isn't
+  const eliteScenario: Scenario = { ...scenario, elite: [LEFT_INF] };
+  const leftTurn = () => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({ scenario: eliteScenario, faction: "Allies", initialHandSize: 1, commandCards });
+    session.pickCard(commandCards[0]!);
+    return { session, commandCards };
+  };
+
+  it("moves elite infantry 2 hexes and still fires; other infantry only 1", () => {
+    const { session } = leftTurn();
+
+    expect(session.getMoveOptions(LEFT_INF)!.limits).toMatchObject({ maxMove: 2, moveAndFire: 2 });
+    expect(session.getMoveOptions({ row: 7, col: 3 })!.limits).toMatchObject({ maxMove: 2, moveAndFire: 1 });
+    expect(session.issueOrder(LEFT_INF, { row: 5, col: 1 })).toBe(true);
+    expect(session.getSnapshot().orders[0]!.canFire).toBe(true);
+  });
+
+  it("keeps elite units elite in a save", () => {
+    const { session, commandCards } = leftTurn();
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), eliteScenario, commandCards);
+
+    expect(restored.board.getHex(LEFT_INF)!.unit!.elite).toBe(true);
+    expect(restored.board.getHex({ row: 7, col: 3 })!.unit!.elite).toBe(false);
   });
 });

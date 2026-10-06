@@ -45,6 +45,11 @@ export interface Scenario {
    * the open, infantry and armour fire at it with a die less. They go when the unit leaves the hex
    */
   sandbags?: Position[];
+  /**
+   * Hexes of the units that start as elite (either side's; a badge on the table): they move
+   * their whole move and still fire (elite infantry moves 2 and fires)
+   */
+  elite?: Position[];
   /** One side draws 2 command cards instead of 1 after each of its first `turns` turns (Pegasus Bridge: the Germans were surprised) */
   extraDraws?: { faction: Faction; turns: number };
   /**

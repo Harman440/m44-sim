@@ -52,6 +52,28 @@ describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, sce
 
     expect(board.getAllHexes().filter((h) => h.hasUnit())).toHaveLength(expected);
   });
+
+  it("puts sandbags and elite badges only where a unit starts", () => {
+    const units = [...flatten(scenario.units.allies), ...flatten(scenario.units.axis)].map(positionKey);
+
+    expect([...(scenario.sandbags ?? []), ...(scenario.elite ?? [])].map(positionKey).filter((key) => !units.includes(key))).toEqual([]);
+  });
+});
+
+describe("Forêt d'Écouves", () => {
+  const ecouves = scenarios.find((s) => s.id === "foret-decouves")!;
+  const elite = (faction: "Allies" | "Axis") =>
+    new BoardManager(ecouves, faction).getAllHexes().filter((hex) => hex.unit?.elite).map((hex) => hex.unit!.getUnitType());
+
+  it("makes every French infantry unit elite, and the badged German units", () => {
+    expect(elite("Allies")).toEqual(Array(6).fill("infantry"));
+    expect(elite("Axis").sort()).toEqual(["infantry", "infantry", "tank"]);
+  });
+
+  it("starts the Allies with 6 cards and the Axis with 5, the Allies first", () => {
+    expect(ecouves.initialHandSize).toEqual({ allies: 6, axis: 5 });
+    expect(ecouves.attacker).toBe("Allies");
+  });
 });
 
 describe("scenarios", () => {

@@ -1,7 +1,7 @@
 // labels.ts
 // Spanish UI text for game enums (code identifiers stay in English)
 import Hex from "./game-core/hex";
-import { UnitType } from "./game-core/unit";
+import Unit, { UnitType } from "./game-core/unit";
 import { DieFace, DieKind, SIX_SIDED_FACES, SixSidedFace, countFaces } from "./game-core/dice";
 import { HexType, Side } from "./types/hex";
 import { Faction } from "./types/faction";
@@ -64,10 +64,13 @@ export const describePlace = (hex: Hex | null): string =>
   hex ? `${TERRAIN_LABELS[hex.getType()]}, ${SECTION_LABELS[hex.getSide()]}` : "fuera del mapa";
 
 /** "Tanque en bosque", or just the terrain for an empty hex; "… con alambrada" on barbed wire */
+/** "Infantería", or "Infantería de élite" for a unit with the scenario's badge */
+export const unitLabel = (unit: Unit): string => UNIT_LABELS[unit.getUnitType()] + (unit.elite ? " de élite" : "");
+
 export const describeHex = (hex: Hex): string => {
   const extras = [hex.wire && "alambrada", hex.sandbags && "sacos terreros"].filter(Boolean).join(" y ");
   const terrain = TERRAIN_LABELS[hex.getType()] + (extras ? ` con ${extras}` : "");
-  return hex.unit ? `${UNIT_LABELS[hex.unit.getUnitType()]} en ${terrain}` : terrain;
+  return hex.unit ? `${unitLabel(hex.unit)} en ${terrain}` : terrain;
 };
 
 /** How far a unit moves with its order, and whether it can still fire */

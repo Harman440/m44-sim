@@ -113,9 +113,9 @@ describe("App menu and game flow", () => {
     vi.useFakeTimers();
     const first = render(<App />);
     start("Aliados");
-    dealHand(5);
+    dealHand(6);
     const hand = handTitles(first.container).map((el) => el.textContent);
-    expect(hand).toHaveLength(5);
+    expect(hand).toHaveLength(6);
     first.unmount();
 
     const { container } = render(<App />);
@@ -127,7 +127,7 @@ describe("App menu and game flow", () => {
     vi.useFakeTimers();
     const { container, unmount } = render(<App />);
     start("Aliados");
-    dealHand(5);
+    dealHand(6);
     fireEvent.click(handTitles(container)[0]!);
     fireEvent.click(screen.getByRole("button", { name: /^Jugar/ }));
     expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");

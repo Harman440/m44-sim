@@ -41,6 +41,16 @@ interface UnitProps {
 }
 
 const TOKEN_RADIUS = 27;
+
+/** A five-pointed star centred on (cx, cy) */
+const starPath = (cx: number, cy: number, outer: number, inner: number) =>
+  "M" +
+  Array.from({ length: 10 }, (_, i) => {
+    const r = i % 2 === 0 ? outer : inner;
+    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+    return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
+  }).join("L") +
+  "Z";
 const SPRITE_SIZE = 44;
 const BADGE_RADIUS = 10;
 
@@ -98,6 +108,18 @@ const UnitComponent: React.FC<UnitProps> = ({
         height={SPRITE_SIZE}
         preserveAspectRatio="xMidYMid meet"
       />
+
+      {/* The scenario's elite badge (moves its whole move and fires), top left */}
+      {unitData?.elite && (
+        <g className="unit__badge unit__badge--elite" data-testid="elite-badge">
+          <title>De élite</title>
+          <circle cx={x - TOKEN_RADIUS * 0.72} cy={badgeY} r={BADGE_RADIUS} fill="#c9a227" stroke="#f1ead6" strokeWidth={2} />
+          <path
+            d={starPath(x - TOKEN_RADIUS * 0.72, badgeY, 6.5, 2.7)}
+            fill="#3b2a07"
+          />
+        </g>
+      )}
 
       {fired ? (
         <g className="unit__badge unit__badge--fired">
