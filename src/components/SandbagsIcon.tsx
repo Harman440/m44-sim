@@ -21,7 +21,7 @@ function SandbagsIcon({ size = 36 }: { size?: number }) {
 
 /**
  * Sandbags on a hex of the SVG board: a low wall of bags curving round the
- * front of the unit token (or of the empty hex, for the enemy's), drawn over
+ * top of the unit token, facing the enemy (each side sees it at the top of its map) (or of the empty hex, for the enemy's), drawn over
  * the token so it shows. Sized for a 50-unit hex and scaled to `hexSize`.
  */
 export function SandbagsArt({ x, y, hexSize }: { x: number; y: number; hexSize: number }) {
@@ -30,8 +30,8 @@ export function SandbagsArt({ x, y, hexSize }: { x: number; y: number; hexSize: 
   return (
     <g className="sandbags" transform={`translate(${x} ${y}) scale(${hexSize / 50})`} pointerEvents="none" data-testid="sandbags">
       {Array.from({ length: bags }, (_, i) => {
-        // From lower right to lower left, round the bottom of the token
-        const angle = 25 + (130 * i) / (bags - 1);
+        // From upper left to upper right, round the top of the token
+        const angle = 205 + (130 * i) / (bags - 1);
         const rad = (angle * Math.PI) / 180;
         const cx = radius * Math.cos(rad);
         const cy = radius * Math.sin(rad);

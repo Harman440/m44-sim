@@ -25,9 +25,9 @@ describe("ScenarioDetails", () => {
     render(<ScenarioDetails scenario={arracourt} faction={null} onPickFaction={() => {}} />);
     const size = combatDeckFor(arracourt, "Allies").length;
 
-    expect(screen.getByRole("button", { name: /de Eje$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /de Eje, con artillería pesada y aviación$/ })).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: `Ver las ${size} cartas de combate de Aliados, con artillería pesada y aviación` })
+      screen.getByRole("button", { name: `Ver las ${size} cartas de combate de Aliados, con artillería pesada` })
     );
 
     const dialog = within(await screen.findByRole("dialog"));

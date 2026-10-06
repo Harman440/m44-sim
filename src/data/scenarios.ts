@@ -17,8 +17,8 @@ export const scenarios: Scenario[] = [
     // Official scenario 7045 by jdrommel (Days of Wonder archives, 12 August 1944): Leclerc's
     // French 2e DB attacks the Germans dug into the Écouves forest. The map, units, sandbags,
     // elite badges and hands are the official ones (in the .m44 file a column is twice ours).
-    // Écouché, the Allies' temporary medal objective, and the medals stay on the table; big
-    // guns, air and the reinforcement table are ours
+    // Écouché, the Allies' temporary medal objective, and the medals stay on the table; air
+    // and the reinforcement table are ours
     id: 'foret-decouves',
     name: "Forêt d'Écouves",
     description:
@@ -27,8 +27,7 @@ export const scenarios: Scenario[] = [
     image: foretDEcouvesImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
-    // August 1944: the French 2e DB attacks with American guns and Allied fighter-bombers overhead
-    bigGuns: ['Allies'],
+    // August 1944: the French 2e DB attacks with Allied fighter-bombers overhead
     airPower: { allies: 1, axis: 0 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
@@ -81,17 +80,20 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    // Made up for the app, loosely after the tank battle of Arracourt (September 1944):
-    // German armour attacks across open farmland towards the American-held village
+    // Memoir '44 scenario 23 (19 September 1944): the 111th Panzer Brigade drives on Arracourt,
+    // where the US 4th Armored Division waits in the fog. The map, units, sandbags and hands are
+    // the official ones; the medals stay on the table, and the reinforcement table is ours
     id: 'arracourt',
     name: 'Arracourt',
-    description: 'Campo abierto entre pueblos y bosquecillos: los blindados alemanes atacan el pueblo.',
+    description:
+      'Septiembre de 1944: entre la niebla, las brigadas Panzer atacan Lezey y Arracourt, ' +
+      'defendidos por los blindados de la 4.ª División Acorazada estadounidense.',
     image: arracourtImage,
-    initialHandSize: { allies: 4, axis: 5 },
+    initialHandSize: { allies: 6, axis: 4 },
     attacker: 'Axis',
-    // The American artillery and, once the fog lifted, the P-47s broke the German attacks
-    bigGuns: ['Allies'],
-    airPower: { allies: 1, axis: 0 },
+    // Air rules: one air sortie to the Axis; the other is shuffled into the deck, which gives
+    // the Allies none
+    airPower: { allies: 0, axis: 1 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
       [DieFace.TANK]: UnitType.TANK,
@@ -100,19 +102,23 @@ export const scenarios: Scenario[] = [
       [DieFace.FLAG]: null,
     },
     tiles: arracourtTiles as Tiles,
+    // The artillery dug in west of Arracourt
+    sandbags: [{ row: 7, col: 4 }],
     units: {
       allies: {
-        infantry: [{ row: 6, col: 5 }, { row: 6, col: 6 }, { row: 7, col: 1 }, { row: 7, col: 10 }],
-        tank: [{ row: 7, col: 2 }, { row: 7, col: 5 }, { row: 7, col: 7 }, { row: 6, col: 9 }],
-        artillery: [{ row: 8, col: 5 }, { row: 8, col: 7 }],
+        infantry: [{ row: 2, col: 6 }, { row: 6, col: 4 }, { row: 6, col: 9 }, { row: 7, col: 2 }, { row: 8, col: 6 }],
+        tank: [
+          { row: 3, col: 1 }, { row: 3, col: 2 }, { row: 6, col: 2 },
+          { row: 6, col: 3 }, { row: 8, col: 8 }, { row: 8, col: 9 },
+        ],
+        artillery: [{ row: 7, col: 4 }, { row: 7, col: 7 }, { row: 7, col: 9 }],
       },
       axis: {
-        infantry: [{ row: 0, col: 3 }, { row: 0, col: 6 }, { row: 0, col: 8 }, { row: 0, col: 10 }],
+        infantry: [{ row: 0, col: 3 }, { row: 0, col: 4 }, { row: 0, col: 9 }, { row: 0, col: 11 }, { row: 1, col: 1 }, { row: 1, col: 3 }],
         tank: [
-          { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 1, col: 5 },
-          { row: 1, col: 6 }, { row: 1, col: 7 }, { row: 1, col: 9 },
+          { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 0, col: 5 },
+          { row: 0, col: 6 }, { row: 0, col: 12 }, { row: 1, col: 0 }, { row: 1, col: 11 },
         ],
-        artillery: [{ row: 0, col: 5 }],
       },
     },
   },
@@ -125,9 +131,7 @@ export const scenarios: Scenario[] = [
     image: sainteMereEgliseImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
-    // The paratroopers landed without heavy guns, while German artillery shelled the town;
-    // the scenario says nothing about air superiority, so both sides keep their air cards
-    bigGuns: ['Axis'],
+    // The scenario says nothing about air superiority, so both sides keep their air cards
     paradrop: { faction: 'Allies', unitType: UnitType.INFANTRY, units: 4 },
     reinforcements: {
       [DieFace.INFANTRY]: UnitType.INFANTRY,
@@ -167,7 +171,7 @@ export const scenarios: Scenario[] = [
     initialHandSize: { allies: 6, axis: 2 },
     extraDraws: { faction: 'Axis', turns: 2 },
     attacker: 'Allies',
-    // A night glider raid on two bridges: no heavy guns or aircraft on either side
+    // A night glider raid on two bridges: no heavy guns (the player's ruling) or aircraft on either side
     bigGuns: [],
     airPower: { allies: 0, axis: 0 },
     reinforcements: {

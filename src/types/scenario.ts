@@ -54,13 +54,13 @@ export interface Scenario {
   /** One side draws 2 command cards instead of 1 after each of its first `turns` turns (Pegasus Bridge: the Germans were surprised) */
   extraDraws?: { faction: Faction; turns: number };
   /**
-   * Sides that historically had heavy guns to bombard with: only they get Cortina de Fuego.
-   * Both sides when omitted
+   * Sides that get Cortina de Fuego. Omitted (both sides) unless the scenario, or the player's
+   * own ruling, says a side has no heavy guns
    */
   bigGuns?: Faction[];
   /**
-   * Copies of each air card (Poder aéreo, Bombardeo aéreo) per side: 0 for a side whose enemy
-   * has air superiority, more for a side with several air sorties. 1 each when omitted
+   * Copies of each air card (Poder aéreo, Bombardeo aéreo) per side: one per air sortie the
+   * scenario gives the side, 0 for a side whose enemy has air superiority. 1 each when omitted
    */
   airPower?: { allies: number; axis: number };
 }

@@ -76,6 +76,22 @@ describe("Forêt d'Écouves", () => {
   });
 });
 
+describe("Arracourt", () => {
+  const arracourt = scenarios.find((s) => s.id === "arracourt")!;
+  const count = (group: UnitGroup) => Object.fromEntries(Object.entries(group).map(([type, at]) => [type, at!.length]));
+
+  it("has the official units, the Axis first with 4 cards and the Allies with 6", () => {
+    expect(count(arracourt.units.allies)).toEqual({ infantry: 5, tank: 6, artillery: 3 });
+    expect(count(arracourt.units.axis)).toEqual({ infantry: 6, tank: 8 });
+    expect(arracourt.initialHandSize).toEqual({ allies: 6, axis: 4 });
+    expect(arracourt.attacker).toBe("Axis");
+  });
+
+  it("has the official terrain", () => {
+    expect(count(arracourt.tiles as UnitGroup)).toEqual({ town: 6, forest: 12, hill: 9, river: 3, bridge: 1 });
+  });
+});
+
 describe("scenarios", () => {
   it("have distinct ids", () => {
     const ids = scenarios.map((s) => s.id);
