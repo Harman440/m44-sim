@@ -15,7 +15,7 @@ class Hex {
   private _unit: Unit | null = null;
   /** Barbed wire on the hex: removable, so it isn't part of the terrain */
   private _wire = false;
-  /** Sandbags on the hex: they protect whoever is there, and go when the unit leaves */
+  /** Sandbags on the hex (this side's unit's): they go when the unit leaves */
   private _sandbags = false;
 
   constructor(position: Position, type: HexType = HexType.PLAINS, overrides?: Partial<TerrainProperties>) {

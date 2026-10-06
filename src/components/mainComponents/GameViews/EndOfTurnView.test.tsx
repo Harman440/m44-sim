@@ -68,19 +68,6 @@ const setup = ({ openMap = true } = {}) => {
 };
 
 describe("EndOfTurnView map", () => {
-  it("mirrors the enemy's sandbags on an empty hex, and takes them away", () => {
-    const { session, tap } = setup();
-
-    tap(EMPTY);
-    fireEvent.click(screen.getByRole("button", { name: "Poner sacos terreros del rival" }));
-    expect(session.board.getHex(EMPTY)!.sandbags).toBe(true);
-
-    tap(EMPTY);
-    expect(screen.queryByRole("button", { name: "Poner sacos terreros del rival" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Quitar sacos terreros" }));
-    expect(session.board.getHex(EMPTY)!.sandbags).toBe(false);
-  });
-
   it("puts no sandbags on this side's units without Fortify", () => {
     const { tap } = setup();
 

@@ -41,8 +41,9 @@ export interface Scenario {
   /** Hexes with barbed wire: a unit that enters one stops; infantry on it fires with a die less or removes it */
   wire?: Position[];
   /**
-   * Hexes with sandbags at the start (either side's units): the unit there ignores 1 flag and, in
-   * the open, infantry and armour fire at it with a die less. They go when the unit leaves the hex
+   * Hexes with sandbags at the start (either side's units; each side's app shows only its own):
+   * the unit there ignores 1 flag and, in the open, infantry and armour fire at it with a die
+   * less. They go when the unit leaves the hex
    */
   sandbags?: Position[];
   /**

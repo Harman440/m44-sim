@@ -269,16 +269,13 @@ export type BattleEdit = (
    * `sandbags`: the unit's sandbags went with it (a crew left behind keeps them)
    */
   | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit; sandbags?: boolean }
-  /** `sandbags`: hexes whose sandbags went with the move (the unit left them, or the enemy had left its own) */
+  /** `sandbags`: hexes whose sandbags went with the move (the unit left them) */
   | { kind: "move"; from: Position; to: Position; sandbags?: Position[] }
   /** A unit that arrived: the Reinforcements card */
   | { kind: "add"; position: Position; unit: Unit }
   /** Barbed wire removed at the table (by the other side, or missed here) */
   | { kind: "wire"; position: Position }
-  /**
-   * Sandbags put down (Fortify on this side's unit, or the enemy's on an empty hex) or taken
-   * away (the enemy unit left them). `fortify`: placed for this turn's Fortify card
-   */
+  /** Sandbags put on this side's unit for this turn's Fortify card, or taken away to fix the map */
   | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
 ) & { beforeOrders?: boolean };
 
@@ -839,12 +836,13 @@ class GameSession {
   }
 
   /**
-   * Fire at a hex picked on the map: its distance, terrain and sandbags answer
-   * those questions. Only a hex in range and in sight, where the shot gets dice.
+   * Fire at a hex picked on the map: its distance and terrain answer those
+   * questions. Only a hex in range and in sight, where the shot gets dice.
+   * Sandbags are the player's answer: the enemy's aren't known here.
    */
   fireAt(
     orderIndex: number,
-    { position, infantry, useCombatBonus = false }: { position: Position; infantry: boolean; useCombatBonus?: boolean }
+    { position, infantry, sandbags, useCombatBonus = false }: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
   ): boolean {
     const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
     if (!target || !target.lineOfSight || target.dice <= 0) return false;
@@ -852,6 +850,7 @@ class GameSession {
     const answers: Record<string, string> = {
       ...mapAnswers(target),
       targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
+      sandbags: sandbags ? "yes" : "no",
     };
     if (combatBonusQuestion.appliesTo?.(context, answers) ?? false) answers.combatCard = useCombatBonus ? "yes" : "no";
     return this.fireWith(orderIndex, answers, position);
@@ -971,12 +970,12 @@ class GameSession {
   }
 
   /** Fire first with the unit at `from`, at the adjacent hex of the enemy unit attacking it (Ambush) */
-  ambushAt(from: Position, { position, infantry }: { position: Position; infantry: boolean }): boolean {
+  ambushAt(from: Position, { position, infantry, sandbags }: { position: Position; infantry: boolean; sandbags: boolean }): boolean {
     if (!this.ambushPlayed() || this.ambush || !this.canBeTarget(infantry)) return false;
     const target = this.ambushTargets(from).find((t) => samePosition(t.position, position));
     if (!target || target.dice <= 0) return false;
     const context = this.ambushContext(from)!;
-    const answers = { ...mapAnswers(target), targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER };
+    const answers = { ...mapAnswers(target), targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER, sandbags: sandbags ? "yes" : "no" };
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
     if (blocked) return false;
 
@@ -1419,7 +1418,8 @@ class GameSession {
     return this.publish();
   }
 
-  // Sandbags: they go by themselves when a unit moves off them (`moveUnit`); these mirror the rest
+  // Sandbags: only this side's (the enemy's can't be known here). They go by themselves
+  // when the unit moves off them (`moveUnit`); these mirror the rest
 
   /** Fortify was played this turn and its sandbags aren't on the map yet */
   private fortifyDue(): boolean {
@@ -1440,25 +1440,20 @@ class GameSession {
       .map((hex) => hex.getPosition());
   }
 
-  /**
-   * Whether sandbags can be put on this hex now: on this side's unit only with
-   * Fortify (`fortifiable`), on an empty hex to mirror the enemy's (its Fortify)
-   */
+  /** Whether Fortify's sandbags can be put on the unit on this hex now (`fortifiable`) */
   canPlaceSandbags(position: Position): boolean {
-    const hex = this.board.getHex(position);
-    if (!this.canEditMap() || !hex || hex.sandbags || !hex.canEnter(hex.unit)) return false;
-    return hex.hasUnit() ? includesPosition(this.fortifiable(), position) : true;
+    return this.canEditMap() && includesPosition(this.fortifiable(), position);
   }
 
+  /** Put Fortify's sandbags on one of this side's units */
   placeSandbagsAt(position: Position): boolean {
     if (!this.canPlaceSandbags(position)) return false;
-    const hex = this.board.getHex(position)!;
-    hex.setSandbags(true);
-    this.addBattleEdit({ kind: "sandbags", position: { ...position }, placed: true, ...(hex.hasUnit() && { fortify: true }) });
+    this.board.getHex(position)!.setSandbags(true);
+    this.addBattleEdit({ kind: "sandbags", position: { ...position }, placed: true, fortify: true });
     return this.publish();
   }
 
-  /** Take away sandbags that aren't on the table any more (the enemy unit left them) */
+  /** Take away sandbags that aren't on the table any more (to fix the map) */
   removeSandbagsAt(position: Position): boolean {
     if (!this.canEditMap()) return false;
     const hex = this.board.getHex(position);
@@ -1471,18 +1466,15 @@ class GameSession {
 
   /**
    * Move a unit on the board. Sandbags stay only while their unit stays, so the
-   * ones on the hex it leaves go, and any left on the hex it enters (the enemy
-   * that had them is gone). Returns those hexes, to put back on an undo, or
-   * null if the unit couldn't move.
+   * ones on the hex it leaves go. Returns the hexes whose sandbags went, to put
+   * back on an undo, or null if the unit couldn't move.
    */
   private moveUnit(from: Position, to: Position): Position[] | null {
     if (!this.board.moveUnit(from, to)) return null;
-    return [from, to]
-      .filter((position) => this.board.getHex(position)?.sandbags)
-      .map((position) => {
-        this.board.getHex(position)!.setSandbags(false);
-        return { ...position };
-      });
+    const hex = this.board.getHex(from)!;
+    if (!hex.sandbags) return [];
+    hex.setSandbags(false);
+    return [{ ...from }];
   }
 
   private restoreSandbags(positions: readonly Position[]) {

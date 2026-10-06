@@ -192,7 +192,7 @@ export function ShotResult({ shot, number, unitType, faction, board, image, roll
 /**
  * Firing with one unit. The target is picked on a map of the hexes the unit
  * can reach (FireAim), which answers the distance and terrain; the player
- * says what unit it is (the map knows its sandbags), and the dice are worked
+ * says what unit it is and whether it has sandbags, and the dice are worked
  * out. Once rolled, the shot stands: opening the unit again shows the result, and only
  * a deliberate "Anular disparo" takes it back. After a close assault, armour
  * (or infantry with Fragor del combate) can take ground and fire again.

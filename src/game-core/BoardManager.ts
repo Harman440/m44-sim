@@ -74,7 +74,6 @@ class BoardManager {
 
     // Barbed wire (flipped for Axis)
     (scenario.wire ?? []).forEach((position) => this.getHex(flipPosition(position))?.setWire(true));
-    (scenario.sandbags ?? []).forEach((position) => this.getHex(flipPosition(position))?.setSandbags(true));
 
     // Place initial units (flipped for Axis)
     const factionKey = faction.toLowerCase() as keyof Factions;
@@ -97,6 +96,12 @@ class BoardManager {
         }
       });
     }
+
+    // Sandbags, only on this side's units: the enemy's can't be known once the game starts
+    (scenario.sandbags ?? []).forEach((position) => {
+      const hex = this.getHex(flipPosition(position));
+      if (hex?.hasUnit()) hex.setSandbags(true);
+    });
   }
 
   // Get hex at specific position

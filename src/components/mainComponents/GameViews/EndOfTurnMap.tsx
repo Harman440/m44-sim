@@ -27,9 +27,8 @@ interface EndOfTurnMapProps {
  * Map of the final phase. The battle is fought and the retreats are made on
  * the physical table; this lets the player mirror the result: remove destroyed
  * units and move units that retreated or took ground (to any empty hex; the
- * table is the source of truth), put Fortify's sandbags on a unit, and mirror
- * the enemy's sandbags and the wire it removed on empty hexes. Also opened
- * from Órdenes, before any order, when the map turns out not to match the table.
+ * table is the source of truth) and put Fortify's sandbags on a unit. Also
+ * opened from Órdenes, before any order, when the map turns out not to match the table.
  */
 function EndOfTurnMap({
   faction,
@@ -64,15 +63,15 @@ function EndOfTurnMap({
       if (!session.placeReinforcement(position)) flashInvalid(position);
       return;
     }
-    // An empty hex: select it to mirror the enemy's sandbags, or take off wire
-    setSelected(hex.canEnter() ? position : null);
+    // An empty hex with barbed wire: select it to take the wire off
+    setSelected(hex.wire ? position : null);
   };
 
   const handleRemoveWire = () => {
-    if (selected) session.removeWireAt(selected);
+    if (selected && session.removeWireAt(selected) && !boardManager.getHex(selected)?.hasUnit()) setSelected(null);
   };
 
-  /** Fortify's sandbags on the selected unit, or the enemy's on the selected empty hex */
+  /** Fortify's sandbags on the selected unit */
   const handlePlaceSandbags = () => {
     if (selected && session.placeSandbagsAt(selected)) setSelected(null);
   };
@@ -118,7 +117,7 @@ function EndOfTurnMap({
         </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
           {selectedHex && !selectedHex.hasUnit()
-            ? "Casilla vacía: pon o quita los sacos terreros del rival, o quita la alambrada, como en la mesa"
+            ? "Alambrada: quítala si ya no está en la mesa"
             : selectedHex
             ? "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala"
             : game.reinforcementToPlace
@@ -141,7 +140,7 @@ function EndOfTurnMap({
               )}
               {canPlaceSandbags && (
                 <Button color="warning" onClick={handlePlaceSandbags} startIcon={<SandbagsIcon size={28} />}>
-                  {selectedHex.hasUnit() ? "Fortificar: poner sacos terreros" : "Poner sacos terreros del rival"}
+                  Fortificar: poner sacos terreros
                 </Button>
               )}
               {selectedHex.sandbags && (

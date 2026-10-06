@@ -89,18 +89,15 @@ export interface FireTarget {
   /** 1 = adjacent (close assault) */
   distance: number;
   terrain: HexType;
-  /** Dice at a target on this hex, before the questions the map can't answer (sandbags included) */
+  /** Dice at a target on this hex, before the questions the map can't answer (sandbags don't change them) */
   dice: number;
   lineOfSight: boolean;
-  /** The hex has sandbags (the enemy's, kept on the map) */
-  sandbags: boolean;
 }
 
 /** The answers the map gives for a target on this hex */
-export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain" | "sandbags">): FireAnswers => ({
+export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): FireAnswers => ({
   distance: String(target.distance),
   targetTerrain: target.terrain,
-  sandbags: target.sandbags ? "yes" : "no",
   // Only hexes in sight can be picked
   ...(target.distance > 1 ? { lineOfSight: "yes" } : {}),
 });
@@ -124,11 +121,9 @@ export function fireTargets(board: BoardManager, from: Position, firing: FireCon
     .filter(({ distance }) => distance >= 1 && distance <= range)
     .map(({ hex, distance }) => {
       const terrain = hex.getType();
-      const sandbags = hex.sandbags;
       // The combat card's dice count: it can make a hex worth firing at
-      const answers = { ...mapAnswers({ distance, terrain, sandbags }), combatCard: "yes" };
+      const answers = { ...mapAnswers({ distance, terrain }), combatCard: "yes" };
       const { dice } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-      const lineOfSight = !needsSight || hasLineOfSight(board, from, hex.getPosition());
-      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight, sandbags };
+      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight: !needsSight || hasLineOfSight(board, from, hex.getPosition()) };
     });
 }
