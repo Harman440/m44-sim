@@ -1,0 +1,5 @@
+- cards that affect a dice roll could be used in dice roll modal
+- improve card selection in card phase
+- i still think the confirmed orders phase is redundant
+-   - especially when the card is shown as a "i" and then shown as card when in movement phase
+    - 
