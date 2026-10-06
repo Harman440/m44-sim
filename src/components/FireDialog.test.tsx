@@ -196,12 +196,21 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · a distancia · dado de 8 caras"));
   });
 
-  it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", async () => {
-    open(UnitType.INFANTRY);
+  /** Infantry ready to fire, with sandbags on the map at `bags` */
+  const openWithSandbags = (bags: Position) => {
+    const session = makeSession(UnitType.INFANTRY);
+    session.board.getHex(bags)!.setSandbags(true);
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByText("abrir"));
+  };
+
+  it("reads the sandbags from the map: in the open they take a die, and the flag reminder stays with the roll", async () => {
+    openWithSandbags(ADJACENT);
     tapHex(ADJACENT);
     choose("Infantería");
-    fireEvent.click(screen.getByRole("switch", { name: "¿Sacos terreros?" }));
 
+    expect(screen.queryByRole("switch", { name: /Sacos terreros/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("fire-target-sandbags")).toHaveTextContent("Con sacos terreros");
     expect(await readBreakdown()).toContain("Sacos terreros en campo abierto-1");
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName("2 dados");
     choose("Disparar");
@@ -209,15 +218,18 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("shot-result")).toHaveTextContent("ignora 1 bandera");
   });
 
-  it("shows no dice when sandbags in the open take the last one", async () => {
-    open(UnitType.INFANTRY);
-    tapHex({ row: 4, col: 1 }); // 3 hexes: 1 die
-    choose("Infantería");
-    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("1 dado");
-    fireEvent.click(screen.getByRole("switch", { name: "¿Sacos terreros?" }));
+  it("doesn't offer a hex where sandbags in the open take the last die", () => {
+    openWithSandbags({ row: 4, col: 1 }); // 3 hexes: 1 die, 0 behind sandbags
 
-    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("0 dados");
-    await waitFor(() => expect(screen.getByTestId("fire-total").querySelector(".dice-pool__die")).toBeNull());
+    expect(hasBadge({ row: 4, col: 1 })).toBe(false);
+    expect(hasBadge({ row: 4, col: 2 })).toBe(true);
+  });
+
+  it("says nothing about sandbags at a hex without them", () => {
+    open(UnitType.INFANTRY);
+    tapHex(ADJACENT);
+
+    expect(screen.queryByTestId("fire-target-sandbags")).not.toBeInTheDocument();
   });
 
   it("reaches 6 hexes with artillery", () => {

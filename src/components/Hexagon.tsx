@@ -5,6 +5,7 @@ import Hex from '../game-core/hex';
 import { positionKey } from '../game-core/position';
 import UnitComponent from './UnitComponent';
 import { BarbedWireArt } from './BarbedWire';
+import { SandbagsArt } from './SandbagsIcon';
 
 /** How a hex is highlighted: the selected unit, a destination for it, or a hex it can fire at */
 export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | 'mark' | 'target' | 'target-selected' | null;
@@ -79,6 +80,8 @@ function Hexagon({
           orderable={unitOrderable}
         />
       )}
+      {/* Over the token, as a wall in front of it */}
+      {hexData.sandbags && <SandbagsArt x={x} y={y} hexSize={hexSize} />}
       {/* Keyed so each new flash remounts the path and replays the animation */}
       {invalidFlashId !== null && (
         <path key={invalidFlashId} d={pathData} className="hexagon__flash-invalid" />

@@ -15,6 +15,8 @@ class Hex {
   private _unit: Unit | null = null;
   /** Barbed wire on the hex: removable, so it isn't part of the terrain */
   private _wire = false;
+  /** Sandbags on the hex: they protect whoever is there, and go when the unit leaves */
+  private _sandbags = false;
 
   constructor(position: Position, type: HexType = HexType.PLAINS, overrides?: Partial<TerrainProperties>) {
     this.position = position;
@@ -151,6 +153,13 @@ class Hex {
   /** Lay or remove barbed wire (only GameSession and BoardManager call this) */
   setWire(wire: boolean) {
     this._wire = wire;
+  }
+
+  get sandbags(): boolean { return this._sandbags; }
+
+  /** Put down or take away sandbags (only GameSession and BoardManager call this) */
+  setSandbags(sandbags: boolean) {
+    this._sandbags = sandbags;
   }
 
   // Unit management

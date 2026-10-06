@@ -50,6 +50,8 @@ export type CombatEffect =
   | { kind: "reinforcements" }
   /** Ambush: a unit attacked in close assault fires first, picked on the map when the card is played */
   | { kind: "ambush" }
+  /** Fortify: after the battle, one of this side's infantry or artillery units gets sandbags on the map */
+  | { kind: "fortify"; unitTypes: readonly UnitType[] }
   /** Rifles Up: played before any unit fires, the first unit to fire can be any of them, whatever the firing order */
   | { kind: "firesFirst" };
 

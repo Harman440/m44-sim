@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 23;
+export const SAVE_VERSION = 24;
 
 interface SavedUnit {
   type: UnitType;
@@ -51,6 +51,8 @@ export interface SavedGame {
   units: SavedUnit[];
   /** Hexes that still have barbed wire */
   wire: Position[];
+  /** Hexes with sandbags */
+  sandbags: Position[];
   orders: {
     unit: number;
     start: Position;
@@ -63,14 +65,16 @@ export interface SavedGame {
     cost: number;
     boosted: boolean;
     closeAssaultOnly: boolean;
+    lostSandbags: Position[];
   }[];
   ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
   battleEdits: ((
-    | { kind: "remove"; position: Position; unit: number; replacement?: number }
-    | { kind: "move"; from: Position; to: Position }
+    | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
+    | { kind: "move"; from: Position; to: Position; sandbags?: Position[] }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
+    | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
   ) & { beforeOrders?: boolean })[];
   shots: Shot[];
   log: TurnRecord[];
@@ -224,18 +228,21 @@ export function writeSave(
       cost: order.cost,
       boosted: order.boosted,
       closeAssaultOnly: order.closeAssaultOnly,
+      lostSandbags: order.lostSandbags,
     })),
-    battleEdits: state.battleEdits.map((edit) =>
-      edit.kind === "move" || edit.kind === "wire"
-        ? edit
-        : {
-            kind: edit.kind,
-            position: edit.position,
-            unit: unitIndex(edit.unit),
-            ...(edit.kind === "remove" && edit.replacement && { replacement: unitIndex(edit.replacement) }),
-            ...(edit.beforeOrders && { beforeOrders: true }),
-          }
-    ),
+    battleEdits: state.battleEdits.map((edit): SavedGame["battleEdits"][number] => {
+      if (edit.kind === "move" || edit.kind === "wire" || edit.kind === "sandbags") return edit;
+      const beforeOrders = edit.beforeOrders && { beforeOrders: true };
+      if (edit.kind === "add") return { kind: "add", position: edit.position, unit: unitIndex(edit.unit), ...beforeOrders };
+      return {
+        kind: "remove",
+        position: edit.position,
+        unit: unitIndex(edit.unit),
+        ...(edit.replacement && { replacement: unitIndex(edit.replacement) }),
+        ...(edit.sandbags && { sandbags: true }),
+        ...beforeOrders,
+      };
+    }),
     ordersCommitted: state.ordersCommitted,
     unmovedFireSkipped: state.unmovedFireSkipped,
     shots: state.shots.map((shot) => ({
@@ -268,6 +275,7 @@ export function writeSave(
     reinforcementFace: state.reinforcementFace,
     units: savedUnits,
     wire: board.wirePositions(),
+    sandbags: board.sandbagPositions(),
   };
 }
 
@@ -330,6 +338,12 @@ export function readSave(
     if (!hex) throw new Error(`No hex for barbed wire at ${positionKey(position)}`);
     hex.setWire(true);
   });
+  board.getAllHexes().forEach((hex) => hex.setSandbags(false));
+  readPositions(saved.sandbags, "Sandbags").forEach((position) => {
+    const hex = board.getHex(position);
+    if (!hex) throw new Error(`No hex for sandbags at ${positionKey(position)}`);
+    hex.setSandbags(true);
+  });
 
   const hand = cards(saved.hand);
   const drawnCard = saved.drawnCard === null ? null : card(saved.drawnCard);
@@ -351,6 +365,7 @@ export function readSave(
         cost: order.cost,
         boosted: order.boosted,
         closeAssaultOnly: order.closeAssaultOnly,
+        lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
       })
   );
 
@@ -400,17 +415,19 @@ export function readSave(
     orders,
     ordersCommitted: saved.ordersCommitted,
     unmovedFireSkipped: saved.unmovedFireSkipped,
-    battleEdits: saved.battleEdits.map((edit) =>
-      edit.kind === "move" || edit.kind === "wire"
-        ? edit
-        : {
-            kind: edit.kind,
-            position: edit.position,
-            unit: unit(edit.unit),
-            ...(edit.kind === "remove" && edit.replacement !== undefined && { replacement: unit(edit.replacement) }),
-            ...(edit.beforeOrders === true && { beforeOrders: true }),
-          }
-    ),
+    battleEdits: saved.battleEdits.map((edit): BattleEdit => {
+      if (edit.kind === "move" || edit.kind === "wire" || edit.kind === "sandbags") return edit;
+      const beforeOrders = edit.beforeOrders === true && { beforeOrders: true };
+      if (edit.kind === "add") return { kind: "add", position: edit.position, unit: unit(edit.unit), ...beforeOrders };
+      return {
+        kind: "remove",
+        position: edit.position,
+        unit: unit(edit.unit),
+        ...(edit.replacement !== undefined && { replacement: unit(edit.replacement) }),
+        ...(edit.sandbags === true && { sandbags: true }),
+        ...beforeOrders,
+      };
+    }),
     shots,
     log: saved.log,
     startCoins: saved.startCoins,

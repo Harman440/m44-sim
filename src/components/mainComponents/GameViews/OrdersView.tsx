@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   Paper,
+  Snackbar,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
@@ -29,6 +30,7 @@ import { useSound } from "../../../sound";
 import { HexType } from "../../../types/hex";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
+import SandbagsIcon from "../../SandbagsIcon";
 import "./PhaseLayout.css";
 
 interface OrdersViewProps {
@@ -104,6 +106,8 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   /** Fixing the map before any order: asked first, then the map editor of the final phase */
   const [confirmMapFix, setConfirmMapFix] = useState(false);
   const [fixingMap, setFixingMap] = useState(false);
+  /** The last order moved a unit off its sandbags: said for a moment */
+  const [leftSandbags, setLeftSandbags] = useState(false);
 
   const clearSelection = () => {
     setUnitHexPosition(null);
@@ -131,9 +135,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       flashInvalid(to);
       return;
     }
+    const hadSandbags = !samePosition(from, to) && !!boardManager.getHex(from)?.sandbags;
     if (session.issueOrder(from, to, slot ?? undefined, boost)) {
       clearSelection();
       setExtraMode(false);
+      setLeftSandbags(hadSandbags);
     }
   };
 
@@ -400,6 +406,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                 Orden extra: cuesta {coinsText(EXTRA_ORDER_COST)}
               </Typography>
             )}
+            {selectedHex.sandbags && (moveOptions?.moves.length ?? 0) > 0 && (
+              <Alert severity="warning" icon={<SandbagsIcon size={26} />} sx={{ mt: 1, py: 0 }} data-testid="sandbags-warning">
+                Tiene sacos terreros: si se mueve, los pierde.
+              </Alert>
+            )}
             {paidCard && !slot?.extra && !slot?.onTheMove && game.activeCard && selectedHex.unit && (
               <Typography variant="body2" color="warning.main">
                 Esta orden cuesta {coinsText(game.activeCard.coinCostOf(selectedHex.unit.getUnitType()))}
@@ -521,6 +532,17 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           )}
         </Stack>
       </div>
+
+      <Snackbar
+        open={leftSandbags}
+        autoHideDuration={4000}
+        onClose={() => setLeftSandbags(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="warning" icon={<SandbagsIcon size={26} />} onClose={() => setLeftSandbags(false)} data-testid="sandbags-left">
+          La unidad deja sus sacos terreros: quítalos de la mesa al moverla.
+        </Alert>
+      </Snackbar>
 
       <Dialog open={confirmMapFix} onClose={() => setConfirmMapFix(false)}>
         <DialogTitle>¿Actualizar el mapa?</DialogTitle>

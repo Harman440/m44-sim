@@ -152,9 +152,10 @@ export const scenarios: Scenario[] = [
   },
   {
     // Memoir '44 base game, scenario 1 (6 June 1944): British gliders land by the bridges over
-    // the Caen canal and the Orne at night. The map, units, barbed wire and the Axis' surprise
-    // (2 cards, and 2 drawn after each of its first two turns) are the official ones; the
-    // sandbags by the bridge and the medals are only on the table, and the reinforcement table is ours
+    // the Caen canal and the Orne at night. The map, units, barbed wire, the sandbags of the two
+    // German units guarding the canal bridge and the Axis' surprise (2 cards, and 2 drawn after
+    // each of its first two turns) are the official ones; the medals are only on the table, and
+    // the reinforcement table is ours
     id: 'pegasus-bridge',
     name: 'Pegasus Bridge',
     description: 'Los planeadores británicos aterrizan junto a los puentes del canal de Caen y del Orne: hay que tomarlos.',
@@ -174,6 +175,7 @@ export const scenarios: Scenario[] = [
     },
     tiles: pegasusBridgeTiles as Tiles,
     wire: [{ row: 2, col: 5 }, { row: 3, col: 4 }, { row: 4, col: 3 }, { row: 4, col: 4 }],
+    sandbags: [{ row: 2, col: 4 }, { row: 3, col: 3 }],
     units: {
       allies: {
         infantry: [

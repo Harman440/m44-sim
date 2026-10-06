@@ -65,7 +65,8 @@ export const describePlace = (hex: Hex | null): string =>
 
 /** "Tanque en bosque", or just the terrain for an empty hex; "… con alambrada" on barbed wire */
 export const describeHex = (hex: Hex): string => {
-  const terrain = TERRAIN_LABELS[hex.getType()] + (hex.wire ? " con alambrada" : "");
+  const extras = [hex.wire && "alambrada", hex.sandbags && "sacos terreros"].filter(Boolean).join(" y ");
+  const terrain = TERRAIN_LABELS[hex.getType()] + (extras ? ` con ${extras}` : "");
   return hex.unit ? `${UNIT_LABELS[hex.unit.getUnitType()]} en ${terrain}` : terrain;
 };
 

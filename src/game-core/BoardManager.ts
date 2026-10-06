@@ -74,6 +74,7 @@ class BoardManager {
 
     // Barbed wire (flipped for Axis)
     (scenario.wire ?? []).forEach((position) => this.getHex(flipPosition(position))?.setWire(true));
+    (scenario.sandbags ?? []).forEach((position) => this.getHex(flipPosition(position))?.setSandbags(true));
 
     // Place initial units (flipped for Axis)
     const factionKey = faction.toLowerCase() as keyof Factions;
@@ -266,6 +267,13 @@ class BoardManager {
   wirePositions(): Position[] {
     return this.getAllHexes()
       .filter((hex) => hex.wire)
+      .map((hex) => hex.getPosition());
+  }
+
+  /** Hexes with sandbags, in board order */
+  sandbagPositions(): Position[] {
+    return this.getAllHexes()
+      .filter((hex) => hex.sandbags)
       .map((hex) => hex.getPosition());
   }
 

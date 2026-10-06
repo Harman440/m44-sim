@@ -160,6 +160,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     <Typography component="li" variant="body2" key={i}>
                       {edit.kind === "wire"
                         ? `Alambrada quitada (${placeOf(edit.position)})`
+                        : edit.kind === "sandbags"
+                        ? `${edit.fortify ? "Fortificar: sacos terreros puestos" : edit.placed ? "Sacos terreros enemigos puestos" : "Sacos terreros quitados"} (${placeOf(edit.position)})`
                         : edit.kind === "remove"
                         ? `Eliminada: ${UNIT_LABELS[edit.unit]}${
                             edit.replacedBy ? `, queda ${UNIT_LABELS[edit.replacedBy].toLowerCase()}` : ""

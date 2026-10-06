@@ -59,6 +59,31 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("OrdersView sandbags", () => {
+  it("warns that a unit on sandbags loses them if it moves, and says so when it does", () => {
+    const { session, tap } = setup();
+    session.board.getHex(LEFT_A)!.setSandbags(true);
+
+    tap(LEFT_A);
+    expect(screen.getByTestId("sandbags-warning")).toHaveTextContent("si se mueve, los pierde");
+    tap({ row: 6, col: 1 });
+
+    expect(session.board.getHex(LEFT_A)!.sandbags).toBe(false);
+    expect(screen.getByTestId("sandbags-left")).toHaveTextContent("deja sus sacos terreros");
+  });
+
+  it("says nothing when the unit holds behind its sandbags", () => {
+    const { session, tap } = setup();
+    session.board.getHex(LEFT_A)!.setSandbags(true);
+
+    tap(LEFT_A);
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+
+    expect(session.board.getHex(LEFT_A)!.sandbags).toBe(true);
+    expect(screen.queryByTestId("sandbags-left")).not.toBeInTheDocument();
+  });
+});
+
 describe("OrdersView selecting units", () => {
   it("selects an orderable unit and deselects it when tapped again", () => {
     const { tap, isSelected } = setup();

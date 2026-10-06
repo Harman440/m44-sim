@@ -40,6 +40,11 @@ export interface Scenario {
   paradrop?: { faction: Faction; unitType: UnitType; units: number };
   /** Hexes with barbed wire: a unit that enters one stops; infantry on it fires with a die less or removes it */
   wire?: Position[];
+  /**
+   * Hexes with sandbags at the start (either side's units): the unit there ignores 1 flag and, in
+   * the open, infantry and armour fire at it with a die less. They go when the unit leaves the hex
+   */
+  sandbags?: Position[];
   /** One side draws 2 command cards instead of 1 after each of its first `turns` turns (Pegasus Bridge: the Germans were surprised) */
   extraDraws?: { faction: Faction; turns: number };
   /**

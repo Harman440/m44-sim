@@ -21,7 +21,6 @@ export interface FireAimChoice {
   position: Position;
   /** The target is infantry (otherwise armour or artillery) */
   infantry: boolean;
-  sandbags: boolean;
   useCombatBonus: boolean;
 }
 
@@ -48,13 +47,12 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 /**
  * Aiming a shot on the map: the part of the board the unit can reach, with
  * the hexes it can fire at (in range, in sight, with dice) and their dice.
- * The player taps the target's hex, then says what unit is there and whether
- * it has sandbags; the dice are worked out as they go.
+ * The player taps the target's hex (the map knows its sandbags), then says
+ * what unit is there; the dice are worked out as they go.
  */
 function FireAim({ board, image, faction, from, targets, context, longRangeDie, targetKinds, onFire }: FireAimProps) {
   const [picked, setPicked] = useState<Position | null>(null);
   const [kind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
-  const [sandbags, setSandbags] = useState(false);
   const [useBonus, setUseBonus] = useState(true);
   const [missed, setMissed] = useState(false);
 
@@ -63,7 +61,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
 
   const answers: Record<string, string> = target
-    ? { ...mapAnswers(target), targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY, sandbags: sandbags ? "yes" : "no" }
+    ? { ...mapAnswers(target), targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY }
     : {};
   const asksBonus = !!target && (combatBonusQuestion.appliesTo?.(context, answers) ?? false);
   if (asksBonus) answers.combatCard = useBonus ? "yes" : "no";
@@ -134,13 +132,22 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         <Stack sx={{ gap: 1 }}>
           {step(1, "Objetivo")}
           {target ? (
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }} data-testid="fire-target">
-              <HexThumbnail board={board} position={target.position} image={image} faction={faction} size={44} />
-              <Typography variant="body1">
-                {capitalize(TERRAIN_LABELS[target.terrain])} · a {target.distance}{" "}
-                {target.distance === 1 ? "casilla (asalto cercano)" : "casillas"}
-              </Typography>
-            </Stack>
+            <>
+              <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }} data-testid="fire-target">
+                <HexThumbnail board={board} position={target.position} image={image} faction={faction} size={44} />
+                <Typography variant="body1">
+                  {capitalize(TERRAIN_LABELS[target.terrain])} · a {target.distance}{" "}
+                  {target.distance === 1 ? "casilla (asalto cercano)" : "casillas"}
+                </Typography>
+              </Stack>
+              {/* From the map: the scenario's, Fortify's, or the enemy's mirrored in «Actualizar mapa» */}
+              {target.sandbags && (
+                <Stack direction="row" sx={{ alignItems: "center", gap: 1 }} data-testid="fire-target-sandbags">
+                  <SandbagsIcon />
+                  <Typography variant="body1">Con sacos terreros: ignora 1 bandera</Typography>
+                </Stack>
+              )}
+            </>
           ) : (
             <Typography variant="body1" color="text.secondary">
               Toca una casilla en el mapa.
@@ -153,26 +160,13 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
         </Stack>
 
-        <Stack sx={{ gap: 0.5 }}>
-          {/* One line: the sandbags and a switch */}
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-            {step(3, "")}
-            <SandbagsIcon />
-            <FormControlLabel
-              control={<Switch checked={sandbags} onChange={(e) => setSandbags(e.target.checked)} />}
-              label="¿Sacos terreros?"
-              labelPlacement="start"
-              sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
-            />
-          </Stack>
-          {asksBonus && (
-            <FormControlLabel
-              control={<Switch checked={useBonus} onChange={(e) => setUseBonus(e.target.checked)} />}
-              label={`${combatBonusQuestion.textFor!(context)} (+${context.combatBonus!.dice})`}
-              sx={{ minHeight: 48 }}
-            />
-          )}
-        </Stack>
+        {asksBonus && (
+          <FormControlLabel
+            control={<Switch checked={useBonus} onChange={(e) => setUseBonus(e.target.checked)} />}
+            label={`${combatBonusQuestion.textFor!(context)} (+${context.combatBonus!.dice})`}
+            sx={{ minHeight: 48 }}
+          />
+        )}
 
         {result && (
           <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
@@ -199,7 +193,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           fullWidth
           disabled={!target || !kind}
           onClick={() =>
-            target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags, useCombatBonus: asksBonus && useBonus })
+            target && kind && onFire({ position: target.position, infantry: kind === "infantry", useCombatBonus: asksBonus && useBonus })
           }
         >
           Disparar

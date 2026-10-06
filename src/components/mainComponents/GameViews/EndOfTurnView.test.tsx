@@ -7,6 +7,7 @@ import CommandCard from "../../../game-core/commandCard";
 import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
+import { UnitType } from "../../../game-core/unit";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -67,6 +68,26 @@ const setup = ({ openMap = true } = {}) => {
 };
 
 describe("EndOfTurnView map", () => {
+  it("mirrors the enemy's sandbags on an empty hex, and takes them away", () => {
+    const { session, tap } = setup();
+
+    tap(EMPTY);
+    fireEvent.click(screen.getByRole("button", { name: "Poner sacos terreros del rival" }));
+    expect(session.board.getHex(EMPTY)!.sandbags).toBe(true);
+
+    tap(EMPTY);
+    expect(screen.queryByRole("button", { name: "Poner sacos terreros del rival" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Quitar sacos terreros" }));
+    expect(session.board.getHex(EMPTY)!.sandbags).toBe(false);
+  });
+
+  it("puts no sandbags on this side's units without Fortify", () => {
+    const { tap } = setup();
+
+    tap(INFANTRY);
+    expect(screen.queryByRole("button", { name: /poner sacos terreros/i })).not.toBeInTheDocument();
+  });
+
   it("opens the map from the retreats step and counts the changes when back", () => {
     const { container, tap } = setup({ openMap: false });
     expect(container.querySelector("svg.board__svg")).toBeNull();
@@ -280,7 +301,7 @@ describe("EndOfTurnView cards", () => {
 });
 
 describe("EndOfTurnView table reminders", () => {
-  it("reminds the player to put the sandbags of Fortify on the table", () => {
+  it("reminds the player to put the sandbags of Fortify on the table, and puts them on the map", () => {
     const fortify: CombatCard = {
       id: "fortify",
       name: "Fortificar",
@@ -288,6 +309,7 @@ describe("EndOfTurnView table reminders", () => {
       cost: 0,
       phase: "battle",
       tableReminder: "Fortificar: pon sacos terreros en la mesa, en una infantería o artillería.",
+      effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
     };
     const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
     const session = new GameSession({
@@ -313,8 +335,16 @@ describe("EndOfTurnView table reminders", () => {
     session.startBattle();
     session.playBattleCombatCard(fortify);
     session.endBattle();
-    render(<Harness session={session} />);
+    const { container } = render(<Harness session={session} />);
 
     expect(screen.getByTestId("table-reminder")).toHaveTextContent("Fortificar: pon sacos terreros en la mesa");
+
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar mapa" }));
+    expect(screen.getByText(/Fortificar: toca la infantería o artillería resaltada/)).toBeInTheDocument();
+    fireEvent.click(container.querySelector(`[data-position="${INFANTRY.row}-${INFANTRY.col}"]`)!);
+    fireEvent.click(screen.getByRole("button", { name: "Fortificar: poner sacos terreros" }));
+
+    expect(session.board.getHex(INFANTRY)!.sandbags).toBe(true);
+    expect(container.querySelector(`[data-position="${INFANTRY.row}-${INFANTRY.col}"] [data-testid="sandbags"]`)).not.toBeNull();
   });
 });

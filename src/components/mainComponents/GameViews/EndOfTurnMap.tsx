@@ -9,6 +9,7 @@ import { UNIT_LABELS, describeHex } from "../../../labels";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { BarbedWireIcon } from "../../BarbedWire";
+import SandbagsIcon from "../../SandbagsIcon";
 import "./PhaseLayout.css";
 
 interface EndOfTurnMapProps {
@@ -26,8 +27,9 @@ interface EndOfTurnMapProps {
  * Map of the final phase. The battle is fought and the retreats are made on
  * the physical table; this lets the player mirror the result: remove destroyed
  * units and move units that retreated or took ground (to any empty hex; the
- * table is the source of truth). Also opened from Órdenes, before any order,
- * when the map turns out not to match the table.
+ * table is the source of truth), put Fortify's sandbags on a unit, and mirror
+ * the enemy's sandbags and the wire it removed on empty hexes. Also opened
+ * from Órdenes, before any order, when the map turns out not to match the table.
  */
 function EndOfTurnMap({
   faction,
@@ -62,12 +64,21 @@ function EndOfTurnMap({
       if (!session.placeReinforcement(position)) flashInvalid(position);
       return;
     }
-    // An empty hex with barbed wire: select it to take the wire off
-    setSelected(hex.wire ? position : null);
+    // An empty hex: select it to mirror the enemy's sandbags, or take off wire
+    setSelected(hex.canEnter() ? position : null);
   };
 
   const handleRemoveWire = () => {
-    if (selected && session.removeWireAt(selected) && !boardManager.getHex(selected)?.hasUnit()) setSelected(null);
+    if (selected) session.removeWireAt(selected);
+  };
+
+  /** Fortify's sandbags on the selected unit, or the enemy's on the selected empty hex */
+  const handlePlaceSandbags = () => {
+    if (selected && session.placeSandbagsAt(selected)) setSelected(null);
+  };
+
+  const handleRemoveSandbags = () => {
+    if (selected) session.removeSandbagsAt(selected);
   };
 
   const handleRemove = () => {
@@ -79,6 +90,8 @@ function EndOfTurnMap({
   const leavesCrew = !!selected && session.leavesCrew(selected);
   /** The Reinforcements card's cross, until its unit is on the map */
   const reinforcements = game.reinforcementDue || game.reinforcementToPlace !== null;
+  const canPlaceSandbags = !!selected && session.canPlaceSandbags(selected);
+  const fortifying = game.fortifiable.length > 0;
 
   return (
     <div className="phase-layout">
@@ -94,6 +107,7 @@ function EndOfTurnMap({
           invalidFlash={flash}
           markers={reinforcements ? game.markers : []}
           markerKind="cross"
+          orderablePositions={selected ? [] : game.fortifiable}
           faction={faction}
         />
       </div>
@@ -104,12 +118,14 @@ function EndOfTurnMap({
         </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
           {selectedHex && !selectedHex.hasUnit()
-            ? "Alambrada: quítala si ya no está en la mesa"
+            ? "Casilla vacía: pon o quita los sacos terreros del rival, o quita la alambrada, como en la mesa"
             : selectedHex
             ? "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala"
             : game.reinforcementToPlace
               ? `Refuerzo (${UNIT_LABELS[game.reinforcementToPlace].toLowerCase()}): toca la casilla libre donde lo pones`
-              : hint}
+              : fortifying
+                ? "Fortificar: toca la infantería o artillería resaltada que recibe los sacos terreros"
+                : hint}
         </Typography>
 
         {selectedHex && (
@@ -121,6 +137,16 @@ function EndOfTurnMap({
               {selectedHex.hasUnit() && (
                 <Button color="error" onClick={handleRemove} startIcon={<GameIcon name="cancel" />}>
                   {leavesCrew ? "Eliminar: queda infantería" : "Eliminar unidad"}
+                </Button>
+              )}
+              {canPlaceSandbags && (
+                <Button color="warning" onClick={handlePlaceSandbags} startIcon={<SandbagsIcon size={28} />}>
+                  {selectedHex.hasUnit() ? "Fortificar: poner sacos terreros" : "Poner sacos terreros del rival"}
+                </Button>
+              )}
+              {selectedHex.sandbags && (
+                <Button color="warning" onClick={handleRemoveSandbags} startIcon={<SandbagsIcon size={28} />}>
+                  Quitar sacos terreros
                 </Button>
               )}
               {selectedHex.wire && (

@@ -53,6 +53,8 @@ export interface TurnRecord {
     | { kind: "move"; unit: UnitType; from: Position; to: Position }
     | { kind: "add"; unit: UnitType; position: Position }
     | { kind: "wire"; position: Position }
+    /** Sandbags put down (`placed`) or taken away; `fortify`: on this side's unit, for the Fortify card */
+    | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
   )[];
   /** How the turn earned and spent coins */
   coins: CoinEntry[];
@@ -136,6 +138,9 @@ export function recordTurn({
     battleEdits: editedUnits(battleEdits, board).map((unit, i): TurnRecord["battleEdits"][number] => {
       const edit = battleEdits[i]!;
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
+      if (edit.kind === "sandbags") {
+        return { kind: "sandbags", position: { ...edit.position }, placed: edit.placed, ...(edit.fortify && { fortify: true }) };
+      }
       if (edit.kind === "move") return { kind: "move", unit: unit!, from: { ...edit.from }, to: { ...edit.to } };
       return {
         kind: edit.kind,
@@ -173,7 +178,7 @@ export const copyAmbush = (ambush: AmbushShot): AmbushShot => ({
 });
 
 /**
- * The unit type each edit applied to (null for wire removed). A move only knows its
+ * The unit type each edit applied to (null for wire and sandbags). A move only knows its
  * hexes, so the edits are undone one by one, newest first, on a copy of the board.
  */
 function editedUnits(edits: readonly BattleEdit[], board: BoardManager): (UnitType | null)[] {
@@ -191,7 +196,7 @@ function editedUnits(edits: readonly BattleEdit[], board: BoardManager): (UnitTy
     } else if (edit.kind === "add") {
       units.delete(positionKey(edit.position));
       types[i] = edit.unit.getUnitType();
-    } else if (edit.kind === "wire") {
+    } else if (edit.kind === "wire" || edit.kind === "sandbags") {
       types[i] = null;
     } else {
       const unit = units.get(positionKey(edit.to));

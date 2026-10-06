@@ -168,7 +168,8 @@ const TEMPLATES: CombatCardTemplate[] = [
   battle("reposition", "Reposicionamiento", 2, ifSide("artillery", (side) => side.artillery), "Después de la batalla, toda la artillería con orden se mueve 2 casillas.",
     { tableReminder: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con orden y refléjalo en «Actualizar mapa»." }),
   battle("fortify", "Fortificar", 1, defensive, "Después de la batalla, pon sacos terreros en una infantería o artillería.", {
-    tableReminder: "Fortificar: pon sacos terreros en la mesa, en una infantería o artillería.",
+    tableReminder: "Fortificar: pon los sacos terreros en la mesa y, en «Actualizar mapa», en esa infantería o artillería.",
+    effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
   }),
   battle("spotter", "Observador", 1, ifSide("artillery", (side) => side.artillery), "1 artillería tira 1 dado más.",
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } }),

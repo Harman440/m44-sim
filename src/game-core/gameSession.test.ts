@@ -1293,10 +1293,11 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 22 as 23 })).toThrow();
+    expect(broken({ version: 23 as 24 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
+    expect(broken({ sandbags: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();
     expect(broken({ scenarioId: "other" })).toThrow();
@@ -1895,7 +1896,7 @@ describe("GameSession combat card effects", () => {
     it("adds its dice to a shot at a hex on the map when the player uses it", () => {
       const session = inBattle(streetFight);
 
-      expect(session.fireAt(0, { position: { row: 5, col: 1 }, infantry: true, sandbags: false, useCombatBonus: true })).toBe(true);
+      expect(session.fireAt(0, { position: { row: 5, col: 1 }, infantry: true, useCombatBonus: true })).toBe(true);
 
       expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
       expect(session.combatBonusFor(1)).toBeUndefined(); // used up
@@ -2469,22 +2470,32 @@ describe("GameSession firing at a hex on the map", () => {
     expect(target(session, TANK)).toBeUndefined();
   });
 
-  it("fires at a hex: its distance and terrain answer those questions", () => {
+  it("fires at a hex: its distance, terrain and sandbags answer those questions", () => {
     const session = tankBattle();
+    session.board.getHex({ row: 4, col: 7 })!.setSandbags(true);
 
-    expect(session.fireAt(0, { position: { row: 4, col: 7 }, infantry: true, sandbags: true })).toBe(true);
+    expect(session.fireAt(0, { position: { row: 4, col: 7 }, infantry: true })).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
     expect(shot).toMatchObject({ dice: 1, targetPosition: { row: 4, col: 7 }, target: { infantry: true, closeAssault: true, die: "battle" } });
     expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
+  it("takes a die for sandbags in the open, read from the map", () => {
+    const session = tankBattle();
+    session.board.getHex({ row: 4, col: 3 })!.setSandbags(true);
+
+    expect(target(session, { row: 4, col: 3 })).toMatchObject({ dice: 2, sandbags: true });
+    session.fireAt(0, { position: { row: 4, col: 3 }, infantry: true });
+    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 2 });
+  });
+
   it("won't fire at a hex out of range, out of sight, with a unit of its own or with no dice", () => {
     const session = tankBattle();
 
-    expect(session.fireAt(0, { position: { row: 4, col: 2 }, infantry: true, sandbags: false })).toBe(false);
-    expect(session.fireAt(0, { position: { row: 4, col: 9 }, infantry: true, sandbags: false })).toBe(false); // behind the forest
-    expect(session.fireAt(0, { position: LEFT_INF, infantry: true, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 2 }, infantry: true })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 9 }, infantry: true })).toBe(false); // behind the forest
+    expect(session.fireAt(0, { position: LEFT_INF, infantry: true })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
   });
 });
@@ -2503,7 +2514,7 @@ describe("GameSession taking ground", () => {
   it("lets armour take ground after a close assault and fire once more, adjacent to the hex it took", () => {
     const session = tankBattle();
     expect(session.canTakeGround(0)).toBe(false); // hasn't fired
-    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true });
 
     expect(session.takeGround(0)).toBe(true);
 
@@ -2511,9 +2522,9 @@ describe("GameSession taking ground", () => {
     const targets = session.fireTargetsFor(0);
     expect(targets.every((t) => t.distance === 1)).toBe(true);
     expect(targets.some((t) => samePosition(t.position, { row: 4, col: 8 }))).toBe(true); // next to the forest
-    expect(session.fireAt(0, { position: { row: 4, col: 3 }, infantry: false, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 3 }, infantry: false })).toBe(false);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false); // not in close assault
-    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false, sandbags: false })).toBe(true);
+    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false })).toBe(true);
     // Once per turn
     expect(session.canTakeGround(0)).toBe(false);
     expect(session.shotsLeft(0)).toBe(0);
@@ -2522,14 +2533,14 @@ describe("GameSession taking ground", () => {
   it("only when the roll could have pushed back or eliminated the target (a flag or a hit)", () => {
     // Supplies: no hit on infantry, no flag
     const session = tankBattle(() => 0.7);
-    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true });
 
     expect(session.canTakeGround(0)).toBe(false);
   });
 
   it("moves the unit to the hex it took, as a map edit, and back when taken back", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true });
 
     session.takeGround(0);
     expect(session.board.getHex(FOREST)!.hasUnit()).toBe(true);
@@ -2544,7 +2555,7 @@ describe("GameSession taking ground", () => {
 
   it("only after a close assault", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: { row: 4, col: 4 }, infantry: true, sandbags: false });
+    session.fireAt(0, { position: { row: 4, col: 4 }, infantry: true });
 
     expect(session.canTakeGround(0)).toBe(false);
     expect(session.takeGround(0)).toBe(false);
@@ -2552,7 +2563,7 @@ describe("GameSession taking ground", () => {
 
   it("takes it back while the extra shot hasn't been fired", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true });
     session.takeGround(0);
 
     expect(session.undoTakeGround(0)).toBe(true);
@@ -2563,7 +2574,7 @@ describe("GameSession taking ground", () => {
 
   it("keeps it after a reload", () => {
     const session = tankBattle();
-    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
+    session.fireAt(0, { position: FOREST, infantry: true });
     session.takeGround(0);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
@@ -2595,8 +2606,8 @@ describe("GameSession taking ground", () => {
     session.pickCard(commandCards[0]!);
     orderAllAndFight(session);
     // Orders 0 and 1: the infantry at (7,1) and (7,3)
-    session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true, sandbags: false });
-    session.fireAt(1, { position: { row: 6, col: 3 }, infantry: true, sandbags: false });
+    session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true });
+    session.fireAt(1, { position: { row: 6, col: 3 }, infantry: true });
     expect(session.canTakeGround(0)).toBe(false);
 
     expect(session.playBattleCombatCard(heat)).toBe(true);
@@ -2627,7 +2638,7 @@ describe("GameSession Ambush", () => {
     orderAllAndFight(session);
     return session;
   };
-  const shoot = { position: ATTACKER, infantry: false, sandbags: false };
+  const shoot = { position: ATTACKER, infantry: false };
 
   it("lets any unit fire first, in close assault, once the card is played", () => {
     const session = ambushSession();
@@ -2716,7 +2727,7 @@ describe("GameSession barbed wire", () => {
 
     expect(adjacent?.dice).toBe(2);
     expect(session.getSnapshot().canRemoveWire[index]).toBe(true);
-    expect(session.fireAt(index, { position: { row: 7, col: 2 }, infantry: true, sandbags: false })).toBe(true);
+    expect(session.fireAt(index, { position: { row: 7, col: 2 }, infantry: true })).toBe(true);
     expect(session.getSnapshot().shots[0]!.steps).toContainEqual({ label: "Desde una alambrada", dice: -1, kind: "wire" });
   });
 
@@ -2913,5 +2924,139 @@ describe("Experimental rule: a destroyed artillery leaves its crew as infantry",
     expect(restored.getSnapshot().log[0]!.battleEdits).toEqual([
       { kind: "remove", unit: UnitType.ARTILLERY, position: GUN, replacedBy: UnitType.INFANTRY },
     ]);
+  });
+});
+
+describe("GameSession sandbags", () => {
+  const fortify: CombatCard = {
+    id: "fortify",
+    name: "Fortificar",
+    description: "",
+    cost: 1,
+    phase: "battle",
+    effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
+  };
+  // Sandbags on the left infantry, and on an empty hex (an enemy's)
+  const ENEMY_BAGS: Position = { row: 2, col: 2 };
+  const withSandbags: Scenario = { ...scenario, attacker: "Axis", sandbags: [LEFT_INF, ENEMY_BAGS] };
+  const bagsAt = (session: GameSession, p: Position) => session.board.getHex(p)!.sandbags;
+  /** Turn 2 with the left card (it orders the infantry at (7,1) and (7,3)) and Fortify in hand */
+  const leftTurn = () => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({ scenario: withSandbags, faction: "Allies", initialHandSize: 1, commandCards, combatCards: [fortify, { ...fortify, id: "other" }] });
+    session.startFirstTurn();
+    session.adjustCoins(1);
+    session.pickCard(commandCards[0]!);
+    return session;
+  };
+  const holdAllAndEndBattle = (session: GameSession, playFortify = false) => {
+    orderAllAndFight(session);
+    if (playFortify) expect(session.playBattleCombatCard(fortify)).toBe(true);
+    expect(session.endBattle()).toBe(true);
+  };
+
+  it("starts with the scenario's sandbags, turned round for the Axis", () => {
+    const allies = new GameSession({ scenario: withSandbags, faction: "Allies", initialHandSize: 1, commandCards: cards() });
+    const axis = new GameSession({ scenario: withSandbags, faction: "Axis", initialHandSize: 1, commandCards: cards() });
+
+    expect(allies.board.sandbagPositions()).toEqual([ENEMY_BAGS, LEFT_INF]);
+    expect(axis.board.sandbagPositions()).toEqual([{ row: 1, col: 10 }, { row: 6, col: 10 }]);
+  });
+
+  it("loses the sandbags when the unit moves off them, and gets them back when the order is undone", () => {
+    const session = leftTurn();
+
+    expect(session.issueOrder(LEFT_INF, { row: 6, col: 1 })).toBe(true);
+    expect(bagsAt(session, LEFT_INF)).toBe(false);
+    expect(bagsAt(session, { row: 6, col: 1 })).toBe(false);
+
+    expect(session.undoLastOrder()).toBe(true);
+    expect(bagsAt(session, LEFT_INF)).toBe(true);
+  });
+
+  it("keeps the sandbags when the unit holds", () => {
+    const session = leftTurn();
+    session.issueOrder(LEFT_INF, LEFT_INF);
+
+    expect(bagsAt(session, LEFT_INF)).toBe(true);
+  });
+
+  it("takes the sandbags away with a retreat or a casualty mirrored from the table, and back on undo", () => {
+    const session = leftTurn();
+    holdAllAndEndBattle(session);
+
+    expect(session.relocateUnit(LEFT_INF, { row: 8, col: 1 })).toBe(true);
+    expect(bagsAt(session, LEFT_INF)).toBe(false);
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(bagsAt(session, LEFT_INF)).toBe(true);
+
+    expect(session.removeUnit(LEFT_INF)).toBe(true);
+    expect(bagsAt(session, LEFT_INF)).toBe(false);
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(bagsAt(session, LEFT_INF)).toBe(true);
+  });
+
+  it("puts Fortify's sandbags on one infantry or artillery after the battle", () => {
+    const session = leftTurn();
+    holdAllAndEndBattle(session, true);
+    const OTHER_INF: Position = { row: 7, col: 3 };
+
+    expect(session.getSnapshot().fortifiable).not.toContainEqual(TANK);
+    expect(session.getSnapshot().fortifiable).not.toContainEqual(LEFT_INF); // already has them
+    expect(session.placeSandbagsAt(TANK)).toBe(false);
+    expect(session.placeSandbagsAt(OTHER_INF)).toBe(true);
+    expect(bagsAt(session, OTHER_INF)).toBe(true);
+    // Only one unit
+    expect(session.getSnapshot().fortifiable).toEqual([]);
+    expect(session.placeSandbagsAt({ row: 8, col: 11 })).toBe(false);
+
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(bagsAt(session, OTHER_INF)).toBe(false);
+    expect(session.getSnapshot().fortifiable).toContainEqual(OTHER_INF);
+  });
+
+  it("puts sandbags on no unit of this side without Fortify", () => {
+    const session = leftTurn();
+    holdAllAndEndBattle(session);
+
+    expect(session.getSnapshot().fortifiable).toEqual([]);
+    expect(session.placeSandbagsAt({ row: 7, col: 3 })).toBe(false);
+  });
+
+  it("mirrors the enemy's sandbags on empty hexes: put down and taken away", () => {
+    const session = leftTurn();
+    holdAllAndEndBattle(session);
+
+    expect(session.removeSandbagsAt(ENEMY_BAGS)).toBe(true);
+    expect(bagsAt(session, ENEMY_BAGS)).toBe(false);
+    expect(session.placeSandbagsAt({ row: 3, col: 3 })).toBe(true);
+    expect(bagsAt(session, { row: 3, col: 3 })).toBe(true);
+
+    session.undoBattleEdit();
+    session.undoBattleEdit();
+    expect(session.board.sandbagPositions()).toEqual([ENEMY_BAGS, LEFT_INF]);
+  });
+
+  it("clears the enemy's sandbags left on a hex this side's unit enters", () => {
+    const session = leftTurn();
+    holdAllAndEndBattle(session);
+
+    expect(session.relocateUnit({ row: 7, col: 3 }, ENEMY_BAGS)).toBe(true);
+    expect(bagsAt(session, ENEMY_BAGS)).toBe(false);
+    session.undoBattleEdit();
+    expect(bagsAt(session, ENEMY_BAGS)).toBe(true);
+  });
+
+  it("saves the sandbags, and the ones an order took away", () => {
+    const session = leftTurn();
+    session.issueOrder(LEFT_INF, { row: 6, col: 1 });
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withSandbags, [
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
+    ], [fortify, { ...fortify, id: "other" }]);
+
+    expect(restored.board.sandbagPositions()).toEqual([ENEMY_BAGS]);
+    expect(restored.undoLastOrder()).toBe(true);
+    expect(restored.board.sandbagPositions()).toEqual([ENEMY_BAGS, LEFT_INF]);
   });
 });

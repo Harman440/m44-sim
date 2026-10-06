@@ -15,6 +15,7 @@ interface OrderProps {
   cost?: number;
   boosted?: boolean;
   closeAssaultOnly?: boolean;
+  lostSandbags?: Position[];
 }
 
 /**
@@ -42,6 +43,8 @@ class Order {
   cost: number;
   /** Marked in the battle for a Close Assault card: it holds and fires only at an adjacent enemy */
   closeAssaultOnly: boolean;
+  /** Hexes whose sandbags went when the unit moved (it left them), put back if the order is undone */
+  lostSandbags: Position[];
   constructor({
     unit,
     start,
@@ -54,6 +57,7 @@ class Order {
     cost = 0,
     boosted = false,
     closeAssaultOnly = false,
+    lostSandbags = [],
   }: OrderProps) {
     this.unit = unit;
     this.start = start;
@@ -66,6 +70,7 @@ class Order {
     this.cost = cost;
     this.boosted = boosted;
     this.closeAssaultOnly = closeAssaultOnly;
+    this.lostSandbags = lostSandbags;
   }
 
   /** Whether the unit may fire this turn after carrying out the order */
