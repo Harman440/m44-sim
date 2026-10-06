@@ -161,7 +161,9 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       {edit.kind === "wire"
                         ? `Alambrada quitada (${placeOf(edit.position)})`
                         : edit.kind === "remove"
-                        ? `Eliminada: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
+                        ? `Eliminada: ${UNIT_LABELS[edit.unit]}${
+                            edit.replacedBy ? `, queda ${UNIT_LABELS[edit.replacedBy].toLowerCase()}` : ""
+                          } (${placeOf(edit.position)})`
                         : edit.kind === "add"
                           ? `Refuerzo: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
                           : `Movida: ${UNIT_LABELS[edit.unit]} → ${placeOf(edit.to)}`}

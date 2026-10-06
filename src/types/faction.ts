@@ -16,4 +16,6 @@ export interface GameSetup {
   longRangeDie: boolean;
   /** Test mode: every combat card in hand, to try them all */
   testMode?: boolean;
+  /** Experimental rule: a destroyed artillery unit leaves its crew as an infantry unit */
+  artilleryCrew?: boolean;
 }

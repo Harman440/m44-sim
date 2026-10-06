@@ -80,6 +80,7 @@ const App = () => {
       combatCards: setup.testMode ? allCombatCards() : combatDeckFor(scenario, setup.faction),
       longRangeDie: setup.longRangeDie,
       testMode: setup.testMode === true,
+      artilleryCrew: setup.artilleryCrew === true,
     });
     setGame((prev) => ({ session, resumed: false, number: (prev?.number ?? 0) + 1 }));
   };

@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 22;
+export const SAVE_VERSION = 23;
 
 interface SavedUnit {
   type: UnitType;
@@ -35,6 +35,8 @@ export interface SavedGame {
   longRangeDie: boolean;
   /** Test mode: every combat card in hand (the session's `testMode`) */
   testMode: boolean;
+  /** Experimental rule: destroyed artillery turns into infantry (the session's `artilleryCrew`) */
+  artilleryCrew: boolean;
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -65,7 +67,7 @@ export interface SavedGame {
   ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
   battleEdits: ((
-    | { kind: "remove"; position: Position; unit: number }
+    | { kind: "remove"; position: Position; unit: number; replacement?: number }
     | { kind: "move"; from: Position; to: Position }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
@@ -168,11 +170,13 @@ function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
   });
 }
 
+/** The per-game rule settings a save keeps */
+export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew">;
+
 export function writeSave(
   scenarioId: string,
   faction: Faction,
-  longRangeDie: boolean,
-  testMode: boolean,
+  rules: SavedRules,
   board: BoardManager,
   state: SessionState
 ): SavedGame {
@@ -195,8 +199,7 @@ export function writeSave(
     version: SAVE_VERSION,
     scenarioId,
     faction,
-    longRangeDie,
-    testMode,
+    ...rules,
     turn: state.turn,
     phase: state.phase,
     drawPile: ids(state.drawPile),
@@ -225,7 +228,13 @@ export function writeSave(
     battleEdits: state.battleEdits.map((edit) =>
       edit.kind === "move" || edit.kind === "wire"
         ? edit
-        : { kind: edit.kind, position: edit.position, unit: unitIndex(edit.unit), ...(edit.beforeOrders && { beforeOrders: true }) }
+        : {
+            kind: edit.kind,
+            position: edit.position,
+            unit: unitIndex(edit.unit),
+            ...(edit.kind === "remove" && edit.replacement && { replacement: unitIndex(edit.replacement) }),
+            ...(edit.beforeOrders && { beforeOrders: true }),
+          }
     ),
     ordersCommitted: state.ordersCommitted,
     unmovedFireSkipped: state.unmovedFireSkipped,
@@ -277,6 +286,7 @@ export function readSave(
   }
   if (typeof saved.longRangeDie !== "boolean") throw new Error("Long-range die setting is missing");
   if (typeof saved.testMode !== "boolean") throw new Error("Test mode setting is missing");
+  if (typeof saved.artilleryCrew !== "boolean") throw new Error("Artillery crew setting is missing");
   if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
     throw new Error(`Unknown phase ${saved.phase}`);
   }
@@ -393,7 +403,13 @@ export function readSave(
     battleEdits: saved.battleEdits.map((edit) =>
       edit.kind === "move" || edit.kind === "wire"
         ? edit
-        : { kind: edit.kind, position: edit.position, unit: unit(edit.unit), ...(edit.beforeOrders === true && { beforeOrders: true }) }
+        : {
+            kind: edit.kind,
+            position: edit.position,
+            unit: unit(edit.unit),
+            ...(edit.kind === "remove" && edit.replacement !== undefined && { replacement: unit(edit.replacement) }),
+            ...(edit.beforeOrders === true && { beforeOrders: true }),
+          }
     ),
     shots,
     log: saved.log,

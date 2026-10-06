@@ -48,7 +48,8 @@ export interface TurnRecord {
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
-    | { kind: "remove"; unit: UnitType; position: Position }
+    /** `replacedBy`: the infantry an artillery's crew left on the hex (experimental rule) */
+    | { kind: "remove"; unit: UnitType; position: Position; replacedBy?: UnitType }
     | { kind: "move"; unit: UnitType; from: Position; to: Position }
     | { kind: "add"; unit: UnitType; position: Position }
     | { kind: "wire"; position: Position }
@@ -135,9 +136,13 @@ export function recordTurn({
     battleEdits: editedUnits(battleEdits, board).map((unit, i): TurnRecord["battleEdits"][number] => {
       const edit = battleEdits[i]!;
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
-      return edit.kind === "move"
-        ? { kind: "move", unit: unit!, from: { ...edit.from }, to: { ...edit.to } }
-        : { kind: edit.kind, unit: unit!, position: { ...edit.position } };
+      if (edit.kind === "move") return { kind: "move", unit: unit!, from: { ...edit.from }, to: { ...edit.to } };
+      return {
+        kind: edit.kind,
+        unit: unit!,
+        position: { ...edit.position },
+        ...(edit.kind === "remove" && edit.replacement && { replacedBy: edit.replacement.getUnitType() }),
+      };
     }),
     coins: coins.map((entry) => ({ ...entry })),
     coinsAfter,

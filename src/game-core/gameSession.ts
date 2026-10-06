@@ -250,6 +250,8 @@ interface GameSessionOptions {
    * hand limit, cards played come back to the hand, and each turn starts with plenty of coins
    */
   testMode?: boolean;
+  /** Experimental rule: a destroyed artillery unit leaves its crew behind as an infantry unit */
+  artilleryCrew?: boolean;
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
   random?: () => number;
 }
@@ -260,7 +262,8 @@ interface GameSessionOptions {
  * not to match the table (a roll changed at the table, a missed retreat)
  */
 export type BattleEdit = (
-  | { kind: "remove"; position: Position; unit: Unit }
+  /** `replacement`: the infantry an artillery's crew leaves behind (the `artilleryCrew` rule) */
+  | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit }
   | { kind: "move"; from: Position; to: Position }
   /** A unit that arrived: the Reinforcements card */
   | { kind: "add"; position: Position; unit: Unit }
@@ -290,6 +293,8 @@ class GameSession {
   readonly targetKinds: TargetKinds;
   /** Test mode: every combat card in hand, played cards come back, plenty of coins */
   readonly testMode: boolean;
+  /** Experimental rule: artillery destroyed in the battle turns into an infantry unit */
+  readonly artilleryCrew: boolean;
   readonly board: BoardManager;
   /** Every command card in this side's deck, wherever it is now */
   readonly commandCards: readonly CommandCard[];
@@ -339,11 +344,13 @@ class GameSession {
     combatCards = [],
     longRangeDie = false,
     testMode = false,
+    artilleryCrew = false,
     random = () => Math.random(),
   }: GameSessionOptions) {
     this.scenario = scenario;
     this.longRangeDie = longRangeDie;
     this.testMode = testMode;
+    this.artilleryCrew = artilleryCrew;
     this.random = random;
     this.faction = faction;
     this.attacking = scenario.attacker === faction;
@@ -1345,13 +1352,28 @@ class GameSession {
     this.battleEdits = [...this.battleEdits, beforeOrders ? { ...edit, beforeOrders } : edit];
   }
 
-  /** Remove a unit destroyed on the table */
+  /**
+   * Whether removing the unit on this hex leaves an infantry unit in its place: with the
+   * `artilleryCrew` rule, artillery destroyed in the battle (not a fix to the map in Órdenes)
+   */
+  leavesCrew(position: Position): boolean {
+    return (
+      this.artilleryCrew &&
+      this.phase === TurnPhase.END_OF_TURN &&
+      this.board.getHex(position)?.unit?.getUnitType() === UnitType.ARTILLERY
+    );
+  }
+
+  /** Remove a unit destroyed on the table (an artillery's crew may stay as infantry: `leavesCrew`) */
   removeUnit(position: Position): boolean {
     if (!this.canEditMap()) return false;
+    const crew = this.leavesCrew(position);
     const unit = this.board.removeUnitAt(position);
     if (!unit) return false;
 
-    this.addBattleEdit({ kind: "remove", position, unit });
+    const replacement = crew ? new Unit(UnitType.INFANTRY) : undefined;
+    if (replacement) this.board.placeUnitAt(position, replacement);
+    this.addBattleEdit({ kind: "remove", position, unit, ...(replacement && { replacement }) });
     return this.publish();
   }
 
@@ -1381,6 +1403,7 @@ class GameSession {
     const edit = this.battleEdits.at(-1)!;
 
     if (edit.kind === "remove") {
+      if (edit.replacement) this.board.removeUnitAt(edit.position);
       this.board.placeUnitAt(edit.position, edit.unit);
     } else if (edit.kind === "add") {
       this.board.removeUnitAt(edit.position);
@@ -1577,7 +1600,11 @@ class GameSession {
   // --- saving
 
   save(): SavedGame {
-    return writeSave(this.scenario.id, this.faction, this.longRangeDie, this.testMode, this.board, {
+    return writeSave(this.scenario.id, this.faction, {
+      longRangeDie: this.longRangeDie,
+      testMode: this.testMode,
+      artilleryCrew: this.artilleryCrew,
+    }, this.board, {
       turn: this.turn,
       phase: this.phase,
       drawPile: this.deck.drawPile,
@@ -1630,6 +1657,7 @@ class GameSession {
       combatCards,
       longRangeDie: saved.longRangeDie,
       testMode: saved.testMode,
+      artilleryCrew: saved.artilleryCrew,
       random,
     });
     const state: SessionState = readSave(saved, session.board, commandCards, combatCards);

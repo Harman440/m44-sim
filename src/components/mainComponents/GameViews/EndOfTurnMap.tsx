@@ -75,6 +75,8 @@ function EndOfTurnMap({
   };
 
   const selectedHex = selected ? boardManager.getHex(selected) : null;
+  /** Removing the selected artillery leaves its crew as infantry (experimental rule) */
+  const leavesCrew = !!selected && session.leavesCrew(selected);
   /** The Reinforcements card's cross, until its unit is on the map */
   const reinforcements = game.reinforcementDue || game.reinforcementToPlace !== null;
 
@@ -118,7 +120,7 @@ function EndOfTurnMap({
             <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
               {selectedHex.hasUnit() && (
                 <Button color="error" onClick={handleRemove} startIcon={<GameIcon name="cancel" />}>
-                  Eliminar unidad
+                  {leavesCrew ? "Eliminar: queda infantería" : "Eliminar unidad"}
                 </Button>
               )}
               {selectedHex.wire && (

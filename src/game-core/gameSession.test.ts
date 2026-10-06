@@ -1293,8 +1293,9 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 21 as 22 })).toThrow();
+    expect(broken({ version: 22 as 23 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
+    expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
     expect(broken({ drops: [{ row: "a" }] as never })).toThrow();
     expect(broken({ longRangeDie: "yes" as never })).toThrow();
@@ -2836,5 +2837,81 @@ describe("GameSession extra draws (Pegasus Bridge)", () => {
       cards()
     );
     expect(restored.getSnapshot().extraDrawn?.id).toBe(extra.id);
+  });
+});
+
+describe("Experimental rule: a destroyed artillery leaves its crew as infantry", () => {
+  const GUN: Position = { row: 5, col: 1 };
+  const withArtillery: Scenario = {
+    ...scenario,
+    units: { ...scenario.units, allies: { ...scenario.units.allies, artillery: [GUN] } },
+  };
+  const makeGunSession = (artilleryCrew: boolean) => {
+    const commandCards = cards();
+    return new GameSession({ scenario: withArtillery, faction: "Allies", initialHandSize: 4, commandCards, artilleryCrew });
+  };
+  const toFinalPhase = (session: GameSession) => {
+    session.pickCard(session.getSnapshot().hand.find((c) => c.id === "right")!);
+    orderAllAndFight(session);
+    expect(session.endBattle()).toBe(true);
+  };
+  const typeAt = (session: GameSession, p: Position) => unitAt(session, p)?.getUnitType();
+
+  it("puts an infantry unit where the artillery was removed in the final phase", () => {
+    const session = makeGunSession(true);
+    toFinalPhase(session);
+
+    expect(session.leavesCrew(GUN)).toBe(true);
+    expect(session.leavesCrew(LEFT_INF)).toBe(false);
+    expect(session.removeUnit(GUN)).toBe(true);
+    expect(typeAt(session, GUN)).toBe(UnitType.INFANTRY);
+
+    // The crew is an ordinary unit: it can be removed too
+    expect(session.removeUnit(GUN)).toBe(true);
+    expect(unitAt(session, GUN)).toBeNull();
+  });
+
+  it("brings the artillery back on undo", () => {
+    const session = makeGunSession(true);
+    toFinalPhase(session);
+    const gun = unitAt(session, GUN);
+    session.removeUnit(GUN);
+
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(unitAt(session, GUN)).toBe(gun);
+  });
+
+  it("only removes the artillery without the rule, or when fixing the map in Órdenes", () => {
+    const off = makeGunSession(false);
+    toFinalPhase(off);
+    expect(off.leavesCrew(GUN)).toBe(false);
+    off.removeUnit(GUN);
+    expect(unitAt(off, GUN)).toBeNull();
+
+    const on = makeGunSession(true);
+    on.pickCard(on.getSnapshot().hand.find((c) => c.id === "right")!);
+    expect(on.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
+    expect(on.leavesCrew(GUN)).toBe(false);
+    expect(on.removeUnit(GUN)).toBe(true);
+    expect(unitAt(on, GUN)).toBeNull();
+  });
+
+  it("keeps the rule and the crew after a reload, and logs the swap", () => {
+    const session = makeGunSession(true);
+    toFinalPhase(session);
+    session.removeUnit(GUN);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withArtillery, cards());
+    expect(restored.artilleryCrew).toBe(true);
+    expect(typeAt(restored, GUN)).toBe(UnitType.INFANTRY);
+    expect(restored.undoBattleEdit()).toBe(true);
+    expect(typeAt(restored, GUN)).toBe(UnitType.ARTILLERY);
+
+    restored.removeUnit(GUN);
+    restored.drawCard();
+    expect(restored.endTurn()).toBe(true);
+    expect(restored.getSnapshot().log[0]!.battleEdits).toEqual([
+      { kind: "remove", unit: UnitType.ARTILLERY, position: GUN, replacedBy: UnitType.INFANTRY },
+    ]);
   });
 });

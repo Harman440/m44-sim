@@ -34,6 +34,7 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
   const [faction, setFaction] = useState<Faction | null>(null);
 
   const [longRangeDie, setLongRangeDie] = useState(initialSetup?.longRangeDie === true);
+  const [artilleryCrew, setArtilleryCrew] = useState(initialSetup?.artilleryCrew === true);
   // Not remembered: a real game shouldn't start in test mode by accident
   const [testMode, setTestMode] = useState(false);
 
@@ -41,7 +42,11 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
   const detailsRef = useRef<HTMLDivElement>(null);
   const sideBySide = useMediaQuery((theme) => theme.breakpoints.up("md"));
   const scenario = scenarios.find((s) => s.id === scenarioId);
-  const testRules = [longRangeDie && "dado de 8 caras a distancia", testMode && "modo prueba"].filter(Boolean);
+  const testRules = [
+    longRangeDie && "dado de 8 caras a distancia",
+    artilleryCrew && "la artillería destruida queda como infantería",
+    testMode && "modo prueba",
+  ].filter(Boolean);
 
   const pickScenario = (id: string) => {
     setScenarioId(id);
@@ -142,7 +147,7 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
               <Button
                 size="large"
                 disabled={!faction}
-                onClick={() => faction && onStart({ scenarioId: scenario.id, faction, longRangeDie, testMode })}
+                onClick={() => faction && onStart({ scenarioId: scenario.id, faction, longRangeDie, artilleryCrew, testMode })}
                 startIcon={<GameIcon name="battle" />}
                 sx={{ fontSize: "1.2rem" }}
               >
@@ -173,6 +178,16 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           Los disparos a una unidad no adyacente se tiran con un dado de 8 caras: 3 infantería, 2 tanques,
           bandera y 2 suministros. El tanque impacta a blindados y artillería. Actívalo en los dos
           dispositivos.
+        </Typography>
+        <FormControlLabel
+          control={<Switch checked={artilleryCrew} onChange={(e) => setArtilleryCrew(e.target.checked)} />}
+          label="La artillería destruida queda como infantería"
+          sx={{ minHeight: 48, mt: 1 }}
+        />
+        <Typography variant="body2" color="text.secondary">
+          Cuando destruyen una de tus artillerías, sus artilleros siguen luchando: en la fase final, al
+          eliminarla del mapa, en su casilla queda una unidad de infantería. Pon en la mesa una figura de
+          infantería en su lugar.
         </Typography>
         <FormControlLabel
           control={<Switch checked={testMode} onChange={(e) => setTestMode(e.target.checked)} />}

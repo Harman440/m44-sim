@@ -10,6 +10,7 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 - Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a probe card was used, you pick two cards up and choose between them instead (there are no recon cards in the smaller deck).
 - When an infantry unit is left with one figure its fire power is max 2 dice after applying any dice modifications.
 - Cards that have 'on the move' in standard map have 1 less on the move unit.
+- *Experimental (a switch in the app's "Ajustes"):* when an artillery unit is destroyed, its crew stays on the hex as an infantry unit.
 
 ## Changed units
 Some units have new rules (some rules are still the same):
