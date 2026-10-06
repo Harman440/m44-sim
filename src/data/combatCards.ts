@@ -10,7 +10,9 @@
 // Not in the deck yet: the command combat cards that act on the opponent's
 // hand or orders (Spies, HQ Distraction, Message Interception, Lost Message),
 // which come in Step 33. Sniper is left out: the player doesn't want snipers.
-import { CombatCard, CombatEffect, CombatPhase, MarkerRule } from "../game-core/combatCard";
+import { CombatCard, CombatEffect, CombatPhase, DeckReason, MarkerRule } from "../game-core/combatCard";
+
+export type { DeckReason };
 import { UnitType } from "../game-core/unit";
 import { HexType } from "../types/hex";
 import { Faction } from "../types/faction";
@@ -51,18 +53,6 @@ interface SideContext {
   /** Copies of each air card */
   air: number;
 }
-
-/** Why a card is in a side's deck: what the side (or the map, or the enemy) has */
-export type DeckReason =
-  | "shared"
-  | "attacker"
-  | "defender"
-  | "tanks"
-  | "artillery"
-  | "enemyTanks"
-  | "towns"
-  | "bigGuns"
-  | "air";
 
 interface DeckRule {
   reason: DeckReason;
@@ -193,13 +183,13 @@ const TEMPLATES: CombatCardTemplate[] = [
 /** One card per copy; copies get a numbered id so saves can tell them apart */
 function buildDeck(templates: CombatCardTemplate[], side: SideContext): CombatCard[] {
   return templates.flatMap(({ rule, ...card }) =>
-    Array.from({ length: rule.copies(side) }, (_, i) => ({ ...card, id: `${card.id}-${i + 1}` }))
+    Array.from({ length: rule.copies(side) }, (_, i) => ({ ...card, id: `${card.id}-${i + 1}`, reason: rule.reason }))
   );
 }
 
 /** One of every combat card, whatever the scenario: the test mode's hand */
 export function allCombatCards(): CombatCard[] {
-  return TEMPLATES.map(({ rule: _, ...card }) => ({ ...card, id: `${card.id}-1` }));
+  return TEMPLATES.map(({ rule, ...card }) => ({ ...card, id: `${card.id}-1`, reason: rule.reason }));
 }
 
 function sideContext(scenario: Scenario, faction: Faction): SideContext {
@@ -232,6 +222,6 @@ export function combatDeckEntries(scenario: Scenario, faction: Faction): CombatD
   const side = sideContext(scenario, faction);
   return TEMPLATES.flatMap(({ rule, ...card }) => {
     const copies = rule.copies(side);
-    return copies > 0 ? [{ card: { ...card, id: `${card.id}-1` }, copies, reason: rule.reason }] : [];
+    return copies > 0 ? [{ card: { ...card, id: `${card.id}-1`, reason: rule.reason }, copies, reason: rule.reason }] : [];
   });
 }

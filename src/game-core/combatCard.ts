@@ -8,6 +8,18 @@ import type { HexType } from "../types/hex";
  */
 export type CombatPhase = "order" | "battle";
 
+/** Why a card is in a side's deck: what the side (or the map, or the enemy) has */
+export type DeckReason =
+  | "shared"
+  | "attacker"
+  | "defender"
+  | "tanks"
+  | "artillery"
+  | "enemyTanks"
+  | "towns"
+  | "bigGuns"
+  | "air";
+
 /** A combat card: paid in coins when played. Its effect is resolved at the table (the app applies some in Step 26). */
 export interface CombatCard {
   readonly id: string;
@@ -16,6 +28,8 @@ export interface CombatCard {
   /** Coins to play it */
   readonly cost: number;
   readonly phase: CombatPhase;
+  /** Why the deck has it, shown as an icon on the card; omitted in tests' hand-made cards */
+  readonly reason?: DeckReason;
   /** Hexes to mark on the map while giving orders (Barrage, Air Power, Reinforcements…) */
   readonly marker?: MarkerRule;
   /** A reminder for the final phase: something to do on the table (sandbags, a camouflage badge, a move to mirror on the map) */

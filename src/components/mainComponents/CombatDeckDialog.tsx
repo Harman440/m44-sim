@@ -3,7 +3,7 @@ import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, S
 import CombatCardComponent from "../CombatCardComponent";
 import CardDialog, { ShownCard } from "../CardDialog";
 import FactionInsignia from "../FactionInsignia";
-import GameIcon, { GameIconName } from "../GameIcon";
+import GameIcon, { DECK_REASON_ICONS } from "../GameIcon";
 import { CombatDeckEntry, DeckReason } from "../../data/combatCards";
 import { Faction } from "../../types/faction";
 import { DECK_REASON_LABELS, FACTION_LABELS } from "../../labels";
@@ -18,8 +18,6 @@ interface CombatDeckDialogProps {
 
 /** The groups in the order shown: what everyone gets first, then what this side's situation adds */
 const REASON_ORDER: DeckReason[] = ["shared", "attacker", "defender", "tanks", "artillery", "enemyTanks", "towns", "bigGuns", "air"];
-
-const REASON_ICONS: Partial<Record<DeckReason, GameIconName>> = { bigGuns: "bigGuns", air: "strafe" };
 
 /**
  * A side's combat deck in the chosen scenario, shown from the menu: the cards
@@ -46,19 +44,13 @@ function CombatDeckDialog({ open, onClose, faction, entries }: CombatDeckDialogP
             {REASON_ORDER.map((reason) => {
               const group = entries.filter((entry) => entry.reason === reason);
               if (group.length === 0) return null;
-              const { title, why } = DECK_REASON_LABELS[reason];
-              const icon = REASON_ICONS[reason];
+              const title = DECK_REASON_LABELS[reason];
               return (
                 <Stack key={reason} component="section" aria-label={title} sx={{ gap: 1 }}>
-                  <Box>
-                    <Typography variant="h6" component="h3" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {icon && <GameIcon name={icon} size={32} />}
-                      {title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {why}
-                    </Typography>
-                  </Box>
+                  <Typography variant="h6" component="h3" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <GameIcon name={DECK_REASON_ICONS[reason]} size={32} />
+                    {title}
+                  </Typography>
                   <Box
                     sx={{
                       display: "grid",

@@ -157,17 +157,17 @@ export const COMBAT_PHASE_LABELS: Record<CombatPhase, string> = {
   battle: "En la batalla",
 };
 
-/** Why a side gets a combat card: a short name and what in the scenario gives it */
-export const DECK_REASON_LABELS: Record<DeckReason, { title: string; why: string }> = {
-  shared: { title: "Para todos", why: "Todos los bandos las tienen." },
-  attacker: { title: "Ataca", why: "Cartas ofensivas, para el bando que ataca." },
-  defender: { title: "Defiende", why: "Cartas defensivas, para el bando que defiende." },
-  tanks: { title: "Blindados", why: "Tiene tanques." },
-  artillery: { title: "Artillería", why: "Tiene artillería." },
-  enemyTanks: { title: "Blindados enemigos", why: "El enemigo tiene tanques." },
-  towns: { title: "Combate urbano", why: `El mapa tiene más de ${RATTENKRIEG_MIN_TOWNS} casillas de pueblo.` },
-  bigGuns: { title: "Artillería pesada", why: "Tenía cañones pesados para bombardear." },
-  air: { title: "Aviación", why: "Tiene apoyo aéreo; sin él, el enemigo domina el cielo." },
+/** Why a side gets a combat card: a short name for the group */
+export const DECK_REASON_LABELS: Record<DeckReason, string> = {
+  shared: "Para todos",
+  attacker: "Ataca",
+  defender: "Defiende",
+  tanks: "Blindados",
+  artillery: "Artillería",
+  enemyTanks: "Blindados enemigos",
+  towns: "Combate urbano",
+  bigGuns: "Artillería pesada",
+  air: "Aviación",
 };
 
 /** What to mark on the map for a combat card */

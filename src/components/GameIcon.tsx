@@ -20,6 +20,14 @@ import woodenCrate from "../assets/icons/wooden-crate.svg";
 import fieldGun from "../assets/icons/field-gun.svg";
 import airplane from "../assets/icons/airplane.svg";
 import fallingBomb from "../assets/icons/falling-bomb.svg";
+import rallyTheTroops from "../assets/icons/rally-the-troops.svg";
+import crossedSwords from "../assets/icons/crossed-swords.svg";
+import checkedShield from "../assets/icons/checked-shield.svg";
+import battleTank from "../assets/icons/battle-tank.svg";
+import mortar from "../assets/icons/mortar.svg";
+import tankTread from "../assets/icons/tank-tread.svg";
+import village from "../assets/icons/village.svg";
+import type { DeckReason } from "../game-core/combatCard";
 
 const ICONS = {
   settings: cog,
@@ -45,9 +53,30 @@ const ICONS = {
   strafe: airplane,
   /** Air bombardment (Bombardeo aéreo) */
   bomb: fallingBomb,
+  // Why a combat card is in the deck (DECK_REASON_ICONS)
+  shared: rallyTheTroops,
+  offensive: crossedSwords,
+  defensive: checkedShield,
+  tank: battleTank,
+  artillery: mortar,
+  enemyTanks: tankTread,
+  town: village,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;
+
+/** The icon for why a combat card is in the deck, on the card and on its group in the deck */
+export const DECK_REASON_ICONS: Record<DeckReason, GameIconName> = {
+  shared: "shared",
+  attacker: "offensive",
+  defender: "defensive",
+  tanks: "tank",
+  artillery: "artillery",
+  enemyTanks: "enemyTanks",
+  towns: "town",
+  bigGuns: "bigGuns",
+  air: "strafe",
+};
 
 /** The icon's image, for drawing it inside an SVG (as a mask, so it takes a fill colour) */
 export const iconUrl = (name: GameIconName): string => ICONS[name];

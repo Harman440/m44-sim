@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Typography } from "@mui/material";
 import { CombatCard } from "../game-core/combatCard";
-import { COMBAT_PHASE_LABELS } from "../labels";
-import GameIcon from "./GameIcon";
+import { COMBAT_PHASE_LABELS, DECK_REASON_LABELS } from "../labels";
+import GameIcon, { DECK_REASON_ICONS } from "./GameIcon";
 import { Faction } from "../types/faction";
 import { CombatCardArt } from "./CardArt";
 import "./CommandCard.css";
@@ -82,8 +82,33 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
           {card.cost}
         </Box>
       </Box>
-      <Box className="game-card__art">
+      <Box className="game-card__art" sx={{ position: "relative" }}>
         <CombatCardArt card={card} faction={faction} />
+        {card.reason && (
+          // Why the deck has it (offensive, defensive, the side's tanks…), as on its group in the deck
+          <Box
+            component="span"
+            role="img"
+            aria-label={DECK_REASON_LABELS[card.reason]}
+            data-reason={card.reason}
+            sx={{
+              position: "absolute",
+              top: "0.25em",
+              left: "0.25em",
+              display: "grid",
+              placeItems: "center",
+              width: "2em",
+              height: "2em",
+              borderRadius: "50%",
+              bgcolor: "var(--m44-ink)",
+              color: "var(--m44-paper)",
+              border: "0.12em solid var(--card-accent)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.4)",
+            }}
+          >
+            <GameIcon name={DECK_REASON_ICONS[card.reason]} size="1.3em" />
+          </Box>
+        )}
       </Box>
       <Box
         sx={{
