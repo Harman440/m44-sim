@@ -20,7 +20,6 @@ import woodenCrate from "../assets/icons/wooden-crate.svg";
 import fieldGun from "../assets/icons/field-gun.svg";
 import airplane from "../assets/icons/airplane.svg";
 import fallingBomb from "../assets/icons/falling-bomb.svg";
-import rallyTheTroops from "../assets/icons/rally-the-troops.svg";
 import crossedSwords from "../assets/icons/crossed-swords.svg";
 import checkedShield from "../assets/icons/checked-shield.svg";
 import battleTank from "../assets/icons/battle-tank.svg";
@@ -54,7 +53,6 @@ const ICONS = {
   /** Air bombardment (Bombardeo aéreo) */
   bomb: fallingBomb,
   // Why a combat card is in the deck (DECK_REASON_ICONS)
-  shared: rallyTheTroops,
   offensive: crossedSwords,
   defensive: checkedShield,
   tank: battleTank,
@@ -65,9 +63,8 @@ const ICONS = {
 
 export type GameIconName = keyof typeof ICONS;
 
-/** The icon for why a combat card is in the deck, on the card and on its group in the deck */
-export const DECK_REASON_ICONS: Record<DeckReason, GameIconName> = {
-  shared: "shared",
+/** The icon for why a combat card is in the deck, on the card and on its group in the deck; the shared cards have none */
+export const DECK_REASON_ICONS: Partial<Record<DeckReason, GameIconName>> = {
   attacker: "offensive",
   defender: "defensive",
   tanks: "tank",

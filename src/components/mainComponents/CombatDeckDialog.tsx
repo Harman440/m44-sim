@@ -45,10 +45,11 @@ function CombatDeckDialog({ open, onClose, faction, entries }: CombatDeckDialogP
               const group = entries.filter((entry) => entry.reason === reason);
               if (group.length === 0) return null;
               const title = DECK_REASON_LABELS[reason];
+              const icon = DECK_REASON_ICONS[reason];
               return (
                 <Stack key={reason} component="section" aria-label={title} sx={{ gap: 1 }}>
                   <Typography variant="h6" component="h3" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <GameIcon name={DECK_REASON_ICONS[reason]} size={32} />
+                    {icon && <GameIcon name={icon} size={32} />}
                     {title}
                   </Typography>
                   <Box

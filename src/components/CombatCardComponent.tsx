@@ -25,6 +25,7 @@ interface CombatCardProps {
  * (CardDetails), shown when it is tapped.
  */
 function CombatCardComponent({ card, onClick, selected = false, disabled = false, faction = "Allies" }: CombatCardProps) {
+  const reasonIcon = card.reason && DECK_REASON_ICONS[card.reason];
   const face = (
     <>
       <Box
@@ -84,7 +85,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
       </Box>
       <Box className="game-card__art" sx={{ position: "relative" }}>
         <CombatCardArt card={card} faction={faction} />
-        {card.reason && (
+        {card.reason && reasonIcon && (
           // Why the deck has it (offensive, defensive, the side's tanks…), as on its group in the deck
           <Box
             component="span"
@@ -106,7 +107,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
               boxShadow: "0 1px 2px rgba(0,0,0,0.4)",
             }}
           >
-            <GameIcon name={DECK_REASON_ICONS[card.reason]} size="1.3em" />
+            <GameIcon name={reasonIcon} size="1.3em" />
           </Box>
         )}
       </Box>
