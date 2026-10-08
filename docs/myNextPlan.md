@@ -6,6 +6,10 @@
 
 - Improve badges for elite units
 
+- improve hill hexes
+
+- improve sandbags and bared wire
+
 - Finish game with game summary
 
 
