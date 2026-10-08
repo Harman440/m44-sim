@@ -42,7 +42,6 @@ const makeBattleSession = ({ moveTank = false } = {}) => {
   session.issueOrder(INFANTRY, INFANTRY);
   if (!session.issueOrder(TANK, moveTank ? TANK_MOVED : TANK)) throw new Error("Tank order failed");
   session.commitOrders();
-  session.startMovement();
   session.startBattle();
   return session;
 };
@@ -271,7 +270,6 @@ describe("BattleView Close Assault card", () => {
     });
     session.pickCard(session.getSnapshot().hand[0]!);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     const { container } = render(<Harness session={session} onEndBattle={vi.fn()} />);
     const tap = (p: Position) =>
@@ -341,7 +339,6 @@ describe("BattleView combat cards", () => {
     session.issueOrder(INFANTRY, INFANTRY);
     session.issueOrder(TANK, TANK);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     render(<Harness session={session} onEndBattle={() => {}} />);
     return session;
@@ -422,7 +419,6 @@ describe("BattleView combat card effects", () => {
     session.issueOrder(INFANTRY, INFANTRY);
     session.issueOrder(TANK, TANK);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     render(<Harness session={session} onEndBattle={() => {}} />);
     return session;

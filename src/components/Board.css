@@ -12,26 +12,6 @@
   border: calc(var(--m44-border-width, 2px) + 1px) solid var(--m44-border, #374151);
   border-radius: var(--m44-radius, 8px);
   box-shadow: var(--m44-shadow, none);
-  transition: filter 0.3s ease;
-}
-
-/* Orders committed: the board is read-only until the battle phase */
-.board__svg--locked {
-  filter: saturate(0.4) brightness(0.8);
-}
-
-.board__svg--locked .hexagon {
-  cursor: default;
-}
-
-/* "Órdenes confirmadas" stamped over the locked board */
-.board__stamp {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
 }
 
 /* Combat card markers: a target to attack, a cross where a unit appears */

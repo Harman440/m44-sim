@@ -17,9 +17,10 @@ interface MovementViewProps {
 const noop = () => {};
 
 /**
- * Movement phase: both players show their maps, then move the pieces on the
- * table. The map here is read-only; it shows what to move, and the cards
- * played this turn sit above the instructions for the opponent to read.
+ * Movement phase, straight after confirming the orders: both players show
+ * their maps, then move the pieces on the table. The map here is read-only;
+ * it shows what to move, and the cards played this turn sit above the
+ * instructions for the opponent to read.
  */
 function MovementView({ faction, session, game }: MovementViewProps) {
   const firing = game.orders.filter((order) => order.canFire).length;
@@ -51,9 +52,6 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           section={game.chosenSection}
           combat={game.orderCombatCard}
         />
-        <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
-          Enseña el mapa al rival y mueve en la mesa las unidades con flecha
-        </Typography>
         <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
           Fase Batalla
         </Button>

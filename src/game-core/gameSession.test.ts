@@ -76,7 +76,6 @@ const orderAllAndFight = (session: GameSession) => {
     expect(session.issueOrder(position, position)).toBe(true);
   }
   expect(session.commitOrders()).toBe(true);
-  expect(session.startMovement()).toBe(true);
   expect(session.startBattle()).toBe(true);
 };
 
@@ -227,13 +226,13 @@ describe("GameSession giving orders", () => {
     expect(session.getSnapshot().ordersLeft).toBe(4);
   });
 
-  it("only commits once every order is given, then locks the board", () => {
+  it("only commits once every order is given, then locks the orders", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
     session.issueOrder(LEFT_INF, LEFT_INF);
 
     expect(session.commitOrders()).toBe(false);
-    expect(session.startMovement()).toBe(false);
+    expect(session.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
 
     session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
     expect(session.commitOrders()).toBe(true);
@@ -444,11 +443,10 @@ describe("GameSession movement and final phases", () => {
     session.issueOrder(LEFT_INF, LEFT_INF);
     session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
 
-    expect(session.startMovement()).toBe(false); // orders not confirmed yet
-    session.commitOrders();
-    expect(session.startBattle()).toBe(false); // the pieces move on the table first
-    expect(session.startMovement()).toBe(true);
+    expect(session.startBattle()).toBe(false); // orders not confirmed yet
+    expect(session.commitOrders()).toBe(true); // confirming goes straight to movement
     expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
+    expect(session.commitOrders()).toBe(false);
     expect(session.removeUnit(LEFT_INF)).toBe(false);
     expect(session.endBattle()).toBe(false);
 
@@ -1293,7 +1291,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 24 as 25 })).toThrow();
+    expect(broken({ version: 25 as 26 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
@@ -1472,7 +1470,6 @@ describe("GameSession coins", () => {
     const session = turnWithCoins(4, "close");
     session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
 
     expect(session.undoCloseAssaultMark()).toBe(false);
@@ -1800,7 +1797,6 @@ describe("GameSession map markers", () => {
     expect(restored.commandCards).toBe(commandCards);
 
     restored.commitOrders();
-    restored.startMovement();
     restored.startBattle();
     finishTurn(restored);
     expect(restored.getSnapshot().log.at(-1)!.markers).toEqual([FAR]);
@@ -2085,7 +2081,6 @@ describe("GameSession combat card effects", () => {
       expect(session.issueOrder(LEFT_INF, far, undefined, true)).toBe(true);
       expect(session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 })).toBe(true);
       session.commitOrders();
-      session.startMovement();
       session.startBattle();
 
       // It doesn't wait for the unit that held
@@ -2104,7 +2099,6 @@ describe("GameSession combat card effects", () => {
         session.issueOrder(LEFT_INF, to);
         session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
         session.commitOrders();
-        session.startMovement();
         session.startBattle();
         return session;
       };
@@ -2740,7 +2734,6 @@ describe("GameSession barbed wire", () => {
     pick(session, "tank");
     expect(session.issueOrder(TANK, WIRE)).toBe(true);
     expect(session.commitOrders()).toBe(true);
-    session.startMovement();
     session.startBattle();
 
     expect(session.getSnapshot().canRemoveWire).toEqual([false]);

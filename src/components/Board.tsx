@@ -9,7 +9,6 @@ import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
 import Unit from '../game-core/unit';
-import Stamp from './Stamp';
 import type { MarkerRule } from '../game-core/combatCard';
 
 /** A hex to flash red; a new `id` restarts the animation on the same hex */
@@ -28,8 +27,6 @@ interface BoardProps {
   /** Scenario artwork drawn under the hexes */
   backgroundImage?: string;
   invalidFlash?: HexFlash | null;
-  /** Orders are committed: dim the board, stamp it and stop showing it as clickable */
-  locked?: boolean;
   /** Units that have used their shots this turn */
   firedUnits?: ReadonlySet<Unit>;
   /** Units that can still be ordered, ringed */
@@ -58,7 +55,6 @@ function Board({
   orders,
   backgroundImage,
   invalidFlash = null,
-  locked = false,
   firedUnits,
   orderablePositions = [],
   markers = [],
@@ -213,7 +209,7 @@ function Board({
       <svg
         viewBox={`${viewX} ${viewY} ${viewWidth} ${viewHeight}`}
         style={{ maxWidth: focus.length > 0 ? undefined : width, '--board-aspect': viewWidth / viewHeight } as React.CSSProperties}
-        className={`board__svg${locked ? ' board__svg--locked' : ''}`}
+        className="board__svg"
       >
 
         <defs>
@@ -253,11 +249,6 @@ function Board({
         {/* Layer 5: dice at each hex a unit can fire at (top layer) */}
         {renderTargetDice()}
       </svg>
-      {locked && (
-        <div className="board__stamp">
-          <Stamp size="large" angle={-9}>Órdenes confirmadas</Stamp>
-        </div>
-      )}
     </div>
   );
 };

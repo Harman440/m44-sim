@@ -180,9 +180,9 @@ describe("OrdersView invalid taps", () => {
   });
 });
 
-describe("OrdersView after committing", () => {
-  it("locks the board and shows the confirmation", () => {
-    const { tap, isSelected, container } = setup();
+describe("OrdersView confirming", () => {
+  it("goes straight to the movement phase", () => {
+    const { session, tap } = setup();
     for (const unit of [LEFT_A, LEFT_B]) {
       tap(unit);
       fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
@@ -190,12 +190,7 @@ describe("OrdersView after committing", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
 
-    expect(container.querySelector(".board__svg--locked")).not.toBeNull();
-    expect(container.querySelector(".board__stamp")).toHaveTextContent("Órdenes confirmadas");
-    expect(screen.getByText(/ya no se pueden cambiar/)).toBeInTheDocument();
-    tap(LEFT_A);
-    expect(isSelected(LEFT_A)).toBe(false);
-    expect(screen.queryByRole("button", { name: "Volver" })).not.toBeInTheDocument();
+    expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
   });
 });
 
@@ -399,7 +394,7 @@ describe("OrdersView combat card markers", () => {
     expect(screen.getByRole("button", { name: "Dejar de marcar" })).toBeInTheDocument(); // still marking
     tap({ row: 1, col: 10 });
     fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
-    expect(session.getSnapshot().ordersCommitted).toBe(true);
+    expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
   });
 });
 

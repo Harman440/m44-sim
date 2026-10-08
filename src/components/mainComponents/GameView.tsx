@@ -119,7 +119,6 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
               {scenario.name} · {FACTION_LABELS[faction]}
             </Typography>
-            <Chip label={session.attacking ? "Atacante" : "Defensor"} variant="outlined" size="small" />
             {session.testMode && <Chip label="Modo prueba" color="warning" size="small" />}
             <Chip label={game.extraTurn ? "Turno 1 · extra" : `Turno ${game.turn}`} color="secondary" size="small" />
             {PHASE_STEPS.map(({ phase, label }, i) => (

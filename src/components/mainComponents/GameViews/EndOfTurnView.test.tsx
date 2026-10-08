@@ -33,7 +33,6 @@ const makeFinalSession = () => {
   session.issueOrder(INFANTRY, INFANTRY);
   session.issueOrder(TANK, TANK);
   session.commitOrders();
-  session.startMovement();
   session.startBattle();
   session.endBattle();
   return session;
@@ -183,7 +182,6 @@ describe("EndOfTurnView after a special card", () => {
     restored.pickCard(card);
     restored.issueOrder(INFANTRY, INFANTRY);
     restored.commitOrders();
-    restored.startMovement();
     restored.startBattle();
     restored.endBattle();
     render(<Harness session={restored} />);
@@ -318,7 +316,6 @@ describe("EndOfTurnView table reminders", () => {
     session.pickCard(card);
     session.issueOrder(INFANTRY, INFANTRY);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     session.playBattleCombatCard(fortify);
     session.endBattle();

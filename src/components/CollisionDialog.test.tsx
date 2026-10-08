@@ -34,7 +34,6 @@ const makeSession = ({ tankHolds = false } = {}) => {
   session.issueOrder(INFANTRY, tooFar);
   session.issueOrder(TANK, tankHolds ? TANK : session.getMoveOptions(TANK)!.moveAndFire[0]!);
   session.commitOrders();
-  session.startMovement();
   session.startBattle();
   return session;
 };

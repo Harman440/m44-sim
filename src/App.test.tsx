@@ -74,7 +74,7 @@ describe("App menu and game flow", () => {
     start("Aliados");
 
     expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
-    expect(screen.getByText("Atacante")).toBeInTheDocument();
+    expect(screen.queryByText("Atacante")).not.toBeInTheDocument(); // the role is in the menu, not the header
     expect(screen.getByText("Turno 1 · extra")).toBeInTheDocument();
     expect(screen.getByText("1. Carta").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
@@ -84,7 +84,7 @@ describe("App menu and game flow", () => {
     render(<App />);
     start("Eje");
 
-    expect(screen.getByText("Defensor")).toBeInTheDocument();
+    expect(screen.queryByText("Defensor")).not.toBeInTheDocument();
     expect(screen.getByText("Los Aliados atacan primero")).toBeInTheDocument();
     expect(screen.queryByText("Zona de Mando")).not.toBeInTheDocument();
 

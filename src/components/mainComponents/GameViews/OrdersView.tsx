@@ -79,7 +79,7 @@ const holdLabel = (shots: number) => {
 
 function OrdersView({ faction, session, game }: OrdersViewProps) {
   const boardManager = session.board;
-  const { orders, ordersLeft, ordersCommitted } = game;
+  const { orders, ordersLeft } = game;
   const paidCard = game.activeCard?.paidInCoins ?? false;
 
   // Selected unit and its highlighted destinations (UI state only)
@@ -99,7 +99,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   const markersLeft = markerRule ? markerRule.count - game.markers.length : 0;
   /** Taps mark hexes for the combat card instead of ordering units */
   const [markMode, setMarkMode] = useState(false);
-  const marking = markMode && markersLeft > 0 && !ordersCommitted;
+  const marking = markMode && markersLeft > 0;
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
   const play = useSound();
@@ -168,7 +168,6 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   // One tap per action so it works the same with a mouse or on a tablet
   const handleTileClick = (position: Position) => {
-    if (ordersCommitted) return;
     if (marking) {
       if (!session.markHex(position)) flashInvalid(position);
       return;
@@ -212,7 +211,6 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   /** What to do now, in a few words: always in sight */
   const prompt = () => {
-    if (ordersCommitted) return null;
     if (marking && markerRule) return `Marca en el mapa: faltan ${markersLeft}`;
     if (extraMode) return selectedHex ? "Toca una casilla resaltada" : "Orden extra: toca cualquier unidad sin orden";
     if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
@@ -229,7 +227,6 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   /** The same, explained: behind "Instrucciones" */
   const instructions = () => {
-    if (ordersCommitted) return "Las órdenes están confirmadas: ya no se pueden cambiar. Pasa a la fase de movimiento.";
     if (marking && markerRule) {
       return `${describeMarkerRule(markerRule)} Faltan ${markersLeft}.`;
     }
@@ -283,7 +280,6 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           orders={orders}
           backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
-          locked={ordersCommitted}
           orderablePositions={marking ? [] : extraMode ? game.extraOrderable : game.orderable}
           markers={game.markers}
           markerKind={markerRule?.kind}
@@ -334,46 +330,38 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                 {describeMarkerRule(markerRule)} ({game.markers.length}/{markerRule.count})
               </Typography>
             )}
-            {!ordersCommitted && (
-              <Stack sx={{ gap: 1, mt: 1 }}>
-                {markerRule && (markersLeft > 0 || marking) && (
-                  <Button
-                    variant={marking ? "contained" : "outlined"}
-                    color="warning"
-                    onClick={toggleMarkMode}
-                    startIcon={<GameIcon name={marking ? "cancel" : "fire"} />}
-                    aria-pressed={marking}
-                  >
-                    {marking ? "Dejar de marcar" : "Marcar en el mapa"}
-                  </Button>
-                )}
-                {markerRule && game.markers.length > 0 && (
-                  <Button variant="text" color="inherit" onClick={() => session.undoMarker()} startIcon={<GameIcon name="undo" />}>
-                    Borrar última marca
-                  </Button>
-                )}
-                <Button variant="text" color="inherit" onClick={() => session.cancelOrderCombatCard()} startIcon={<GameIcon name="cancel" />}>
-                  Quitar
+            <Stack sx={{ gap: 1, mt: 1 }}>
+              {markerRule && (markersLeft > 0 || marking) && (
+                <Button
+                  variant={marking ? "contained" : "outlined"}
+                  color="warning"
+                  onClick={toggleMarkMode}
+                  startIcon={<GameIcon name={marking ? "cancel" : "fire"} />}
+                  aria-pressed={marking}
+                >
+                  {marking ? "Dejar de marcar" : "Marcar en el mapa"}
                 </Button>
-              </Stack>
-            )}
+              )}
+              {markerRule && game.markers.length > 0 && (
+                <Button variant="text" color="inherit" onClick={() => session.undoMarker()} startIcon={<GameIcon name="undo" />}>
+                  Borrar última marca
+                </Button>
+              )}
+              <Button variant="text" color="inherit" onClick={() => session.cancelOrderCombatCard()} startIcon={<GameIcon name="cancel" />}>
+                Quitar
+              </Button>
+            </Stack>
           </Paper>
         )}
-        {ordersCommitted ? (
-          <Alert severity="success" sx={{ width: "100%" }}>
-            Órdenes confirmadas: ya no se pueden cambiar.
-          </Alert>
-        ) : (
-          <Box sx={{ textAlign: "center" }}>
-            <Typography variant="body1" color="primary">
-              {prompt()}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {paidCard ? `Órdenes de la carta: ${game.cardOrdersLeft}` : `Órdenes restantes: ${ordersLeft}`} ·{" "}
-              {coinsText(game.coins)}
-            </Typography>
-          </Box>
-        )}
+        <Box sx={{ textAlign: "center" }}>
+          <Typography variant="body1" color="primary">
+            {prompt()}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {paidCard ? `Órdenes de la carta: ${game.cardOrdersLeft}` : `Órdenes restantes: ${ordersLeft}`} ·{" "}
+            {coinsText(game.coins)}
+          </Typography>
+        </Box>
 
         {selectedHex && (
           <Paper variant="outlined" sx={{ p: 1.5, width: "100%" }}>
@@ -469,7 +457,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         )}
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-          {!ordersCommitted && !marking && !game.extraTurn && (canBuyExtra || extraMode) && (
+          {!marking && !game.extraTurn && (canBuyExtra || extraMode) && (
             <Button
               variant={extraMode ? "contained" : "outlined"}
               color="warning"
@@ -480,22 +468,17 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               {extraMode ? "Cancelar orden extra" : `Orden extra (${EXTRA_ORDER_COST} suministros)`}
             </Button>
           )}
-          {!ordersCommitted && orders.length > 0 && !unitHexPosition && (
+          {orders.length > 0 && !unitHexPosition && (
             <Button variant="outlined" onClick={() => session.undoLastOrder()} startIcon={<GameIcon name="undo" />}>
               Volver
             </Button>
           )}
-          {!ordersCommitted && ordersLeft <= 0 && markersLeft <= 0 && (
+          {ordersLeft <= 0 && markersLeft <= 0 && (
             <Button
               onClick={() => session.commitOrders() && play("stamp")}
               startIcon={<GameIcon name="confirm" />}
             >
               Confirmar Órdenes
-            </Button>
-          )}
-          {ordersCommitted && (
-            <Button onClick={() => session.startMovement()} startIcon={<GameIcon name="map" />}>
-              Fase Movimiento
             </Button>
           )}
         </Stack>

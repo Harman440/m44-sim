@@ -43,7 +43,6 @@ const makeSession = (
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(UNIT, UNIT);
   session.commitOrders();
-  session.startMovement();
   session.startBattle();
   return session;
 };
@@ -288,7 +287,6 @@ describe("FireDialog", () => {
     session.pickCard(session.getSnapshot().hand[0]!);
     session.issueOrder(UNIT, UNIT);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     session.playBattleCombatCard(spotter);
     render(<Harness session={session} />);

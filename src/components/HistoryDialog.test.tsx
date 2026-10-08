@@ -41,7 +41,6 @@ const playedSession = () => {
     session.pickCard(session.getSnapshot().hand[0]!);
     session.issueOrder(INFANTRY, INFANTRY);
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     battle();
     session.endBattle();

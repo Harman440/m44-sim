@@ -88,7 +88,6 @@ export interface GameSnapshot {
   extraOrderable: readonly Position[];
   /** With a Close Assault card, in the battle: units that can still be marked as in close assault */
   closeAssaultMarkable: readonly Position[];
-  ordersCommitted: boolean;
   /** Board changes made to mirror the table: after the battle, or in Órdenes before any order */
   battleEdits: number;
   /** The map can be changed by hand now: in the final phase, or in Órdenes before any order or mark */
@@ -318,7 +317,6 @@ class GameSession {
   private drawOptions: CommandCard[] = [];
   private drewAgain = false;
   private orders: Order[] = [];
-  private ordersCommitted = false;
   private battleEdits: BattleEdit[] = [];
   private shots: Shot[] = [];
   private unmovedFireSkipped = false;
@@ -490,7 +488,7 @@ class GameSession {
 
   /** The card picked can still be taken back: giving orders, none given yet */
   private canUnpickCard(): boolean {
-    return this.phase === TurnPhase.ORDER_UNITS && !this.ordersCommitted && this.orders.length === 0;
+    return this.phase === TurnPhase.ORDER_UNITS && this.orders.length === 0;
   }
 
   /**
@@ -519,7 +517,7 @@ class GameSession {
 
   private orderContext(): OrderContext | null {
     const card = this.activeCard();
-    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !card) return null;
+    if (this.phase !== TurnPhase.ORDER_UNITS || !card) return null;
     return { card, chosenSection: this.chosenSection, board: this.board, orders: this.orders, coins: this.coins() };
   }
 
@@ -657,7 +655,7 @@ class GameSession {
   }
 
   undoLastOrder(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return false;
+    if (this.phase !== TurnPhase.ORDER_UNITS) return false;
     const lastOrder = this.orders.at(-1);
     if (!lastOrder) return false;
 
@@ -673,19 +671,13 @@ class GameSession {
     return this.publish();
   }
 
-  commitOrders(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return false;
-    if (this.remainingOrders() > 0) return false;
-    if (this.markersLeft() > 0) return false;
-
-    this.ordersCommitted = true;
-    return this.publish();
-  }
-
   // --- MOVEMENT: the orders are shown to the opponent and carried out on the table
 
-  startMovement(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS || !this.ordersCommitted) return false;
+  /** Confirm the orders and move on to the movement phase; from here on they can't change */
+  commitOrders(): boolean {
+    if (this.phase !== TurnPhase.ORDER_UNITS) return false;
+    if (this.remainingOrders() > 0) return false;
+    if (this.markersLeft() > 0) return false;
 
     this.phase = TurnPhase.MOVEMENT;
     return this.publish();
@@ -1238,7 +1230,7 @@ class GameSession {
 
   /** Take back the order combat card while giving orders, before they're confirmed; its coins come back */
   cancelOrderCombatCard(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted || !this.orderCombatCard) return false;
+    if (this.phase !== TurnPhase.ORDER_UNITS || !this.orderCombatCard) return false;
 
     this.combatHand = [...this.combatHand, this.orderCombatCard];
     this.orderCombatCard = null;
@@ -1249,7 +1241,7 @@ class GameSession {
   // Map markers: the hexes the order combat card targets, or where its unit appears
 
   private markerRule() {
-    if (this.phase !== TurnPhase.ORDER_UNITS || this.ordersCommitted) return null;
+    if (this.phase !== TurnPhase.ORDER_UNITS) return null;
     return this.orderCombatCard?.marker ?? null;
   }
 
@@ -1351,9 +1343,7 @@ class GameSession {
 
   private canEditMap(): boolean {
     if (this.phase === TurnPhase.END_OF_TURN) return true;
-    return (
-      this.phase === TurnPhase.ORDER_UNITS && !this.ordersCommitted && this.orders.length === 0 && this.markers.length === 0
-    );
+    return this.phase === TurnPhase.ORDER_UNITS && this.orders.length === 0 && this.markers.length === 0;
   }
 
   /** Edits made in Órdenes can't be undone after the orders: the orders start from them */
@@ -1675,7 +1665,6 @@ class GameSession {
     this.extraDrawn = null;
     this.drewAgain = false;
     this.orders = [];
-    this.ordersCommitted = false;
     this.battleEdits = [];
     this.shots = [];
     this.unmovedFireSkipped = false;
@@ -1704,7 +1693,6 @@ class GameSession {
       drawOptions: this.drawOptions,
       drewAgain: this.drewAgain,
       orders: this.orders,
-      ordersCommitted: this.ordersCommitted,
       unmovedFireSkipped: this.unmovedFireSkipped,
       battleEdits: this.battleEdits,
       shots: this.shots,
@@ -1759,7 +1747,6 @@ class GameSession {
     session.drawOptions = state.drawOptions;
     session.drewAgain = state.drewAgain;
     session.orders = state.orders;
-    session.ordersCommitted = state.ordersCommitted;
     session.unmovedFireSkipped = state.unmovedFireSkipped;
     session.battleEdits = state.battleEdits;
     session.shots = state.shots;
@@ -1804,7 +1791,6 @@ class GameSession {
       orderable: orderContext ? orderablePositions(orderContext) : [],
       extraOrderable: orderContext && !this.extraTurn() ? extraOrderablePositions(orderContext) : [],
       closeAssaultMarkable: this.closeAssaultMarkable(),
-      ordersCommitted: this.ordersCommitted,
       battleEdits: this.battleEdits.length,
       canEditMap: this.canEditMap(),
       canUndoMapEdit: this.canUndoMapEdit(),

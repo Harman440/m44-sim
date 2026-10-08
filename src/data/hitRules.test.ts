@@ -78,7 +78,6 @@ describe("GameSession target kinds", () => {
     session.pickCard(card);
     session.issueOrder({ row: 7, col: 1 }, { row: 7, col: 1 });
     session.commitOrders();
-    session.startMovement();
     session.startBattle();
     expect(session.getSnapshot().phase).toBe(TurnPhase.BATTLE);
 

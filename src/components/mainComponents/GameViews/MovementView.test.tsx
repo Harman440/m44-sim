@@ -35,7 +35,6 @@ const makeMovementSession = () => {
   session.issueOrder(INFANTRY, { row: 5, col: 1 });
   session.issueOrder(TANK, TANK);
   session.commitOrders();
-  session.startMovement();
   return session;
 };
 
@@ -57,12 +56,13 @@ function Harness({ session }: { session: GameSession }) {
 }
 
 describe("MovementView", () => {
-  it("says what to do at the table and counts the units that fire", () => {
+  it("says what to do at the table, behind Instrucciones, and counts the units that fire", () => {
     render(<Harness session={makeMovementSession()} />);
 
-    expect(screen.getByText(/mueve en la mesa las unidades con flecha/)).toBeInTheDocument();
+    expect(screen.queryByText(/Mueve en la mesa las unidades con flecha/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
     expect(screen.getByText(/Enseña esta pantalla al rival/)).toBeInTheDocument();
+    expect(screen.getByText(/Mueve en la mesa las unidades con flecha/)).toBeInTheDocument();
     expect(screen.getByText(/Pon un marcador de batalla en\s+la unidad que dispara\./)).toBeInTheDocument();
   });
 

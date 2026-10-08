@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 25;
+export const SAVE_VERSION = 26;
 
 interface SavedUnit {
   type: UnitType;
@@ -69,7 +69,6 @@ export interface SavedGame {
     closeAssaultOnly: boolean;
     lostSandbags: Position[];
   }[];
-  ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
   battleEdits: ((
     | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
@@ -111,7 +110,6 @@ export interface SessionState {
   drawOptions: CommandCard[];
   drewAgain: boolean;
   orders: Order[];
-  ordersCommitted: boolean;
   unmovedFireSkipped: boolean;
   battleEdits: BattleEdit[];
   shots: Shot[];
@@ -245,7 +243,6 @@ export function writeSave(
         ...beforeOrders,
       };
     }),
-    ordersCommitted: state.ordersCommitted,
     unmovedFireSkipped: state.unmovedFireSkipped,
     shots: state.shots.map((shot) => ({
       ...shot,
@@ -415,7 +412,6 @@ export function readSave(
     drawOptions: cards(saved.drawOptions),
     drewAgain: saved.drewAgain === true,
     orders,
-    ordersCommitted: saved.ordersCommitted,
     unmovedFireSkipped: saved.unmovedFireSkipped,
     battleEdits: saved.battleEdits.map((edit): BattleEdit => {
       if (edit.kind === "move" || edit.kind === "wire" || edit.kind === "sandbags") return edit;
