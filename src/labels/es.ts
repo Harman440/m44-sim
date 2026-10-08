@@ -58,7 +58,9 @@ const describeFaces: Labels["describeFaces"] = (faces) => {
   return parts.length > 0 ? parts.join(" · ") : "sin efecto";
 };
 
-const unit: Labels["unit"] = (unit) => UNITS[unit.getUnitType()] + (unit.elite ? " de élite" : "");
+const unitKind: Labels["unitKind"] = (type, elite = false) => UNITS[type] + (elite ? " de élite" : "");
+
+const unit: Labels["unit"] = (unit) => unitKind(unit.getUnitType(), unit.elite);
 
 const es: Labels = {
   factions: { Allies: "Aliados", Axis: "Eje" },
@@ -91,6 +93,7 @@ const es: Labels = {
   target,
   describePlace: (hex) => (hex ? `${TERRAIN[hex.getType()]}, ${SECTIONS[hex.getSide()]}` : "fuera del mapa"),
   unit,
+  unitKind,
   describeHex: (hex) => {
     const extras = [hex.wire && "alambrada", hex.sandbags && "sacos terreros"].filter(Boolean).join(" y ");
     const terrain = TERRAIN[hex.getType()] + (extras ? ` con ${extras}` : "");

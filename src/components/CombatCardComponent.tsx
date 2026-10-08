@@ -155,13 +155,18 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
     textAlign: "left",
     fontFamily: "var(--m44-font-body)",
     ...(selected && { border: "3px solid var(--m44-primary)" }),
+    ...(disabled && { opacity: 0.55 }),
   } as const;
   const faceBox = (
     <Box component="span" className="game-card__face" sx={faceStyle}>
       {face}
     </Box>
   );
-  const rootStyle = { display: "block", opacity: disabled ? 0.55 : 1 } as const;
+  // A faded card fades into the page colour behind it, not into the card under it in the hand
+  const rootStyle = {
+    display: "block",
+    ...(disabled && { bgcolor: "var(--m44-bg)", borderRadius: "calc(var(--m44-radius) * 1.5 * var(--card-scale))" }),
+  } as const;
 
   if (onClick) {
     return (

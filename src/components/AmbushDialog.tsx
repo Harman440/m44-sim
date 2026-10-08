@@ -251,7 +251,7 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
     >
       <DialogTitle>
         <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <span>{t.title(firing ? labels.units[firing.unitType] : null)}</span>
+          <span>{t.title(firing ? labels.unitKind(firing.unitType, board.getHex(firing.position)?.unit?.elite) : null)}</span>
           {firing && (
             <Stack direction="row" component="span" sx={{ alignItems: "center", gap: 1 }} data-testid="ambush-unit">
               <HexThumbnail board={board} position={firing.position} image={image} faction={faction} size={32} />

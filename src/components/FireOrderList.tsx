@@ -325,7 +325,7 @@ function FireOrderList({
   };
 
   const unitRow = (summary: OrderSummary) => {
-    const unit = labels.units[summary.unitType];
+    const unit = labels.unitKind(summary.unitType, summary.elite);
     const hasShots = summary.shots.length > 0;
     const canFireNow = summary.shotsLeft > 0 && !summary.waiting && onFire !== undefined;
     const tags = [summary.extra && t.extraOrder, summary.tookGround && t.tookGround, summary.closeAssaultOnly && t.closeAssault]

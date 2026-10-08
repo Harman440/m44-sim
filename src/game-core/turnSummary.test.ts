@@ -15,7 +15,7 @@ const TANK: Position = { row: 4, col: 6 };
 const FOREST: Position = { row: 4, col: 7 };
 const INFANTRY: Position = { row: 7, col: 1 };
 
-const playTurn = () => {
+const playTurn = (elite: Position[] = []) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -25,6 +25,7 @@ const playTurn = () => {
       attacker: "Allies",
       tiles: { forest: [FOREST] },
       units: { allies: { tank: [TANK], infantry: [INFANTRY] }, axis: {} },
+      elite,
     },
     faction: "Allies",
     initialHandSize: 1,
@@ -47,6 +48,7 @@ describe("summarizeOrders", () => {
     expect(tank).toEqual({
       index: 0,
       unitType: UnitType.TANK,
+      elite: false,
       position: session.getSnapshot().orders[0]!.end,
       section: Side.CENTER,
       hold: false,
@@ -73,6 +75,15 @@ describe("summarizeOrders", () => {
       canFire: true,
       shotsLeft: 1,
     });
+  });
+
+  it("says which units have the scenario's badge", () => {
+    const session = playTurn([INFANTRY]);
+
+    const [tank, infantry] = summarizeOrders(session.getSnapshot().orders, session.board);
+
+    expect(tank!.elite).toBe(false);
+    expect(infantry!.elite).toBe(true);
   });
 
   it("attaches each unit's shots and counts the shots it has left", () => {

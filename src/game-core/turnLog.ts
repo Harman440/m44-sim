@@ -16,13 +16,15 @@ import type { Localized } from "../i18n/lang";
 /**
  * One finished turn as plain JSON: what was played, ordered, rolled and
  * changed on the map. Positions are the app's own (flipped for Axis), like
- * the save. Units are named by type, since the log outlives the unit objects.
+ * the save. Units are named by type and badge (`elite`, left out when false
+ * and in turns saved before it was logged), since the log outlives the unit objects.
  */
 export interface TurnRecord {
   turn: number;
   card: { id: string; name: Localized };
   orders: {
     unit: UnitType;
+    elite?: boolean;
     start: Position;
     end: Position;
     /** Hexes crossed, start and end included */
@@ -33,6 +35,7 @@ export interface TurnRecord {
     /** Index into this record's orders */
     order: number;
     unit: UnitType;
+    elite?: boolean;
     dice: number;
     /** How the dice were worked out (empty in turns saved from before the quick roll was removed) */
     steps: DiceStep[];
@@ -50,8 +53,8 @@ export interface TurnRecord {
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
     /** `replacedBy`: the infantry an artillery's crew left on the hex (experimental rule) */
-    | { kind: "remove"; unit: UnitType; position: Position; replacedBy?: UnitType }
-    | { kind: "move"; unit: UnitType; from: Position; to: Position }
+    | { kind: "remove"; unit: UnitType; elite?: boolean; position: Position; replacedBy?: UnitType }
+    | { kind: "move"; unit: UnitType; elite?: boolean; from: Position; to: Position }
     | { kind: "add"; unit: UnitType; position: Position }
     | { kind: "wire"; position: Position }
     /** Sandbags put down (`placed`) or taken away; `fortify`: on this side's unit, for the Fortify card */
@@ -119,6 +122,7 @@ export function recordTurn({
     card: { id: card.id, name: card.name },
     orders: orders.map((order) => ({
       unit: order.unit.getUnitType(),
+      ...eliteOf(order.unit),
       start: { ...order.start },
       end: { ...order.end },
       path: (order.path ?? [order.start, order.end]).map((p) => ({ ...p })),
@@ -127,6 +131,7 @@ export function recordTurn({
     shots: shots.map((shot) => ({
       order: shot.orderIndex,
       unit: orders[shot.orderIndex]!.unit.getUnitType(),
+      ...eliteOf(orders[shot.orderIndex]!.unit),
       dice: shot.dice,
       steps: shot.steps.map((step) => ({ ...step })),
       faces: [...shot.faces],
@@ -142,10 +147,13 @@ export function recordTurn({
       if (edit.kind === "sandbags") {
         return { kind: "sandbags", position: { ...edit.position }, placed: edit.placed, ...(edit.fortify && { fortify: true }) };
       }
-      if (edit.kind === "move") return { kind: "move", unit: unit!, from: { ...edit.from }, to: { ...edit.to } };
+      if (edit.kind === "move") {
+        return { kind: "move", unit: unit!.getUnitType(), ...eliteOf(unit!), from: { ...edit.from }, to: { ...edit.to } };
+      }
       return {
         kind: edit.kind,
-        unit: unit!,
+        unit: unit!.getUnitType(),
+        ...(edit.kind === "remove" && eliteOf(unit!)),
         position: { ...edit.position },
         ...(edit.kind === "remove" && edit.replacement && { replacedBy: edit.replacement.getUnitType() }),
       };
@@ -178,34 +186,38 @@ export const copyAmbush = (ambush: AmbushShot): AmbushShot => ({
   target: { ...ambush.target },
 });
 
+/** `elite: true` for a unit with the scenario's badge, nothing otherwise */
+const eliteOf = (unit: Unit): { elite?: true } => (unit.elite ? { elite: true } : {});
+
 /**
- * The unit type each edit applied to (null for wire and sandbags). A move only knows its
+ * The unit each edit applied to (null for wire and sandbags). A move only knows its
  * hexes, so the edits are undone one by one, newest first, on a copy of the board.
  */
-function editedUnits(edits: readonly BattleEdit[], board: BoardManager): (UnitType | null)[] {
+
+function editedUnits(edits: readonly BattleEdit[], board: BoardManager): (Unit | null)[] {
   const units = new Map<string, Unit>();
   board.getAllHexes().forEach((hex) => {
     if (hex.unit) units.set(positionKey(hex.getPosition()), hex.unit);
   });
 
-  const types: (UnitType | null)[] = [];
+  const edited: (Unit | null)[] = [];
   for (let i = edits.length - 1; i >= 0; i--) {
     const edit = edits[i]!;
     if (edit.kind === "remove") {
       units.set(positionKey(edit.position), edit.unit);
-      types[i] = edit.unit.getUnitType();
+      edited[i] = edit.unit;
     } else if (edit.kind === "add") {
       units.delete(positionKey(edit.position));
-      types[i] = edit.unit.getUnitType();
+      edited[i] = edit.unit;
     } else if (edit.kind === "wire" || edit.kind === "sandbags") {
-      types[i] = null;
+      edited[i] = null;
     } else {
       const unit = units.get(positionKey(edit.to));
       if (!unit) throw new Error(`No unit at ${positionKey(edit.to)} to undo a move`);
       units.delete(positionKey(edit.to));
       units.set(positionKey(edit.from), unit);
-      types[i] = unit.getUnitType();
+      edited[i] = unit;
     }
   }
-  return types;
+  return edited;
 }

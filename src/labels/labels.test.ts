@@ -59,6 +59,12 @@ describe("English descriptions", () => {
     expect(describeHex(hex)).toBe("Elite infantry in forest");
   });
 
+  it("names a unit from its type and badge", () => {
+    expect(LABELS.en.unitKind(UnitType.TANK)).toBe("Tank");
+    expect(LABELS.en.unitKind(UnitType.INFANTRY, true)).toBe("Elite infantry");
+    expect(LABELS.es.unitKind(UnitType.INFANTRY, true)).toBe("Infantería de élite");
+  });
+
   it("explains how a unit moves and fires", () => {
     const limits = moveLimits(new CommandCard({}), new Unit(UnitType.INFANTRY), CARD_ORDER);
     expect(describeMovement(limits)).toBe("Moves up to 2 hexes; can fire if it moves up to 1 hex");

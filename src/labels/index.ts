@@ -36,6 +36,8 @@ export interface Labels {
   describePlace: (hex: Hex | null) => string;
   /** "Infantry", or "Elite infantry" for a unit with the scenario's badge */
   unit: (unit: Unit) => string;
+  /** The same from a unit's type and badge, for summaries and the turn log, which keep no unit objects */
+  unitKind: (type: UnitType, elite?: boolean) => string;
   /** "Tank in forest", or just the terrain for an empty hex; "… with barbed wire" on barbed wire */
   describeHex: (hex: Hex) => string;
   /** How far a unit moves with its order, and whether it can still fire */

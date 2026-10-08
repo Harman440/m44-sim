@@ -177,7 +177,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         key={i}
                         sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(i) }}
                       >
-                        {labels.units[order.unit]} ·{" "}
+                        {labels.unitKind(order.unit, order.elite)} ·{" "}
                         {hexesMoved === 0
                           ? t.holds(placeOf(order.end))
                           : t.advances(labels.hexes(hexesMoved), placeOf(order.end))}{" "}
@@ -205,10 +205,10 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(shot.order) }}
                     >
                       {shot.removedWire ? (
-                        t.removedWire(labels.units[shot.unit], placeOf(shot.removedWire))
+                        t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
                       ) : (
                         <>
-                          {labels.units[shot.unit]}: {t.dice(shot.dice)}
+                          {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}
                           {shot.collision && t.inCollision}
                           {" → "}
                           {labels.describeAppliedFaces(shot.faces, shot.kept)}
@@ -240,12 +240,12 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         : edit.kind === "sandbags"
                         ? `${edit.fortify ? t.fortified : edit.placed ? t.enemySandbags : t.sandbagsRemoved} (${placeOf(edit.position)})`
                         : edit.kind === "remove"
-                        ? `${t.removed(labels.units[edit.unit])}${
+                        ? `${t.removed(labels.unitKind(edit.unit, edit.elite))}${
                             edit.replacedBy ? t.replacedBy(labels.units[edit.replacedBy]) : ""
                           } (${placeOf(edit.position)})`
                         : edit.kind === "add"
                           ? t.reinforcement(labels.units[edit.unit], placeOf(edit.position))
-                          : t.moved(labels.units[edit.unit], placeOf(edit.to))}
+                          : t.moved(labels.unitKind(edit.unit, edit.elite), placeOf(edit.to))}
                     </Typography>
                   ))}
                 </Box>

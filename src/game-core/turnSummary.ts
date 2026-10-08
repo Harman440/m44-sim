@@ -13,6 +13,8 @@ export interface OrderSummary {
   /** Position in the turn's orders; the map draws the order's arrow in the matching colour */
   index: number;
   unitType: UnitType;
+  /** The unit has the scenario's badge */
+  elite: boolean;
   /** Where the unit ended the move */
   position: Position;
   /** Section the unit ended the move in */
@@ -97,6 +99,7 @@ function summarizeEach(
     return {
       index,
       unitType: order.unit.getUnitType(),
+      elite: order.unit.elite,
       position: order.end,
       section: destination.getSide(),
       hold,

@@ -1174,6 +1174,33 @@ describe("GameSession turn log", () => {
     ]);
   });
 
+  it("marks the scenario's elite units in the orders, shots and map edits", () => {
+    const commandCards = cards();
+    const session = new GameSession({
+      scenario: { ...scenario, elite: [LEFT_INF] },
+      faction: "Allies",
+      initialHandSize: commandCards.length,
+      commandCards,
+    });
+    session.pickCard(session.getSnapshot().hand.find((c) => c.id === "all")!);
+    orderAllAndFight(session);
+    const eliteOrder = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
+    shoot(session, eliteOrder, AT_INFANTRY);
+    session.endBattle();
+    session.relocateUnit(LEFT_INF, { row: 3, col: 3 });
+    session.removeUnit(TANK);
+    finishTurn(session);
+
+    const [record] = session.getSnapshot().log;
+    expect(record!.orders[eliteOrder]!.elite).toBe(true);
+    expect(record!.orders.filter((o) => o.elite)).toHaveLength(1);
+    expect(record!.shots[0]!.elite).toBe(true);
+    expect(record!.battleEdits).toEqual([
+      { kind: "move", unit: "infantry", elite: true, from: LEFT_INF, to: { row: 3, col: 3 } },
+      { kind: "remove", unit: "tank", position: TANK },
+    ]);
+  });
+
   it("leaves out orders, shots and edits that were undone", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));

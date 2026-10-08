@@ -162,13 +162,13 @@ function CollisionDialog({
                 variant="outlined"
                 size="large"
                 onClick={() => select(s.index)}
-                aria-label={`${labels.units[s.unitType]} · ${labels.sections[s.section]} · ${describeMove(s, t, labels)}`}
+                aria-label={`${labels.unitKind(s.unitType, s.elite)} · ${labels.sections[s.section]} · ${describeMove(s, t, labels)}`}
                 sx={{ justifyContent: "flex-start", textAlign: "left", textTransform: "none", gap: 1.5, py: 1 }}
               >
                 <OrderToken orderIndex={s.index} unitType={s.unitType} faction={faction} size={44} />
                 <Box>
                   <Typography variant="body1" component="span" sx={{ display: "block" }}>
-                    {labels.units[s.unitType]} · {labels.sections[s.section]}
+                    {labels.unitKind(s.unitType, s.elite)} · {labels.sections[s.section]}
                   </Typography>
                   <Typography variant="body2" component="span" color="text.secondary" sx={{ display: "block" }}>
                     {describeMove(s, t, labels)}
@@ -274,7 +274,7 @@ function CollisionDialog({
   return (
     <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
       <DialogTitle>
-        {t.title(summary ? `${labels.units[summary.unitType]} · ${labels.sections[summary.section]}` : null)}
+        {t.title(summary ? `${labels.unitKind(summary.unitType, summary.elite)} · ${labels.sections[summary.section]}` : null)}
       </DialogTitle>
       <DialogContent>{content()}</DialogContent>
       <DialogActions>

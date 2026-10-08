@@ -506,7 +506,7 @@ function FireDialog({
     >
       <DialogTitle>
         <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <span>{t.title(labels.units[summary.unitType])}</span>
+          <span>{t.title(labels.unitKind(summary.unitType, summary.elite))}</span>
           {/* Where it fires from and what it fires with at each distance */}
           <Stack direction="row" component="span" sx={{ alignItems: "center", gap: 1 }} data-testid="firing-unit">
             <HexThumbnail board={board} position={summary.firingFrom} image={image} faction={faction} size={32} />
