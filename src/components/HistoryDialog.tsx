@@ -12,19 +12,8 @@ import {
 import GameSession from "../game-core/gameSession";
 import { TurnRecord } from "../game-core/turnLog";
 import { Position } from "../types/scenario";
-import {
-  DIE_FACE_LABELS,
-  UNIT_LABELS,
-  targetLabel,
-  coinsText,
-  describeCoinEntry,
-  describePlace,
-  describeAppliedFaces,
-  describeFaces,
-  describeRoll,
-  describeTarget,
-  signedCoins,
-} from "../labels";
+import { signedCoins } from "../labels";
+import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { downloadJson } from "../download";
 import { orderColor } from "./OrderComponent";
@@ -38,14 +27,102 @@ interface HistoryDialogProps {
   log: readonly TurnRecord[];
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const TEXT = defineMessages({
+  es: {
+    title: "Historial",
+    noTurns: "Aún no ha terminado ningún turno.",
+    turn: (n: number) => `Turno ${n}`,
+    card: (name: string) => `Carta: ${name}`,
+    exportTurnLabel: (n: number) => `Exportar turno ${n}`,
+    exportTurn: "Exportar turno",
+    orders: "Órdenes",
+    noOrders: "No se dieron órdenes.",
+    holds: (place: string) => `mantiene posición (${place})`,
+    advances: (hexes: string, place: string) => `avanza ${hexes} → ${place}`,
+    canFire: "puede disparar",
+    noFire: "no dispara",
+    shots: "Disparos",
+    noShots: "Nadie disparó.",
+    removedWire: (unit: string, place: string) => `${unit}: quitó la alambrada (${place})`,
+    dice: (n: number) => (n === 1 ? "1 dado" : `${n} dados`),
+    inCollision: " en un choque",
+    mapChanges: "Cambios en el mapa",
+    noMapChanges: "Sin bajas ni retiradas.",
+    wireRemoved: (place: string) => `Alambrada quitada (${place})`,
+    fortified: "Fortificar: sacos terreros puestos",
+    enemySandbags: "Sacos terreros enemigos puestos",
+    sandbagsRemoved: "Sacos terreros quitados",
+    removed: (unit: string) => `Eliminada: ${unit}`,
+    replacedBy: (unit: string) => `, queda ${unit.toLowerCase()}`,
+    reinforcement: (unit: string, place: string) => `Refuerzo: ${unit} (${place})`,
+    moved: (unit: string, place: string) => `Movida: ${unit} → ${place}`,
+    supplies: "Suministros",
+    coinsAfter: (coins: string) => `Al terminar el turno: ${coins}`,
+    combatCards: "Cartas de combate",
+    played: (name: string) => `Jugada: ${name}`,
+    markers: (places: string) => `Marcas en el mapa: ${places}`,
+    attack: (n: number) => `Ataque en la casilla ${n}:`,
+    empty: "vacía",
+    ambush: "Emboscada",
+    reinforcements: "Refuerzos",
+    noReinforcements: "sin refuerzos",
+    drawn: (name: string) => `Robada en la fase final: ${name}`,
+    exportGame: "Exportar partida",
+    close: "Cerrar",
+  },
+  en: {
+    title: "History",
+    noTurns: "No turn has ended yet.",
+    turn: (n: number) => `Turn ${n}`,
+    card: (name: string) => `Card: ${name}`,
+    exportTurnLabel: (n: number) => `Export turn ${n}`,
+    exportTurn: "Export turn",
+    orders: "Orders",
+    noOrders: "No orders were given.",
+    holds: (place: string) => `holds position (${place})`,
+    advances: (hexes: string, place: string) => `advances ${hexes} → ${place}`,
+    canFire: "can fire",
+    noFire: "doesn't fire",
+    shots: "Shots",
+    noShots: "Nobody fired.",
+    removedWire: (unit: string, place: string) => `${unit}: removed the barbed wire (${place})`,
+    dice: (n: number) => (n === 1 ? "1 die" : `${n} dice`),
+    inCollision: " in a collision",
+    mapChanges: "Map changes",
+    noMapChanges: "No casualties or retreats.",
+    wireRemoved: (place: string) => `Barbed wire removed (${place})`,
+    fortified: "Fortify: sandbags placed",
+    enemySandbags: "Enemy sandbags placed",
+    sandbagsRemoved: "Sandbags removed",
+    removed: (unit: string) => `Removed: ${unit}`,
+    replacedBy: (unit: string) => `, ${unit.toLowerCase()} stays`,
+    reinforcement: (unit: string, place: string) => `Reinforcement: ${unit} (${place})`,
+    moved: (unit: string, place: string) => `Moved: ${unit} → ${place}`,
+    supplies: "Supplies",
+    coinsAfter: (coins: string) => `At the end of the turn: ${coins}`,
+    combatCards: "Combat cards",
+    played: (name: string) => `Played: ${name}`,
+    markers: (places: string) => `Marks on the map: ${places}`,
+    attack: (n: number) => `Attack on hex ${n}:`,
+    empty: "empty",
+    ambush: "Ambush",
+    reinforcements: "Reinforcements",
+    noReinforcements: "no reinforcements",
+    drawn: (name: string) => `Drawn in the final phase: ${name}`,
+    exportGame: "Export game",
+    close: "Close",
+  },
+});
 
 function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
   const { scenario, faction } = session;
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
   const filePrefix = `m44-${scenario.id}-${faction === "Axis" ? "eje" : "aliados"}`;
 
   /** "bosque, centro": terrain never changes, so the board can describe past positions */
-  const placeOf = (position: Position) => describePlace(session.board.getHex(position));
+  const placeOf = (position: Position) => labels.describePlace(session.board.getHex(position));
 
   const exportGame = () =>
     downloadJson(`${filePrefix}-partida-turno-${session.getSnapshot().turn}.json`, session.save());
@@ -53,11 +130,11 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
-      <DialogTitle>Historial</DialogTitle>
+      <DialogTitle>{t.title}</DialogTitle>
       <DialogContent dividers>
         <Stack sx={{ gap: 2 }}>
           {log.length === 0 && (
-            <Typography color="text.secondary">Aún no ha terminado ningún turno.</Typography>
+            <Typography color="text.secondary">{t.noTurns}</Typography>
           )}
           {[...log].reverse().map((record) => (
             <Paper component="section" variant="outlined" key={record.turn} sx={{ p: 2 }} data-testid="turn-record">
@@ -66,28 +143,28 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
               >
                 <Box>
                   <Typography variant="h6" component="h3">
-                    Turno {record.turn}
+                    {t.turn(record.turn)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Carta: {record.card.name}
+                    {t.card(tr(record.card.name))}
                   </Typography>
                 </Box>
                 <Button
                   variant="outlined"
                   startIcon={<GameIcon name="download" />}
                   onClick={() => exportTurn(record)}
-                  aria-label={`Exportar turno ${record.turn}`}
+                  aria-label={t.exportTurnLabel(record.turn)}
                 >
-                  Exportar turno
+                  {t.exportTurn}
                 </Button>
               </Box>
 
               <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                Órdenes
+                {t.orders}
               </Typography>
               {record.orders.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  No se dieron órdenes.
+                  {t.noOrders}
                 </Typography>
               ) : (
                 <Box component="ul" sx={{ m: 0, pl: 0, listStyle: "none" }}>
@@ -100,11 +177,11 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         key={i}
                         sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(i) }}
                       >
-                        {UNIT_LABELS[order.unit]} ·{" "}
+                        {labels.units[order.unit]} ·{" "}
                         {hexesMoved === 0
-                          ? `mantiene posición (${placeOf(order.end)})`
-                          : `avanza ${plural(hexesMoved, "casilla", "casillas")} → ${placeOf(order.end)}`}{" "}
-                        · {order.canFire ? "puede disparar" : "no dispara"}
+                          ? t.holds(placeOf(order.end))
+                          : t.advances(labels.hexes(hexesMoved), placeOf(order.end))}{" "}
+                        · {order.canFire ? t.canFire : t.noFire}
                       </Typography>
                     );
                   })}
@@ -112,11 +189,11 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
               )}
 
               <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                Disparos
+                {t.shots}
               </Typography>
               {record.shots.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  Nadie disparó.
+                  {t.noShots}
                 </Typography>
               ) : (
                 <Box component="ul" sx={{ m: 0, pl: 0, listStyle: "none" }}>
@@ -128,18 +205,18 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                       sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(shot.order) }}
                     >
                       {shot.removedWire ? (
-                        `${UNIT_LABELS[shot.unit]}: quitó la alambrada (${placeOf(shot.removedWire)})`
+                        t.removedWire(labels.units[shot.unit], placeOf(shot.removedWire))
                       ) : (
                         <>
-                          {UNIT_LABELS[shot.unit]}: {plural(shot.dice, "dado", "dados")}
-                          {shot.collision && " en un choque"}
+                          {labels.units[shot.unit]}: {t.dice(shot.dice)}
+                          {shot.collision && t.inCollision}
                           {" → "}
-                          {describeAppliedFaces(shot.faces, shot.kept)}
+                          {labels.describeAppliedFaces(shot.faces, shot.kept)}
                           {shot.dice > 0 &&
-                            ` (${describeTarget(shot.target).toLowerCase()}: ${describeRoll(
+                            ` (${labels.describeTarget(shot.target).toLowerCase()}: ${labels.describeRoll(
                               readRoll(appliedFaces(shot.faces, shot.kept), shot.target)
                             )})`}
-                          {shot.notes.map((note) => ` · ${note}`).join("")}
+                          {shot.notes.map((note) => ` · ${tr(note)}`).join("")}
                         </>
                       )}
                     </Typography>
@@ -148,92 +225,92 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
               )}
 
               <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                Cambios en el mapa
+                {t.mapChanges}
               </Typography>
               {record.battleEdits.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  Sin bajas ni retiradas.
+                  {t.noMapChanges}
                 </Typography>
               ) : (
                 <Box component="ul" sx={{ m: 0, pl: 2 }}>
                   {record.battleEdits.map((edit, i) => (
                     <Typography component="li" variant="body2" key={i}>
                       {edit.kind === "wire"
-                        ? `Alambrada quitada (${placeOf(edit.position)})`
+                        ? t.wireRemoved(placeOf(edit.position))
                         : edit.kind === "sandbags"
-                        ? `${edit.fortify ? "Fortificar: sacos terreros puestos" : edit.placed ? "Sacos terreros enemigos puestos" : "Sacos terreros quitados"} (${placeOf(edit.position)})`
+                        ? `${edit.fortify ? t.fortified : edit.placed ? t.enemySandbags : t.sandbagsRemoved} (${placeOf(edit.position)})`
                         : edit.kind === "remove"
-                        ? `Eliminada: ${UNIT_LABELS[edit.unit]}${
-                            edit.replacedBy ? `, queda ${UNIT_LABELS[edit.replacedBy].toLowerCase()}` : ""
+                        ? `${t.removed(labels.units[edit.unit])}${
+                            edit.replacedBy ? t.replacedBy(labels.units[edit.replacedBy]) : ""
                           } (${placeOf(edit.position)})`
                         : edit.kind === "add"
-                          ? `Refuerzo: ${UNIT_LABELS[edit.unit]} (${placeOf(edit.position)})`
-                          : `Movida: ${UNIT_LABELS[edit.unit]} → ${placeOf(edit.to)}`}
+                          ? t.reinforcement(labels.units[edit.unit], placeOf(edit.position))
+                          : t.moved(labels.units[edit.unit], placeOf(edit.to))}
                     </Typography>
                   ))}
                 </Box>
               )}
 
               <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                Suministros
+                {t.supplies}
               </Typography>
               <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-coins">
                 {record.coins.map((entry, i) => (
                   <Typography component="li" variant="body2" key={i}>
-                    {describeCoinEntry(entry)}: {signedCoins(entry.amount)}
+                    {labels.describeCoinEntry(entry)}: {signedCoins(entry.amount)}
                   </Typography>
                 ))}
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Al terminar el turno: {coinsText(record.coinsAfter)}
+                {t.coinsAfter(labels.coins(record.coinsAfter))}
               </Typography>
 
               {(record.combatCardsPlayed.length > 0 || record.combatCardDrawn || record.cardAttacks.length > 0) && (
                 <>
                   <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                    Cartas de combate
+                    {t.combatCards}
                   </Typography>
                   <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-combat-cards">
                     {record.combatCardsPlayed.map((card) => (
                       <Typography component="li" variant="body2" key={card.id}>
-                        Jugada: {card.name}
+                        {t.played(tr(card.name))}
                       </Typography>
                     ))}
                     {record.markers.length > 0 && (
                       <Typography component="li" variant="body2">
-                        Marcas en el mapa: {record.markers.map(placeOf).join(" · ")}
+                        {t.markers(record.markers.map(placeOf).join(" · "))}
                       </Typography>
                     )}
                     {record.cardAttacks.map((attack) => (
                       <Typography component="li" variant="body2" key={`attack-${attack.marker}`}>
-                        Ataque en la casilla {attack.marker + 1}:{" "}
+                        {t.attack(attack.marker + 1)}{" "}
                         {attack.target
-                          ? `${targetLabel(attack.target.infantry).toLowerCase()} → ${describeFaces(attack.faces)} (${describeRoll(
+                          ? `${labels.target(attack.target.infantry).toLowerCase()} → ${labels.describeFaces(attack.faces)} (${labels.describeRoll(
                               readRoll(attack.faces, attack.target),
                               false
                             )})`
-                          : "vacía"}
+                          : t.empty}
                       </Typography>
                     ))}
                     {record.ambush && (
                       <Typography component="li" variant="body2">
-                        Emboscada: {UNIT_LABELS[record.ambush.unitType].toLowerCase()} ({placeOf(record.ambush.from)}),{" "}
-                        {plural(record.ambush.dice, "dado", "dados")} → {describeAppliedFaces(record.ambush.faces, record.ambush.kept)} (
-                        {describeTarget(record.ambush.target).toLowerCase()}:{" "}
-                        {describeRoll(readRoll(appliedFaces(record.ambush.faces, record.ambush.kept), record.ambush.target))})
+                        {t.ambush}: {labels.units[record.ambush.unitType].toLowerCase()} ({placeOf(record.ambush.from)}),{" "}
+                        {t.dice(record.ambush.dice)} → {labels.describeAppliedFaces(record.ambush.faces, record.ambush.kept)} (
+                        {labels.describeTarget(record.ambush.target).toLowerCase()}:{" "}
+                        {labels.describeRoll(readRoll(appliedFaces(record.ambush.faces, record.ambush.kept), record.ambush.target))})
                       </Typography>
                     )}
                     {record.reinforcement && (
                       <Typography component="li" variant="body2">
-                        Refuerzos: {DIE_FACE_LABELS[record.reinforcement.face].toLowerCase()} →{" "}
+                        {t.reinforcements}: {labels.dieFaces[record.reinforcement.face].toLowerCase()} →{" "}
                         {record.reinforcement.unitType
-                          ? UNIT_LABELS[record.reinforcement.unitType].toLowerCase()
-                          : "sin refuerzos"}
+                          ? labels.units[record.reinforcement.unitType].toLowerCase()
+                          : t.noReinforcements}
                       </Typography>
                     )}
                     {record.combatCardDrawn && (
                       <Typography component="li" variant="body2">
-                        Robada en la fase final: {record.combatCardDrawn.name}
+                        {t.drawn(tr(record.combatCardDrawn.name))}
                       </Typography>
                     )}
                   </Box>
@@ -245,9 +322,9 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
       </DialogContent>
       <DialogActions sx={{ flexWrap: "wrap", gap: 1 }}>
         <Button variant="outlined" startIcon={<GameIcon name="download" />} onClick={exportGame}>
-          Exportar partida
+          {t.exportGame}
         </Button>
-        <Button onClick={onClose}>Cerrar</Button>
+        <Button onClick={onClose}>{t.close}</Button>
       </DialogActions>
     </Dialog>
   );

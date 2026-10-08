@@ -102,7 +102,10 @@ export function fallbackCard(card: CommandCard, board: BoardManager): CommandCar
   return new CommandCard({
     id: card.id,
     name: card.name,
-    description: "No tienes unidades de este tipo: da una orden a 1 unidad cualquiera, sin bonificaciones.",
+    description: {
+      es: "No tienes unidades de este tipo: da una orden a 1 unidad cualquiera, sin bonificaciones.",
+      en: "You have no units of this type: order 1 unit of any type, with no bonuses.",
+    },
     orders: 1,
   });
 }

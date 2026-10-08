@@ -52,6 +52,7 @@ import { canMark, firstConflictingMark, markablePositions } from "./markerRules"
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
+import type { Localized } from "../i18n/lang";
 
 export interface GameSnapshot {
   turn: number;
@@ -171,7 +172,7 @@ export interface ShotRoll {
   dice: number;
   faces: readonly DieFace[];
   /** Reminders for resolving the hits (e.g. sandbags ignore 1 flag) */
-  notes: readonly string[];
+  notes: readonly Localized[];
   /** Rolled for a collision in the movement phase, before the normal battle */
   collision: boolean;
   /** What it was rolled against, to read the hits */
@@ -221,7 +222,10 @@ export interface CardAttack {
 }
 
 /** Reminder kept with every attack combat card roll */
-export const CARD_ATTACK_NOTE = "Las retiradas no se pueden ignorar.";
+export const CARD_ATTACK_NOTE: Localized = {
+  es: "Las retiradas no se pueden ignorar.",
+  en: "Retreats can't be ignored.",
+};
 
 export interface MoveOptions {
   moves: Position[];
@@ -740,7 +744,7 @@ class GameSession {
   }
 
   /** The battle combat card's extra dice, if this unit can still use them (Spotter, Street Fight, Explosives) */
-  combatBonusFor(orderIndex: number): (DiceBonusEffect & { name: string }) | undefined {
+  combatBonusFor(orderIndex: number): (DiceBonusEffect & { name: Localized }) | undefined {
     const card = this.battleCombatCard;
     const order = this.orders[orderIndex];
     if (this.phase !== TurnPhase.BATTLE || card?.effect?.kind !== "diceBonus" || !order) return undefined;
@@ -1130,7 +1134,7 @@ class GameSession {
     orderIndex: number,
     dice: number,
     steps: DiceStep[],
-    notes: string[],
+    notes: Localized[],
     target: ShotTarget,
     collision = false,
     combatBonus = false,

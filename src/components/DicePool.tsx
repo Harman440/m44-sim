@@ -3,7 +3,18 @@ import { Box, Stack } from "@mui/material";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Faction } from "../types/faction";
 import { BlankDie, Dice3DBoundary, supports3D } from "./DiceResult";
+import { defineMessages, useMessages } from "../i18n/useI18n";
 import "./DicePool.css";
+
+/** "3 dados", "2 dados de 8 caras": also used by the fire dialogs */
+export const DICE_TEXT = defineMessages({
+  es: {
+    dice: (dice: number, eightSided = false) => `${dice} ${dice === 1 ? "dado" : "dados"}${eightSided ? " de 8 caras" : ""}`,
+  },
+  en: {
+    dice: (dice: number, eightSided = false) => `${dice} ${eightSided ? "8-sided " : ""}${dice === 1 ? "die" : "dice"}`,
+  },
+});
 
 /** The 3D dice, in their own chunk like the rolled ones */
 const DicePool3D = lazy(() => import("./dice3d/DicePool3D"));
@@ -16,9 +27,6 @@ interface DicePoolProps {
   /** Beside the dice (e.g. an "i" with how the dice add up) */
   children?: ReactNode;
 }
-
-export const diceText = (dice: number, eightSided = false) =>
-  `${dice} ${dice === 1 ? "dado" : "dados"}${eightSided ? " de 8 caras" : ""}`;
 
 /** The 2D dice, without WebGL: a die pops in or out, and the row flips over when the die changes */
 function FlatPool({ dice, eightSided }: { dice: number; eightSided: boolean }) {
@@ -59,6 +67,7 @@ function FlatPool({ dice, eightSided }: { dice: number; eightSided: boolean }) {
 function DicePool({ dice, eightSided, faction, children }: DicePoolProps) {
   const [row, setRow] = useState<HTMLDivElement | null>(null);
   const reduceMotion = useReducedMotion();
+  const diceText = useMessages(DICE_TEXT).dice;
   const flat = <FlatPool dice={dice} eightSided={eightSided} />;
 
   return (

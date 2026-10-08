@@ -9,13 +9,46 @@ import { FIRE_QUESTIONS, TARGET_INFANTRY, TARGET_OTHER, combatBonusQuestion, fir
 import { TargetKinds } from "../data/hitRules";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
-import { TERRAIN_LABELS } from "../labels";
+import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import Board from "./Board";
-import DicePool, { diceText } from "./DicePool";
+import DicePool, { DICE_TEXT } from "./DicePool";
 import HexThumbnail from "./HexThumbnail";
 import InfoButton from "./InfoButton";
 import SandbagsIcon from "./SandbagsIcon";
 import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
+
+const TEXT = defineMessages({
+  es: {
+    noTargets: "No hay ninguna casilla a la que disparar desde aquí: todas están fuera de alcance, tapadas o sin ningún dado.",
+    notThatHex:
+      "Esa casilla no: está fuera de alcance, tapada (bosque, pueblo, colina, seto o una unidad tuya) o no llega ningún dado.",
+    tapTarget: "Toca la casilla del objetivo. El número son los dados que tirarías.",
+    target: "Objetivo",
+    targetPlace: (terrain: string, distance: number) =>
+      `${terrain} · a ${distance} ${distance === 1 ? "casilla (asalto cercano)" : "casillas"}`,
+    tapHex: "Toca una casilla en el mapa.",
+    isInfantry: "¿Es infantería?",
+    sandbags: "¿Sacos terreros?",
+    whereDiceComeFrom: "De dónde salen los dados",
+    total: (dice: string) => `Total: ${dice}`,
+    fire: "Disparar",
+  },
+  en: {
+    noTargets: "There's no hex to fire at from here: they're all out of range, blocked or without a single die.",
+    notThatHex:
+      "Not that hex: it's out of range, blocked (forest, town, hill, hedgerow or one of your units) or no die gets through.",
+    tapTarget: "Tap the target's hex. The number is the dice you'd roll.",
+    target: "Target",
+    targetPlace: (terrain: string, distance: number) =>
+      `${terrain} · ${distance} ${distance === 1 ? "hex away (close assault)" : "hexes away"}`,
+    tapHex: "Tap a hex on the map.",
+    isInfantry: "Is it infantry?",
+    sandbags: "Sandbags?",
+    whereDiceComeFrom: "Where the dice come from",
+    total: (dice: string) => `Total: ${dice}`,
+    fire: "Fire",
+  },
+});
 
 export interface FireAimChoice {
   position: Position;
@@ -52,6 +85,10 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
  * it has sandbags; the dice are worked out as they go.
  */
 function FireAim({ board, image, faction, from, targets, context, longRangeDie, targetKinds, onFire }: FireAimProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
+  const diceText = useMessages(DICE_TEXT).dice;
   const [picked, setPicked] = useState<Position | null>(null);
   const [kind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const [sandbags, setSandbags] = useState(false);
@@ -123,33 +160,32 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         </Box>
         <Typography variant="body2" color={missed ? "warning.main" : "text.secondary"} aria-live="polite">
           {firable.length === 0
-            ? "No hay ninguna casilla a la que disparar desde aquí: todas están fuera de alcance, tapadas o sin ningún dado."
+            ? t.noTargets
             : missed
-              ? "Esa casilla no: está fuera de alcance, tapada (bosque, pueblo, colina, seto o una unidad tuya) o no llega ningún dado."
-              : "Toca la casilla del objetivo. El número son los dados que tirarías."}
+              ? t.notThatHex
+              : t.tapTarget}
         </Typography>
       </Stack>
 
       <Stack className="fire-aim__questions" sx={{ gap: 2 }}>
         <Stack sx={{ gap: 1 }}>
-          {step(1, "Objetivo")}
+          {step(1, t.target)}
           {target ? (
             <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }} data-testid="fire-target">
               <HexThumbnail board={board} position={target.position} image={image} faction={faction} size={44} />
               <Typography variant="body1">
-                {capitalize(TERRAIN_LABELS[target.terrain])} · a {target.distance}{" "}
-                {target.distance === 1 ? "casilla (asalto cercano)" : "casillas"}
+                {t.targetPlace(capitalize(labels.terrain[target.terrain]), target.distance)}
               </Typography>
             </Stack>
           ) : (
             <Typography variant="body1" color="text.secondary">
-              Toca una casilla en el mapa.
+              {t.tapHex}
             </Typography>
           )}
         </Stack>
 
         <Stack sx={{ gap: 1 }}>
-          {step(2, "¿Es infantería?")}
+          {step(2, t.isInfantry)}
           <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
         </Stack>
 
@@ -160,7 +196,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
             <SandbagsIcon />
             <FormControlLabel
               control={<Switch checked={sandbags} onChange={(e) => setSandbags(e.target.checked)} />}
-              label="¿Sacos terreros?"
+              label={t.sandbags}
               labelPlacement="start"
               sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
             />
@@ -168,7 +204,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           {asksBonus && (
             <FormControlLabel
               control={<Switch checked={useBonus} onChange={(e) => setUseBonus(e.target.checked)} />}
-              label={`${combatBonusQuestion.textFor!(context)} (+${context.combatBonus!.dice})`}
+              label={`${tr(combatBonusQuestion.textFor!(context))} (+${context.combatBonus!.dice})`}
               sx={{ minHeight: 48 }}
             />
           )}
@@ -177,16 +213,16 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         {result && (
           <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
             <DicePool dice={result.dice} eightSided={eightSided} faction={faction}>
-              <InfoButton title="De dónde salen los dados">
+              <InfoButton title={t.whereDiceComeFrom}>
                 <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
                   {result.steps.map((s) => (
-                    <Stack key={s.label} direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
-                      <Typography variant="body1">{s.label}</Typography>
+                    <Stack key={s.label.es} direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
+                      <Typography variant="body1">{tr(s.label)}</Typography>
                       <Typography variant="body1">{formatDice(s.dice)}</Typography>
                     </Stack>
                   ))}
                   <Typography variant="h6" sx={{ mt: 1 }}>
-                    Total: {diceText(result.dice, eightSided)}
+                    {t.total(diceText(result.dice, eightSided))}
                   </Typography>
                 </Stack>
               </InfoButton>
@@ -202,7 +238,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
             target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags, useCombatBonus: asksBonus && useBonus })
           }
         >
-          Disparar
+          {t.fire}
         </Button>
       </Stack>
     </Box>

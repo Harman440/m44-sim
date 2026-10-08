@@ -5,11 +5,12 @@ import CommandCard from "../game-core/commandCard";
 import { CombatCard } from "../game-core/combatCard";
 import { UnitType } from "../game-core/unit";
 import { Side } from "../types/hex";
+import { same } from "../i18n/lang";
 
 const combat = (extra: Partial<CombatCard>): CombatCard => ({
   id: "card-1",
-  name: "Carta",
-  description: "",
+  name: same("Carta"),
+  description: same(""),
   cost: 1,
   phase: "order",
   ...extra,

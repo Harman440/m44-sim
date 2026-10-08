@@ -21,11 +21,12 @@ import {
 import { positionKey as key } from "./position";
 import { Side } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
+import { same } from "../i18n/lang";
 
 const makeScenario = (units: Scenario["units"]["allies"]): Scenario => ({
   id: "test",
   name: "Test",
-  description: "",
+  description: same(""),
   initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: {},
@@ -256,11 +257,11 @@ describe("extra orders bought with coins", () => {
 describe("fallbackCard", () => {
   it("orders 1 unit of any type when none of the card's unit types are on the board", () => {
     const board = new BoardManager(scenario);
-    const artillery = new CommandCard({ id: "arty", name: "Artillería", unitTypes: [UnitType.ARTILLERY], orders: "all", holdShots: 2 });
+    const artillery = new CommandCard({ id: "arty", name: same("Artillería"), unitTypes: [UnitType.ARTILLERY], orders: "all", holdShots: 2 });
 
     const fallback = fallbackCard(artillery, board)!;
 
-    expect(fallback).toMatchObject({ id: "arty", name: "Artillería", orders: 1, unitTypes: null, holdShots: 1 });
+    expect(fallback).toMatchObject({ id: "arty", name: same("Artillería"), orders: 1, unitTypes: null, holdShots: 1 });
     expect(ordersLeft({ card: fallback, board, orders: [], chosenSection: null, coins: 0 })).toBe(1);
   });
 

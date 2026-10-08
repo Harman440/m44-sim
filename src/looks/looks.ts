@@ -5,6 +5,7 @@
 import paperTexture from "../assets/textures/paper.webp";
 import boardTexture from "../assets/textures/board.webp";
 import canvasTexture from "../assets/textures/canvas.webp";
+import type { Localized } from "../i18n/lang";
 
 export type LookId = "field" | "box" | "tent";
 
@@ -36,8 +37,8 @@ export interface LookColors {
 export interface Look {
   id: LookId;
   /** Shown in Ajustes */
-  name: string;
-  description: string;
+  name: Localized;
+  description: Localized;
   mode: "light" | "dark";
   colors: LookColors;
   fonts: {
@@ -58,8 +59,11 @@ export interface Look {
 export const LOOKS: Record<LookId, Look> = {
   field: {
     id: "field",
-    name: "Mapa de campaña",
-    description: "Pergamino, verde oliva y sellos de tinta. Como una orden de operaciones.",
+    name: { es: "Mapa de campaña", en: "Campaign map" },
+    description: {
+      es: "Pergamino, verde oliva y sellos de tinta. Como una orden de operaciones.",
+      en: "Parchment, olive green and ink stamps. Like an operations order.",
+    },
     mode: "light",
     colors: {
       bg: "#e9dfc6",
@@ -90,8 +94,11 @@ export const LOOKS: Record<LookId, Look> = {
   },
   box: {
     id: "box",
-    name: "Caja del juego",
-    description: "Arena, rojo y azul marino con bordes gruesos. Como la caja y las cartas del juego.",
+    name: { es: "Caja del juego", en: "Game box" },
+    description: {
+      es: "Arena, rojo y azul marino con bordes gruesos. Como la caja y las cartas del juego.",
+      en: "Sand, red and navy blue with thick borders. Like the game's box and cards.",
+    },
     mode: "light",
     colors: {
       bg: "#e3d3a7",
@@ -122,8 +129,11 @@ export const LOOKS: Record<LookId, Look> = {
   },
   tent: {
     id: "tent",
-    name: "Tienda de mando",
-    description: "Lona oscura bajo una lámpara, ámbar y oliva. Descansa la vista de noche.",
+    name: { es: "Tienda de mando", en: "Command tent" },
+    description: {
+      es: "Lona oscura bajo una lámpara, ámbar y oliva. Descansa la vista de noche.",
+      en: "Dark canvas under a lamp, amber and olive. Easy on the eyes at night.",
+    },
     mode: "dark",
     colors: {
       bg: "#16150f",

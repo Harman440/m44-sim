@@ -7,12 +7,13 @@ import { HexType } from "../types/hex";
 import { Position } from "../types/scenario";
 import { Scenario } from "../types/scenario";
 import { positionKey } from "./position";
+import { same } from "../i18n/lang";
 
 const board = (tiles: Scenario["tiles"] = {}, units: Scenario["units"]["allies"] = {}) =>
   new BoardManager({
     id: "test",
     name: "Test",
-    description: "",
+    description: same(""),
     initialHandSize: { allies: 1, axis: 1 },
     attacker: "Allies",
     tiles,

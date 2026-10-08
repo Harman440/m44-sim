@@ -15,6 +15,7 @@ import { Position, Scenario } from "../types/scenario";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
 import { summarizeOrders } from "./turnSummary";
+import { same } from "../i18n/lang";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { infantry: true, closeAssault: false };
@@ -24,7 +25,7 @@ const AT_INFANTRY = { infantry: true, closeAssault: false };
 const scenario: Scenario = {
   id: "test",
   name: "Test",
-  description: "",
+  description: same(""),
   initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: { forest: [{ row: 4, col: 7 }] },
@@ -335,7 +336,7 @@ describe("GameSession card rules", () => {
 
 describe("GameSession unit-type cards with none of their units", () => {
   const withCard = (props: CommandCardProps) => {
-    const commandCards = [new CommandCard({ id: "card", name: "Carta", ...props })];
+    const commandCards = [new CommandCard({ id: "card", name: same("Carta"), ...props })];
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards });
     return { session, card: session.getSnapshot().hand[0]! };
   };
@@ -370,7 +371,7 @@ describe("GameSession Close Assault card", () => {
     const commandCards = [
       new CommandCard({
         id: "close",
-        name: "Asalto cercano",
+        name: same("Asalto cercano"),
         closeAssaultOnly: true,
         fireBonus: [{ dice: 1, closeAssault: true }],
       }),
@@ -772,7 +773,7 @@ describe("GameSession firing", () => {
     session.fire(0, { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "yes" });
 
     const [shot] = session.getSnapshot().shots;
-    expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+    expect(shot!.notes.map((note) => note.es)).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
       new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
     ]);
@@ -996,7 +997,7 @@ describe("GameSession collisions", () => {
   /** The tank moves 2 hexes west (it can still fire); the card may add close-assault dice */
   const tankMoved = (closeAssaultBonus = 0) => {
     const commandCards = [
-      new CommandCard({ id: "tank", name: "Blindados", unitTypes: [UnitType.TANK], orders: 1,
+      new CommandCard({ id: "tank", name: same("Blindados"), unitTypes: [UnitType.TANK], orders: 1,
         fireBonus: [{ dice: closeAssaultBonus, closeAssault: true }] }),
     ];
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, random: () => 0 });
@@ -1015,7 +1016,7 @@ describe("GameSession collisions", () => {
     expect(shot).toMatchObject({ orderIndex: 0, dice: 2, collision: true });
     expect(shot!.steps.map((step) => step.dice)).toEqual([3, -1]);
     expect(shot!.faces).toHaveLength(2);
-    expect(shot!.notes[0]).toMatch(/retiradas no se pueden ignorar/);
+    expect(shot!.notes[0]?.es).toMatch(/retiradas no se pueden ignorar/);
     expect(session.shotsLeft(0)).toBe(0);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
     expect(session.fireCollision(0, true)).toBe(false);
@@ -1036,7 +1037,7 @@ describe("GameSession collisions", () => {
     session.fireCollision(0, true);
 
     expect(session.getSnapshot().shots[0]!.dice).toBe(3);
-    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: "Carta Blindados", dice: 1, kind: "card" });
+    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: { es: "Carta Blindados", en: "Blindados card" }, dice: 1, kind: "card" });
   });
 
   it("only lets a unit that moved, can fire and hasn't fired yet roll a collision", () => {
@@ -1065,7 +1066,7 @@ describe("GameSession collisions", () => {
     session.fireCollision(0, true);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, [
-      new CommandCard({ id: "tank", name: "Blindados", unitTypes: [UnitType.TANK], orders: 1 }),
+      new CommandCard({ id: "tank", name: same("Blindados"), unitTypes: [UnitType.TANK], orders: 1 }),
     ]);
     expect(restored.getSnapshot().shots[0]!.collision).toBe(true);
 
@@ -1291,7 +1292,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 25 as 26 })).toThrow();
+    expect(broken({ version: 26 as 27 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
@@ -1529,8 +1530,8 @@ describe("GameSession combat cards", () => {
   const defender = { ...scenario, attacker: "Axis" as const };
   const combat = (id: string, phase: CombatCard["phase"], cost: number): CombatCard => ({
     id,
-    name: id,
-    description: "",
+    name: same(id),
+    description: same(""),
     cost,
     phase,
   });
@@ -1567,7 +1568,7 @@ describe("GameSession combat cards", () => {
 
     expect(session.getSnapshot()).toMatchObject({ orderCombatCard: barrage, coins: 1 });
     expect(session.getSnapshot().combatHand.map((c) => c.id)).toEqual(["spotter"]);
-    expect(session.getSnapshot().coinEntries).toContainEqual({ kind: "combatCard", amount: -4, card: "barrage" });
+    expect(session.getSnapshot().coinEntries).toContainEqual({ kind: "combatCard", amount: -4, card: same("barrage") });
   });
 
   it("won't play a combat card the player can't pay for, or a battle card with the orders", () => {
@@ -1627,7 +1628,7 @@ describe("GameSession combat cards", () => {
     session.endTurn();
 
     expect(session.save().combatDiscardPile).toEqual(["barrage"]);
-    expect(session.getSnapshot().log.at(-1)).toMatchObject({ combatCardsPlayed: [{ id: "barrage", name: "barrage" }] });
+    expect(session.getSnapshot().log.at(-1)).toMatchObject({ combatCardsPlayed: [{ id: "barrage", name: same("barrage") }] });
   });
 
   it("test mode: every combat card in hand, no limit, played cards come back, plenty of coins", () => {
@@ -1733,8 +1734,8 @@ describe("GameSession map markers", () => {
   const defender = { ...scenario, attacker: "Axis" as const };
   const barrage: CombatCard = {
     id: "barrage",
-    name: "Cortina de Fuego",
-    description: "",
+    name: same("Cortina de Fuego"),
+    description: same(""),
     cost: 0,
     phase: "order",
     marker: { kind: "target", count: 1 },
@@ -1809,8 +1810,8 @@ describe("GameSession combat card effects", () => {
   const FAR: Position = { row: 1, col: 10 };
   const FOREST: Position = { row: 4, col: 7 };
   const card = (props: Partial<CombatCard> & Pick<CombatCard, "id" | "phase">): CombatCard => ({
-    name: props.id,
-    description: "",
+    name: same(props.id),
+    description: same(""),
     cost: 0,
     ...props,
   });
@@ -1842,7 +1843,7 @@ describe("GameSession combat card effects", () => {
     const streetFight = card({
       id: "street-fight",
       phase: "battle",
-      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: "¿En un edificio?" },
+      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: same("¿En un edificio?") },
     });
 
     const inBattle = (bonus: CombatCard) => {
@@ -1855,7 +1856,7 @@ describe("GameSession combat card effects", () => {
 
     it("offers the card to a unit that fits, and adds its dice to one shot", () => {
       const session = inBattle(streetFight);
-      expect(session.combatBonusFor(0)).toMatchObject({ name: "street-fight", dice: 1 });
+      expect(session.combatBonusFor(0)).toMatchObject({ name: same("street-fight"), dice: 1 });
       expect(session.fire(0, answersAt("2"))).toBe(false); // the card's question is still to answer
 
       expect(session.fire(0, answersAt("2", { combatCard: "yes" }))).toBe(true);
@@ -2265,8 +2266,8 @@ describe("GameSession Reinforcements", () => {
   const FAR: Position = { row: 1, col: 10 };
   const reinforcements: CombatCard = {
     id: "reinforcements",
-    name: "Refuerzos",
-    description: "",
+    name: same("Refuerzos"),
+    description: same(""),
     cost: 0,
     phase: "order",
     marker: { kind: "cross", count: 1 },
@@ -2385,8 +2386,8 @@ describe("GameSession Reinforcements", () => {
 describe("GameSession taking back the card picked", () => {
   const barrage: CombatCard = {
     id: "barrage",
-    name: "Cortina de Fuego",
-    description: "",
+    name: same("Cortina de Fuego"),
+    description: same(""),
     cost: 4,
     phase: "order",
     marker: { kind: "target", count: 1 },
@@ -2471,7 +2472,7 @@ describe("GameSession firing at a hex on the map", () => {
 
     const [shot] = session.getSnapshot().shots;
     expect(shot).toMatchObject({ dice: 1, targetPosition: { row: 4, col: 7 }, target: { infantry: true, closeAssault: true, die: "battle" } });
-    expect(shot!.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+    expect(shot!.notes.map((note) => note.es)).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
   it("won't fire at a hex out of range, out of sight, with a unit of its own or with no dice", () => {
@@ -2570,8 +2571,8 @@ describe("GameSession taking ground", () => {
   it("lets infantry take ground only with Fragor del combate, for one unit", () => {
     const heat: CombatCard = {
       id: "heat-of-battle",
-      name: "Fragor del combate",
-      description: "",
+      name: same("Fragor del combate"),
+      description: same(""),
       cost: 1,
       phase: "battle",
       effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 },
@@ -2602,7 +2603,7 @@ describe("GameSession taking ground", () => {
 });
 
 describe("GameSession Ambush", () => {
-  const ambushCard: CombatCard = { id: "ambush", name: "Emboscada", description: "", cost: 1, phase: "battle", effect: { kind: "ambush" } };
+  const ambushCard: CombatCard = { id: "ambush", name: same("Emboscada"), description: same(""), cost: 1, phase: "battle", effect: { kind: "ambush" } };
   // The right infantry gets no order with the left card
   const RIGHT_INF: Position = { row: 8, col: 11 };
   const ATTACKER: Position = { row: 7, col: 10 };
@@ -2712,7 +2713,7 @@ describe("GameSession barbed wire", () => {
     expect(adjacent?.dice).toBe(2);
     expect(session.getSnapshot().canRemoveWire[index]).toBe(true);
     expect(session.fireAt(index, { position: { row: 7, col: 2 }, infantry: true, sandbags: false })).toBe(true);
-    expect(session.getSnapshot().shots[0]!.steps).toContainEqual({ label: "Desde una alambrada", dice: -1, kind: "wire" });
+    expect(session.getSnapshot().shots[0]!.steps).toContainEqual({ label: { es: "Desde una alambrada", en: "From barbed wire" }, dice: -1, kind: "wire" });
   });
 
   it("lets infantry remove it instead of firing, which uses its shot; undoing the shot puts it back", () => {
@@ -2913,8 +2914,8 @@ describe("Experimental rule: a destroyed artillery leaves its crew as infantry",
 describe("GameSession sandbags", () => {
   const fortify: CombatCard = {
     id: "fortify",
-    name: "Fortificar",
-    description: "",
+    name: same("Fortificar"),
+    description: same(""),
     cost: 1,
     phase: "battle",
     effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },

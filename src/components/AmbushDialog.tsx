@@ -18,13 +18,48 @@ import { Position } from "../types/scenario";
 import { includesPosition } from "../game-core/position";
 import { Faction } from "../types/faction";
 import { BASE_DICE_BY_DISTANCE } from "../data/fireQuestions";
-import { UNIT_LABELS } from "../labels";
 import Board from "./Board";
 import FireAim, { FireAimChoice } from "./FireAim";
 import { ShotResult } from "./FireDialog";
 import HexThumbnail from "./HexThumbnail";
 import { useHexFlash } from "./useHexFlash";
 import "./FireDialog.css";
+import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    undoTitle: "¿Anular el disparo de la emboscada?",
+    undoWarning: "Anúlalo solo si se registró por error. La tirada se borra y podrás disparar de nuevo.",
+    confirmMistake: "Confirmo que fue un error",
+    outcome: "Si la unidad enemiga se retira o es eliminada, su ataque no se hace. Si no, ataca como siempre.",
+    whichUnit: "¿Qué unidad atacan?",
+    pickUnit:
+      "Toca tu unidad que la unidad enemiga ataca en asalto cercano. Luego toca la casilla del atacante: tu unidad dispara primero.",
+    noUnits: "Ninguna unidad tuya puede disparar en asalto cercano.",
+    back: "Volver",
+    undoShot: "Anular disparo",
+    changeUnit: "Cambiar unidad",
+    close: "Cerrar",
+    title: (unit: string | null) => `Emboscada${unit ? `: ${unit}` : ""}`,
+    closeAssaultDice: (n: number) => `Asalto cercano: ${n} dados`,
+  },
+  en: {
+    undoTitle: "Cancel the ambush shot?",
+    undoWarning: "Cancel it only if it was recorded by mistake. The roll is erased and you can fire again.",
+    confirmMistake: "I confirm it was a mistake",
+    outcome: "If the enemy unit retreats or is eliminated, its attack doesn't happen. If not, it attacks as usual.",
+    whichUnit: "Which unit is attacked?",
+    pickUnit:
+      "Tap your unit that the enemy unit attacks in close assault. Then tap the attacker's hex: your unit fires first.",
+    noUnits: "None of your units can fire in close assault.",
+    back: "Back",
+    undoShot: "Cancel shot",
+    changeUnit: "Change unit",
+    close: "Close",
+    title: (unit: string | null) => `Ambush${unit ? `: ${unit}` : ""}`,
+    closeAssaultDice: (n: number) => `Close assault: ${n} dice`,
+  },
+});
 
 interface AmbushDialogProps {
   open: boolean;
@@ -43,6 +78,8 @@ interface AmbushDialogProps {
  */
 function AmbushDialog({ open, faction, session, game, onFired, onClose }: AmbushDialogProps) {
   const fullScreen = useMediaQuery("(max-width: 899px), (max-height: 599px)");
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const [from, setFrom] = useState<Position | null>(null);
   const [justFired, setJustFired] = useState(false);
   const [confirmingUndo, setConfirmingUndo] = useState(false);
@@ -85,14 +122,14 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
       return (
         <>
           <Typography variant="h6" sx={{ mb: 1 }}>
-            ¿Anular el disparo de la emboscada?
+            {t.undoTitle}
           </Typography>
           <Alert severity="error" sx={{ mb: 2 }}>
-            Anúlalo solo si se registró por error. La tirada se borra y podrás disparar de nuevo.
+            {t.undoWarning}
           </Alert>
           <FormControlLabel
             control={<Checkbox checked={undoChecked} onChange={(e) => setUndoChecked(e.target.checked)} />}
-            label="Confirmo que fue un error"
+            label={t.confirmMistake}
             sx={{ minHeight: 48 }}
           />
         </>
@@ -113,7 +150,7 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
             onKeepResults={(kept) => session.keepAmbushResults(kept)}
           />
           <Alert severity="info">
-            Si la unidad enemiga se retira o es eliminada, su ataque no se hace. Si no, ataca como siempre.
+            {t.outcome}
           </Alert>
         </Stack>
       );
@@ -157,14 +194,11 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
         </Stack>
         <Stack className="fire-aim__questions" sx={{ gap: 1.5 }}>
           <Typography variant="h6" component="h3">
-            ¿Qué unidad atacan?
+            {t.whichUnit}
           </Typography>
-          <Typography>
-            Toca tu unidad que la unidad enemiga ataca en asalto cercano. Luego toca la casilla del atacante: tu
-            unidad dispara primero.
-          </Typography>
+          <Typography>{t.pickUnit}</Typography>
           {game.ambushUnits.length === 0 && (
-            <Alert severity="warning">Ninguna unidad tuya puede disparar en asalto cercano.</Alert>
+            <Alert severity="warning">{t.noUnits}</Alert>
           )}
         </Stack>
       </Box>
@@ -176,10 +210,10 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
       return (
         <>
           <Button variant="outlined" onClick={() => setConfirmingUndo(false)}>
-            Volver
+            {t.back}
           </Button>
           <Button color="error" disabled={!undoChecked} onClick={handleUndo}>
-            Anular disparo
+            {t.undoShot}
           </Button>
         </>
       );
@@ -188,16 +222,16 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
       <>
         {ambush && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
-            Anular disparo
+            {t.undoShot}
           </Button>
         )}
         {!ambush && from && (
           <Button variant="outlined" onClick={() => setFrom(null)}>
-            Cambiar unidad
+            {t.changeUnit}
           </Button>
         )}
         <Button variant="text" onClick={close}>
-          Cerrar
+          {t.close}
         </Button>
       </>
     );
@@ -217,12 +251,12 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
     >
       <DialogTitle>
         <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <span>Emboscada{firing ? `: ${UNIT_LABELS[firing.unitType]}` : ""}</span>
+          <span>{t.title(firing ? labels.units[firing.unitType] : null)}</span>
           {firing && (
             <Stack direction="row" component="span" sx={{ alignItems: "center", gap: 1 }} data-testid="ambush-unit">
               <HexThumbnail board={board} position={firing.position} image={image} faction={faction} size={32} />
               <Typography component="span" variant="body2" color="text.secondary">
-                Asalto cercano: {BASE_DICE_BY_DISTANCE[firing.unitType][0]} dados
+                {t.closeAssaultDice(BASE_DICE_BY_DISTANCE[firing.unitType][0]!)}
               </Typography>
             </Stack>
           )}

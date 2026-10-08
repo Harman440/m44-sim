@@ -14,6 +14,40 @@ import { TargetKinds } from "../data/hitRules";
 import TargetKindPicker, { TargetChoice } from "./TargetKindPicker";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
+import { defineMessages, useMessages, useTr } from "../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    title: (card: string, hex: number | "") => `${card} · casilla ${hex}`,
+    dice: (n: number) => `${n} ${n === 1 ? "dado" : "dados"}`,
+    noEnemy: "No había ninguna unidad enemiga en la casilla: no se tira.",
+    enemyInHex: "¿Hay una unidad enemiga en la casilla?",
+    empty: "Vacía",
+    explanation: (dice: string, note: string) =>
+      `Se tiran ${dice} de ataque: llevan una granada donde el dado normal tiene el suministro. ${note}`,
+    undo: "Anular",
+    undoWarning: "Anula esta tirada solo si se registró por error.",
+    undoRoll: "Anular tirada",
+    close: "Cerrar",
+    emptyHex: "Casilla vacía",
+    roll: (dice: string) => `Tirar ${dice}`,
+  },
+  en: {
+    title: (card: string, hex: number | "") => `${card} · hex ${hex}`,
+    dice: (n: number) => `${n} ${n === 1 ? "die" : "dice"}`,
+    noEnemy: "There was no enemy unit on the hex: no roll.",
+    enemyInHex: "Is there an enemy unit on the hex?",
+    empty: "Empty",
+    explanation: (dice: string, note: string) =>
+      `You roll ${dice} of attack: they have a grenade where the normal die has the supply. ${note}`,
+    undo: "Cancel",
+    undoWarning: "Cancel this roll only if it was recorded by mistake.",
+    undoRoll: "Cancel roll",
+    close: "Close",
+    emptyHex: "Empty hex",
+    roll: (dice: string) => `Roll ${dice}`,
+  },
+});
 
 interface CardAttackDialogProps {
   /** The marked hex being attacked, or null when closed */
@@ -43,6 +77,8 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, targetKi
   const [confirmingUndo, setConfirmingUndo] = useState(false);
   /** Just rolled here: throw the dice in (the dialog is keyed by hex, so this starts false for each) */
   const [rolled, setRolled] = useState(false);
+  const t = useMessages(TEXT);
+  const tr = useTr();
 
   const close = () => {
     setTarget(null);
@@ -50,12 +86,12 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, targetKi
     onClose();
   };
 
-  const dice = `${dicePerHex} ${dicePerHex === 1 ? "dado" : "dados"}`;
+  const dice = t.dice(dicePerHex);
 
   return (
     <Dialog open={hex !== null} onClose={close} fullWidth maxWidth="sm">
       <DialogTitle>
-        {cardName} · casilla {hex ? hex.index + 1 : ""}
+        {t.title(cardName, hex ? hex.index + 1 : "")}
       </DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -78,20 +114,20 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, targetKi
                 delay={rolled ? rollDuration(attack.faces.length) : 0}
               />
               <Alert severity="warning" sx={{ mt: 1.5 }}>
-                {CARD_ATTACK_NOTE}
+                {tr(CARD_ATTACK_NOTE)}
               </Alert>
             </>
           ) : (
-            <Alert severity="info">No había ninguna unidad enemiga en la casilla: no se tira.</Alert>
+            <Alert severity="info">{t.noEnemy}</Alert>
           )
         ) : (
           <>
             <Typography variant="h6" sx={{ mb: 1 }}>
-              ¿Hay una unidad enemiga en la casilla?
+              {t.enemyInHex}
             </Typography>
-            <TargetKindPicker kinds={targetKinds} value={target} onChange={setTarget} enemy={enemy} emptyLabel="Vacía" />
+            <TargetKindPicker kinds={targetKinds} value={target} onChange={setTarget} enemy={enemy} emptyLabel={t.empty} />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Se tiran {dice} de ataque: llevan una granada donde el dado normal tiene el suministro. {CARD_ATTACK_NOTE}
+              {t.explanation(dice, tr(CARD_ATTACK_NOTE))}
             </Typography>
           </>
         )}
@@ -106,22 +142,22 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, targetKi
                   if (onUndo()) setConfirmingUndo(false);
                 }}
               >
-                Anular
+                {t.undo}
               </Button>
             }
           >
-            Anula esta tirada solo si se registró por error.
+            {t.undoWarning}
           </Alert>
         )}
       </DialogContent>
       <DialogActions sx={{ flexWrap: "wrap", gap: 1 }}>
         {attack && !confirmingUndo && (
           <Button variant="text" color="error" onClick={() => setConfirmingUndo(true)}>
-            Anular tirada
+            {t.undoRoll}
           </Button>
         )}
         <Button variant="outlined" onClick={close}>
-          Cerrar
+          {t.close}
         </Button>
         {!attack && (
           <Button
@@ -133,7 +169,7 @@ function CardAttackDialog({ hex, cardName, dicePerHex, attack, faction, targetKi
               }
             }}
           >
-            {target === "empty" ? "Casilla vacía" : `Tirar ${dice}`}
+            {target === "empty" ? t.emptyHex : t.roll(dice)}
           </Button>
         )}
       </DialogActions>

@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import App from "./App";
 import GameView from "./components/mainComponents/LazyGameView";
 import { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./components/mainComponents/GameViews/CardsView";
+import { same } from "./i18n/lang";
 
 const start = (faction: "Aliados" | "Eje") => {
   fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
@@ -195,6 +196,26 @@ describe("App settings", () => {
 
     expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
     expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+  });
+
+  it("switches to English from Ajustes straight away, remembers it, and plays the game in English", () => {
+    const first = render(<App />);
+    expect(document.documentElement.lang).toBe("es");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ajustes" }));
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+
+    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("en");
+    first.unmount();
+
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Pick a scenario:" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Allies" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start as the Allies" }));
+    expect(screen.getByText("Forêt d'Écouves · Allies")).toBeInTheDocument();
   });
 
   it("turns sound on and off from the game header, and remembers it", () => {

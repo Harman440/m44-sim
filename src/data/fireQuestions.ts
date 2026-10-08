@@ -8,7 +8,8 @@
 import { DiceStep, FireAnswers, FireContext, FireQuestion } from "../game-core/fireRules";
 import { UnitType, checksLineOfSight } from "../game-core/unit";
 import { HexType } from "../types/hex";
-import { UNIT_LABELS, targetLabel } from "../labels";
+import { LABELS } from "../labels";
+import { Localized, byLang } from "../i18n/lang";
 
 /** Base dice by distance to the target (index 0 = adjacent); its length is the unit's range */
 export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
@@ -34,33 +35,39 @@ export const TAKE_GROUND_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
 export type TargetTerrain = Exclude<HexType, HexType.RIVER | HexType.LAKE | HexType.BRIDGE> | "bunker";
 
 /** Dice lost when the target is in this terrain, by the firing unit's type; answers are the keys, in this order */
-export const TARGET_TERRAIN_MODIFIERS: Record<TargetTerrain, { label: string; dice: Record<UnitType, number> }> = {
-  plains: { label: "Campo abierto", dice: { infantry: 0, tank: 0, artillery: 0 } },
-  forest: { label: "Bosque", dice: { infantry: -1, tank: -2, artillery: 0 } },
-  town: { label: "Pueblo", dice: { infantry: -1, tank: -2, artillery: 0 } },
-  hill: { label: "Colina", dice: { infantry: -1, tank: -1, artillery: 0 } },
-  hedgerow: { label: "Seto", dice: { infantry: -1, tank: -2, artillery: 0 } },
-  bunker: { label: "Búnker", dice: { infantry: -1, tank: -2, artillery: 0 } },
+export const TARGET_TERRAIN_MODIFIERS: Record<TargetTerrain, { label: Localized; dice: Record<UnitType, number> }> = {
+  plains: { label: { es: "Campo abierto", en: "Open ground" }, dice: { infantry: 0, tank: 0, artillery: 0 } },
+  forest: { label: { es: "Bosque", en: "Forest" }, dice: { infantry: -1, tank: -2, artillery: 0 } },
+  town: { label: { es: "Pueblo", en: "Town" }, dice: { infantry: -1, tank: -2, artillery: 0 } },
+  hill: { label: { es: "Colina", en: "Hill" }, dice: { infantry: -1, tank: -1, artillery: 0 } },
+  hedgerow: { label: { es: "Seto", en: "Hedgerow" }, dice: { infantry: -1, tank: -2, artillery: 0 } },
+  bunker: { label: { es: "Búnker", en: "Bunker" }, dice: { infantry: -1, tank: -2, artillery: 0 } },
 };
 
 const YES_NO = [
-  { value: "yes", label: "Sí" },
-  { value: "no", label: "No" },
+  { value: "yes", label: { es: "Sí", en: "Yes" } },
+  { value: "no", label: { es: "No", en: "No" } },
 ];
 
 const distanceQuestion: FireQuestion = {
   id: "distance",
-  text: "¿A cuántas casillas está el objetivo?",
+  text: { es: "¿A cuántas casillas está el objetivo?", en: "How many hexes away is the target?" },
   options: ({ unitType, closeAssaultOnly }) =>
     BASE_DICE_BY_DISTANCE[unitType].slice(0, closeAssaultOnly ? 1 : undefined).map((_, i) => ({
       value: String(i + 1),
-      label: i === 0 ? "1 (adyacente)" : String(i + 1),
+      label: i === 0 ? { es: "1 (adyacente)", en: "1 (adjacent)" } : byLang(() => String(i + 1)),
     })),
   effect: ({ unitType }, answer) => {
     const distance = Number(answer);
     const dice = BASE_DICE_BY_DISTANCE[unitType][distance - 1] ?? 0;
-    const hexes = distance === 1 ? "casilla" : "casillas";
-    return { label: `Base: ${UNIT_LABELS[unitType]} a ${distance} ${hexes}`, dice, kind: "base" };
+    return {
+      label: {
+        es: `Base: ${LABELS.es.units[unitType]} a ${LABELS.es.hexes(distance)}`,
+        en: `Base: ${LABELS.en.units[unitType]} at ${LABELS.en.hexes(distance)}`,
+      },
+      dice,
+      kind: "base",
+    };
   },
 };
 
@@ -75,10 +82,10 @@ export const targetAnswer = (answer: string | undefined): boolean | null =>
 /** Doesn't change the dice: whether the target is infantry decides which faces hit (data/hitRules.ts) */
 export const targetTypeQuestion: FireQuestion = {
   id: "targetType",
-  text: "¿El objetivo es infantería?",
+  text: { es: "¿El objetivo es infantería?", en: "Is the target infantry?" },
   options: () => [
-    { value: TARGET_INFANTRY, label: targetLabel(true) },
-    { value: TARGET_OTHER, label: targetLabel(false) },
+    { value: TARGET_INFANTRY, label: byLang((lang) => LABELS[lang].target(true)) },
+    { value: TARGET_OTHER, label: byLang((lang) => LABELS[lang].target(false)) },
   ],
   effect: () => null,
 };
@@ -95,13 +102,17 @@ export const effectiveTerrain = ({ fromTerrain }: FireContext, answer: string | 
 
 const targetTerrainQuestion: FireQuestion = {
   id: "targetTerrain",
-  text: "¿En qué terreno está el objetivo?",
+  text: { es: "¿En qué terreno está el objetivo?", en: "What terrain is the target on?" },
   options: () =>
     Object.entries(TARGET_TERRAIN_MODIFIERS).map(([value, { label }]) => ({ value, label })),
   effect: (context, answer) => {
     const terrain = TARGET_TERRAIN_MODIFIERS[effectiveTerrain(context, answer)!];
     if (!terrain) return null;
-    return { label: `Objetivo en ${terrain.label.toLowerCase()}`, dice: terrain.dice[context.unitType], kind: "terrain" };
+    return {
+      label: { es: `Objetivo en ${terrain.label.es.toLowerCase()}`, en: `Target in ${terrain.label.en.toLowerCase()}` },
+      dice: terrain.dice[context.unitType],
+      kind: "terrain",
+    };
   },
 };
 
@@ -111,12 +122,17 @@ const targetTerrainQuestion: FireQuestion = {
  */
 const lineOfSightQuestion: FireQuestion = {
   id: "lineOfSight",
-  text: "¿Tiene línea de visión al objetivo?",
+  text: { es: "¿Tiene línea de visión al objetivo?", en: "Does it have line of sight to the target?" },
   options: () => YES_NO,
   appliesTo: ({ unitType }, answers) => checksLineOfSight(unitType) && Number(answers.distance) > 1,
   effect: () => null,
   blocks: (_, answer) =>
-    answer === "no" ? "Sin línea de visión no puede disparar a este objetivo. Elige otro objetivo." : null,
+    answer === "no"
+      ? {
+          es: "Sin línea de visión no puede disparar a este objetivo. Elige otro objetivo.",
+          en: "Without line of sight it can't fire at this target. Pick another target.",
+        }
+      : null,
 };
 
 /**
@@ -129,6 +145,15 @@ export const SANDBAGS_IN_THE_OPEN: Record<UnitType, number> = {
   [UnitType.ARTILLERY]: 0,
 };
 
+/** The reminder kept with a shot at a target behind sandbags */
+export const SANDBAGS_NOTE: Localized = {
+  es: "Sacos terreros: el objetivo ignora 1 bandera.",
+  en: "Sandbags: the target ignores 1 flag.",
+};
+
+/** "Carta Observador": a dice step from a card */
+const cardLabel = (name: Localized): Localized => ({ es: `Carta ${name.es}`, en: `${name.en} card` });
+
 /**
  * Sandbags: the target ignores 1 flag when the hits are resolved (whoever
  * fires) and, in the open (where no terrain protects it), the shot loses a die
@@ -136,32 +161,40 @@ export const SANDBAGS_IN_THE_OPEN: Record<UnitType, number> = {
  */
 const sandbagsQuestion: FireQuestion = {
   id: "sandbags",
-  text: "¿El objetivo está protegido con sacos terreros?",
+  text: { es: "¿El objetivo está protegido con sacos terreros?", en: "Is the target protected by sandbags?" },
   options: () => YES_NO,
   effect: (context, answer, answers) =>
     answer === "yes" &&
     effectiveTerrain(context, answers.targetTerrain) === HexType.PLAINS &&
     SANDBAGS_IN_THE_OPEN[context.unitType] !== 0
-      ? { label: "Sacos terreros en campo abierto", dice: SANDBAGS_IN_THE_OPEN[context.unitType], kind: "sandbags" }
+      ? {
+          label: { es: "Sacos terreros en campo abierto", en: "Sandbags in the open" },
+          dice: SANDBAGS_IN_THE_OPEN[context.unitType],
+          kind: "sandbags",
+        }
       : null,
-  note: (_, answer) => (answer === "yes" ? "Sacos terreros: el objetivo ignora 1 bandera." : null),
+  note: (_, answer) => (answer === "yes" ? SANDBAGS_NOTE : null),
 };
 
 /** A battle combat card that adds dice to one shot (Spotter, Street Fight, Explosives) */
 export const combatBonusQuestion: FireQuestion = {
   id: "combatCard",
-  text: "",
-  textFor: ({ combatBonus }) =>
-    combatBonus?.condition
-      ? `${combatBonus.name}: ${combatBonus.condition} Si es así, ¿la usas en este disparo?`
-      : `${combatBonus?.name}: ¿la usas en este disparo?`,
+  text: { es: "", en: "" },
+  textFor: ({ combatBonus }) => ({
+    es: combatBonus?.condition
+      ? `${combatBonus.name.es}: ${combatBonus.condition.es} Si es así, ¿la usas en este disparo?`
+      : `${combatBonus?.name.es}: ¿la usas en este disparo?`,
+    en: combatBonus?.condition
+      ? `${combatBonus.name.en}: ${combatBonus.condition.en} If so, do you use it on this shot?`
+      : `${combatBonus?.name.en}: do you use it on this shot?`,
+  }),
   options: () => YES_NO,
   appliesTo: ({ combatBonus }, answers) =>
     !!combatBonus &&
     !!answers.distance &&
     (combatBonus.closeAssault === undefined || combatBonus.closeAssault === (answers.distance === "1")),
   effect: ({ combatBonus }, answer) =>
-    combatBonus && answer === "yes" ? { label: `Carta ${combatBonus.name}`, dice: combatBonus.dice, kind: "card" } : null,
+    combatBonus && answer === "yes" ? { label: cardLabel(combatBonus.name), dice: combatBonus.dice, kind: "card" } : null,
 };
 
 /** Asked in this order; add new situations here */
@@ -177,7 +210,7 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
 /** The command card's dice, when it changes them in this situation */
 const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): DiceStep[] => {
   const dice = card?.fireBonusFor(unitType, closeAssault) ?? 0;
-  return card && dice !== 0 ? [{ label: `Carta ${card.name}`, dice, kind: "card" }] : [];
+  return card && dice !== 0 ? [{ label: cardLabel(card.name), dice, kind: "card" }] : [];
 };
 
 /**
@@ -195,7 +228,9 @@ export const WIRE_FIRE_DICE: Record<UnitType, number> = {
 export const wireChoiceFor = (unitType: UnitType) => WIRE_FIRE_DICE[unitType] !== 0;
 
 const wireSteps = ({ unitType, fromWire }: FireContext): DiceStep[] =>
-  fromWire && WIRE_FIRE_DICE[unitType] !== 0 ? [{ label: "Desde una alambrada", dice: WIRE_FIRE_DICE[unitType], kind: "wire" }] : [];
+  fromWire && WIRE_FIRE_DICE[unitType] !== 0
+    ? [{ label: { es: "Desde una alambrada", en: "From barbed wire" }, dice: WIRE_FIRE_DICE[unitType], kind: "wire" }]
+    : [];
 
 /** Extra dice that don't need a question: the command card's bonuses, and barbed wire under the firing unit */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
@@ -207,15 +242,18 @@ export const fireBonusSteps = (context: FireContext, answers: FireAnswers): Dice
  */
 export const collisionSteps = (context: FireContext): DiceStep[] => [
   {
-    label: `Base: ${UNIT_LABELS[context.unitType]} en choque`,
+    label: byLang((lang) => `Base: ${LABELS[lang].units[context.unitType]} ${lang === "es" ? "en choque" : "in a collision"}`),
     dice: BASE_DICE_BY_DISTANCE[context.unitType][0] ?? 0,
     kind: "base",
   },
-  { label: "Choque", dice: -1, kind: "collision" },
+  { label: { es: "Choque", en: "Collision" }, dice: -1, kind: "collision" },
   ...cardSteps(context, true),
 ];
 
 /** Reminders kept with every collision roll */
-export const COLLISION_NOTES: readonly string[] = [
-  "Choque: el terreno no cuenta y las retiradas no se pueden ignorar.",
+export const COLLISION_NOTES: readonly Localized[] = [
+  {
+    es: "Choque: el terreno no cuenta y las retiradas no se pueden ignorar.",
+    en: "Collision: terrain doesn't count and retreats can't be ignored.",
+  },
 ];

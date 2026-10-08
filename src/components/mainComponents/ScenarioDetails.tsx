@@ -5,8 +5,75 @@ import GameIcon, { GameIconName } from "../GameIcon";
 import InfoButton from "../InfoButton";
 import { Scenario } from "../../types/scenario";
 import { FACTIONS, Faction } from "../../types/faction";
-import { FACTION_LABELS } from "../../labels";
 import { STARTING_COMBAT_CARDS, combatDeckEntries } from "../../data/combatCards";
+import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
+import type { Labels } from "../../labels";
+
+const TEXT = defineMessages({
+  es: {
+    role: "Papel",
+    roleInfo: (
+      <>
+        El bando que <strong>ataca</strong> juega un turno extra al empezar, antes de que el rival pueda
+        responder. El que <strong>defiende</strong> espera ese turno y empieza en el turno 2.
+      </>
+    ),
+    attacks: "Ataca",
+    defends: "Defiende",
+    commandCards: "Cartas de mando",
+    commandCardsInfo: "Las cartas de mando que tiene en la mano al empezar. Cada turno juega una y en la fase final roba otra.",
+    extraDrawsInfo: (faction: string, turns: number) =>
+      ` En este escenario, ${faction} roba 2 en vez de 1 en sus ${turns} primeros turnos.`,
+    cards: (count: number) => `${count} cartas`,
+    extraDraws: (turns: number) => `roba 2 en sus ${turns} primeros turnos`,
+    combatCards: "Cartas de combate",
+    combatCardsInfo: (starting: number) =>
+      `Cada bando tiene su mazo de cartas de combate, que se pagan con suministros, y empieza con ${starting} en la mano. ` +
+      "Unas cartas las tienen los dos bandos; otras dependen del escenario: de si ataca o defiende, de sus unidades " +
+      "y las del enemigo, del mapa, de su artillería pesada y de su aviación. Toca el número de un bando para ver " +
+      "sus cartas y por qué las tiene.",
+    bigGunsInfo: "Tiene artillería pesada: la carta Cortina de Fuego.",
+    airInfo: "Tiene aviación: Poder aéreo y Bombardeo aéreo.",
+    bigGuns: "artillería pesada",
+    air: "aviación",
+    and: " y ",
+    seeDeck: (count: number, faction: string, extras: string) =>
+      `Ver las ${count} cartas de combate de ${faction}${extras && `, con ${extras}`}`,
+    sides: (scenario: string) => `Bandos de ${scenario}`,
+  },
+  en: {
+    role: "Role",
+    roleInfo: (
+      <>
+        The side that <strong>attacks</strong> plays an extra turn at the start, before the enemy can
+        answer. The side that <strong>defends</strong> waits out that turn and starts on turn 2.
+      </>
+    ),
+    attacks: "Attacks",
+    defends: "Defends",
+    commandCards: "Command cards",
+    commandCardsInfo: "The command cards in its hand at the start. Each turn it plays one and draws another in the final phase.",
+    extraDrawsInfo: (faction: string, turns: number) =>
+      ` In this scenario, the ${faction} draw 2 instead of 1 in their first ${turns} turns.`,
+    cards: (count: number) => (count === 1 ? "1 card" : `${count} cards`),
+    extraDraws: (turns: number) => `draws 2 in its first ${turns} turns`,
+    combatCards: "Combat cards",
+    combatCardsInfo: (starting: number) =>
+      `Each side has its own deck of combat cards, paid for with supplies, and starts with ${starting} in its hand. ` +
+      "Some cards both sides have; others depend on the scenario: whether the side attacks or defends, its units " +
+      "and the enemy's, the map, its heavy guns and its air power. Tap a side's number to see its cards and why it has them.",
+    bigGunsInfo: "Has heavy guns: the Barrage card.",
+    airInfo: "Has air power: Air Power and Air Bombardment.",
+    bigGuns: "heavy guns",
+    air: "air power",
+    and: " and ",
+    seeDeck: (count: number, faction: string, extras: string) =>
+      `See the ${count} combat cards of the ${faction}${extras && `, with ${extras}`}`,
+    sides: (scenario: string) => `Sides in ${scenario}`,
+  },
+});
+
+type Text = (typeof TEXT)["es"];
 
 // The card art is the game screen's code, left out of the menu's first download
 const CombatDeckDialog = lazy(() => import("./CombatDeckDialog"));
@@ -39,30 +106,23 @@ interface DetailRow {
   value: (faction: Faction) => ReactNode;
 }
 
-function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void): DetailRow[] {
+function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void, t: Text, labels: Labels): DetailRow[] {
   return [
     {
-      label: "Papel",
-      info: (
-        <Typography variant="body1">
-          El bando que <strong>ataca</strong> juega un turno extra al empezar, antes de que el rival pueda
-          responder. El que <strong>defiende</strong> espera ese turno y empieza en el turno 2.
-        </Typography>
-      ),
+      label: t.role,
+      info: <Typography variant="body1">{t.roleInfo}</Typography>,
       value: (faction) => (
         <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
-          {scenario.attacker === faction ? "Ataca" : "Defiende"}
+          {scenario.attacker === faction ? t.attacks : t.defends}
         </Typography>
       ),
     },
     {
-      label: "Cartas de mando",
+      label: t.commandCards,
       info: (
         <Typography variant="body1">
-          Las cartas de mando que tiene en la mano al empezar. Cada turno juega una y en la fase final roba
-          otra.
-          {scenario.extraDraws &&
-            ` En este escenario, ${FACTION_LABELS[scenario.extraDraws.faction]} roba 2 en vez de 1 en sus ${scenario.extraDraws.turns} primeros turnos.`}
+          {t.commandCardsInfo}
+          {scenario.extraDraws && t.extraDrawsInfo(labels.factions[scenario.extraDraws.faction], scenario.extraDraws.turns)}
         </Typography>
       ),
       value: (faction) => {
@@ -70,10 +130,10 @@ function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void):
         const extra = scenario.extraDraws?.faction === faction ? scenario.extraDraws : null;
         return (
           <Stack spacing={0.25} sx={{ alignItems: "center" }}>
-            <IconCount icon="cards" count={count} label={`${count} cartas`} />
+            <IconCount icon="cards" count={count} label={t.cards(count)} />
             {extra && (
               <Typography variant="caption" color="text.secondary">
-                roba 2 en sus {extra.turns} primeros turnos
+                {t.extraDraws(extra.turns)}
               </Typography>
             )}
           </Stack>
@@ -81,22 +141,17 @@ function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void):
       },
     },
     {
-      label: "Cartas de combate",
+      label: t.combatCards,
       info: (
         <Stack spacing={1}>
-          <Typography variant="body1">
-            Cada bando tiene su mazo de cartas de combate, que se pagan con suministros, y empieza con{" "}
-            {STARTING_COMBAT_CARDS} en la mano. Unas cartas las tienen los dos bandos; otras dependen del escenario:
-            de si ataca o defiende, de sus unidades y las del enemigo, del mapa, de su artillería pesada y de su
-            aviación. Toca el número de un bando para ver sus cartas y por qué las tiene.
-          </Typography>
+          <Typography variant="body1">{t.combatCardsInfo(STARTING_COMBAT_CARDS)}</Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <GameIcon name="bigGuns" size={32} />
-            <Typography variant="body1">Tiene artillería pesada: la carta Cortina de Fuego.</Typography>
+            <Typography variant="body1">{t.bigGunsInfo}</Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <GameIcon name="strafe" size={32} />
-            <Typography variant="body1">Tiene aviación: Poder aéreo y Bombardeo aéreo.</Typography>
+            <Typography variant="body1">{t.airInfo}</Typography>
           </Stack>
         </Stack>
       ),
@@ -106,13 +161,13 @@ function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void):
         // At a glance: whether the deck has the big guns' and the air cards
         const bigGuns = entries.some(({ reason }) => reason === "bigGuns");
         const air = entries.some(({ reason }) => reason === "air");
-        const extras = [bigGuns && "artillería pesada", air && "aviación"].filter(Boolean).join(" y ");
+        const extras = [bigGuns && t.bigGuns, air && t.air].filter(Boolean).join(t.and);
         return (
           <Button
             variant="outlined"
             color="inherit"
             onClick={() => onShowDeck(faction)}
-            aria-label={`Ver las ${count} cartas de combate de ${FACTION_LABELS[faction]}${extras && `, con ${extras}`}`}
+            aria-label={t.seeDeck(count, labels.factions[faction], extras)}
             sx={{ minWidth: 0, px: 1.5, gap: 1, flexWrap: "wrap" }}
           >
             <IconCount icon="cards" count={count} />
@@ -130,11 +185,13 @@ function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void):
  * device plays, and the rows show what each starts with
  */
 function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const [deckShown, setDeckShown] = useState<Faction | null>(null);
   const picked = (f: Faction) => (f === faction ? { bgcolor: "action.selected" } : {});
   return (
     <>
-      <Table size="small" aria-label={`Bandos de ${scenario.name}`} sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
+      <Table size="small" aria-label={t.sides(scenario.name)} sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
         <TableHead>
           <TableRow>
             <TableCell sx={{ width: "34%" }} />
@@ -147,14 +204,14 @@ function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsPr
                   sx={{ width: "100%", minHeight: 56, fontSize: "1.05rem", gap: 1, flexWrap: "wrap" }}
                 >
                   <FactionInsignia faction={f} size={28} decorative />
-                  {FACTION_LABELS[f]}
+                  {labels.factions[f]}
                 </ToggleButton>
               </TableCell>
             ))}
           </TableRow>
         </TableHead>
         <TableBody>
-          {detailRows(scenario, setDeckShown).map((row) => (
+          {detailRows(scenario, setDeckShown, t, labels).map((row) => (
             <TableRow key={row.label}>
               <TableCell component="th" scope="row">
                 <Stack direction="row" sx={{ alignItems: "center" }}>

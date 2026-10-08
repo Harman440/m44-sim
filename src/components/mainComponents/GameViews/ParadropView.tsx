@@ -6,6 +6,32 @@ import { useHexFlash } from "../../useHexFlash";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import InfoButton from "../../InfoButton";
+import { defineMessages, useMessages } from "../../../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    title: "Lanzamiento de paracaidistas",
+    tapEach: (left: number, total: number) => `Toca la casilla donde ha caído cada uno (quedan ${left} de ${total})`,
+    allPlaced: "Todos los paracaidistas están colocados",
+    undo: "Deshacer",
+    startLost: (lost: number) => `Empezar (${lost} ${lost === 1 ? "perdido" : "perdidos"})`,
+    startGame: "Empezar la partida",
+    instructions: "Instrucciones",
+    help: (total: number) =>
+      `Deja caer tus ${total} paracaidistas sobre el tablero de la mesa. Los que caigan fuera o encima de otra unidad se pierden. Después toca en el mapa la casilla donde ha caído cada uno.`,
+  },
+  en: {
+    title: "Paratrooper drop",
+    tapEach: (left: number, total: number) => `Tap the hex where each one landed (${left} of ${total} left)`,
+    allPlaced: "All the paratroopers are placed",
+    undo: "Undo",
+    startLost: (lost: number) => `Start (${lost} lost)`,
+    startGame: "Start the game",
+    instructions: "Instructions",
+    help: (total: number) =>
+      `Drop your ${total} paratroopers onto the board on the table. Those that land off the board or on top of another unit are lost. Then tap on the map the hex where each one landed.`,
+  },
+});
 import "./PhaseLayout.css";
 
 interface ParadropViewProps {
@@ -20,6 +46,7 @@ interface ParadropViewProps {
  * or landed on a unit are lost, so fewer can be placed.
  */
 function ParadropView({ faction, session, game }: ParadropViewProps) {
+  const t = useMessages(TEXT);
   const { flash, flashInvalid } = useHexFlash();
   const total = game.drops.length + game.dropsLeft;
 
@@ -45,32 +72,25 @@ function ParadropView({ faction, session, game }: ParadropViewProps) {
 
       <div className="phase-layout__controls">
         <Typography variant="h6" sx={{ textAlign: "center" }}>
-          Lanzamiento de paracaidistas
+          {t.title}
         </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
-          {game.dropsLeft > 0
-            ? `Toca la casilla donde ha caído cada uno (quedan ${game.dropsLeft} de ${total})`
-            : "Todos los paracaidistas están colocados"}
+          {game.dropsLeft > 0 ? t.tapEach(game.dropsLeft, total) : t.allPlaced}
         </Typography>
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
           {game.drops.length > 0 && (
             <Button variant="outlined" onClick={() => session.undoDrop()} startIcon={<GameIcon name="undo" />}>
-              Deshacer
+              {t.undo}
             </Button>
           )}
           <Button onClick={() => session.finishParadrop()} startIcon={<GameIcon name="confirm" />}>
-            {game.dropsLeft > 0
-              ? `Empezar (${game.dropsLeft} ${game.dropsLeft === 1 ? "perdido" : "perdidos"})`
-              : "Empezar la partida"}
+            {game.dropsLeft > 0 ? t.startLost(game.dropsLeft) : t.startGame}
           </Button>
         </Stack>
         <Box sx={{ mt: "auto" }}>
-          <InfoButton title="Lanzamiento de paracaidistas" label="Instrucciones">
-            <Typography variant="body1">
-              Deja caer tus {total} paracaidistas sobre el tablero de la mesa. Los que caigan fuera o encima de otra
-              unidad se pierden. Después toca en el mapa la casilla donde ha caído cada uno.
-            </Typography>
+          <InfoButton title={t.title} label={t.instructions}>
+            <Typography variant="body1">{t.help(total)}</Typography>
           </InfoButton>
         </Box>
       </div>

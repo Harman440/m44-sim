@@ -5,6 +5,26 @@ import { appliedFaces } from "../game-core/rollResult";
 import { Faction } from "../types/faction";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
+import { defineMessages, useMessages } from "../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    pickHint: "Toca los dados cuyo resultado aplicas. Los demás se descartan.",
+    apply: (picked: number, rolled: number) => `Aplicar ${picked} de ${rolled}`,
+    cancel: "Cancelar",
+    changeApplied: "Cambiar resultados aplicados",
+    applyFewer: "Aplicar menos resultados",
+    applyAll: "Aplicar todos",
+  },
+  en: {
+    pickHint: "Tap the dice whose results you apply. The rest are discarded.",
+    apply: (picked: number, rolled: number) => `Apply ${picked} of ${rolled}`,
+    cancel: "Cancel",
+    changeApplied: "Change applied results",
+    applyFewer: "Apply fewer results",
+    applyAll: "Apply all",
+  },
+});
 
 interface ShotDiceProps {
   shot: ShotRoll;
@@ -25,6 +45,7 @@ interface ShotDiceProps {
  */
 function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: ShotDiceProps) {
   /** The dice picked so far while choosing; null when not choosing */
+  const t = useMessages(TEXT);
   const [picked, setPicked] = useState<number[] | null>(null);
   if (shot.dice === 0) return null;
 
@@ -40,7 +61,7 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
     <>
       {picked && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          Toca los dados cuyo resultado aplicas. Los demás se descartan.
+          {t.pickHint}
         </Alert>
       )}
       {/* The dice, with changing which results apply on their right */}
@@ -59,20 +80,20 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
             {picked ? (
               <>
                 <Button onClick={apply}>
-                  Aplicar {picked.length} de {shot.faces.length}
+                  {t.apply(picked.length, shot.faces.length)}
                 </Button>
                 <Button variant="outlined" onClick={() => setPicked(null)}>
-                  Cancelar
+                  {t.cancel}
                 </Button>
               </>
             ) : (
               <>
                 <Button variant="text" size="small" onClick={() => setPicked(shot.kept ? [...shot.kept] : allDice)}>
-                  {shot.kept ? "Cambiar resultados aplicados" : "Aplicar menos resultados"}
+                  {shot.kept ? t.changeApplied : t.applyFewer}
                 </Button>
                 {shot.kept && (
                   <Button variant="text" size="small" onClick={() => onKeepResults(null)}>
-                    Aplicar todos
+                    {t.applyAll}
                   </Button>
                 )}
               </>

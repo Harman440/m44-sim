@@ -1,6 +1,7 @@
 // game-core/combatCard.ts
 import type { UnitType } from "./unit";
 import type { HexType } from "../types/hex";
+import type { Localized } from "../i18n/lang";
 
 /**
  * When a combat card is played: with the command card, for this turn's orders
@@ -23,8 +24,8 @@ export type DeckReason =
 /** A combat card: paid in coins when played. Its effect is resolved at the table (the app applies some in Step 26). */
 export interface CombatCard {
   readonly id: string;
-  readonly name: string;
-  readonly description: string;
+  readonly name: Localized;
+  readonly description: Localized;
   /** Coins to play it */
   readonly cost: number;
   readonly phase: CombatPhase;
@@ -33,7 +34,7 @@ export interface CombatCard {
   /** Hexes to mark on the map while giving orders (Barrage, Air Power, Reinforcements…) */
   readonly marker?: MarkerRule;
   /** A reminder for the final phase: something to do on the table (sandbags, a camouflage badge, a move to mirror on the map) */
-  readonly tableReminder?: string;
+  readonly tableReminder?: Localized;
   /** What the app applies for it; without one, the card is resolved at the table */
   readonly effect?: CombatEffect;
 }
@@ -63,7 +64,7 @@ export interface DiceBonusEffect {
   /** Only in close assault (Explosives) */
   closeAssault?: boolean;
   /** Asked when a unit that fits fires, e.g. "¿La unidad está en un edificio o junto a uno?" */
-  condition?: string;
+  condition?: Localized;
 }
 
 /** An order card that attacks the marked hexes in the battle, with its own roll per hex (Barrage, Air Power…) */

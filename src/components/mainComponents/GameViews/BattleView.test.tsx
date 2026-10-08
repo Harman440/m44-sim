@@ -9,6 +9,7 @@ import CommandCard from "../../../game-core/commandCard";
 import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
+import { same } from "../../../i18n/lang";
 
 /** Tap a hex on the fire dialog's map */
 const aimAt = (p: Position) =>
@@ -28,7 +29,7 @@ const makeBattleSession = ({ moveTank = false } = {}) => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
@@ -91,7 +92,7 @@ describe("BattleView summary screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
     expect(container.querySelector("svg.board__svg")).not.toBeNull();
     const played = within(screen.getByTestId("played-cards"));
-    expect(played.getByRole("button", { name: new RegExp(`^${session.getSnapshot().chosenCard!.name}`) })).toBeInTheDocument();
+    expect(played.getByRole("button", { name: new RegExp(`^${session.getSnapshot().chosenCard!.name.es}`) })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Volver a la batalla" }));
     expect(container.querySelector("svg.board__svg")).toBeNull();
@@ -251,7 +252,7 @@ describe("BattleView Close Assault card", () => {
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Allies",
         tiles: {},
@@ -262,7 +263,7 @@ describe("BattleView Close Assault card", () => {
       commandCards: [
         new CommandCard({
           id: "close",
-          name: "Asalto cercano",
+          name: same("Asalto cercano"),
           closeAssaultOnly: true,
           fireBonus: [{ dice: 1, closeAssault: true }],
         }),
@@ -311,8 +312,8 @@ describe("BattleView Close Assault card", () => {
 
 describe("BattleView combat cards", () => {
   const combatDeck: CombatCard[] = [
-    { id: "spotter", name: "Observador", description: "1 artillería tira 1 dado más.", cost: 1, phase: "battle" },
-    { id: "ambush", name: "Emboscada", description: "Combates tú primero.", cost: 3, phase: "battle" },
+    { id: "spotter", name: same("Observador"), description: same("1 artillería tira 1 dado más."), cost: 1, phase: "battle" },
+    { id: "ambush", name: same("Emboscada"), description: same("Combates tú primero."), cost: 3, phase: "battle" },
   ];
 
   // The defender at turn 2 with 2 coins and both battle cards in hand, in the battle
@@ -322,7 +323,7 @@ describe("BattleView combat cards", () => {
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
@@ -378,8 +379,8 @@ describe("BattleView combat cards", () => {
 describe("BattleView combat card effects", () => {
   const barrage: CombatCard = {
     id: "barrage",
-    name: "Cortina de Fuego",
-    description: "",
+    name: same("Cortina de Fuego"),
+    description: same(""),
     cost: 0,
     phase: "order",
     marker: { kind: "target", count: 1 },
@@ -387,11 +388,11 @@ describe("BattleView combat card effects", () => {
   };
   const spotter: CombatCard = {
     id: "street",
-    name: "Lucha callejera",
-    description: "",
+    name: same("Lucha callejera"),
+    description: same(""),
     cost: 0,
     phase: "battle",
-    effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: "¿En un edificio?" },
+    effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: same("¿En un edificio?") },
   };
 
   /** The defender at turn 2, with the combat cards given and `before` run before the battle */
@@ -401,7 +402,7 @@ describe("BattleView combat card effects", () => {
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
@@ -460,7 +461,7 @@ describe("BattleView combat card effects", () => {
   });
 
   it("opens the map as soon as Ambush is played, to fire first with the unit attacked", async () => {
-    const ambush: CombatCard = { id: "ambush", name: "Emboscada", description: "", cost: 0, phase: "battle", effect: { kind: "ambush" } };
+    const ambush: CombatCard = { id: "ambush", name: same("Emboscada"), description: same(""), cost: 0, phase: "battle", effect: { kind: "ambush" } };
     const session = effectSetup([ambush]);
     const section = screen.getByTestId("battle-combat-cards");
     fireEvent.click(within(section).getByRole("button", { name: /^Emboscada/ }));

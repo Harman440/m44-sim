@@ -21,9 +21,14 @@ export const scenarios: Scenario[] = [
     // and the reinforcement table are ours
     id: 'foret-decouves',
     name: "Forêt d'Écouves",
-    description:
-      'Agosto de 1944: la 2.ª División Blindada de Leclerc ataca a los alemanes atrincherados en el bosque de Écouves. ' +
-      'Toda la infantería francesa es de élite: mueve 2 casillas y aún dispara; también las unidades alemanas con distintivo.',
+    description: {
+      es:
+        'Agosto de 1944: la 2.ª División Blindada de Leclerc ataca a los alemanes atrincherados en el bosque de Écouves. ' +
+        'Toda la infantería francesa es de élite: mueve 2 casillas y aún dispara; también las unidades alemanas con distintivo.',
+      en:
+        "August 1944: Leclerc's 2nd Armored Division attacks the Germans dug into the Écouves forest. " +
+        'All French infantry is elite: it moves 2 hexes and still fires; so are the German units with a badge.',
+    },
     image: foretDEcouvesImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
@@ -85,9 +90,14 @@ export const scenarios: Scenario[] = [
     // the official ones; the medals stay on the table, and the reinforcement table is ours
     id: 'arracourt',
     name: 'Arracourt',
-    description:
-      'Septiembre de 1944: entre la niebla, las brigadas Panzer atacan Lezey y Arracourt, ' +
-      'defendidos por los blindados de la 4.ª División Acorazada estadounidense.',
+    description: {
+      es:
+        'Septiembre de 1944: entre la niebla, las brigadas Panzer atacan Lezey y Arracourt, ' +
+        'defendidos por los blindados de la 4.ª División Acorazada estadounidense.',
+      en:
+        'September 1944: through the fog, the Panzer brigades attack Lezey and Arracourt, ' +
+        "held by the tanks of the US 4th Armored Division.",
+    },
     image: arracourtImage,
     initialHandSize: { allies: 6, axis: 4 },
     attacker: 'Axis',
@@ -127,7 +137,10 @@ export const scenarios: Scenario[] = [
     // town at night. The map and units are the official ones; the reinforcement table is ours
     id: 'sainte-mere-eglise',
     name: 'Sainte-Mère-Église',
-    description: 'Los paracaidistas estadounidenses caen de noche alrededor del pueblo, entre setos y bosques.',
+    description: {
+      es: 'Los paracaidistas estadounidenses caen de noche alrededor del pueblo, entre setos y bosques.',
+      en: 'American paratroopers drop at night around the town, among hedgerows and woods.',
+    },
     image: sainteMereEgliseImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
@@ -166,7 +179,10 @@ export const scenarios: Scenario[] = [
     // the reinforcement table is ours
     id: 'pegasus-bridge',
     name: 'Pegasus Bridge',
-    description: 'Los planeadores británicos aterrizan junto a los puentes del canal de Caen y del Orne: hay que tomarlos.',
+    description: {
+      es: 'Los planeadores británicos aterrizan junto a los puentes del canal de Caen y del Orne: hay que tomarlos.',
+      en: 'British gliders land by the bridges over the Caen canal and the Orne: they must be taken.',
+    },
     image: pegasusBridgeImage,
     initialHandSize: { allies: 6, axis: 2 },
     extraDraws: { faction: 'Axis', turns: 2 },

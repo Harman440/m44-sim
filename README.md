@@ -9,9 +9,9 @@ Each turn:
    - "Disparar" on a unit asks about the situation (distance, the target's terrain) and works out how many dice to roll, or takes the number straight away ("Tirada rápida"). The roll is final; only a confirmed "Anular disparo" takes it back.
    - "Ver mapa" brings the map back to record casualties and retreats so the app matches the table.
 
-"Ajustes" on the start menu picks one of three looks (field map, board-game box or command tent) and turns sound effects on or off.
+"Ajustes" (Settings) on the start menu picks the language, one of three looks (field map, board-game box or command tent) and turns sound effects on or off.
 
-The UI is in Spanish.
+The UI is in Spanish and English. It starts in the browser's language (Spanish for any Spanish locale, English otherwise), and the choice in Settings is remembered per device. Each player picks their own, so two players can play in different languages.
 
 ## Getting started
 
@@ -47,6 +47,7 @@ Saved games belong to the address they were played on: a game saved on one addre
 - `src/game-core/`: game logic in plain TypeScript: board and pathfinding, units, cards, `GameSession` (the turn flow), dice and the fire-dice engine
 - `src/data/`: scenarios, command cards, and `fireQuestions.ts` (the firing situations and their dice effects, the place to tune house rules)
 - `src/components/`: React + MUI UI; the board is an SVG
+- `src/i18n/` and `src/labels/`: the two languages: the language setting and hooks, and the names of game things (units, terrain, sections…) in each language
 - `docs/PLAN.md`: roadmap and known issues
 - `CLAUDE.md`: conventions for working on the code
 

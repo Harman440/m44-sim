@@ -3,7 +3,8 @@
 // and the smaller deck of Step 44). Each side gets 25 cards: 21 shared by every
 // side, plus 4 that depend on the unit types it has in the scenario
 // (`commandDeckFor`). The counts are meant to be tuned here. Names are the
-// official Spanish edition's where we found them (Overlord supplement, Days of Wonder).
+// official Spanish edition's where we found them (Overlord supplement, Days of Wonder),
+// and the official English edition's in English.
 //
 // Not in the deck: Recon, Counter Attack (not in the game) and Behind Enemy
 // Lines, Ambush, Barrage, Air Power, Dig In and Medics (combat cards, Step 24).
@@ -12,6 +13,7 @@ import { UnitType } from '../game-core/unit';
 import { Side } from '../types/hex';
 import { Faction } from '../types/faction';
 import { Scenario } from '../types/scenario';
+import { Localized, byLang } from '../i18n/lang';
 
 interface CardTemplate {
   count: number;
@@ -21,55 +23,73 @@ interface CardTemplate {
 /** Copies per section, left / center / right */
 type SectionCounts = [number, number, number];
 
-const SECTION_NAMES: Record<Section, { id: string; name: string }> = {
-  [Side.LEFT]: { id: 'left', name: 'en el flanco izquierdo' },
-  [Side.CENTER]: { id: 'center', name: 'en el centro' },
-  [Side.RIGHT]: { id: 'right', name: 'en el flanco derecho' },
+const SECTION_NAMES: Record<Section, { id: string; name: Localized; where: Localized }> = {
+  [Side.LEFT]: {
+    id: 'left',
+    name: { es: 'en el flanco izquierdo', en: 'Left Flank' },
+    where: { es: 'del flanco izquierdo', en: 'on the left flank' },
+  },
+  [Side.CENTER]: {
+    id: 'center',
+    name: { es: 'en el centro', en: 'Center' },
+    where: { es: 'del centro', en: 'in the center' },
+  },
+  [Side.RIGHT]: {
+    id: 'right',
+    name: { es: 'en el flanco derecho', en: 'Right Flank' },
+    where: { es: 'del flanco derecho', en: 'on the right flank' },
+  },
 };
 
 /** One template per section for a card that exists for the left, center and right */
 const perSection = (
   id: string,
-  name: string,
+  name: Localized,
   counts: SectionCounts,
-  props: (section: Section, where: string) => CommandCardProps
+  props: (where: Localized) => CommandCardProps
 ): CardTemplate[] =>
   ([Side.LEFT, Side.CENTER, Side.RIGHT] as const).map((section, i) => ({
     count: counts[i]!,
     props: {
       id: `${id}-${SECTION_NAMES[section].id}`,
-      name: `${name} ${SECTION_NAMES[section].name}`,
+      name: byLang((lang) => `${name[lang]} ${SECTION_NAMES[section].name[lang]}`),
       title: name,
       sections: [section],
-      ...props(section, SECTION_NAMES[section].name.replace(/^en (el )?/, '')),
+      ...props(SECTION_NAMES[section].where),
     },
   }));
 
-const ON_THE_MOVE = 'Además, 1 unidad en cualquier lugar puede moverse, pero no disparar.';
+const ON_THE_MOVE: Localized = {
+  es: 'Además, 1 unidad en cualquier lugar puede moverse, pero no disparar.',
+  en: 'Also, 1 unit anywhere may move, but not fire.',
+};
 
 /** The cards every side gets */
 const sharedTemplates: CardTemplate[] = [
   // --- Section cards (16)
-  ...perSection('probe', 'Batida', [2, 2, 2], (_, where) => ({
-    description: `Da órdenes a 2 unidades del ${where}. ${ON_THE_MOVE} En la fase final, roba 2 cartas y quédate con 1.`,
+  ...perSection('probe', { es: 'Batida', en: 'Probe' }, [2, 2, 2], (where) => ({
+    description: {
+      es: `Da órdenes a 2 unidades ${where.es}. ${ON_THE_MOVE.es} En la fase final, roba 2 cartas y quédate con 1.`,
+      en: `Order 2 units ${where.en}. ${ON_THE_MOVE.en} In the final phase, draw 2 cards and keep 1.`,
+    },
     orders: 2,
     onTheMove: 1,
     drawChoice: 2,
   })),
-  ...perSection('attack', 'Ataque', [1, 1, 1], (_, where) => ({
-    description: `Da órdenes a 3 unidades del ${where}.`,
+  ...perSection('attack', { es: 'Ataque', en: 'Attack' }, [1, 1, 1], (where) => ({
+    description: { es: `Da órdenes a 3 unidades ${where.es}.`, en: `Order 3 units ${where.en}.` },
     orders: 3,
   })),
-  ...perSection('assault', 'Asalto', [1, 1, 1], (_, where) => ({
-    description: `Da órdenes a todas las unidades del ${where}.`,
+  ...perSection('assault', { es: 'Asalto', en: 'Assault' }, [1, 1, 1], (where) => ({
+    description: { es: `Da órdenes a todas las unidades ${where.es}.`, en: `Order all units ${where.en}.` },
     orders: 'all',
   })),
   {
     count: 1,
     props: {
       id: 'recon-in-force',
-      name: 'Vanguardia',
-      description: 'Da una orden a 1 unidad en cada sección.',
+      name: { es: 'Vanguardia', en: 'Recon in Force' },
+      description: { es: 'Da una orden a 1 unidad en cada sección.', en: 'Order 1 unit in each section.' },
       orders: 3,
       perSection: 1,
     },
@@ -78,8 +98,8 @@ const sharedTemplates: CardTemplate[] = [
     count: 2,
     props: {
       id: 'general-advance',
-      name: 'Avance General',
-      description: 'Da órdenes a 2 unidades en cada sección.',
+      name: { es: 'Avance General', en: 'General Advance' },
+      description: { es: 'Da órdenes a 2 unidades en cada sección.', en: 'Order 2 units in each section.' },
       orders: 6,
       perSection: 2,
     },
@@ -88,8 +108,11 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'pincer',
-      name: 'Movimiento en Pinza',
-      description: 'Da órdenes a 2 unidades del flanco izquierdo y 2 del flanco derecho.',
+      name: { es: 'Movimiento en Pinza', en: 'Pincer Move' },
+      description: {
+        es: 'Da órdenes a 2 unidades del flanco izquierdo y 2 del flanco derecho.',
+        en: 'Order 2 units on the left flank and 2 on the right flank.',
+      },
       sections: [Side.LEFT, Side.RIGHT],
       orders: 4,
       perSection: 2,
@@ -101,10 +124,15 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'finest-hour',
-      name: 'La Hora de la Verdad',
-      summary: 'Hasta 4 órdenes pagadas con suministros. Disparan con +1 dado.',
-      description:
-        'Da órdenes a hasta 4 unidades pagando suministros: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
+      name: { es: 'La Hora de la Verdad', en: 'Their Finest Hour' },
+      summary: {
+        es: 'Hasta 4 órdenes pagadas con suministros. Disparan con +1 dado.',
+        en: 'Up to 4 orders paid with supplies. They fire with +1 die.',
+      },
+      description: {
+        es: 'Da órdenes a hasta 4 unidades pagando suministros: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
+        en: 'Order up to 4 units by paying supplies: 1 for infantry and 2 for a tank or artillery. Ordered units fire with 1 extra die.',
+      },
       tactic: true,
       orders: 4,
       coinCost: { [UnitType.INFANTRY]: 1, [UnitType.TANK]: 2, [UnitType.ARTILLERY]: 2 },
@@ -115,10 +143,15 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'infantry-assault',
-      name: 'Asalto de Infantería',
-      summary: 'Toda la infantería de una sección. Mueve 1 casilla más.',
-      description:
-        'Da órdenes a toda la infantería de una sección a elegir. Se mueve 1 casilla más, también para mover y disparar.',
+      name: { es: 'Asalto de Infantería', en: 'Infantry Assault' },
+      summary: {
+        es: 'Toda la infantería de una sección. Mueve 1 casilla más.',
+        en: 'All infantry in one section. Moves 1 extra hex.',
+      },
+      description: {
+        es: 'Da órdenes a toda la infantería de una sección a elegir. Se mueve 1 casilla más, también para mover y disparar.',
+        en: 'Order all infantry in a section of your choice. It moves 1 extra hex, also when moving and firing.',
+      },
       tactic: true,
       sections: 'chosen',
       unitTypes: [UnitType.INFANTRY],
@@ -130,10 +163,15 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'close-assault',
-      name: 'Asalto cercano',
-      summary: 'Sin órdenes. Tus unidades en asalto cercano tiran +1 dado.',
-      description:
-        'Sin órdenes. En la batalla, cada unidad tuya adyacente a una unidad enemiga dispara en asalto cercano con 1 dado más.',
+      name: { es: 'Asalto cercano', en: 'Close Assault' },
+      summary: {
+        es: 'Sin órdenes. Tus unidades en asalto cercano tiran +1 dado.',
+        en: 'No orders. Your units in close assault roll +1 die.',
+      },
+      description: {
+        es: 'Sin órdenes. En la batalla, cada unidad tuya adyacente a una unidad enemiga dispara en asalto cercano con 1 dado más.',
+        en: 'No orders. In the battle, each of your units adjacent to an enemy unit fires in close assault with 1 extra die.',
+      },
       tactic: true,
       closeAssaultOnly: true,
       fireBonus: [{ dice: 1, closeAssault: true }],
@@ -143,10 +181,15 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'firefight',
-      name: 'Escaramuza',
-      summary: '4 órdenes sin mover. +1 dado a distancia, −1 en asalto cercano.',
-      description:
-        'Da órdenes a 4 unidades que no se mueven. Disparan con 1 dado más a distancia y 1 menos en asalto cercano.',
+      name: { es: 'Escaramuza', en: 'Firefight' },
+      summary: {
+        es: '4 órdenes sin mover. +1 dado a distancia, −1 en asalto cercano.',
+        en: '4 orders, no moving. +1 die at range, −1 in close assault.',
+      },
+      description: {
+        es: 'Da órdenes a 4 unidades que no se mueven. Disparan con 1 dado más a distancia y 1 menos en asalto cercano.',
+        en: "Order 4 units that don't move. They fire with 1 extra die at range and 1 fewer in close assault.",
+      },
       tactic: true,
       orders: 4,
       noMove: true,
@@ -160,10 +203,15 @@ const sharedTemplates: CardTemplate[] = [
     count: 1,
     props: {
       id: 'preparations',
-      name: 'Preparativos',
-      summary: '1 orden. Al final: 3 suministros y 1 carta de combate.',
-      description:
-        'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas.',
+      name: { es: 'Preparativos', en: 'Preparations' },
+      summary: {
+        es: '1 orden. Al final: 3 suministros y 1 carta de combate.',
+        en: '1 order. At the end: 3 supplies and 1 combat card.',
+      },
+      description: {
+        es: 'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas.',
+        en: 'Order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing between them.',
+      },
       tactic: true,
       orders: 1,
       endOfTurnReward: { coins: 3, combatCard: true },
@@ -174,9 +222,9 @@ const sharedTemplates: CardTemplate[] = [
 // --- The tactic cards that depend on the side's units
 const moveOut: CommandCardProps & { id: string } = {
   id: 'move-out',
-  name: 'En marcha',
-  summary: '4 órdenes a infantería.',
-  description: 'Da órdenes a 4 unidades de infantería.',
+  name: { es: 'En marcha', en: 'Move Out!' },
+  summary: { es: '4 órdenes a infantería.', en: '4 infantry orders.' },
+  description: { es: 'Da órdenes a 4 unidades de infantería.', en: 'Order 4 infantry units.' },
   tactic: true,
   unitTypes: [UnitType.INFANTRY],
   orders: 4,
@@ -184,9 +232,12 @@ const moveOut: CommandCardProps & { id: string } = {
 
 const armorAssault: CommandCardProps & { id: string } = {
   id: 'armor-assault',
-  name: 'Asalto de Blindados',
-  summary: '4 órdenes a tanques. +1 dado en asalto cercano.',
-  description: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
+  name: { es: 'Asalto de Blindados', en: 'Armor Assault' },
+  summary: { es: '4 órdenes a tanques. +1 dado en asalto cercano.', en: '4 tank orders. +1 die in close assault.' },
+  description: {
+    es: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
+    en: 'Order 4 tanks. In close assault they roll 1 extra die.',
+  },
   tactic: true,
   unitTypes: [UnitType.TANK],
   orders: 4,
@@ -195,10 +246,15 @@ const armorAssault: CommandCardProps & { id: string } = {
 
 const artilleryBombardment: CommandCardProps & { id: string } = {
   id: 'artillery-bombardment',
-  name: 'Bombardeo de Artillería',
-  summary: 'Toda la artillería: dispara 2 veces, o mueve 3 sin disparar.',
-  description:
-    'Da órdenes a toda la artillería: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
+  name: { es: 'Bombardeo de Artillería', en: 'Artillery Bombardment' },
+  summary: {
+    es: 'Toda la artillería: dispara 2 veces, o mueve 3 sin disparar.',
+    en: 'All artillery: fires twice, or moves 3 without firing.',
+  },
+  description: {
+    es: 'Da órdenes a toda la artillería: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
+    en: 'Order all artillery: each one fires twice without moving, or moves up to 3 hexes without firing.',
+  },
   tactic: true,
   unitTypes: [UnitType.ARTILLERY],
   orders: 'all',
@@ -208,9 +264,9 @@ const artilleryBombardment: CommandCardProps & { id: string } = {
 
 const directFromHq: CommandCardProps & { id: string } = {
   id: 'direct-from-hq',
-  name: 'Directo del Cuartel General',
-  summary: '4 órdenes en cualquier sección.',
-  description: 'Da órdenes a 4 unidades en cualquier sección.',
+  name: { es: 'Directo del Cuartel General', en: 'Direct from HQ' },
+  summary: { es: '4 órdenes en cualquier sección.', en: '4 orders in any section.' },
+  description: { es: 'Da órdenes a 4 unidades en cualquier sección.', en: 'Order 4 units in any section.' },
   tactic: true,
   orders: 4,
 };

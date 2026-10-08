@@ -28,7 +28,7 @@ import WaitingView from "./GameViews/WaitingView";
 import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
-import { FACTION_LABELS, coinsText } from "../../labels";
+import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
 import FactionInsignia from "../FactionInsignia";
@@ -49,18 +49,61 @@ export interface GameViewProps {
   onExit: () => void;
 }
 
-const PHASE_STEPS: { phase: TurnPhase; label: string }[] = [
-  { phase: TurnPhase.PICK_CARDS, label: "Carta" },
-  { phase: TurnPhase.ORDER_UNITS, label: "Órdenes" },
-  { phase: TurnPhase.MOVEMENT, label: "Movimiento" },
-  { phase: TurnPhase.BATTLE, label: "Batalla" },
-  { phase: TurnPhase.END_OF_TURN, label: "Final" },
+const TEXT = defineMessages({
+  es: {
+    phases: { card: "Carta", orders: "Órdenes", movement: "Movimiento", battle: "Batalla", final: "Final" },
+    testMode: "Modo prueba",
+    extraTurn: "Turno 1 · extra",
+    turn: (n: number) => `Turno ${n}`,
+    coinsLabel: (coins: string) => `Suministros: ${coins}`,
+    mute: "Silenciar sonidos",
+    unmute: "Activar sonidos",
+    menu: "Menú",
+    deck: "Ver mazo",
+    history: "Historial",
+    settings: "Ajustes",
+    exitToMenu: "Salir al menú",
+    resumed: (n: number) => `Partida recuperada · Turno ${n}`,
+    confirmExitTitle: "¿Salir al menú?",
+    confirmExitText: "Se perderá la partida en curso.",
+    keepPlaying: "Seguir jugando",
+    exit: "Salir",
+  },
+  en: {
+    phases: { card: "Card", orders: "Orders", movement: "Movement", battle: "Battle", final: "Final" },
+    testMode: "Test mode",
+    extraTurn: "Turn 1 · extra",
+    turn: (n: number) => `Turn ${n}`,
+    coinsLabel: (coins: string) => `Supplies: ${coins}`,
+    mute: "Mute sounds",
+    unmute: "Turn sounds on",
+    menu: "Menu",
+    deck: "See deck",
+    history: "History",
+    settings: "Settings",
+    exitToMenu: "Exit to menu",
+    resumed: (n: number) => `Game resumed · Turn ${n}`,
+    confirmExitTitle: "Exit to menu?",
+    confirmExitText: "The game in progress will be lost.",
+    keepPlaying: "Keep playing",
+    exit: "Exit",
+  },
+});
+
+const PHASE_STEPS: { phase: TurnPhase; label: keyof (typeof TEXT)["es"]["phases"] }[] = [
+  { phase: TurnPhase.PICK_CARDS, label: "card" },
+  { phase: TurnPhase.ORDER_UNITS, label: "orders" },
+  { phase: TurnPhase.MOVEMENT, label: "movement" },
+  { phase: TurnPhase.BATTLE, label: "battle" },
+  { phase: TurnPhase.END_OF_TURN, label: "final" },
 ];
 
 function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const { scenario, faction } = session;
   const { settings, updateSettings } = useSettings();
   const play = useSound();
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -117,14 +160,14 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
             <FactionInsignia faction={faction} size={34} decorative />
             <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
-              {scenario.name} · {FACTION_LABELS[faction]}
+              {scenario.name} · {labels.factions[faction]}
             </Typography>
-            {session.testMode && <Chip label="Modo prueba" color="warning" size="small" />}
-            <Chip label={game.extraTurn ? "Turno 1 · extra" : `Turno ${game.turn}`} color="secondary" size="small" />
+            {session.testMode && <Chip label={t.testMode} color="warning" size="small" />}
+            <Chip label={game.extraTurn ? t.extraTurn : t.turn(game.turn)} color="secondary" size="small" />
             {PHASE_STEPS.map(({ phase, label }, i) => (
               <Chip
                 key={phase}
-                label={`${i + 1}. ${label}`}
+                label={`${i + 1}. ${t.phases[label]}`}
                 color={phase === game.phase ? "primary" : "default"}
                 variant={phase === game.phase ? "filled" : "outlined"}
                 size="small"
@@ -140,7 +183,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
                 variant="outlined"
                 onClick={() => setCoinsOpen(true)}
                 startIcon={<GameIcon name="coins" />}
-                aria-label={`Suministros: ${coinsText(game.coins)}`}
+                aria-label={t.coinsLabel(labels.coins(game.coins))}
                 data-testid="coin-counter"
                 color={game.coins < 0 ? "error" : "primary"}
               >
@@ -148,7 +191,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               </Button>
             )}
             <IconButton
-              aria-label={settings.sound ? "Silenciar sonidos" : "Activar sonidos"}
+              aria-label={settings.sound ? t.mute : t.unmute}
               aria-pressed={settings.sound}
               onClick={() => updateSettings({ sound: !settings.sound })}
               sx={{ color: "text.primary" }}
@@ -163,7 +206,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               aria-expanded={menuAnchor ? "true" : undefined}
               onClick={(e) => setMenuAnchor(e.currentTarget)}
             >
-              Menú
+              {t.menu}
             </Button>
           </Stack>
           <Menu
@@ -183,7 +226,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               <ListItemIcon sx={{ color: "inherit" }}>
                 <GameIcon name="cards" />
               </ListItemIcon>
-              <ListItemText>Ver mazo</ListItemText>
+              <ListItemText>{t.deck}</ListItemText>
             </MenuItem>
             <MenuItem
               onClick={() => {
@@ -195,7 +238,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               <ListItemIcon sx={{ color: "inherit" }}>
                 <GameIcon name="history" />
               </ListItemIcon>
-              <ListItemText>Historial</ListItemText>
+              <ListItemText>{t.history}</ListItemText>
             </MenuItem>
             <MenuItem
               onClick={() => {
@@ -207,7 +250,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               <ListItemIcon sx={{ color: "inherit" }}>
                 <GameIcon name="settings" />
               </ListItemIcon>
-              <ListItemText>Ajustes</ListItemText>
+              <ListItemText>{t.settings}</ListItemText>
             </MenuItem>
             <MenuItem
               onClick={() => {
@@ -219,7 +262,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               <ListItemIcon sx={{ color: "inherit" }}>
                 <GameIcon name="exit" />
               </ListItemIcon>
-              <ListItemText>Salir al menú</ListItemText>
+              <ListItemText>{t.exitToMenu}</ListItemText>
             </MenuItem>
           </Menu>
         </Box>
@@ -282,7 +325,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           open={showResumed}
           autoHideDuration={3000}
           onClose={() => setShowResumed(false)}
-          message={`Partida recuperada · Turno ${game.turn}`}
+          message={t.resumed(game.turn)}
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         />
 
@@ -298,16 +341,16 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
 
         <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>
-          <DialogTitle>¿Salir al menú?</DialogTitle>
+          <DialogTitle>{t.confirmExitTitle}</DialogTitle>
           <DialogContent>
-            <DialogContentText>Se perderá la partida en curso.</DialogContentText>
+            <DialogContentText>{t.confirmExitText}</DialogContentText>
           </DialogContent>
           <DialogActions>
             <Button variant="outlined" onClick={() => setConfirmingExit(false)}>
-              Seguir jugando
+              {t.keepPlaying}
             </Button>
             <Button color="error" onClick={onExit}>
-              Salir
+              {t.exit}
             </Button>
           </DialogActions>
         </Dialog>

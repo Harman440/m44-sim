@@ -6,6 +6,7 @@ import { summarizeOrders } from "./turnSummary";
 import { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
 import { Position } from "../types/scenario";
+import { same } from "../i18n/lang";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { infantry: true, closeAssault: false };
@@ -19,7 +20,7 @@ const playTurn = () => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: { forest: [FOREST] },

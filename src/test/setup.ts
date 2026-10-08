@@ -7,3 +7,6 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
 });
+
+// Tests read the Spanish UI unless they pick English: settings default to the browser's language
+Object.defineProperty(window.navigator, "language", { value: "es-ES", configurable: true });

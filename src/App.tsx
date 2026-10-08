@@ -24,6 +24,9 @@ import { Settings, SettingsContext } from './settings';
 import { LOOKS } from './looks/looks';
 import { createLookTheme } from './looks/theme';
 
+const TITLES = { es: "Memoir '44 Simultáneo", en: "Memoir '44 Simultaneous" } as const;
+const LOADING = { es: 'Cargando partida', en: 'Loading the game' } as const;
+
 interface CurrentGame {
   session: GameSession;
   /** Picked back up from a save rather than started from the menu */
@@ -49,6 +52,13 @@ const App = () => {
   useEffect(() => {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', look.colors.bg);
   }, [look]);
+
+  // The page's language, for screen readers and the browser's translate offer
+  const { language } = settings;
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = TITLES[language];
+  }, [language]);
 
   const [game, setGame] = useState<CurrentGame | null>(() => {
     const session = loadSavedGame(scenarios);
@@ -96,7 +106,7 @@ const App = () => {
         <CssBaseline />
         <div className="app" data-look={look.id}>
           {game ? (
-            <Suspense fallback={<CircularProgress aria-label="Cargando partida" sx={{ m: 'auto' }} />}>
+            <Suspense fallback={<CircularProgress aria-label={LOADING[language]} sx={{ m: 'auto' }} />}>
               <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
             </Suspense>
           ) : (

@@ -19,7 +19,21 @@ import closeAssaultArt from "../assets/cards/close-assault.webp";
 import hqArt from "../assets/cards/hq.webp";
 import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
 import moveOutArt from "../assets/cards/move-out.webp";
+import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
+
+const TEXT = defineMessages({
+  es: {
+    sectionNames: { left: "Izquierda", center: "Centro", right: "Derecha" } as Record<Section, string>,
+    all: "Todas",
+    sections: (names: string) => `Secciones: ${names}`,
+  },
+  en: {
+    sectionNames: { left: "Left", center: "Center", right: "Right" } as Record<Section, string>,
+    all: "All",
+    sections: (names: string) => `Sections: ${names}`,
+  },
+});
 
 // --- shared pieces
 
@@ -315,8 +329,6 @@ function CardFace({
   );
 }
 
-const SECTION_NAMES: Record<Section, string> = { left: "Izquierda", center: "Centro", right: "Derecha" };
-
 // --- section cards (Batida, Ataque, Asalto, Vanguardia, Avance General, Movimiento en Pinza)
 
 /** A card that orders units of any type in fixed sections: drawn with the painting and an arrow per section */
@@ -362,12 +374,13 @@ function RuleChip({ glyphs, faction }: { glyphs: Glyph[]; faction: Faction }) {
  * circle on the arrow (a number, or "Todas").
  */
 export function SectionCardArt({ card, faction }: { card: CommandCard; faction: Faction }) {
+  const t = useMessages(TEXT);
   const brush = useId();
   const sections = card.sections as readonly Section[];
   const hexes = boardStrip(ART_WIDTH, SECTION_ROWS, SECTION_BOARD_TOP, SECTION_HEX);
   const boardBottom = SECTION_HEIGHT - 2;
   const mid = ART_WIDTH / 2;
-  const count = card.orders === "all" ? "Todas" : String(card.perSection ?? card.orders);
+  const count = card.orders === "all" ? t.all : String(card.perSection ?? card.orders);
   const word = !/^\d+$/.test(count);
   const rules = sectionRules(card);
   // A lone arrow sets off near the middle; several set off spread apart so they don't cross
@@ -404,7 +417,7 @@ export function SectionCardArt({ card, faction }: { card: CommandCard; faction: 
         className="card-art section-art__board"
         viewBox={`0 0 ${ART_WIDTH} ${SECTION_HEIGHT}`}
         role="img"
-        aria-label={`Secciones: ${sections.map((section) => SECTION_NAMES[section]).join(", ")}`}
+        aria-label={t.sections(sections.map((section) => t.sectionNames[section]).join(", "))}
       >
         <defs>
           <filter id={brush} x="-10%" y="-10%" width="120%" height="120%">
@@ -460,14 +473,16 @@ const TACTIC_PAINTINGS: Record<string, string> = {
  * short summary under it. Its full text is in its details (CardDetails).
  */
 export function TacticCardArt({ card }: { card: CommandCard }) {
+  const tr = useTr();
+  const lang = useLang();
   const painting = TACTIC_PAINTINGS[card.id.replace(/-\d+$/, "")] ?? generalsArt;
   return (
     <>
       <span className="tactic-art__painting-frame">
         <img className="tactic-art__painting" src={painting} alt="" draggable={false} />
       </span>
-      <span className="tactic-art__summary" lang="es">
-        {card.summary}
+      <span className="tactic-art__summary" lang={lang}>
+        {tr(card.summary)}
       </span>
     </>
   );

@@ -9,6 +9,12 @@ import axisArtillery from "../assets/units/axis/artillery.svg";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { FACTION_COLORS } from "../looks/looks";
+import { defineMessages, useMessages } from "../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: { elite: "De élite" },
+  en: { elite: "Elite" },
+});
 
 // Tank and artillery are placeholder SVGs; drop real art in the same folders to replace them
 const SPRITES: Record<Faction, Record<UnitType, string>> = {
@@ -68,6 +74,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   fired = false,
   orderable = false,
 }) => {
+  const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
   const href = unitSprite(faction, unitType);
   const badgeX = x + TOKEN_RADIUS * 0.72;
@@ -112,7 +119,7 @@ const UnitComponent: React.FC<UnitProps> = ({
       {/* The scenario's elite badge (moves its whole move and fires), top left */}
       {unitData?.elite && (
         <g className="unit__badge unit__badge--elite" data-testid="elite-badge">
-          <title>De élite</title>
+          <title>{t.elite}</title>
           <circle cx={x - TOKEN_RADIUS * 0.72} cy={badgeY} r={BADGE_RADIUS} fill="#c9a227" stroke="#f1ead6" strokeWidth={2} />
           <path
             d={starPath(x - TOKEN_RADIUS * 0.72, badgeY, 6.5, 2.7)}

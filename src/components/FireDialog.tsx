@@ -27,13 +27,82 @@ import { BASE_DICE_BY_DISTANCE } from "../data/fireQuestions";
 import ShotDice from "./ShotDice";
 import ShotSteps from "./ShotSteps";
 import { UnitType } from "../game-core/unit";
-import { UNIT_LABELS } from "../labels";
 import FireAim, { FireAimChoice } from "./FireAim";
 import { TargetKinds } from "../data/hitRules";
 import HexThumbnail from "./HexThumbnail";
 import GameIcon from "./GameIcon";
 import { BarbedWireIcon } from "./BarbedWire";
+import { DICE_TEXT } from "./DicePool";
+import { Localized } from "../i18n/lang";
+import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import "./FireDialog.css";
+
+const TEXT = defineMessages({
+  es: {
+    moreInfo: "Más información",
+    shotNumber: (n: number) => `Disparo ${n}`,
+    removedWire: (number: number | null) => `${number !== null ? `Disparo ${number}: ` : ""}quitó la alambrada, sin disparar`,
+    collision: "Choque",
+    noEffect: "0 dados: el disparo no tuvo efecto",
+    undoTitle: "¿Anular el último disparo?",
+    undoWarning:
+      "Anula el último disparo de esta unidad solo si se registró por error. La tirada se borra y la unidad podrá disparar de nuevo.",
+    confirmMistake: "Confirmo que fue un error",
+    takeGroundInfo:
+      "¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno: se mueve a su casilla y combate otra vez, solo en asalto cercano.",
+    takeGround: "Tomar terreno",
+    freeHex: "¿Casilla libre?",
+    groundTakenInfo: "Ya está en la casilla tomada en el mapa, y combate otra vez desde ahí en asalto cercano.",
+    undo: "Deshacer",
+    groundTaken: "Terreno tomado",
+    opponentFires: "Ahora dispara el rival.",
+    opponentFiresRest: " Si no le quedan unidades por disparar en este grupo, vuelves a disparar tú.",
+    fireAgain: (left: number) => `Disparar otra vez (queda${left === 1 ? "" : "n"} ${left})`,
+    onWire: "La unidad está en una alambrada",
+    wireQuestion: "¿La quita (y no dispara este turno) o dispara con 1 dado menos?",
+    removeWire: "Quitar alambrada",
+    fireFromWire: "Disparar (−1 dado)",
+    back: "Volver",
+    cancelShot: "Anular disparo",
+    goBack: "Atrás",
+    close: "Cerrar",
+    title: (unit: string) => `Disparo: ${unit}`,
+    closeAssaultOnly: (dice: string) => `Solo asalto cercano: ${dice}`,
+    range: (range: string) => `Alcance: ${range}`,
+  },
+  en: {
+    moreInfo: "More information",
+    shotNumber: (n: number) => `Shot ${n}`,
+    removedWire: (number: number | null) => `${number !== null ? `Shot ${number}: ` : ""}removed the barbed wire, without firing`,
+    collision: "Collision",
+    noEffect: "0 dice: the shot had no effect",
+    undoTitle: "Cancel the last shot?",
+    undoWarning:
+      "Cancel this unit's last shot only if it was recorded by mistake. The roll is erased and the unit can fire again.",
+    confirmMistake: "I confirm it was a mistake",
+    takeGroundInfo:
+      "Did the target retreat or was it eliminated? The unit can take ground: it moves into its hex and battles again, in close assault only.",
+    takeGround: "Take ground",
+    freeHex: "Hex empty?",
+    groundTakenInfo: "It's already on the hex it took on the map, and battles again from there in close assault.",
+    undo: "Undo",
+    groundTaken: "Ground taken",
+    opponentFires: "Now your opponent fires.",
+    opponentFiresRest: " If they have no units left to fire in this group, you fire again.",
+    fireAgain: (left: number) => `Fire again (${left} left)`,
+    onWire: "The unit is on barbed wire",
+    wireQuestion: "Does it remove it (and not fire this turn) or fire with 1 die less?",
+    removeWire: "Remove barbed wire",
+    fireFromWire: "Fire (−1 die)",
+    back: "Back",
+    cancelShot: "Cancel shot",
+    goBack: "Back",
+    close: "Close",
+    title: (unit: string) => `Fire: ${unit}`,
+    closeAssaultOnly: (dice: string) => `Close assault only: ${dice}`,
+    range: (range: string) => `Range: ${range}`,
+  },
+});
 
 interface FireDialogProps {
   /** The firing unit's order; the dialog is closed when null */
@@ -67,17 +136,15 @@ interface FireDialogProps {
   onClose: () => void;
 }
 
-const diceText = (dice: number, eightSided = false) =>
-  `${dice} ${dice === 1 ? "dado" : "dados"}${eightSided ? " de 8 caras" : ""}`;
-
 /** Reminders for resolving the hits on the table, e.g. sandbags */
-function ShotNotes({ notes }: { notes: readonly string[] }) {
+function ShotNotes({ notes }: { notes: readonly Localized[] }) {
+  const tr = useTr();
   if (notes.length === 0) return null;
   return (
     <Stack sx={{ gap: 0.5, mt: 1 }} data-testid="shot-notes">
       {notes.map((note) => (
-        <Alert key={note} severity="info" sx={{ py: 0 }}>
-          {note}
+        <Alert key={note.es} severity="info" sx={{ py: 0 }}>
+          {tr(note)}
         </Alert>
       ))}
     </Stack>
@@ -110,6 +177,7 @@ function ExplainedAction({
   action: ReactNode;
   testId?: string;
 }) {
+  const t = useMessages(TEXT);
   const [open, setOpen] = useState(false);
   return (
     <Box data-testid={testId} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "var(--m44-radius)", px: 1 }}>
@@ -118,7 +186,7 @@ function ExplainedAction({
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {children}
         </Typography>
-        <IconButton aria-label="Más información" aria-expanded={open} onClick={() => setOpen((o) => !o)} sx={{ width: 48, height: 48 }}>
+        <IconButton aria-label={t.moreInfo} aria-expanded={open} onClick={() => setOpen((o) => !o)} sx={{ width: 48, height: 48 }}>
           <InfoIcon />
         </IconButton>
         <Box sx={{ ml: "auto" }}>{action}</Box>
@@ -147,11 +215,12 @@ interface ShotResultProps {
 }
 
 export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults }: ShotResultProps) {
+  const t = useMessages(TEXT);
   if (shot.removedWire) {
     return (
       <Stack direction="row" data-testid="shot-result" sx={{ alignItems: "center", gap: 1.5 }}>
         <BarbedWireIcon size={48} />
-        <Typography variant="h6">{number !== null ? `Disparo ${number}: ` : ""}quitó la alambrada, sin disparar</Typography>
+        <Typography variant="h6">{t.removedWire(number)}</Typography>
       </Stack>
     );
   }
@@ -159,7 +228,7 @@ export function ShotResult({ shot, number, unitType, faction, board, image, roll
     <Box data-testid="shot-result">
       {(number !== null || shot.collision) && (
         <Typography variant="overline" color="text.secondary">
-          {[number !== null && `Disparo ${number}`, shot.collision && "Choque"].filter(Boolean).join(" · ")}
+          {[number !== null && t.shotNumber(number), shot.collision && t.collision].filter(Boolean).join(" · ")}
         </Typography>
       )}
       <ShotSteps
@@ -174,7 +243,7 @@ export function ShotResult({ shot, number, unitType, faction, board, image, roll
       />
       {shot.dice === 0 && (
         <Typography variant="h6" sx={{ mt: 1 }}>
-          0 dados: el disparo no tuvo efecto
+          {t.noEffect}
         </Typography>
       )}
       <ShotDice
@@ -217,6 +286,9 @@ function FireDialog({
   onKeepResults,
   onClose,
 }: FireDialogProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const diceText = useMessages(DICE_TEXT).dice;
   // Small screens get the whole screen for the map and the questions
   const fullScreen = useMediaQuery("(max-width: 899px), (max-height: 599px)");
   /** Aiming a further shot at a unit that already fired (orders with more than one shot) */
@@ -267,15 +339,14 @@ function FireDialog({
       return (
         <>
           <Typography variant="h6" sx={{ mb: 1 }}>
-            ¿Anular el último disparo?
+            {t.undoTitle}
           </Typography>
           <Alert severity="error" sx={{ mb: 2 }}>
-            Anula el último disparo de esta unidad solo si se registró por error. La tirada se borra y la
-            unidad podrá disparar de nuevo.
+            {t.undoWarning}
           </Alert>
           <FormControlLabel
             control={<Checkbox checked={undoChecked} onChange={(e) => setUndoChecked(e.target.checked)} />}
-            label="Confirmo que fue un error"
+            label={t.confirmMistake}
             sx={{ minHeight: 48 }}
           />
         </>
@@ -302,32 +373,32 @@ function FireDialog({
           {canTakeGround && (
             <ExplainedAction
               testId="take-ground"
-              info="¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno: se mueve a su casilla y combate otra vez, solo en asalto cercano."
+              info={t.takeGroundInfo}
               action={
                 <Button color="success" onClick={() => onTakeGround?.() && setJustFired(false)}>
-                  Tomar terreno
+                  {t.takeGround}
                 </Button>
               }
             >
-              ¿Casilla libre?
+              {t.freeHex}
             </ExplainedAction>
           )}
           {takenGround && canFire && (
             <ExplainedAction
-              info="Ya está en la casilla tomada en el mapa, y combate otra vez desde ahí en asalto cercano."
+              info={t.groundTakenInfo}
               action={
                 <Button variant="text" onClick={() => onUndoTakeGround?.()}>
-                  Deshacer
+                  {t.undo}
                 </Button>
               }
             >
-              Terreno tomado
+              {t.groundTaken}
             </ExplainedAction>
           )}
           {justFired && !canTakeGround && (
             <Alert severity="warning" data-testid="opponent-turn">
-              <strong>Ahora dispara el rival.</strong> Si no le quedan unidades por disparar en este grupo,
-              vuelves a disparar tú.
+              <strong>{t.opponentFires}</strong>
+              {t.opponentFiresRest}
             </Alert>
           )}
           {canFire && (
@@ -339,7 +410,7 @@ function FireDialog({
                 setJustFired(false);
               }}
             >
-              Disparar otra vez (queda{summary.shotsLeft === 1 ? "" : "n"} {summary.shotsLeft})
+              {t.fireAgain(summary.shotsLeft)}
             </Button>
           )}
         </Stack>
@@ -351,9 +422,9 @@ function FireDialog({
         <Stack sx={{ gap: 2, alignItems: "flex-start" }} data-testid="wire-choice">
           <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
             <BarbedWireIcon size={56} />
-            <Typography variant="h6">La unidad está en una alambrada</Typography>
+            <Typography variant="h6">{t.onWire}</Typography>
           </Stack>
-          <Typography>¿La quita (y no dispara este turno) o dispara con 1 dado menos?</Typography>
+          <Typography>{t.wireQuestion}</Typography>
           <Stack direction="row" sx={{ gap: 1.5, flexWrap: "wrap" }}>
             <Button
               size="large"
@@ -362,10 +433,10 @@ function FireDialog({
                 if (onRemoveWire?.()) setJustFired(true);
               }}
             >
-              Quitar alambrada
+              {t.removeWire}
             </Button>
             <Button size="large" variant="outlined" startIcon={<GameIcon name="fire" />} onClick={() => setFiringFromWire(true)}>
-              Disparar (−1 dado)
+              {t.fireFromWire}
             </Button>
           </Stack>
         </Stack>
@@ -393,10 +464,10 @@ function FireDialog({
       return (
         <>
           <Button variant="outlined" onClick={() => setConfirmingUndo(false)}>
-            Volver
+            {t.back}
           </Button>
           <Button color="error" disabled={!undoChecked} onClick={handleUndo}>
-            Anular disparo
+            {t.cancelShot}
           </Button>
         </>
       );
@@ -406,16 +477,16 @@ function FireDialog({
       <>
         {!aiming && summary.shots.length > 0 && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
-            Anular disparo
+            {t.cancelShot}
           </Button>
         )}
         {canGoBack && (
           <Button variant="outlined" onClick={firingFromWire ? () => setFiringFromWire(false) : resetAim}>
-            Atrás
+            {t.goBack}
           </Button>
         )}
         <Button variant="text" onClick={onClose}>
-          Cerrar
+          {t.close}
         </Button>
       </>
     );
@@ -435,14 +506,14 @@ function FireDialog({
     >
       <DialogTitle>
         <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <span>Disparo: {UNIT_LABELS[summary.unitType]}</span>
+          <span>{t.title(labels.units[summary.unitType])}</span>
           {/* Where it fires from and what it fires with at each distance */}
           <Stack direction="row" component="span" sx={{ alignItems: "center", gap: 1 }} data-testid="firing-unit">
             <HexThumbnail board={board} position={summary.firingFrom} image={image} faction={faction} size={32} />
             <Typography component="span" variant="body2" color="text.secondary">
               {summary.closeAssaultOnly
-                ? `Solo asalto cercano: ${diceText(range[0] ?? 0)}`
-                : `Alcance: ${range.join(" / ")}`}
+                ? t.closeAssaultOnly(diceText(range[0] ?? 0))
+                : t.range(range.join(" / "))}
             </Typography>
           </Stack>
         </Stack>

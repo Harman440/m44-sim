@@ -10,6 +10,7 @@ import { Side } from "../../../types/hex";
 import { UnitType } from "../../../game-core/unit";
 import { Position } from "../../../types/scenario";
 import { TurnPhase } from "../../../types/gameManager";
+import { same } from "../../../i18n/lang";
 
 // Allies: two infantry on the left flank (orderable with a LEFT card) and one on the right
 const LEFT_A: Position = { row: 7, col: 1 };
@@ -21,7 +22,7 @@ const makeSession = () => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 3, axis: 3 },
       attacker: "Allies",
       tiles: {},
@@ -200,7 +201,7 @@ describe("OrdersView card rules", () => {
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Allies",
         tiles: {},
@@ -208,7 +209,7 @@ describe("OrdersView card rules", () => {
       },
       faction: "Allies",
       initialHandSize: 1,
-      commandCards: [new CommandCard({ id: "card", name: "Carta", description: "Texto de la carta.", ...props })],
+      commandCards: [new CommandCard({ id: "card", name: same("Carta"), description: same("Texto de la carta."), ...props })],
     });
     session.pickCard(session.getSnapshot().hand[0]!);
     const { container } = render(<Harness session={session} />);
@@ -283,12 +284,12 @@ describe("OrdersView card rules", () => {
 describe("OrdersView orders paid in coins", () => {
   // The defender at turn 2 (no extra turn) with `coins`, playing `props`
   const withCoins = (coins: number, props: CommandCardProps) => {
-    const card = new CommandCard({ id: "card", name: "Carta", ...props });
+    const card = new CommandCard({ id: "card", name: same("Carta"), ...props });
     const session = new GameSession({
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
@@ -350,18 +351,18 @@ describe("OrdersView combat card markers", () => {
   it("marks the Barrage hex on the map before the orders can be confirmed", () => {
     const barrage: CombatCard = {
       id: "barrage",
-      name: "Cortina de Fuego",
-      description: "4 dados.",
+      name: same("Cortina de Fuego"),
+      description: same("4 dados."),
       cost: 0,
       phase: "order",
       marker: { kind: "target", count: 1 },
     };
-    const card = new CommandCard({ id: "card", name: "Carta", sections: [Side.LEFT], orders: 1 });
+    const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders: 1 });
     const session = new GameSession({
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
@@ -402,19 +403,19 @@ describe("OrdersView Reinforcements card", () => {
   it("shows the map's table of which unit each die face brings", () => {
     const reinforcements: CombatCard = {
       id: "reinforcements",
-      name: "Refuerzos",
-      description: "Tira 1 dado.",
+      name: same("Refuerzos"),
+      description: same("Tira 1 dado."),
       cost: 0,
       phase: "order",
       marker: { kind: "cross", count: 1 },
       effect: { kind: "reinforcements" },
     };
-    const card = new CommandCard({ id: "card", name: "Carta", sections: [Side.LEFT], orders: 1 });
+    const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders: 1 });
     const session = new GameSession({
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
@@ -441,18 +442,18 @@ describe("OrdersView movement combat cards", () => {
   it("lets the player use the card's movement on a unit, as many times as it allows", () => {
     const frozen: CombatCard = {
       id: "frozen",
-      name: "Terreno helado",
-      description: "",
+      name: same("Terreno helado"),
+      description: same(""),
       cost: 0,
       phase: "order",
       effect: { kind: "move", units: 1, moveBonus: 1 },
     };
-    const card = new CommandCard({ id: "card", name: "Carta", sections: [Side.LEFT], orders: 2 });
+    const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders: 2 });
     const session = new GameSession({
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},

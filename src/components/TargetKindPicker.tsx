@@ -3,8 +3,23 @@ import { Box, Button, Stack, ToggleButton, ToggleButtonGroup, Typography } from 
 import { UnitType } from "../game-core/unit";
 import { TargetKinds, onlyTargetKind } from "../data/hitRules";
 import { Faction } from "../types/faction";
-import { targetLabel } from "../labels";
+import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
 import { unitSprite } from "./UnitComponent";
+
+const TEXT = defineMessages({
+  es: {
+    onlyKind: (label: string, infantry: boolean) =>
+      `${label}: el rival no empezó con ${infantry ? "blindados ni artillería" : "infantería"}.`,
+    change: "Cambiar",
+    targetType: "Tipo de objetivo",
+  },
+  en: {
+    onlyKind: (label: string, infantry: boolean) =>
+      `${label}: the opponent didn't start with ${infantry ? "armor or artillery" : "infantry"}.`,
+    change: "Change",
+    targetType: "Target type",
+  },
+});
 
 /** A choice in the picker: infantry, any other unit, or (when offered) an empty hex */
 export type TargetChoice = "infantry" | "other" | "empty";
@@ -51,6 +66,8 @@ interface TargetKindPickerProps {
  * unit of the other kind brought by the Reinforcements card.
  */
 function TargetKindPicker({ kinds, value, onChange, enemy, emptyLabel }: TargetKindPickerProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const [askBoth, setAskBoth] = useState(false);
   const only = askBoth || emptyLabel ? null : onlyTargetKind(kinds);
 
@@ -59,10 +76,10 @@ function TargetKindPicker({ kinds, value, onChange, enemy, emptyLabel }: TargetK
       <Stack direction="row" sx={{ alignItems: "center", gap: 1, minHeight: 48 }} data-testid="target-kind-fixed">
         <TargetSprites infantry={only} enemy={enemy} />
         <Typography variant="body2" sx={{ flex: 1 }}>
-          {targetLabel(only)}: el rival no empezó con {only ? "blindados ni artillería" : "infantería"}.
+          {t.onlyKind(labels.target(only), only)}
         </Typography>
         <Button variant="text" size="small" onClick={() => setAskBoth(true)}>
-          Cambiar
+          {t.change}
         </Button>
       </Stack>
     );
@@ -76,14 +93,14 @@ function TargetKindPicker({ kinds, value, onChange, enemy, emptyLabel }: TargetK
       size="small"
       value={value}
       onChange={(_, choice: TargetChoice | null) => choice && onChange(choice)}
-      aria-label="Tipo de objetivo"
+      aria-label={t.targetType}
       sx={{ display: "grid", gridTemplateColumns: `repeat(${options.length + (emptyLabel ? 1 : 0)}, 1fr)` }}
     >
       {options.map((choice) => (
         <ToggleButton key={choice} value={choice} sx={{ gap: 0.75, px: 1, minHeight: 48 }}>
           <TargetSprites infantry={choice === "infantry"} enemy={enemy} />
           <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
-            {targetLabel(choice === "infantry")}
+            {labels.target(choice === "infantry")}
           </Typography>
         </ToggleButton>
       ))}

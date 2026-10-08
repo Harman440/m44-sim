@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import { Faction } from "../../../types/faction";
 import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
-import { COMBAT_PHASE_LABELS, SECTION_LABELS, coinsText } from "../../../labels";
+import { defineMessages, useLabels, useLang, useMessages, useTr } from "../../../i18n/useI18n";
 import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
@@ -16,6 +16,73 @@ import { ruleTags } from "../../CommandCardComponent";
 import { CombatCard } from "../../../game-core/combatCard";
 import { useSound } from "../../../sound";
 import "./CardsView.css";
+
+const TEXT = defineMessages({
+  es: {
+    noCombatInExtraTurn: "En el turno extra no se juegan cartas de combate.",
+    playedInBattle: "Se juega durante la batalla.",
+    shortOfCoins: (cost: string, have: string) => `Te faltan suministros: cuesta ${cost} y tienes ${have}.`,
+    commandZone: "Zona de Mando",
+    pickToPlay: "Selecciona una carta para jugarla",
+    deck: (n: number) => `Cartas (${n})`,
+    discard: (n: number) => `Descarte (${n})`,
+    willPlay: (name: string, cost: number) =>
+      `Jugarás ${name} (${cost} ${cost === 1 ? "suministro" : "suministros"}) con la carta de mando que elijas.`,
+    orderCardsFirst:
+      "Para jugar una carta de órdenes este turno, elígela antes que la carta de mando. Las de batalla se juegan en la batalla.",
+    tapToSee: "Toca una carta para verla",
+    playWith: (name: string) => `Jugar con ${name}`,
+    playThis: "Jugar esta carta",
+    backToHand: "Devolver a la mano",
+    costs: (coins: string) => `Cuesta ${coins}`,
+    dontPlay: "No jugarla",
+    playWithCommand: "Jugarla con la carta de mando",
+    commandCards: "Cartas de mando",
+    commandCardsCount: (n: number) => `Cartas de mando (${n})`,
+    combatCards: "Cartas de combate",
+    combatCardsCount: (n: number) => `Cartas de combate (${n})`,
+    noCombatCards: "No tienes cartas de combate.",
+    changeSectionTitle: (combat: string, command: string) => `${combat}: ¿a qué sección cambias ${command}?`,
+    whichSection: (command: string) => `${command}: ¿en qué sección?`,
+    cancel: "Cancelar",
+    misfitTitle: (combat: string, command: string) => `${combat} no sirve con ${command}`,
+    changeSectionOnly: (combat: string) => `${combat} solo cambia la sección de una carta que da órdenes en una sola sección. `,
+    playAloneText: (command: string, combat: string) => `Si juegas ${command} sola, ${combat} se queda en la mano y no se paga.`,
+    playWithout: (combat: string) => `Jugar sin ${combat}`,
+  },
+  en: {
+    noCombatInExtraTurn: "No combat cards are played in the extra turn.",
+    playedInBattle: "It's played during the battle.",
+    shortOfCoins: (cost: string, have: string) => `Not enough supplies: it costs ${cost} and you have ${have}.`,
+    commandZone: "Command Zone",
+    pickToPlay: "Pick a card to play it",
+    deck: (n: number) => `Cards (${n})`,
+    discard: (n: number) => `Discard (${n})`,
+    willPlay: (name: string, cost: number) =>
+      `You'll play ${name} (${cost} ${cost === 1 ? "supply" : "supplies"}) with the command card you pick.`,
+    orderCardsFirst:
+      "To play an order card this turn, pick it before the command card. Battle cards are played in the battle.",
+    tapToSee: "Tap a card to see it",
+    playWith: (name: string) => `Play with ${name}`,
+    playThis: "Play this card",
+    backToHand: "Back to the hand",
+    costs: (coins: string) => `Costs ${coins}`,
+    dontPlay: "Don't play it",
+    playWithCommand: "Play it with the command card",
+    commandCards: "Command cards",
+    commandCardsCount: (n: number) => `Command cards (${n})`,
+    combatCards: "Combat cards",
+    combatCardsCount: (n: number) => `Combat cards (${n})`,
+    noCombatCards: "You have no combat cards.",
+    changeSectionTitle: (combat: string, command: string) => `${combat}: which section do you move ${command} to?`,
+    whichSection: (command: string) => `${command}: in which section?`,
+    cancel: "Cancel",
+    misfitTitle: (combat: string, command: string) => `${combat} doesn't work with ${command}`,
+    changeSectionOnly: (combat: string) => `${combat} only changes the section of a card that orders units in a single section. `,
+    playAloneText: (command: string, combat: string) => `If you play ${command} alone, ${combat} stays in your hand and isn't paid for.`,
+    playWithout: (combat: string) => `Play without ${combat}`,
+  },
+});
 
 // Must be at least the 0.5s slideDown animation in CardsView.css
 export const DEAL_ANIMATION_MS = 600;
@@ -59,6 +126,10 @@ function CardsView({
   coins = 0,
   faction = "Allies",
 }: CardsViewProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
+  const lang = useLang();
   /** The order combat card to play with the command card */
   const [combatPick, setCombatPick] = useState<CombatCard | null>(null);
   /** A card waiting for its section to be picked */
@@ -114,9 +185,9 @@ function CardsView({
 
   /** Why an order combat card can't be played now, or null if it can */
   const cantPlay = (card: CombatCard): string | null => {
-    if (!canPlayCombatCards) return "En el turno extra no se juegan cartas de combate.";
-    if (card.phase === "battle") return "Se juega durante la batalla.";
-    if (card.cost > coins) return `Te faltan suministros: cuesta ${coinsText(card.cost)} y tienes ${coinsText(coins)}.`;
+    if (!canPlayCombatCards) return t.noCombatInExtraTurn;
+    if (card.phase === "battle") return t.playedInBattle;
+    if (card.cost > coins) return t.shortOfCoins(labels.coins(card.cost), labels.coins(coins));
     return null;
   };
 
@@ -184,24 +255,24 @@ function CardsView({
       <div className="cards-top">
         <Box className="cards-header">
           <Typography variant="h4" component="h3">
-            Zona de Mando
+            {t.commandZone}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Selecciona una carta para jugarla
+            {t.pickToPlay}
           </Typography>
         </Box>
 
         {/* Deck and discard */}
         <div className="top-area">
           <Stack className="pile" sx={{ alignItems: "center" }}>
-            <Typography className="pile__label">Cartas ({drawPileCount})</Typography>
+            <Typography className="pile__label">{t.deck(drawPileCount)}</Typography>
             <div className="deck-pile">
               <div className="deck-back">M'44</div>
             </div>
           </Stack>
 
           <Stack className="pile" sx={{ alignItems: "center" }}>
-            <Typography className="pile__label">Descarte ({discardPileCount})</Typography>
+            <Typography className="pile__label">{t.discard(discardPileCount)}</Typography>
             <div className="discard-pile">{discardPileCount > 0 && <div className="deck-back">M'44</div>}</div>
           </Stack>
         </div>
@@ -213,15 +284,15 @@ function CardsView({
         {looking === null && (
           <Typography variant="body1" color={combatPick ? "primary" : "text.secondary"} sx={{ textAlign: "center", maxWidth: 560 }}>
             {!canPlayCombatCards
-              ? "En el turno extra no se juegan cartas de combate."
+              ? t.noCombatInExtraTurn
               : combatPick
-                ? `Jugarás ${combatPick.name} (${combatPick.cost} ${combatPick.cost === 1 ? "suministro" : "suministros"}) con la carta de mando que elijas.`
-                : "Para jugar una carta de órdenes este turno, elígela antes que la carta de mando. Las de batalla se juegan en la batalla."}
+                ? t.willPlay(tr(combatPick.name), combatPick.cost)
+                : t.orderCardsFirst}
           </Typography>
         )}
         {looking === null ? (
           <Typography variant="h6" component="p" color="text.secondary" sx={{ textAlign: "center" }}>
-            Toca una carta para verla
+            {t.tapToSee}
           </Typography>
         ) : "command" in looking ? (
           <CardDetails
@@ -231,16 +302,16 @@ function CardsView({
               </CardFlip>
             }
             cardWidth={TABLE_CARD_WIDTH}
-            name={looking.command.name}
-            tags={ruleTags(looking.command)}
-            text={looking.command.description}
+            name={tr(looking.command.name)}
+            tags={ruleTags(looking.command, lang)}
+            text={tr(looking.command.description)}
             actionsBeside
           >
             <Button size="large" onClick={() => playCard(looking.command)} startIcon={<GameIcon name="cards" />}>
-              {combatPick ? `Jugar con ${combatPick.name}` : "Jugar esta carta"}
+              {combatPick ? t.playWith(tr(combatPick.name)) : t.playThis}
             </Button>
             <Button variant="text" onClick={() => setLooking(null)}>
-              Devolver a la mano
+              {t.backToHand}
             </Button>
           </CardDetails>
         ) : (
@@ -251,9 +322,9 @@ function CardsView({
               </CardFlip>
             }
             cardWidth={TABLE_CARD_WIDTH}
-            name={looking.combat.name}
-            tags={[COMBAT_PHASE_LABELS[looking.combat.phase], `Cuesta ${coinsText(looking.combat.cost)}`]}
-            text={looking.combat.description}
+            name={tr(looking.combat.name)}
+            tags={[labels.combatPhases[looking.combat.phase], t.costs(labels.coins(looking.combat.cost))]}
+            text={tr(looking.combat.description)}
             actionsBeside
           >
             {cantPlay(looking.combat) ? (
@@ -262,7 +333,7 @@ function CardsView({
               </Typography>
             ) : combatPick === looking.combat ? (
               <Button variant="outlined" onClick={() => setCombatPick(null)}>
-                No jugarla
+                {t.dontPlay}
               </Button>
             ) : (
               <Button
@@ -273,11 +344,11 @@ function CardsView({
                 }}
                 startIcon={<GameIcon name="cards" />}
               >
-                Jugarla con la carta de mando
+                {t.playWithCommand}
               </Button>
             )}
             <Button variant="text" onClick={() => setLooking(null)}>
-              Devolver a la mano
+              {t.backToHand}
             </Button>
           </CardDetails>
         )}
@@ -287,10 +358,10 @@ function CardsView({
       <div className="cards-hands">
         <section className="cards-grid hand-group" aria-labelledby="command-hand-title">
           <Typography variant="overline" component="h3" id="command-hand-title" className="hand-group__title">
-            Cartas de mando ({visibleHand.length})
+            {t.commandCardsCount(visibleHand.length)}
           </Typography>
           <CardHand
-            label="Cartas de mando"
+            label={t.commandCards}
             cards={visibleHand.map((card) => ({
               key: card.id,
               lifted: lookingAt(card),
@@ -301,15 +372,15 @@ function CardsView({
 
         <section className="cards-combat hand-group hand-group--combat" aria-labelledby="combat-hand-title">
           <Typography variant="overline" component="h3" id="combat-hand-title" className="hand-group__title">
-            Cartas de combate ({combatHand.length})
+            {t.combatCardsCount(combatHand.length)}
           </Typography>
           {combatHand.length === 0 ? (
             <Typography variant="body2" color="text.secondary" className="hand-group__empty">
-              No tienes cartas de combate.
+              {t.noCombatCards}
             </Typography>
           ) : (
             <CardHand
-              label="Cartas de combate"
+              label={t.combatCards}
               overlap={0.3}
               cards={combatHand.map((card) => ({
                 key: card.id,
@@ -333,42 +404,40 @@ function CardsView({
       <Dialog open={choosingSection !== null} onClose={() => setChoosingSection(null)}>
         <DialogTitle>
           {combatPick?.effect?.kind === "changeSection" && !choosingSection?.choosesSection
-            ? `${combatPick.name}: ¿a qué sección cambias ${choosingSection?.name}?`
-            : `${choosingSection?.name}: ¿en qué sección?`}
+            ? t.changeSectionTitle(tr(combatPick.name), choosingSection ? tr(choosingSection.name) : "")
+            : t.whichSection(choosingSection ? tr(choosingSection.name) : "")}
         </DialogTitle>
         <DialogContent>
           <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap", pt: 1 }}>
             {SECTIONS.map((section) => (
               <Button key={section} size="large" onClick={() => playInSection(section)} sx={{ flex: "1 1 120px" }}>
-                {SECTION_LABELS[section]}
+                {labels.sections[section]}
               </Button>
             ))}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button variant="text" onClick={() => setChoosingSection(null)}>
-            Cancelar
+            {t.cancel}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={misfit !== null} onClose={() => setMisfit(null)}>
         <DialogTitle>
-          {combatPick?.name} no sirve con {misfit?.name}
+          {t.misfitTitle(combatPick ? tr(combatPick.name) : "", misfit ? tr(misfit.name) : "")}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1">
-            {combatPick?.effect?.kind === "changeSection"
-              ? `${combatPick.name} solo cambia la sección de una carta que da órdenes en una sola sección. `
-              : ""}
-            Si juegas {misfit?.name} sola, {combatPick?.name} se queda en la mano y no se paga.
+            {combatPick?.effect?.kind === "changeSection" ? t.changeSectionOnly(tr(combatPick.name)) : ""}
+            {t.playAloneText(misfit ? tr(misfit.name) : "", combatPick ? tr(combatPick.name) : "")}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button variant="text" onClick={() => setMisfit(null)}>
-            Cancelar
+            {t.cancel}
           </Button>
-          <Button onClick={playAlone}>Jugar sin {combatPick?.name}</Button>
+          <Button onClick={playAlone}>{t.playWithout(combatPick ? tr(combatPick.name) : "")}</Button>
         </DialogActions>
       </Dialog>
 

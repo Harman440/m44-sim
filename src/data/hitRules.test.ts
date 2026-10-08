@@ -6,11 +6,12 @@ import { Scenario } from "../types/scenario";
 import GameSession from "../game-core/gameSession";
 import CommandCard from "../game-core/commandCard";
 import { TurnPhase } from "../types/gameManager";
+import { same } from "../i18n/lang";
 
 const scenario = (axis: Scenario["units"]["axis"], extra: Partial<Scenario> = {}): Scenario => ({
   id: "test",
   name: "Test",
-  description: "",
+  description: same(""),
   initialHandSize: { allies: 1, axis: 1 },
   attacker: "Allies",
   tiles: {},

@@ -19,7 +19,8 @@ import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { SECTION_LABELS, UNIT_LABELS, coinsText, describeHex, describeMarkerRule, describeMovement, describeReinforcements } from "../../../labels";
+import type { Labels } from "../../../labels";
+import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 import { EXTRA_SLOT, OrderSlot, sameSlot } from "../../../game-core/orderRules";
 import { EXTRA_ORDER_COST } from "../../../data/coinRules";
 import CommandCard from "../../../game-core/commandCard";
@@ -32,6 +33,145 @@ import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
 import SandbagsIcon from "../../SandbagsIcon";
 import "./PhaseLayout.css";
+
+const TEXT = defineMessages({
+  es: {
+    extraOrderCoins: (cost: number) => `Orden extra (${cost} suministros)`,
+    onTheMove: "En movimiento (no dispara)",
+    sectionOrder: (section: string) => `Orden del ${section}`,
+    cardOrder: "Orden de la carta",
+    hold: "Mantener (no dispara)",
+    holdAndFire: "Mantener y disparar",
+    holdAndFireTimes: (n: number) => `Mantener y disparar ${n} veces`,
+    promptMark: (n: number) => `Marca en el mapa: faltan ${n}`,
+    tapHighlightedHex: "Toca una casilla resaltada",
+    promptExtra: "Orden extra: toca cualquier unidad sin orden",
+    promptPaid: "Da las órdenes que quieras pagar y confirma",
+    promptCantAfford: "No te llega para más órdenes de la carta",
+    promptNoOrders: "Esta carta no da órdenes: confírmalas",
+    promptMarkCard: (card: string) => `Marca las casillas de ${card}`,
+    promptConfirm: "No quedan órdenes: confirma",
+    promptTapUnit: "Toca una unidad resaltada",
+    helpMark: (rule: string, n: number) => `${rule} Faltan ${n}.`,
+    helpExtraSelected: "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción.",
+    helpExtra: (cost: number) =>
+      `Orden extra (${cost} suministros): toca cualquier unidad sin orden. No tiene las ventajas de la carta.`,
+    helpPaid: (costs: string) =>
+      `Cada orden de la carta cuesta suministros (${costs}): da las que quieras pagar y confirma.`,
+    helpCantAfford: "No te llega para más órdenes de la carta: confirma las órdenes o deshaz la última.",
+    helpNoOrders: "Esta carta no da órdenes: confírmalas. En la batalla marcarás las unidades en asalto cercano.",
+    helpMarkCard: (card: string) => `Marca en el mapa las casillas de ${card} para poder confirmar.`,
+    helpConfirm: "No quedan órdenes: confirma las órdenes o deshaz la última.",
+    helpSelected: "Toca una casilla resaltada para mover la unidad, o elige una acción: mantenerla en su casilla o cancelar.",
+    helpTapUnit: "Toca una unidad resaltada para darle una orden; después, la casilla adonde se mueve.",
+    fixMapTitle: "Órdenes: actualizar mapa",
+    fixMapHint: "Corrige el mapa para que coincida con la mesa: toca una unidad",
+    changeCard: "Cambiar carta",
+    combatCardTitle: (card: string) => `Carta de combate: ${card}`,
+    notePaper: "Si hace falta, anota en papel sobre qué unidades la usas.",
+    reinforcementsHere: "Refuerzos en este mapa:",
+    stopMarking: "Dejar de marcar",
+    markOnMap: "Marcar en el mapa",
+    eraseLastMark: "Borrar última marca",
+    remove: "Quitar",
+    cardOrdersLeft: (n: number) => `Órdenes de la carta: ${n}`,
+    ordersLeft: (n: number) => `Órdenes restantes: ${n}`,
+    selectedUnit: "Unidad seleccionada",
+    hedgerowExit: ". Al salir de un seto solo avanza 1 casilla",
+    extraOrderHelp: (cost: number) => `Orden extra: cuesta ${cost} suministros y no tiene las ventajas de la carta.`,
+    extraOrderCost: (coins: string) => `Orden extra: cuesta ${coins}`,
+    hasSandbags: "Tiene sacos terreros: si se mueve, los pierde.",
+    orderCosts: (coins: string) => `Esta orden cuesta ${coins}`,
+    moveAndFire: "Mover y disparar",
+    moveOnly: "Solo mover",
+    useCard: (card: string, left: number) => `Usar ${card} (${left === 1 ? "queda 1" : `quedan ${left}`})`,
+    whichOrder: "¿Qué orden usa esta unidad?",
+    whichOrderLabel: "Orden que usa la unidad",
+    cancel: "Cancelar",
+    cancelExtra: "Cancelar orden extra",
+    back: "Volver",
+    confirmOrders: "Confirmar Órdenes",
+    howToOrder: "Cómo dar órdenes",
+    instructions: "Instrucciones",
+    howToOrderText:
+      "Las casillas resaltadas son adonde puede ir la unidad; la leyenda dice en cuáles aún podrá disparar. Tocar otra vez la unidad la deselecciona. «Volver» deshace la última orden.",
+    extraOrderRule: (coins: string) => `Una orden extra cuesta ${coins} y no tiene las ventajas de la carta.`,
+    updateMap: "Actualizar mapa",
+    leftSandbags: "La unidad deja sus sacos terreros: quítalos de la mesa al moverla.",
+    confirmFixTitle: "¿Actualizar el mapa?",
+    confirmFixText:
+      "Solo si el mapa no coincide con la mesa: por ejemplo, si se cambió una tirada o falta una retirada del turno anterior. Se puede hacer mientras no hayas dado ninguna orden.",
+  },
+  en: {
+    extraOrderCoins: (cost: number) => `Extra order (${cost} supplies)`,
+    onTheMove: "On the move (doesn't fire)",
+    sectionOrder: (section: string) => `${section} order`,
+    cardOrder: "The card's order",
+    hold: "Hold (doesn't fire)",
+    holdAndFire: "Hold and fire",
+    holdAndFireTimes: (n: number) => `Hold and fire ${n} times`,
+    promptMark: (n: number) => `Mark on the map: ${n} left`,
+    tapHighlightedHex: "Tap a highlighted hex",
+    promptExtra: "Extra order: tap any unit without an order",
+    promptPaid: "Give the orders you want to pay for and confirm",
+    promptCantAfford: "You can't afford more of the card's orders",
+    promptNoOrders: "This card gives no orders: confirm them",
+    promptMarkCard: (card: string) => `Mark the hexes for ${card}`,
+    promptConfirm: "No orders left: confirm",
+    promptTapUnit: "Tap a highlighted unit",
+    helpMark: (rule: string, n: number) => `${rule} ${n} left.`,
+    helpExtraSelected: "Extra order: tap a highlighted hex to move the unit, or pick an action.",
+    helpExtra: (cost: number) =>
+      `Extra order (${cost} supplies): tap any unit without an order. It doesn't get the card's advantages.`,
+    helpPaid: (costs: string) =>
+      `Each of the card's orders costs supplies (${costs}): give the ones you want to pay for and confirm.`,
+    helpCantAfford: "You can't afford more of the card's orders: confirm the orders or undo the last one.",
+    helpNoOrders: "This card gives no orders: confirm them. In the battle you'll mark the units in close assault.",
+    helpMarkCard: (card: string) => `Mark the hexes for ${card} on the map to be able to confirm.`,
+    helpConfirm: "No orders left: confirm the orders or undo the last one.",
+    helpSelected: "Tap a highlighted hex to move the unit, or pick an action: hold it in its hex or cancel.",
+    helpTapUnit: "Tap a highlighted unit to give it an order; then the hex it moves to.",
+    fixMapTitle: "Orders: update map",
+    fixMapHint: "Fix the map so it matches the table: tap a unit",
+    changeCard: "Change card",
+    combatCardTitle: (card: string) => `Combat card: ${card}`,
+    notePaper: "If needed, note on paper which units you use it on.",
+    reinforcementsHere: "Reinforcements on this map:",
+    stopMarking: "Stop marking",
+    markOnMap: "Mark on the map",
+    eraseLastMark: "Erase last mark",
+    remove: "Remove",
+    cardOrdersLeft: (n: number) => `Card orders: ${n}`,
+    ordersLeft: (n: number) => `Orders left: ${n}`,
+    selectedUnit: "Selected unit",
+    hedgerowExit: ". Leaving a hedgerow it only moves 1 hex",
+    extraOrderHelp: (cost: number) => `Extra order: costs ${cost} supplies and doesn't get the card's advantages.`,
+    extraOrderCost: (coins: string) => `Extra order: costs ${coins}`,
+    hasSandbags: "It has sandbags: if it moves, it loses them.",
+    orderCosts: (coins: string) => `This order costs ${coins}`,
+    moveAndFire: "Move and fire",
+    moveOnly: "Move only",
+    useCard: (card: string, left: number) => `Use ${card} (${left} left)`,
+    whichOrder: "Which order does this unit use?",
+    whichOrderLabel: "Order the unit uses",
+    cancel: "Cancel",
+    cancelExtra: "Cancel extra order",
+    back: "Back",
+    confirmOrders: "Confirm orders",
+    howToOrder: "How to give orders",
+    instructions: "Instructions",
+    howToOrderText:
+      "The highlighted hexes are where the unit can go; the legend says from which ones it can still fire. Tapping the unit again deselects it. “Back” undoes the last order.",
+    extraOrderRule: (coins: string) => `An extra order costs ${coins} and doesn't get the card's advantages.`,
+    updateMap: "Update map",
+    leftSandbags: "The unit leaves its sandbags behind: take them off the table when you move it.",
+    confirmFixTitle: "Update the map?",
+    confirmFixText:
+      "Only if the map doesn't match the table: for example, if a roll was changed or a retreat from the last turn is missing. It can be done as long as you haven't given any order.",
+  },
+});
+
+type Text = (typeof TEXT)["es"];
 
 interface OrdersViewProps {
   faction: Faction;
@@ -50,19 +190,19 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 }
 
 /** What an order slot means, for picking one */
-const slotLabel = (slot: OrderSlot) => {
-  if (slot.extra) return `Orden extra (${EXTRA_ORDER_COST} suministros)`;
-  if (slot.onTheMove) return "En movimiento (no dispara)";
-  return slot.section ? `Orden del ${SECTION_LABELS[slot.section]}` : "Orden de la carta";
+const slotLabel = (slot: OrderSlot, t: Text, labels: Labels) => {
+  if (slot.extra) return t.extraOrderCoins(EXTRA_ORDER_COST);
+  if (slot.onTheMove) return t.onTheMove;
+  return slot.section ? t.sectionOrder(labels.sections[slot.section]) : t.cardOrder;
 };
 
 const slotKey = (slot: OrderSlot) => `${slot.section ?? "card"}-${slot.onTheMove}-${!!slot.extra}`;
 
 /** "infantería 1, tanque 2, artillería 2": what each of the card's orders costs */
-const describeCoinCost = (card: CommandCard) =>
+const describeCoinCost = (card: CommandCard, labels: Labels) =>
   Object.values(UnitType)
     .filter((type) => card.coinCostOf(type) > 0)
-    .map((type) => `${UNIT_LABELS[type].toLowerCase()} ${card.coinCostOf(type)}`)
+    .map((type) => `${labels.units[type].toLowerCase()} ${card.coinCostOf(type)}`)
     .join(", ");
 
 /** The slot used when the player doesn't pick: the card's only order, else on the move; null when they must pick */
@@ -72,12 +212,15 @@ function defaultSlot(slots: readonly OrderSlot[]): OrderSlot | null {
   return cardSlots[0] ?? slots[0] ?? null;
 }
 
-const holdLabel = (shots: number) => {
-  if (shots === 0) return "Mantener (no dispara)";
-  return shots === 1 ? "Mantener y disparar" : `Mantener y disparar ${shots} veces`;
+const holdLabel = (shots: number, t: Text) => {
+  if (shots === 0) return t.hold;
+  return shots === 1 ? t.holdAndFire : t.holdAndFireTimes(shots);
 };
 
 function OrdersView({ faction, session, game }: OrdersViewProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
   const boardManager = session.board;
   const { orders, ordersLeft } = game;
   const paidCard = game.activeCard?.paidInCoins ?? false;
@@ -211,48 +354,42 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   /** What to do now, in a few words: always in sight */
   const prompt = () => {
-    if (marking && markerRule) return `Marca en el mapa: faltan ${markersLeft}`;
-    if (extraMode) return selectedHex ? "Toca una casilla resaltada" : "Orden extra: toca cualquier unidad sin orden";
+    if (marking && markerRule) return t.promptMark(markersLeft);
+    if (extraMode) return selectedHex ? t.tapHighlightedHex : t.promptExtra;
     if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
-      return game.orderable.length > 0
-        ? "Da las órdenes que quieras pagar y confirma"
-        : "No te llega para más órdenes de la carta";
+      return game.orderable.length > 0 ? t.promptPaid : t.promptCantAfford;
     }
-    if (game.activeCard?.closeAssaultOnly) return "Esta carta no da órdenes: confírmalas";
-    if (ordersLeft <= 0 && markersLeft > 0) return `Marca las casillas de ${game.orderCombatCard!.name}`;
-    if (ordersLeft <= 0) return "No quedan órdenes: confirma";
-    if (selectedHex) return "Toca una casilla resaltada";
-    return "Toca una unidad resaltada";
+    if (game.activeCard?.closeAssaultOnly) return t.promptNoOrders;
+    if (ordersLeft <= 0 && markersLeft > 0) return t.promptMarkCard(tr(game.orderCombatCard!.name));
+    if (ordersLeft <= 0) return t.promptConfirm;
+    if (selectedHex) return t.tapHighlightedHex;
+    return t.promptTapUnit;
   };
 
   /** The same, explained: behind "Instrucciones" */
   const instructions = () => {
     if (marking && markerRule) {
-      return `${describeMarkerRule(markerRule)} Faltan ${markersLeft}.`;
+      return t.helpMark(labels.describeMarkerRule(markerRule), markersLeft);
     }
     if (extraMode) {
-      return selectedHex
-        ? "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción."
-        : `Orden extra (${EXTRA_ORDER_COST} suministros): toca cualquier unidad sin orden. No tiene las ventajas de la carta.`;
+      return selectedHex ? t.helpExtraSelected : t.helpExtra(EXTRA_ORDER_COST);
     }
     if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
-      return game.orderable.length > 0
-        ? `Cada orden de la carta cuesta suministros (${describeCoinCost(game.activeCard!)}): da las que quieras pagar y confirma.`
-        : "No te llega para más órdenes de la carta: confirma las órdenes o deshaz la última.";
+      return game.orderable.length > 0 ? t.helpPaid(describeCoinCost(game.activeCard!, labels)) : t.helpCantAfford;
     }
     if (game.activeCard?.closeAssaultOnly) {
-      return "Esta carta no da órdenes: confírmalas. En la batalla marcarás las unidades en asalto cercano.";
+      return t.helpNoOrders;
     }
     if (ordersLeft <= 0 && markersLeft > 0) {
-      return `Marca en el mapa las casillas de ${game.orderCombatCard!.name} para poder confirmar.`;
+      return t.helpMarkCard(tr(game.orderCombatCard!.name));
     }
     if (ordersLeft <= 0) {
-      return "No quedan órdenes: confirma las órdenes o deshaz la última.";
+      return t.helpConfirm;
     }
     if (selectedHex) {
-      return "Toca una casilla resaltada para mover la unidad, o elige una acción: mantenerla en su casilla o cancelar.";
+      return t.helpSelected;
     }
-    return "Toca una unidad resaltada para darle una orden; después, la casilla adonde se mueve.";
+    return t.helpTapUnit;
   };
 
   if (fixingMap && game.canEditMap) {
@@ -261,8 +398,8 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         faction={faction}
         session={session}
         game={game}
-        title="Órdenes: actualizar mapa"
-        hint="Corrige el mapa para que coincida con la mesa: toca una unidad"
+        title={t.fixMapTitle}
+        hint={t.fixMapHint}
         onDone={() => setFixingMap(false)}
       />
     );
@@ -292,16 +429,16 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         {game.activeCard && (
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
             <Typography variant="subtitle1" component="h2" sx={{ flex: 1, fontWeight: 700, lineHeight: 1.25 }}>
-              {game.activeCard.name}
+              {tr(game.activeCard.name)}
             </Typography>
-            <InfoButton title={game.activeCard.name}>
-              <Typography variant="body1">{game.activeCard.description}</Typography>
+            <InfoButton title={tr(game.activeCard.name)}>
+              <Typography variant="body1">{tr(game.activeCard.description)}</Typography>
             </InfoButton>
           </Stack>
         )}
         {game.canUnpickCard && (
           <Button variant="outlined" onClick={() => session.unpickCard()} startIcon={<GameIcon name="undo" />}>
-            Cambiar carta
+            {t.changeCard}
           </Button>
         )}
         {game.orderCombatCard && (
@@ -309,25 +446,25 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
               <GameIcon name="cards" />
               <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
-                {game.orderCombatCard.name}
+                {tr(game.orderCombatCard.name)}
               </Typography>
-              <InfoButton title={`Carta de combate: ${game.orderCombatCard.name}`}>
-                <Typography variant="body1">{game.orderCombatCard.description}</Typography>
+              <InfoButton title={t.combatCardTitle(tr(game.orderCombatCard.name))}>
+                <Typography variant="body1">{tr(game.orderCombatCard.description)}</Typography>
                 {!markerRule && (
                   <Typography variant="body1" sx={{ mt: 1 }}>
-                    Si hace falta, anota en papel sobre qué unidades la usas.
+                    {t.notePaper}
                   </Typography>
                 )}
                 {game.orderCombatCard.effect?.kind === "reinforcements" && session.scenario.reinforcements && (
                   <Typography variant="body1" sx={{ mt: 1 }} data-testid="reinforcements-table">
-                    <strong>Refuerzos en este mapa:</strong> {describeReinforcements(session.scenario.reinforcements)}
+                    <strong>{t.reinforcementsHere}</strong> {labels.describeReinforcements(session.scenario.reinforcements)}
                   </Typography>
                 )}
               </InfoButton>
             </Stack>
             {markerRule && (
               <Typography variant="body2" color="text.secondary">
-                {describeMarkerRule(markerRule)} ({game.markers.length}/{markerRule.count})
+                {labels.describeMarkerRule(markerRule)} ({game.markers.length}/{markerRule.count})
               </Typography>
             )}
             <Stack sx={{ gap: 1, mt: 1 }}>
@@ -339,16 +476,16 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                   startIcon={<GameIcon name={marking ? "cancel" : "fire"} />}
                   aria-pressed={marking}
                 >
-                  {marking ? "Dejar de marcar" : "Marcar en el mapa"}
+                  {marking ? t.stopMarking : t.markOnMap}
                 </Button>
               )}
               {markerRule && game.markers.length > 0 && (
                 <Button variant="text" color="inherit" onClick={() => session.undoMarker()} startIcon={<GameIcon name="undo" />}>
-                  Borrar última marca
+                  {t.eraseLastMark}
                 </Button>
               )}
               <Button variant="text" color="inherit" onClick={() => session.cancelOrderCombatCard()} startIcon={<GameIcon name="cancel" />}>
-                Quitar
+                {t.remove}
               </Button>
             </Stack>
           </Paper>
@@ -358,8 +495,8 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             {prompt()}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {paidCard ? `Órdenes de la carta: ${game.cardOrdersLeft}` : `Órdenes restantes: ${ordersLeft}`} ·{" "}
-            {coinsText(game.coins)}
+            {paidCard ? t.cardOrdersLeft(game.cardOrdersLeft) : t.ordersLeft(ordersLeft)} ·{" "}
+            {labels.coins(game.coins)}
           </Typography>
         </Box>
 
@@ -367,23 +504,21 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           <Paper variant="outlined" sx={{ p: 1.5, width: "100%" }}>
             <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
               <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
-                {describeHex(selectedHex)}
+                {labels.describeHex(selectedHex)}
               </Typography>
-              <InfoButton title="Unidad seleccionada">
+              <InfoButton title={t.selectedUnit}>
                 <Stack sx={{ gap: 1 }}>
-                  <Typography variant="body1">{describeHex(selectedHex)}.</Typography>
+                  <Typography variant="body1">{labels.describeHex(selectedHex)}.</Typography>
                   {moveOptions && (
                     <Typography variant="body1">
-                      {describeMovement(moveOptions.limits)}
-                      {selectedHex.getType() === HexType.HEDGEROW && moveOptions.limits.maxMove > 1 && (
-                        <>. Al salir de un seto solo avanza 1 casilla</>
-                      )}
+                      {labels.describeMovement(moveOptions.limits)}
+                      {selectedHex.getType() === HexType.HEDGEROW && moveOptions.limits.maxMove > 1 && t.hedgerowExit}
                       .
                     </Typography>
                   )}
                   {slot?.extra && (
                     <Typography variant="body1">
-                      Orden extra: cuesta {EXTRA_ORDER_COST} suministros y no tiene las ventajas de la carta.
+                      {t.extraOrderHelp(EXTRA_ORDER_COST)}
                     </Typography>
                   )}
                 </Stack>
@@ -391,25 +526,25 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             </Stack>
             {slot?.extra && (
               <Typography variant="body2" color="warning.main">
-                Orden extra: cuesta {coinsText(EXTRA_ORDER_COST)}
+                {t.extraOrderCost(labels.coins(EXTRA_ORDER_COST))}
               </Typography>
             )}
             {selectedHex.sandbags && (moveOptions?.moves.length ?? 0) > 0 && (
               <Alert severity="warning" icon={<SandbagsIcon size={26} />} sx={{ mt: 1, py: 0 }} data-testid="sandbags-warning">
-                Tiene sacos terreros: si se mueve, los pierde.
+                {t.hasSandbags}
               </Alert>
             )}
             {paidCard && !slot?.extra && !slot?.onTheMove && game.activeCard && selectedHex.unit && (
               <Typography variant="body2" color="warning.main">
-                Esta orden cuesta {coinsText(game.activeCard.coinCostOf(selectedHex.unit.getUnitType()))}
+                {t.orderCosts(labels.coins(game.activeCard.coinCostOf(selectedHex.unit.getUnitType())))}
               </Typography>
             )}
             {/* Legend for the highlighted hexes (no hover on tablets) */}
             <Stack sx={{ gap: 0.5, my: 1 }}>
               {(moveOptions?.moveAndFire.length ?? 0) > 0 && (
-                <LegendItem color="var(--m44-move-fire)" label="Mover y disparar" />
+                <LegendItem color="var(--m44-move-fire)" label={t.moveAndFire} />
               )}
-              <LegendItem color="var(--m44-move-only)" label="Solo mover" />
+              <LegendItem color="var(--m44-move-only)" label={t.moveOnly} />
             </Stack>
             {game.orderCombatCard && moveEffect && (moveOptions?.canBoost || boost) && (
               <ToggleButton
@@ -420,14 +555,13 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                 fullWidth
                 sx={{ minHeight: 48, gap: 1, mb: 1 }}
               >
-                <GameIcon name="cards" /> Usar {game.orderCombatCard.name} (
-                {boostsLeft === 1 ? "queda 1" : `quedan ${boostsLeft}`})
+                <GameIcon name="cards" /> {t.useCard(tr(game.orderCombatCard.name), boostsLeft)}
               </ToggleButton>
             )}
             {choosingSlot && moveOptions && (
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2" color={slotHint ? "error" : "text.primary"} sx={{ mb: 0.5 }}>
-                  ¿Qué orden usa esta unidad?
+                  {t.whichOrder}
                 </Typography>
                 <ToggleButtonGroup
                   exclusive
@@ -435,11 +569,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                   fullWidth
                   value={slot ? slotKey(slot) : null}
                   onChange={(_, key: string | null) => pickSlot(key)}
-                  aria-label="Orden que usa la unidad"
+                  aria-label={t.whichOrderLabel}
                 >
                   {moveOptions.slots.map((s) => (
                     <ToggleButton key={slotKey(s)} value={slotKey(s)} sx={{ minHeight: 48 }}>
-                      {slotLabel(s)}
+                      {slotLabel(s, t, labels)}
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
@@ -447,10 +581,10 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             )}
             <Stack sx={{ gap: 1 }}>
               <Button onClick={handleHold} startIcon={<GameIcon name={moveOptions?.limits.holdShots ? "fire" : "confirm"} />}>
-                {holdLabel(moveOptions?.limits.holdShots ?? 1)}
+                {holdLabel(moveOptions?.limits.holdShots ?? 1, t)}
               </Button>
               <Button variant="outlined" onClick={clearSelection} startIcon={<GameIcon name="cancel" />}>
-                Cancelar
+                {t.cancel}
               </Button>
             </Stack>
           </Paper>
@@ -465,12 +599,12 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               startIcon={<GameIcon name={extraMode ? "cancel" : "coins"} />}
               aria-pressed={extraMode}
             >
-              {extraMode ? "Cancelar orden extra" : `Orden extra (${EXTRA_ORDER_COST} suministros)`}
+              {extraMode ? t.cancelExtra : t.extraOrderCoins(EXTRA_ORDER_COST)}
             </Button>
           )}
           {orders.length > 0 && !unitHexPosition && (
             <Button variant="outlined" onClick={() => session.undoLastOrder()} startIcon={<GameIcon name="undo" />}>
-              Volver
+              {t.back}
             </Button>
           )}
           {ordersLeft <= 0 && markersLeft <= 0 && (
@@ -478,24 +612,23 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               onClick={() => session.commitOrders() && play("stamp")}
               startIcon={<GameIcon name="confirm" />}
             >
-              Confirmar Órdenes
+              {t.confirmOrders}
             </Button>
           )}
         </Stack>
 
         <Stack sx={{ mt: "auto", gap: 0.5 }}>
-          <InfoButton title="Cómo dar órdenes" label="Instrucciones">
+          <InfoButton title={t.howToOrder} label={t.instructions}>
             <Stack sx={{ gap: 1.5 }}>
               <Typography variant="body1" color="primary">
                 {instructions()}
               </Typography>
               <Typography variant="body1">
-                Las casillas resaltadas son adonde puede ir la unidad; la leyenda dice en cuáles aún podrá disparar.
-                Tocar otra vez la unidad la deselecciona. «Volver» deshace la última orden.
+                {t.howToOrderText}
               </Typography>
               {!game.extraTurn && (
                 <Typography variant="body1">
-                  Una orden extra cuesta {coinsText(EXTRA_ORDER_COST)} y no tiene las ventajas de la carta.
+                  {t.extraOrderRule(labels.coins(EXTRA_ORDER_COST))}
                 </Typography>
               )}
             </Stack>
@@ -510,7 +643,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               startIcon={<GameIcon name="map" />}
               sx={{ color: "text.secondary" }}
             >
-              Actualizar mapa
+              {t.updateMap}
             </Button>
           )}
         </Stack>
@@ -523,21 +656,20 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert severity="warning" icon={<SandbagsIcon size={26} />} onClose={() => setLeftSandbags(false)} data-testid="sandbags-left">
-          La unidad deja sus sacos terreros: quítalos de la mesa al moverla.
+          {t.leftSandbags}
         </Alert>
       </Snackbar>
 
       <Dialog open={confirmMapFix} onClose={() => setConfirmMapFix(false)}>
-        <DialogTitle>¿Actualizar el mapa?</DialogTitle>
+        <DialogTitle>{t.confirmFixTitle}</DialogTitle>
         <DialogContent>
           <Typography variant="body1">
-            Solo si el mapa no coincide con la mesa: por ejemplo, si se cambió una tirada o falta una retirada del
-            turno anterior. Se puede hacer mientras no hayas dado ninguna orden.
+            {t.confirmFixText}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button variant="text" onClick={() => setConfirmMapFix(false)}>
-            Cancelar
+            {t.cancel}
           </Button>
           <Button
             color="warning"
@@ -547,7 +679,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             }}
             startIcon={<GameIcon name="map" />}
           >
-            Actualizar mapa
+            {t.updateMap}
           </Button>
         </DialogActions>
       </Dialog>

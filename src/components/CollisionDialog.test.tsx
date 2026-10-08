@@ -7,6 +7,8 @@ import CommandCard from "../game-core/commandCard";
 import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { samePosition } from "../game-core/position";
+import { same } from "../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -17,7 +19,7 @@ const makeSession = ({ tankHolds = false } = {}) => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
@@ -96,5 +98,19 @@ describe("Collisions in the battle phase", () => {
     render(<Harness session={session} />);
 
     expect(screen.queryByRole("button", { name: "¿Ha habido un choque?" })).not.toBeInTheDocument();
+  });
+
+  it("speaks English when the player picked it", () => {
+    const session = makeSession();
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={session} />
+      </SettingsContext.Provider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Was there a collision?" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Which unit collided?")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 });

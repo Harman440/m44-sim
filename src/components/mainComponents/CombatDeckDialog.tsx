@@ -6,7 +6,28 @@ import FactionInsignia from "../FactionInsignia";
 import GameIcon, { DECK_REASON_ICONS } from "../GameIcon";
 import { CombatDeckEntry, DeckReason } from "../../data/combatCards";
 import { Faction } from "../../types/faction";
-import { DECK_REASON_LABELS, FACTION_LABELS } from "../../labels";
+import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    title: (faction: string, total: number) => `Cartas de combate · ${faction} (${total})`,
+    intro:
+      "El mazo depende del escenario: unas cartas las tiene todo el mundo y otras las da el papel del bando, " +
+      "sus unidades, las del enemigo o el mapa. Toca una carta para leerla.",
+    copies: (copies: number) => `${copies} copias`,
+    close: "Cerrar",
+    deckCard: "Carta del mazo",
+  },
+  en: {
+    title: (faction: string, total: number) => `Combat cards · ${faction} (${total})`,
+    intro:
+      "The deck depends on the scenario: some cards everyone has, and others come from the side's role, " +
+      "its units, the enemy's or the map. Tap a card to read it.",
+    copies: (copies: number) => `${copies} copies`,
+    close: "Close",
+    deckCard: "Card in the deck",
+  },
+});
 
 interface CombatDeckDialogProps {
   open: boolean;
@@ -25,6 +46,8 @@ const REASON_ORDER: DeckReason[] = ["shared", "attacker", "defender", "tanks", "
  * Lazy-loaded: the card art is the game screen's code.
  */
 function CombatDeckDialog({ open, onClose, faction, entries }: CombatDeckDialogProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const [looking, setLooking] = useState<ShownCard | null>(null);
   const total = entries.reduce((sum, { copies }) => sum + copies, 0);
 
@@ -33,18 +56,17 @@ function CombatDeckDialog({ open, onClose, faction, entries }: CombatDeckDialogP
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <FactionInsignia faction={faction} size={28} decorative />
-          Cartas de combate · {FACTION_LABELS[faction]} ({total})
+          {t.title(labels.factions[faction], total)}
         </DialogTitle>
         <DialogContent dividers>
           <Stack sx={{ gap: 3 }}>
             <Typography variant="body2" color="text.secondary">
-              El mazo depende del escenario: unas cartas las tiene todo el mundo y otras las da el papel del bando,
-              sus unidades, las del enemigo o el mapa. Toca una carta para leerla.
+              {t.intro}
             </Typography>
             {REASON_ORDER.map((reason) => {
               const group = entries.filter((entry) => entry.reason === reason);
               if (group.length === 0) return null;
-              const title = DECK_REASON_LABELS[reason];
+              const title = labels.deckReasons[reason];
               const icon = DECK_REASON_ICONS[reason];
               return (
                 <Stack key={reason} component="section" aria-label={title} sx={{ gap: 1 }}>
@@ -65,7 +87,7 @@ function CombatDeckDialog({ open, onClose, faction, entries }: CombatDeckDialogP
                       <Stack key={card.id} sx={{ alignItems: "center", gap: 0.5 }}>
                         <CombatCardComponent faction={faction} card={card} onClick={() => setLooking({ combat: card })} />
                         {copies > 1 && (
-                          <Chip size="small" label={`×${copies}`} aria-label={`${copies} copias`} />
+                          <Chip size="small" label={`×${copies}`} aria-label={t.copies(copies)} />
                         )}
                       </Stack>
                     ))}
@@ -77,11 +99,11 @@ function CombatDeckDialog({ open, onClose, faction, entries }: CombatDeckDialogP
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={onClose} startIcon={<GameIcon name="cancel" />}>
-            Cerrar
+            {t.close}
           </Button>
         </DialogActions>
       </Dialog>
-      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label="Carta del mazo" />
+      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label={t.deckCard} />
     </>
   );
 }

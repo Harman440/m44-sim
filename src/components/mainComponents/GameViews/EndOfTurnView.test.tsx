@@ -8,6 +8,7 @@ import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 import { UnitType } from "../../../game-core/unit";
+import { same } from "../../../i18n/lang";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -19,7 +20,7 @@ const makeFinalSession = () => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
@@ -27,7 +28,7 @@ const makeFinalSession = () => {
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", name: "Ataque", sections: [Side.LEFT], orders: 2 })],
+    commandCards: [new CommandCard({ id: "left", name: same("Ataque"), sections: [Side.LEFT], orders: 2 })],
   });
   session.pickCard(session.getSnapshot().hand[0]!);
   session.issueOrder(INFANTRY, INFANTRY);
@@ -145,18 +146,18 @@ describe("EndOfTurnView after a special card", () => {
   const finalAfter = (card: CommandCard, turn = 1, combatInHand = 0) => {
     const combatDeck: CombatCard[] = ["C1", "C2", "C3", "C4"].map((name) => ({
       id: name,
-      name,
-      description: "",
+      name: same(name),
+      description: same(""),
       cost: 1,
       phase: "battle",
     }));
     const combatIds = combatDeck.map((c) => c.id);
-    const deck = ["X", "Y", "Z"].map((name) => new CommandCard({ id: name, name, orders: 1 }));
+    const deck = ["X", "Y", "Z"].map((name) => new CommandCard({ id: name, name: same(name), orders: 1 }));
     const session = new GameSession({
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Allies",
         tiles: {},
@@ -190,7 +191,7 @@ describe("EndOfTurnView after a special card", () => {
 
   it("draws 3 cards after Recon and keeps the one tapped, with no swap", () => {
     const session = finalAfter(
-      new CommandCard({ id: "recon", name: "Reconocimiento", sections: [Side.LEFT], orders: 1, drawChoice: 3 })
+      new CommandCard({ id: "recon", name: same("Reconocimiento"), sections: [Side.LEFT], orders: 1, drawChoice: 3 })
     );
     fireEvent.click(screen.getByRole("button", { name: "Robar 3 cartas" }));
 
@@ -199,7 +200,7 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Elegir Y" }));
-    expect(session.getSnapshot().hand.map((c) => c.name)).toEqual(["Y"]);
+    expect(session.getSnapshot().hand.map((c) => c.name.es)).toEqual(["Y"]);
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Información: Carta de mando" }));
@@ -210,7 +211,7 @@ describe("EndOfTurnView after a special card", () => {
     const session = finalAfter(
       new CommandCard({
         id: "preparations",
-        name: "Preparativos",
+        name: same("Preparativos"),
         orders: 1,
         endOfTurnReward: { coins: 3, combatCard: true },
       }),
@@ -231,7 +232,7 @@ describe("EndOfTurnView after a special card", () => {
   });
 
   it("takes 2 coins by default before the next turn; they can still change to a combat card", () => {
-    const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2);
+    const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2);
     expect(session.getSnapshot().coins).toBe(2);
     expect(screen.getByRole("button", { name: /2 suministros/ })).toHaveAttribute("aria-pressed", "true");
     const start = screen.getByRole("button", { name: "Empezar turno 3" });
@@ -249,7 +250,7 @@ describe("EndOfTurnView after a special card", () => {
   });
 
   it("makes the player discard a combat card when the hand goes over 3", () => {
-    const session = finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }), 2, 3);
+    const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2, 3);
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
 
@@ -263,7 +264,7 @@ describe("EndOfTurnView after a special card", () => {
   });
 
   it("gives no final-phase reward in the attacker's extra turn", () => {
-    finalAfter(new CommandCard({ id: "plain", name: "Ataque", orders: 1 }));
+    finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }));
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("Sin recompensa en el turno extra.");
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
@@ -278,7 +279,7 @@ describe("EndOfTurnView cards", () => {
     fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     const drawn = session.getSnapshot().drawnCard!;
 
-    fireEvent.click(screen.getByRole("button", { name: drawn.name }));
+    fireEvent.click(screen.getByRole("button", { name: drawn.name.es }));
 
     expect(screen.getByRole("dialog", { name: "Carta" })).toBeInTheDocument();
     expect(screen.getByTestId("card-details")).toBeInTheDocument();
@@ -289,11 +290,11 @@ describe("EndOfTurnView table reminders", () => {
   it("reminds the player to put the sandbags of Fortify on the table, and puts them on the map", () => {
     const fortify: CombatCard = {
       id: "fortify",
-      name: "Fortificar",
-      description: "",
+      name: same("Fortificar"),
+      description: same(""),
       cost: 0,
       phase: "battle",
-      tableReminder: "Fortificar: pon sacos terreros en la mesa, en una infantería o artillería.",
+      tableReminder: same("Fortificar: pon sacos terreros en la mesa, en una infantería o artillería."),
       effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
     };
     const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
@@ -301,7 +302,7 @@ describe("EndOfTurnView table reminders", () => {
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},

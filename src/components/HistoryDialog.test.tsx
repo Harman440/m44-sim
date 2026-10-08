@@ -9,6 +9,7 @@ import CommandCard from "../game-core/commandCard";
 import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { downloadJson } from "../download";
+import { same } from "../i18n/lang";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { infantry: true, closeAssault: false };
@@ -23,7 +24,7 @@ const playedSession = () => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 2, axis: 2 },
       attacker: "Allies",
       tiles: {},
@@ -32,8 +33,8 @@ const playedSession = () => {
     faction: "Allies",
     initialHandSize: 2,
     commandCards: [
-      new CommandCard({ id: "a", name: "Ataque", sections: [Side.LEFT], orders: 1 }),
-      new CommandCard({ id: "b", name: "Asalto", sections: [Side.LEFT], orders: 1 }),
+      new CommandCard({ id: "a", name: same("Ataque"), sections: [Side.LEFT], orders: 1 }),
+      new CommandCard({ id: "b", name: same("Asalto"), sections: [Side.LEFT], orders: 1 }),
     ],
     random: () => 0.5, // grenade
   });

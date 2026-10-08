@@ -5,6 +5,24 @@ import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
+import { defineMessages, useMessages } from "../../../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    title: "Asalto cercano",
+    prompt: "Toca cada unidad tuya adyacente a una unidad enemiga en la mesa: disparará en asalto cercano.",
+    marked: (n: number) => (n === 1 ? "1 unidad marcada" : `${n} unidades marcadas`),
+    undo: "Deshacer",
+    done: "Listo",
+  },
+  en: {
+    title: "Close assault",
+    prompt: "Tap each of your units adjacent to an enemy unit on the table: it will fire in close assault.",
+    marked: (n: number) => (n === 1 ? "1 unit marked" : `${n} units marked`),
+    undo: "Undo",
+    done: "Done",
+  },
+});
 import "./PhaseLayout.css";
 
 interface CloseAssaultMapProps {
@@ -20,6 +38,7 @@ interface CloseAssaultMapProps {
  * marked unit then fires once, in close assault.
  */
 function CloseAssaultMap({ faction, session, game, onDone }: CloseAssaultMapProps) {
+  const t = useMessages(TEXT);
   const { flash, flashInvalid } = useHexFlash();
   const marked = game.orders.length;
   const lastMarkFired = game.shots.some((shot) => shot.orderIndex === marked - 1);
@@ -49,13 +68,13 @@ function CloseAssaultMap({ faction, session, game, onDone }: CloseAssaultMapProp
 
       <div className="phase-layout__controls">
         <Typography variant="h6" sx={{ textAlign: "center" }}>
-          Asalto cercano
+          {t.title}
         </Typography>
         <Typography variant="body1" color="primary" sx={{ textAlign: "center" }}>
-          Toca cada unidad tuya adyacente a una unidad enemiga en la mesa: disparará en asalto cercano.
+          {t.prompt}
         </Typography>
         <Typography variant="body2" sx={{ textAlign: "center" }} data-testid="marked-count">
-          {marked === 1 ? "1 unidad marcada" : `${marked} unidades marcadas`}
+          {t.marked(marked)}
         </Typography>
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
@@ -65,11 +84,11 @@ function CloseAssaultMap({ faction, session, game, onDone }: CloseAssaultMapProp
               onClick={() => session.undoCloseAssaultMark()}
               startIcon={<GameIcon name="undo" />}
             >
-              Deshacer
+              {t.undo}
             </Button>
           )}
           <Button onClick={onDone} startIcon={<GameIcon name="confirm" />}>
-            Listo
+            {t.done}
           </Button>
         </Stack>
       </div>

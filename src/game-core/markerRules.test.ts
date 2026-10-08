@@ -4,6 +4,7 @@ import { MarkerRule } from "./combatCard";
 import { canMark, conflictsWithMark, markablePositions } from "./markerRules";
 import { includesPosition } from "./position";
 import { Position, Scenario } from "../types/scenario";
+import { same } from "../i18n/lang";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 4, col: 6 };
@@ -14,7 +15,7 @@ const board = new BoardManager(
   {
     id: "test",
     name: "Test",
-    description: "",
+    description: same(""),
     initialHandSize: { allies: 1, axis: 1 },
     attacker: "Allies",
     tiles: { river: [RIVER] },

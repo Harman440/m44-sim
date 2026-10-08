@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { ShotRoll } from "../game-core/gameSession";
-import { DiceStep, DiceStepKind } from "../game-core/fireRules";
+import { DiceStep } from "../game-core/fireRules";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
-import { describeTarget } from "../labels";
+import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import { unitSprite } from "./UnitComponent";
 import SandbagsIcon from "./SandbagsIcon";
 import GameIcon from "./GameIcon";
@@ -20,16 +20,20 @@ interface ShotStepsProps {
   targetHex?: ReactNode;
 }
 
-/** The step's kind; shots saved before the steps had kinds are read from their label */
-const stepKind = (step: DiceStep): DiceStepKind | undefined => {
-  if (step.kind) return step.kind;
-  if (step.label.startsWith("Base:")) return "base";
-  if (step.label.startsWith("Objetivo en")) return "terrain";
-  if (step.label.startsWith("Sacos terreros")) return "sandbags";
-  if (step.label.startsWith("Carta ")) return "card";
-  if (step.label === "Choque") return "collision";
-  return undefined;
-};
+const TEXT = defineMessages({
+  es: {
+    /** "Carta Observador" → "Observador" */
+    cardName: (label: string) => label.replace(/^Carta /, ""),
+    closeAssault: "asalto",
+    atRange: "distancia",
+  },
+  en: {
+    /** "Spotter card" → "Spotter" */
+    cardName: (label: string) => label.replace(/ card$/, ""),
+    closeAssault: "assault",
+    atRange: "range",
+  },
+});
 
 const signed = (dice: number) => (dice > 0 ? `+${dice}` : `−${-dice}`);
 
@@ -72,18 +76,21 @@ function Pill({ children, testId }: { children: ReactNode; testId?: string }) {
  * then who it was fired at and whether it was a close assault.
  */
 function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
   const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
   const { target } = shot;
 
   const icon = (step: DiceStep): ReactNode => {
-    switch (stepKind(step)) {
+    switch (step.kind) {
       case "base":
         return <Box component="img" src={unitSprite(faction, unitType)} alt="" sx={{ width: 28, height: 28 }} />;
       case "terrain":
         return (
           targetHex ?? (
             <Typography component="span" variant="caption">
-              {step.label}
+              {tr(step.label)}
             </Typography>
           )
         );
@@ -94,7 +101,7 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
           <>
             <GameIcon name="cards" size={20} />
             <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
-              {step.label.replace(/^Carta /, "")}
+              {t.cardName(tr(step.label))}
             </Typography>
           </>
         );
@@ -103,17 +110,16 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
       case "wire":
         return <BarbedWireIcon size={34} />;
       default:
-        // Saved before the steps had kinds
-        // An older step that isn't any of these
+        // A step with no kind
         return (
           <Typography component="span" variant="caption">
-            {step.label}
+            {tr(step.label)}
           </Typography>
         );
     }
   };
 
-  const label = [...shot.steps.map((step) => `${step.label} ${signed(step.dice)}`), describeTarget(target)].join(" · ");
+  const label = [...shot.steps.map((step) => `${tr(step.label)} ${signed(step.dice)}`), labels.describeTarget(target)].join(" · ");
 
   return (
     <Stack
@@ -130,10 +136,10 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
             component="span"
             sx={{
               fontWeight: 700,
-              color: stepKind(step) === "base" ? "text.primary" : step.dice < 0 ? "error.main" : "success.main",
+              color: step.kind === "base" ? "text.primary" : step.dice < 0 ? "error.main" : "success.main",
             }}
           >
-            {stepKind(step) === "base" ? step.dice : signed(step.dice)}
+            {step.kind === "base" ? step.dice : signed(step.dice)}
           </Typography>
         </Pill>
       ))}
@@ -144,7 +150,7 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
         <TargetSprites infantry={target.infantry} enemy={enemy} size={28} />
         {target.closeAssault ? <CloseAssaultIcon /> : <GameIcon name="fire" size={20} />}
         <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
-          {target.closeAssault ? "asalto" : "distancia"}
+          {target.closeAssault ? t.closeAssault : t.atRange}
         </Typography>
       </Pill>
     </Stack>

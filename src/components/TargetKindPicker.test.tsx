@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
 import { TargetKinds } from "../data/hitRules";
+import { same } from "../i18n/lang";
 
 function Harness({ kinds, emptyLabel }: { kinds: TargetKinds; emptyLabel?: string }) {
   const [value, setValue] = useState<TargetChoice | null>(initialChoice(kinds, emptyLabel));

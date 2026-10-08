@@ -23,10 +23,71 @@ import CollisionDialog from "../../CollisionDialog";
 import BattleMap from "./BattleMap";
 import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
-import { describePlace } from "../../../labels";
 import CardAttackDialog from "../../CardAttackDialog";
 import AmbushDialog from "../../AmbushDialog";
 import { useSound } from "../../../sound";
+import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    battle: "Batalla",
+    attackerFirst: "Atacante: disparas tú primero",
+    defenderSecond: "Defensor: dispara primero el rival",
+    instructions: "Instrucciones",
+    seeMap: "Ver mapa",
+    endBattle: "Terminar batalla",
+    emptyCloseAssault: "Marca las unidades en asalto cercano para que disparen.",
+    emptyNoOrders: "No se dieron órdenes este turno.",
+    seeAmbush: "Ver emboscada",
+    fireFirst: "Disparar primero",
+    tapFiresFirst: "Toca en el orden de fuego la unidad que dispara primero.",
+    onlyBeforeFiring: "Solo antes de que dispare ninguna unidad.",
+    skipTitle: "¿Pasar a las unidades movidas?",
+    skipText: (n: number) =>
+      `${
+        n === 1
+          ? "La unidad sin mover que no ha disparado pierde el disparo."
+          : `Las ${n} unidades sin mover que no han disparado pierden el disparo.`
+      } No se puede deshacer.`,
+    keepUnmoved: "Seguir con las sin mover",
+    skip: "Pasar",
+    endTitle: "¿Terminar la batalla?",
+    endUnfired: (n: number) =>
+      `${n === 1 ? "Queda 1 unidad" : `Quedan ${n} unidades`} sin disparar. Si terminas, pierden el disparo.`,
+    endAllFired: "Pasarás a la fase final, donde reflejarás en el mapa las bajas y retiradas. No se puede deshacer.",
+    keepBattling: "Seguir en batalla",
+    endAnyway: "Terminar igualmente",
+  },
+  en: {
+    battle: "Battle",
+    attackerFirst: "Attacker: you fire first",
+    defenderSecond: "Defender: the opponent fires first",
+    instructions: "Instructions",
+    seeMap: "See map",
+    endBattle: "End battle",
+    emptyCloseAssault: "Mark the units in close assault so they fire.",
+    emptyNoOrders: "No orders were given this turn.",
+    seeAmbush: "See ambush",
+    fireFirst: "Fire first",
+    tapFiresFirst: "In the firing order, tap the unit that fires first.",
+    onlyBeforeFiring: "Only before any unit fires.",
+    skipTitle: "On to the moved units?",
+    skipText: (n: number) =>
+      `${
+        n === 1
+          ? "The unit that didn't move and hasn't fired loses its shot."
+          : `The ${n} units that didn't move and haven't fired lose their shot.`
+      } This can't be undone.`,
+    keepUnmoved: "Keep going with the unmoved units",
+    skip: "Skip",
+    endTitle: "End the battle?",
+    endUnfired: (n: number) =>
+      `${n === 1 ? "1 unit hasn't" : `${n} units haven't`} fired. If you end now, they lose their shot.`,
+    endAllFired: "You'll go to the final phase, where you'll mirror casualties and retreats on the map. This can't be undone.",
+    keepBattling: "Keep battling",
+    endAnyway: "End anyway",
+  },
+});
 
 interface BattleViewProps {
   faction: Faction;
@@ -52,6 +113,9 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const [confirmingSkip, setConfirmingSkip] = useState(false);
   const [markingCloseAssault, setMarkingCloseAssault] = useState(false);
   const [ambushOpen, setAmbushOpen] = useState(false);
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
   const ambushPlayed = game.battleCombatCard?.effect?.kind === "ambush";
   // ¡Fusiles arriba! goes before any unit fires (collisions aside)
   const unitFired = game.shots.some((shot) => !shot.collision);
@@ -111,24 +175,24 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         <Box className="battle-view">
           <Stack direction="row" className="battle-view__toolbar" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <Typography variant="h5" component="h2">
-              Batalla
+              {t.battle}
             </Typography>
             <Chip
               icon={<GameIcon name="fire" size={18} />}
-              label={session.attacking ? "Atacante: disparas tú primero" : "Defensor: dispara primero el rival"}
+              label={session.attacking ? t.attackerFirst : t.defenderSecond}
               onClick={() => setShowInstructions(true)}
               variant="outlined"
               data-testid="fire-order"
             />
             <Box sx={{ flex: 1 }} />
             <Button variant="outlined" onClick={() => setShowInstructions(true)} startIcon={<GameIcon name="history" />}>
-              Instrucciones
+              {t.instructions}
             </Button>
             <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-              Ver mapa
+              {t.seeMap}
             </Button>
             <Button onClick={requestEndBattle} startIcon={<GameIcon name="endTurn" />}>
-              Terminar batalla
+              {t.endBattle}
             </Button>
           </Stack>
 
@@ -152,9 +216,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               // Units wait for the attack combat card's rolls
               onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
               onSkipUnmoved={() => setConfirmingSkip(true)}
-              emptyText={
-                closeAssaultCard ? "Marca las unidades en asalto cercano para que disparen." : "No se dieron órdenes este turno."
-              }
+              emptyText={closeAssaultCard ? t.emptyCloseAssault : t.emptyNoOrders}
             />
           </Box>
 
@@ -170,19 +232,19 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               playedAction={
                 ambushPlayed ? (
                   <Button onClick={() => setAmbushOpen(true)} startIcon={<GameIcon name="fire" />}>
-                    {game.ambush ? "Ver emboscada" : "Disparar primero"}
+                    {game.ambush ? t.seeAmbush : t.fireFirst}
                   </Button>
                 ) : (
                   anyFiresFirst &&
                   !unitFired && (
                     <Typography variant="body2" sx={{ textAlign: "center" }}>
-                      Toca en el orden de fuego la unidad que dispara primero.
+                      {t.tapFiresFirst}
                     </Typography>
                   )
                 )
               }
               blockedReason={(card) =>
-                card.effect?.kind === "firesFirst" && unitFired ? "Solo antes de que dispare ninguna unidad." : null
+                card.effect?.kind === "firesFirst" && unitFired ? t.onlyBeforeFiring : null
               }
               onPlay={(card) => {
                 const done = session.playBattleCombatCard(card);
@@ -233,9 +295,9 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           hex={
             attackingHex === null
               ? null
-              : { index: attackingHex, place: describePlace(session.board.getHex(game.markers[attackingHex]!)) }
+              : { index: attackingHex, place: labels.describePlace(session.board.getHex(game.markers[attackingHex]!)) }
           }
-          cardName={attackCard.name}
+          cardName={tr(attackCard.name)}
           dicePerHex={attackCard.effect.dicePerHex}
           attack={attackingHex === null ? null : attackOn(attackingHex)}
           faction={faction}
@@ -271,18 +333,13 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
       />
 
       <Dialog open={confirmingSkip} onClose={() => setConfirmingSkip(false)}>
-        <DialogTitle>¿Pasar a las unidades movidas?</DialogTitle>
+        <DialogTitle>{t.skipTitle}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            {unmovedUnfired === 1
-              ? "La unidad sin mover que no ha disparado pierde el disparo."
-              : `Las ${unmovedUnfired} unidades sin mover que no han disparado pierden el disparo.`}{" "}
-            No se puede deshacer.
-          </DialogContentText>
+          <DialogContentText>{t.skipText(unmovedUnfired)}</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={() => setConfirmingSkip(false)}>
-            Seguir con las sin mover
+            {t.keepUnmoved}
           </Button>
           <Button
             color="warning"
@@ -291,23 +348,21 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               session.skipUnmovedFire();
             }}
           >
-            Pasar
+            {t.skip}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={confirmingEnd} onClose={() => setConfirmingEnd(false)}>
-        <DialogTitle>¿Terminar la batalla?</DialogTitle>
+        <DialogTitle>{t.endTitle}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {unfired > 0
-              ? `${unfired === 1 ? "Queda 1 unidad" : `Quedan ${unfired} unidades`} sin disparar. Si terminas, pierden el disparo.`
-              : "Pasarás a la fase final, donde reflejarás en el mapa las bajas y retiradas. No se puede deshacer."}
+            {unfired > 0 ? t.endUnfired(unfired) : t.endAllFired}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={() => setConfirmingEnd(false)}>
-            Seguir en batalla
+            {t.keepBattling}
           </Button>
           <Button
             color={unfired > 0 ? "warning" : "primary"}
@@ -316,7 +371,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               onEndBattle();
             }}
           >
-            {unfired > 0 ? "Terminar igualmente" : "Terminar batalla"}
+            {unfired > 0 ? t.endAnyway : t.endBattle}
           </Button>
         </DialogActions>
       </Dialog>

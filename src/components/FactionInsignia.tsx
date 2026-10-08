@@ -1,5 +1,5 @@
 import { Faction } from "../types/faction";
-import { FACTION_LABELS } from "../labels";
+import { useLabels } from "../i18n/useI18n";
 
 interface FactionInsigniaProps {
   faction: Faction;
@@ -10,7 +10,8 @@ interface FactionInsigniaProps {
 
 /** Allied white star, or the German Balkenkreuz, as used on the game's pieces */
 function FactionInsignia({ faction, size = 32, decorative = false }: FactionInsigniaProps) {
-  const a11y = decorative ? { "aria-hidden": true } : { role: "img", "aria-label": FACTION_LABELS[faction] };
+  const labels = useLabels();
+  const a11y = decorative ? { "aria-hidden": true } : { role: "img", "aria-label": labels.factions[faction] };
   return (
     <svg viewBox="0 0 40 40" width={size} height={size} {...a11y}>
       {faction === "Allies" ? (

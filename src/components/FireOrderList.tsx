@@ -7,12 +7,111 @@ import type { CardAttack } from "../game-core/gameSession";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
-import { SECTION_SHORT_LABELS, TERRAIN_LABELS, UNIT_LABELS, describeAppliedFaces, describeRoll, targetLabel } from "../labels";
+import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
 import HexThumbnail from "./HexThumbnail";
 import SectionIcon from "./SectionIcon";
 import Stamp from "./Stamp";
+
+const TEXT = defineMessages({
+  es: {
+    extraOrder: "orden extra",
+    tookGround: "tomó terreno",
+    closeAssault: "asalto cercano",
+    wire: "Alambrada",
+    fired: "Disparó",
+    removed: "Eliminada",
+    waits: "Espera",
+    fire: "Disparar",
+    noShot: "Sin disparo",
+    fires: "Dispara",
+    cantFire: "No dispara",
+    removedWireResult: "Quitó la alambrada",
+    removedWire: "quitó la alambrada",
+    collisionPrefix: "choque, ",
+    firedResult: (results: string) => `Disparó: ${results}`,
+    seeRoll: (unit: string) => `Ver tirada de ${unit}`,
+    fireWith: (unit: string) => `Disparar con ${unit}`,
+    title: "Orden de fuego",
+    count: (toFire: number, fired: number, notFiring: number) =>
+      `${toFire} por disparar · ${fired} ${fired === 1 ? "disparó" : "dispararon"} · ${notFiring} ${
+        notFiring === 1 ? "no puede disparar" : "no pueden disparar"
+      }`,
+    collisions: "Choques",
+    beforeAll: "antes que nada",
+    wasCollision: "¿Ha habido un choque?",
+    collisionDetail: "Una unidad movida contra una enemiga",
+    rollCollision: "Tirar choque",
+    attackPending: "Tira primero en cada casilla marcada",
+    attackDone: "Ataques resueltos.",
+    attackResult: (target: string, dice: number) => `${target}: ${dice} ${dice === 1 ? "dado" : "dados"}`,
+    empty: "Vacía",
+    hexN: (n: number) => `Casilla ${n}`,
+    see: "Ver",
+    dicePerHex: (n: number) => `${n} dados · `,
+    roll: "Tirar",
+    hexLabel: (done: boolean, n: number) => `${done ? "Ver" : "Tirar"} casilla ${n}`,
+    closeAssaultTitle: "Asalto cercano",
+    markYourUnits: "Marca tus unidades junto a una enemiga",
+    closeAssaultDetail: "Dispararán en asalto cercano",
+    mark: "Marcar",
+    markUnits: "Marcar unidades",
+    firesFirst: "Dispara primero",
+    beforeAnyOther: "antes que cualquier otra unidad",
+    unmoved: "Sin mover",
+    moved: "Movidas",
+    waitForUnmoved: "esperan a las sin mover",
+    skipToMoved: "Pasar a las movidas",
+  },
+  en: {
+    extraOrder: "extra order",
+    tookGround: "took ground",
+    closeAssault: "close assault",
+    wire: "Barbed wire",
+    fired: "Fired",
+    removed: "Removed",
+    waits: "Waits",
+    fire: "Fire",
+    noShot: "No shot",
+    fires: "Fires",
+    cantFire: "Can't fire",
+    removedWireResult: "Removed the barbed wire",
+    removedWire: "removed the barbed wire",
+    collisionPrefix: "collision, ",
+    firedResult: (results: string) => `Fired: ${results}`,
+    seeRoll: (unit: string) => `See roll of ${unit}`,
+    fireWith: (unit: string) => `Fire with ${unit}`,
+    title: "Firing order",
+    count: (toFire: number, fired: number, notFiring: number) =>
+      `${toFire} to fire · ${fired} fired · ${notFiring} can't fire`,
+    collisions: "Collisions",
+    beforeAll: "before anything else",
+    wasCollision: "Was there a collision?",
+    collisionDetail: "A moved unit against an enemy one",
+    rollCollision: "Roll collision",
+    attackPending: "Roll first on each marked hex",
+    attackDone: "Attacks resolved.",
+    attackResult: (target: string, dice: number) => `${target}: ${dice} ${dice === 1 ? "die" : "dice"}`,
+    empty: "Empty",
+    hexN: (n: number) => `Hex ${n}`,
+    see: "See",
+    dicePerHex: (n: number) => `${n} dice · `,
+    roll: "Roll",
+    hexLabel: (done: boolean, n: number) => `${done ? "See" : "Roll"} hex ${n}`,
+    closeAssaultTitle: "Close assault",
+    markYourUnits: "Mark your units next to an enemy one",
+    closeAssaultDetail: "They'll fire in close assault",
+    mark: "Mark",
+    markUnits: "Mark units",
+    firesFirst: "Fires first",
+    beforeAnyOther: "before any other unit",
+    unmoved: "Didn't move",
+    moved: "Moved",
+    waitForUnmoved: "they wait for the ones that didn't move",
+    skipToMoved: "On to the moved units",
+  },
+});
 
 /** An attack combat card (Cortina de Fuego…): rolled on each marked hex before any unit fires */
 export interface CardAttackStep {
@@ -158,6 +257,9 @@ function FireOrderList({
   onSkipUnmoved,
   emptyText,
 }: FireOrderListProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
   const toFire = summaries.filter((s) => s.shots.length === 0 && s.shotsLeft > 0).length;
   const fired = summaries.filter((s) => s.shots.length > 0).length;
   const notFiring = summaries.filter((s) => !s.canFire && !s.removed).length;
@@ -176,9 +278,9 @@ function FireOrderList({
           image={image}
           faction={faction}
           size={34}
-          label={capitalize(TERRAIN_LABELS[hex.getType()])}
+          label={capitalize(labels.terrain[hex.getType()])}
         />
-        <SectionIcon side={hex.getSide()} label={SECTION_SHORT_LABELS[hex.getSide()]} />
+        <SectionIcon side={hex.getSide()} label={labels.sectionsShort[hex.getSide()]} />
       </>
     );
   };
@@ -223,22 +325,22 @@ function FireOrderList({
   };
 
   const unitRow = (summary: OrderSummary) => {
-    const unit = UNIT_LABELS[summary.unitType];
+    const unit = labels.units[summary.unitType];
     const hasShots = summary.shots.length > 0;
     const canFireNow = summary.shotsLeft > 0 && !summary.waiting && onFire !== undefined;
-    const tags = [summary.extra && "orden extra", summary.tookGround && "tomó terreno", summary.closeAssaultOnly && "asalto cercano"]
+    const tags = [summary.extra && t.extraOrder, summary.tookGround && t.tookGround, summary.closeAssaultOnly && t.closeAssault]
       .filter(Boolean)
       .join(" · ");
     let status: ReactNode;
     const onlyWire = hasShots && summary.shots.every((shot) => shot.removedWire);
-    if (onlyWire) status = <Stamp angle={-7}>Alambrada</Stamp>;
-    else if (hasShots) status = <Stamp angle={-7}>Disparó</Stamp>;
-    else if (summary.removed) status = <StatusText>Eliminada</StatusText>;
-    else if (summary.waiting) status = <StatusText>Espera</StatusText>;
-    else if (canFireNow) status = <Action color="var(--m44-move-fire)">Disparar</Action>;
-    else if (summary.skipped) status = <StatusText>Sin disparo</StatusText>;
-    else if (summary.canFire) status = <StatusText>Dispara</StatusText>;
-    else status = <StatusText color="warning.main">No dispara</StatusText>;
+    if (onlyWire) status = <Stamp angle={-7}>{t.wire}</Stamp>;
+    else if (hasShots) status = <Stamp angle={-7}>{t.fired}</Stamp>;
+    else if (summary.removed) status = <StatusText>{t.removed}</StatusText>;
+    else if (summary.waiting) status = <StatusText>{t.waits}</StatusText>;
+    else if (canFireNow) status = <Action color="var(--m44-move-fire)">{t.fire}</Action>;
+    else if (summary.skipped) status = <StatusText>{t.noShot}</StatusText>;
+    else if (summary.canFire) status = <StatusText>{t.fires}</StatusText>;
+    else status = <StatusText color="warning.main">{t.cantFire}</StatusText>;
     const opens = hasShots ? onFire !== undefined : canFireNow;
 
     return (
@@ -262,21 +364,23 @@ function FireOrderList({
         result={
           hasShots &&
           (onlyWire
-            ? "Quitó la alambrada"
-            : `Disparó: ${summary.shots
-                .map((shot) =>
-                  shot.removedWire
-                    ? "quitó la alambrada"
-                    : `${shot.collision ? "choque, " : ""}${describeAppliedFaces(shot.faces, shot.kept)}${
-                        shot.dice > 0 ? ` → ${describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
-                      }`
-                )
-                .join(" / ")}`)
+            ? t.removedWireResult
+            : t.firedResult(
+                summary.shots
+                  .map((shot) =>
+                    shot.removedWire
+                      ? t.removedWire
+                      : `${shot.collision ? t.collisionPrefix : ""}${labels.describeAppliedFaces(shot.faces, shot.kept)}${
+                          shot.dice > 0 ? ` → ${labels.describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
+                        }`
+                  )
+                  .join(" / ")
+              ))
         }
         status={status}
         tone={canFireNow ? "go" : summary.removed || summary.waiting || (!summary.canFire && !hasShots) ? "dim" : "plain"}
         onClick={opens ? () => onFire!(summary) : undefined}
-        label={hasShots ? `Ver tirada de ${unit}` : `Disparar con ${unit}`}
+        label={hasShots ? t.seeRoll(unit) : t.fireWith(unit)}
       />
     );
   };
@@ -289,62 +393,62 @@ function FireOrderList({
     <Box data-testid="fire-order-list">
       <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
         <Typography variant="h6" component="h2">
-          Orden de fuego
+          {t.title}
         </Typography>
         {summaries.length > 0 && (
           <Typography variant="body2" color="text.secondary" data-testid="fire-count">
-            {toFire} por disparar · {fired} {fired === 1 ? "disparó" : "dispararon"} · {notFiring}{" "}
-            {notFiring === 1 ? "no puede disparar" : "no pueden disparar"}
+            {t.count(toFire, fired, notFiring)}
           </Typography>
         )}
       </Stack>
 
       {onCollision &&
         group(
-          "Choques",
-          "antes que nada",
+          t.collisions,
+          t.beforeAll,
           <Row
             icon={<GameIcon name="battle" size={32} />}
-            title="¿Ha habido un choque?"
-            detail="Una unidad movida contra una enemiga"
-            status={<Action color="var(--m44-primary)">Tirar choque</Action>}
+            title={t.wasCollision}
+            detail={t.collisionDetail}
+            status={<Action color="var(--m44-primary)">{t.rollCollision}</Action>}
             tone="plain"
             onClick={onCollision}
-            label="¿Ha habido un choque?"
+            label={t.wasCollision}
           />,
           "step-collisions"
         )}
 
       {attack &&
         group(
-          attack.card.name,
-          attack.pending ? "Tira primero en cada casilla marcada" : "Ataques resueltos.",
+          tr(attack.card.name),
+          attack.pending ? t.attackPending : t.attackDone,
           attack.markers.map((position, i) => {
             const done = attack.attackOn(i);
             const result = done?.target
-              ? `${targetLabel(done.target.infantry)}: ${done.faces.length} ${done.faces.length === 1 ? "dado" : "dados"}`
+              ? t.attackResult(labels.target(done.target.infantry), done.faces.length)
               : done
-                ? "Vacía"
+                ? t.empty
                 : null;
             return (
               <Row
                 key={i}
                 icon={<GameIcon name="fire" size={32} />}
-                title={`Casilla ${i + 1}`}
+                title={t.hexN(i + 1)}
                 detail={where(position)}
                 result={result}
                 status={
                   done ? (
-                    <Action color="var(--m44-primary)">Ver</Action>
+                    <Action color="var(--m44-primary)">{t.see}</Action>
                   ) : (
                     <Action color="var(--m44-move-fire)">
-                      {attack.card.effect?.kind === "attack" ? `${attack.card.effect.dicePerHex} dados · ` : ""}Tirar
+                      {attack.card.effect?.kind === "attack" ? t.dicePerHex(attack.card.effect.dicePerHex) : ""}
+                      {t.roll}
                     </Action>
                   )
                 }
                 tone={done ? "plain" : "card"}
                 onClick={() => attack.onOpen(i)}
-                label={`${done ? "Ver" : "Tirar"} casilla ${i + 1}`}
+                label={t.hexLabel(Boolean(done), i + 1)}
               />
             );
           }),
@@ -353,16 +457,16 @@ function FireOrderList({
 
       {onMarkCloseAssault &&
         group(
-          "Asalto cercano",
+          t.closeAssaultTitle,
           null,
           <Row
             icon={<GameIcon name="battle" size={32} />}
-            title="Marca tus unidades junto a una enemiga"
-            detail="Dispararán en asalto cercano"
-            status={<Action color="var(--m44-primary)">Marcar</Action>}
+            title={t.markYourUnits}
+            detail={t.closeAssaultDetail}
+            status={<Action color="var(--m44-primary)">{t.mark}</Action>}
             tone="card"
             onClick={onMarkCloseAssault}
-            label="Marcar unidades"
+            label={t.markUnits}
           />,
           "step-close-assault"
         )}
@@ -373,17 +477,17 @@ function FireOrderList({
         </Typography>
       ) : (
         <>
-          {first.length > 0 && group("Dispara primero", "antes que cualquier otra unidad", first.map(unitRow), "group-first")}
-          {unmoved.length > 0 && group("Sin mover", null, unmoved.map(unitRow), "group-unmoved")}
+          {first.length > 0 && group(t.firesFirst, t.beforeAnyOther, first.map(unitRow), "group-first")}
+          {unmoved.length > 0 && group(t.unmoved, null, unmoved.map(unitRow), "group-unmoved")}
           {moved.length > 0 &&
             group(
-              "Movidas",
-              waiting > 0 ? "esperan a las sin mover" : null,
+              t.moved,
+              waiting > 0 ? t.waitForUnmoved : null,
               moved.map(unitRow),
               "group-moved",
               waiting > 0 && onSkipUnmoved ? (
                 <Button variant="outlined" color="warning" size="small" onClick={onSkipUnmoved}>
-                  Pasar a las movidas
+                  {t.skipToMoved}
                 </Button>
               ) : undefined
             )}

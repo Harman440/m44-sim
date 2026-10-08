@@ -4,6 +4,12 @@ import Board from "../Board";
 import BoardManager from "../../game-core/BoardManager";
 import { Scenario } from "../../types/scenario";
 import { Faction } from "../../types/faction";
+import { defineMessages, useMessages } from "../../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: { map: (scenario: string) => `Mapa de ${scenario}` },
+  en: { map: (scenario: string) => `Map of ${scenario}` },
+});
 
 interface ScenarioPreviewProps {
   scenario: Scenario;
@@ -18,9 +24,10 @@ const noop = () => {};
  * Lazy-loaded: the board pulls in the game screen's code, which the menu's first download leaves out.
  */
 function ScenarioPreview({ scenario, faction }: ScenarioPreviewProps) {
+  const t = useMessages(TEXT);
   const board = useMemo(() => new BoardManager(scenario, faction), [scenario, faction]);
   return (
-    <Box aria-label={`Mapa de ${scenario.name}`} role="img" sx={{ pointerEvents: "none", "& svg": { display: "block" } }}>
+    <Box aria-label={t.map(scenario.name)} role="img" sx={{ pointerEvents: "none", "& svg": { display: "block" } }}>
       <Board
         onTileClick={noop}
         unitHexPosition={null}

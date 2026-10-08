@@ -8,6 +8,7 @@ import { appliedFaces, readRoll } from "./rollResult";
 import { END_OF_TURN_COINS } from "../data/coinRules";
 import type { AmbushShot, Shot } from "./gameSession";
 import type { CombatCard } from "./combatCard";
+import type { Localized } from "../i18n/lang";
 
 /** Final phase: 2 coins, or a combat card from the combat deck */
 export type RewardChoice = "coins" | "combatCard";
@@ -19,7 +20,7 @@ export type CoinEntry =
   | { kind: "extraOrder" | "cardOrder"; amount: number; unit: UnitType }
   | { kind: "supplies"; amount: number; unit: UnitType }
   | { kind: "endOfTurn" | "cardReward"; amount: number }
-  | { kind: "combatCard"; amount: number; card: string }
+  | { kind: "combatCard"; amount: number; card: Localized }
   | { kind: "adjustment"; amount: number };
 
 export interface TurnCoinsState {

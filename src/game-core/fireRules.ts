@@ -5,6 +5,7 @@ import CommandCard from "./commandCard";
 import type { DiceBonusEffect } from "./combatCard";
 import { UnitType } from "./unit";
 import { HexType } from "../types/hex";
+import type { Localized } from "../i18n/lang";
 
 /** What we know about the shot before asking anything */
 export interface FireContext {
@@ -14,7 +15,7 @@ export interface FireContext {
   /** The unit may only fire at an adjacent enemy (Close Assault card) */
   closeAssaultOnly?: boolean;
   /** A battle combat card played this turn that this unit could use on this shot (Spotter…) */
-  combatBonus?: DiceBonusEffect & { name: string };
+  combatBonus?: DiceBonusEffect & { name: Localized };
   /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground) */
   fromTerrain?: HexType;
   /** The unit fires from a hex with barbed wire (infantry loses a die) */
@@ -26,7 +27,7 @@ export type FireAnswers = Readonly<Record<string, string>>;
 
 export interface FireOption {
   value: string;
-  label: string;
+  label: Localized;
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
@@ -34,7 +35,7 @@ export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {
-  label: string;
+  label: Localized;
   dice: number;
   /** Left out in shots saved before the steps had kinds; those show their label */
   kind?: DiceStepKind;
@@ -43,27 +44,27 @@ export interface DiceStep {
 export interface FireQuestion {
   id: string;
   /** Shown to the player */
-  text: string;
+  text: Localized;
   /** The text when it depends on the situation (e.g. the combat card's name); overrides `text` */
-  textFor?: (context: FireContext) => string;
+  textFor?: (context: FireContext) => Localized;
   options: (context: FireContext) => FireOption[];
   /** Skip the question when it doesn't apply; defaults to always asking */
   appliesTo?: (context: FireContext, answers: FireAnswers) => boolean;
   /** How the chosen answer changes the dice (null for no change) */
   effect: (context: FireContext, answer: string, answers: FireAnswers) => DiceStep | null;
   /** Why this answer means the unit can't fire at this target (e.g. no line of sight), or null */
-  blocks?: (context: FireContext, answer: string) => string | null;
+  blocks?: (context: FireContext, answer: string) => Localized | null;
   /** A reminder shown with the result that doesn't change the dice (e.g. "ignores 1 flag"), or null */
-  note?: (context: FireContext, answer: string) => string | null;
+  note?: (context: FireContext, answer: string) => Localized | null;
 }
 
 export interface FireDiceResult {
   dice: number;
   steps: DiceStep[];
   /** Reminders for resolving the hits on the table */
-  notes: string[];
+  notes: Localized[];
   /** The unit can't fire at this target, and why; the shot shouldn't be taken */
-  blocked: string | null;
+  blocked: Localized | null;
 }
 
 const applies = (question: FireQuestion, context: FireContext, answers: FireAnswers) =>
@@ -73,7 +74,7 @@ const answered = (questions: readonly FireQuestion[], context: FireContext, answ
   questions.filter((q) => q.id in answers && applies(q, context, answers));
 
 /** Why the answers so far rule the shot out, or null */
-function blockedBy(questions: readonly FireQuestion[], context: FireContext, answers: FireAnswers): string | null {
+function blockedBy(questions: readonly FireQuestion[], context: FireContext, answers: FireAnswers): Localized | null {
   for (const q of answered(questions, context, answers)) {
     const reason = q.blocks?.(context, answers[q.id]!);
     if (reason) return reason;
@@ -113,7 +114,7 @@ export function calculateFireDice(
     .concat(extraSteps(context, answers).filter((step) => step.dice !== 0));
   const notes = relevant
     .map((q) => q.note?.(context, answers[q.id]!) ?? null)
-    .filter((note): note is string => note !== null);
+    .filter((note): note is Localized => note !== null);
 
   const total = steps.reduce((sum, step) => sum + step.dice, 0);
   return { dice: Math.max(0, total), steps, notes, blocked: null };

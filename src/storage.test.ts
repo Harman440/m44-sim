@@ -13,13 +13,14 @@ import GameSession from "./game-core/gameSession";
 import { commandDeckFor } from "./data/commandCards";
 import { TurnPhase } from "./types/gameManager";
 import { Scenario } from "./types/scenario";
+import { same } from "./i18n/lang";
 
 const SAVED_GAME_KEY = "m44-sim:saved-game";
 
 const scenario: Scenario = {
   id: "test",
   name: "Test",
-  description: "",
+  description: same(""),
   initialHandSize: { allies: 2, axis: 2 },
   attacker: "Axis",
   tiles: {},
@@ -58,9 +59,9 @@ describe("settings", () => {
   it("remembers the look and sound, with defaults until something is saved", () => {
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
 
-    saveSettings({ look: "field", sound: true });
+    saveSettings({ look: "field", sound: true, language: "es" });
 
-    expect(loadSettings()).toEqual({ look: "field", sound: true });
+    expect(loadSettings()).toEqual({ look: "field", sound: true, language: "es" });
   });
 
   it("uses the defaults when the saved settings can't be read", () => {

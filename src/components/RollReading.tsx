@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { DieFace } from "../game-core/dice";
 import { readRoll } from "../game-core/rollResult";
 import { ShotTarget } from "../data/hitRules";
-import { describeFaces } from "../labels";
+import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
 import GameIcon from "./GameIcon";
 
 interface RollReadingProps {
@@ -15,6 +15,21 @@ interface RollReadingProps {
   /** Seconds to wait before showing, while the dice are still landing */
   delay?: number;
 }
+
+const TEXT = defineMessages({
+  es: {
+    hitsLabel: (faces: string) => `Impactos: ${faces}`,
+    hits: (n: number): string => (n === 1 ? "impacto" : "impactos"),
+    retreats: (n: number): string => (n === 1 ? "retirada" : "retiradas"),
+    coins: (n: number): string => (n === 1 ? "suministro" : "suministros"),
+  },
+  en: {
+    hitsLabel: (faces: string) => `Hits: ${faces}`,
+    hits: (n: number): string => (n === 1 ? "hit" : "hits"),
+    retreats: (n: number): string => (n === 1 ? "retreat" : "retreats"),
+    coins: (n: number): string => (n === 1 ? "supply" : "supplies"),
+  },
+});
 
 /** An explosion: a hit */
 function HitIcon() {
@@ -81,6 +96,8 @@ function Tally({
 
 /** What a roll means on the table: hits, retreats and coins, by the rules in data/hitRules.ts */
 function RollReading({ faces, target, withCoins, delay: rollingDelay = 0 }: RollReadingProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const { hits, retreats, coins, hitFaces } = readRoll(faces, target);
   const delay = useReducedMotion() ? 0 : rollingDelay;
 
@@ -94,20 +111,20 @@ function RollReading({ faces, target, withCoins, delay: rollingDelay = 0 }: Roll
         sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1.5 }}
         data-testid="roll-reading"
         // The faces that hit are marked on the dice; read them out here
-        aria-label={hits > 0 ? `Impactos: ${describeFaces(hitFaces)}` : undefined}
+        aria-label={hits > 0 ? t.hitsLabel(labels.describeFaces(hitFaces)) : undefined}
         role={hits > 0 ? "group" : undefined}
       >
         <Tally
           icon={<HitIcon />}
           value={String(hits)}
-          label={hits === 1 ? "impacto" : "impactos"}
+          label={t.hits(hits)}
           color="error.main"
           testId="roll-hits"
         />
         <Tally
           icon={<RetreatIcon />}
           value={String(retreats)}
-          label={retreats === 1 ? "retirada" : "retiradas"}
+          label={t.retreats(retreats)}
           color="primary.main"
           testId="roll-retreats"
         />
@@ -115,7 +132,7 @@ function RollReading({ faces, target, withCoins, delay: rollingDelay = 0 }: Roll
           <Tally
             icon={<GameIcon name="coins" size={22} />}
             value={`+${coins}`}
-            label={coins === 1 ? "suministro" : "suministros"}
+            label={t.coins(coins)}
             color="warning.main"
             testId="roll-coins"
           />

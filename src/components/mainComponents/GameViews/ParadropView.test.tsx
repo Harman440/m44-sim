@@ -7,6 +7,7 @@ import CommandCard from "../../../game-core/commandCard";
 import { UnitType } from "../../../game-core/unit";
 import { TurnPhase } from "../../../types/gameManager";
 import { Position } from "../../../types/scenario";
+import { same } from "../../../i18n/lang";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 
@@ -15,7 +16,7 @@ const makeSession = () =>
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
@@ -24,7 +25,7 @@ const makeSession = () =>
     },
     faction: "Allies",
     initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "all", name: "Todas", orders: 6 })],
+    commandCards: [new CommandCard({ id: "all", name: same("Todas"), orders: 6 })],
   });
 
 function Harness({ session }: { session: GameSession }) {

@@ -1,10 +1,21 @@
 import { Box, ButtonBase, Typography } from "@mui/material";
 import { CombatCard } from "../game-core/combatCard";
-import { COMBAT_PHASE_LABELS, DECK_REASON_LABELS } from "../labels";
+import { defineMessages, useLabels, useLang, useMessages, useTr } from "../i18n/useI18n";
 import GameIcon, { DECK_REASON_ICONS } from "./GameIcon";
 import { Faction } from "../types/faction";
 import { CombatCardArt } from "./CardArt";
 import "./CommandCard.css";
+
+const TEXT = defineMessages({
+  es: {
+    costs: (n: number) => `Cuesta ${n} ${n === 1 ? "suministro" : "suministros"}`,
+    nameAndCost: (name: string, n: number) => `${name}, ${n} ${n === 1 ? "suministro" : "suministros"}`,
+  },
+  en: {
+    costs: (n: number) => `Costs ${n} ${n === 1 ? "supply" : "supplies"}`,
+    nameAndCost: (name: string, n: number) => `${name}, ${n} ${n === 1 ? "supply" : "supplies"}`,
+  },
+});
 
 interface CombatCardProps {
   card: CombatCard;
@@ -25,6 +36,10 @@ interface CombatCardProps {
  * (CardDetails), shown when it is tapped.
  */
 function CombatCardComponent({ card, onClick, selected = false, disabled = false, faction = "Allies" }: CombatCardProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
+  const lang = useLang();
   const reasonIcon = card.reason && DECK_REASON_ICONS[card.reason];
   const face = (
     <>
@@ -43,7 +58,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
       >
         <Typography
           component="h3"
-          lang="es"
+          lang={lang}
           sx={{
             flex: 1,
             minWidth: 0,
@@ -56,12 +71,12 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
             overflowWrap: "anywhere",
           }}
         >
-          {card.name}
+          {tr(card.name)}
         </Typography>
         {/* The cost on a supply crate */}
         <Box
           component="span"
-          aria-label={`Cuesta ${card.cost} ${card.cost === 1 ? "suministro" : "suministros"}`}
+          aria-label={t.costs(card.cost)}
           sx={{
             flexShrink: 0,
             display: "grid",
@@ -90,7 +105,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
           <Box
             component="span"
             role="img"
-            aria-label={DECK_REASON_LABELS[card.reason]}
+            aria-label={labels.deckReasons[card.reason]}
             data-reason={card.reason}
             sx={{
               position: "absolute",
@@ -128,7 +143,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
           component="span"
           sx={{ fontSize: "0.68em", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}
         >
-          {COMBAT_PHASE_LABELS[card.phase]}
+          {labels.combatPhases[card.phase]}
         </Typography>
       </Box>
     </>
@@ -154,7 +169,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
         // Faded but still tappable, to look at a card that can't be played now
         onClick={() => onClick(card)}
         aria-pressed={selected}
-        aria-label={`${card.name}, ${card.cost} ${card.cost === 1 ? "suministro" : "suministros"}`}
+        aria-label={t.nameAndCost(tr(card.name), card.cost)}
         className="game-card combat-card"
         sx={{ ...rootStyle, "&:focus-visible": { outline: "3px solid var(--m44-primary)", outlineOffset: 3 } }}
       >

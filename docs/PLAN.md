@@ -113,6 +113,28 @@ The two decisions from the first plan still hold:
 - [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario
 - [ ] Import a scenario from a PDF or a map image. Sainte-Mère-Église was read by hand from the map image with a hex grid laid over it; **Decide:** how much of that to automate, and whether a scenario file format (e.g. the official editor's `.m44` JSON) is worth reading
 
+## Part H: Languages
+
+### Step 46: English and Spanish
+Done (not committed yet; typecheck clean, 577 tests passing):
+- [x] A per-device language setting (`Settings.language`), a Español/English picker at the top of "Ajustes", starting from the browser's language; `<html lang>` and the page title follow it
+- [x] `src/i18n/` (`Localized`, `byLang`, `same`, `defineMessages`, `useMessages`, `useLabels`, `useTr`) and `src/labels/` (one label set per language, replacing `src/labels.ts`)
+- [x] Game text stored in both languages: command and combat cards (official English names), scenario descriptions, fire questions, dice steps, shot notes, card reminders, looks. `SAVE_VERSION` 26 → 27
+- [x] Every component's text in a `TEXT = defineMessages({ es, en })` block; Spanish left exactly as it was
+- [x] English tests: labels, settings, App (switch to English and play), and one per component group
+- [x] CLAUDE.md and README describe the two languages
+
+Left to do:
+- [ ] **Review the agents' work** (the components were converted in five parallel groups): read the diff for awkward or inconsistent English, and for the same UI name translated two ways (e.g. "Update map", "Cancel shot", "Hold and fire")
+- [ ] `ShotSteps.tsx` gets a combat card's name back from a dice step's label by trimming "Carta " / " card". Fragile: give `DiceStep` the card's name (or id) instead
+- [ ] `DeckVisualizerDialog` groups cards by `card.name.es`; grouping by template id would be sturdier
+- [ ] **Check in the browser in English** at 1280×800 and 800×1280 with touch, and on desktop: English texts are a different length, so check the 216px side column, the header's phase chips, the buttons, and the card faces (laid out at 180px: long names such as "Artillery Bombardment", "Direct from HQ", "Their Finest Hour"). Then the same quick pass in Spanish, to be sure nothing moved
+- [ ] Switch language mid-game, in each phase: cards, questions, steps and notes already rolled should all change
+- [ ] **Decide:** the English for the house and unofficial names: Vanguardia → "Recon in Force", Preparativos → "Preparations", Ni un paso atrás → "Not One Step Back", Escasez de proyectiles → "Shell Shortage", Reposicionamiento → "Reposition", Blindaje personal → "Personal Armor", Sin tregua → "No Respite"
+- [ ] The PWA manifest (`vite.config.ts`: name, description, `lang: "es"`) and `index.html`'s title are Spanish only; the installed app's name can't follow the setting. **Decide:** keep Spanish, use a neutral name ("Memoir '44 Sim"), or English
+- [ ] Deploying drops any game in progress (old saves are dropped, not migrated): finish the game on the tablet first
+- [ ] Commit (`feat: English and Spanish`) after the review and the browser check
+
 ## Part G: Carried over from the first plan (postponed)
 
 - New unit types: mobile artillery, jeep, half-track (old Step 29)
@@ -134,3 +156,4 @@ The two decisions from the first plan still hold:
   5. Sync a casualty on the map, end the battle, draw a card and start the next turn.
   6. Only the one new card animates in, and the deck and discard counts add up.
   7. Reload in each phase: the game resumes where it was.
+- New UI text is in both languages, and the screens changed are checked in English as well as Spanish.

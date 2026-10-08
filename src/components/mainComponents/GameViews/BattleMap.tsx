@@ -6,6 +6,28 @@ import GameIcon from "../../GameIcon";
 import PlayedCards from "../../PlayedCards";
 import InfoButton from "../../InfoButton";
 import "./PhaseLayout.css";
+import { defineMessages, useMessages } from "../../../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    title: "Mapa de batalla",
+    backToBattle: "Volver a la batalla",
+    endBattle: "Terminar batalla",
+    instructions: "Instrucciones",
+    help:
+      "El mapa muestra las órdenes y qué unidades ya han disparado. Toca una carta para leerla entera. Las bajas y " +
+      "retiradas se reflejan en el mapa en la fase final.",
+  },
+  en: {
+    title: "Battle map",
+    backToBattle: "Back to the battle",
+    endBattle: "End battle",
+    instructions: "Instructions",
+    help:
+      "The map shows the orders and which units have already fired. Tap a card to read all of it. Casualties and " +
+      "retreats are mirrored on the map in the final phase.",
+  },
+});
 
 interface BattleMapProps {
   faction: Faction;
@@ -24,6 +46,7 @@ const noop = () => {};
  * over on the table.
  */
 function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: BattleMapProps) {
+  const t = useMessages(TEXT);
   // Units that have used all their shots get a check badge on the map
   const firedUnits = new Set(
     game.orders
@@ -51,7 +74,7 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
 
       <div className="phase-layout__controls">
         <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
-          Mapa de batalla
+          {t.title}
         </Typography>
         <PlayedCards
           faction={faction}
@@ -62,18 +85,15 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
 
         <Stack sx={{ gap: 1, width: "100%" }}>
           <Button variant="outlined" onClick={onShowSummary} startIcon={<GameIcon name="battle" />}>
-            Volver a la batalla
+            {t.backToBattle}
           </Button>
           <Button onClick={onEndBattle} startIcon={<GameIcon name="endTurn" />}>
-            Terminar batalla
+            {t.endBattle}
           </Button>
         </Stack>
         <Box sx={{ mt: "auto" }}>
-          <InfoButton title="Mapa de batalla" label="Instrucciones">
-            <Typography variant="body1">
-              El mapa muestra las órdenes y qué unidades ya han disparado. Toca una carta para leerla entera. Las bajas y
-              retiradas se reflejan en el mapa en la fase final.
-            </Typography>
+          <InfoButton title={t.title} label={t.instructions}>
+            <Typography variant="body1">{t.help}</Typography>
           </InfoButton>
         </Box>
       </div>

@@ -5,11 +5,12 @@ import { HexType } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { positionKey as key, samePosition } from "./position";
+import { same } from "../i18n/lang";
 
 const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   id: "test",
   name: "Test",
-  description: "",
+  description: same(""),
   initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: {},

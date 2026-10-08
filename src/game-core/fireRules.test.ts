@@ -4,6 +4,7 @@ import { FireContext, FireQuestion, calculateFireDice, nextFireQuestion } from "
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
+import { same } from "../i18n/lang";
 
 const context = (unitType: UnitType, card: CommandCard | null = null): FireContext => ({ unitType, card });
 
@@ -12,13 +13,13 @@ const dice = (unitType: UnitType, answers: Record<string, string>, card: Command
 
 describe("fire questionnaire engine", () => {
   const questions: FireQuestion[] = [
-    { id: "a", text: "A?", options: () => [], effect: () => ({ label: "a", dice: 2 }) },
+    { id: "a", text: same("A?"), options: () => [], effect: () => ({ label: same("a"), dice: 2 }) },
     {
       id: "b",
-      text: "B?",
+      text: same("B?"),
       options: () => [],
       appliesTo: (_, answers) => answers.a === "yes",
-      effect: () => ({ label: "b", dice: -5 }),
+      effect: () => ({ label: same("b"), dice: -5 }),
     },
   ];
   const ctx = context(UnitType.INFANTRY);
@@ -34,8 +35,8 @@ describe("fire questionnaire engine", () => {
     expect(calculateFireDice(questions, ctx, { a: "yes", b: "x" })).toEqual({
       dice: 0,
       steps: [
-        { label: "a", dice: 2 },
-        { label: "b", dice: -5 },
+        { label: same("a"), dice: 2 },
+        { label: same("b"), dice: -5 },
       ],
       notes: [],
       blocked: null,
@@ -44,21 +45,21 @@ describe("fire questionnaire engine", () => {
 
   it("stops asking and rolls nothing once an answer blocks the shot", () => {
     const blocking: FireQuestion[] = [
-      { id: "see", text: "See?", options: () => [], effect: () => null, blocks: (_, a) => (a === "no" ? "Can't see" : null) },
-      { id: "c", text: "C?", options: () => [], effect: () => ({ label: "c", dice: 3 }) },
+      { id: "see", text: same("See?"), options: () => [], effect: () => null, blocks: (_, a) => (a === "no" ? same("Can't see") : null) },
+      { id: "c", text: same("C?"), options: () => [], effect: () => ({ label: same("c"), dice: 3 }) },
     ];
 
     expect(nextFireQuestion(blocking, ctx, { see: "no" })).toBeNull();
-    expect(calculateFireDice(blocking, ctx, { see: "no" })).toEqual({ dice: 0, steps: [], notes: [], blocked: "Can't see" });
+    expect(calculateFireDice(blocking, ctx, { see: "no" })).toEqual({ dice: 0, steps: [], notes: [], blocked: same("Can't see") });
     expect(nextFireQuestion(blocking, ctx, { see: "yes" })?.id).toBe("c");
   });
 
   it("collects notes from the answers without changing the dice", () => {
     const noted: FireQuestion[] = [
-      { id: "a", text: "A?", options: () => [], effect: () => ({ label: "a", dice: 2 }), note: (_, a) => (a === "yes" ? "Remember" : null) },
+      { id: "a", text: same("A?"), options: () => [], effect: () => ({ label: same("a"), dice: 2 }), note: (_, a) => (a === "yes" ? same("Remember") : null) },
     ];
 
-    expect(calculateFireDice(noted, ctx, { a: "yes" })).toMatchObject({ dice: 2, notes: ["Remember"] });
+    expect(calculateFireDice(noted, ctx, { a: "yes" })).toMatchObject({ dice: 2, notes: [same("Remember")] });
     expect(calculateFireDice(noted, ctx, { a: "no" }).notes).toEqual([]);
   });
 });
@@ -109,7 +110,7 @@ describe("fire questions (house rules)", () => {
   it("rules out a target out of sight, so the unit keeps its fire", () => {
     const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), { distance: "2", lineOfSight: "no" });
 
-    expect(result.blocked).toMatch(/Sin línea de visión/);
+    expect(result.blocked?.es).toMatch(/Sin línea de visión/);
     expect(nextFireQuestion(FIRE_QUESTIONS, context(UnitType.INFANTRY), { distance: "2", lineOfSight: "no" })).toBeNull();
   });
 
@@ -118,8 +119,14 @@ describe("fire questions (house rules)", () => {
     const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), answers, fireBonusSteps);
 
     expect(result.dice).toBe(2);
-    expect(result.steps).toContainEqual({ label: "Sacos terreros en campo abierto", dice: -1, kind: "sandbags" });
-    expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+    expect(result.steps).toContainEqual({
+      label: { es: "Sacos terreros en campo abierto", en: "Sandbags in the open" },
+      dice: -1,
+      kind: "sandbags",
+    });
+    expect(result.notes).toEqual([
+      { es: "Sacos terreros: el objetivo ignora 1 bandera.", en: "Sandbags: the target ignores 1 flag." },
+    ]);
   });
 
   it("never takes a die from artillery for sandbags, but the flag is still ignored", () => {
@@ -127,8 +134,8 @@ describe("fire questions (house rules)", () => {
     const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.ARTILLERY), answers, fireBonusSteps);
 
     expect(result.dice).toBe(3);
-    expect(result.steps.map((step) => step.label)).not.toContain("Sacos terreros en campo abierto");
-    expect(result.notes).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
+    expect(result.steps.map((step) => step.label.es)).not.toContain("Sacos terreros en campo abierto");
+    expect(result.notes.map((note) => note.es)).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 
   it("doesn't take a die for sandbags where the terrain already protects", () => {
@@ -148,7 +155,7 @@ describe("fire questions (house rules)", () => {
 
   it("adds the command card's close assault or ranged bonus", () => {
     const card = new CommandCard({
-      name: "Test",
+      name: same("Test"),
       fireBonus: [
         { dice: 1, closeAssault: true },
         { dice: 2, closeAssault: false },
@@ -161,7 +168,7 @@ describe("fire questions (house rules)", () => {
 
   it("adds a card bonus only for the unit types it names, and takes dice away too", () => {
     const card = new CommandCard({
-      name: "Test",
+      name: same("Test"),
       fireBonus: [
         { dice: 1, closeAssault: true, unitTypes: [UnitType.TANK] },
         { dice: -1, closeAssault: true },
@@ -181,8 +188,8 @@ describe("fire questions (house rules)", () => {
     );
 
     expect(steps).toEqual([
-      { label: "Base: Infantería a 2 casillas", dice: 2, kind: "base" },
-      { label: "Objetivo en bosque", dice: -1, kind: "terrain" },
+      { label: { es: "Base: Infantería a 2 casillas", en: "Base: Infantry at 2 hexes" }, dice: 2, kind: "base" },
+      { label: { es: "Objetivo en bosque", en: "Target in forest" }, dice: -1, kind: "terrain" },
     ]);
   });
 });

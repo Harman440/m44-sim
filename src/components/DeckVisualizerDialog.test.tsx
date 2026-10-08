@@ -4,6 +4,7 @@ import DeckVisualizerDialog from "./DeckVisualizerDialog";
 import { commandDeckFor } from "../data/commandCards";
 import { combatDeckFor } from "../data/combatCards";
 import { scenarios } from "../data/scenarios";
+import { same } from "../i18n/lang";
 
 const scenario = scenarios.find((s) => s.id === "sainte-mere-eglise")!;
 

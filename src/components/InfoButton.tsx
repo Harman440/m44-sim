@@ -1,6 +1,12 @@
 import { ReactNode, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import GameIcon from "./GameIcon";
+import { defineMessages, useMessages } from "../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: { info: (title: string) => `Información: ${title}`, close: "Cerrar" },
+  en: { info: (title: string) => `Information: ${title}`, close: "Close" },
+});
 
 interface InfoButtonProps {
   /** What the information is about: the dialog's title and the button's name */
@@ -38,6 +44,7 @@ function InfoGlyph({ size = 26 }: { size?: number }) {
 
 /** An "i" button beside a heading: the explanation opens in a dialog instead of filling the screen */
 function InfoButton({ title, children, label }: InfoButtonProps) {
+  const t = useMessages(TEXT);
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -46,7 +53,7 @@ function InfoButton({ title, children, label }: InfoButtonProps) {
           {label}
         </Button>
       ) : (
-        <IconButton onClick={() => setOpen(true)} aria-label={`Información: ${title}`} sx={{ width: 48, height: 48, flex: "none" }}>
+        <IconButton onClick={() => setOpen(true)} aria-label={t.info(title)} sx={{ width: 48, height: 48, flex: "none" }}>
           <InfoGlyph />
         </IconButton>
       )}
@@ -55,7 +62,7 @@ function InfoButton({ title, children, label }: InfoButtonProps) {
         <DialogContent>{children}</DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={() => setOpen(false)} startIcon={<GameIcon name="cancel" />}>
-            Cerrar
+            {t.close}
           </Button>
         </DialogActions>
       </Dialog>

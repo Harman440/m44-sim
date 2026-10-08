@@ -1,6 +1,7 @@
 // game-core/commandCard.ts
 import { Side } from "../types/hex";
 import { UnitType } from "./unit";
+import { Localized, same } from "../i18n/lang";
 
 /** The board's three sections; a unit on a border hex is in two of them */
 export type Section = Side.LEFT | Side.CENTER | Side.RIGHT;
@@ -23,12 +24,12 @@ export interface FireBonus {
  */
 export interface CommandCardProps {
   id?: string;
-  name?: string;
+  name?: Localized;
   /** The name printed on the card face when it is shorter than `name` ("Batida" for "Batida en el centro"); defaults to `name` */
-  title?: string;
-  description?: string;
+  title?: Localized;
+  description?: Localized;
   /** A few words printed on a tactic card's face; defaults to `description` */
-  summary?: string;
+  summary?: Localized;
   /** A tactic card (drawn differently); otherwise a section card */
   tactic?: boolean;
   /** Sections it orders units in, or "chosen": one section the player picks when playing it. Defaults to all three. */
@@ -76,10 +77,10 @@ export interface EndOfTurnReward {
 class CommandCard {
   private static counter = 1;
   readonly id: string;
-  readonly name: string;
-  readonly title: string;
-  readonly description: string;
-  readonly summary: string;
+  readonly name: Localized;
+  readonly title: Localized;
+  readonly description: Localized;
+  readonly summary: Localized;
   readonly tactic: boolean;
   readonly sections: readonly Section[] | "chosen";
   readonly unitTypes: readonly UnitType[] | null;
@@ -98,9 +99,9 @@ class CommandCard {
 
   constructor({
     id = `command-card-${CommandCard.counter++}`,
-    name = "",
+    name = same(""),
     title,
-    description = "",
+    description = same(""),
     summary,
     tactic = false,
     sections = SECTIONS,

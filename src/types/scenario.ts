@@ -2,6 +2,7 @@ import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "./faction";
 import type { SixSidedFace } from "../game-core/dice";
+import type { Localized } from "../i18n/lang";
 
 // src/types/scenario.ts
 export interface Position {
@@ -22,7 +23,7 @@ export interface Factions {
 export interface Scenario {
   id: string;
   name: string;
-  description: string;
+  description: Localized;
   /** Board artwork drawn under the hexes (imported asset URL) */
   image?: string;
   /** Command cards each side starts with */

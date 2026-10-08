@@ -8,6 +8,7 @@ import CommandCard from "../../../game-core/commandCard";
 import { Side } from "../../../types/hex";
 import { TurnPhase } from "../../../types/gameManager";
 import { Position } from "../../../types/scenario";
+import { same } from "../../../i18n/lang";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -18,7 +19,7 @@ const makeMovementSession = () => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
@@ -27,8 +28,8 @@ const makeMovementSession = () => {
     faction: "Allies",
     initialHandSize: 2,
     commandCards: [
-      new CommandCard({ id: "left", name: "Ataque", sections: [Side.LEFT], orders: 2, description: "Da órdenes a 2 unidades del flanco izquierdo." }),
-      new CommandCard({ id: "next", name: "Siguiente", sections: [Side.RIGHT], orders: 1 }),
+      new CommandCard({ id: "left", name: same("Ataque"), sections: [Side.LEFT], orders: 2, description: same("Da órdenes a 2 unidades del flanco izquierdo.") }),
+      new CommandCard({ id: "next", name: same("Siguiente"), sections: [Side.RIGHT], orders: 1 }),
     ],
   });
   session.pickCard(session.getSnapshot().hand.find((card) => card.id === "left")!);
@@ -71,7 +72,7 @@ describe("MovementView", () => {
     render(<Harness session={session} />);
 
     const cards = screen.getByTestId("played-cards");
-    expect(within(cards).getByRole("heading", { name: session.getSnapshot().chosenCard!.name })).toBeInTheDocument();
+    expect(within(cards).getByRole("heading", { name: session.getSnapshot().chosenCard!.name.es })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mostrar al rival" })).not.toBeInTheDocument();
   });
 
@@ -80,10 +81,10 @@ describe("MovementView", () => {
     render(<Harness session={session} />);
     const card = session.getSnapshot().chosenCard!;
 
-    fireEvent.click(within(screen.getByTestId("played-cards")).getByRole("button", { name: new RegExp(`^${card.name}`) }));
+    fireEvent.click(within(screen.getByTestId("played-cards")).getByRole("button", { name: new RegExp(`^${card.name.es}`) }));
 
     const dialog = screen.getByRole("dialog", { name: "Carta jugada" });
-    expect(within(dialog).getByTestId("card-details")).toHaveTextContent(card.description);
+    expect(within(dialog).getByTestId("card-details")).toHaveTextContent(card.description.es);
     fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
@@ -115,7 +116,7 @@ describe("EndOfTurnView", () => {
 
     const drawn = session.getSnapshot().drawnCard!;
     expect(screen.getByText("Te la quedas.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: drawn.name })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: drawn.name.es })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Robar carta" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Empezar turno 2" }));
@@ -129,7 +130,7 @@ describe("EndOfTurnView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Descartar y robar otra" }));
 
     expect(screen.getByText("Has descartado la primera y robado esta.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: session.getSnapshot().drawnCard!.name })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: session.getSnapshot().drawnCard!.name.es })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
   });

@@ -7,11 +7,22 @@ import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { unitSprite } from "./UnitComponent";
 import { iconUrl } from "./GameIcon";
-import { DIE_FACE_LABELS } from "../labels";
+import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
 import { DIE_STAGGER, ROLL_TIME } from "./diceTiming";
 import "./DiceResult.css";
 
 export { rollDuration } from "./diceTiming";
+
+const TEXT = defineMessages({
+  es: {
+    pickDie: (n: number, face: string) => `Dado ${n}: ${face}`,
+    discarded: "(descartado)",
+  },
+  en: {
+    pickDie: (n: number, face: string) => `Die ${n}: ${face}`,
+    discarded: "(discarded)",
+  },
+});
 
 /** The 3D dice (three.js) load in their own chunk, fetched early so the first roll is already 3D */
 const Dice3D = lazy(() => import("./dice3d/Dice3D"));
@@ -35,6 +46,7 @@ const OCTAGON = "16,2 32,2 46,16 46,32 32,46 16,46 2,32 2,16";
 /** One die showing `face`; infantry and tank faces reuse the player's unit art */
 export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFace; faction: Faction; eightSided?: boolean }) {
   const maskId = useId();
+  const labels = useLabels();
   const symbol = (() => {
     switch (face) {
       case DieFace.INFANTRY:
@@ -70,7 +82,7 @@ export function DieFaceIcon({ face, faction, eightSided = false }: { face: DieFa
   })();
 
   return (
-    <svg viewBox="0 0 48 48" className={eightSided ? "die die--d8" : "die"} role="img" aria-label={DIE_FACE_LABELS[face]}>
+    <svg viewBox="0 0 48 48" className={eightSided ? "die die--d8" : "die"} role="img" aria-label={labels.dieFaces[face]}>
       {eightSided ? (
         <>
           <polygon className="die__face" points={OCTAGON} strokeLinejoin="round" />
@@ -192,6 +204,8 @@ function DiceResult({
   target,
   rolling = false,
 }: DiceResultProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
   const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
   const hitColor = useTheme().palette.error.main;
   const reduceMotion = useReducedMotion();
@@ -220,12 +234,12 @@ function DiceResult({
                   type="button"
                   className="dice-result__pick"
                   aria-pressed={applied(i)}
-                  aria-label={`Dado ${i + 1}: ${DIE_FACE_LABELS[face]}`}
+                  aria-label={t.pickDie(i + 1, labels.dieFaces[face])}
                   onClick={() => picking.onToggle(i)}
                 />
               )}
             </div>
-            {!applied(i) && <span className="dice-result__discarded">(descartado)</span>}
+            {!applied(i) && <span className="dice-result__discarded">{t.discarded}</span>}
           </div>
         );
       })}
@@ -248,7 +262,7 @@ function DiceResult({
                   className="die die-3d"
                   data-die-slot
                   role="img"
-                  aria-label={DIE_FACE_LABELS[face]}
+                  aria-label={labels.dieFaces[face]}
                   // A hit glows once its die has landed
                   style={{ animationDelay: rolling && !reduceMotion ? `${ROLL_TIME + i * DIE_STAGGER}s` : "0s" }}
                 />

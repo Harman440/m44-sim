@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import CoinsDialog from "./CoinsDialog";
 import GameSession from "../game-core/gameSession";
 import CommandCard from "../game-core/commandCard";
+import { same } from "../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 
 // The defender at turn 2, so coins can be changed
 const makeSession = () => {
@@ -11,7 +13,7 @@ const makeSession = () => {
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Axis",
       tiles: {},
@@ -31,6 +33,17 @@ function Harness({ session }: { session: GameSession }) {
 }
 
 describe("CoinsDialog", () => {
+  it("shows its text in English when that's the player's language", () => {
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={makeSession()} />
+      </SettingsContext.Provider>
+    );
+    expect(screen.getByRole("heading", { name: "Supplies" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
   it("adds and pays coins by hand, lists them and undoes the last one", () => {
     const session = makeSession();
     render(<Harness session={session} />);

@@ -18,6 +18,7 @@ import { HexType } from "../types/hex";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
 import { hasUnits } from "./commandCards";
+import { Localized, same } from "../i18n/lang";
 
 /** Rattenkrieg is only dealt on a map with more town hexes than this */
 export const RATTENKRIEG_MIN_TOWNS = 8;
@@ -30,14 +31,14 @@ export const MAX_COMBAT_HAND = 3;
 
 interface CombatCardTemplate {
   id: string;
-  name: string;
-  description: string;
+  name: Localized;
+  description: Localized;
   cost: number;
   phase: CombatPhase;
   /** Why a side gets it, and how many copies */
   rule: DeckRule;
   marker?: MarkerRule;
-  tableReminder?: string;
+  tableReminder?: Localized;
   effect?: CombatEffect;
 }
 
@@ -73,26 +74,29 @@ type Extra = Pick<CombatCardTemplate, "marker" | "tableReminder" | "effect">;
 
 const order = (
   id: string,
-  name: string,
+  name: Localized,
   cost: number,
   rule: DeckRule,
-  description: string,
+  description: Localized,
   extra: Extra = {}
 ): CombatCardTemplate => ({ id, name, description, cost, phase: "order", rule, ...extra });
 
 const battle = (
   id: string,
-  name: string,
+  name: Localized,
   cost: number,
   rule: DeckRule,
-  description: string,
+  description: Localized,
   extra: Extra = {}
 ): CombatCardTemplate => ({ id, name, description, cost, phase: "battle", rule, ...extra });
 
 const TEMPLATES: CombatCardTemplate[] = [
   // Played with the command card
-  order("rattenkrieg", "Rattenkrieg", 2, ifSide("towns", (side) => side.towns > RATTENKRIEG_MIN_TOWNS),
-    "1 infantería en un edificio o junto a uno se mueve hasta 3 casillas por cualquier terreno y debe terminar en un edificio. Aun así puede combatir.",
+  order("rattenkrieg", same("Rattenkrieg"), 2, ifSide("towns", (side) => side.towns > RATTENKRIEG_MIN_TOWNS),
+    {
+      es: "1 infantería en un edificio o junto a uno se mueve hasta 3 casillas por cualquier terreno y debe terminar en un edificio. Aun así puede combatir.",
+      en: "1 infantry unit on or next to a building moves up to 3 hexes through any terrain and must end on a building. It can still battle.",
+    },
     {
       effect: {
         kind: "move",
@@ -106,16 +110,31 @@ const TEMPLATES: CombatCardTemplate[] = [
         notOnTheMove: true,
       },
     }),
-  order("no-respite", "Sin tregua", 1, { reason: "attacker", copies: (side) => (side.attacker ? 2 : 0) },
-    "1 unidad entra en un bosque, un pueblo o un seto y aun así puede combatir.",
+  order("no-respite", { es: "Sin tregua", en: "No Respite" }, 1, { reason: "attacker", copies: (side) => (side.attacker ? 2 : 0) },
+    {
+      es: "1 unidad entra en un bosque, un pueblo o un seto y aun así puede combatir.",
+      en: "1 unit moves into a forest, a town or a hedgerow and can still battle.",
+    },
     { effect: { kind: "move", units: 1, fireInto: [HexType.FOREST, HexType.TOWN, HexType.HEDGEROW] } }),
-  order("armor-forward", "Blindados adelante", 2, ifSide("tanks", (side) => side.tanks),
-    "3 unidades de blindados ignoran el terreno al moverse (las restricciones de combate se mantienen).",
+  order("armor-forward", { es: "Blindados adelante", en: "Armor Forward" }, 2, ifSide("tanks", (side) => side.tanks),
+    {
+      es: "3 unidades de blindados ignoran el terreno al moverse (las restricciones de combate se mantienen).",
+      en: "3 armor units ignore terrain when moving (battle restrictions still apply).",
+    },
     { effect: { kind: "move", units: 3, unitTypes: [UnitType.TANK], ignoreTerrain: true } }),
-  order("medic", "Médico", 2, always, "1 infantería debilitada con orden recupera hasta 2 figuras."),
-  order("mechanic", "Mecánico", 2, ifSide("tanks", (side) => side.tanks), "1 unidad de blindados o artillería debilitada con orden recupera 1 figura."),
-  order("infiltrators", "Tras las líneas enemigas", 4, always,
-    "1 infantería con orden se mueve hasta 3 casillas sin que el terreno la detenga y aun así combate, antes que cualquier otra unidad (las restricciones de combate se mantienen). En la fase final se mueve otras 3 casillas.",
+  order("medic", { es: "Médico", en: "Medic" }, 2, always, {
+    es: "1 infantería debilitada con orden recupera hasta 2 figuras.",
+    en: "1 weakened ordered infantry unit recovers up to 2 figures.",
+  }),
+  order("mechanic", { es: "Mecánico", en: "Mechanic" }, 2, ifSide("tanks", (side) => side.tanks), {
+    es: "1 unidad de blindados o artillería debilitada con orden recupera 1 figura.",
+    en: "1 weakened ordered armor or artillery unit recovers 1 figure.",
+  }),
+  order("infiltrators", { es: "Tras las líneas enemigas", en: "Behind Enemy Lines" }, 4, always,
+    {
+      es: "1 infantería con orden se mueve hasta 3 casillas sin que el terreno la detenga y aun así combate, antes que cualquier otra unidad (las restricciones de combate se mantienen). En la fase final se mueve otras 3 casillas.",
+      en: "1 ordered infantry unit moves up to 3 hexes without terrain stopping it and still battles, before any other unit (battle restrictions still apply). In the final phase it moves 3 more hexes.",
+    },
     {
       effect: {
         kind: "move",
@@ -127,57 +146,133 @@ const TEMPLATES: CombatCardTemplate[] = [
         firesFirst: true,
         notOnTheMove: true,
       },
-      tableReminder: "Tras las líneas enemigas: mueve ahora hasta 3 casillas la infantería y refléjalo en «Actualizar mapa».",
+      tableReminder: {
+        es: "Tras las líneas enemigas: mueve ahora hasta 3 casillas la infantería y refléjalo en «Actualizar mapa».",
+        en: "Behind Enemy Lines: move the infantry up to 3 hexes now and mirror it in “Update map”.",
+      },
     }),
-  order("motorized", "Motorizado", 3, offensive, "3 unidades mueven 1 casilla más.",
+  order("motorized", { es: "Motorizado", en: "Motorized" }, 3, offensive,
+    { es: "3 unidades mueven 1 casilla más.", en: "3 units move 1 extra hex." },
     { effect: { kind: "move", units: 3, moveBonus: 1 } }),
-  order("air-bombardment", "Bombardeo aéreo", 4, airCards,
-    "Elige 2 casillas que no estén junto a tus unidades: 2 dados de ataque (con una granada en lugar del suministro) en cada una si hay una unidad. Las banderas no se pueden ignorar.",
+  order("air-bombardment", { es: "Bombardeo aéreo", en: "Air Bombardment" }, 4, airCards,
+    {
+      es: "Elige 2 casillas que no estén junto a tus unidades: 2 dados de ataque (con una granada en lugar del suministro) en cada una si hay una unidad. Las banderas no se pueden ignorar.",
+      en: "Pick 2 hexes that aren't next to your units: 2 attack dice (with a grenade instead of the supply) on each one with a unit on it. Flags can't be ignored.",
+    },
     { marker: { kind: "target", count: 2, awayFromOwnUnits: true }, effect: { kind: "attack", dicePerHex: 2 } }),
-  order("reinforcements", "Refuerzos", 6, always,
-    "En la fase final se tira 1 dado y, según el mapa, llega la unidad que salga (bandera: no hay refuerzos).",
+  order("reinforcements", { es: "Refuerzos", en: "Reinforcements" }, 6, always,
+    {
+      es: "En la fase final se tira 1 dado y, según el mapa, llega la unidad que salga (bandera: no hay refuerzos).",
+      en: "In the final phase, roll 1 die and, depending on the map, the unit rolled arrives (flag: no reinforcements).",
+    },
     { marker: { kind: "cross", count: 1 }, effect: { kind: "reinforcements" } }),
-  order("tactician", "Táctico", 2, always, "Cambia la sección de una carta de sección.",
+  order("tactician", { es: "Táctico", en: "Tactician" }, 2, always,
+    { es: "Cambia la sección de una carta de sección.", en: "Change the section of a section card." },
     { effect: { kind: "changeSection" } }),
-  order("barrage", "Cortina de Fuego", 4, ifSide("bigGuns", (side) => side.bigGuns),
-    "Marca una casilla: si hay una unidad enemiga, tira 4 dados de ataque (con una granada en lugar del suministro) contra ella. Las retiradas no se pueden ignorar.",
+  order("barrage", { es: "Cortina de Fuego", en: "Barrage" }, 4, ifSide("bigGuns", (side) => side.bigGuns),
+    {
+      es: "Marca una casilla: si hay una unidad enemiga, tira 4 dados de ataque (con una granada en lugar del suministro) contra ella. Las retiradas no se pueden ignorar.",
+      en: "Mark a hex: if there's an enemy unit on it, roll 4 attack dice (with a grenade instead of the supply) against it. Retreats can't be ignored.",
+    },
     { marker: { kind: "target", count: 1 }, effect: { kind: "attack", dicePerHex: 4 } }),
-  order("air-power", "Poder aéreo", 3, airCards,
-    "Marca 4 casillas adyacentes, en cadena: 1 dado de ataque (con una granada en lugar del suministro) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
+  order("air-power", { es: "Poder aéreo", en: "Air Power" }, 3, airCards,
+    {
+      es: "Marca 4 casillas adyacentes, en cadena: 1 dado de ataque (con una granada en lugar del suministro) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
+      en: "Mark 4 adjacent hexes, in a chain: 1 attack die (with a grenade instead of the supply) against each enemy unit on them. Retreats can't be ignored.",
+    },
     { marker: { kind: "target", count: 4, chain: true }, effect: { kind: "attack", dicePerHex: 1 } }),
 
   // Played during the battle, as a reaction
-  battle("heat-of-battle", "Fragor del combate", 1, offensive,
-    "1 infantería que gana un asalto cercano (retirada o eliminación) puede arrollar como los blindados: toma terreno y vuelve a combatir, aunque la casilla lo impida.",
+  battle("heat-of-battle", { es: "Fragor del combate", en: "Heat of Battle" }, 1, offensive,
+    {
+      es: "1 infantería que gana un asalto cercano (retirada o eliminación) puede arrollar como los blindados: toma terreno y vuelve a combatir, aunque la casilla lo impida.",
+      en: "1 infantry unit that wins a close assault (retreat or elimination) can overrun like armor: it takes ground and battles again, even if the hex would prevent it.",
+    },
     { effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 } }),
-  battle("out-of-ammo", "Sin munición", 4, always,
-    "1 unidad enemiga no puede combatir y se mueve a una casilla libre de su línea de fondo."),
-  battle("street-fight", "Lucha callejera", 1, always, "1 infantería en un edificio o junto a uno tira 1 dado más.",
-    { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: "¿La unidad está en un edificio o junto a uno?" } }),
-  battle("ambush", "Emboscada", 3, always,
-    "Cuando una unidad enemiga te ataca en asalto cercano, combates tú primero: si se retira o es eliminada, su ataque no se hace.",
+  battle("out-of-ammo", { es: "Sin munición", en: "Out of Ammo" }, 4, always, {
+    es: "1 unidad enemiga no puede combatir y se mueve a una casilla libre de su línea de fondo.",
+    en: "1 enemy unit can't battle and moves to an empty hex on its baseline.",
+  }),
+  battle("street-fight", { es: "Lucha callejera", en: "Street Fight" }, 1, always,
+    { es: "1 infantería en un edificio o junto a uno tira 1 dado más.", en: "1 infantry unit on or next to a building rolls 1 extra die." },
+    {
+      effect: {
+        kind: "diceBonus",
+        dice: 1,
+        unitTypes: [UnitType.INFANTRY],
+        condition: { es: "¿La unidad está en un edificio o junto a uno?", en: "Is the unit on or next to a building?" },
+      },
+    }),
+  battle("ambush", { es: "Emboscada", en: "Ambush" }, 3, always,
+    {
+      es: "Cuando una unidad enemiga te ataca en asalto cercano, combates tú primero: si se retira o es eliminada, su ataque no se hace.",
+      en: "When an enemy unit attacks you in close assault, you battle first: if it retreats or is eliminated, its attack doesn't happen.",
+    },
     { effect: { kind: "ambush" } }),
-  battle("pull-back", "Repliegue", 3, defensive, "Antes de que el enemigo combata, retira tu unidad hasta 2 casillas.",
-    { tableReminder: "Repliegue: refleja en «Actualizar mapa» la unidad que se replegó." }),
-  battle("out-of-fuel", "Sin combustible", 3, ifSide("enemyTanks", (side) => side.enemyTanks),
-    "1 unidad de blindados enemiga no puede combatir y vuelve a su casilla de salida."),
-  battle("not-a-step-back", "Ni un paso atrás", 1, defensive, "1 unidad ignora todas las retiradas."),
-  battle("camouflage", "Camuflaje", 2, defensive, "Después de la batalla, pon 1 ficha de camuflaje en una unidad con orden.", {
-    tableReminder: "Camuflaje: pon la ficha de camuflaje en la mesa, en una unidad con orden.",
+  battle("pull-back", { es: "Repliegue", en: "Pull Back" }, 3, defensive,
+    { es: "Antes de que el enemigo combata, retira tu unidad hasta 2 casillas.", en: "Before the enemy battles, pull your unit back up to 2 hexes." },
+    {
+      tableReminder: {
+        es: "Repliegue: refleja en «Actualizar mapa» la unidad que se replegó.",
+        en: "Pull Back: mirror the unit that pulled back in “Update map”.",
+      },
+    }),
+  battle("out-of-fuel", { es: "Sin combustible", en: "Out of Fuel" }, 3, ifSide("enemyTanks", (side) => side.enemyTanks), {
+    es: "1 unidad de blindados enemiga no puede combatir y vuelve a su casilla de salida.",
+    en: "1 enemy armor unit can't battle and goes back to the hex it started from.",
   }),
-  battle("reposition", "Reposicionamiento", 2, ifSide("artillery", (side) => side.artillery), "Después de la batalla, toda la artillería con orden se mueve 2 casillas.",
-    { tableReminder: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con orden y refléjalo en «Actualizar mapa»." }),
-  battle("fortify", "Fortificar", 1, defensive, "Después de la batalla, pon sacos terreros en una infantería o artillería.", {
-    tableReminder: "Fortificar: pon los sacos terreros en la mesa y, en «Actualizar mapa», en esa infantería o artillería.",
-    effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
-  }),
-  battle("spotter", "Observador", 1, ifSide("artillery", (side) => side.artillery), "1 artillería tira 1 dado más.",
+  battle("not-a-step-back", { es: "Ni un paso atrás", en: "Not One Step Back" }, 1, defensive,
+    { es: "1 unidad ignora todas las retiradas.", en: "1 unit ignores all retreats." }),
+  battle("camouflage", { es: "Camuflaje", en: "Camouflage" }, 2, defensive,
+    {
+      es: "Después de la batalla, pon 1 ficha de camuflaje en una unidad con orden.",
+      en: "After the battle, put 1 camouflage token on an ordered unit.",
+    },
+    {
+      tableReminder: {
+        es: "Camuflaje: pon la ficha de camuflaje en la mesa, en una unidad con orden.",
+        en: "Camouflage: put the camouflage token on an ordered unit on the table.",
+      },
+    }),
+  battle("reposition", { es: "Reposicionamiento", en: "Reposition" }, 2, ifSide("artillery", (side) => side.artillery),
+    {
+      es: "Después de la batalla, toda la artillería con orden se mueve 2 casillas.",
+      en: "After the battle, all ordered artillery moves 2 hexes.",
+    },
+    {
+      tableReminder: {
+        es: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con orden y refléjalo en «Actualizar mapa».",
+        en: "Reposition: move your ordered artillery up to 2 hexes on the table and mirror it in “Update map”.",
+      },
+    }),
+  battle("fortify", { es: "Fortificar", en: "Fortify" }, 1, defensive,
+    {
+      es: "Después de la batalla, pon sacos terreros en una infantería o artillería.",
+      en: "After the battle, put sandbags on an infantry or artillery unit.",
+    },
+    {
+      tableReminder: {
+        es: "Fortificar: pon los sacos terreros en la mesa y, en «Actualizar mapa», en esa infantería o artillería.",
+        en: "Fortify: put the sandbags on the table and, in “Update map”, on that infantry or artillery unit.",
+      },
+      effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
+    }),
+  battle("spotter", { es: "Observador", en: "Spotter" }, 1, ifSide("artillery", (side) => side.artillery),
+    { es: "1 artillería tira 1 dado más.", en: "1 artillery unit rolls 1 extra die." },
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } }),
-  battle("personal-armor", "Blindaje personal", 1, always, "Después de que el rival tire, ignora 1 resultado de infantería."),
-  battle("explosives", "Explosivos", 1, always, "1 infantería tira 1 dado más en asalto cercano.",
+  battle("personal-armor", { es: "Blindaje personal", en: "Personal Armor" }, 1, always, {
+    es: "Después de que el rival tire, ignora 1 resultado de infantería.",
+    en: "After your opponent rolls, ignore 1 infantry result.",
+  }),
+  battle("explosives", { es: "Explosivos", en: "Explosives" }, 1, always,
+    { es: "1 infantería tira 1 dado más en asalto cercano.", en: "1 infantry unit rolls 1 extra die in close assault." },
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true } }),
-  battle("shells-shortage", "Escasez de proyectiles", 2, ifSide("enemyTanks", (side) => side.enemyTanks), "1 unidad de artillería o blindados enemiga no puede disparar."),
-  battle("rifles-up", "¡Fusiles arriba!", 1, always, "Elige una unidad tuya: dispara antes que nadie.",
+  battle("shells-shortage", { es: "Escasez de proyectiles", en: "Shell Shortage" }, 2, ifSide("enemyTanks", (side) => side.enemyTanks), {
+    es: "1 unidad de artillería o blindados enemiga no puede disparar.",
+    en: "1 enemy artillery or armor unit can't fire.",
+  }),
+  battle("rifles-up", { es: "¡Fusiles arriba!", en: "Rifles Up!" }, 1, always,
+    { es: "Elige una unidad tuya: dispara antes que nadie.", en: "Pick one of your units: it fires before anyone else." },
     { effect: { kind: "firesFirst" } }),
 ];
 

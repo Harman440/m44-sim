@@ -16,11 +16,62 @@ import { OrderSummary } from "../game-core/turnSummary";
 import { COLLISION_NOTES, collisionSteps } from "../data/fireQuestions";
 import { Faction } from "../types/faction";
 import { TargetKinds } from "../data/hitRules";
+import type { Labels } from "../labels";
 import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
-import { SECTION_LABELS, TERRAIN_LABELS, UNIT_LABELS } from "../labels";
 import ShotDice from "./ShotDice";
 import ShotSteps from "./ShotSteps";
 import OrderToken from "./OrderToken";
+import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
+
+const TEXT = defineMessages({
+  es: {
+    dice: (n: number) => `${n} ${n === 1 ? "dado" : "dados"}`,
+    moved: (hexes: number, terrain: string) => `Avanzó ${hexes} ${hexes === 1 ? "casilla" : "casillas"} → ${terrain}`,
+    outcomeOpponent: "El rival también tira con su unidad.",
+    outcomeRetreat:
+      "Si una de las dos se retira o es eliminada, la otra se queda en la casilla del choque y puede seguir hasta su destino.",
+    outcomeNoRetreat:
+      "Si ninguna se retira, las dos retroceden una casilla por el camino que hicieron (puede estar bloqueada).",
+    outcomeMap: "Refleja en el mapa dónde queda tu unidad.",
+    noneMoved: "Ninguna de tus unidades se ha movido este turno.",
+    whichUnit: "¿Qué unidad ha chocado?",
+    noEffect: "0 dados: el choque no tuvo efecto",
+    alreadyFired:
+      "Esta unidad ya ha disparado, así que no tira en el choque. Resuelve los choques antes que cualquier otro disparo.",
+    cantFire: "Esta unidad no puede disparar este turno, así que no tira en el choque: solo tira el rival.",
+    total: (dice: string) => `Total: ${dice}`,
+    countsAsShot: "La tirada del choque cuenta como el disparo de la unidad este turno.",
+    infantry: "¿Ha chocado con infantería?",
+    roll: (dice: string) => `Tirar ${dice}`,
+    noReroll: "No se puede repetir la tirada.",
+    title: (unit: string | null) => `Choque${unit ? `: ${unit}` : ""}`,
+    otherUnit: "Otra unidad",
+    close: "Cerrar",
+  },
+  en: {
+    dice: (n: number) => `${n} ${n === 1 ? "die" : "dice"}`,
+    moved: (hexes: number, terrain: string) => `Advanced ${hexes} ${hexes === 1 ? "hex" : "hexes"} → ${terrain}`,
+    outcomeOpponent: "The opponent also rolls with their unit.",
+    outcomeRetreat:
+      "If one of the two retreats or is eliminated, the other stays on the collision hex and can go on to its destination.",
+    outcomeNoRetreat: "If neither retreats, both go back one hex along the path they took (it may be blocked).",
+    outcomeMap: "Mirror on the map where your unit ends up.",
+    noneMoved: "None of your units moved this turn.",
+    whichUnit: "Which unit collided?",
+    noEffect: "0 dice: the collision had no effect",
+    alreadyFired:
+      "This unit has already fired, so it doesn't roll in the collision. Resolve collisions before any other shot.",
+    cantFire: "This unit can't fire this turn, so it doesn't roll in the collision: only the opponent rolls.",
+    total: (dice: string) => `Total: ${dice}`,
+    countsAsShot: "The collision roll counts as the unit's shot this turn.",
+    infantry: "Did it collide with infantry?",
+    roll: (dice: string) => `Roll ${dice}`,
+    noReroll: "The roll can't be repeated.",
+    title: (unit: string | null) => `Collision${unit ? `: ${unit}` : ""}`,
+    otherUnit: "Another unit",
+    close: "Close",
+  },
+});
 
 interface CollisionDialogProps {
   open: boolean;
@@ -38,28 +89,20 @@ interface CollisionDialogProps {
 }
 
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
-const diceText = (dice: number) => `${dice} ${dice === 1 ? "dado" : "dados"}`;
 
-const describeMove = (summary: OrderSummary) =>
-  `Avanzó ${summary.hexesMoved} ${summary.hexesMoved === 1 ? "casilla" : "casillas"} → ${
-    TERRAIN_LABELS[summary.destinationTerrain]
-  }`;
+const describeMove = (summary: OrderSummary, t: (typeof TEXT)["es"], labels: Labels) =>
+  t.moved(summary.hexesMoved, labels.terrain[summary.destinationTerrain]);
 
 /** How a collision ends, from the house rules; the same whoever rolls */
 function Outcome() {
+  const t = useMessages(TEXT);
   return (
     <Alert severity="info" sx={{ mt: 2 }} data-testid="collision-outcome">
       <Box component="ul" sx={{ m: 0, pl: 2 }}>
-        <li>El rival también tira con su unidad.</li>
-        <li>
-          Si una de las dos se retira o es eliminada, la otra se queda en la casilla del choque y puede seguir
-          hasta su destino.
-        </li>
-        <li>
-          Si ninguna se retira, las dos retroceden una casilla por el camino que hicieron (puede estar
-          bloqueada).
-        </li>
-        <li>Refleja en el mapa dónde queda tu unidad.</li>
+        <li>{t.outcomeOpponent}</li>
+        <li>{t.outcomeRetreat}</li>
+        <li>{t.outcomeNoRetreat}</li>
+        <li>{t.outcomeMap}</li>
       </Box>
     </Alert>
   );
@@ -81,6 +124,9 @@ function CollisionDialog({
   onClose,
 }: CollisionDialogProps) {
   const [selected, setSelected] = useState<number | null>(null);
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
   const [kind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
   /** The collision was just rolled here: throw the dice in */
@@ -102,12 +148,12 @@ function CollisionDialog({
   const content = () => {
     if (!summary) {
       if (moved.length === 0) {
-        return <Typography>Ninguna de tus unidades se ha movido este turno.</Typography>;
+        return <Typography>{t.noneMoved}</Typography>;
       }
       return (
         <>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            ¿Qué unidad ha chocado?
+            {t.whichUnit}
           </Typography>
           <Stack sx={{ gap: 1 }}>
             {moved.map((s) => (
@@ -116,16 +162,16 @@ function CollisionDialog({
                 variant="outlined"
                 size="large"
                 onClick={() => select(s.index)}
-                aria-label={`${UNIT_LABELS[s.unitType]} · ${SECTION_LABELS[s.section]} · ${describeMove(s)}`}
+                aria-label={`${labels.units[s.unitType]} · ${labels.sections[s.section]} · ${describeMove(s, t, labels)}`}
                 sx={{ justifyContent: "flex-start", textAlign: "left", textTransform: "none", gap: 1.5, py: 1 }}
               >
                 <OrderToken orderIndex={s.index} unitType={s.unitType} faction={faction} size={44} />
                 <Box>
                   <Typography variant="body1" component="span" sx={{ display: "block" }}>
-                    {UNIT_LABELS[s.unitType]} · {SECTION_LABELS[s.section]}
+                    {labels.units[s.unitType]} · {labels.sections[s.section]}
                   </Typography>
                   <Typography variant="body2" component="span" color="text.secondary" sx={{ display: "block" }}>
-                    {describeMove(s)}
+                    {describeMove(s, t, labels)}
                   </Typography>
                 </Box>
               </Button>
@@ -142,7 +188,7 @@ function CollisionDialog({
           <ShotSteps shot={collisionShot} unitType={summary.unitType} faction={faction} />
           {collisionShot.dice === 0 && (
             <Typography variant="h6" sx={{ mt: 1 }}>
-              0 dados: el choque no tuvo efecto
+              {t.noEffect}
             </Typography>
           )}
           <ShotDice
@@ -153,7 +199,7 @@ function CollisionDialog({
             onKeepResults={(kept) => onKeepResults(summary.index, summary.shots.indexOf(collisionShot), kept)}
           />
           <Alert severity="warning" sx={{ mt: 1.5 }}>
-            {collisionShot.notes.join(" ")}
+            {collisionShot.notes.map(tr).join(" ")}
           </Alert>
           <Outcome />
         </Box>
@@ -164,8 +210,7 @@ function CollisionDialog({
       return (
         <>
           <Alert severity="warning">
-            Esta unidad ya ha disparado, así que no tira en el choque. Resuelve los choques antes que cualquier
-            otro disparo.
+            {t.alreadyFired}
           </Alert>
           <Outcome />
         </>
@@ -176,7 +221,7 @@ function CollisionDialog({
       return (
         <>
           <Alert severity="warning">
-            Esta unidad no puede disparar este turno, así que no tira en el choque: solo tira el rival.
+            {t.cantFire}
           </Alert>
           <Outcome />
         </>
@@ -190,24 +235,24 @@ function CollisionDialog({
       <>
         <Stack sx={{ gap: 0.5 }} data-testid="collision-breakdown">
           {steps.map((step) => (
-            <Box key={step.label} sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="body1">{step.label}</Typography>
+            <Box key={step.label.es} sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body1">{tr(step.label)}</Typography>
               <Typography variant="body1">{formatDice(step.dice)}</Typography>
             </Box>
           ))}
         </Stack>
         <Divider sx={{ my: 1.5 }} />
-        <Typography variant="h6">Total: {diceText(dice)}</Typography>
+        <Typography variant="h6">{t.total(t.dice(dice))}</Typography>
         {COLLISION_NOTES.map((note) => (
-          <Alert key={note} severity="info" sx={{ mt: 1.5 }}>
-            {note}
+          <Alert key={note.es} severity="info" sx={{ mt: 1.5 }}>
+            {tr(note)}
           </Alert>
         ))}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-          La tirada del choque cuenta como el disparo de la unidad este turno.
+          {t.countsAsShot}
         </Typography>
         <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-          ¿Ha chocado con infantería?
+          {t.infantry}
         </Typography>
         <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
         <Button
@@ -217,10 +262,10 @@ function CollisionDialog({
           onClick={() => kind && onRoll(summary.index, kind === "infantry") && setRolled(true)}
           sx={{ mt: 2 }}
         >
-          Tirar {diceText(dice)}
+          {t.roll(t.dice(dice))}
         </Button>
         <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-          No se puede repetir la tirada.
+          {t.noReroll}
         </Typography>
       </>
     );
@@ -228,16 +273,18 @@ function CollisionDialog({
 
   return (
     <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
-      <DialogTitle>Choque{summary ? `: ${UNIT_LABELS[summary.unitType]} · ${SECTION_LABELS[summary.section]}` : ""}</DialogTitle>
+      <DialogTitle>
+        {t.title(summary ? `${labels.units[summary.unitType]} · ${labels.sections[summary.section]}` : null)}
+      </DialogTitle>
       <DialogContent>{content()}</DialogContent>
       <DialogActions>
         {summary && moved.length > 1 && (
           <Button variant="outlined" onClick={() => select(null)}>
-            Otra unidad
+            {t.otherUnit}
           </Button>
         )}
         <Button variant="text" onClick={close}>
-          Cerrar
+          {t.close}
         </Button>
       </DialogActions>
     </Dialog>

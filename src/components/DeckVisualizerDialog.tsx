@@ -7,6 +7,37 @@ import CommandCardComponent from "./CommandCardComponent";
 import CombatCardComponent from "./CombatCardComponent";
 import CardDialog, { ShownCard } from "./CardDialog";
 import GameIcon from "./GameIcon";
+import { defineMessages, useMessages } from "../i18n/useI18n";
+import type { Localized } from "../i18n/lang";
+
+const TEXT = defineMessages({
+  es: {
+    copies: (count: number, chance: string) => `${count} ${count === 1 ? "copia" : "copias"}, ${chance} de robarla`,
+    decks: "Mazos",
+    intro: "Toca una carta para leerla. Debajo, cuántas copias tiene el mazo y la probabilidad de robarla.",
+    sectionCards: "Cartas de sección",
+    sectionCardsHint: "Dan órdenes en un flanco, en el centro o en varias secciones",
+    tacticCards: "Cartas tácticas",
+    tacticCardsHint: "Dan órdenes con reglas especiales",
+    combatCards: "Cartas de combate",
+    combatCardsHint: "Se pagan con suministros, con las órdenes o en la batalla",
+    close: "Cerrar",
+    deckCard: "Carta del mazo",
+  },
+  en: {
+    copies: (count: number, chance: string) => `${count} ${count === 1 ? "copy" : "copies"}, ${chance} chance to draw it`,
+    decks: "Decks",
+    intro: "Tap a card to read it. Below it, how many copies the deck has and the chance of drawing it.",
+    sectionCards: "Section cards",
+    sectionCardsHint: "Order units on a flank, in the center or in several sections",
+    tacticCards: "Tactic cards",
+    tacticCardsHint: "Order units with special rules",
+    combatCards: "Combat cards",
+    combatCardsHint: "Paid for with supplies, with the orders or in the battle",
+    close: "Close",
+    deckCard: "Card in the deck",
+  },
+});
 
 interface DeckVisualizerDialogProps {
   open: boolean;
@@ -24,12 +55,12 @@ interface Copies<T> {
 }
 
 /** One entry per card name, with how many copies the deck has, in deck order */
-function groupByName<T extends { name: string }>(cards: readonly T[]): Copies<T>[] {
+function groupByName<T extends { name: Localized }>(cards: readonly T[]): Copies<T>[] {
   const groups = new Map<string, Copies<T>>();
   cards.forEach((card) => {
-    const group = groups.get(card.name);
+    const group = groups.get(card.name.es);
     if (group) group.count += 1;
-    else groups.set(card.name, { card, count: 1 });
+    else groups.set(card.name.es, { card, count: 1 });
   });
   return [...groups.values()];
 }
@@ -46,6 +77,7 @@ interface CardGroupProps<T> {
 }
 
 function CardGroup<T>({ title, hint, groups, deckSize, renderCard }: CardGroupProps<T>) {
+  const t = useMessages(TEXT);
   const total = groups.reduce((sum, { count }) => sum + count, 0);
   if (total === 0) return null;
   return (
@@ -73,7 +105,7 @@ function CardGroup<T>({ title, hint, groups, deckSize, renderCard }: CardGroupPr
             <Chip
               size="small"
               label={`×${count} · ${percent(count, deckSize)}`}
-              aria-label={`${count} ${count === 1 ? "copia" : "copias"}, ${percent(count, deckSize)} de robarla`}
+              aria-label={t.copies(count, percent(count, deckSize))}
             />
           </Stack>
         ))}
@@ -84,6 +116,7 @@ function CardGroup<T>({ title, hint, groups, deckSize, renderCard }: CardGroupPr
 
 /** The side's command and combat decks: every card with its art and copies; tapping one shows its text */
 function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCards }: DeckVisualizerDialogProps) {
+  const t = useMessages(TEXT);
   const [looking, setLooking] = useState<ShownCard | null>(null);
 
   const commandGroups = groupByName(commandCards);
@@ -97,29 +130,29 @@ function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCard
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" scroll="paper">
-        <DialogTitle>Mazos</DialogTitle>
+        <DialogTitle>{t.decks}</DialogTitle>
         <DialogContent dividers>
           <Stack sx={{ gap: 3 }}>
             <Typography variant="body2" color="text.secondary">
-              Toca una carta para leerla. Debajo, cuántas copias tiene el mazo y la probabilidad de robarla.
+              {t.intro}
             </Typography>
             <CardGroup
-              title="Cartas de sección"
-              hint="Dan órdenes en un flanco, en el centro o en varias secciones"
+              title={t.sectionCards}
+              hint={t.sectionCardsHint}
               groups={commandGroups.filter(({ card }) => !card.tactic)}
               deckSize={commandCards.length}
               renderCard={commandCard}
             />
             <CardGroup
-              title="Cartas tácticas"
-              hint="Dan órdenes con reglas especiales"
+              title={t.tacticCards}
+              hint={t.tacticCardsHint}
               groups={commandGroups.filter(({ card }) => card.tactic)}
               deckSize={commandCards.length}
               renderCard={commandCard}
             />
             <CardGroup
-              title="Cartas de combate"
-              hint="Se pagan con suministros, con las órdenes o en la batalla"
+              title={t.combatCards}
+              hint={t.combatCardsHint}
               groups={groupByName(combatCards)}
               deckSize={combatCards.length}
               renderCard={combatCard}
@@ -128,11 +161,11 @@ function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCard
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={onClose} startIcon={<GameIcon name="cancel" />}>
-            Cerrar
+            {t.close}
           </Button>
         </DialogActions>
       </Dialog>
-      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label="Carta del mazo" />
+      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label={t.deckCard} />
     </>
   );
 }

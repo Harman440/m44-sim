@@ -5,7 +5,7 @@ import { Scenario } from "../types/scenario";
 import { Faction } from "../types/faction";
 
 const scenario = (id: string): Scenario => scenarios.find((s) => s.id === id)!;
-const names = (s: Scenario, faction: Faction) => combatDeckFor(s, faction).map((card) => card.name);
+const names = (s: Scenario, faction: Faction) => combatDeckFor(s, faction).map((card) => card.name.es);
 const copies = (s: Scenario, faction: Faction, name: string) => names(s, faction).filter((n) => n === name).length;
 
 const ALWAYS = [
@@ -105,11 +105,11 @@ describe("combat card data", () => {
   it("lists a side's deck one entry per card, with its copies and why the side gets it", () => {
     const arracourt = scenario("arracourt");
     const entries = combatDeckEntries(arracourt, "Axis");
-    const reason = (name: string) => entries.find(({ card }) => card.name === name)?.reason;
+    const reason = (name: string) => entries.find(({ card }) => card.name.es === name)?.reason;
 
     expect(entries.reduce((sum, { copies }) => sum + copies, 0)).toBe(combatDeckFor(arracourt, "Axis").length);
     expect(reason("Fragor del combate")).toBe("attacker");
-    expect(entries.find(({ card }) => card.name === "Sin tregua")?.copies).toBe(2);
+    expect(entries.find(({ card }) => card.name.es === "Sin tregua")?.copies).toBe(2);
     expect(reason("Médico")).toBe("shared");
     expect(reason("Cortina de Fuego")).toBe("bigGuns");
     expect(reason("Poder aéreo")).toBe("air");

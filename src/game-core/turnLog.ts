@@ -11,6 +11,7 @@ import type { AmbushShot, BattleEdit, CardAttack, ReinforcementRoll, Shot } from
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
+import type { Localized } from "../i18n/lang";
 
 /**
  * One finished turn as plain JSON: what was played, ordered, rolled and
@@ -19,7 +20,7 @@ import type { CombatCard } from "./combatCard";
  */
 export interface TurnRecord {
   turn: number;
-  card: { id: string; name: string };
+  card: { id: string; name: Localized };
   orders: {
     unit: UnitType;
     start: Position;
@@ -38,7 +39,7 @@ export interface TurnRecord {
     faces: DieFace[];
     /** The dice whose results were applied (indexes into `faces`); null for all of them */
     kept: number[] | null;
-    notes: string[];
+    notes: Localized[];
     /** Rolled for a collision in the movement phase */
     collision: boolean;
     /** What it was rolled against */
@@ -63,9 +64,9 @@ export interface TurnRecord {
   /** Final phase: 2 coins or a combat card; null in the extra turn or after a card with its own reward */
   reward: RewardChoice | null;
   /** Combat cards played this turn (with the orders, then in the battle) */
-  combatCardsPlayed: { id: string; name: string }[];
+  combatCardsPlayed: { id: string; name: Localized }[];
   /** The combat card drawn in the final phase */
-  combatCardDrawn: { id: string; name: string } | null;
+  combatCardDrawn: { id: string; name: Localized } | null;
   /** Hexes marked for the order combat card */
   markers: Position[];
   /** The attack combat card's rolls on the marked hexes */

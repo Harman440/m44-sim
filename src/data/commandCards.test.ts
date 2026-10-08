@@ -78,12 +78,13 @@ describe("command card data", () => {
 
   it("names section cards after their section", () => {
     const deck = commandDeckFor(base, "Allies");
-    const names = new Set(deck.map((card) => card.name));
+    const names = deck.map((card) => card.name);
 
-    expect(names).toContain("Batida en el flanco izquierdo");
-    expect(names).toContain("Ataque en el centro");
-    expect(deck.find((card) => card.id === "assault-right-1")!.description).toBe(
-      "Da órdenes a todas las unidades del flanco derecho."
-    );
+    expect(names).toContainEqual({ es: "Batida en el flanco izquierdo", en: "Probe Left Flank" });
+    expect(names).toContainEqual({ es: "Ataque en el centro", en: "Attack Center" });
+    expect(deck.find((card) => card.id === "assault-right-1")!.description).toEqual({
+      es: "Da órdenes a todas las unidades del flanco derecho.",
+      en: "Order all units on the right flank.",
+    });
   });
 });

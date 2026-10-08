@@ -3,6 +3,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import ScenarioDetails from "./ScenarioDetails";
 import { scenarios } from "../../data/scenarios";
 import { combatDeckFor } from "../../data/combatCards";
+import { same } from "../../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../../settings";
 
 const scenario = (id: string) => scenarios.find((s) => s.id === id)!;
 /** The row's cells for Aliados and Eje */
@@ -43,5 +45,17 @@ describe("ScenarioDetails", () => {
     expect(screen.getByRole("button", { name: "Aliados" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Eje" }));
     expect(onPick).toHaveBeenCalledWith("Axis");
+  });
+
+  it("speaks English when the player picks it", () => {
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <ScenarioDetails scenario={scenario("arracourt")} faction={null} onPickFaction={() => {}} />
+      </SettingsContext.Provider>
+    );
+    const [alliesRole, axisRole] = cells("Role");
+    expect(alliesRole).toHaveTextContent("Defends");
+    expect(axisRole).toHaveTextContent("Attacks");
+    expect(screen.getByRole("button", { name: /of the Axis, with heavy guns and air power$/ })).toBeInTheDocument();
   });
 });

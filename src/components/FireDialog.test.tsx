@@ -9,6 +9,8 @@ import { summarizeOrders } from "../game-core/turnSummary";
 import { UnitType } from "../game-core/unit";
 import { Position, Scenario } from "../types/scenario";
 import { CombatCard } from "../game-core/combatCard";
+import { same } from "../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { infantry: true, closeAssault: false };
@@ -27,7 +29,7 @@ const makeSession = (
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles,
@@ -142,6 +144,24 @@ describe("FireDialog", () => {
     expect(session.getSnapshot().shots[0]!.targetPosition).toEqual(TWO_AWAY);
     expect(screen.queryByRole("button", { name: /^Disparar/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Atrás" })).not.toBeInTheDocument();
+  });
+
+  it("speaks English when the player's language is English", () => {
+    const session = makeSession(UnitType.INFANTRY, 1, false, { forest: [TWO_AWAY] });
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={session} />
+      </SettingsContext.Provider>
+    );
+    fireEvent.click(screen.getByText("abrir"));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Fire: Infantry");
+    expect(screen.getByText("Is it infantry?")).toBeInTheDocument();
+    tapHex(TWO_AWAY);
+    expect(screen.getByTestId("fire-target")).toHaveTextContent("Forest · 2 hexes away");
+    choose("Infantry");
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("1 die");
+    expect(screen.getByRole("button", { name: "Fire" })).toBeEnabled();
   });
 
   it("has no quick roll: every shot is aimed on the map", () => {
@@ -261,8 +281,8 @@ describe("FireDialog", () => {
   it("uses a dice combat card when its switch is on", async () => {
     const spotter: CombatCard = {
       id: "spotter",
-      name: "Observador",
-      description: "",
+      name: same("Observador"),
+      description: same(""),
       cost: 0,
       phase: "battle",
       effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] },
@@ -271,7 +291,7 @@ describe("FireDialog", () => {
       scenario: {
         id: "test",
         name: "Test",
-        description: "",
+        description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},

@@ -6,13 +6,14 @@ import CommandCard from "../../../game-core/commandCard";
 import { Side } from "../../../types/hex";
 import { CombatCard } from "../../../game-core/combatCard";
 import GameSession from "../../../game-core/gameSession";
+import { same } from "../../../i18n/lang";
 
 const makeSession = (cardNames: string[], initialHandSize: number) =>
   new GameSession({
     scenario: {
       id: "test",
       name: "Test",
-      description: "",
+      description: same(""),
       initialHandSize: { allies: 3, axis: 3 },
       attacker: "Allies",
       tiles: {},
@@ -20,10 +21,10 @@ const makeSession = (cardNames: string[], initialHandSize: number) =>
     },
     faction: "Allies",
     initialHandSize,
-    commandCards: cardNames.map((name) => new CommandCard({ id: name, name })),
+    commandCards: cardNames.map((name) => new CommandCard({ id: name, name: same(name) })),
   });
 
-const nameOf = (card: CommandCard) => card.name;
+const nameOf = (card: CommandCard) => card.name.es;
 
 // Wires CardsView to a real session the way GameView does
 function Harness({
@@ -120,7 +121,7 @@ describe("CardsView dealing", () => {
 
 describe("CardsView playing a card in a section of the player's choice", () => {
   const render1 = (onCardClick = vi.fn()) => {
-    const card = new CommandCard({ id: "assault", name: "Asalto de infantería", sections: "chosen", orders: "all" });
+    const card = new CommandCard({ id: "assault", name: same("Asalto de infantería"), sections: "chosen", orders: "all" });
     const utils = render(
       <CardsView
         handCards={[card]}
@@ -132,7 +133,7 @@ describe("CardsView playing a card in a section of the player's choice", () => {
         needsSection={(c) => c.choosesSection}
       />
     );
-    playFromHand(utils.container, card.name);
+    playFromHand(utils.container, card.name.es);
     return { card, onCardClick };
   };
 
@@ -157,14 +158,14 @@ describe("CardsView playing a card in a section of the player's choice", () => {
 describe("CardsView combat cards", () => {
   const combat = (id: string, phase: CombatCard["phase"], cost: number): CombatCard => ({
     id,
-    name: id,
-    description: `Texto de ${id}`,
+    name: same(id),
+    description: same(`Texto de ${id}`),
     cost,
     phase,
   });
 
   const renderWith = (props: Partial<Parameters<typeof CardsView>[0]> = {}) => {
-    const card = new CommandCard({ id: "attack", name: "Ataque", orders: 2 });
+    const card = new CommandCard({ id: "attack", name: same("Ataque"), orders: 2 });
     const onCardClick = vi.fn();
     const utils = render(
       <CardsView
@@ -180,7 +181,7 @@ describe("CardsView combat cards", () => {
         {...props}
       />
     );
-    const playCommandCard = () => playFromHand(utils.container, card.name);
+    const playCommandCard = () => playFromHand(utils.container, card.name.es);
     return { card, onCardClick, playCommandCard };
   };
 
@@ -221,8 +222,8 @@ describe("CardsView combat cards", () => {
 
 describe("CardsView Tactician", () => {
   it("asks for the new section when Tactician is played with a one-section card", () => {
-    const card = new CommandCard({ id: "attack-left", name: "Ataque en el flanco izquierdo", sections: [Side.LEFT], orders: 3 });
-    const tactician: CombatCard = { id: "tactician", name: "Táctico", description: "", cost: 0, phase: "order", effect: { kind: "changeSection" } };
+    const card = new CommandCard({ id: "attack-left", name: same("Ataque en el flanco izquierdo"), sections: [Side.LEFT], orders: 3 });
+    const tactician: CombatCard = { id: "tactician", name: same("Táctico"), description: same(""), cost: 0, phase: "order", effect: { kind: "changeSection" } };
     const onCardClick = vi.fn();
     const { container } = render(
       <CardsView
@@ -241,7 +242,7 @@ describe("CardsView Tactician", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 suministros" }));
     fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
-    playFromHand(container, card.name);
+    playFromHand(container, card.name.es);
     expect(screen.getByText("Táctico: ¿a qué sección cambias Ataque en el flanco izquierdo?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "flanco derecho" }));
 
@@ -251,8 +252,8 @@ describe("CardsView Tactician", () => {
 
 describe("CardsView Tactician with a card for several sections", () => {
   it("warns instead of paying, and can play the card alone", () => {
-    const card = new CommandCard({ id: "general-advance", name: "Avance general", orders: 6, perSection: 2 });
-    const tactician: CombatCard = { id: "tactician", name: "Táctico", description: "", cost: 0, phase: "order", effect: { kind: "changeSection" } };
+    const card = new CommandCard({ id: "general-advance", name: same("Avance general"), orders: 6, perSection: 2 });
+    const tactician: CombatCard = { id: "tactician", name: same("Táctico"), description: same(""), cost: 0, phase: "order", effect: { kind: "changeSection" } };
     const onCardClick = vi.fn();
     const { container } = render(
       <CardsView
@@ -271,7 +272,7 @@ describe("CardsView Tactician with a card for several sections", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Táctico, 0 suministros" }));
     fireEvent.click(screen.getByRole("button", { name: "Jugarla con la carta de mando" }));
-    playFromHand(container, card.name);
+    playFromHand(container, card.name.es);
     expect(screen.getByText("Táctico no sirve con Avance general")).toBeInTheDocument();
     expect(onCardClick).not.toHaveBeenCalled();
 
@@ -282,7 +283,7 @@ describe("CardsView Tactician with a card for several sections", () => {
 
 describe("CardsView looking at a card", () => {
   it("puts a tapped card on the table with its full text, without playing it", () => {
-    const card = new CommandCard({ id: "recon", name: "Reconocimiento", description: "Texto completo del reconocimiento", orders: 1 });
+    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), description: same("Texto completo del reconocimiento"), orders: 1 });
     const onCardClick = vi.fn();
     const { container } = render(
       <CardsView
@@ -295,7 +296,7 @@ describe("CardsView looking at a card", () => {
       />
     );
 
-    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name));
+    fireEvent.click(within(container.querySelector(".cards-grid") as HTMLElement).getByText(card.name.es));
 
     const details = screen.getByTestId("card-details");
     expect(within(details).getAllByRole("heading", { name: "Reconocimiento" }).length).toBeGreaterThan(0);
