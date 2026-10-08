@@ -4,7 +4,14 @@ import { defineMessages, useLabels, useLang, useMessages, useTr } from "../i18n/
 import GameIcon, { DECK_REASON_ICONS } from "./GameIcon";
 import { Faction } from "../types/faction";
 import { CombatCardArt } from "./CardArt";
+import { longestWord } from "./CommandCardComponent";
 import "./CommandCard.css";
+
+/** A name longer than this, or with a word longer than LONG_WORD, gets a smaller font */
+const LONG_NAME = 20;
+const LONG_WORD = 11;
+
+const isLongName = (name: string) => name.length > LONG_NAME || longestWord(name) > LONG_WORD;
 
 const TEXT = defineMessages({
   es: {
@@ -63,7 +70,8 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
             flex: 1,
             minWidth: 0,
             fontFamily: "var(--m44-font-display)",
-            fontSize: "0.9em",
+            // Smaller for a long name or word (Reinforcements), so it fits beside the coin
+            fontSize: isLongName(tr(card.name)) ? "0.8em" : "0.9em",
             lineHeight: 1.15,
             textTransform: "uppercase",
             // Long single words (Reposicionamiento) break instead of running under the coin

@@ -24,6 +24,8 @@ export interface FireBonus {
  */
 export interface CommandCardProps {
   id?: string;
+  /** The card's template, shared by its copies in a deck; defaults to `id` */
+  templateId?: string;
   name?: Localized;
   /** The name printed on the card face when it is shorter than `name` ("Batida" for "Batida en el centro"); defaults to `name` */
   title?: Localized;
@@ -77,6 +79,7 @@ export interface EndOfTurnReward {
 class CommandCard {
   private static counter = 1;
   readonly id: string;
+  readonly templateId: string;
   readonly name: Localized;
   readonly title: Localized;
   readonly description: Localized;
@@ -99,6 +102,7 @@ class CommandCard {
 
   constructor({
     id = `command-card-${CommandCard.counter++}`,
+    templateId,
     name = same(""),
     title,
     description = same(""),
@@ -120,6 +124,7 @@ class CommandCard {
     endOfTurnReward,
   }: CommandCardProps) {
     this.id = id;
+    this.templateId = templateId ?? id;
     this.name = name;
     this.title = title ?? name;
     this.description = description;

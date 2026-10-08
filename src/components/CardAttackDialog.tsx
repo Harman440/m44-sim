@@ -39,7 +39,7 @@ const TEXT = defineMessages({
     enemyInHex: "Is there an enemy unit on the hex?",
     empty: "Empty",
     explanation: (dice: string, note: string) =>
-      `You roll ${dice} of attack: they have a grenade where the normal die has the supply. ${note}`,
+      `You roll ${dice} with the attack die: it has a second grenade where the battle die has the supply. ${note}`,
     undo: "Cancel",
     undoWarning: "Cancel this roll only if it was recorded by mistake.",
     undoRoll: "Cancel roll",

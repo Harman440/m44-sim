@@ -20,6 +20,8 @@ const TEXT = defineMessages({
     tookGround: "tomó terreno",
     closeAssault: "asalto cercano",
     wire: "Alambrada",
+    blocked: "Bloqueada",
+    blockedResult: "Bloqueada por una carta del rival",
     fired: "Disparó",
     removed: "Eliminada",
     waits: "Espera",
@@ -29,6 +31,7 @@ const TEXT = defineMessages({
     cantFire: "No dispara",
     removedWireResult: "Quitó la alambrada",
     removedWire: "quitó la alambrada",
+    blockedShot: "bloqueado por el rival",
     collisionPrefix: "choque, ",
     firedResult: (results: string) => `Disparó: ${results}`,
     seeRoll: (unit: string) => `Ver tirada de ${unit}`,
@@ -69,6 +72,8 @@ const TEXT = defineMessages({
     tookGround: "took ground",
     closeAssault: "close assault",
     wire: "Barbed wire",
+    blocked: "Blocked",
+    blockedResult: "Blocked by an enemy card",
     fired: "Fired",
     removed: "Removed",
     waits: "Waits",
@@ -78,9 +83,10 @@ const TEXT = defineMessages({
     cantFire: "Can't fire",
     removedWireResult: "Removed the barbed wire",
     removedWire: "removed the barbed wire",
+    blockedShot: "blocked by the enemy",
     collisionPrefix: "collision, ",
     firedResult: (results: string) => `Fired: ${results}`,
-    seeRoll: (unit: string) => `See roll of ${unit}`,
+    seeRoll: (unit: string) => `See ${unit}'s roll`,
     fireWith: (unit: string) => `Fire with ${unit}`,
     title: "Firing order",
     count: (toFire: number, fired: number, notFiring: number) =>
@@ -333,7 +339,9 @@ function FireOrderList({
       .join(" · ");
     let status: ReactNode;
     const onlyWire = hasShots && summary.shots.every((shot) => shot.removedWire);
+    const onlyBlocked = hasShots && summary.shots.every((shot) => shot.blocked);
     if (onlyWire) status = <Stamp angle={-7}>{t.wire}</Stamp>;
+    else if (onlyBlocked) status = <Stamp angle={-7}>{t.blocked}</Stamp>;
     else if (hasShots) status = <Stamp angle={-7}>{t.fired}</Stamp>;
     else if (summary.removed) status = <StatusText>{t.removed}</StatusText>;
     else if (summary.waiting) status = <StatusText>{t.waits}</StatusText>;
@@ -365,11 +373,15 @@ function FireOrderList({
           hasShots &&
           (onlyWire
             ? t.removedWireResult
+            : onlyBlocked
+            ? t.blockedResult
             : t.firedResult(
                 summary.shots
                   .map((shot) =>
                     shot.removedWire
                       ? t.removedWire
+                      : shot.blocked
+                      ? t.blockedShot
                       : `${shot.collision ? t.collisionPrefix : ""}${labels.describeAppliedFaces(shot.faces, shot.kept)}${
                           shot.dice > 0 ? ` → ${labels.describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
                         }`

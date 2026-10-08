@@ -8,7 +8,6 @@ import CombatCardComponent from "./CombatCardComponent";
 import CardDialog, { ShownCard } from "./CardDialog";
 import GameIcon from "./GameIcon";
 import { defineMessages, useMessages } from "../i18n/useI18n";
-import type { Localized } from "../i18n/lang";
 
 const TEXT = defineMessages({
   es: {
@@ -54,13 +53,14 @@ interface Copies<T> {
   count: number;
 }
 
-/** One entry per card name, with how many copies the deck has, in deck order */
-function groupByName<T extends { name: Localized }>(cards: readonly T[]): Copies<T>[] {
+/** One entry per card, with how many copies the deck has, in deck order */
+function groupCopies<T extends { id: string; templateId?: string }>(cards: readonly T[]): Copies<T>[] {
   const groups = new Map<string, Copies<T>>();
   cards.forEach((card) => {
-    const group = groups.get(card.name.es);
+    const template = card.templateId ?? card.id;
+    const group = groups.get(template);
     if (group) group.count += 1;
-    else groups.set(card.name.es, { card, count: 1 });
+    else groups.set(template, { card, count: 1 });
   });
   return [...groups.values()];
 }
@@ -119,7 +119,7 @@ function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCard
   const t = useMessages(TEXT);
   const [looking, setLooking] = useState<ShownCard | null>(null);
 
-  const commandGroups = groupByName(commandCards);
+  const commandGroups = groupCopies(commandCards);
   const commandCard = (card: CommandCard) => (
     <CommandCardComponent faction={faction} cardData={card} onClick={() => setLooking({ command: card })} />
   );
@@ -153,7 +153,7 @@ function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCard
             <CardGroup
               title={t.combatCards}
               hint={t.combatCardsHint}
-              groups={groupByName(combatCards)}
+              groups={groupCopies(combatCards)}
               deckSize={combatCards.length}
               renderCard={combatCard}
             />

@@ -39,6 +39,8 @@ export interface DiceStep {
   dice: number;
   /** Left out in shots saved before the steps had kinds; those show their label */
   kind?: DiceStepKind;
+  /** A "card" step's card name, drawn beside the cards icon */
+  card?: Localized;
 }
 
 export interface FireQuestion {

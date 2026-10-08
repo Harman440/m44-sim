@@ -44,6 +44,7 @@ const TEXT = defineMessages({
     shots: "Disparos",
     noShots: "Nadie disparó.",
     removedWire: (unit: string, place: string) => `${unit}: quitó la alambrada (${place})`,
+    blocked: (unit: string) => `${unit}: no tiró, bloqueado por una carta del rival`,
     dice: (n: number) => (n === 1 ? "1 dado" : `${n} dados`),
     inCollision: " en un choque",
     mapChanges: "Cambios en el mapa",
@@ -86,6 +87,7 @@ const TEXT = defineMessages({
     shots: "Shots",
     noShots: "Nobody fired.",
     removedWire: (unit: string, place: string) => `${unit}: removed the barbed wire (${place})`,
+    blocked: (unit: string) => `${unit}: no roll, blocked by an enemy card`,
     dice: (n: number) => (n === 1 ? "1 die" : `${n} dice`),
     inCollision: " in a collision",
     mapChanges: "Map changes",
@@ -206,6 +208,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     >
                       {shot.removedWire ? (
                         t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
+                      ) : shot.blocked ? (
+                        t.blocked(labels.unitKind(shot.unit, shot.elite))
                       ) : (
                         <>
                           {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}

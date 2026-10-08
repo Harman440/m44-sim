@@ -40,6 +40,7 @@ interface CombatCardTemplate {
   marker?: MarkerRule;
   tableReminder?: Localized;
   effect?: CombatEffect;
+  needsOrdered?: readonly UnitType[];
 }
 
 /** What a side has in the scenario, which decides the cards it gets */
@@ -70,7 +71,7 @@ const ifSide = (reason: DeckReason, has: (side: SideContext) => boolean): DeckRu
 });
 const airCards: DeckRule = { reason: "air", copies: (side) => side.air };
 
-type Extra = Pick<CombatCardTemplate, "marker" | "tableReminder" | "effect">;
+type Extra = Pick<CombatCardTemplate, "marker" | "tableReminder" | "effect" | "needsOrdered">;
 
 const order = (
   id: string,
@@ -244,6 +245,7 @@ const TEMPLATES: CombatCardTemplate[] = [
         es: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con orden y refléjalo en «Actualizar mapa».",
         en: "Reposition: move your ordered artillery up to 2 hexes on the table and mirror it in “Update map”.",
       },
+      needsOrdered: [UnitType.ARTILLERY],
     }),
   battle("fortify", { es: "Fortificar", en: "Fortify" }, 1, defensive,
     {
@@ -259,7 +261,7 @@ const TEMPLATES: CombatCardTemplate[] = [
     }),
   battle("spotter", { es: "Observador", en: "Spotter" }, 1, ifSide("artillery", (side) => side.artillery),
     { es: "1 artillería tira 1 dado más.", en: "1 artillery unit rolls 1 extra die." },
-    { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } }),
+    { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] }, needsOrdered: [UnitType.ARTILLERY] }),
   battle("personal-armor", { es: "Blindaje personal", en: "Personal Armor" }, 1, always, {
     es: "Después de que el rival tire, ignora 1 resultado de infantería.",
     en: "After your opponent rolls, ignore 1 infantry result.",
@@ -279,13 +281,13 @@ const TEMPLATES: CombatCardTemplate[] = [
 /** One card per copy; copies get a numbered id so saves can tell them apart */
 function buildDeck(templates: CombatCardTemplate[], side: SideContext): CombatCard[] {
   return templates.flatMap(({ rule, ...card }) =>
-    Array.from({ length: rule.copies(side) }, (_, i) => ({ ...card, id: `${card.id}-${i + 1}`, reason: rule.reason }))
+    Array.from({ length: rule.copies(side) }, (_, i) => ({ ...card, id: `${card.id}-${i + 1}`, templateId: card.id, reason: rule.reason }))
   );
 }
 
 /** One of every combat card, whatever the scenario: the test mode's hand */
 export function allCombatCards(): CombatCard[] {
-  return TEMPLATES.map(({ rule, ...card }) => ({ ...card, id: `${card.id}-1`, reason: rule.reason }));
+  return TEMPLATES.map(({ rule, ...card }) => ({ ...card, id: `${card.id}-1`, templateId: card.id, reason: rule.reason }));
 }
 
 function sideContext(scenario: Scenario, faction: Faction): SideContext {
@@ -318,6 +320,6 @@ export function combatDeckEntries(scenario: Scenario, faction: Faction): CombatD
   const side = sideContext(scenario, faction);
   return TEMPLATES.flatMap(({ rule, ...card }) => {
     const copies = rule.copies(side);
-    return copies > 0 ? [{ card: { ...card, id: `${card.id}-1`, reason: rule.reason }, copies, reason: rule.reason }] : [];
+    return copies > 0 ? [{ card: { ...card, id: `${card.id}-1`, templateId: card.id, reason: rule.reason }, copies, reason: rule.reason }] : [];
   });
 }

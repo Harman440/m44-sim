@@ -2,16 +2,19 @@
 
 - Think about special unit that hit with star
     - Use same dice as air power and create new 8 sided dice with one more tank or one more infantry depending on the unit it can hit with stars. remove one supplies
-- More air powers?? double when air superiority
-
-- Improve chosen cards animation
+- More air powers?? double when air superiority or tripple
 
 - Improve badges for elite units
 
+- Finish game with game summary
 
-Smaller issues
 
-Mecánico fixes armour or artillery, but only a side with tanks gets it.
-Escasez de proyectiles targets enemy artillery or armour, but you only get it when the enemy has tanks.
-Cortina de Fuego: a scenario that doesn't set bigGuns gives it to both sides by default. That may be on purpose.
-The other cards (Médico, Táctico, Refuerzos, Fragor del combate, Lucha callejera, Observador, Explosivos, Emboscada, Blindados adelante, Motorizado, Sin tregua, and the cards you resolve at the table) look correct. They also save and reload properly.
+- More maps, with a map reader to quicken things
+- More rules will appear with more maps
+
+- Tell AI to create a rule book for the game and a tutorial. a ver que tal
+
+- Make the game playable against AI
+- Include figures, winning conditions etc..
+- Include Fog of war
+- Here is where the more figures rule come into play

@@ -30,7 +30,7 @@ const TEXT = defineMessages({
     done: "Listo",
   },
   en: {
-    hint: "Show here the casualties, retreats and ground taken on the table: tap a unit",
+    hint: "Mirror the casualties, retreats and ground taken on the table: tap a unit",
     wireSelected: "Barbed wire: remove it if it's no longer on the table",
     unitSelected: "Tap an empty hex to move the unit (retreat or advance), or remove it",
     placeReinforcement: (unit: string) => `Reinforcement (${unit.toLowerCase()}): tap the free hex where you put it`,

@@ -375,6 +375,7 @@ export function readSave(
     if (!isShotTarget(shot.target)) throw new Error("Unknown shot target");
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
+    if (shot.blocked !== undefined && typeof shot.blocked !== "boolean") throw new Error("Unknown blocked shot");
     return shot;
   });
 

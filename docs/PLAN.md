@@ -116,24 +116,24 @@ The two decisions from the first plan still hold:
 ## Part H: Languages
 
 ### Step 46: English and Spanish
-Done (not committed yet; typecheck clean, 577 tests passing):
 - [x] A per-device language setting (`Settings.language`), a Español/English picker at the top of "Ajustes", starting from the browser's language; `<html lang>` and the page title follow it
 - [x] `src/i18n/` (`Localized`, `byLang`, `same`, `defineMessages`, `useMessages`, `useLabels`, `useTr`) and `src/labels/` (one label set per language, replacing `src/labels.ts`)
 - [x] Game text stored in both languages: command and combat cards (official English names), scenario descriptions, fire questions, dice steps, shot notes, card reminders, looks. `SAVE_VERSION` 26 → 27
 - [x] Every component's text in a `TEXT = defineMessages({ es, en })` block; Spanish left exactly as it was
 - [x] English tests: labels, settings, App (switch to English and play), and one per component group
 - [x] CLAUDE.md and README describe the two languages
+- [x] Reviewed the English: names are consistent ("Update map", "Cancel shot", "Hold and fire"); a few lines reworded (the attack die, "Mirror the casualties…", "See Infantry's roll", "You're 1 supply short")
+- [x] `DiceStep.card` carries a card step's name, so `ShotSteps` no longer trims "Carta " / " card" off the label
+- [x] `DeckVisualizerDialog` groups copies by `templateId` (command and combat cards), not by Spanish name
+- [x] Checked in the browser, English and Spanish, at 1280×800 and 800×1280 with touch and 1920×1080 without: a whole turn, the deck, nothing clipped or scrolling sideways. Fixed: titles with one long word ("Preparations", "Reinforcements", "Tras las líneas enemigas") broke mid-word on the card faces; they now get the smaller size
+- [x] Switching language mid-game changes the rolled shots, steps and cards
+- [x] **Decided:** keep the English house names (Recon in Force, Preparations, Not One Step Back, Shell Shortage, Reposition, Personal Armor, No Respite)
+- [x] **Decided:** the installed app is called "Memoir '44 Sim" (manifest and `index.html`); the description stays Spanish
+- [x] Deployed with `SAVE_VERSION` 27; the later fixes add only optional fields, so saves keep working
 
-Left to do:
-- [ ] **Review the agents' work** (the components were converted in five parallel groups): read the diff for awkward or inconsistent English, and for the same UI name translated two ways (e.g. "Update map", "Cancel shot", "Hold and fire")
-- [ ] `ShotSteps.tsx` gets a combat card's name back from a dice step's label by trimming "Carta " / " card". Fragile: give `DiceStep` the card's name (or id) instead
-- [ ] `DeckVisualizerDialog` groups cards by `card.name.es`; grouping by template id would be sturdier
-- [ ] **Check in the browser in English** at 1280×800 and 800×1280 with touch, and on desktop: English texts are a different length, so check the 216px side column, the header's phase chips, the buttons, and the card faces (laid out at 180px: long names such as "Artillery Bombardment", "Direct from HQ", "Their Finest Hour"). Then the same quick pass in Spanish, to be sure nothing moved
-- [ ] Switch language mid-game, in each phase: cards, questions, steps and notes already rolled should all change
-- [ ] **Decide:** the English for the house and unofficial names: Vanguardia → "Recon in Force", Preparativos → "Preparations", Ni un paso atrás → "Not One Step Back", Escasez de proyectiles → "Shell Shortage", Reposicionamiento → "Reposition", Blindaje personal → "Personal Armor", Sin tregua → "No Respite"
-- [ ] The PWA manifest (`vite.config.ts`: name, description, `lang: "es"`) and `index.html`'s title are Spanish only; the installed app's name can't follow the setting. **Decide:** keep Spanish, use a neutral name ("Memoir '44 Sim"), or English
-- [ ] Deploying drops any game in progress (old saves are dropped, not migrated): finish the game on the tablet first
-- [ ] Commit (`feat: English and Spanish`) after the review and the browser check
+### Step 47: Small battle rules
+- [x] "Bloqueado por el rival" / "Blocked by the enemy" in the Fire dialog: the opponent's card (Out of Ammo, Shell Shortage, Out of Fuel) stops the unit: no roll, no more shots this turn (`GameSession.blockShot`, `Shot.blocked`); "Anular disparo" takes it back
+- [x] Spotter and Reposition can only be played with an ordered artillery unit (`CombatCard.needsOrdered`, `GameSession.hasOrderedUnitFor`)
 
 ## Part G: Carried over from the first plan (postponed)
 
@@ -141,8 +141,7 @@ Left to do:
 - Air rules and air sorties per scenario (old Step 30)
 - Cards about the opponent's hand and orders: "Mostrar cartas al rival", "Perder cartas" (old Step 33)
 - "Importar partida" from an exported JSON (old Step 34)
-- Experiments: bigger units, fewer cards with more orders (old Step 32)
-- Open decisions: the Écouves and Arracourt reinforcement tables; host the app on HTTPS so installing needs no Chrome flag; check install and airplane mode on the real tablet (old Step 12)
+- Experiments: More figures per unit
 
 ---
 

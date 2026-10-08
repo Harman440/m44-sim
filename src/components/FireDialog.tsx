@@ -42,6 +42,8 @@ const TEXT = defineMessages({
     moreInfo: "Más información",
     shotNumber: (n: number) => `Disparo ${n}`,
     removedWire: (number: number | null) => `${number !== null ? `Disparo ${number}: ` : ""}quitó la alambrada, sin disparar`,
+    blocked: (number: number | null) => `${number !== null ? `Disparo ${number}: ` : ""}bloqueado por una carta del rival, sin tirar`,
+    blockShot: "Bloqueado por el rival",
     collision: "Choque",
     noEffect: "0 dados: el disparo no tuvo efecto",
     undoTitle: "¿Anular el último disparo?",
@@ -74,6 +76,8 @@ const TEXT = defineMessages({
     moreInfo: "More information",
     shotNumber: (n: number) => `Shot ${n}`,
     removedWire: (number: number | null) => `${number !== null ? `Shot ${number}: ` : ""}removed the barbed wire, without firing`,
+    blocked: (number: number | null) => `${number !== null ? `Shot ${number}: ` : ""}blocked by an enemy card, no roll`,
+    blockShot: "Blocked by the enemy",
     collision: "Collision",
     noEffect: "0 dice: the shot had no effect",
     undoTitle: "Cancel the last shot?",
@@ -125,6 +129,8 @@ interface FireDialogProps {
   /** The unit stands on barbed wire and may remove it instead of firing (infantry) */
   canRemoveWire?: boolean;
   onRemoveWire?: () => boolean;
+  /** The opponent played a card that stops this unit from firing (Out of Ammo…): no roll */
+  onBlockShot?: () => boolean;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
   longRangeDie?: boolean;
   /** What the enemy can have in the scenario */
@@ -201,7 +207,7 @@ function ExplainedAction({
 }
 
 interface ShotResultProps {
-  shot: ShotRoll & { removedWire?: Position };
+  shot: ShotRoll & { removedWire?: Position; blocked?: boolean };
   number: number | null;
   /** The firing unit's type */
   unitType: UnitType;
@@ -216,6 +222,14 @@ interface ShotResultProps {
 
 export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults }: ShotResultProps) {
   const t = useMessages(TEXT);
+  if (shot.blocked) {
+    return (
+      <Stack direction="row" data-testid="shot-result" sx={{ alignItems: "center", gap: 1.5 }}>
+        <GameIcon name="cancel" size={40} />
+        <Typography variant="h6">{t.blocked(number)}</Typography>
+      </Stack>
+    );
+  }
   if (shot.removedWire) {
     return (
       <Stack direction="row" data-testid="shot-result" sx={{ alignItems: "center", gap: 1.5 }}>
@@ -282,6 +296,7 @@ function FireDialog({
   targetKinds,
   canRemoveWire = false,
   onRemoveWire,
+  onBlockShot,
   onUndoShot,
   onKeepResults,
   onClose,
@@ -478,6 +493,22 @@ function FireDialog({
         {!aiming && summary.shots.length > 0 && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
             {t.cancelShot}
+          </Button>
+        )}
+        {aiming && onBlockShot && (
+          <Button
+            variant="text"
+            color="error"
+            size="small"
+            startIcon={<GameIcon name="cancel" />}
+            onClick={() => {
+              if (!onBlockShot()) return;
+              resetAim();
+              setJustFired(true);
+            }}
+            sx={{ mr: "auto" }}
+          >
+            {t.blockShot}
           </Button>
         )}
         {canGoBack && (

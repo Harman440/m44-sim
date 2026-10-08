@@ -836,6 +836,21 @@ describe("GameSession firing", () => {
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
   });
 
+  it("records a shot the opponent's card blocked: no dice, and no more shots this turn", () => {
+    const session = battle({ holdShots: 2 });
+
+    expect(session.blockShot(0)).toBe(true);
+
+    expect(session.getSnapshot().shots[0]).toMatchObject({ orderIndex: 0, dice: 0, faces: [], blocked: true });
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
+    expect(session.blockShot(0)).toBe(false);
+    expect(session.getSnapshot().coins).toBe(0);
+
+    expect(session.undoShot(0)).toBe(true);
+    expect(session.shotsLeft(0)).toBe(2);
+  });
+
   it("undoes a unit's last shot so it can fire again", () => {
     const session = battle();
     shoot(session, 0, AT_INFANTRY);
@@ -1036,7 +1051,7 @@ describe("GameSession collisions", () => {
     session.fireCollision(0, true);
 
     expect(session.getSnapshot().shots[0]!.dice).toBe(3);
-    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: { es: "Carta Blindados", en: "Blindados card" }, dice: 1, kind: "card" });
+    expect(session.getSnapshot().shots[0]!.steps.at(-1)).toEqual({ label: { es: "Carta Blindados", en: "Blindados card" }, dice: 1, kind: "card", card: { es: "Blindados", en: "Blindados" } });
   });
 
   it("only lets a unit that moved, can fire and hasn't fired yet roll a collision", () => {
@@ -1637,6 +1652,21 @@ describe("GameSession combat cards", () => {
     expect(session.undoBattleCombatCard()).toBe(true);
     expect(session.getSnapshot()).toMatchObject({ battleCombatCard: null, coins: 2 });
     expect(session.playBattleCombatCard(ambush)).toBe(true);
+  });
+
+  it("plays a card that needs an ordered unit type only when one of them has an order", () => {
+    const spotter: CombatCard = { ...combat("spotter", "battle", 0), needsOrdered: [UnitType.ARTILLERY] };
+    const { session, left } = turnTwo([spotter]);
+    session.pickCard(left);
+    orderAllAndFight(session);
+    const ordered = session.getSnapshot().orders.map((order) => order.unit.getUnitType());
+    expect(ordered).not.toContain(UnitType.ARTILLERY);
+
+    expect(session.hasOrderedUnitFor(spotter)).toBe(false);
+    expect(session.playBattleCombatCard(spotter)).toBe(false);
+
+    const forOrdered: CombatCard = { ...spotter, needsOrdered: [UnitType.ARTILLERY, ordered[0]!] };
+    expect(session.hasOrderedUnitFor(forOrdered)).toBe(true);
   });
 
   it("plays no combat cards in the attacker's extra turn", () => {

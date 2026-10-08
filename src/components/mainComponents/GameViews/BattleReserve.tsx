@@ -42,7 +42,7 @@ const TEXT = defineMessages({
     ),
     undo: "Undo",
     noBattleCards: "You have no combat cards for the battle.",
-    missing: (_n: number, coins: string) => `You need ${coins} more`,
+    missing: (_n: number, coins: string) => `You're ${coins} short`,
     combatCard: "Combat card",
     playLabel: (card: string) => `Play ${card}`,
     play: (cost: string) => `Play (${cost})`,

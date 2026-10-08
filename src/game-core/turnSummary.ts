@@ -95,6 +95,8 @@ function summarizeEach(
     const groundShot = unitShots.find((shot) => shot.tookGround);
     const allowed = order.shots + (groundShot ? 1 : 0);
     const overrunPending = !!groundShot && unitShots.at(-1) === groundShot;
+    // An enemy card stopped it: no more shots this turn
+    const blocked = unitShots.some((shot) => shot.blocked);
     const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;
     return {
       index,
@@ -113,7 +115,7 @@ function summarizeEach(
       removed,
       shots: unitShots,
       skipped,
-      shotsLeft: order.canFire && !removed && !skipped ? Math.max(0, allowed - unitShots.length) : 0,
+      shotsLeft: order.canFire && !removed && !skipped && !blocked ? Math.max(0, allowed - unitShots.length) : 0,
     };
   });
 }

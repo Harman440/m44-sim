@@ -22,14 +22,10 @@ interface ShotStepsProps {
 
 const TEXT = defineMessages({
   es: {
-    /** "Carta Observador" → "Observador" */
-    cardName: (label: string) => label.replace(/^Carta /, ""),
     closeAssault: "asalto",
     atRange: "distancia",
   },
   en: {
-    /** "Spotter card" → "Spotter" */
-    cardName: (label: string) => label.replace(/ card$/, ""),
     closeAssault: "assault",
     atRange: "range",
   },
@@ -101,7 +97,8 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
           <>
             <GameIcon name="cards" size={20} />
             <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
-              {t.cardName(tr(step.label))}
+              {/* Shots saved before steps named their card show the whole label */}
+              {tr(step.card ?? step.label)}
             </Typography>
           </>
         );

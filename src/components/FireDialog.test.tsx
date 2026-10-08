@@ -73,6 +73,7 @@ function Harness({ session }: { session: GameSession }) {
         targetKinds={session.targetKinds}
         canRemoveWire={game.canRemoveWire[0]}
         onRemoveWire={() => session.removeWire(0)}
+        onBlockShot={() => session.blockShot(0)}
         onUndoShot={() => session.undoShot(0)}
         onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}
         onClose={() => setOpen(false)}
@@ -117,6 +118,22 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName(dice);
     choose("Disparar");
   };
+
+  it("records a shot blocked by the enemy's card without rolling, and can cancel it", () => {
+    const session = open(UnitType.INFANTRY, 2);
+
+    choose("Bloqueado por el rival");
+
+    expect(session.getSnapshot().shots).toMatchObject([{ blocked: true, dice: 0, faces: [] }]);
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("bloqueado por una carta del rival, sin tirar");
+    expect(screen.queryByRole("button", { name: /Disparar otra vez/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bloqueado por el rival" })).not.toBeInTheDocument();
+
+    choose("Anular disparo");
+    fireEvent.click(screen.getByRole("checkbox"));
+    choose("Anular disparo");
+    expect(session.getSnapshot().shots).toHaveLength(0);
+  });
 
   it("shows the hexes in range with their dice; the target is tapped, then its unit, and the dice are rolled once", async () => {
     const session = open(UnitType.INFANTRY, 1, { forest: [TWO_AWAY] });

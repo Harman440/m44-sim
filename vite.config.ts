@@ -12,7 +12,7 @@ export default defineConfig({
       registerType: "prompt",
       includeAssets: ["icons/icon.svg", "icons/apple-touch-icon.png", "icons/favicon-32.png"],
       manifest: {
-        name: "Memoir '44 · Turnos simultáneos",
+        name: "Memoir '44 Sim",
         short_name: "M'44",
         description: "Compañero para jugar Memoir '44 con turnos simultáneos junto al tablero.",
         lang: "es",

@@ -42,6 +42,8 @@ const TEXT = defineMessages({
     fireFirst: "Disparar primero",
     tapFiresFirst: "Toca en el orden de fuego la unidad que dispara primero.",
     onlyBeforeFiring: "Solo antes de que dispare ninguna unidad.",
+    needsOrdered: (units: string) => `Necesita una unidad de ${units} con orden.`,
+    or: " o ",
     skipTitle: "¿Pasar a las unidades movidas?",
     skipText: (n: number) =>
       `${
@@ -71,6 +73,8 @@ const TEXT = defineMessages({
     fireFirst: "Fire first",
     tapFiresFirst: "In the firing order, tap the unit that fires first.",
     onlyBeforeFiring: "Only before any unit fires.",
+    needsOrdered: (units: string) => `Needs an ordered ${units} unit.`,
+    or: " or ",
     skipTitle: "On to the moved units?",
     skipText: (n: number) =>
       `${
@@ -243,9 +247,12 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
                   )
                 )
               }
-              blockedReason={(card) =>
-                card.effect?.kind === "firesFirst" && unitFired ? t.onlyBeforeFiring : null
-              }
+              blockedReason={(card) => {
+                if (card.effect?.kind === "firesFirst" && unitFired) return t.onlyBeforeFiring;
+                if (card.needsOrdered && !session.hasOrderedUnitFor(card))
+                  return t.needsOrdered(card.needsOrdered.map((type) => labels.units[type].toLowerCase()).join(t.or));
+                return null;
+              }}
               onPlay={(card) => {
                 const done = session.playBattleCombatCard(card);
                 if (done) play("cardPlay");
@@ -284,6 +291,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         targetKinds={session.targetKinds}
         canRemoveWire={firingIndex !== null && (game.canRemoveWire[firingIndex] ?? false)}
         onRemoveWire={() => withSound(firingIndex !== null && session.removeWire(firingIndex))}
+        onBlockShot={() => firingIndex !== null && session.blockShot(firingIndex)}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}

@@ -194,7 +194,7 @@ export const combatBonusQuestion: FireQuestion = {
     !!answers.distance &&
     (combatBonus.closeAssault === undefined || combatBonus.closeAssault === (answers.distance === "1")),
   effect: ({ combatBonus }, answer) =>
-    combatBonus && answer === "yes" ? { label: cardLabel(combatBonus.name), dice: combatBonus.dice, kind: "card" } : null,
+    combatBonus && answer === "yes" ? { label: cardLabel(combatBonus.name), dice: combatBonus.dice, kind: "card", card: combatBonus.name } : null,
 };
 
 /** Asked in this order; add new situations here */
@@ -210,7 +210,7 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
 /** The command card's dice, when it changes them in this situation */
 const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): DiceStep[] => {
   const dice = card?.fireBonusFor(unitType, closeAssault) ?? 0;
-  return card && dice !== 0 ? [{ label: cardLabel(card.name), dice, kind: "card" }] : [];
+  return card && dice !== 0 ? [{ label: cardLabel(card.name), dice, kind: "card", card: card.name }] : [];
 };
 
 /**

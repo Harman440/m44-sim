@@ -24,6 +24,8 @@ export type DeckReason =
 /** A combat card: paid in coins when played. Its effect is resolved at the table (the app applies some in Step 26). */
 export interface CombatCard {
   readonly id: string;
+  /** The card's template, shared by its copies in a deck; omitted in tests' hand-made cards */
+  readonly templateId?: string;
   readonly name: Localized;
   readonly description: Localized;
   /** Coins to play it */
@@ -37,6 +39,8 @@ export interface CombatCard {
   readonly tableReminder?: Localized;
   /** What the app applies for it; without one, the card is resolved at the table */
   readonly effect?: CombatEffect;
+  /** Only played when a unit of one of these types has an order this turn (Spotter, Reposition: artillery) */
+  readonly needsOrdered?: readonly UnitType[];
 }
 
 /** The effects the app applies; the rest is resolved at the table */

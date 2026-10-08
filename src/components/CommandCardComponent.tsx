@@ -39,8 +39,12 @@ interface CommandCardProps {
     faction?: Faction;
 }
 
-/** A title longer than this goes on two lines, smaller */
+/** A title longer than this, or with a word longer than LONG_WORD, goes on two lines, smaller */
 const LONG_TITLE = 12;
+const LONG_WORD = 10;
+
+/** The length of a name's longest word: a word too long for the card's width would break in the middle */
+export const longestWord = (name: string) => Math.max(...name.split(/\s+/).map((word) => word.length));
 
 /** Short tags for the card's special rules, in the player's language; the description has the details */
 export function ruleTags(card: CommandCard, lang: Lang): string[] {
@@ -78,7 +82,7 @@ function CommandCardComponent({ cardData, onClick, faction = "Allies" }: Command
         >
             <span className="game-card__face">
                 <span className="command-card__band">
-                    <h3 className={`card-title${title.length > LONG_TITLE ? " card-title--long" : ""}`} lang={lang}>
+                    <h3 className={`card-title${title.length > LONG_TITLE || longestWord(title) > LONG_WORD ? " card-title--long" : ""}`} lang={lang}>
                         {title}
                     </h3>
                 </span>

@@ -289,7 +289,7 @@ const unitTemplates = (tanks: boolean, artillery: boolean): CardTemplate[] => {
 const buildDeck = (templates: CardTemplate[]): CommandCard[] =>
   templates.flatMap((template) =>
     // Suffix each copy so ids stay unique when a template has count > 1
-    Array.from({ length: template.count }, (_, i) => new CommandCard({ ...template.props, id: `${template.props.id}-${i + 1}` }))
+    Array.from({ length: template.count }, (_, i) => new CommandCard({ ...template.props, id: `${template.props.id}-${i + 1}`, templateId: template.props.id }))
   );
 
 /** Whether a side starts with (or is dropped) units of a type in the scenario */

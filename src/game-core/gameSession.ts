@@ -197,6 +197,8 @@ export interface Shot extends ShotRoll {
   tookGround?: boolean;
   /** Instead of firing, the unit removed the barbed wire on this hex (no dice) */
   removedWire?: Position;
+  /** The opponent's card stopped the unit from firing (Out of Ammo…): no dice, and no more shots this turn */
+  blocked?: boolean;
 }
 
 /**
@@ -1031,6 +1033,18 @@ class GameSession {
     return this.publish();
   }
 
+  /**
+   * The opponent played a card that stops this unit from firing (Out of Ammo,
+   * Shell Shortage, Out of Fuel): no roll, and the unit fires no more this turn
+   */
+  blockShot(orderIndex: number): boolean {
+    if (this.phase !== TurnPhase.BATTLE || !this.canFireNow(orderIndex)) return false;
+    const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
+    const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, blocked: true };
+    this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
   /** The target of a shot: rolled on the long-range die when the game uses it and the target isn't adjacent */
   private targetFor(infantry: boolean, closeAssault: boolean): ShotTarget {
     return { infantry, closeAssault, die: this.longRangeDie && !closeAssault ? "longRange" : "battle" };
@@ -1283,12 +1297,19 @@ class GameSession {
     return this.publish();
   }
 
+  /** False for a card that needs an ordered unit of some type (Spotter: artillery) when none has an order */
+  hasOrderedUnitFor(card: CombatCard): boolean {
+    const types = card.needsOrdered;
+    return !types || this.orders.some((order) => types.includes(order.unit.getUnitType()));
+  }
+
   /** Play a battle combat card from the hand (one per battle), paid now */
   playBattleCombatCard(card: CombatCard): boolean {
     if (this.phase !== TurnPhase.BATTLE || this.battleCombatCard) return false;
     if (!this.canPlayCombatCard(card, "battle")) return false;
     // ¡Fusiles arriba! is played before any unit fires (collisions aside)
     if (card.effect?.kind === "firesFirst" && this.shots.some((shot) => !shot.collision)) return false;
+    if (!this.hasOrderedUnitFor(card)) return false;
 
     this.playCombatCard(card);
     return this.publish();

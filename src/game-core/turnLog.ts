@@ -49,6 +49,8 @@ export interface TurnRecord {
     target: ShotTarget;
     /** Instead of firing, the unit removed the barbed wire on this hex */
     removedWire?: Position;
+    /** The opponent's card stopped the unit from firing */
+    blocked?: boolean;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -140,6 +142,7 @@ export function recordTurn({
       collision: shot.collision,
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
+      ...(shot.blocked && { blocked: true }),
     })),
     battleEdits: editedUnits(battleEdits, board).map((unit, i): TurnRecord["battleEdits"][number] => {
       const edit = battleEdits[i]!;
