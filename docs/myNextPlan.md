@@ -1,20 +1,14 @@
 - Make every card work and improve art work. combat especially and command cards too
 
-- Add to each combat card a small token to tell the player why it was added: offensive, defensive, artillery, etc..
-
 - Think about special unit that hit with star
     - Use same dice as air power and create new 8 sided dice with one more tank or one more infantry depending on the unit it can hit with stars. remove one supplies
 - More air powers?? double when air superiority
-
-- Artillery when destroyed show infantry
-
-- Show in menu different card decks for each scenario with the cards added and removed when clicked --> improve menu when showing cards. less text
 
 - Improve chosen cards animation
 
 - Improve choosing combat cards when choosing command cards.
 
-- Correct Foret de Ecouves
+- Improve badges for elite units
 
 
 Smaller issues
