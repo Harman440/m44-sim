@@ -80,10 +80,10 @@ const orderAllAndFight = (session: GameSession) => {
   expect(session.startBattle()).toBe(true);
 };
 
-/** From battle (or the final phase) to the next turn: final phase, draw, end */
+/** From battle (or the final phase) to the next turn: final phase (the card is drawn), reward, end */
 const finishTurn = (session: GameSession) => {
   if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
-  expect(session.drawCard()).toBe(true);
+  expect(session.getSnapshot().drawnCard).not.toBeNull();
   if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("combatCard")).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
@@ -459,16 +459,15 @@ describe("GameSession movement and final phases", () => {
     expect(session.removeUnit(LEFT_INF)).toBe(true);
   });
 
-  it("draws the command card once in the final phase, and only then ends the turn", () => {
+  it("draws the command card as the final phase starts, once, and only then ends the turn", () => {
     const session = makeSession(1);
     const played = session.getSnapshot().hand[0]!;
     session.pickCard(played);
     orderAllAndFight(session);
     expect(session.drawCard()).toBe(false); // still in battle
+    expect(session.getSnapshot().drawnCard).toBeNull();
     session.endBattle();
 
-    expect(session.endTurn()).toBe(false); // nothing drawn yet
-    expect(session.drawCard()).toBe(true);
     // A single card is kept at once, and can still be swapped
     const { drawnCard, drawOptions, hand, turn, phase, canDrawAgain } = session.getSnapshot();
     expect(drawnCard).not.toBeNull();
@@ -1504,13 +1503,17 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().orders).toHaveLength(1);
   });
 
-  it("takes 2 coins in the final phase unless the player picks a combat card, and carries the coins into the next turn", () => {
+  it("takes 2 coins in the final phase when the player picks them, and carries the coins into the next turn", () => {
     const session = turnWithCoins(0, "left");
     orderAllAndFight(session);
     session.endBattle();
-    // The 2 coins are the default
-    expect(session.getSnapshot()).toMatchObject({ needsRewardChoice: true, rewardChoice: "coins", coins: 2 });
-    session.drawCard();
+    // Nothing is counted until the player takes a reward
+    expect(session.getSnapshot()).toMatchObject({ needsRewardChoice: true, rewardChoice: null, coins: 0 });
+    expect(session.endTurn()).toBe(false);
+    expect(session.chooseReward("coins")).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ rewardChoice: "coins", coins: 2 });
+    // Once taken, it stays
+    expect(session.chooseReward("combatCard")).toBe(false);
     expect(session.endTurn()).toBe(true);
 
     const snapshot = session.getSnapshot();
@@ -2817,7 +2820,7 @@ describe("GameSession extra draws (Pegasus Bridge)", () => {
     expect(session.pickCard(card, session.cardNeedsSection(card) ? Side.CENTER : undefined)).toBe(true);
     orderAllAndFight(session);
     session.endBattle();
-    expect(session.drawCard()).toBe(true);
+    expect(session.getSnapshot().drawnCard).not.toBeNull();
   };
 
   it("draws 2 cards after each of the side's first two turns, then 1", () => {

@@ -696,13 +696,15 @@ class GameSession {
     return this.publish();
   }
 
-  /** Move on to the final phase; units that haven't fired lose their shot */
+  /**
+   * Move on to the final phase; units that haven't fired lose their shot. The
+   * command card is drawn straight away (see `drawCard`).
+   */
   endBattle(): boolean {
     if (this.phase !== TurnPhase.BATTLE) return false;
 
     this.phase = TurnPhase.END_OF_TURN;
-    // The 2 coins unless the player picks the combat card instead
-    if (this.needsRewardChoice()) this.rewardChoice = "coins";
+    if (this.chosenCard) this.draw();
     return this.publish();
   }
 
@@ -1201,12 +1203,12 @@ class GameSession {
   }
 
   /**
-   * Final phase: take 2 coins or a combat card. Coins can be changed for the
-   * card until the turn ends; the combat card is drawn at once, so it stays.
+   * Final phase: take 2 coins or a combat card (drawn at once). The player
+   * weighs the two in the view; once taken, the choice stays.
    */
   chooseReward(choice: RewardChoice): boolean {
     if (!this.needsRewardChoice() || !isRewardChoice(choice)) return false;
-    if (this.drawnCombatCard) return false;
+    if (this.rewardChoice) return false;
 
     this.rewardChoice = choice;
     if (choice === "combatCard") this.drawCombat();
@@ -1545,15 +1547,24 @@ class GameSession {
   }
 
   /**
-   * Discard the played card and draw a command card (once per turn). A single
-   * card goes straight to the hand, and the player may swap it with
-   * `drawAgain`; a card that draws more (Probe: 2) leaves them in
-   * `drawOptions` and `keepCard` puts one in the hand.
+   * Discard the played card and draw a command card (once per turn).
+   * `endBattle` already does it; this is for a save from before then.
    */
   drawCard(): boolean {
     if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard) return false;
     if (this.drawnCard || this.drawOptions.length > 0) return false;
 
+    this.draw();
+    return this.publish();
+  }
+
+  /**
+   * A single card goes straight to the hand, and the player may swap it with
+   * `drawAgain`; a card that draws more (Probe: 2) leaves them in
+   * `drawOptions` and `keepCard` puts one in the hand.
+   */
+  private draw() {
+    if (!this.chosenCard) return;
     // Discard first so a reshuffle on an empty deck can bring the card back,
     // so there is always a card to draw
     const playedCard = this.chosenCard;
@@ -1572,7 +1583,6 @@ class GameSession {
         this.extraDrawn = extra;
       }
     }
-    return this.publish();
   }
 
   /** This side's turns so far, counting this one: the defender's first turn is turn 2 */

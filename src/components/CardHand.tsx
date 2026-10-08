@@ -7,6 +7,11 @@ export interface HandCard {
   node: ReactNode;
   /** Raised out of the fan: picked, or being looked at */
   lifted?: boolean;
+  /** Starts a new group of cards in the hand: a gap and a line before it */
+  groupStart?: boolean;
+  /** Its own label in the hand, when the card's look alone doesn't say what it is */
+  label?: string;
+  className?: string;
 }
 
 interface CardHandProps {
@@ -15,6 +20,8 @@ interface CardHandProps {
   label: string;
   /** How much of the card before it each card covers, as a fraction of a card width */
   overlap?: number;
+  /** Overlap the cards more (down to about a third of each showing) to fit the width before scrolling */
+  fit?: boolean;
   className?: string;
 }
 
@@ -27,7 +34,7 @@ const DRAG_THRESHOLD = 6;
  * use the wheel with a mouse. A pressed or lifted card rises out of the fan,
  * and leans toward the finger (TiltCard).
  */
-function CardHand({ cards, label, overlap = 0.12, className }: CardHandProps) {
+function CardHand({ cards, label, overlap = 0.12, fit = false, className }: CardHandProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; scrollLeft: number; moved: boolean } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -77,8 +84,8 @@ function CardHand({ cards, label, overlap = 0.12, className }: CardHandProps) {
       ref={rowRef}
       role="list"
       aria-label={label}
-      className={`card-hand${dragging ? " card-hand--dragging" : ""}${className ? ` ${className}` : ""}`}
-      style={{ "--overlap": overlap } as React.CSSProperties}
+      className={`card-hand${fit ? " card-hand--fit" : ""}${dragging ? " card-hand--dragging" : ""}${className ? ` ${className}` : ""}`}
+      style={{ "--overlap": overlap, "--count": count, "--groups": cards.filter((card) => card.groupStart).length } as React.CSSProperties}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -86,14 +93,15 @@ function CardHand({ cards, label, overlap = 0.12, className }: CardHandProps) {
       onClickCapture={onClickCapture}
       onWheel={onWheel}
     >
-      {cards.map(({ key, node, lifted }, i) => {
+      {cards.map(({ key, node, lifted, groupStart, label: cardLabel, className: cardClass }, i) => {
         const offset = i - (count - 1) / 2;
         return (
           <div
             key={key}
             role="listitem"
             data-card-key={key}
-            className={`card-hand__slot${lifted ? " card-hand__slot--lifted" : ""}`}
+            data-label={cardLabel}
+            className={`card-hand__slot${lifted ? " card-hand__slot--lifted" : ""}${groupStart && i > 0 ? " card-hand__slot--group-start" : ""}${cardClass ? ` ${cardClass}` : ""}`}
             style={
               {
                 "--tilt": `${offset * angle}deg`,

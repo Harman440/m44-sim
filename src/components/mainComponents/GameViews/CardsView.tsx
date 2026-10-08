@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import { Faction } from "../../../types/faction";
 import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
@@ -7,6 +7,8 @@ import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
 import CardHand from "../../CardHand";
+import CardPiles from "../../CardPiles";
+import Flight, { Box as ScreenBox, boxOf } from "../../Flight";
 import CardDetails from "../../CardDetails";
 import CardFlip from "../../CardFlip";
 import CardPlay, { canPlayIn3D } from "../../CardPlay";
@@ -14,6 +16,7 @@ import type { PlayedCard3D } from "../../card3d/CardPlay3D";
 import GameIcon from "../../GameIcon";
 import { ruleTags } from "../../CommandCardComponent";
 import { CombatCard } from "../../../game-core/combatCard";
+import { sortCombatHand, sortCommandHand } from "../../../game-core/handOrder";
 import { useSound } from "../../../sound";
 import "./CardsView.css";
 
@@ -23,64 +26,68 @@ const TEXT = defineMessages({
     playedInBattle: "Se juega durante la batalla.",
     shortOfCoins: (cost: string, have: string) => `Te faltan suministros: cuesta ${cost} y tienes ${have}.`,
     commandZone: "Zona de Mando",
-    pickToPlay: "Selecciona una carta para jugarla",
-    deck: (n: number) => `Cartas (${n})`,
-    discard: (n: number) => `Descarte (${n})`,
-    willPlay: (name: string, cost: number) =>
-      `Jugarás ${name} (${cost} ${cost === 1 ? "suministro" : "suministros"}) con la carta de mando que elijas.`,
-    orderCardsFirst:
-      "Para jugar una carta de órdenes este turno, elígela antes que la carta de mando. Las de batalla se juegan en la batalla.",
+    pickCommand: "Elige una carta de mando",
+    addCombat: "Añade una carta de combate si quieres, y juega",
+    readyToPlay: "Listo: pulsa Jugar",
+    yourPlay: "Tu jugada",
+    commandSlot: "Mando",
+    combatSlot: "Combate",
+    noCommandYet: "Sin elegir",
+    noCombatYet: "Opcional",
+    noOrderCombat: "Ninguna se juega en las órdenes",
+    sectionOnPlay: "sección al jugar",
+    remove: "Quitar",
+    removeCard: (name: string) => `Quitar ${name}`,
+    play: "Jugar",
+    howToPick:
+      "Elige una carta de mando y, si quieres, una carta de combate de órdenes, en el orden que quieras. Las de batalla se juegan en la batalla.",
     tapToSee: "Toca una carta para verla",
-    playWith: (name: string) => `Jugar con ${name}`,
-    playThis: "Jugar esta carta",
-    backToHand: "Devolver a la mano",
+    pick: "Elegir",
+    swapFor: "Cambiar por esta",
+    unpick: "Devolver a la mano",
+    close: "Cerrar",
     costs: (coins: string) => `Cuesta ${coins}`,
-    dontPlay: "No jugarla",
-    playWithCommand: "Jugarla con la carta de mando",
-    commandCards: "Cartas de mando",
-    commandCardsCount: (n: number) => `Cartas de mando (${n})`,
-    combatCards: "Cartas de combate",
-    combatCardsCount: (n: number) => `Cartas de combate (${n})`,
-    noCombatCards: "No tienes cartas de combate.",
+    hand: "Tu mano",
+    handCount: (command: number, combat: number) => `Cartas de mando (${command}) · Cartas de combate (${combat})`,
     changeSectionTitle: (combat: string, command: string) => `${combat}: ¿a qué sección cambias ${command}?`,
     whichSection: (command: string) => `${command}: ¿en qué sección?`,
     cancel: "Cancelar",
-    misfitTitle: (combat: string, command: string) => `${combat} no sirve con ${command}`,
-    changeSectionOnly: (combat: string) => `${combat} solo cambia la sección de una carta que da órdenes en una sola sección. `,
-    playAloneText: (command: string, combat: string) => `Si juegas ${command} sola, ${combat} se queda en la mano y no se paga.`,
-    playWithout: (combat: string) => `Jugar sin ${combat}`,
+    misfit: (combat: string, command: string) => `${combat} no sirve con ${command}: quita una de las dos.`,
+    changeSectionOnly: (combat: string) => `${combat} solo cambia la sección de una carta que da órdenes en una sola sección.`,
   },
   en: {
     noCombatInExtraTurn: "No combat cards are played in the extra turn.",
     playedInBattle: "It's played during the battle.",
     shortOfCoins: (cost: string, have: string) => `Not enough supplies: it costs ${cost} and you have ${have}.`,
     commandZone: "Command Zone",
-    pickToPlay: "Pick a card to play it",
-    deck: (n: number) => `Cards (${n})`,
-    discard: (n: number) => `Discard (${n})`,
-    willPlay: (name: string, cost: number) =>
-      `You'll play ${name} (${cost} ${cost === 1 ? "supply" : "supplies"}) with the command card you pick.`,
-    orderCardsFirst:
-      "To play an order card this turn, pick it before the command card. Battle cards are played in the battle.",
+    pickCommand: "Pick a command card",
+    addCombat: "Add a combat card if you like, and play",
+    readyToPlay: "Ready: tap Play",
+    yourPlay: "Your play",
+    commandSlot: "Command",
+    combatSlot: "Combat",
+    noCommandYet: "Not picked",
+    noCombatYet: "Optional",
+    noOrderCombat: "None is played with the orders",
+    sectionOnPlay: "section when played",
+    remove: "Remove",
+    removeCard: (name: string) => `Remove ${name}`,
+    play: "Play",
+    howToPick:
+      "Pick a command card and, if you like, an order combat card, in any order. Battle cards are played in the battle.",
     tapToSee: "Tap a card to see it",
-    playWith: (name: string) => `Play with ${name}`,
-    playThis: "Play this card",
-    backToHand: "Back to the hand",
+    pick: "Pick",
+    swapFor: "Swap for this one",
+    unpick: "Back to the hand",
+    close: "Close",
     costs: (coins: string) => `Costs ${coins}`,
-    dontPlay: "Don't play it",
-    playWithCommand: "Play it with the command card",
-    commandCards: "Command cards",
-    commandCardsCount: (n: number) => `Command cards (${n})`,
-    combatCards: "Combat cards",
-    combatCardsCount: (n: number) => `Combat cards (${n})`,
-    noCombatCards: "You have no combat cards.",
+    hand: "Your hand",
+    handCount: (command: number, combat: number) => `Command cards (${command}) · Combat cards (${combat})`,
     changeSectionTitle: (combat: string, command: string) => `${combat}: which section do you move ${command} to?`,
     whichSection: (command: string) => `${command}: in which section?`,
     cancel: "Cancel",
-    misfitTitle: (combat: string, command: string) => `${combat} doesn't work with ${command}`,
-    changeSectionOnly: (combat: string) => `${combat} only changes the section of a card that orders units in a single section. `,
-    playAloneText: (command: string, combat: string) => `If you play ${command} alone, ${combat} stays in your hand and isn't paid for.`,
-    playWithout: (combat: string) => `Play without ${combat}`,
+    misfit: (combat: string, command: string) => `${combat} doesn't work with ${command}: remove one of them.`,
+    changeSectionOnly: (combat: string) => `${combat} only changes the section of a card that orders units in a single section.`,
   },
 });
 
@@ -130,14 +137,14 @@ function CardsView({
   const labels = useLabels();
   const tr = useTr();
   const lang = useLang();
-  /** The order combat card to play with the command card */
+  /** The command card picked to play; it leaves the hand for the tray */
+  const [commandPick, setCommandPick] = useState<CommandCard | null>(null);
+  /** The order combat card picked to play with it */
   const [combatPick, setCombatPick] = useState<CombatCard | null>(null);
-  /** A card waiting for its section to be picked */
+  /** The picked card waiting for its section to be picked */
   const [choosingSection, setChoosingSection] = useState<CommandCard | null>(null);
-  /** A card the order combat card can't be played with: asks whether to play it alone */
-  const [misfit, setMisfit] = useState<CommandCard | null>(null);
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
-  /** The card being looked at on the table; a command card is played from there */
+  /** The card being looked at on the table, from the hand or the tray */
   const [looking, setLooking] = useState<{ command: CommandCard } | { combat: CombatCard } | null>(null);
   /** The cards being played, flying to the table in 3D before the turn goes on */
   const [playing, setPlaying] = useState<{
@@ -145,13 +152,19 @@ function CardsView({
     landing: { x: number; y: number };
     play: () => void;
   } | null>(null);
+  /** A card tapped in the hand, flying to its empty slot in the tray */
+  const [flying, setFlying] = useState<{ id: string; node: ReactNode; from: ScreenBox; to: ScreenBox } | null>(null);
+  const handRef = useRef<HTMLElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLElement>(null);
   /** The cards in flight have been played: the flight's end and its time limit both try */
   const played = useRef(false);
   const play = useSound();
 
   const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
   const nextCardToDeal = handCards.find((card) => !dealtCardIds.has(card.id));
+  const orderCombatCards = combatHand.filter((card) => card.phase === "order");
+  const handCommand = sortCommandHand(visibleHand.filter((card) => card !== commandPick));
 
   // Deal hand cards that haven't been shown yet, one at a time. The dealt ids
   // live in GameView, so remounting this view each turn only deals new cards.
@@ -173,7 +186,7 @@ function CardsView({
     if (animatingCard) play("cardDeal");
   }, [animatingCard, play]);
 
-  /** Tapping a card in the hand puts it on the table to look at; tapping it again puts it back */
+  /** Tapping a card puts it on the table to look at; tapping it again puts it back */
   const look = (next: { command: CommandCard } | { combat: CombatCard }) =>
     setLooking((current) =>
       current && ("command" in next ? "command" in current && current.command === next.command : "combat" in current && current.combat === next.combat)
@@ -190,23 +203,70 @@ function CardsView({
     if (card.cost > coins) return t.shortOfCoins(labels.coins(card.cost), labels.coins(coins));
     return null;
   };
+  const handCombat = sortCombatHand(
+    combatHand.filter((card) => card !== combatPick),
+    (card) => cantPlay(card) === null
+  );
+
+  /** A card picked straight from the hand flies from its place there to its slot in the tray */
+  const flyToTray = (handKey: string, slot: "command" | "combat", node: ReactNode) => {
+    const from = boxOf(handRef.current?.querySelector(`[data-card-key="${handKey}"] .game-card`));
+    const to = boxOf(trayRef.current?.querySelector(`.cards-tray__card--${slot}`));
+    if (from && to) setFlying({ id: handKey, node, from, to });
+  };
 
   /**
-   * Plays the card: the card on the table and the combat card picked fly to
-   * the middle of the table in 3D, then the turn goes on. Straight away
-   * without WebGL or with reduced motion.
+   * Picking a card puts it in the tray (in place of the one there). Picked from
+   * the table, the table clears; tapped in the hand, its text stays on the table to read
    */
-  const commit = (card: CommandCard, section?: Section, combatCard?: CombatCard) => {
+  const pickCommand = (card: CommandCard, fromHand = false) => {
+    if (fromHand) flyToTray(card.id, "command", <CommandCardComponent faction={faction} cardData={card} />);
+    setCommandPick(card);
+    setLooking(fromHand ? { command: card } : null);
+    play("cardDeal");
+  };
+  const pickCombat = (card: CombatCard, fromHand = false) => {
+    if (fromHand) flyToTray(`combat-${card.id}`, "combat", <CombatCardComponent faction={faction} card={card} />);
+    setCombatPick(card);
+    setLooking(fromHand ? { combat: card } : null);
+    play("cardDeal");
+  };
+
+  /**
+   * Tapping a card in the hand puts it straight in its slot when that is
+   * empty (a combat card only if it can be played now); otherwise it goes on
+   * the table to be looked at, and swapped from there
+   */
+  const tapCommand = (card: CommandCard) => (commandPick ? look({ command: card }) : pickCommand(card, true));
+  const tapCombat = (card: CombatCard) =>
+    !combatPick && cantPlay(card) === null ? pickCombat(card, true) : look({ combat: card });
+  const landedInTray = (id: string) => setFlying((current) => (current?.id === id ? null : current));
+  const unpick = (card: CommandCard | CombatCard) => {
+    if (card === commandPick) setCommandPick(null);
+    if (card === combatPick) setCombatPick(null);
+    if (lookingAt(card)) setLooking(null);
+  };
+
+  /** The two cards picked can't be played together (Tactician needs a one-section card) */
+  const misfit = !!commandPick && !!combatPick && !combatCardFits(commandPick, combatPick);
+
+  /**
+   * Plays the cards: the cards in the tray fly to the middle of the table in
+   * 3D, then the turn goes on. Straight away without WebGL or with reduced motion.
+   */
+  const commit = (card: CommandCard, section?: Section) => {
+    const combatCard = combatPick ?? undefined;
     const go = () => onCardClick(card, section, combatCard);
     const table = tableRef.current;
-    const command = table?.querySelector<HTMLElement>(".card-details__card .game-card");
+    const command = trayRef.current?.querySelector<HTMLElement>(".cards-tray__card--command .game-card");
     if (!table || !command || !canPlayIn3D()) {
       go();
       return;
     }
-    const combat = combatCard && document.querySelector<HTMLElement>(`.hand-group--combat [data-card-key="${combatCard.id}"] .game-card`);
+    const combat = combatCard && trayRef.current?.querySelector<HTMLElement>(".cards-tray__card--combat .game-card");
     const box = table.getBoundingClientRect();
     played.current = false;
+    setLooking(null);
     setPlaying({
       cards: [{ element: command }, ...(combat ? [{ element: combat }] : [])],
       landing: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
@@ -222,33 +282,22 @@ function CardsView({
   }, [playing]);
   const landed = useCallback(() => play("cardDeal"), [play]);
 
-  const playCard = (card: CommandCard) => {
-    if (combatPick && !combatCardFits(card, combatPick)) {
-      setMisfit(card);
+  const playPicked = () => {
+    if (!commandPick || misfit) return;
+    if (needsSection(commandPick, combatPick ?? undefined)) {
+      setChoosingSection(commandPick);
       return;
     }
-    if (needsSection(card, combatPick ?? undefined)) {
-      setChoosingSection(card);
-      return;
-    }
-    commit(card, undefined, combatPick ?? undefined);
-  };
-
-  /** Play the card without the combat card, which stays in the hand unpaid */
-  const playAlone = () => {
-    if (!misfit) return;
-    const card = misfit;
-    setMisfit(null);
-    setCombatPick(null);
-    if (needsSection(card)) setChoosingSection(card);
-    else commit(card);
+    commit(commandPick);
   };
 
   const playInSection = (section: Section) => {
     if (!choosingSection) return;
-    commit(choosingSection, section, combatPick ?? undefined);
+    commit(choosingSection, section);
     setChoosingSection(null);
   };
+
+  const prompt = !commandPick ? t.pickCommand : misfit ? null : combatPick || orderCombatCards.length === 0 || !canPlayCombatCards ? t.readyToPlay : t.addCombat;
 
   return (
     <div className="cards-view">
@@ -257,43 +306,113 @@ function CardsView({
           <Typography variant="h4" component="h3">
             {t.commandZone}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.pickToPlay}
-          </Typography>
+          {prompt && (
+            <Typography variant="body2" color={commandPick ? "primary" : "text.secondary"}>
+              {prompt}
+            </Typography>
+          )}
         </Box>
 
-        {/* Deck and discard */}
-        <div className="top-area">
-          <Stack className="pile" sx={{ alignItems: "center" }}>
-            <Typography className="pile__label">{t.deck(drawPileCount)}</Typography>
-            <div className="deck-pile">
-              <div className="deck-back">M'44</div>
+        {/* The tray: the cards picked to play, stacked, each with its line */}
+        <section className="cards-tray" ref={trayRef} aria-label={t.yourPlay}>
+          <div className="cards-tray__stack">
+            <div className={`cards-tray__card cards-tray__card--combat${combatPick ? "" : " cards-tray__card--empty"}`}>
+              {combatPick && (
+                <motion.div
+                  key={combatPick.id}
+                  initial={{ y: 24, opacity: 0, scale: 1.2 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  style={{ visibility: flying?.id === `combat-${combatPick.id}` ? "hidden" : undefined }}
+                >
+                  <CombatCardComponent faction={faction} card={combatPick} onClick={(c) => look({ combat: c })} />
+                </motion.div>
+              )}
             </div>
+            <div className={`cards-tray__card cards-tray__card--command${commandPick ? "" : " cards-tray__card--empty"}`}>
+              {commandPick && (
+                <motion.div
+                  key={commandPick.id}
+                  initial={{ y: 24, opacity: 0, scale: 1.2 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  style={{ visibility: flying?.id === commandPick.id ? "hidden" : undefined }}
+                >
+                  <CommandCardComponent faction={faction} cardData={commandPick} onClick={(c) => look({ command: c })} />
+                </motion.div>
+              )}
+            </div>
+          </div>
+
+          <Stack className="cards-tray__lines">
+            <div className="cards-tray__line">
+              <Typography variant="overline" className="cards-tray__slot">
+                {t.commandSlot}
+              </Typography>
+              <Typography className="cards-tray__name" color={commandPick ? "text.primary" : "text.secondary"}>
+                {commandPick ? tr(commandPick.name) : t.noCommandYet}
+                {commandPick?.choosesSection && (
+                  <Typography component="span" variant="body2" color="text.secondary">
+                    {` · ${t.sectionOnPlay}`}
+                  </Typography>
+                )}
+              </Typography>
+              {commandPick && (
+                <Button variant="text" size="small" aria-label={t.removeCard(tr(commandPick.name))} onClick={() => unpick(commandPick)}>
+                  {t.remove}
+                </Button>
+              )}
+            </div>
+            <div className="cards-tray__line">
+              <Typography variant="overline" className="cards-tray__slot">
+                {t.combatSlot}
+              </Typography>
+              <Typography className="cards-tray__name" color={combatPick ? "text.primary" : "text.secondary"}>
+                {combatPick
+                  ? tr(combatPick.name)
+                  : !canPlayCombatCards
+                    ? t.noCombatInExtraTurn
+                    : orderCombatCards.length === 0
+                      ? t.noOrderCombat
+                      : t.noCombatYet}
+                {combatPick && (
+                  <Typography component="span" variant="body2" color="text.secondary">
+                    {` · ${labels.coins(combatPick.cost)}`}
+                  </Typography>
+                )}
+              </Typography>
+              {combatPick && (
+                <Button variant="text" size="small" aria-label={t.removeCard(tr(combatPick.name))} onClick={() => unpick(combatPick)}>
+                  {t.remove}
+                </Button>
+              )}
+            </div>
+            {misfit && (
+              <Typography variant="body2" color="error" role="alert">
+                {combatPick.effect?.kind === "changeSection" ? `${t.changeSectionOnly(tr(combatPick.name))} ` : ""}
+                {t.misfit(tr(combatPick.name), tr(commandPick.name))}
+              </Typography>
+            )}
           </Stack>
 
-          <Stack className="pile" sx={{ alignItems: "center" }}>
-            <Typography className="pile__label">{t.discard(discardPileCount)}</Typography>
-            <div className="discard-pile">{discardPileCount > 0 && <div className="deck-back">M'44</div>}</div>
-          </Stack>
-        </div>
+          <Button size="large" className="cards-tray__play" disabled={!commandPick || misfit} onClick={playPicked} startIcon={<GameIcon name="cards" />}>
+            {t.play}
+          </Button>
+        </section>
+
+        {/* Deck and discard */}
+        <CardPiles drawPileCount={drawPileCount} discardPileCount={discardPileCount} />
       </div>
 
-      {/* The table: what the player is about to play */}
+      {/* The table: the card looked at, picked from there */}
       <Box className="cards-table" ref={tableRef}>
-        {/* While a card is looked at, its buttons say what will be played */}
-        {looking === null && (
-          <Typography variant="body1" color={combatPick ? "primary" : "text.secondary"} sx={{ textAlign: "center", maxWidth: 560 }}>
-            {!canPlayCombatCards
-              ? t.noCombatInExtraTurn
-              : combatPick
-                ? t.willPlay(tr(combatPick.name), combatPick.cost)
-                : t.orderCardsFirst}
-          </Typography>
-        )}
         {looking === null ? (
-          <Typography variant="h6" component="p" color="text.secondary" sx={{ textAlign: "center" }}>
-            {t.tapToSee}
-          </Typography>
+          <>
+            <Typography variant="h6" component="p" color="text.secondary" sx={{ textAlign: "center" }}>
+              {t.tapToSee}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ textAlign: "center", maxWidth: 560 }}>
+              {canPlayCombatCards ? t.howToPick : t.noCombatInExtraTurn}
+            </Typography>
+          </>
         ) : "command" in looking ? (
           <CardDetails
             card={
@@ -307,11 +426,17 @@ function CardsView({
             text={tr(looking.command.description)}
             actionsBeside
           >
-            <Button size="large" onClick={() => playCard(looking.command)} startIcon={<GameIcon name="cards" />}>
-              {combatPick ? t.playWith(tr(combatPick.name)) : t.playThis}
-            </Button>
+            {commandPick === looking.command ? (
+              <Button variant="outlined" onClick={() => unpick(looking.command)}>
+                {t.unpick}
+              </Button>
+            ) : (
+              <Button size="large" onClick={() => pickCommand(looking.command)} startIcon={<GameIcon name="confirm" />}>
+                {commandPick ? t.swapFor : t.pick}
+              </Button>
+            )}
             <Button variant="text" onClick={() => setLooking(null)}>
-              {t.backToHand}
+              {t.close}
             </Button>
           </CardDetails>
         ) : (
@@ -327,79 +452,61 @@ function CardsView({
             text={tr(looking.combat.description)}
             actionsBeside
           >
-            {cantPlay(looking.combat) ? (
+            {combatPick === looking.combat ? (
+              <Button variant="outlined" onClick={() => unpick(looking.combat)}>
+                {t.unpick}
+              </Button>
+            ) : cantPlay(looking.combat) ? (
               <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
                 {cantPlay(looking.combat)}
               </Typography>
-            ) : combatPick === looking.combat ? (
-              <Button variant="outlined" onClick={() => setCombatPick(null)}>
-                {t.dontPlay}
-              </Button>
             ) : (
-              <Button
-                size="large"
-                onClick={() => {
-                  setCombatPick(looking.combat);
-                  setLooking(null);
-                }}
-                startIcon={<GameIcon name="cards" />}
-              >
-                {t.playWithCommand}
+              <Button size="large" onClick={() => pickCombat(looking.combat)} startIcon={<GameIcon name="confirm" />}>
+                {combatPick ? t.swapFor : t.pick}
               </Button>
             )}
             <Button variant="text" onClick={() => setLooking(null)}>
-              {t.backToHand}
+              {t.close}
             </Button>
           </CardDetails>
         )}
       </Box>
 
-      {/* The hands: command cards, and the combat cards on the right */}
-      <div className="cards-hands">
-        <section className="cards-grid hand-group" aria-labelledby="command-hand-title">
-          <Typography variant="overline" component="h3" id="command-hand-title" className="hand-group__title">
-            {t.commandCardsCount(visibleHand.length)}
-          </Typography>
-          <CardHand
-            label={t.commandCards}
-            cards={visibleHand.map((card) => ({
+      {/* One hand: the command cards sorted by section, then the combat cards, the playable order cards first; picked cards are in the tray */}
+      <section className="cards-hands" aria-labelledby="hand-title" ref={handRef}>
+        <Typography variant="overline" component="h3" id="hand-title" className="hand-group__title">
+          {t.handCount(visibleHand.length, combatHand.length)}
+        </Typography>
+        <CardHand
+          label={t.hand}
+          fit
+          overlap={0.12}
+          cards={[
+            ...handCommand.map((card, i) => ({
               key: card.id,
               lifted: lookingAt(card),
-              node: <CommandCardComponent faction={faction} cardData={card} onClick={(c) => look({ command: c })} />,
-            }))}
-          />
-        </section>
-
-        <section className="cards-combat hand-group hand-group--combat" aria-labelledby="combat-hand-title">
-          <Typography variant="overline" component="h3" id="combat-hand-title" className="hand-group__title">
-            {t.combatCardsCount(combatHand.length)}
-          </Typography>
-          {combatHand.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" className="hand-group__empty">
-              {t.noCombatCards}
-            </Typography>
-          ) : (
-            <CardHand
-              label={t.combatCards}
-              overlap={0.3}
-              cards={combatHand.map((card) => ({
-                key: card.id,
-                lifted: combatPick === card || lookingAt(card),
-                // Any combat card can be looked at; only an order card that can be paid is played
-                node: (
-                  <CombatCardComponent
-                    faction={faction}
-                    card={card}
-                    selected={combatPick === card}
-                    disabled={card.phase === "order" && cantPlay(card) !== null}
-                    onClick={(c) => look({ combat: c })}
-                  />
-                ),
-              }))}
-            />
-          )}
-        </section>
-      </div>
+              label: i === 0 ? t.commandSlot : undefined,
+              node: <CommandCardComponent faction={faction} cardData={card} onClick={tapCommand} />,
+            })),
+            ...handCombat.map((card, i) => ({
+              key: `combat-${card.id}`,
+              lifted: lookingAt(card),
+              groupStart: i === 0,
+              label: i === 0 ? t.combatSlot : undefined,
+              className: `hand-card--combat${cantPlay(card) === null ? " hand-card--playable" : ""}`,
+              // Any combat card can be looked at; only an order card that can be paid is picked
+              node: (
+                <CombatCardComponent
+                  faction={faction}
+                  card={card}
+                  disabled={cantPlay(card) !== null}
+                  onClick={tapCombat}
+                />
+              ),
+            })),
+          ]}
+        />
+      </section>
 
       <Dialog open={choosingSection !== null} onClose={() => setChoosingSection(null)}>
         <DialogTitle>
@@ -423,23 +530,11 @@ function CardsView({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={misfit !== null} onClose={() => setMisfit(null)}>
-        <DialogTitle>
-          {t.misfitTitle(combatPick ? tr(combatPick.name) : "", misfit ? tr(misfit.name) : "")}
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">
-            {combatPick?.effect?.kind === "changeSection" ? t.changeSectionOnly(tr(combatPick.name)) : ""}
-            {t.playAloneText(misfit ? tr(misfit.name) : "", combatPick ? tr(combatPick.name) : "")}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="text" onClick={() => setMisfit(null)}>
-            {t.cancel}
-          </Button>
-          <Button onClick={playAlone}>{t.playWithout(combatPick ? tr(combatPick.name) : "")}</Button>
-        </DialogActions>
-      </Dialog>
+      {flying && (
+        <Flight key={flying.id} from={flying.from} to={flying.to} onDone={() => landedInTray(flying.id)}>
+          {flying.node}
+        </Flight>
+      )}
 
       {playing && <CardPlay cards={playing.cards} landing={playing.landing} onLanded={landed} onDone={finishPlaying} />}
 

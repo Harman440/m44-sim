@@ -19,7 +19,7 @@ const openExitDialog = () => {
 };
 
 const handTitles = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll(".cards-grid .card-title"));
+  Array.from(container.querySelectorAll(".cards-hands .card-title"));
 
 // Each step's timer is only scheduled after React re-renders, so advance them separately
 const dealHand = (cards: number) => {
@@ -129,8 +129,8 @@ describe("App menu and game flow", () => {
     const { container, unmount } = render(<App />);
     start("Aliados");
     dealHand(6);
-    fireEvent.click(handTitles(container)[0]!);
-    fireEvent.click(screen.getByRole("button", { name: /^Jugar/ }));
+    fireEvent.click(handTitles(container)[0]!); // straight into the empty slot
+    fireEvent.click(screen.getByRole("button", { name: "Jugar" }));
     expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     unmount();
 

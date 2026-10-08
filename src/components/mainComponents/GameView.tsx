@@ -1,4 +1,4 @@
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Box,
   Button,
@@ -124,18 +124,11 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
     setDealtCardIds((prev) => new Set(prev).add(card.id));
   }, []);
 
-  const handleDrawCard = () => {
-    const playedCard = game.chosenCard;
-    if (!playedCard || !session.drawCard()) return;
-    play("cardPlay");
-
-    // A discarded card can be drawn again later and should animate in again
-    setDealtCardIds((prev) => {
-      const next = new Set(prev);
-      next.delete(playedCard.id);
-      return next;
-    });
-  };
+  // A card that leaves the hand (played, discarded) animates in again if it comes back
+  useEffect(() => {
+    const inHand = new Set(game.hand.map((card) => card.id));
+    setDealtCardIds((prev) => ([...prev].every((id) => inHand.has(id)) ? prev : new Set([...prev].filter((id) => inHand.has(id)))));
+  }, [game.hand]);
 
   return (
     // Animations follow the device's "reduce motion" setting. Only the game
@@ -312,7 +305,9 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               faction={faction}
               session={session}
               game={game}
-              onDrawCard={handleDrawCard}
+              dealtCardIds={dealtCardIds}
+              onCardDealt={handleCardDealt}
+              onDrawCard={() => session.drawCard() && play("cardPlay")}
               onKeepCard={(card) => session.keepCard(card)}
               onDrawAgain={() => session.drawAgain() && play("cardPlay")}
               onChooseReward={(choice) => session.chooseReward(choice)}

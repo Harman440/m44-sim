@@ -29,8 +29,64 @@
   transition: transform 0.18s ease;
 }
 
+/* Each card after the first steps along by --step (a negative margin: the overlap) */
+.card-hand__slot {
+  --step: calc(var(--card-width, 180px) * var(--overlap) * -1);
+}
+
 .card-hand__slot + .card-hand__slot {
-  margin-left: calc(var(--card-width, 180px) * var(--overlap) * -1);
+  margin-left: var(--step);
+}
+
+/* Fit: each card steps along by what the width allows, overlapping between
+   --overlap and about two thirds of a card; past that the row scrolls */
+.card-hand--fit {
+  container-type: inline-size;
+  /* Cards dealt into a sorted hand land anywhere: snapping would follow the snapped card and creep the row along */
+  scroll-snap-type: none;
+}
+
+.card-hand--fit .card-hand__slot {
+  --step: clamp(
+    calc(var(--card-width, 180px) * -0.64),
+    calc((100cqw - 8px - var(--groups) * var(--group-gap) - var(--card-width, 180px)) / max(var(--count) - 1, 1) - var(--card-width, 180px)),
+    calc(var(--card-width, 180px) * var(--overlap) * -1)
+  );
+}
+
+/* A new group (the combat cards after the command cards): a gap, and a line in it */
+.card-hand {
+  --group-gap: 28px;
+}
+
+.card-hand__slot + .card-hand__slot--group-start {
+  margin-left: calc(var(--step) + var(--group-gap));
+}
+
+.card-hand__slot--group-start::before {
+  content: "";
+  position: absolute;
+  top: 6%;
+  bottom: 6%;
+  left: calc(var(--group-gap) / -2 - 2px);
+  border-left: 3px double var(--m44-border);
+}
+
+/* A card's own label, over the left of its top edge, which the next card doesn't cover */
+.card-hand__slot[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  top: -20px;
+  left: 4px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--m44-on-primary);
+  background: var(--m44-primary);
+  border-radius: var(--m44-radius);
 }
 
 /* Picked or being looked at: out of the fan, above the others */
@@ -58,4 +114,9 @@
   .card-hand__slot {
     transition: none;
   }
+}
+
+/* A card on its way into the hand (a Flight): its place is kept, empty, until it lands */
+.card-hand__slot--incoming {
+  visibility: hidden;
 }

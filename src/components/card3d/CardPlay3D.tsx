@@ -110,6 +110,8 @@ function FitCamera() {
   const height = useThree((state) => state.size.height);
   useEffect(() => {
     camera.position.set(0, 0, height / 2 / Math.tan(MathUtils.degToRad(FOV / 2)));
+    // A near plane close to the cards: the depth buffer then tells the face from the edge's caps just under it
+    camera.near = camera.position.z / 3;
     camera.far = camera.position.z * 3;
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
@@ -143,11 +145,14 @@ function FlyingCard({ face, back, shadow, geometry, from, to, fromWidth, toWidth
   const shade = useRef<Mesh>(null);
 
   const materials = useMemo(() => {
-    const paper = { roughness: 0.6, clearcoat: 0.35, clearcoatRoughness: 0.35 };
+    // Drawn in front of the edge's caps whatever the depth buffer says, so the card never looks washed through
+    const paper = { roughness: 0.7, clearcoat: 0.2, clearcoatRoughness: 0.4, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 };
     return {
       face: new MeshPhysicalMaterial({ map: face, ...paper }),
       back: new MeshPhysicalMaterial({ map: back, ...paper }),
       edge: new MeshStandardMaterial({ color: "#efe6d2", roughness: 0.9 }),
+      // The edge's flat caps lie under the face and the back: only its rim is drawn
+      cap: new MeshBasicMaterial({ visible: false }),
       shadow: new MeshBasicMaterial({ map: shadow, transparent: true, depthWrite: false, side: DoubleSide }),
     };
   }, [face, back, shadow]);
@@ -186,7 +191,8 @@ function FlyingCard({ face, back, shadow, geometry, from, to, fromWidth, toWidth
       <group ref={card}>
         <mesh geometry={geometry.side} material={materials.face} position={[0, 0, geometry.thickness / 2 + 0.0005]} />
         <mesh geometry={geometry.side} material={materials.back} position={[0, 0, -geometry.thickness / 2 - 0.0005]} rotation={[0, Math.PI, 0]} />
-        <mesh geometry={geometry.edge} material={materials.edge} />
+        {/* ExtrudeGeometry's groups: the caps, then the rim */}
+        <mesh geometry={geometry.edge} material={[materials.cap, materials.edge]} />
       </group>
     </>
   );
@@ -277,9 +283,10 @@ function CardPlay3D({ cards, landing, onLanded, onDone }: CardPlay3DProps) {
       style={{ position: "fixed", inset: 0, zIndex: 1400, pointerEvents: "none" }}
     >
       <FitCamera />
-      <ambientLight intensity={1.1} />
-      <directionalLight position={[-300, 500, 700]} intensity={1.1} />
-      <pointLight position={[250, 150, 400]} intensity={0.5} decay={0} />
+      {/* About the page's own brightness facing the light, a little darker turned away: brighter washes the face out */}
+      <ambientLight intensity={0.75} />
+      <directionalLight position={[-300, 500, 700]} intensity={0.35} />
+      <pointLight position={[250, 150, 400]} intensity={0.1} decay={0} />
       {takeoffs?.map(({ face, from, width }, i) => (
         <FlyingCard
           key={i}

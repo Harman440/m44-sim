@@ -1,5 +1,5 @@
-import { useSyncExternalStore } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { useState, useSyncExternalStore } from "react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import EndOfTurnView from "./EndOfTurnView";
 import GameSession from "../../../game-core/gameSession";
@@ -41,11 +41,18 @@ const makeFinalSession = () => {
 
 function Harness({ session }: { session: GameSession }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  // As in GameView: the hand before the final phase was already dealt
+  const [dealt, setDealt] = useState<ReadonlySet<string>>(() => {
+    const { hand, drawnCard, extraDrawn } = session.getSnapshot();
+    return new Set(hand.filter((card) => card !== drawnCard && card !== extraDrawn).map((card) => card.id));
+  });
   return (
     <EndOfTurnView
       faction="Allies"
       session={session}
       game={game}
+      dealtCardIds={dealt}
+      onCardDealt={(card) => setDealt((prev) => new Set(prev).add(card.id))}
       onDrawCard={() => session.drawCard()}
       onKeepCard={(card) => session.keepCard(card)}
       onDrawAgain={() => session.drawAgain()}
@@ -189,11 +196,14 @@ describe("EndOfTurnView after a special card", () => {
     return restored;
   };
 
-  it("draws 3 cards after Recon and keeps the one tapped, with no swap", () => {
+  /** Waits for the cards and supplies in the air to land */
+  const landed = () => waitFor(() => expect(screen.queryByTestId("flight")).not.toBeInTheDocument());
+  const hand = () => within(screen.getByRole("list", { name: "Tu mano" }));
+
+  it("lays the 3 cards drawn after Recon on the table and keeps the one tapped, with no swap", async () => {
     const session = finalAfter(
       new CommandCard({ id: "recon", name: same("Reconocimiento"), sections: [Side.LEFT], orders: 1, drawChoice: 3 })
     );
-    fireEvent.click(screen.getByRole("button", { name: "Robar 3 cartas" }));
 
     expect(screen.getAllByRole("button", { name: /^Elegir / })).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
@@ -201,13 +211,17 @@ describe("EndOfTurnView after a special card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Elegir Y" }));
     expect(session.getSnapshot().hand.map((c) => c.name.es)).toEqual(["Y"]);
+    // Y flies into the hand, X and Z to the discard pile
+    expect(screen.getAllByTestId("flight")).toHaveLength(3);
+    await landed();
+    expect(hand().getByRole("button", { name: "Y" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Información: Carta de mando" }));
-    expect(screen.getByText(/Reconocimiento: roba 3 cartas de tu mazo y quédate con 1\./)).toBeInTheDocument();
+    expect(screen.getByText(/Reconocimiento: robas 3 cartas de tu mazo y te quedas con 1\./)).toBeInTheDocument();
   });
 
-  it("adds the Preparations coins and draws its combat card, with no choice", () => {
+  it("adds the Preparations coins and draws its combat card, with no choice", async () => {
     const session = finalAfter(
       new CommandCard({
         id: "preparations",
@@ -221,65 +235,118 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("+3 suministros y una carta de combate.");
     expect(screen.queryByRole("button", { name: /2 suministros/ })).not.toBeInTheDocument();
     expect(session.getSnapshot().coins).toBe(3);
-
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeDisabled();
+
     fireEvent.click(screen.getByRole("button", { name: "Robar carta de combate" }));
 
-    expect(screen.getByText("Has robado esta carta.")).toBeInTheDocument();
+    expect(screen.getByText("Has robado C1.")).toBeInTheDocument();
     expect(session.getSnapshot().combatHand).toHaveLength(1);
+    await landed();
+    expect(hand().getByRole("button", { name: /^C1/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
-  it("takes 2 coins by default before the next turn; they can still change to a combat card", () => {
+  it("switches between 2 supplies and a combat card freely, and takes the supplies with Confirmar", async () => {
     const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2);
-    expect(session.getSnapshot().coins).toBe(2);
-    expect(screen.getByRole("button", { name: /2 suministros/ })).toHaveAttribute("aria-pressed", "true");
+    const coins = screen.getByRole("button", { name: /2 suministros/ });
+    const combatCard = screen.getByRole("button", { name: /^Carta de combate/ });
+    expect(coins).toHaveAttribute("aria-pressed", "true");
+    await landed();
     const start = screen.getByRole("button", { name: "Empezar turno 3" });
-    expect(start).toBeDisabled(); // no command card drawn yet
+    expect(start).toBeDisabled(); // nothing taken yet
 
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    expect(start).toBeEnabled();
+    fireEvent.click(combatCard);
+    expect(combatCard).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(coins);
+    fireEvent.click(combatCard);
+    fireEvent.click(coins);
+    expect(coins).toHaveAttribute("aria-pressed", "true");
+    // Weighing them takes nothing
+    expect(session.getSnapshot()).toMatchObject({ coins: 0, rewardChoice: null, combatHand: [] });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
-    expect(session.getSnapshot().coins).toBe(0);
-    expect(screen.getByText("Has robado esta carta.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /2 suministros/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    expect(session.getSnapshot()).toMatchObject({ coins: 2, rewardChoice: "coins" });
+    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("Te llevas 2 suministros.");
+    expect(screen.queryByRole("button", { name: /2 suministros/ })).not.toBeInTheDocument();
     fireEvent.click(start);
     expect(session.getSnapshot().turn).toBe(3);
   });
 
-  it("makes the player discard a combat card when the hand goes over 3", () => {
-    const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2, 3);
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
+  it("flies the supplies to the counter before counting them", async () => {
+    const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2);
+    await landed();
+    const counter = document.createElement("div");
+    counter.dataset.testid = "coin-counter";
+    document.body.append(counter);
 
-    expect(screen.getByTestId("discard-combat-card")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    expect(screen.getAllByTestId("flight")).toHaveLength(2);
+    expect(session.getSnapshot().coins).toBe(0);
+    await landed();
+    expect(session.getSnapshot().coins).toBe(2);
+    counter.remove();
+  });
+
+  it("draws the combat card confirmed and flies it into the hand", async () => {
+    const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2);
+    await landed();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    expect(session.getSnapshot()).toMatchObject({ coins: 0, rewardChoice: "combatCard" });
+    expect(screen.getByText("Has robado C1.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Carta de combate/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("flight")).toBeInTheDocument();
+    await landed();
+    expect(hand().getByRole("button", { name: /^C1/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Empezar turno 3" }));
+    expect(session.getSnapshot().turn).toBe(3);
+  });
+
+  it("lays the combat cards on the table to discard one when the hand goes over 3, then puts the rest back", async () => {
+    const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2, 3);
+    await landed();
+    expect(hand().getAllByRole("button", { name: /^C\d/ })).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /^Carta de combate/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    const table = within(screen.getByTestId("discard-combat-card"));
+    expect(table.getAllByRole("button", { name: /^Descartar / })).toHaveLength(4);
+    expect(hand().queryAllByRole("button", { name: /^C\d/ })).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Descartar C1" }));
+    fireEvent.click(table.getByRole("button", { name: "Descartar C1" }));
 
     expect(session.getSnapshot().combatHand.map((c) => c.id)).toEqual(["C2", "C3", "C4"]);
     expect(screen.queryByTestId("discard-combat-card")).not.toBeInTheDocument();
+    // C1 to the discard pile, the other three back into the hand
+    expect(screen.getAllByTestId("flight")).toHaveLength(4);
+    await landed();
+    expect(hand().getAllByRole("button", { name: /^C\d/ })).toHaveLength(3);
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
-  it("gives no final-phase reward in the attacker's extra turn", () => {
+  it("gives no final-phase reward in the attacker's extra turn", async () => {
     finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }));
 
     expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("Sin recompensa en el turno extra.");
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled());
   });
 });
 
 describe("EndOfTurnView cards", () => {
-  it("shows a card's full text when it is tapped", () => {
+  it("holds the hand at the bottom, the card drawn marked new, and shows a card's full text when it is tapped", async () => {
     const session = makeFinalSession();
     render(<Harness session={session} />);
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
     const drawn = session.getSnapshot().drawnCard!;
+    await waitFor(() => expect(screen.queryByTestId("flight")).not.toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: drawn.name.es }));
+    const slot = screen.getByRole("list", { name: "Tu mano" }).querySelector(`[data-card-key="${drawn.id}"]`)!;
+    expect(slot).toHaveAttribute("data-label", "Nueva");
+    expect(slot).not.toHaveClass("card-hand__slot--incoming");
+    fireEvent.click(within(slot as HTMLElement).getByRole("button", { name: drawn.name.es }));
 
     expect(screen.getByRole("dialog", { name: "Carta" })).toBeInTheDocument();
     expect(screen.getByTestId("card-details")).toBeInTheDocument();

@@ -1,11 +1,14 @@
-/* Portrait: the steps one below the other, the next turn button last */
+/*
+ * The final phase: the map step on top, the command card and reward steps,
+ * the next turn button, and the hand at the bottom as in the Command Zone.
+ * Portrait: one below the other, the page scrolls.
+ */
 .end-of-turn {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
+  min-width: 0;
 }
 
 .end-of-turn__steps {
@@ -14,25 +17,81 @@
   gap: 12px;
 }
 
-.end-of-turn__footer {
+.end-of-turn__step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+/* Cards laid on the table: the ones drawn to choose from, the combat cards to discard one */
+.end-of-turn__cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.end-of-turn__table-card {
+  --card-width: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
 }
 
+/* A card drawn this phase stands out in the hand */
+.hand-card--new .game-card {
+  border-radius: calc(var(--m44-radius) * 1.5 * var(--card-scale, 1));
+  box-shadow:
+    0 0 0 3px var(--m44-primary),
+    0 0 16px 2px color-mix(in srgb, var(--m44-primary) 60%, transparent);
+}
+
+/* The hand's title on the left, the next turn button and what it waits for on the right */
+.end-of-turn__hand-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.end-of-turn__hand-bar .hand-group__title {
+  padding-left: 12px;
+  color: var(--m44-muted);
+}
+
+.end-of-turn__footer {
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  margin-left: auto;
+}
+
+.end-of-turn__hand {
+  --card-width: 150px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 /*
- * Landscape: one screen high (see GameView.css). Step 1 is one line across
- * the top, steps 2 and 3 side by side, each scrolling in its own box, and the
- * next turn button always in sight below them.
+ * Landscape: one screen high (see GameView.css). The map step is a line
+ * across the top, the two card steps side by side, each scrolling in its own
+ * box, then the hand with the next turn button on its title line; it grows with the screen
+ * height a little less than in the Command Zone.
  */
 @media (orientation: landscape) {
   .end-of-turn {
-    max-width: none;
     min-height: 0;
   }
 
-  .end-of-turn__table {
+  .end-of-turn__map-step {
     flex: none;
     max-height: 30%;
     overflow-y: auto;
@@ -44,7 +103,7 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
-    /* The cards are sized from its height (cqh) */
+    /* The cards on the table are sized from its height (cqh) */
     container-type: size;
   }
 
@@ -55,10 +114,11 @@
     overscroll-behavior: contain;
   }
 
-  .end-of-turn__footer {
-    flex: none;
-    flex-direction: row-reverse;
-    justify-content: center;
-    gap: 16px;
+  .end-of-turn__table-card {
+    --card-width: clamp(96px, 30cqh, 170px);
+  }
+
+  .end-of-turn__hand {
+    --card-width: clamp(112px, 18vh, 180px);
   }
 }

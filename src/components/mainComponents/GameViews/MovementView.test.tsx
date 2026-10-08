@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import MovementView from "./MovementView";
@@ -41,12 +41,19 @@ const makeMovementSession = () => {
 
 function Harness({ session }: { session: GameSession }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  // As in GameView: the hand before the final phase was already dealt
+  const [dealt, setDealt] = useState<ReadonlySet<string>>(() => {
+    const { hand, drawnCard, extraDrawn } = session.getSnapshot();
+    return new Set(hand.filter((card) => card !== drawnCard && card !== extraDrawn).map((card) => card.id));
+  });
   if (game.phase === TurnPhase.MOVEMENT) return <MovementView faction="Allies" session={session} game={game} />;
   return (
     <EndOfTurnView
       faction="Allies"
       session={session}
       game={game}
+      dealtCardIds={dealt}
+      onCardDealt={(card) => setDealt((prev) => new Set(prev).add(card.id))}
       onDrawCard={() => session.drawCard()}
       onKeepCard={(card) => session.keepCard(card)}
       onDrawAgain={() => session.drawAgain()}
@@ -108,30 +115,38 @@ describe("EndOfTurnView", () => {
     return session;
   };
 
-  it("draws the command card and keeps it, and only then starts the next turn", () => {
+  it("draws the command card as the phase starts and flies it into the hand, then starts the next turn", async () => {
     const session = finalPhase();
-    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
-
     const drawn = session.getSnapshot().drawnCard!;
-    expect(screen.getByText("Te la quedas.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: drawn.name.es })).toBeInTheDocument();
+    expect(drawn).not.toBeNull();
+    expect(screen.getByTestId("drawn-card")).toHaveTextContent(`Has robado ${drawn.name.es}.`);
     expect(screen.queryByRole("button", { name: "Robar carta" })).not.toBeInTheDocument();
+    // In the air from the deck, then in the hand
+    expect(screen.getByTestId("flight")).toBeInTheDocument();
+    const start = screen.getByRole("button", { name: "Empezar turno 2" });
+    expect(start).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Empezar turno 2" }));
+    await waitFor(() => expect(start).toBeEnabled());
+    expect(screen.queryByTestId("flight")).not.toBeInTheDocument();
+    const hand = screen.getByRole("list", { name: "Tu mano" });
+    expect(within(hand).getByRole("button", { name: drawn.name.es })).toBeInTheDocument();
+
+    fireEvent.click(start);
     expect(session.getSnapshot()).toMatchObject({ turn: 2, phase: TurnPhase.PICK_CARDS });
   });
 
-  it("swaps the card drawn for the next one, which must be kept", () => {
+  it("swaps the card drawn for the next one, which must be kept", async () => {
     const session = finalPhase();
-    fireEvent.click(screen.getByRole("button", { name: "Robar carta" }));
+    const swap = screen.getByRole("button", { name: "Descartar y robar otra" });
+    await waitFor(() => expect(swap).toBeEnabled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Descartar y robar otra" }));
+    fireEvent.click(swap);
 
-    expect(screen.getByText("Has descartado la primera y robado esta.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: session.getSnapshot().drawnCard!.name.es })).toBeInTheDocument();
+    // The first card flies to the discard pile (the deck is empty, so the reshuffle brings the same card back)
+    expect(screen.getByTestId("flight")).toBeInTheDocument();
+    const drawn = session.getSnapshot().drawnCard!;
+    expect(screen.getByTestId("drawn-card")).toHaveTextContent(`Has descartado la primera y robado ${drawn.name.es}: te la quedas.`);
     expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Empezar turno 2" })).toBeEnabled());
   });
 });

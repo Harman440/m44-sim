@@ -6,8 +6,6 @@
 
 - Improve chosen cards animation
 
-- Improve choosing combat cards when choosing command cards.
-
 - Improve badges for elite units
 
 
@@ -17,5 +15,3 @@ Mecánico fixes armour or artillery, but only a side with tanks gets it.
 Escasez de proyectiles targets enemy artillery or armour, but you only get it when the enemy has tanks.
 Cortina de Fuego: a scenario that doesn't set bigGuns gives it to both sides by default. That may be on purpose.
 The other cards (Médico, Táctico, Refuerzos, Fragor del combate, Lucha callejera, Observador, Explosivos, Emboscada, Blindados adelante, Motorizado, Sin tregua, and the cards you resolve at the table) look correct. They also save and reload properly.
-
-Which of these should I fix? For the firing-order cards, my suggestion is to let the unit you name fire at any point, ignoring the firing order.

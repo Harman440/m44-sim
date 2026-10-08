@@ -1,0 +1,57 @@
+/* The command deck and its discard pile (CardPiles.tsx) */
+.top-area {
+  display: flex;
+  gap: 16px;
+}
+
+.pile {
+  flex-direction: row !important;
+  gap: 8px;
+}
+
+.pile__label {
+  font-size: 0.9rem;
+}
+
+.deck-pile,
+.discard-pile {
+  position: relative; /* contains the absolutely positioned .deck-back */
+  width: 2.25rem;
+  height: 3.25rem;
+  border: calc(var(--m44-border-width) + 1px) solid var(--m44-border);
+  border-radius: var(--m44-radius);
+  box-shadow: var(--m44-shadow);
+}
+
+.deck-pile {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 10px, rgba(0, 0, 0, 0.12) 10px 20px),
+    var(--m44-primary);
+}
+
+.discard-pile {
+  background: var(--m44-paper-alt);
+  border-style: dashed;
+}
+
+.discard-pile:has(.deck-back) {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 10px, rgba(0, 0, 0, 0.12) 10px 20px),
+    var(--m44-accent);
+  border-style: solid;
+}
+
+.deck-back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--m44-font-display);
+  font-size: 0.6rem;
+  color: var(--m44-on-primary);
+}
+
+.discard-pile .deck-back {
+  color: var(--m44-on-accent);
+}

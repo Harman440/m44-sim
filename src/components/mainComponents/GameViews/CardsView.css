@@ -1,6 +1,7 @@
 /*
- * The command zone: the title and deck piles on top, the table in the middle
- * (what is about to be played), and the hands at the bottom, command cards
+ * The command zone: the title, the tray with the cards picked to play and the
+ * deck piles on top, the table in the middle (the card looked at), and the
+ * hands at the bottom, command cards
  * on the left and combat cards on the right. In landscape it is one screen
  * high (see GameView.css); the hands scroll sideways when they don't fit.
  */
@@ -26,61 +27,76 @@
   font-size: 1.6rem;
 }
 
-.top-area {
-  display: flex;
-  gap: 16px;
-}
-
-.pile {
-  flex-direction: row !important;
-  gap: 8px;
-}
-
-.pile__label {
-  font-size: 0.9rem;
-}
-
-.deck-pile,
-.discard-pile {
-  position: relative; /* contains the absolutely positioned .deck-back */
-  width: 2.25rem;
-  height: 3.25rem;
-  border: calc(var(--m44-border-width) + 1px) solid var(--m44-border);
-  border-radius: var(--m44-radius);
-  box-shadow: var(--m44-shadow);
-}
-
-.deck-pile {
-  background:
-    repeating-linear-gradient(45deg, transparent 0 10px, rgba(0, 0, 0, 0.12) 10px 20px),
-    var(--m44-primary);
-}
-
-.discard-pile {
-  background: var(--m44-paper-alt);
-  border-style: dashed;
-}
-
-.discard-pile:has(.deck-back) {
-  background:
-    repeating-linear-gradient(45deg, transparent 0 10px, rgba(0, 0, 0, 0.12) 10px 20px),
-    var(--m44-accent);
-  border-style: solid;
-}
-
-.deck-back {
-  position: absolute;
-  inset: 0;
+/* The tray: the picked cards stacked (the combat card tucked behind the
+   command card), a line for each, and the Play button */
+.cards-tray {
+  --card-width: 60px;
+  flex: 1 1 420px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-family: var(--m44-font-display);
-  font-size: 0.6rem;
-  color: var(--m44-on-primary);
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 12px;
+  border: var(--m44-border-width) solid var(--m44-border);
+  border-radius: calc(var(--m44-radius) * 2);
+  background: var(--m44-paper);
 }
 
-.discard-pile .deck-back {
-  color: var(--m44-on-accent);
+.cards-tray__stack {
+  position: relative;
+  flex: none;
+  width: calc(var(--card-width) + 28px);
+  height: calc(var(--card-width) * 7 / 5 + 6px);
+}
+
+.cards-tray__card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--card-width);
+  aspect-ratio: 5 / 7;
+}
+
+.cards-tray__card--combat {
+  left: 26px;
+  top: 6px;
+  transform: rotate(7deg);
+}
+
+.cards-tray__card--empty {
+  border: 2px dashed var(--m44-border);
+  border-radius: var(--m44-radius);
+  opacity: 0.5;
+}
+
+.cards-tray__lines {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cards-tray__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+}
+
+.cards-tray__slot {
+  flex: none;
+  width: 5.5em;
+  line-height: 1.2 !important;
+  color: var(--m44-muted);
+}
+
+.cards-tray__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600 !important;
+}
+
+.cards-tray__play {
+  flex: none;
+  min-width: 120px !important;
 }
 
 /* Positioned by motion (see CardsView): starts at the deck, lands at the top of the hand */
@@ -105,29 +121,13 @@
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--m44-paper) 55%, transparent), transparent 70%);
 }
 
+/* One hand, held in one fan: the command cards, then the combat cards */
 .cards-hands {
   --card-width: 196px;
   flex: none;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 16px;
-}
-
-.hand-group {
-  display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.cards-grid {
-  flex: 1 1 480px;
-}
-
-.hand-group--combat {
-  flex: 0 1 auto;
-  padding-left: 16px;
-  border-left: 3px double var(--m44-border);
 }
 
 .hand-group__title {
@@ -136,26 +136,20 @@
   color: var(--m44-muted);
 }
 
-.hand-group__empty {
-  padding: 12px;
+/* An order combat card that can be played now stands out of the hand */
+.hand-card--playable .game-card {
+  border-radius: calc(var(--m44-radius) * 1.5 * var(--card-scale, 1));
+  box-shadow:
+    0 0 0 3px var(--m44-primary),
+    0 0 16px 2px color-mix(in srgb, var(--m44-primary) 60%, transparent);
 }
 
-/* Landscape: the hands grow with the screen height (a 1280×800 tablet gets
-   200px cards), and the table has the height they leave it. The card looked
+/* Landscape: the hand grows with the screen height (a 1280×800 tablet gets
+   200px cards), and the table has the height it leaves. The card looked
    at is sized from that height (cqh), and a table too short for its text scrolls */
 @media (orientation: landscape) {
   .cards-hands {
     --card-width: clamp(164px, 25vh, 220px);
-    /* Both hands on one row, so a big hand of combat cards scrolls instead of pushing the table off the screen */
-    flex-wrap: nowrap;
-  }
-
-  .cards-grid {
-    flex: 1 1 auto;
-  }
-
-  .hand-group--combat {
-    max-width: 50%;
   }
 
   .cards-table {
@@ -167,8 +161,13 @@
 
 /* A table too short for a readable card shows only its text: the card is
    lifted in the hand below anyway */
-@container (max-height: 240px) {
+@container (max-height: 170px) {
   .cards-table .card-details__card {
     display: none;
   }
+}
+
+/* A combat card that can't be played now (a battle card, short of supplies, the extra turn) is greyed out */
+.hand-card--combat:not(.hand-card--playable) .game-card {
+  filter: grayscale(1);
 }
