@@ -16,6 +16,8 @@ import generalsArt from "../assets/cards/british-generals.webp";
 import armourAssaultArt from "../assets/cards/armour-assault.webp";
 import artilleryBombardmentArt from "../assets/cards/artillery-bombardment.webp";
 import closeAssaultArt from "../assets/cards/close-assault.webp";
+import finestHourArt from "../assets/cards/finest-hour.webp";
+import firefightArt from "../assets/cards/firefight.webp";
 import hqArt from "../assets/cards/hq.webp";
 import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
 import moveOutArt from "../assets/cards/move-out.webp";
@@ -463,6 +465,8 @@ const TACTIC_PAINTINGS: Record<string, string> = {
   "armor-assault": armourAssaultArt,
   "artillery-bombardment": artilleryBombardmentArt,
   "close-assault": closeAssaultArt,
+  "finest-hour": finestHourArt,
+  firefight: firefightArt,
   "infantry-assault": infantryAssaultArt,
   "direct-from-hq": hqArt,
   "move-out": moveOutArt,

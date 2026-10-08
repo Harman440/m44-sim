@@ -68,14 +68,16 @@ describe("CommandCardComponent", () => {
     expect(screen.queryByText("Texto largo")).not.toBeInTheDocument();
   });
 
-  it("paints Asalto de Blindados, Asalto de Infantería and Directo del Cuartel General with their own art, the rest with the generals", () => {
+  it("paints the tactic cards that have a painting with their own art, the rest with the generals", () => {
     const painting = (id: string) =>
       renderCard(new CommandCard({ id, tactic: true, orders: 4 })).querySelector(".tactic-art__painting")!.getAttribute("src");
 
     expect(painting("armor-assault-1")).toContain("armour-assault");
     expect(painting("direct-from-hq-2")).toContain("hq");
     expect(painting("infantry-assault-1")).toContain("infantry-assault");
-    expect(painting("firefight-1")).toContain("british-generals");
+    expect(painting("firefight-1")).toContain("firefight");
+    expect(painting("finest-hour-1")).toContain("finest-hour");
+    expect(painting("preparations-1")).toContain("british-generals");
   });
 
   it("falls back to the description on a tactic card with no summary", () => {
