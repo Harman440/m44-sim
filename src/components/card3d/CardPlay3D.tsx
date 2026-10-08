@@ -18,8 +18,8 @@ import {
 import { FACE_HEIGHT, FACE_WIDTH, backTexture, faceTexture, shadowTexture } from "./cardTextures";
 
 /** How long a played card flies, in seconds, and how long it rests on the table after */
-export const FLIGHT_TIME = 1.25;
-const REST_TIME = 0.3;
+export const FLIGHT_TIME = 0.9;
+const REST_TIME = 0.2;
 /** The camera's field of view: narrow, so the card keeps its shape and only leans */
 const FOV = 30;
 /** How high the card is lifted off the table (toward the player), in CSS pixels */
