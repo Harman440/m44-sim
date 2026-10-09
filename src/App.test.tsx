@@ -69,6 +69,21 @@ describe("App menu and game flow", () => {
     expect(screen.getByText(/Reglas de prueba: dado de 8 caras a distancia/)).toBeInTheDocument();
   });
 
+  it("opens the rule book from the menu and from the game's menu, keeping the game", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Reglamento" }));
+    expect(await screen.findByRole("dialog", { name: "Reglamento" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    start("Aliados");
+    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reglamento" }));
+    expect(await screen.findByRole("tab", { name: "Reglas de la casa" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+  });
+
   it("starts a game for the chosen side, with the turn and phase in the header", () => {
     render(<App />);
 

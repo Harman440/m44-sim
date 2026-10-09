@@ -114,6 +114,14 @@ describe("fireTargets", () => {
     expect(at(fireTargets(low, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(2);
   });
 
+  it("gives armour in a town 2 dice fewer at every target", () => {
+    const b = board({ town: [from] });
+    const tank = fireTargets(b, from, { unitType: UnitType.TANK, card: null });
+    expect(at(tank, { row: 4, col: 5 })!.dice).toBe(1);
+    expect(at(tank, { row: 4, col: 7 })!.dice).toBe(1);
+    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null }), { row: 4, col: 5 })!.dice).toBe(3);
+  });
+
   it("never offers water, and fires at a bridge as at open ground", () => {
     const b = board({ river: [{ row: 4, col: 5 }], lake: [{ row: 3, col: 4 }], bridge: [{ row: 5, col: 4 }] });
     const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null });

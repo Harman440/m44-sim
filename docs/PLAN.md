@@ -135,10 +135,21 @@ The two decisions from the first plan still hold:
 - [x] "Bloqueado por el rival" / "Blocked by the enemy" in the Fire dialog: the opponent's card (Out of Ammo, Shell Shortage, Out of Fuel) stops the unit: no roll, no more shots this turn (`GameSession.blockShot`, `Shot.blocked`); "Anular disparo" takes it back
 - [x] Spotter and Reposition can only be played with an ordered artillery unit (`CombatCard.needsOrdered`, `GameSession.hasOrderedUnitFor`)
 
+### Step 48: Rule book
+- [x] "Reglamento" in the menu and in the game's "Menú" (`RuleBookDialog`, text in `data/ruleBook.ts`): a tutorial (before you start, the simultaneous turn, a page per phase, tips) and the house rules beside the official ones, grouped: simultaneous turns, dice, terrain, command cards, supplies and combat cards, optional rules
+- [x] Compared with the official rules (Days of Wonder's 2004 rulebook and the base game's cards)
+- [x] Official rules the app didn't apply, found while comparing:
+  - [x] **Decided:** armour on a town hex fires with 2 fewer dice, at any range (`FROM_TOWN_FIRE_DICE`, a "Desde un pueblo" step), as official
+  - [x] **Decided:** armour that enters barbed wire removing it (official) is not implemented; the rule book shows it flagged "Sin implementar en la app" (`HouseRule.notImplemented`), and the wire is taken off with "Actualizar mapa"
+- [x] **Decided:** the air rules (planes on the map) won't be built; taken out of house-rules.md. The air combat cards stay
+- [x] Also: the Preparations card has its painting (`npm run card-art` takes a JPEG too)
+- [ ] **Decide:** infantry with one figure fires at most 2 dice (house-rules.md) isn't in the app or the rule book
+- [ ] **Later:** the changed units (mobile artillery, Tigers, jeeps, half-tracks) go in the rule book when a scenario has them
+
 ## Part G: Carried over from the first plan (postponed)
 
 - New unit types: mobile artillery, jeep, half-track (old Step 29)
-- Air rules and air sorties per scenario (old Step 30)
+- ~~Air rules (old Step 30)~~ **Decided:** not built. Air sorties per scenario only set the air combat cards (`Scenario.airPower`)
 - Cards about the opponent's hand and orders: "Mostrar cartas al rival", "Perder cartas" (old Step 33)
 - "Importar partida" from an exported JSON (old Step 34)
 - Experiments: More figures per unit

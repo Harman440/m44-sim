@@ -12,6 +12,9 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 - Cards that have 'on the move' in standard map have 1 less on the move unit.
 - *Experimental (a switch in the app's "Ajustes"):* when an artillery unit is destroyed, its crew stays on the hex as an infantry unit.
 
+## Official rules the app doesn't apply
+- **Not implemented:** armour that enters barbed wire removes it and can still fire (official). The app leaves the wire on the map: the tank fires as usual, and the wire is taken off the table and off the map with "Actualizar mapa". The rule book shows it flagged as not implemented.
+
 ## Changed units
 Some units have new rules (some rules are still the same):
 - Mobile artillery has 3 figures and when getting hit they are treated like tanks. Fire 3-3-2-2.
@@ -75,27 +78,6 @@ Payment is done in the movement phase before any units are moved. When using a r
 During battle, you get a coin for every supply you roll by dice used in combat, not any other rolls. If a supply counts as a hit because of any special rules, you do not get a coin.
 
 At the end of each turn (in the last phase) when battling has finished and after picking up command cards, you can decide between picking a new combat card from the pile or picking up 2 coins. You can only have a maximum of 3 combat cards. If you already have 3 combat cards and still want to pick one up, you can substitute a combat card with one in your hand.
-
-## New air rules
-Instead of using air cards, start off with markers equal to the amount of air cards shown in the scenario. These are like air sorties. Use one up if you want to order an aircraft on a border hex on the section (or anywhere if it is a direct from HQ). Remove the air power card.
-
-When you order a plane for the first time pick up the number of tokens (9 bullets if an attack plane or 3 bullets and 3 shells if a bomber).
-
-Airplanes can move 5 hexes in the movement phase. Decide on 3 adjacent hexes and place the desired marker on those hexes. Planes attack on the movement phase. If there is no enemy unit on the hex with ammo you can get the ammo back.
-
-Bullets roll one normal die. Bombs 1 die and supplies count. Retreats can't be ignored; units may still battle though if possible.
-
-After strafing aircraft can also dogfight on to an enemy aircraft (play using simultaneous rules as if it had moved).
-
-If an enemy unit tries to move into a hex where a plane has ended its movement, the unit is forced to move back but may still battle.
-
-There are 3 air cards in the combat card deck. (Pilot initiative is like an air sortie. If you pay 2+3 you can order a plane on to the map.)
-
-### Recap air rules
-- If landed plane, retreats and grenades count as a hit. It can land if it ends its movement in a hex it can land on.
-- To destroy airplane grenades count and must hit a reroll too. If reroll is a flag plane disappears but does not count as a medal. If destroyed it counts towards the medal track and that plane type can't be ordered again.
-- Ground units can fire on planes with 3 dice.
-- If blitzkrieg recon can order a plane into the battlefield.
 
 ---
 

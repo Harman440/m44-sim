@@ -16,7 +16,7 @@ export interface FireContext {
   closeAssaultOnly?: boolean;
   /** A battle combat card played this turn that this unit could use on this shot (Spotter…) */
   combatBonus?: DiceBonusEffect & { name: Localized };
-  /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground) */
+  /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground; armour in a town loses dice) */
   fromTerrain?: HexType;
   /** The unit fires from a hex with barbed wire (infantry loses a die) */
   fromWire?: boolean;
@@ -31,7 +31,7 @@ export interface FireOption {
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
-export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire";
+export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {

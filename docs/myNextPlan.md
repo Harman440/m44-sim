@@ -6,6 +6,7 @@
 
 - Improve badges for elite units
 
+- How are hexes coded?
 - improve hill hexes
 
 - improve sandbags and bared wire

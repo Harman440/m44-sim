@@ -106,6 +106,8 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
         return <CloseAssaultIcon />;
       case "wire":
         return <BarbedWireIcon size={34} />;
+      case "fromTown":
+        return <GameIcon name="town" size={26} />;
       default:
         // A step with no kind
         return (

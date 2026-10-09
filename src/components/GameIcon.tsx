@@ -26,6 +26,7 @@ import battleTank from "../assets/icons/battle-tank.svg";
 import mortar from "../assets/icons/mortar.svg";
 import tankTread from "../assets/icons/tank-tread.svg";
 import village from "../assets/icons/village.svg";
+import openBook from "../assets/icons/open-book.svg";
 import type { DeckReason } from "../game-core/combatCard";
 
 const ICONS = {
@@ -59,6 +60,8 @@ const ICONS = {
   artillery: mortar,
   enemyTanks: tankTread,
   town: village,
+  /** The rule book */
+  ruleBook: openBook,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;

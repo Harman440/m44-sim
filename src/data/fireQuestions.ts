@@ -232,9 +232,24 @@ const wireSteps = ({ unitType, fromWire }: FireContext): DiceStep[] =>
     ? [{ label: { es: "Desde una alambrada", en: "From barbed wire" }, dice: WIRE_FIRE_DICE[unitType], kind: "wire" }]
     : [];
 
-/** Extra dice that don't need a question: the command card's bonuses, and barbed wire under the firing unit */
+/**
+ * Dice lost by a unit firing from a town hex, by its type (official rule: armour
+ * in a town rolls 2 dice fewer, at any range)
+ */
+export const FROM_TOWN_FIRE_DICE: Record<UnitType, number> = {
+  [UnitType.INFANTRY]: 0,
+  [UnitType.TANK]: -2,
+  [UnitType.ARTILLERY]: 0,
+};
+
+const fromTownSteps = ({ unitType, fromTerrain }: FireContext): DiceStep[] =>
+  fromTerrain === HexType.TOWN && FROM_TOWN_FIRE_DICE[unitType] !== 0
+    ? [{ label: { es: "Desde un pueblo", en: "From a town" }, dice: FROM_TOWN_FIRE_DICE[unitType], kind: "fromTown" }]
+    : [];
+
+/** Extra dice that don't need a question: the command card's bonuses, and the firing unit's own hex (barbed wire, a town) */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
-  answers.distance ? [...cardSteps(context, answers.distance === "1"), ...wireSteps(context)] : [];
+  answers.distance ? [...cardSteps(context, answers.distance === "1"), ...wireSteps(context), ...fromTownSteps(context)] : [];
 
 /**
  * A collision in the movement phase (two units cross or land on the same hex):

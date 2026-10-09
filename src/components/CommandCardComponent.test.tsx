@@ -77,7 +77,8 @@ describe("CommandCardComponent", () => {
     expect(painting("infantry-assault-1")).toContain("infantry-assault");
     expect(painting("firefight-1")).toContain("firefight");
     expect(painting("finest-hour-1")).toContain("finest-hour");
-    expect(painting("preparations-1")).toContain("british-generals");
+    expect(painting("preparations-1")).toContain("preparations");
+    expect(painting("a-new-tactic-1")).toContain("british-generals");
   });
 
   it("falls back to the description on a tactic card with no summary", () => {

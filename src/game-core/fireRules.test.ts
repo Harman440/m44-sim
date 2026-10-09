@@ -153,6 +153,21 @@ describe("fire questions (house rules)", () => {
     expect(calculateFireDice(FIRE_QUESTIONS, fromHill, { ...answers, sandbags: "yes" }, fireBonusSteps).dice).toBe(2);
   });
 
+  it("takes 2 dice from armour firing out of a town, at any range (official rule), but not from infantry or artillery", () => {
+    const fromTown = (unitType: UnitType) => ({ ...context(unitType), fromTerrain: HexType.TOWN });
+    const near = { distance: "1", targetTerrain: "plains", sandbags: "no" };
+    const far = { distance: "3", targetTerrain: "plains", sandbags: "no" };
+
+    const { dice, steps } = calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.TANK), near, fireBonusSteps);
+    expect(dice).toBe(1);
+    expect(steps).toContainEqual({ label: { es: "Desde un pueblo", en: "From a town" }, dice: -2, kind: "fromTown" });
+    expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.TANK), far, fireBonusSteps).dice).toBe(1);
+    // …on top of the target's cover
+    expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.TANK), { ...near, targetTerrain: "forest" }, fireBonusSteps).dice).toBe(0);
+    expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.INFANTRY), near, fireBonusSteps).dice).toBe(3);
+    expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.ARTILLERY), near, fireBonusSteps).dice).toBe(3);
+  });
+
   it("adds the command card's close assault or ranged bonus", () => {
     const card = new CommandCard({
       name: same("Test"),

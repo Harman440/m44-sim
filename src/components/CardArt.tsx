@@ -21,6 +21,7 @@ import firefightArt from "../assets/cards/firefight.webp";
 import hqArt from "../assets/cards/hq.webp";
 import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
 import moveOutArt from "../assets/cards/move-out.webp";
+import preparationsArt from "../assets/cards/preparations.webp";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -470,6 +471,7 @@ const TACTIC_PAINTINGS: Record<string, string> = {
   "infantry-assault": infantryAssaultArt,
   "direct-from-hq": hqArt,
   "move-out": moveOutArt,
+  preparations: preparationsArt,
 };
 
 /**

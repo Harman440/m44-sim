@@ -22,6 +22,7 @@ const TEXT = defineMessages({
   es: {
     title: "Memoir '44 Simultáneo",
     settings: "Ajustes",
+    ruleBook: "Reglamento",
     scenarios: "Escenarios",
     pickScenario: "Elige escenario:",
     testRules: "Reglas de prueba",
@@ -50,6 +51,7 @@ const TEXT = defineMessages({
   en: {
     title: "Memoir '44 Simultaneous",
     settings: "Settings",
+    ruleBook: "Rule book",
     scenarios: "Scenarios",
     pickScenario: "Pick a scenario:",
     testRules: "Test rules",
@@ -85,6 +87,7 @@ interface MenuProps {
 }
 
 const ScenarioPreview = lazy(() => import("./ScenarioPreview"));
+const RuleBookDialog = lazy(() => import("../RuleBookDialog"));
 
 /** Start screen: pick a scenario, then which side this device plays */
 function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
@@ -98,6 +101,7 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
   const [testMode, setTestMode] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [ruleBookOpen, setRuleBookOpen] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
   const sideBySide = useMediaQuery((theme) => theme.breakpoints.up("md"));
   const t = useMessages(TEXT);
@@ -118,11 +122,14 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
 
   return (
     <Stack spacing={3} sx={{ width: "100%", maxWidth: 1100, py: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, borderBottom: "3px double", borderColor: "divider", pb: 1.5 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, borderBottom: "3px double", borderColor: "divider", pb: 1.5 }}>
         <Typography variant="h3" component="h1" sx={{ flexGrow: 1 }}>
           {t.title}
         </Typography>
-        <Button variant="outlined" startIcon={<GameIcon name="settings" />} onClick={() => setSettingsOpen(true)}>
+        <Button variant="outlined" startIcon={<GameIcon name="ruleBook" />} onClick={() => setRuleBookOpen(true)} sx={{ whiteSpace: "nowrap" }}>
+          {t.ruleBook}
+        </Button>
+        <Button variant="outlined" startIcon={<GameIcon name="settings" />} onClick={() => setSettingsOpen(true)} sx={{ whiteSpace: "nowrap" }}>
           {t.settings}
         </Button>
       </Box>
@@ -223,6 +230,12 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           </Typography>
         )}
       </Box>
+
+      {ruleBookOpen && (
+        <Suspense fallback={null}>
+          <RuleBookDialog open onClose={() => setRuleBookOpen(false)} />
+        </Suspense>
+      )}
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <Typography variant="h6" component="h3" sx={{ mt: 3, mb: 0.5 }}>

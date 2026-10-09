@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Box,
   Button,
@@ -40,6 +40,8 @@ import CoinsDialog from "../CoinsDialog";
 import DeckVisualizerDialog from "../DeckVisualizerDialog";
 import "./GameView.css";
 
+const RuleBookDialog = lazy(() => import("../RuleBookDialog"));
+
 export interface GameViewProps {
   /** Owns all game rules; React re-renders when it publishes a new snapshot */
   session: GameSession;
@@ -61,6 +63,7 @@ const TEXT = defineMessages({
     menu: "Menú",
     deck: "Ver mazo",
     history: "Historial",
+    ruleBook: "Reglamento",
     settings: "Ajustes",
     exitToMenu: "Salir al menú",
     resumed: (n: number) => `Partida recuperada · Turno ${n}`,
@@ -80,6 +83,7 @@ const TEXT = defineMessages({
     menu: "Menu",
     deck: "See deck",
     history: "History",
+    ruleBook: "Rule book",
     settings: "Settings",
     exitToMenu: "Exit to menu",
     resumed: (n: number) => `Game resumed · Turn ${n}`,
@@ -109,6 +113,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [coinsOpen, setCoinsOpen] = useState(false);
   const [deckOpen, setDeckOpen] = useState(false);
+  const [ruleBookOpen, setRuleBookOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -236,6 +241,18 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);
+                setRuleBookOpen(true);
+              }}
+              sx={{ minHeight: 48 }}
+            >
+              <ListItemIcon sx={{ color: "inherit" }}>
+                <GameIcon name="ruleBook" />
+              </ListItemIcon>
+              <ListItemText>{t.ruleBook}</ListItemText>
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchor(null);
                 setSettingsOpen(true);
               }}
               sx={{ minHeight: 48 }}
@@ -334,6 +351,11 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           combatCards={session.combatCards}
         />
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
+        {ruleBookOpen && (
+          <Suspense fallback={null}>
+            <RuleBookDialog open onClose={() => setRuleBookOpen(false)} />
+          </Suspense>
+        )}
 
         <Dialog open={confirmingExit} onClose={() => setConfirmingExit(false)}>
           <DialogTitle>{t.confirmExitTitle}</DialogTitle>

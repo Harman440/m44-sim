@@ -1,9 +1,9 @@
-// Make a card painting for the app from a large original PNG (kept in /images, outside git):
-// a small WebP in src/assets/cards/, named after the PNG in lower case.
-// A PNG with no alpha channel is taken to have a transparent background drawn as the
+// Make a card painting for the app from a large original PNG or JPEG (kept in /images, outside git):
+// a small WebP in src/assets/cards/, named after the original in lower case.
+// An image with no alpha channel (a JPEG never has one) is taken to have a transparent background drawn as the
 // grey-and-white checkerboard: light neutral greys reached from the edges, and larger
 // enclosed patches with both checker tones (between an arm and a body), become see-through.
-// Usage: npm run card-art -- <file.png> [maxWidth]
+// Usage: npm run card-art -- <file.png|file.jpg> [maxWidth]
 // Example: npm run card-art -- images/infantry-assault.png 480
 import sharp from "sharp";
 import { statSync } from "node:fs";
@@ -11,7 +11,7 @@ import { basename } from "node:path";
 
 const [file, maxWidthArg] = process.argv.slice(2);
 if (!file) {
-  console.error("Usage: npm run card-art -- <file.png> [maxWidth]");
+  console.error("Usage: npm run card-art -- <file.png|file.jpg> [maxWidth]");
   process.exit(1);
 }
 
@@ -62,7 +62,7 @@ function checkerboard(data, w, h) {
   return bg;
 }
 
-/** The PNG with its checkerboard see-through, and the pixels along the cut half see-through to soften it */
+/** The image with its checkerboard see-through, and the pixels along the cut half see-through to soften it */
 async function cutOut(input) {
   const { data, info } = await sharp(input).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
@@ -90,7 +90,7 @@ async function cutOut(input) {
 const { width, height, hasAlpha } = await sharp(file).metadata();
 // About 3 times its size on the largest card (220px): landscape art fills the card's width, portrait art less
 const maxWidth = maxWidthArg ? Number(maxWidthArg) : width > height ? 640 : 480;
-const out = `src/assets/cards/${basename(file).replace(/\.png$/i, "").toLowerCase()}.webp`;
+const out = `src/assets/cards/${basename(file).replace(/\.(png|jpe?g)$/i, "").toLowerCase()}.webp`;
 const image = hasAlpha ? sharp(file) : await cutOut(file);
 
 await image
