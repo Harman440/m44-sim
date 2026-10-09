@@ -25,6 +25,8 @@ import preparationsArt from "../assets/cards/preparations.webp";
 import rattenkriegArt from "../assets/cards/rattenkrieg.webp";
 import noRespiteArt from "../assets/cards/no-respite.webp";
 import armourForwardArt from "../assets/cards/armour-forward.webp";
+import medicArt from "../assets/cards/medic.webp";
+import mechanicArt from "../assets/cards/mechanic.webp";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -850,6 +852,8 @@ const COMBAT_PAINTINGS: Record<string, string> = {
   rattenkrieg: rattenkriegArt,
   "no-respite": noRespiteArt,
   "armor-forward": armourForwardArt,
+  medic: medicArt,
+  mechanic: mechanicArt,
 };
 
 export function CombatCardArt({ card, faction }: { card: CombatCard; faction: Faction }) {

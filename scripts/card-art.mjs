@@ -16,6 +16,8 @@ if (!file) {
 }
 
 const MIN_HOLE = 150;
+/** The width of the image's outer frame, where compression noise is cleared with the checkerboard */
+const FRAME = 2;
 
 /** The lightest a checker pixel can be: below the darker checker tone, for the JPEG noise round it */
 let checkerFloor = 218;
@@ -58,12 +60,18 @@ function checkerboard(data, w, h) {
     const x = i % w, y = (i / w) | 0;
     return [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1].filter((n) => n >= 0);
   };
+  // The outermost pixels of a JPEG can come out darker than the checkerboard: any light grey there goes too
+  const onFrame = (i) => {
+    const x = i % w, y = (i / w) | 0;
+    return x < FRAME || y < FRAME || x >= w - FRAME || y >= h - FRAME;
+  };
+  const isLightGrey = (i) => isNeutral(data, i) && Math.min(data[i * 3], data[i * 3 + 1], data[i * 3 + 2]) >= 190;
   const stack = [];
   for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
   for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
   while (stack.length) {
     const i = stack.pop();
-    if (bg[i] || !isChecker(data, i)) continue;
+    if (bg[i] || !(isChecker(data, i) || (onFrame(i) && isLightGrey(i)))) continue;
     bg[i] = 1;
     stack.push(...neighbours(i));
   }

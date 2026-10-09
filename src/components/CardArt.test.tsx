@@ -27,8 +27,8 @@ describe("CombatCardArt", () => {
     expect(container.querySelector(".combat-art__rules .card-art__rule")).not.toBeNull();
 
     // A card without a painting keeps its board
-    const medic = allCombatCards().find((card) => card.templateId === "medic")!;
-    const board = render(<CombatCardArt card={medic} faction="Allies" />).container;
+    const tactician = allCombatCards().find((card) => card.templateId === "tactician")!;
+    const board = render(<CombatCardArt card={tactician} faction="Allies" />).container;
     expect(board.querySelector(".combat-art__painting")).toBeNull();
     expect(board.querySelector(".card-art__hex")).not.toBeNull();
   });
