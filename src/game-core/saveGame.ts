@@ -68,11 +68,13 @@ export interface SavedGame {
     boosted: boolean;
     closeAssaultOnly: boolean;
     lostSandbags: Position[];
+    /** Left out when false, and in saves from before tanks cleared wire */
+    clearedWire?: boolean;
   }[];
   unmovedFireSkipped: boolean;
   battleEdits: ((
     | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
-    | { kind: "move"; from: Position; to: Position; sandbags?: Position[] }
+    | { kind: "move"; from: Position; to: Position; sandbags?: Position[]; clearedWire?: boolean }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
     | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
@@ -229,6 +231,7 @@ export function writeSave(
       boosted: order.boosted,
       closeAssaultOnly: order.closeAssaultOnly,
       lostSandbags: order.lostSandbags,
+      ...(order.clearedWire && { clearedWire: true }),
     })),
     battleEdits: state.battleEdits.map((edit): SavedGame["battleEdits"][number] => {
       if (edit.kind === "move" || edit.kind === "wire" || edit.kind === "sandbags") return edit;
@@ -365,6 +368,7 @@ export function readSave(
         boosted: order.boosted,
         closeAssaultOnly: order.closeAssaultOnly,
         lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
+        clearedWire: order.clearedWire === true,
       })
   );
 

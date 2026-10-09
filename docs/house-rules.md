@@ -8,12 +8,8 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 - ~~When firing against artillery in close assault supplies count as a hit.~~ Changed (custom dice): the tank symbol hits armour and artillery alike, so a shot only asks whether the target is infantry, and a supply never hits.
 - When using the card Dig-in 4 units can move 1 hex and place a sandbag.
 - Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a probe card was used, you pick two cards up and choose between them instead (there are no recon cards in the smaller deck).
-- When an infantry unit is left with one figure its fire power is max 2 dice after applying any dice modifications.
 - Cards that have 'on the move' in standard map have 1 less on the move unit.
 - *Experimental (a switch in the app's "Ajustes"):* when an artillery unit is destroyed, its crew stays on the hex as an infantry unit.
-
-## Official rules the app doesn't apply
-- **Not implemented:** armour that enters barbed wire removes it and can still fire (official). The app leaves the wire on the map: the tank fires as usual, and the wire is taken off the table and off the map with "Actualizar mapa". The rule book shows it flagged as not implemented.
 
 ## Changed units
 Some units have new rules (some rules are still the same):

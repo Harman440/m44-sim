@@ -14,7 +14,7 @@ const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
 
 // The infantry moves (and can't fire after moving 2 hexes); the tank holds and fires
-const makeMovementSession = () => {
+const makeMovementSession = ({ wire, tankTo = TANK }: { wire?: Position[]; tankTo?: Position } = {}) => {
   const session = new GameSession({
     scenario: {
       id: "test",
@@ -24,6 +24,7 @@ const makeMovementSession = () => {
       attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
+      wire,
     },
     faction: "Allies",
     initialHandSize: 2,
@@ -34,7 +35,7 @@ const makeMovementSession = () => {
   });
   session.pickCard(session.getSnapshot().hand.find((card) => card.id === "left")!);
   session.issueOrder(INFANTRY, { row: 5, col: 1 });
-  session.issueOrder(TANK, TANK);
+  session.issueOrder(TANK, tankTo);
   session.commitOrders();
   return session;
 };
@@ -72,6 +73,14 @@ describe("MovementView", () => {
     expect(screen.getByText(/Enseña esta pantalla al rival/)).toBeInTheDocument();
     expect(screen.getByText(/Mueve en la mesa las unidades con flecha/)).toBeInTheDocument();
     expect(screen.getByText(/Pon un marcador de batalla en\s+la unidad que dispara\./)).toBeInTheDocument();
+  });
+
+  it("reminds the player, in sight, to take off the table the barbed wire a tank entered", () => {
+    expect(render(<Harness session={makeMovementSession()} />).queryByTestId("cleared-wire")).toBeNull();
+
+    const WIRE: Position = { row: 7, col: 4 };
+    render(<Harness session={makeMovementSession({ wire: [WIRE], tankTo: WIRE })} />);
+    expect(screen.getByTestId("cleared-wire")).toHaveTextContent("Tu tanque quita la alambrada en la que entra: quítala de la mesa.");
   });
 
   it("shows the cards played in the orders phase above the instructions", () => {

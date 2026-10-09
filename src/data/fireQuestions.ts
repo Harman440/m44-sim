@@ -215,14 +215,17 @@ const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): Dice
 
 /**
  * Dice lost by a unit firing from a hex with barbed wire, by its type. Infantry
- * can remove the wire instead of firing (GameSession.removeWire); armour and
- * artillery fire as usual.
+ * can remove the wire instead of firing (GameSession.removeWire); armour removes
+ * it as it enters (WIRE_CLEARING_UNIT_TYPES) and artillery fires as usual.
  */
 export const WIRE_FIRE_DICE: Record<UnitType, number> = {
   [UnitType.INFANTRY]: -1,
   [UnitType.TANK]: 0,
   [UnitType.ARTILLERY]: 0,
 };
+
+/** Units that remove barbed wire as they enter it, and can still fire (official rule: armour) */
+export const WIRE_CLEARING_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
 
 /** The unit types asked whether to remove the wire they stand on or fire with fewer dice */
 export const wireChoiceFor = (unitType: UnitType) => WIRE_FIRE_DICE[unitType] !== 0;

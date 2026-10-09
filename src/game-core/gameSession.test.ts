@@ -2790,15 +2790,59 @@ describe("GameSession barbed wire", () => {
     expect(session.shotsLeft(index)).toBe(1);
   });
 
-  it("isn't removed by armour", () => {
+  it("is removed by armour that enters it (official rule), and put back when the order is undone", () => {
     const session = wireSession();
     pick(session, "tank");
     expect(session.issueOrder(TANK, WIRE)).toBe(true);
+    expect(hasWire(session, WIRE)).toBe(false);
+    expect(session.getSnapshot().orders[0]!.clearedWire).toBe(true);
+
+    expect(session.undoLastOrder()).toBe(true);
+    expect(hasWire(session, WIRE)).toBe(true);
+
+    // Kept in the save, so undoing after a reload puts it back too
+    session.issueOrder(TANK, WIRE);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), { ...scenario, wire: [LEFT_INF, WIRE] }, cards());
+    expect(hasWire(restored, WIRE)).toBe(false);
+    expect(restored.undoLastOrder()).toBe(true);
+    expect(hasWire(restored, WIRE)).toBe(true);
+
+    // The tank stands on no wire in the battle, so there's nothing to remove or lose a die to
     expect(session.commitOrders()).toBe(true);
     session.startBattle();
-
     expect(session.getSnapshot().canRemoveWire).toEqual([false]);
     expect(session.removeWire(0)).toBe(false);
+  });
+
+  it("is left by infantry that enters it", () => {
+    const session = wireSession();
+    pick(session, "left");
+    const infantry = session.getSnapshot().orderable.find((p) => !samePosition(p, LEFT_INF))!;
+    const free = (p: Position) => {
+      const hex = session.board.getHex(p);
+      return !!hex && hex.canEnter() && !hex.hasUnit();
+    };
+    const onto = session.board.getHex(infantry)!.getNeighbors().find(free)!;
+    session.board.getHex(onto)!.setWire(true);
+
+    expect(session.issueOrder(infantry, onto)).toBe(true);
+    expect(hasWire(session, onto)).toBe(true);
+    expect(session.getSnapshot().orders[0]!.clearedWire).toBe(false);
+  });
+
+  it("is removed by armour that takes ground onto it, and put back when that's taken back", () => {
+    const FOREST: Position = { row: 4, col: 7 };
+    const commandCards = cards();
+    // Dice always show infantry: a hit on the infantry in the forest
+    const session = new GameSession({ scenario: { ...scenario, wire: [FOREST] }, faction: "Allies", initialHandSize: 4, commandCards, random: () => 0 });
+    session.pickCard(commandCards.find((c) => c.id === "tank")!);
+    orderAllAndFight(session);
+    session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
+
+    expect(session.takeGround(0)).toBe(true);
+    expect(hasWire(session, FOREST)).toBe(false);
+    expect(session.undoTakeGround(0)).toBe(true);
+    expect(hasWire(session, FOREST)).toBe(true);
   });
 
   it("can be taken off the map in the final phase, and put back with Deshacer", () => {

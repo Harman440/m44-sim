@@ -20,6 +20,7 @@ import {
   fireBonusSteps,
   targetAnswer,
   wireChoiceFor,
+  WIRE_CLEARING_UNIT_TYPES,
 } from "../data/fireQuestions";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
@@ -274,8 +275,8 @@ export type BattleEdit = (
    * `sandbags`: the unit's sandbags went with it (a crew left behind keeps them)
    */
   | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit; sandbags?: boolean }
-  /** `sandbags`: hexes whose sandbags went with the move (the unit left them) */
-  | { kind: "move"; from: Position; to: Position; sandbags?: Position[] }
+  /** `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to` */
+  | { kind: "move"; from: Position; to: Position; sandbags?: Position[]; clearedWire?: boolean }
   /** A unit that arrived: the Reinforcements card */
   | { kind: "add"; position: Position; unit: Unit }
   /** Barbed wire removed at the table (by the other side, or missed here) */
@@ -647,7 +648,8 @@ class GameSession {
       if (!path) return false;
       const lostSandbags = this.moveUnit(from, to);
       if (!lostSandbags) return false;
-      order = new Order({ ...props, path, shots: canFire ? 1 : 0, lostSandbags });
+      const clearedWire = this.clearWire(unit, to);
+      order = new Order({ ...props, path, shots: canFire ? 1 : 0, lostSandbags, clearedWire });
     }
 
     this.orders = [...this.orders, order];
@@ -668,6 +670,7 @@ class GameSession {
     if (!samePosition(lastOrder.start, lastOrder.end)) {
       this.board.moveUnit(lastOrder.end, lastOrder.start);
       this.restoreSandbags(lastOrder.lostSandbags);
+      if (lastOrder.clearedWire) this.board.getHex(lastOrder.end)?.setWire(true);
       // Back on (or next to) a hex marked meanwhile: those marks, and the ones after them, are erased
       const rule = this.markerRule();
       const broken = rule ? firstConflictingMark(rule, this.board, this.markers, lastOrder.start) : -1;
@@ -911,7 +914,11 @@ class GameSession {
     const to = last.targetPosition!;
     const sandbags = this.moveUnit(from, to);
     if (!sandbags) return false;
-    this.battleEdits = [...this.battleEdits, { kind: "move", from, to, ...(sandbags.length > 0 && { sandbags }) }];
+    const clearedWire = this.clearWire(this.orders[orderIndex]!.unit, to);
+    this.battleEdits = [
+      ...this.battleEdits,
+      { kind: "move", from, to, ...(sandbags.length > 0 && { sandbags }), ...(clearedWire && { clearedWire }) },
+    ];
     this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: true } : shot));
     return this.publish();
   }
@@ -928,7 +935,10 @@ class GameSession {
     );
     if (edit === -1 || !this.board.moveUnit(to, from)) return false;
     const moved = this.battleEdits[edit]!;
-    if (moved.kind === "move") this.restoreSandbags(moved.sandbags ?? []);
+    if (moved.kind === "move") {
+      this.restoreSandbags(moved.sandbags ?? []);
+      if (moved.clearedWire) this.board.getHex(to)?.setWire(true);
+    }
     this.battleEdits = this.battleEdits.filter((_, i) => i !== edit);
     this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: false } : shot));
     return this.publish();
@@ -1494,6 +1504,17 @@ class GameSession {
     return [{ ...from }];
   }
 
+  /**
+   * A tank that enters barbed wire removes it (official rule; WIRE_CLEARING_UNIT_TYPES).
+   * Returns whether it did, to put the wire back on an undo
+   */
+  private clearWire(unit: Unit, position: Position): boolean {
+    const hex = this.board.getHex(position);
+    if (!hex?.wire || !WIRE_CLEARING_UNIT_TYPES.includes(unit.getUnitType())) return false;
+    hex.setWire(false);
+    return true;
+  }
+
   private restoreSandbags(positions: readonly Position[]) {
     positions.forEach((position) => this.board.getHex(position)?.setSandbags(true));
   }
@@ -1515,6 +1536,7 @@ class GameSession {
     } else {
       this.board.moveUnit(edit.to, edit.from);
       this.restoreSandbags(edit.sandbags ?? []);
+      if (edit.clearedWire) this.board.getHex(edit.to)?.setWire(true);
     }
     this.battleEdits = this.battleEdits.slice(0, -1);
     return this.publish();

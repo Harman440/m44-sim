@@ -6,6 +6,7 @@ import { CombatCard } from "../game-core/combatCard";
 import { UnitType } from "../game-core/unit";
 import { Side } from "../types/hex";
 import { same } from "../i18n/lang";
+import { allCombatCards } from "../data/combatCards";
 
 const combat = (extra: Partial<CombatCard>): CombatCard => ({
   id: "card-1",
@@ -17,6 +18,21 @@ const combat = (extra: Partial<CombatCard>): CombatCard => ({
 });
 
 describe("CombatCardArt", () => {
+  it("draws a card with a painting in place of its board, keeping its special rules under it", () => {
+    const rattenkrieg = allCombatCards().find((card) => card.templateId === "rattenkrieg")!;
+    const { container } = render(<CombatCardArt card={rattenkrieg} faction="Allies" />);
+
+    expect(container.querySelector(".combat-art__painting")!.getAttribute("src")).toContain("rattenkrieg");
+    expect(container.querySelector(".card-art__hex")).toBeNull();
+    expect(container.querySelector(".combat-art__rules .card-art__rule")).not.toBeNull();
+
+    // A card without a painting keeps its board
+    const medic = allCombatCards().find((card) => card.templateId === "medic")!;
+    const board = render(<CombatCardArt card={medic} faction="Allies" />).container;
+    expect(board.querySelector(".combat-art__painting")).toBeNull();
+    expect(board.querySelector(".card-art__hex")).not.toBeNull();
+  });
+
   it("puts a reticle on each hex an attack card marks", () => {
     const card = combat({ marker: { kind: "target", count: 4, chain: true }, effect: { kind: "attack", dicePerHex: 1 } });
     const { container } = render(<CombatCardArt card={card} faction="Allies" />);

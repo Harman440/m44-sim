@@ -16,6 +16,7 @@ interface OrderProps {
   boosted?: boolean;
   closeAssaultOnly?: boolean;
   lostSandbags?: Position[];
+  clearedWire?: boolean;
 }
 
 /**
@@ -45,6 +46,8 @@ class Order {
   closeAssaultOnly: boolean;
   /** Hexes whose sandbags went when the unit moved (it left them), put back if the order is undone */
   lostSandbags: Position[];
+  /** A tank removed the barbed wire on the hex it moved to, put back if the order is undone */
+  clearedWire: boolean;
   constructor({
     unit,
     start,
@@ -58,6 +61,7 @@ class Order {
     boosted = false,
     closeAssaultOnly = false,
     lostSandbags = [],
+    clearedWire = false,
   }: OrderProps) {
     this.unit = unit;
     this.start = start;
@@ -71,6 +75,7 @@ class Order {
     this.boosted = boosted;
     this.closeAssaultOnly = closeAssaultOnly;
     this.lostSandbags = lostSandbags;
+    this.clearedWire = clearedWire;
   }
 
   /** Whether the unit may fire this turn after carrying out the order */

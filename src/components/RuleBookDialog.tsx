@@ -38,7 +38,6 @@ const TEXT = defineMessages({
     official: "Reglamento oficial",
     house: "En esta partida",
     newRule: "Regla nueva",
-    notImplemented: "Sin implementar en la app",
   },
   en: {
     title: "Rule book",
@@ -59,7 +58,6 @@ const TEXT = defineMessages({
     official: "Official rules",
     house: "In this game",
     newRule: "New rule",
-    notImplemented: "Not in the app yet",
   },
 });
 
@@ -79,7 +77,6 @@ const STEP_ICONS: Record<TutorialStepId, GameIconName> = {
 const GROUP_ICONS: Record<HouseRuleGroupId, GameIconName> = {
   simultaneous: "endTurn",
   dice: "dice",
-  terrain: "map",
   commandCards: "cards",
   supplies: "coins",
   optional: "settings",
@@ -185,14 +182,13 @@ function HouseRuleItem({ rule }: { rule: HouseRule }) {
     <Box
       component="article"
       aria-label={tr(rule.title)}
-      sx={{ borderLeft: 4, borderColor: rule.notImplemented ? "warning.main" : "primary.main", pl: 1.5, py: 0.5 }}
+      sx={{ borderLeft: 4, borderColor: "primary.main", pl: 1.5, py: 0.5 }}
     >
       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mb: 0.5 }}>
         <Typography variant="subtitle1" component="h4" sx={{ fontWeight: 700 }}>
           {tr(rule.title)}
         </Typography>
         {!rule.official && <Chip label={t.newRule} size="small" color="primary" variant="outlined" />}
-        {rule.notImplemented && <Chip label={t.notImplemented} size="small" color="warning" />}
       </Box>
       <Box sx={{ display: "grid", gap: { xs: 1, sm: 2 }, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" } }}>
         {rule.official && (

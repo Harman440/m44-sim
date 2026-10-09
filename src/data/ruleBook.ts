@@ -19,7 +19,7 @@ export interface TutorialStep {
   points: readonly Localized[];
 }
 
-export type HouseRuleGroupId = "simultaneous" | "dice" | "terrain" | "commandCards" | "supplies" | "optional";
+export type HouseRuleGroupId = "simultaneous" | "dice" | "commandCards" | "supplies" | "optional";
 
 /** A rule played differently from the official game */
 export interface HouseRule {
@@ -28,8 +28,6 @@ export interface HouseRule {
   official?: Localized;
   /** How it's played with the app */
   house: Localized;
-  /** An official rule the app doesn't apply (yet): it's played at the table */
-  notImplemented?: boolean;
 }
 
 export interface HouseRuleGroup {
@@ -319,8 +317,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Every result of the roll applies.",
         },
         house: {
-          es: "La unidad que dispara no puede aplicar más resultados que figuras le quedan: su jugador elige cuáles aplica («Aplicar menos resultados»). Con una carta que da dados extra, puede aplicar uno más.",
-          en: "The firing unit can't apply more results than it has figures left: its player picks which ones apply (\"Apply fewer results\"). With a card that gives extra dice, it can apply one more.",
+          es: "Se tiran todos los dados, pero la unidad que dispara solo aplica tantos resultados como figuras le quedan: su jugador elige cuáles («Aplicar menos resultados»). Con una carta que da dados extra, puede aplicar uno más.",
+          en: "All the dice are rolled, but the firing unit only applies as many results as it has figures left: its player picks which (\"Apply fewer results\"). With a card that gives extra dice, it can apply one more.",
         },
       },
       {
@@ -333,24 +331,6 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           es: "Cortina de Fuego, Poder aéreo y Bombardeo aéreo tiran un dado con una segunda granada en lugar de la estrella, y las retiradas no se pueden ignorar.",
           en: "Barrage, Air Power and Air Bombardment roll a die with a second grenade in place of the star, and retreats can't be ignored.",
         },
-      },
-    ],
-  },
-  {
-    id: "terrain",
-    title: { es: "Terreno", en: "Terrain" },
-    rules: [
-      {
-        title: { es: "Blindados en una alambrada", en: "Armor on barbed wire" },
-        official: {
-          es: "Un blindado que entra en una alambrada la quita, y puede disparar.",
-          en: "Armor that enters barbed wire removes it, and can still fire.",
-        },
-        house: {
-          es: "La app no la quita sola. El blindado dispara como siempre; quita la alambrada en la mesa y en el mapa con «Actualizar mapa» en la fase final.",
-          en: "The app doesn't remove it. The tank fires as usual; take the wire off the table, and off the map with \"Update map\" in the final phase.",
-        },
-        notImplemented: true,
       },
     ],
   },

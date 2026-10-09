@@ -6,6 +6,7 @@ import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import PlayedCards from "../../PlayedCards";
 import InfoButton from "../../InfoButton";
+import { BarbedWireIcon } from "../../BarbedWire";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
 const TEXT = defineMessages({
@@ -22,6 +23,10 @@ const TEXT = defineMessages({
     move: "Mueve en la mesa las unidades con flecha.",
     markers: (n: number) =>
       `Pon un marcador de batalla en ${n === 1 ? "la unidad que dispara" : `las ${n} unidades que disparan`}.`,
+    clearedWire: (n: number) =>
+      n === 1
+        ? "Tu tanque quita la alambrada en la que entra: quítala de la mesa."
+        : `Tus tanques quitan las ${n} alambradas en las que entran: quítalas de la mesa.`,
   },
   en: {
     title: "Movement phase",
@@ -35,6 +40,10 @@ const TEXT = defineMessages({
     ),
     move: "Move the units with an arrow on the table.",
     markers: (n: number) => `Put a battle marker on ${n === 1 ? "the unit that fires" : `the ${n} units that fire`}.`,
+    clearedWire: (n: number) =>
+      n === 1
+        ? "Your tank removes the barbed wire it enters: take it off the table."
+        : `Your tanks remove the ${n} barbed wires they enter: take them off the table.`,
   },
 });
 import "./PhaseLayout.css";
@@ -58,6 +67,7 @@ function MovementView({ faction, session, game }: MovementViewProps) {
   const labels = useLabels();
   const tr = useTr();
   const firing = game.orders.filter((order) => order.canFire).length;
+  const clearedWire = game.orders.filter((order) => order.clearedWire).length;
 
   return (
     <div className="phase-layout">
@@ -86,6 +96,13 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           section={game.chosenSection}
           combat={game.orderCombatCard}
         />
+        {clearedWire > 0 && (
+          // Something to do on the table, so it isn't tucked away in the instructions
+          <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1 }} data-testid="cleared-wire">
+            <BarbedWireIcon size={32} />
+            {t.clearedWire(clearedWire)}
+          </Typography>
+        )}
         <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
           {t.battle}
         </Button>

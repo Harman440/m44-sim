@@ -17,10 +17,39 @@ if (!file) {
 
 const MIN_HOLE = 150;
 
-const isChecker = (data, i) => {
+/** The lightest a checker pixel can be: below the darker checker tone, for the JPEG noise round it */
+let checkerFloor = 218;
+
+const isNeutral = (data, i) => {
   const r = data[i * 3], g = data[i * 3 + 1], b = data[i * 3 + 2];
-  return Math.min(r, g, b) >= 218 && Math.max(r, g, b) - Math.min(r, g, b) <= 8;
+  return Math.max(r, g, b) - Math.min(r, g, b) <= 8;
 };
+
+const isChecker = (data, i) => isNeutral(data, i) && Math.min(data[i * 3], data[i * 3 + 1], data[i * 3 + 2]) >= checkerFloor;
+
+/**
+ * The darker checker tone, read off the image's border: the darkest light neutral grey (not white)
+ * that's common there. Some originals draw it darker (about 217) than others (about 233), and
+ * some shade it unevenly (about 214 along the top, 230 elsewhere)
+ */
+function darkCheckerTone(data, w, h) {
+  const counts = new Map();
+  let total = 0;
+  const count = (x, y) => {
+    const i = y * w + x;
+    const v = data[i * 3];
+    if (isNeutral(data, i) && v >= 190 && v < 245) {
+      counts.set(v, (counts.get(v) ?? 0) + 1);
+      total++;
+    }
+  };
+  for (let d = 0; d < 6; d++) {
+    for (let x = 0; x < w; x++) count(x, d), count(x, h - 1 - d);
+    for (let y = 0; y < h; y++) count(d, y), count(w - 1 - d, y);
+  }
+  const common = [...counts].filter(([, n]) => n >= total * 0.02).map(([v]) => v);
+  return common.length > 0 ? Math.min(...common) : 255;
+}
 
 /** The checkerboard pixels: those connected to the edges, and enclosed patches with both tones */
 function checkerboard(data, w, h) {
@@ -66,6 +95,7 @@ function checkerboard(data, w, h) {
 async function cutOut(input) {
   const { data, info } = await sharp(input).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
+  checkerFloor = Math.min(checkerFloor, darkCheckerTone(data, w, h) - 10);
   const bg = checkerboard(data, w, h);
   const rgba = Buffer.alloc(w * h * 4);
   for (let i = 0; i < w * h; i++) {

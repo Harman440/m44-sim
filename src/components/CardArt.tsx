@@ -22,6 +22,9 @@ import hqArt from "../assets/cards/hq.webp";
 import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
 import moveOutArt from "../assets/cards/move-out.webp";
 import preparationsArt from "../assets/cards/preparations.webp";
+import rattenkriegArt from "../assets/cards/rattenkrieg.webp";
+import noRespiteArt from "../assets/cards/no-respite.webp";
+import armourForwardArt from "../assets/cards/armour-forward.webp";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -307,18 +310,20 @@ function CardFace({
   faction,
   children,
   defs,
+  className,
 }: {
   label?: string;
   boardHeight: number;
   rules: Glyph[][];
   faction: Faction;
-  children: ReactNode;
+  children?: ReactNode;
   defs?: ReactNode;
+  className?: string;
 }) {
   const height = boardHeight + (rules.length > 0 ? RULE_GAP + rules.length * (RULE_HEIGHT + RULE_GAP) : 0);
   return (
     <svg
-      className="card-art"
+      className={className ? `card-art ${className}` : "card-art"}
       viewBox={`0 0 ${ART_WIDTH} ${height}`}
       {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
     >
@@ -840,7 +845,27 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
 }
 
 /** A combat card's art: a piece of board with what the card does on it, and pictograms for its rules */
+/** Each combat card's painting, by the card's template id; the rest keep their piece of board */
+const COMBAT_PAINTINGS: Record<string, string> = {
+  rattenkrieg: rattenkriegArt,
+  "no-respite": noRespiteArt,
+  "armor-forward": armourForwardArt,
+};
+
 export function CombatCardArt({ card, faction }: { card: CombatCard; faction: Faction }) {
+  const painting = COMBAT_PAINTINGS[card.templateId ?? card.id.replace(/-\d+$/, "")];
+  if (painting) {
+    // The painting takes the board's place; the special rules stay under it
+    const rules = combatRules(card);
+    return (
+      <span className="combat-art">
+        <span className="combat-art__painting-frame">
+          <img className="combat-art__painting" src={painting} alt="" draggable={false} />
+        </span>
+        {rules.length > 0 && <CardFace boardHeight={0} rules={rules} faction={faction} className="combat-art__rules" />}
+      </span>
+    );
+  }
   const hexes = boardStrip(ART_WIDTH, COMBAT_ROWS, 3, COMBAT_HEX);
   return (
     <CardFace boardHeight={COMBAT_BOARD_HEIGHT} rules={combatRules(card)} faction={faction}>

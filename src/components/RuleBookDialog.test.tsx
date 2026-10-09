@@ -43,10 +43,6 @@ describe("RuleBookDialog", () => {
     const collisions = screen.getByRole("article", { name: "Choques" });
     expect(within(collisions).getByText("Regla nueva")).toBeInTheDocument();
     expect(within(collisions).queryByText("Reglamento oficial")).not.toBeInTheDocument();
-    // An official rule the app doesn't apply is flagged
-    const wire = screen.getByRole("article", { name: "Blindados en una alambrada" });
-    expect(within(wire).getByText("Sin implementar en la app")).toBeInTheDocument();
-    expect(within(tank).queryByText("Sin implementar en la app")).not.toBeInTheDocument();
     // No tutorial buttons here
     expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument();
   });

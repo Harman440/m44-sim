@@ -140,10 +140,11 @@ The two decisions from the first plan still hold:
 - [x] Compared with the official rules (Days of Wonder's 2004 rulebook and the base game's cards)
 - [x] Official rules the app didn't apply, found while comparing:
   - [x] **Decided:** armour on a town hex fires with 2 fewer dice, at any range (`FROM_TOWN_FIRE_DICE`, a "Desde un pueblo" step), as official
-  - [x] **Decided:** armour that enters barbed wire removing it (official) is not implemented; the rule book shows it flagged "Sin implementar en la app" (`HouseRule.notImplemented`), and the wire is taken off with "Actualizar mapa"
+  - [x] **Decided:** armour that enters barbed wire removes it, as official (`WIRE_CLEARING_UNIT_TYPES`, `Order.clearedWire`), when it moves there and when it takes ground there; undoing the order or the taking ground puts the wire back, and Movimiento reminds the player to take it off the table
 - [x] **Decided:** the air rules (planes on the map) won't be built; taken out of house-rules.md. The air combat cards stay
 - [x] Also: the Preparations card has its painting (`npm run card-art` takes a JPEG too)
-- [ ] **Decide:** infantry with one figure fires at most 2 dice (house-rules.md) isn't in the app or the rule book
+- [x] **Decided:** infantry with one figure firing at most 2 dice is dropped (taken out of house-rules.md). The rule in play is limited damage: all the dice are rolled, and the unit applies as many results as it has figures left
+- [x] Combat cards can have a painting in place of their piece of board (`COMBAT_PAINTINGS` in `CardArt.tsx`); everything else on the card stays. Rattenkrieg, Sin tregua and Blindados adelante so far; the cards without a painting keep their board. `npm run card-art` reads the checkerboard's darker grey off the image's border, as some originals draw it darker or unevenly
 - [ ] **Later:** the changed units (mobile artillery, Tigers, jeeps, half-tracks) go in the rule book when a scenario has them
 
 ## Part G: Carried over from the first plan (postponed)
