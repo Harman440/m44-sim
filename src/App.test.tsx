@@ -247,3 +247,20 @@ describe("App settings", () => {
     expect(screen.getByRole("button", { name: "Silenciar sonidos" })).toBeInTheDocument();
   });
 });
+
+describe("App on an old browser", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("says the browser is too old and what to do, and lets the player try anyway", () => {
+    // Safari before 16.2: no color-mix()
+    vi.stubGlobal("CSS", { supports: () => false });
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Este navegador es demasiado antiguo" })).toBeInTheDocument();
+    expect(screen.getByText(/Safari 16\.2 o posterior/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Elige escenario:" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Probar de todos modos" }));
+    expect(menuHeading()).toBeInTheDocument();
+  });
+});

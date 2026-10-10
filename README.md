@@ -36,6 +36,8 @@ Every push to `main` publishes the app to **https://harman440.github.io/m44-sim/
 
 To install it, open that address in Chrome on the tablet and use the menu → **Instalar aplicación** (or "Añadir a pantalla de inicio"), then open it once from the icon so it caches everything. From then on it runs fullscreen and works with no connection. When a new version has been published, the app shows "Nueva versión disponible" the next time it's opened online; the game in progress is kept when you update.
 
+It needs Safari 16.2 or later (iPadOS and macOS), Chrome 111, Firefox 113 or a recent Edge; an older browser gets a page saying so and what to update (`src/browserSupport.ts`). Every browser on an iPad uses Safari's engine, so there it's the iPadOS version that counts.
+
 Saved games belong to the address they were played on: a game saved on one address (Pages, `npm run tablet`, the dev server) isn't seen on another.
 
 ### Testing on the local network

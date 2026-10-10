@@ -10,6 +10,8 @@ import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/LazyGameView';
 import Menu from './components/mainComponents/Menu';
 import UpdatePrompt from './components/UpdatePrompt';
+import OldBrowser from './components/OldBrowser';
+import { isBrowserTooOld } from './browserSupport';
 import { GameSetup } from './types/faction';
 import {
   clearSavedGame,
@@ -60,6 +62,9 @@ const App = () => {
     document.title = TITLES[language];
   }, [language]);
 
+  // On a browser too old for the app, say so up front rather than break off mid-game
+  const [oldBrowser, setOldBrowser] = useState(isBrowserTooOld);
+
   const [game, setGame] = useState<CurrentGame | null>(() => {
     const session = loadSavedGame(scenarios);
     return session && { session, resumed: true, number: 0 };
@@ -105,7 +110,9 @@ const App = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <div className="app" data-look={look.id}>
-          {game ? (
+          {oldBrowser ? (
+            <OldBrowser onTryAnyway={() => setOldBrowser(false)} />
+          ) : game ? (
             <Suspense fallback={<CircularProgress aria-label={LOADING[language]} sx={{ m: 'auto' }} />}>
               <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
             </Suspense>
