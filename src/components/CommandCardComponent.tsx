@@ -4,6 +4,7 @@ import { LABELS } from "../labels";
 import type { Lang } from "../i18n/lang";
 import { defineMessages, useLang, useTr } from "../i18n/useI18n";
 import { SectionCardArt, TacticCardArt, isSectionCard } from "./CardArt";
+import { cardScaleRef } from "./cardScale";
 import "./CommandCard.css";
 
 const TEXT = defineMessages({
@@ -77,6 +78,7 @@ function CommandCardComponent({ cardData, onClick, faction = "Allies" }: Command
     const Root = onClick ? "button" : "div";
     return (
         <Root
+            ref={cardScaleRef}
             {...(onClick ? { type: "button", onClick: () => onClick(cardData), "aria-label": tr(cardData.name) } : {})}
             className={`game-card command-card command-card--${section ? "section" : "tactic"}${onClick ? "" : " command-card--static"}`}
         >

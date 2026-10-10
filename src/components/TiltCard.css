@@ -3,8 +3,9 @@
   position: relative;
   transform: perspective(700px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
   transition: transform 0.25s ease-out;
-  /* The card's own corner, scaled like its face (see CommandCard.css) */
-  border-radius: calc(var(--m44-radius) * 1.5 * tan(atan2(var(--card-width, 180px), 180px)));
+  /* The card's own corner, scaled like its face (see CommandCard.css; cardScale.ts sets it too) */
+  --card-scale: tan(atan2(var(--card-width, 180px), 180px));
+  border-radius: calc(var(--m44-radius) * 1.5 * var(--card-scale));
 }
 
 .tilt-card--active {

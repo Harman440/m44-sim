@@ -5,6 +5,7 @@ import GameIcon, { DECK_REASON_ICONS } from "./GameIcon";
 import { Faction } from "../types/faction";
 import { CombatCardArt } from "./CardArt";
 import { longestWord } from "./CommandCardComponent";
+import { cardScaleRef } from "./cardScale";
 import "./CommandCard.css";
 
 /** A name longer than this, or with a word longer than LONG_WORD, gets a smaller font */
@@ -183,6 +184,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
         onClick={() => onClick(card)}
         aria-pressed={selected}
         aria-label={t.nameAndCost(tr(card.name), card.cost)}
+        ref={cardScaleRef}
         className="game-card combat-card"
         sx={{ ...rootStyle, "&:focus-visible": { outline: "3px solid var(--m44-primary)", outlineOffset: 3 } }}
       >
@@ -191,7 +193,7 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
     );
   }
   return (
-    <Box component="article" className="game-card combat-card" sx={rootStyle} data-testid="combat-card">
+    <Box component="article" ref={cardScaleRef} className="game-card combat-card" sx={rootStyle} data-testid="combat-card">
       {faceBox}
     </Box>
   );

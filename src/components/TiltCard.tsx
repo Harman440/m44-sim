@@ -1,4 +1,5 @@
-import { ReactNode, useRef, type PointerEvent } from "react";
+import { ReactNode, useCallback, useRef, type PointerEvent } from "react";
+import { cardScaleRef } from "./cardScale";
 import "./TiltCard.css";
 
 /** How far the card leans toward the pointer, in degrees */
@@ -10,7 +11,12 @@ const MAX_TILT = 12;
  * Set straight on the element (no React state), so it follows every move.
  */
 function TiltCard({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+  // It is the card's size: its corner is scaled like the card's (cardScale.ts)
+  const attach = useCallback((el: HTMLDivElement | null) => {
+    ref.current = el;
+    return cardScaleRef(el);
+  }, []);
 
   const follow = (e: PointerEvent<HTMLDivElement>) => {
     const el = ref.current;
@@ -36,7 +42,7 @@ function TiltCard({ children }: { children: ReactNode }) {
 
   return (
     <div
-      ref={ref}
+      ref={attach}
       className="tilt-card"
       onPointerDown={follow}
       onPointerMove={follow}

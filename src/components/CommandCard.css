@@ -18,7 +18,8 @@
   flex: 0 0 auto;
   width: var(--card-width, 180px);
   aspect-ratio: 5 / 7;
-  /* --card-width / 180px as a number (tan(atan2()) divides two lengths) */
+  /* --card-width / 180px as a number (tan(atan2()) divides two lengths); cardScale.ts
+     measures the card and sets it too, for Safari before 18, which got this wrong */
   --card-scale: tan(atan2(var(--card-width, 180px), 180px));
 }
 
