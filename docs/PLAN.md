@@ -144,7 +144,7 @@ The two decisions from the first plan still hold:
 - [x] **Decided:** the air rules (planes on the map) won't be built; taken out of house-rules.md. The air combat cards stay
 - [x] Also: the Preparations card has its painting (`npm run card-art` takes a JPEG too)
 - [x] **Decided:** infantry with one figure firing at most 2 dice is dropped (taken out of house-rules.md). The rule in play is limited damage: all the dice are rolled, and the unit applies as many results as it has figures left
-- [x] Combat cards can have a painting in place of their piece of board (`COMBAT_PAINTINGS` in `CardArt.tsx`); everything else on the card stays. Rattenkrieg, Sin tregua, Blindados adelante, Médico and Mecánico so far; the cards without a painting keep their board. `npm run card-art` reads the checkerboard's darker grey off the image's border, as some originals draw it darker or unevenly, and clears the light grey JPEG noise on the image's outer 2 pixels
+- [x] Combat cards can have a painting in place of their piece of board (`COMBAT_PAINTINGS` in `CardArt.tsx`); everything else on the card stays. Rattenkrieg, Sin tregua, Blindados adelante, Médico, Mecánico, Tras las líneas enemigas and Motorizado so far; the cards without a painting keep their board. `npm run card-art` reads the checkerboard's darker grey off the image's border, as some originals draw it darker or unevenly, and clears the light grey JPEG noise on the image's outer 2 pixels; an original on a white background (its border all white) has the white faded out instead, from the edges and from larger enclosed patches
 - [ ] **Later:** the changed units (mobile artillery, Tigers, jeeps, half-tracks) go in the rule book when a scenario has them
 
 ## Part G: Carried over from the first plan (postponed)

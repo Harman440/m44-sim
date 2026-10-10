@@ -18,7 +18,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 
 ## Deploy
 Every push to `main` publishes to GitHub Pages at https://harman440.github.io/m44-sim/ (`.github/workflows/deploy.yml`: typecheck, tests, `vite build --base=/m44-sim/`). The tablet installs the app from there. Keep asset URLs relative to the base (import assets, or use `import.meta.env.BASE_URL`), never a hard-coded `/…` path, or they break under `/m44-sim/`.
-- `npm run card-art -- images/<name>.png [maxWidth]`: make a card painting, `src/assets/cards/<name>.webp`, from a large original PNG or JPEG; an image without transparency (any JPEG) has its drawn-in checkerboard background removed. The originals live in `images/` at the root, which git ignores
+- `npm run card-art -- images/<name>.png [maxWidth]`: make a card painting, `src/assets/cards/<name>.webp`, from a large original PNG or JPEG; an image without transparency (any JPEG) has its drawn-in checkerboard background removed, or its white background faded out when its border is all white. The originals live in `images/` at the root, which git ignores
 - `npm run icons`: regenerate the app icon PNGs from `public/icons/icon.svg`
 - `npm run board -- <tiles.json> <out.webp>`: build a scenario's board art from its terrain (plains, forest and town hexes cut out of the Forêt d'Écouves art; hills, hedgerows, rivers, bridges and lakes drawn as SVG by `scripts/terrain-tiles.mjs`, a river flowing through the edges it shares with the next river or bridge hexes and a lake joining its lake neighbours; on the outer ring the frame is put back over the new hexes); the terrain file in `src/data/boards/` is also what `scenarios.ts` imports
 
