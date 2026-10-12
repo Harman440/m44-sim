@@ -1,5 +1,6 @@
-import { AxialCoord, HexType, MovementRule, Side, TerrainProperties } from "../types/hex";
+import { AxialCoord, HexType, MovementRule, Side } from "../types/hex";
 import { Position } from "../types/scenario";
+import { TERRAIN, TerrainRules } from "../data/terrain";
 import { positionKey } from "./position";
 import Unit from "./unit";
 
@@ -8,9 +9,6 @@ class Hex {
   private readonly posAxial: AxialCoord;
   private readonly side: Side;
   private readonly type: HexType;
-  private readonly movementRule: MovementRule;
-  private readonly movementCost: number;
-  private readonly canMoveAndFire: boolean;
 
   private _unit: Unit | null = null;
   /** Barbed wire on the hex: removable, so it isn't part of the terrain */
@@ -18,7 +16,7 @@ class Hex {
   /** Sandbags on the hex (this side's unit's): they go when the unit leaves */
   private _sandbags = false;
 
-  constructor(position: Position, type: HexType = HexType.PLAINS, overrides?: Partial<TerrainProperties>) {
+  constructor(position: Position, type: HexType = HexType.PLAINS) {
     this.position = position;
     this.type = type;
 
@@ -27,15 +25,6 @@ class Hex {
 
     //get the side of the hex
     this.side = this._setSide(this.position);
-
-    // Get terrain properties and apply any overrides
-    const terrainProps = this._getTerrainProperties(type);
-    const finalProps = { ...terrainProps, ...overrides };
-
-    // Set readonly properties
-    this.movementRule = finalProps.movementRule;
-    this.movementCost = finalProps.movementCost;
-    this.canMoveAndFire = finalProps.canMoveAndFire;
   }
 
   private _setSide(pos: Position): Side {
@@ -53,70 +42,13 @@ class Hex {
     }
   }
 
-  private _getTerrainProperties(type: HexType): TerrainProperties {
-    switch (type) {
-      case HexType.PLAINS:
-        return {
-          movementRule: MovementRule.NORMAL,
-          canMoveAndFire: true,
-          movementCost: 1
-        };
-
-      case HexType.FOREST:
-        return {
-          movementRule: MovementRule.STOP,
-          canMoveAndFire: false,
-          movementCost: 1
-        };
-
-      case HexType.HILL:
-        return {
-          movementRule: MovementRule.NORMAL,
-          canMoveAndFire: true,
-          movementCost: 1
-        };
-
-      case HexType.TOWN:
-        return {
-          movementRule: MovementRule.STOP,
-          canMoveAndFire: false,
-          movementCost: 1
-        };
-
-      // Also: only entered from an adjacent hex, and left one hex at a time (BoardManager)
-      case HexType.HEDGEROW:
-        return {
-          movementRule: MovementRule.STOP,
-          canMoveAndFire: false,
-          movementCost: 1
-        };
-
-      // Water: no unit can enter or be placed there (a bridge plays like plains, the default)
-      case HexType.RIVER:
-      case HexType.LAKE:
-        return {
-          movementRule: MovementRule.BLOCK,
-          canMoveAndFire: false,
-          movementCost: Infinity
-        };
-
-      default:
-        return {
-          movementRule: MovementRule.NORMAL,
-          canMoveAndFire: true,
-          movementCost: 1
-        };
-    }
-  }
-
   // Getters for readonly properties
   getPosition(): Position { return this.position; }
   getPosAxial(): AxialCoord { return this.posAxial; }
   getSide(): Side { return this.side; }
   getType(): HexType { return this.type; }
-  getMovementRule(): MovementRule { return this.movementRule; }
-  getMovementCost(): number { return this.movementCost; }
-  getCanMoveAndFire(): boolean { return this.canMoveAndFire; }
+  /** What the terrain does to units moving and firing (data/terrain.ts) */
+  getTerrain(): TerrainRules { return TERRAIN[this.type]; }
 
   getKey() {
     return positionKey(this.position);
@@ -124,7 +56,7 @@ class Hex {
 
   // Game logic methods
   canEnter(unit: Unit | null = null) {
-    if (this.movementRule === MovementRule.BLOCK || this.movementCost === Infinity) {
+    if (this.getTerrain().movement === MovementRule.BLOCK) {
       return false;
     }
 
@@ -138,12 +70,12 @@ class Hex {
 
   // Check if a hex is passable
   isPassable(): boolean {
-    return this.movementRule !== MovementRule.BLOCK && this.unit === null && this.movementCost < Infinity;
+    return this.getTerrain().movement !== MovementRule.BLOCK && this.unit === null;
   }
 
   // Check if a hex allows continued movement: stop terrain and barbed wire end the move
   canContinueMovement(): boolean {
-    return this.movementRule !== MovementRule.STOP && !this._wire;
+    return this.getTerrain().movement !== MovementRule.STOP && !this._wire;
   }
 
   get unit(): Unit | null { return this._unit; }

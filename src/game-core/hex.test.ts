@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import Hex from "./hex";
 import Unit from "./unit";
-import { HexType, MovementRule, Side } from "../types/hex";
+import { HexType, Side } from "../types/hex";
 import { Position } from "../types/scenario";
 
 const WIDTH = 13;
@@ -75,26 +75,33 @@ describe("Hex sections", () => {
 
 describe("Hex terrain", () => {
   it.each([
-    [HexType.PLAINS, MovementRule.NORMAL, true],
-    [HexType.HILL, MovementRule.NORMAL, true],
-    [HexType.FOREST, MovementRule.STOP, false],
-    [HexType.TOWN, MovementRule.STOP, false],
-  ])("%s: movement rule %s, can move and fire: %s", (type, rule, canMoveAndFire) => {
+    [HexType.PLAINS, true, true],
+    [HexType.HILL, true, true],
+    [HexType.BRIDGE, true, true],
+    [HexType.FOREST, false, false],
+    [HexType.TOWN, false, false],
+    [HexType.HEDGEROW, false, false],
+  ])("%s: the move goes on: %s, can fire after moving in: %s", (type, goesOn, fireAfterMove) => {
     const hex = new Hex({ row: 0, col: 0 }, type);
 
-    expect(hex.getMovementRule()).toBe(rule);
-    expect(hex.getCanMoveAndFire()).toBe(canMoveAndFire);
-    expect(hex.canContinueMovement()).toBe(rule !== MovementRule.STOP);
-    expect(hex.getMovementCost()).toBe(1);
+    expect(hex.canEnter()).toBe(true);
+    expect(hex.canContinueMovement()).toBe(goesOn);
+    expect(hex.getTerrain().fireAfterMove).toBe(fireAfterMove);
   });
 
-  it("applies overrides on top of the terrain defaults", () => {
-    const hex = new Hex({ row: 0, col: 0 }, HexType.PLAINS, {
-      movementRule: MovementRule.BLOCK,
-    });
+  it.each([HexType.RIVER, HexType.LAKE])("%s: no unit can enter it or stand on it", (type) => {
+    const hex = new Hex({ row: 0, col: 0 }, type);
 
-    expect(hex.isPassable()).toBe(false);
     expect(hex.canEnter()).toBe(false);
+    expect(hex.isPassable()).toBe(false);
+    expect(hex.placeUnit(new Unit())).toBe(false);
+  });
+
+  it("stops a move on barbed wire, whatever the terrain", () => {
+    const hex = new Hex({ row: 0, col: 0 }, HexType.PLAINS);
+    hex.setWire(true);
+
+    expect(hex.canContinueMovement()).toBe(false);
   });
 });
 

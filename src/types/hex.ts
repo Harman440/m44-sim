@@ -13,6 +13,9 @@ export enum HexType {
   LAKE = "lake",
 }
 
+export const isHexType = (value: unknown): value is HexType =>
+  Object.values(HexType).includes(value as HexType);
+
 // Enum for movement rules
 export enum MovementRule {
   NORMAL = "normal",
@@ -26,12 +29,6 @@ export enum Side {
   CENTER = "center",
   RIGHT_CENTER = "rightcenter",
   RIGHT = "right",
-}
-
-export interface TerrainProperties {
-  movementRule: MovementRule;
-  movementCost: number;
-  canMoveAndFire: boolean;
 }
 
 // Axial coordinate representation for easier hex calculations

@@ -2,7 +2,7 @@ import Hex from "./hex";
 import Unit, { UnitType } from "./unit";
 import { Factions, Position, Scenario } from "../types/scenario";
 import { Faction, isFaction } from "../types/faction";
-import { HexType } from "../types/hex";
+import { HexType, isHexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
 import { includesPosition, positionKey } from "./position";
 
@@ -60,13 +60,13 @@ class BoardManager {
       }
     }
 
-    // Place scenario tiles (flipped for Axis)
+    // Place scenario tiles (flipped for Axis). A board file is JSON, so check its terrain names
     for (const [tileType, positions] of Object.entries(scenario.tiles)) {
+      if (!isHexType(tileType)) throw new Error(`Unknown terrain: ${tileType}`);
       positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
-          const hexType = tileType as HexType;
-          const tile = new Hex(position, hexType);
+          const tile = new Hex(position, tileType);
           this.hexes.set(tile.getKey(), tile);
         }
       });
@@ -127,10 +127,10 @@ class BoardManager {
 
   /**
    * Every hex a unit at `startHex` can reach within `maxRange`, with the
-   * cheapest path to each (Dijkstra). Stop terrain and barbed wire end movement; with
-   * `forFirePositions`, only destinations the unit can still fire from.
+   * cheapest path to each (Dijkstra; every hex costs 1). Stop terrain and barbed wire end
+   * movement; with `forFirePositions`, only destinations the unit can still fire from.
    * A hedgerow can only be entered by a unit that starts next to it, and a
-   * unit that starts on one moves 1 hex.
+   * unit that starts on one moves 1 hex (data/terrain.ts).
    * `rules` loosens terrain for combat cards (Armor Forward, House to House…).
    */
   calculatePossibleMovesWithPaths = (
@@ -139,10 +139,10 @@ class BoardManager {
     forFirePositions: boolean = false,
     rules: MoveRules = {}
   ): PathResult[] => {
-    const canFireFrom = (hex: Hex) => hex.getCanMoveAndFire() || (rules.fireInto?.includes(hex.getType()) ?? false);
+    const canFireFrom = (hex: Hex) => hex.getTerrain().fireAfterMove || (rules.fireInto?.includes(hex.getType()) ?? false);
     const startPos = startHex.getPosition();
     const hedgerowRules = !rules.ignoreTerrain;
-    if (hedgerowRules && startHex.getType() === HexType.HEDGEROW) maxRange = Math.min(maxRange, 1);
+    if (hedgerowRules && startHex.getTerrain().leaveOneHex) maxRange = Math.min(maxRange, 1);
 
     // A sorted array is plenty for a 117-hex board
     const queue: PathNode[] = [
@@ -199,12 +199,11 @@ class BoardManager {
         if (!neighborHex || !neighborHex.isPassable()) {
           continue;
         }
-        if (hedgerowRules && neighborHex.getType() === HexType.HEDGEROW && current.cost > 0) {
+        if (hedgerowRules && neighborHex.getTerrain().firstStepOnly && current.cost > 0) {
           continue;
         }
 
-        const movementCost = neighborHex.getMovementCost();
-        const newCost = current.cost + movementCost;
+        const newCost = current.cost + 1;
 
         // Skip if this path is more expensive than max range
         if (newCost > maxRange) {

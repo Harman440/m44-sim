@@ -39,6 +39,11 @@ describe("BoardManager setup", () => {
     expect(board.getHex({ row: 0, col: 12 })).not.toBeNull();
   });
 
+  it("rejects a terrain it doesn't know, rather than playing it as plains", () => {
+    const tiles = { forrest: [{ row: 0, col: 0 }] } as Scenario["tiles"];
+    expect(() => new BoardManager(makeScenario({ tiles }))).toThrow("Unknown terrain: forrest");
+  });
+
   it("places only the units of the chosen faction", () => {
     const scenario = makeScenario({
       units: {

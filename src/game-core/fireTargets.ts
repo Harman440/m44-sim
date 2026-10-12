@@ -6,7 +6,7 @@ import BoardManager from "./BoardManager";
 import { Position } from "../types/scenario";
 import { HexType } from "../types/hex";
 import { FireAnswers, FireContext, calculateFireDice } from "./fireRules";
-import { BASE_DICE_BY_DISTANCE, FIRE_QUESTIONS, SIGHT_BLOCKING_TERRAIN, fireBonusSteps } from "../data/fireQuestions";
+import { BASE_DICE_BY_DISTANCE, FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import { samePosition } from "./position";
 import { checksLineOfSight } from "./unit";
 
@@ -65,7 +65,7 @@ export function hasLineOfSight(board: BoardManager, from: Position, to: Position
     if (!hex) return false;
     if (hex.hasUnit()) return true;
     if (hillToHill && hex.getType() === HexType.HILL) return false;
-    return SIGHT_BLOCKING_TERRAIN.includes(hex.getType());
+    return hex.getTerrain().blocksSight;
   };
   // Nudged both ways, so a line along an edge picks the hex on each side of it
   const EPSILON = 1e-6;

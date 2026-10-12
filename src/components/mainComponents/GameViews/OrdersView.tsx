@@ -28,7 +28,6 @@ import { UnitType } from "../../../game-core/unit";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
-import { HexType } from "../../../types/hex";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
 import SandbagsIcon from "../../SandbagsIcon";
@@ -512,7 +511,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                   {moveOptions && (
                     <Typography variant="body1">
                       {labels.describeMovement(moveOptions.limits)}
-                      {selectedHex.getType() === HexType.HEDGEROW && moveOptions.limits.maxMove > 1 && t.hedgerowExit}
+                      {selectedHex.getTerrain().leaveOneHex && moveOptions.limits.maxMove > 1 && t.hedgerowExit}
                       .
                     </Typography>
                   )}

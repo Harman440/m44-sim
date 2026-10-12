@@ -7,7 +7,8 @@
 // the house rules.
 import { DiceStep, FireAnswers, FireContext, FireQuestion } from "../game-core/fireRules";
 import { UnitType, checksLineOfSight } from "../game-core/unit";
-import { HexType } from "../types/hex";
+import { HexType, isHexType } from "../types/hex";
+import { TERRAIN } from "./terrain";
 import { LABELS } from "../labels";
 import { Localized, byLang } from "../i18n/lang";
 
@@ -17,9 +18,6 @@ export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
   [UnitType.TANK]: [3, 3, 3],
   [UnitType.ARTILLERY]: [3, 3, 2, 2, 1, 1],
 };
-
-/** Terrain that blocks line of sight when it lies between the firing unit and its target (the ends don't count) */
-export const SIGHT_BLOCKING_TERRAIN: readonly HexType[] = [HexType.FOREST, HexType.TOWN, HexType.HILL, HexType.HEDGEROW];
 
 /**
  * Units that can take ground after a close assault that eliminates or pushes
@@ -91,14 +89,15 @@ export const targetTypeQuestion: FireQuestion = {
 };
 
 /**
- * The terrain that counts for the shot: a bridge is open ground (house rule),
- * and, official hill rule, a unit on a hill fires at a unit on another hill
- * (the same height) as if it were open ground.
+ * The terrain that counts for the shot: some terrain is fired at as another
+ * (`TerrainRules.firesAs`: a bridge is open ground), and, official hill rule, a
+ * unit on a hill fires at a unit on another hill (the same height) as if it
+ * were open ground.
  */
-export const effectiveTerrain = ({ fromTerrain }: FireContext, answer: string | undefined): TargetTerrain | undefined =>
-  answer === HexType.BRIDGE || (answer === HexType.HILL && fromTerrain === HexType.HILL)
-    ? HexType.PLAINS
-    : (answer as TargetTerrain | undefined);
+export const effectiveTerrain = ({ fromTerrain }: FireContext, answer: string | undefined): TargetTerrain | undefined => {
+  const terrain = isHexType(answer) ? (TERRAIN[answer].firesAs ?? answer) : answer;
+  return terrain === HexType.HILL && fromTerrain === HexType.HILL ? HexType.PLAINS : (terrain as TargetTerrain | undefined);
+};
 
 const targetTerrainQuestion: FireQuestion = {
   id: "targetTerrain",
