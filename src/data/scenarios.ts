@@ -3,8 +3,9 @@
 import { Scenario, Tiles } from "../types/scenario";
 import { DieFace } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
-import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
 // Board art made with `npm run board` from the same terrain file
+import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
+import foretDEcouvesTiles from "./boards/foret-decouves.json";
 import arracourtImage from "../assets/scenarios/Arracourt.webp";
 import arracourtTiles from "./boards/arracourt.json";
 import sainteMereEgliseImage from "../assets/scenarios/SainteMereEglise.webp";
@@ -41,25 +42,7 @@ export const scenarios: Scenario[] = [
       [DieFace.SUPPLY]: UnitType.ARTILLERY,
       [DieFace.FLAG]: null,
     },
-    "tiles": {
-      "forest": [
-        { "row": 1, "col": 3 }, { "row": 1, "col": 7 },
-        { "row": 2, "col": 3 }, { "row": 2, "col": 4 }, { "row": 2, "col": 5 }, { "row": 2, "col": 7 },
-        { "row": 3, "col": 2 }, { "row": 3, "col": 3 }, { "row": 3, "col": 6 }, { "row": 3, "col": 7 }, { "row": 3, "col": 8 },
-        { "row": 4, "col": 4 }, { "row": 4, "col": 5 }, { "row": 4, "col": 7 }, { "row": 4, "col": 8 }, { "row": 4, "col": 9 },
-        { "row": 5, "col": 2 }, { "row": 5, "col": 3 }, { "row": 5, "col": 4 }, { "row": 5, "col": 6 }, { "row": 5, "col": 7 },
-      ],
-      "town": [
-        { "row": 0, "col": 5 },
-        { "row": 1, "col": 2 },
-        { "row": 1, "col": 8 },
-        { "row": 3, "col": 1 },
-        { "row": 3, "col": 5 },
-        { "row": 3, "col": 10 },
-        { "row": 6, "col": 2 },
-        { "row": 8, "col": 6 },
-      ]
-    },
+    tiles: foretDEcouvesTiles as Tiles,
     // The German infantry dug in at Carrouges, Sées and in the forest
     sandbags: [{ row: 3, col: 1 }, { row: 3, col: 10 }, { row: 4, col: 5 }],
     // Every French infantry unit, and the German units with a badge (2 infantry, 1 tank)

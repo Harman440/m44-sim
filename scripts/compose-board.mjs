@@ -1,101 +1,110 @@
-// Build a scenario's board art from its terrain, by cutting hex tiles out of
-// the Forêt d'Écouves art and pasting them where the new terrain goes.
+// Build a scenario's board art from its terrain, on the empty Memoir '44 board.
 // Usage: npm run board -- <tiles.json> <out.webp>
 // Example: npm run board -- src/data/boards/arracourt.json src/assets/scenarios/Arracourt.webp
 // tiles.json: { "forest": [{ "row": 3, "col": 9 }], "town": [...] }, in the scenario's
-// positions; every other hex is plains. Plains, forest and town are cut out of the art;
-// hills, hedgerows, rivers, bridges and lakes are drawn by terrain-tiles.mjs (a river runs
-// through the edges it shares with the next river or bridge hexes, a lake joins the lake
-// hexes next to it). On the outer ring, the frame
-// (the medal tracks along the top and bottom) is put back over the new hexes.
+// positions; every other hex is plains, the empty board's own.
+// The art is the empty board cropped to the edges of its hex grid, which is the box the app
+// lays the image in (components/boardGeometry.ts), at the empty board's resolution. Forest and
+// town hexes are cut out of the Forêt d'Écouves painting; hills, hedgerows, rivers, bridges and
+// lakes are drawn by terrain-tiles.mjs (a river runs through the edges it shares with the next
+// river or bridge hexes, a lake joins the lake hexes next to it). The frame round the grid
+// (with the medal tracks) is put back over the new hexes.
 import sharp from "sharp";
 import { readFileSync } from "node:fs";
 import { TILES } from "./terrain-tiles.mjs";
 
-const SOURCE = "src/assets/scenarios/ForetDEcouves.webp";
-// The source's terrain (from scenarios.ts), so its forests and towns can be painted over
-const SOURCE_TILES = {
-  forest: ["1-3", "1-7", "2-3", "2-4", "2-5", "2-7", "3-2", "3-3", "3-6", "3-7", "3-8", "4-4", "4-5", "4-7", "4-8", "4-9", "5-2", "5-3", "5-4", "5-6", "5-7"],
-  town: ["0-5", "1-2", "1-8", "3-1", "3-5", "3-10", "6-2", "8-6"],
-};
-// Clean hexes to copy from. The section lines run through odd rows' columns 3 and 8,
-// and along the edges of even rows' columns 3, 4, 8 and 9: plains there are copied
-// from a hex with the line in the same place, and those hexes aren't copied elsewhere.
+const COLS = 13;
+const ROWS = 9;
+
+// The source images, and where their hex grid is: the centre of hex 0-0 and the width of a
+// hex, in pixels (found by fitting the grid to the printed hex lines)
+const EMPTY_BOARD = { file: "scripts/board-art/empty-board.webp", x0: 115.1, y0: 130.4, width: 187.35 };
+const PAINTING = { file: "scripts/board-art/foret-decouves.webp", x0: 51.2, y0: 59.5, width: 100.1 };
+// The painting's own terrain: a hex wanted with the same terrain is cut from the same place
+const PAINTING_TILES = "src/data/boards/foret-decouves.json";
+// Painting hexes never copied: Écouché's town has the scenario's medal on it
+const MARKED = new Set(["0-5"]);
+// Clean forest and town hexes of the painting, copied where the painting has other terrain
 const SAMPLES = {
-  plains: ["2-10", "4-2", "4-10", "6-5", "6-6", "7-5", "6-10", "4-11", "2-11", "7-10"],
-  sectionLine: { odd: { 3: "7-3", 8: "7-8" }, even: { 3: "6-3", 4: "6-4", 8: "6-8", 9: "6-9" } },
-  // The top and bottom rows are cut by the frame: plains there come from the same row
-  edgeRow: { 0: "0-2", 8: "8-2" },
   forest: ["2-4", "4-5", "4-8", "3-6", "5-3", "2-5"],
   town: ["1-2", "1-8", "3-1", "3-5", "3-10", "6-2"],
 };
+const DRAWN = new Set(["hill", "hedgerow", "river", "bridge", "lake"]);
 
-// The same layout as components/boardGeometry.ts, in the image's pixels: the
-// board draws the 1306×813 image into a 1169×700 box (hexSize 50), centred
-const { width: W, height: H } = await sharp(SOURCE).metadata();
-const boxWidth = 13 * 50 * Math.sqrt(3) + (50 * Math.sqrt(3)) / 2;
-const scale = 700 / H;
-const offsetX = (boxWidth - W * scale) / 2;
-const radius = 50 / scale;
-const hexWidth = (50 * Math.sqrt(3)) / scale;
-const rowSpacing = 75 / scale;
-const center = (key) => {
+const tiles = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const out = process.argv[3];
+if (!out) {
+  console.error("Usage: npm run board -- <tiles.json> <out.webp>");
+  process.exit(1);
+}
+
+// The art's grid: 13 hexes across, and 9 rows, 14 hex radii high. Odd rows are shifted right
+const emptyRadius = EMPTY_BOARD.width / Math.sqrt(3);
+const H = Math.round(14 * emptyRadius);
+const W = Math.round((H * COLS * Math.sqrt(3)) / 14);
+const hexWidth = W / COLS;
+const radius = H / 14;
+const gridCenter = ({ x0, y0, width }) => (key) => {
   const [row, col] = key.split("-").map(Number);
-  return { x: (65 - offsetX) / scale + col * hexWidth + (row % 2) * (hexWidth / 2), y: 50 / scale + row * rowSpacing };
+  return { x: x0 + col * width + (row % 2) * (width / 2), y: y0 + (row * 1.5 * width) / Math.sqrt(3) };
 };
-// Where the frame is: everything outside the hexes, plus the medal tracks, which
-// overlap the top and bottom rows
-const FRAME_BAND = 10;
-const frameMask = (() => {
-  const hexPath = (key) => {
-    const { x, y } = center(key);
-    return (
-      [...Array(6)]
-        .map((_, i) => {
-          const a = ((i * 60 - 90) * Math.PI) / 180;
-          return `${i ? "L" : "M"}${(x + radius * Math.cos(a)).toFixed(1)},${(y + radius * Math.sin(a)).toFixed(1)}`;
-        })
-        .join("") + "Z"
-    );
-  };
-  const keys = [...Array(9)].flatMap((_, row) => [...Array(13 - (row % 2))].map((_, col) => `${row}-${col}`));
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
-      `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${keys.map(hexPath).join("")}"/>` +
-      `<rect width="${W}" height="${FRAME_BAND}"/><rect y="${H - FRAME_BAND}" width="${W}" height="${FRAME_BAND}"/></svg>`
-  );
-})();
-
-// A hex cut out of the source, slightly larger so it keeps its outline
-const size = Math.ceil(radius * 2 + 6);
-const hexMask = (() => {
-  const c = size / 2;
-  const r = radius + 1.5;
-  const points = [...Array(6)]
+const center = gridCenter({ x0: hexWidth / 2, y0: radius, width: hexWidth });
+const paintingCenter = gridCenter(PAINTING);
+const hexPath = ({ x, y }, r) =>
+  [...Array(6)]
     .map((_, i) => {
-      const a = (i * Math.PI) / 3 + Math.PI / 2;
-      return `${c + r * Math.cos(a)},${c + r * Math.sin(a)}`;
+      const a = ((i * 60 + 30) * Math.PI) / 180;
+      return `${i ? "L" : "M"}${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)}`;
     })
-    .join(" ");
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><polygon points="${points}"/></svg>`);
-})();
-// The source with a transparent margin, so hexes cut by the frame can be cut out and pasted too
-const PAD = size;
-const padded = await sharp(SOURCE)
+    .join("") + "Z";
+const svg = (width, height, body) =>
+  Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`);
+
+const board = await sharp(EMPTY_BOARD.file)
+  .extract({
+    left: Math.round(EMPTY_BOARD.x0 - EMPTY_BOARD.width / 2),
+    top: Math.round(EMPTY_BOARD.y0 - emptyRadius),
+    width: Math.round(COLS * EMPTY_BOARD.width),
+    height: Math.round(14 * emptyRadius),
+  })
+  .resize(W, H, { fit: "fill" })
+  .png()
+  .toBuffer();
+
+// The frame: everything outside the hexes
+const keys = [...Array(ROWS)].flatMap((_, row) => [...Array(COLS - (row % 2))].map((_, col) => `${row}-${col}`));
+const frameMask = svg(W, H, `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${keys.map((k) => hexPath(center(k), radius)).join("")}"/>`);
+const frame = await sharp(board).ensureAlpha().composite([{ input: frameMask, blend: "dest-in" }]).png().toBuffer();
+
+// The painting with a transparent margin, so hexes cut by its edge can be cut out too
+const PAD = 100;
+const painting = await sharp(PAINTING.file)
   .ensureAlpha()
   .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: { r: 0, g: 0, b: 0, alpha: 0 } })
   .png()
   .toBuffer();
-const corner = (key) => {
-  const { x, y } = center(key);
-  return { left: Math.round(x - size / 2) + PAD, top: Math.round(y - size / 2) + PAD };
-};
-const tile = (key) => {
-  return sharp(padded)
-    .extract({ ...corner(key), width: size, height: size })
-    .composite([{ input: hexMask, blend: "dest-in" }])
+const paintingRadius = PAINTING.width / Math.sqrt(3);
+const scale = hexWidth / PAINTING.width;
+// The painting's hex `from`, slightly larger so it keeps its outline, scaled and placed on hex `to`
+const cut = async (from, to) => {
+  const { x, y } = paintingCenter(from);
+  const half = Math.ceil(paintingRadius + 3);
+  const left = Math.round(x) - half;
+  const top = Math.round(y) - half;
+  const size = Math.round(2 * half * scale);
+  // Where the hex's centre falls in the scaled cut-out
+  const inner = { x: (x - left) * scale, y: (y - top) * scale };
+  const scaled = await sharp(painting)
+    .extract({ left: left + PAD, top: top + PAD, width: 2 * half, height: 2 * half })
+    .resize(size, size)
     .png()
     .toBuffer();
+  const input = await sharp(scaled)
+    .composite([{ input: svg(size, size, `<path d="${hexPath(inner, (paintingRadius + 1.5) * scale)}"/>`), blend: "dest-in" }])
+    .png()
+    .toBuffer();
+  const target = center(to);
+  return { input, left: Math.round(target.x - inner.x) + PAD, top: Math.round(target.y - inner.y) + PAD };
 };
 
 // The hex across each edge (0 = east, then clockwise), odd rows shifted right
@@ -116,60 +125,50 @@ const riverEdges = (key) => {
   return [0, 3];
 };
 // A drawn tile, rendered at the board's hex size; seeded by the hex so every hill differs
-const drawn = (type, key) => {
+const drawn = async (type, key) => {
   const [row, col] = key.split("-").map(Number);
   const seed = row * 13 + col + 1;
-  const svg =
+  const tile =
     type === "river" || type === "bridge" ? TILES[type](...riverEdges(key), seed)
     : type === "lake" ? TILES.lake(edgesTo(key, ["lake"]), seed)
     : TILES[type](seed);
-  return sharp(Buffer.from(svg))
+  const input = await sharp(Buffer.from(tile))
     .resize(Math.round(hexWidth), Math.round(radius * 2))
     .png()
     .toBuffer();
+  const { x, y } = center(key);
+  return { input, left: Math.round(x - hexWidth / 2) + PAD, top: Math.round(y - radius) + PAD };
 };
-const DRAWN = new Set(["hill", "hedgerow", "river", "bridge", "lake"]);
 
-const tiles = JSON.parse(readFileSync(process.argv[2], "utf8"));
-const out = process.argv[3];
-if (!out) {
-  console.error("Usage: npm run board -- <tiles.json> <out.webp>");
-  process.exit(1);
-}
 const wanted = new Map();
 for (const [type, positions] of Object.entries(tiles)) {
-  if ((!SAMPLES[type] && !DRAWN.has(type)) || type === "plains") throw new Error(`No art for ${type}`);
+  if (!SAMPLES[type] && !DRAWN.has(type)) throw new Error(`No art for ${type}`);
   positions.forEach(({ row, col }) => wanted.set(`${row}-${col}`, type));
 }
-const current = new Map(Object.entries(SOURCE_TILES).flatMap(([type, keys]) => keys.map((k) => [k, type])));
+const paintingTerrain = new Map(
+  Object.entries(JSON.parse(readFileSync(PAINTING_TILES, "utf8"))).flatMap(([type, positions]) =>
+    positions.map(({ row, col }) => [`${row}-${col}`, type])
+  )
+);
 
 let n = 0;
 const pick = (list) => list[n++ % list.length];
 const layers = [];
-for (const key of new Set([...wanted.keys(), ...current.keys()])) {
-  const type = wanted.get(key) ?? "plains";
-  if ((current.get(key) ?? "plains") === type) continue;
-  const [row, col] = key.split("-").map(Number);
-  if (DRAWN.has(type)) {
-    const { x, y } = center(key);
-    layers.push({ input: await drawn(type, key), left: Math.round(x - hexWidth / 2) + PAD, top: Math.round(y - radius) + PAD });
-    continue;
-  }
-  const sample =
-    type === "plains" && SAMPLES.edgeRow[row]
-      ? SAMPLES.edgeRow[row]
-      : type === "plains" && SAMPLES.sectionLine[row % 2 ? "odd" : "even"][col]
-        ? SAMPLES.sectionLine[row % 2 ? "odd" : "even"][col]
-        : pick(SAMPLES[type]);
-  layers.push({ input: await tile(sample), ...corner(key) });
+for (const [key, type] of wanted) {
+  if (DRAWN.has(type)) layers.push(await drawn(type, key));
+  else layers.push(await cut(paintingTerrain.get(key) === type && !MARKED.has(key) ? key : pick(SAMPLES[type]), key));
 }
 
-// Pasted on the padded source, cropped back, then the frame put back on top
+// Pasted on the padded board, cropped back, then the frame put back on top
+const padded = await sharp(board)
+  .ensureAlpha()
+  .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .png()
+  .toBuffer();
 const composed = await sharp(padded).composite(layers).png().toBuffer();
-const frame = await sharp(SOURCE).ensureAlpha().composite([{ input: frameMask, blend: "dest-in" }]).png().toBuffer();
 await sharp(await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
   .composite([{ input: frame }])
   .removeAlpha()
   .webp({ quality: 85 })
   .toFile(out);
-console.log(`${out}: ${layers.length} hexes changed`);
+console.log(`${out}: ${W}×${H}, ${layers.length} terrain hexes`);
