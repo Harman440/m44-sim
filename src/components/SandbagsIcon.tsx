@@ -1,4 +1,5 @@
 import "./CardArt.css";
+import sandbagsImage from "../assets/pieces/sandbags.webp";
 
 /** A small wall of sandbags, drawn like the ones on the Fortificar card */
 function SandbagsIcon({ size = 36 }: { size?: number }) {
@@ -20,34 +21,25 @@ function SandbagsIcon({ size = 36 }: { size?: number }) {
 }
 
 /**
- * Sandbags on a hex of the SVG board: a low wall of bags curving round the
- * top of the unit token, facing the enemy (each side sees it at the top of its map) (or of the empty hex, for the enemy's), drawn over
- * the token so it shows. Sized for a 50-unit hex and scaled to `hexSize`.
+ * Sandbags on a hex of the SVG board: the sandbags piece, along the two top
+ * edges of the hex, facing the enemy (each side sees it at the top of its map),
+ * drawn over the token. Its image is the hex's box, with the piece where it sits.
  */
 export function SandbagsArt({ x, y, hexSize }: { x: number; y: number; hexSize: number }) {
-  const bags = 7;
-  const radius = 34;
+  const width = hexSize * Math.sqrt(3);
+  const height = hexSize * 2;
   return (
-    <g className="sandbags" transform={`translate(${x} ${y}) scale(${hexSize / 50})`} pointerEvents="none" data-testid="sandbags">
-      {Array.from({ length: bags }, (_, i) => {
-        // From upper left to upper right, round the top of the token
-        const angle = 205 + (130 * i) / (bags - 1);
-        const rad = (angle * Math.PI) / 180;
-        const cx = radius * Math.cos(rad);
-        const cy = radius * Math.sin(rad);
-        return (
-          <ellipse
-            key={i}
-            cx={cx.toFixed(1)}
-            cy={cy.toFixed(1)}
-            rx={8}
-            ry={5.2}
-            transform={`rotate(${(angle - 90).toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)})`}
-            className="card-art__sandbag"
-          />
-        );
-      })}
-    </g>
+    <image
+      className="sandbags"
+      href={sandbagsImage}
+      x={x - width / 2}
+      y={y - height / 2}
+      width={width}
+      height={height}
+      preserveAspectRatio="none"
+      pointerEvents="none"
+      data-testid="sandbags"
+    />
   );
 }
 

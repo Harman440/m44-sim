@@ -68,7 +68,7 @@ function Hexagon({
         d={pathData}
         className={highlight ? `hexagon__tile hexagon__tile--${highlight}` : 'hexagon__tile'}
       />
-      {hexData.wire && <BarbedWireArt x={x} y={y} hexSize={hexSize} />}
+      {hexData.wire && <BarbedWireArt x={x} y={y} hexSize={hexSize} underUnit={hexData.unit !== null} />}
       {hexData.unit && (
         <UnitComponent
           x={x}

@@ -63,5 +63,5 @@ React 19, TypeScript, Vite, MUI 9, motion, Vitest + Testing Library.
 - Textures: [ambientCG](https://ambientcg.com) (Paper002, Paper003, Fabric045), CC0.
 - Sounds: [Kenney](https://kenney.nl) Casino Audio and Impact Sounds, CC0.
 - Scenarios: Pegasus Bridge and Sainte-Mère-Église are the maps and units of the official Memoir '44 scenarios (base game, scenarios 1 and 2) by Days of Wonder, for personal use with the physical game.
-- Board art: built on Days of Wonder's Memoir '44 board art (the empty countryside board, and the forests and towns of the Forêt d'Écouves map), for personal use with the physical game.
+- Board art: built on Days of Wonder's Memoir '44 board art (the empty countryside board, the terrain tiles, and the bridge, barbed wire and sandbags pieces), for personal use with the physical game.
 - Fonts (SIL Open Font License, via Fontsource): Stardos Stencil, Special Elite, Black Ops One, Barlow Condensed, Allerta Stencil, IBM Plex Sans Condensed.

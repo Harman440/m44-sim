@@ -1,5 +1,5 @@
-// Hex tiles for terrain the Forêt d'Écouves art has no example of (hills, rivers, hedgerows),
-// drawn as SVG in the Memoir '44 board style: top-down, painted, lit from the top left.
+// Hex tiles drawn as SVG in the Memoir '44 board style (top-down, painted, lit from the top
+// left): rivers, bridges and lakes, which join their neighbours, and hedgerows.
 // Every tile is an SVG in a viewBox centred on the hex, radius R (pointy-top), clipped to the
 // hex with the board's hex line; compose-board.mjs renders them at the board's size.
 // A seed gives each hex its own rocks and bushes.
@@ -49,14 +49,6 @@ const blob = (cx, cy, r, wobble, rand, n = 14, shape = () => 1) =>
     const rr = r * shape(a) * (1 + (rand() - 0.5) * wobble);
     return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)];
   }));
-// How far the hex boundary is at angle a, relative to the inscribed circle (1 at edge midpoints)
-// Light a shape as a raised surface: its blurred alpha is the height map, lit from the top left
-const relief = (id, blur = 10, scale = 7) =>
-  `<filter id="${id}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="${blur}" result="h"/>` +
-  `<feDiffuseLighting in="h" surfaceScale="${scale}" diffuseConstant="1.25" lighting-color="#fff" result="l"><feDistantLight azimuth="225" elevation="42"/></feDiffuseLighting>` +
-  `<feComposite in="l" in2="SourceAlpha" operator="in" result="lc"/><feBlend in="SourceGraphic" in2="lc" mode="multiply"/></filter>`;
-const hexShape = (a) => { const s = ((((a * 180) / Math.PI) % 60) + 60) % 60; return 1 / Math.cos(((s - 30) * Math.PI) / 180) ** 0.55; };
-
 // Mottled ground: base colour plus two noise layers of lighter and darker patches
 const mottle = (id, seed, freq, [r, g, b], strength) =>
   `<filter id="${id}" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="3" seed="${seed}"/>` +
@@ -101,14 +93,6 @@ const bush = (x, y, r, pal, rand, shadow = 0.35) => {
   }
   return s;
 };
-const rock = (x, y, r, rand, [dark, mid, light] = ["#5f5a50", "#8f887a", "#c9c2b0"]) => {
-  const pts = [...Array(7)].map((_, i) => { const a = (i / 7) * Math.PI * 2 + rand() * 0.4; const rr = r * (0.7 + rand() * 0.4); return [x + rr * Math.cos(a), y + rr * Math.sin(a) * 0.8]; });
-  const poly = pts.map(([a, b]) => `${f(a)},${f(b)}`).join(" ");
-  const top = pts.map(([a, b]) => `${f(x + (a - x) * 0.55 - r * 0.2)},${f(y + (b - y) * 0.55 - r * 0.25)}`).join(" ");
-  return `<polygon points="${pts.map(([a, b]) => `${f(a + r * 0.3)},${f(b + r * 0.35)}`).join(" ")}" fill="#1a1a0a" opacity=".35" filter="url(#soft)"/>` +
-    `<polygon points="${poly}" fill="${mid}" stroke="${dark}" stroke-width=".9" stroke-linejoin="round"/><polygon points="${top}" fill="${light}" opacity=".8"/>`;
-};
-
 // The tile frame: clipped to the hex, with the lighter bevel of the printed terrain tiles and the board's hex line
 const frame = (body, rim = "#8f8e58", extraDefs = "") =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f(-W / 2)} -100 ${f(W)} 200" width="${f(W * 2)}" height="400">` +
@@ -117,52 +101,6 @@ const frame = (body, rim = "#8f8e58", extraDefs = "") =>
   `<polygon points="${hexPoints(R - 2.5)}" fill="none" stroke="${rim}" stroke-width="5" opacity=".75"/>` +
   `<polygon points="${hexPoints(R - 5.5)}" fill="none" stroke="#fffbe0" stroke-width="1" opacity=".22"/></g>` +
   `<polygon points="${hexPoints()}" fill="none" stroke="#6f7a48" stroke-width="2.2"/></svg>`;
-
-// ---------- HILLS ----------
-// Dense downhill strokes in the steep band round the foot of the hill: dark on the shaded
-// (bottom-right) side, light on the lit side, like the hachures on an old staff map
-const hachures = (rand, cx, cy, r, dark, light = "#f6f2b8", n = 150, from = 0.8, to = 1.0) => {
-  let s = `<g stroke-linecap="round" fill="none">`;
-  for (let i = 0; i < n; i++) {
-    const a = ((i + rand() * 0.8) / n) * Math.PI * 2, k = hexShape(a);
-    const r0 = r * k * (from + rand() * 0.05), r1 = r * k * (to - rand() * 0.06);
-    const lit = Math.cos(a - (Math.PI * 5) / 4);
-    const [c, o] = lit > 0.15 ? [light, 0.12 + lit * 0.22] : [dark, 0.3 + Math.max(0, -lit) * 0.5];
-    s += `<path d="M${f(cx + Math.cos(a) * r0)},${f(cy + Math.sin(a) * r0)}L${f(cx + Math.cos(a) * r1)},${f(cy + Math.sin(a) * r1)}" stroke="${c}" stroke-width="${f(0.9 + rand() * 0.8)}" opacity="${f(o)}"/>`;
-  }
-  return s + "</g>";
-};
-// A steep hill's slope: sharp relief on a narrow blur, so the top stays flat and only the sides are lit and shaded
-const steepRelief = (id) => relief(id, 4.5, 16);
-// A dry, rocky hill with steep sides: khaki earth, stone outcrops and scrub
-export function hill(seed = 37) {
-  const rand = rng(seed);
-  let b = ground("#8a9a4a", "#b0b566", "#6a7a32", seed, 0.03);
-  b += `<defs><radialGradient id="rmound" cx=".42" cy=".38" r=".62"><stop offset="0" stop-color="#f2e6b0"/><stop offset=".65" stop-color="#dccc8e"/><stop offset=".88" stop-color="#bfae74"/><stop offset="1" stop-color="#7d8a42"/></radialGradient>` +
-    `${mottle("rk", seed + 3, 0.06, rgb("#8c7a52"), 3)}</defs>`;
-  const m = blob(0, 0, 78, 0.14, rand, 16, hexShape);
-  b += `<defs><filter id="cast" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>`;
-  b += `<path d="${m}" fill="#23260c" opacity=".6" filter="url(#cast)" transform="translate(6 8)"/>`;
-  b += `<defs>${steepRelief("rr")}</defs><path d="${m}" fill="url(#rmound)" filter="url(#rr)"/><clipPath id="mc"><path d="${m}"/></clipPath>`;
-  b += `<g clip-path="url(#mc)"><rect x="-100" y="-100" width="200" height="200" filter="url(#rk)" opacity=".6"/></g>`;
-  b += hachures(rand, 0, 0, 78, "#4a3f22", "#fbf0c4");
-  b += grass(rand, 20, "#6d6a3a", 0.3, 65);
-  // An outcrop of three or four stones on the top, a few loose ones, and scrub round the rim
-  const stones = [];
-  const [ox, oy] = [(rand() - 0.5) * 50, (rand() - 0.5) * 44];
-  for (let i = 3 + Math.floor(rand() * 2); i > 0; i--) stones.push([ox + (rand() - 0.5) * 30, oy + (rand() - 0.5) * 22, 6.5 + rand() * 5]);
-  for (let i = 2 + Math.floor(rand() * 3); i > 0; i--) {
-    const a = rand() * Math.PI * 2, d = 20 + rand() * 30;
-    stones.push([Math.cos(a) * d, Math.sin(a) * d, 4.5 + rand() * 2.5]);
-  }
-  stones.sort((p, q) => p[1] - q[1]).forEach(([x, y, r]) => (b += rock(x, y, r, rand, ["#5a5243", "#9a9180", "#d8d0bb"])));
-  const start = rand() * Math.PI * 2;
-  for (let i = 0, n = 4 + Math.floor(rand() * 3); i < n; i++) {
-    const a = start + ((i + rand() * 0.6) / n) * Math.PI * 2, d = (50 + rand() * 8) * hexShape(a);
-    b += bush(Math.cos(a) * d, Math.sin(a) * d, 8 + rand() * 4, "scrub", rand);
-  }
-  return frame(b, "#a9a25e");
-}
 
 // ---------- RIVERS ----------
 // The river's centre line from edge `a` to edge `b`, as sample points; continuous across tiles
@@ -429,4 +367,4 @@ export function hedgerow(seed = 53) {
   b += hedgeLine([0, 1, 2, 3].map((i) => ring[(start + i) % 6]), rand, { r: 9.5, trees: 0.15 });
   return frame(b, "#7f9a45", fieldDefs(seed));
 }
-export const TILES = { hill, river, bridge, lake, hedgerow };
+export const TILES = { river, bridge, lake, hedgerow };

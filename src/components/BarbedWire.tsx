@@ -1,5 +1,6 @@
-// Barbed wire, drawn on the board over the hex art (it can be removed, so it
-// isn't part of the scenario's board image) and as a small icon in the UI.
+// Barbed wire, on the board over the hex art (it can be removed, so it isn't
+// part of the scenario's board image) and as a small icon in the UI.
+import wireImage from "../assets/pieces/wire.webp";
 
 /**
  * A concertina coil from x0 to x1 along y: a prolate cycloid, whose loops
@@ -36,12 +37,10 @@ interface CoilProps {
   /** The coil's radius; the strokes, barbs and stakes scale with it */
   radius: number;
   color?: string;
-  /** A band of trampled earth under the coil, so it reads on light ground */
-  ground?: boolean;
 }
 
 /** One coil between two stakes, with its shadow and the barbs along the wire */
-function Coil({ x0, x1, y, loops, radius, color = "#2f2d28", ground = false }: CoilProps) {
+function Coil({ x0, x1, y, loops, radius, color = "#2f2d28" }: CoilProps) {
   const d = coilPath(x0, x1, y, loops, radius);
   const k = radius / 7;
   const barbs: string[] = [];
@@ -51,9 +50,6 @@ function Coil({ x0, x1, y, loops, radius, color = "#2f2d28", ground = false }: C
   }
   return (
     <g fill="none" strokeLinejoin="round">
-      {ground && (
-        <rect x={x0 - 4} y={y - radius * 1.1} width={x1 - x0 + 8} height={radius * 2.2} rx={radius} fill="#5b4a2c" opacity={0.35} />
-      )}
       <path d={d} stroke="#000" strokeWidth={2.6 * k} opacity={0.35} transform={`translate(${1.6 * k} ${2.2 * k})`} />
       <path d={d} stroke={color} strokeWidth={2.2 * k} />
       <path d={d} stroke="#e2ddcf" strokeWidth={0.8 * k} opacity={0.85} transform={`translate(${-0.5 * k} ${-0.6 * k})`} />
@@ -64,16 +60,33 @@ function Coil({ x0, x1, y, loops, radius, color = "#2f2d28", ground = false }: C
   );
 }
 
+interface BarbedWireArtProps {
+  x: number;
+  y: number;
+  hexSize: number;
+  /** A unit stands on the wire: the piece goes lower and smaller, so it shows below the token */
+  underUnit?: boolean;
+}
+
 /**
- * Barbed wire on a hex of the SVG board: a coil along the top and one along
- * the bottom of the hex, so it still shows round a unit standing on it.
+ * Barbed wire on a hex of the SVG board: the wire piece, in the middle of an
+ * empty hex. Its image is the hex's box, with the piece where it sits on the hex.
  */
-export function BarbedWireArt({ x, y, hexSize }: { x: number; y: number; hexSize: number }) {
+export function BarbedWireArt({ x, y, hexSize, underUnit = false }: BarbedWireArtProps) {
+  const width = hexSize * Math.sqrt(3);
+  const height = hexSize * 2;
   return (
-    <g className="barbed-wire" transform={`translate(${x} ${y}) scale(${hexSize / 100})`} pointerEvents="none">
-      <Coil x0={-56} x1={56} y={-50} loops={6} radius={11} ground />
-      <Coil x0={-56} x1={56} y={50} loops={6} radius={11} ground />
-    </g>
+    <image
+      className="barbed-wire"
+      href={wireImage}
+      x={x - width / 2}
+      y={y - height / 2}
+      width={width}
+      height={height}
+      preserveAspectRatio="none"
+      transform={underUnit ? `translate(${x} ${y + hexSize * 0.72}) scale(0.5) translate(${-x} ${-y})` : undefined}
+      pointerEvents="none"
+    />
   );
 }
 
