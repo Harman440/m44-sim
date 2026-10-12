@@ -243,14 +243,21 @@ export function bridge(a, b, seed = 5) {
 // ending on a reedy shore elsewhere. Where the shore crosses a shared edge it does so at the
 // same point and square to the edge in both hexes, so the tiles join up.
 const cornerAt = (d, k = 1) => { const a = ((d * 60 + 30) * Math.PI) / 180; return [Math.cos(a) * R * k, Math.sin(a) * R * k]; };
-function lakeOutline(open, rand) {
-  const wet = (d) => open[d] && open[(d + 1) % 6]; // the corner after edge d: all three hexes are lake
+/**
+ * The outline of a shape that runs out through the open edges and stays inside the hex
+ * elsewhere, as cubic curves [start, control, control, end], clockwise: a lake's shore, or a
+ * joined hill's plateau (joined-hills.mjs). It crosses each open edge `neck` of the way from
+ * the edge's middle to its corners, square to the edge, so the shapes in two hexes meet.
+ * `wobble` adds a point at each corner between two closed edges, for a less round shape.
+ */
+export function shoreCurves(open, rand, { neck = 0.5, wobble = false } = {}) {
+  const wet = (d) => open[d] && open[(d + 1) % 6]; // the corner after edge d: all three hexes join
   const OUT = 1.35;
   const nodes = []; // [x, y, tangent direction or null]
   const cross = (d, towards, outward) => {
     const m = edgeMid(d), c = towards;
     const [nx, ny] = edgeDir(d);
-    nodes.push([m[0] + (c[0] - m[0]) * 0.5, m[1] + (c[1] - m[1]) * 0.5, outward ? [nx, ny] : [-nx, -ny]]);
+    nodes.push([m[0] + (c[0] - m[0]) * neck, m[1] + (c[1] - m[1]) * neck, outward ? [nx, ny] : [-nx, -ny]]);
   };
   for (let d = 0; d < 6; d++) {
     if (open[d]) {
@@ -263,10 +270,13 @@ function lakeOutline(open, rand) {
       nodes.push([x * r, y * r, null]);
     }
     if (wet(d)) { const c = cornerAt(d, OUT); nodes.push([c[0], c[1], null]); }
+    else if (wobble && !open[d] && !open[(d + 1) % 6]) {
+      const [x, y] = cornerAt(d, (W / 2 / R) * (0.64 + rand() * 0.1));
+      nodes.push([x, y, null]);
+    }
   }
-  // Catmull-Rom tangents, except square to the edge where the shore crosses one
+  // Catmull-Rom tangents, except square to the edge where the outline crosses one
   const n = nodes.length;
-  let path = `M${f(nodes[0][0])},${f(nodes[0][1])}`;
   const tangent = (i) => {
     const p = nodes[(i - 1 + n) % n], q = nodes[(i + 1) % n], [, , dir] = nodes[i];
     const tx = (q[0] - p[0]) / 2, ty = (q[1] - p[1]) / 2;
@@ -274,12 +284,16 @@ function lakeOutline(open, rand) {
     const len = Math.hypot(tx, ty);
     return [dir[0] * len, dir[1] * len];
   };
-  for (let i = 0; i < n; i++) {
-    const p = nodes[i], q = nodes[(i + 1) % n], tp = tangent(i), tq = tangent((i + 1) % n);
-    path += `C${f(p[0] + tp[0] / 3)},${f(p[1] + tp[1] / 3)} ${f(q[0] - tq[0] / 3)},${f(q[1] - tq[1] / 3)} ${f(q[0])},${f(q[1])}`;
-  }
-  return path + "Z";
+  return nodes.map((p, i) => {
+    const q = nodes[(i + 1) % n], tp = tangent(i), tq = tangent((i + 1) % n);
+    return [[p[0], p[1]], [p[0] + tp[0] / 3, p[1] + tp[1] / 3], [q[0] - tq[0] / 3, q[1] - tq[1] / 3], [q[0], q[1]]];
+  });
 }
+const lakeOutline = (open, rand) => {
+  const curves = shoreCurves(open, rand);
+  return `M${f(curves[0][0][0])},${f(curves[0][0][1])}` +
+    curves.map(([, a, b, c]) => `C${f(a[0])},${f(a[1])} ${f(b[0])},${f(b[1])} ${f(c[0])},${f(c[1])}`).join("") + "Z";
+};
 export function lake(open = [false, false, false, false, false, false], seed = 7) {
   const rand = rng(seed * 17 + 3);
   const water = lakeOutline(open, rand);

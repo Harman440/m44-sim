@@ -2,7 +2,8 @@
 // Usage: npm run board [-- <part of a board's name>]
 // scripts/boards.json lists every board: its terrain file (src/data/boards/*.json, which
 // scenarios.ts imports too), the image to write, and optionally `drawn`: terrain to draw in code
-// instead of painting it with the tiles ("river", which takes its bridges along, and "hedgerow").
+// instead of painting it with the tiles ("river", which takes its bridges along, and "hedgerow"),
+// and `separateHills`: each hill on its own tile instead of joined into ridges.
 //
 // The art is the empty board cropped to the edges of its hex grid, which is the box the app lays
 // the image in (components/boardGeometry.ts), at the empty board's resolution.
@@ -11,12 +12,14 @@
 // number of times. A river tile's name starts with the edges its river joins (0 = east, then
 // clockwise: 3-0.webp runs west to east), and it's turned to join the river's edges; a painted
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
+// A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
 // Drawn terrain comes from terrain-tiles.mjs: lakes always, and rivers, bridges and hedgerows when
 // the board asks. A river runs through the edges it shares with the next river or bridge hexes,
 // and a lake joins the lake hexes next to it. The frame round the grid is put back over the new hexes.
 import sharp from "sharp";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { TILES as DRAWN_TILES } from "./terrain-tiles.mjs";
+import { joinedHills } from "./joined-hills.mjs";
 
 const COLS = 13;
 const ROWS = 9;
@@ -97,6 +100,13 @@ const paintedTile = async (file, turns) => {
   const small = await sharp(img).resize(tileWidth, tileHeight).png().toBuffer();
   return sharp(small).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
 };
+// Joined hills, one maker per hill tile
+const hillMakers = new Map();
+const joinedHill = async (file, open, key, seed) => {
+  if (!hillMakers.has(file)) hillMakers.set(file, await joinedHills(file, `${ART}/textures/grass.webp`, tileWidth, tileHeight));
+  const tile = await hillMakers.get(file)(open, seed, center(key));
+  return sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
+};
 const placed = (input, key, width, height) => {
   const { x, y } = center(key);
   return { input, left: Math.round(x - width / 2) + PAD, top: Math.round(y - height / 2) + PAD };
@@ -134,7 +144,7 @@ const bridgeOver = async (key, [a, b]) => {
   return [{ ...piece, input: shadow, left: piece.left + 4, top: piece.top + 5 }, piece];
 };
 
-async function build({ terrain, image, drawn: drawnChoice = [] }) {
+async function build({ terrain, image, drawn: drawnChoice = [], separateHills = false }) {
   const tiles = JSON.parse(readFileSync(terrain, "utf8"));
   const drawn = new Set([
     ...ALWAYS_DRAWN,
@@ -191,7 +201,13 @@ async function build({ terrain, image, drawn: drawnChoice = [] }) {
     } else {
       const choices = tilesOf(type);
       const file = choices[pickFor(key, 1, choices.length)];
-      layers.push(placed(await paintedTile(file, pickFor(key, 2, 6)), key, tileWidth, tileHeight));
+      const ridge = type === "hill" && !separateHills ? edgesTo(key, ["hill"]) : [];
+      if (ridge.some(Boolean)) {
+        const [row, col] = key.split("-").map(Number);
+        layers.push(placed(await joinedHill(file, ridge, key, row * 13 + col + 1), key, tileWidth, tileHeight));
+      } else {
+        layers.push(placed(await paintedTile(file, pickFor(key, 2, 6)), key, tileWidth, tileHeight));
+      }
     }
   }
 
@@ -202,7 +218,8 @@ async function build({ terrain, image, drawn: drawnChoice = [] }) {
     .removeAlpha()
     .webp({ quality: 85 })
     .toFile(image);
-  console.log(`${image}: ${W}×${H}, ${wanted.size} terrain hexes${drawnChoice.length ? `, drawn ${drawnChoice.join(" and ")}` : ""}`);
+  const notes = [...(drawnChoice.length ? [`drawn ${drawnChoice.join(" and ")}`] : []), ...(separateHills ? ["separate hills"] : [])];
+  console.log(`${image}: ${W}×${H}, ${wanted.size} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
 }
 
 const only = process.argv[2]?.toLowerCase();
