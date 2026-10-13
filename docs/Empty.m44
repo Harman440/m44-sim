@@ -1,0 +1,33 @@
+{
+  "board": {
+    "type": "standard",
+    "face": "country",
+    "hexagons": []
+  },
+  "game_info": {
+    "front": "western",
+    "type": "hypothetical",
+    "starting": "player2",
+    "side_player1": "axis",
+    "side_player2": "allies",
+    "country_player1": "de",
+    "country_player2": "us",
+    "cards_player1": 4,
+    "cards_player2": 4,
+    "victory_player1": 4,
+    "victory_player2": 4
+  },
+  "packs": {},
+  "text": {
+    "en": {
+      "name": "New scenario",
+      "sdate": "",
+      "subtitle": "",
+      "historical": "",
+      "description": "",
+      "victory": "",
+      "rules": "",
+      "bibliography": ""
+    }
+  }
+}
