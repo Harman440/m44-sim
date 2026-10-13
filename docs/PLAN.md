@@ -110,8 +110,8 @@ The two decisions from the first plan still hold:
 - [ ] Read `.m44` files to set air superiority and air sorties from the scenario (Step 45)
 
 ### Step 45: Scenario tools
-- [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario
-- [ ] Import a scenario from a PDF or a map image. Sainte-Mère-Église was read by hand from the map image with a hex grid laid over it; **Decide:** how much of that to automate, and whether a scenario file format (e.g. the official editor's `.m44` JSON) is worth reading
+- [ ] A map editor in the app: paint terrain and place units on the board, save as a scenario. Planned in Part I (Steps 49–57)
+- [ ] Import a scenario from a PDF or a map image. Sainte-Mère-Église was read by hand from the map image with a hex grid laid over it; **Decide:** how much of that to automate, and whether a scenario file format (e.g. the official editor's `.m44` JSON, `docs/Empty.m44`) is worth reading. Once the editor exists, an import opens the map there to check and fix before saving
 
 ## Part H: Languages
 
@@ -146,6 +146,90 @@ The two decisions from the first plan still hold:
 - [x] **Decided:** infantry with one figure firing at most 2 dice is dropped (taken out of house-rules.md). The rule in play is limited damage: all the dice are rolled, and the unit applies as many results as it has figures left
 - [x] Combat cards can have a painting in place of their piece of board (`COMBAT_PAINTINGS` in `CardArt.tsx`); everything else on the card stays. Rattenkrieg, Sin tregua, Blindados adelante, Médico, Mecánico, Tras las líneas enemigas, Motorizado, Refuerzos, Fragor del combate, Bombardeo aéreo, Cortina de Fuego and Poder aéreo so far; the cards without a painting keep their board. `npm run card-art` reads the checkerboard's darker grey off the image's border, as some originals draw it darker or unevenly (or lighter, about 242: an enclosed patch counts it as the darker tone), and clears the light grey JPEG noise on the image's outer 2 pixels; an original on a white background (its border all white) has the white faded out instead, from the edges and from larger enclosed patches
 - [ ] **Later:** the changed units (mobile artillery, Tigers, jeeps, half-tracks) go in the rule book when a scenario has them
+
+## Part I: Map editor
+
+A button in the menu opens a map editor: make a map in the app (terrain, units and the scenario's settings), play it at once from "Mis mapas" on both tablets, and add the good ones to the built-in catalog so every device gets them. Claude Code makes maps of real battles, history first (Step 56), and a QR code sends a map last of all (Step 57).
+
+How it fits in today's code:
+- A scenario is already plain data (`Scenario`: `tiles`, `units`, `wire`, `sandbags`, `elite`, hands, attacker, reinforcements, air, big guns), and the decks are built from it (`commandDeckFor`, `combatDeckFor`), so a new map plays without any change to `GameSession`.
+- The terrain is seen only in the board art: the hex layer is transparent (`Hexagon`), and `HexThumbnail` and the menu thumbnail cut from the same image. That art is made offline by `npm run board` with sharp, which can't run in the browser. So a map made in the app gets its art drawn in the browser (Step 50), and a map added to the catalog gets the painted art like the official ones (Step 55).
+- Each tablet is independent, so a map made on one has to be sent to the other (Step 54).
+- Medals and objectives stay on the table (Step 42), so the editor doesn't place them; the description says what they are.
+
+Decided:
+- **Decided:** "Editor de mapas" is a button in the menu. A map made there goes into "Mis mapas" on that device, playable and shareable straight away. Into the built-in catalog (in the repo, deployed to every device) only by exporting it and running a script (Step 55).
+- **Decided:** a field per language for the name and the description.
+- **Decided:** a map made in the app is drawn with each hill on its own tile (no ridges: joining hills needs the sharp pipeline, `joined-hills.mjs`). The catalog's painted art has the ridges.
+- **Decided:** a map is never edited or deleted during a game. The editor, Borrar and Importar are only in the start menu, which shows only when no game is in progress ("Salir al menú" ends the game and forgets its save).
+- **Decided:** a map is sent as a link (Web Share) or a file (Step 54), and by QR code as the very last step (Step 57).
+
+### Step 49: A scenario file
+- [ ] `ScenarioFile`: a `Scenario` as plain JSON (no `image`), with a `version`, `board: "standard"` (13×9; room for other sizes later) and `notes` (sources and rulings, which the built-ins keep in comments)
+- [ ] `Scenario.name` becomes `Localized`, like the description (the built-ins use `same()`), shown with `tr()`. A map needs a name in at least one language; an empty field shows the other language's text
+- [ ] A JSON Schema for the file, kept in step with the type by a test. It documents the format that Claude Code writes maps in (Step 56)
+- [ ] `game-core/scenarioFile.ts`: `validateScenario` lists what's wrong as `Localized` messages: a position off the board, a hex with two terrains, a unit on a river or lake (`MovementRule.BLOCK`), two units on one hex, wire on water, sandbags or a badge where no unit starts, a side with no units, a missing hand size or face in the Reinforcements table, a paradrop or extra draws for a side that doesn't exist. `parseScenario` reads unknown JSON into a `Scenario` or throws with those messages
+- [ ] `scenarios.test.ts` checks every scenario with `validateScenario` (its checks move there), so the built-ins and the editor's maps pass the same checks
+- [ ] The catalog also reads `src/data/scenarios/*.json`, and the art with the same id in `src/assets/scenarios/`, with `import.meta.glob`; the four built-ins stay in `scenarios.ts`
+
+### Step 50: Board art in the browser
+- [ ] Share the drawn terrain (`scripts/terrain-tiles.mjs`: rivers, bridges, lakes, hedgerows as SVG, no Node imports) between the script and the app: move it to `src/boardArt/`, and `compose-board.mjs` imports it from there. Same for the seeded tile pick and turn (`pickFor`), so a hex looks the same in both
+- [ ] Ship the tile library (`scripts/board-art/tiles/`, 232 KB) and a smaller copy of the empty board (about 1200 px wide; the original is 1.4 MB) as app assets. They're WebP, so the service worker precaches them and drawing works offline
+- [ ] `boardArt/drawBoard.ts`: draws a map on a canvas in the box `boardGeometry` lays the image in: the empty board, each hex's tile (each hill on its own), the drawn terrain, the frame put back round the grid. It returns an object URL used as `Scenario.image`, so `Board`, `HexThumbnail`, `ScenarioPreview` and the menu thumbnail work unchanged
+- [ ] Redraw only the hex that changed and its neighbours (rivers and lakes join them), so painting in the editor keeps up with the taps
+- [ ] Measure on the Android tablet: the whole map drawn when it's opened, kept in memory, should take well under a second. Keep it in IndexedDB only if it's slower
+- [ ] Test: a built-in map drawn this way puts its terrain in the same hexes as its painted art
+
+### Step 51: The editor screen
+- [ ] "Editor de mapas" in the menu, beside "Ajustes" and "Reglamento": a new map (the empty board), or a copy of a built-in one to start from. Lazy-loaded (`LazyMapEditor`), like `GameView`
+- [ ] The editing in `game-core/scenarioDraft.ts` (no React, tested): `paintTerrain`, `placeUnit`, `removeUnit`, `toggleElite`, `toggleSandbags`, `toggleWire`, `clearHex`. Each returns the new draft, or `false` when it isn't allowed (a unit on water, sandbags or a badge with no unit); painting water under a unit takes the unit off. They're pure functions with no side effects, so a React reducer can call them safely in StrictMode; undo and redo walk the list of drafts
+- [ ] Laid out like the board screens (`PhaseLayout.css`): the map at full width, seen from the Allies' side, and the side column (216 px in landscape, under the map in portrait) with the tools: Terreno (plains to clear, forest, hill, town, hedgerow, river, bridge, lake, each showing its hex art), Unidades (Aliados or Eje, then infantry, tank or artillery, with the unit art), Élite, Sacos terreros, Alambrada, Borrar, and Deshacer / Rehacer
+- [ ] One tap applies the tool chosen; tapping the same thing again takes it off. Dragging to paint terrain is only a shortcut, never needed
+- [ ] Under the tools: each side's units by type, and the town hexes (Rattenkrieg is dealt above 8)
+- [ ] The draft is kept in localStorage as it's edited, so a reload or the tablet dropping the tab doesn't lose it
+- [ ] Checked at 1280×800 and 800×1280 with touch, and on desktop, in Spanish and English
+
+### Step 52: The scenario's settings
+- [ ] "Datos del escenario", a dialog from the editor: name and description (each in Español and English), attacker, command cards to start for each side, the Reinforcements table (a unit or none per die face; starting from the one the built-ins share), air sorties per side (`airPower`), big guns (`bigGuns`), and the optional rules: extra draws (`extraDraws`) and paradrop (`paradrop`)
+- [ ] Each setting explained behind an "i", as in `ScenarioDetails`
+- [ ] What's still wrong (`validateScenario`), as a list; tapping a line flashes its hex on the map. A draft saves at any time, but it can only be played when the list is empty
+- [ ] The two sides as the menu shows them (`ScenarioDetails`: role, starting cards, the combat decks built from the map)
+
+### Step 53: Mis mapas
+- [ ] `storage.ts` keeps the device's maps (`m44-sim:custom-maps`, a few KB each), failing quietly like the rest
+- [ ] A map's id is a slug of its name and a short random part (`bocage-3f9k`). It stays the same when the map is edited, sent or added to the catalog, so both tablets and the catalog know it's the same map
+- [ ] Menu: the built-in scenarios, then "Mis mapas". A map opens the same panel (preview, `ScenarioDetails`, pick a side, play) with Editar, Duplicar, Compartir and Borrar (Borrar asks for confirmation)
+- [ ] `App` passes the built-ins and the device's maps to `Menu` and to `loadSavedGame`
+- [ ] No editing during a game: Editar, Duplicar, Borrar and Importar are in the start menu only, never in the game's "Menú", and `App` doesn't open the editor while a game is in progress. So a saved game finds its map by id in Mis mapas, unchanged; if the map is gone (the browser's data cleared), the save is dropped, as today
+- [ ] Test: a game on a map made with `scenarioDraft` plays a turn, saves and restores; with a game in progress, the editor and Borrar can't be reached
+
+### Step 54: Sending a map to the other tablet
+- [ ] "Compartir": a link to the app with the map in the hash (`#map=…`: the JSON compressed with `CompressionStream` in base64url, uncompressed where the browser lacks it), sent with the Web Share API on the tablets or copied on desktop
+- [ ] Opening the link asks "¿Añadir «…» a Mis mapas?" after `parseScenario` has checked it, then clears the hash. If a map with the same id and other content is already there, it asks before replacing it. A link opened during a game waits: it's asked about once the player is back in the menu
+- [ ] "Exportar" downloads `<id>.m44map.json` (`downloadJson`), and "Importar" in Mis mapas reads one with the file picker. The iPad needs it: an app added to the home screen keeps its own storage, apart from Safari, so a link opened in Safari would land in Safari's maps (check on the iPad)
+- [ ] Test the round trip (link and file give back the same scenario); a broken link or file shows a message and changes nothing
+
+### Step 55: Adding a map to the catalog
+- [ ] `npm run add-scenario -- <file>`: checks the exported file (`parseScenario`), writes `src/data/scenarios/<id>.json`, adds its board to `scripts/boards.json` (`compose-board.mjs` reads the terrain from the scenario file), and runs `npm run board -- <id>` for the painted art, with ridges
+- [ ] Then by hand: the description in both languages, the sources and rulings in `notes`, `drawn` or `separateHills` in `boards.json` if the art needs them, and tests for any special rule. Pushing to `main` deploys it to every device
+- [ ] The script keeps the map's id, terrain and units as exported (it only adds texts and notes), so a game in progress on the device's copy goes on with the catalog's after an update
+- [ ] A map that's both in the catalog and on the device shows once, the catalog's version, and the menu offers to delete the device's copy
+- [ ] The rule book's tutorial (`ruleBook.ts`), the README and CLAUDE.md describe the editor, the scenario file and `npm run add-scenario`
+
+### Step 56: Maps made by Claude Code
+- [ ] **Decided:** for now Claude Code makes the maps, not the app (no API key or network in the app). The player asks for a battle, or for a made-up map; Claude Code writes the scenario file, the player looks at it on the tablet (Importar, Step 54), and it goes into the catalog (Step 55)
+- [ ] **Decided:** the historical background comes first: a real battle keeps its historical forces, ground and situation, even when one side is weaker. How fair a map is comes later
+- [ ] A project skill, `.claude/skills/new-scenario/`, so every session makes them the same way: the sources (the official scenario if there is one, orders of battle, maps of the ground), the ground laid on the 13×9 board and its sections, the units, elite units, wire and sandbags, hands and attacker, air and big guns (the rules the built-ins follow), the Reinforcements table, the texts in both languages, and every source and guess in `notes`
+- [ ] `Scenario.history` (optional, `Localized`): the historical background (the date, the units, what happened and how it ended), a few paragraphs in the menu's scenario panel under the description. The built-ins get theirs, and "Datos del escenario" a field per language
+- [ ] A made-up map says so in its description, and is still set in a real theatre and year
+- [ ] Checked with `parseScenario` before the player sees it (`npm run add-scenario -- --check <file>`)
+- [ ] **Later:** fairness, analysed with the player first: a score comparing the two sides (units by type, elite units, cover, starting cards, the attacker's extra turn, the combat decks, how far apart the armies start), shown in the editor. Then fair made-up maps, and perhaps the model in the app
+
+### Step 57: Sharing with a QR code (the last step)
+- [ ] "Compartir" also shows the link as a QR code, for two tablets side by side: the other tablet's camera reads it and opens the link (Step 54)
+- [ ] A small QR library with a licence that allows it, credited in the README, loaded only when the code is shown
+- [ ] The link short enough for a code a camera reads at a glance from a screen: measure it on the busiest built-in map, and write positions more compactly if it's too long
+- [ ] Check on the iPad: its camera opens links in Safari, not in the app on the home screen (Step 54). If the map lands in Safari, add "Escanear" to Mis mapas (the camera and a QR reader in the app)
 
 ## Part G: Carried over from the first plan (postponed)
 
