@@ -21,8 +21,12 @@ describe("the app's board art", () => {
     const terrainHexes = Object.values(scenario.tiles).flatMap((positions) => positions ?? []).map(positionKey);
 
     expect([...new Set(plan.map((hex) => hex.key))].sort()).toEqual([...new Set(terrainHexes)].sort());
-    // Each hill on its own
-    expect(plan.some((hex) => hex.art === "ridge")).toBe(false);
+  });
+
+  it("joins hills next to each other into ridges, as on the painted boards", () => {
+    const p = (row: number, col: number) => ({ row, col });
+
+    expect(planMapArt({ hill: [p(4, 4), p(4, 5), p(0, 0)] }).map((hex) => hex.art)).toEqual(["ridge", "ridge", "painted"]);
   });
 
   it("paints rivers when the library fits every bend, and draws them otherwise", () => {

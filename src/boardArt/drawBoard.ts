@@ -1,12 +1,14 @@
 // boardArt/drawBoard.ts
 // A board's art drawn in the browser, for a map that has no painted art (one made in the map
 // editor): the empty board, the art boardPlan.mjs plans for each terrain hex, as `npm run board`
-// does for the catalog's art but with each hill on its own and rivers painted only when the
-// library has a tile for every bend (drawn otherwise), and the board's frame put back on top.
+// does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs), but
+// with rivers painted only when the library has a tile for every bend (drawn otherwise), and the
+// board's frame put back on top.
 // It's laid out like the painted art, so its URL goes straight into Scenario.image.
 // Each hex's image is loaded or drawn once and kept, so drawing the board again after a change
 // only pastes images: the editor can redraw the whole board on every tap (about 25 ms on a
-// desktop, 100 ms with its processor slowed 4 times; the JPEG takes most of it).
+// desktop, 100 ms with its processor slowed 4 times; the JPEG takes most of it). A new ridge hex
+// takes longest to make, about 26 ms on a desktop.
 import { Tiles } from "../types/scenario";
 import { HexType } from "../types/hex";
 import {
@@ -20,9 +22,12 @@ import {
   drawnSvg,
   planBoard,
 } from "./boardPlan.mjs";
-import type { DrawnHex, HexArt } from "./boardPlan.mjs";
+import type { DrawnHex, HexArt, RidgeHex } from "./boardPlan.mjs";
+import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
+import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
+import grassUrl from "../../scripts/board-art/textures/grass.webp";
 
 // The library of painted tiles (scripts/board-art/tiles/<terrain>/<file>), by "<terrain>/<file>"
 const TILE_URLS = new Map(
@@ -42,7 +47,6 @@ for (const name of [...TILE_URLS.keys()].sort()) {
 export const planMapArt = (tiles: Tiles): HexArt[] =>
   planBoard(tiles, TILE_LIBRARY, {
     drawn: canPaintRivers(tiles, TILE_LIBRARY) ? [] : ["river"],
-    separateHills: true,
     strict: false,
   });
 
@@ -81,10 +85,56 @@ const drawnTile = (hex: DrawnHex, width: number, height: number) =>
     return tile;
   });
 
-/** The image a hex is drawn with: its painted tile, or its drawn tile at the board's size */
-const hexImage = (hex: HexArt, tileWidth: number, tileHeight: number): Promise<CanvasImageSource> | null => {
-  if (hex.art === "painted" || hex.art === "ridge") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
-  if (hex.art === "drawn") return drawnTile(hex, Math.ceil(tileWidth), Math.ceil(tileHeight));
+/** An image's pixels at a size (RGBA), or a part of them */
+const pixelsOf = (image: CanvasImageSource, width: number, height: number, crop = { left: 0, top: 0, width, height }): Pixels => {
+  const canvas = document.createElement("canvas");
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("No canvas to read the board art");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(image, -crop.left, -crop.top, width, height);
+  return { data: ctx.getImageData(0, 0, crop.width, crop.height).data, width: crop.width, height: crop.height, channels: 4 };
+};
+
+// Ridges made from a hill tile at a size, as scripts/joined-hills.mjs reads the images for the script
+const ridgeMakers = new Map<string, Promise<RidgeMaker>>();
+const ridgeMaker = (tile: string, width: number, height: number) =>
+  cached(ridgeMakers, `${tile}@${width}x${height}`, async () => {
+    const [hill, grass] = await Promise.all([loadImage(TILE_URLS.get(tile) ?? tile), loadImage(grassUrl)]);
+    const [OW, OH] = [hill.naturalWidth * 2, hill.naturalHeight * 2];
+    return joinedHillMaker(
+      {
+        tile: pixelsOf(hill, OW, OH),
+        plateau: blurPixels(pixelsOf(hill, OW, OH, plateauCrop(OW, OH)), 1.2),
+        grass: pixelsOf(grass, grass.naturalWidth * 2, grass.naturalHeight * 2),
+        fullTile: pixelsOf(hill, width, height),
+      },
+      width,
+      height,
+      1,
+    );
+  });
+
+/** A hill joined to the hills beside it, made at the board's size (the script makes it at twice), kept as a bitmap */
+const ridgeTile = (hex: RidgeHex, grid: ReturnType<typeof artGrid>) => {
+  const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
+  const key = `ridge:${hex.tile}:${hex.key}:${hex.open.map(Number).join("")}@${width}x${height}`;
+  return cached(drawnTiles, key, async () => {
+    const pixels = (await ridgeMaker(hex.tile, width, height))(hex.open, hex.seed, grid.center(hex.key));
+    const tile = document.createElement("canvas");
+    tile.width = width;
+    tile.height = height;
+    tile.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer as ArrayBuffer), width, height), 0, 0);
+    return tile;
+  });
+};
+
+/** The image a hex is drawn with: its painted tile, its ridge or its drawn tile, at the board's size */
+const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<CanvasImageSource> | null => {
+  if (hex.art === "painted") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
+  if (hex.art === "ridge") return ridgeTile(hex, grid);
+  if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius));
   return null;
 };
 
@@ -106,7 +156,7 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
   const [base, bridge, art] = await Promise.all([
     loadImage(emptyBoardUrl),
     loadImage(bridgeUrl),
-    Promise.all(plan.map((hex) => hexImage(hex, tileWidth, tileHeight))),
+    Promise.all(plan.map((hex) => hexImage(hex, grid))),
   ]);
 
   canvas.width = grid.width;
