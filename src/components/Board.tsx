@@ -11,9 +11,9 @@ import { createBoardGeometry } from './boardGeometry';
 import Unit from '../game-core/unit';
 import type { MarkerRule } from '../game-core/combatCard';
 
-/** A hex to flash red; a new `id` restarts the animation on the same hex */
+/** Hexes to flash red; a new `id` restarts the animation on the same hexes */
 export interface HexFlash {
-  position: Position;
+  positions: readonly Position[];
   id: number;
 }
 
@@ -161,7 +161,7 @@ function Board({
           throw new Error(`Hex not found at ${JSON.stringify(position)}`);
         }
 
-        const flashesInvalid = invalidFlash !== null && samePosition(invalidFlash.position, position);
+        const flashesInvalid = invalidFlash !== null && includesPosition(invalidFlash.positions, position);
 
         tiles.push(
           <Hexagon

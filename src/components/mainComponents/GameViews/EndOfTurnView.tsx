@@ -20,7 +20,7 @@ import { MAX_COMBAT_HAND } from "../../../data/combatCards";
 import CombatCardComponent from "../../CombatCardComponent";
 import { useSound } from "../../../sound";
 import "./EndOfTurnView.css";
-import { DieFaceIcon } from "../../DiceResult";
+import DieFaceIcon from "../../DieFaceIcon";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
 const TEXT = defineMessages({

@@ -47,6 +47,14 @@ describe("ScenarioDetails", () => {
     expect(onPick).toHaveBeenCalledWith("Axis");
   });
 
+  it("only names the sides when there's no side to pick (the map editor)", () => {
+    render(<ScenarioDetails scenario={scenario("arracourt")} faction={null} />);
+
+    expect(screen.getByRole("columnheader", { name: "Aliados" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aliados" })).not.toBeInTheDocument();
+    expect(cells("Papel")[1]!).toHaveTextContent("Ataca");
+  });
+
   it("speaks English when the player picks it", () => {
     render(
       <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>

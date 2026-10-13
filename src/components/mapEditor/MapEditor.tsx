@@ -21,6 +21,7 @@ import {
   undoStep,
   unitAt,
 } from "../../game-core/scenarioDraft";
+import { validateScenario } from "../../game-core/scenarioFile";
 import { drawBoardArt } from "../../boardArt/drawBoard";
 import { RATTENKRIEG_MIN_TOWNS } from "../../data/combatCards";
 import { loadMapDraft, saveMapDraft } from "../../storage";
@@ -29,6 +30,8 @@ import GameIcon from "../GameIcon";
 import InfoButton from "../InfoButton";
 import EditorTools from "./EditorTools";
 import NewMapDialog from "./NewMapDialog";
+import ScenarioProblems from "./ScenarioProblems";
+import ScenarioSettingsDialog from "./ScenarioSettingsDialog";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import "../mainComponents/GameViews/PhaseLayout.css";
 import "./MapEditor.css";
@@ -48,12 +51,15 @@ const TEXT = defineMessages({
       `${side}: ${infantry} inf., ${tanks} tanq., ${artillery} art.`,
     towns: (towns: number) => `Pueblos: ${towns}`,
     rattenkrieg: `Más de ${RATTENKRIEG_MIN_TOWNS}: se reparte Rattenkrieg`,
+    settings: "Datos del escenario",
     instructions: "Instrucciones",
     help: [
       "Elige una herramienta y toca las casillas del mapa. El mapa se ve desde el lado de los Aliados: el Eje empieza arriba.",
       "Terreno: toca una casilla para pintarla, y otra vez para dejarla en llano. Desliza el dedo para pintar varias. Los ríos y lagos se unen solos con los de al lado; un puente es un río que se puede cruzar.",
       "Unidades: toca una casilla para poner la unidad, y otra vez para quitarla. No pueden ir en el agua.",
       "Marcas: De élite y Sacos terreros van sobre una unidad; la alambrada, en cualquier casilla de tierra. Borrar deja la casilla vacía.",
+      "Datos del escenario: el nombre y la descripción, quién ataca, las cartas de cada bando, los refuerzos y las reglas especiales.",
+      "Debajo, lo que falta para poder jugarlo; si una línea habla de unas casillas, tócala para verlas en el mapa.",
       "El mapa se guarda solo en este dispositivo mientras lo haces.",
     ],
   },
@@ -71,12 +77,15 @@ const TEXT = defineMessages({
       `${side}: ${infantry} inf., ${tanks} tanks, ${artillery} art.`,
     towns: (towns: number) => `Towns: ${towns}`,
     rattenkrieg: `More than ${RATTENKRIEG_MIN_TOWNS}: Rattenkrieg is dealt`,
+    settings: "Scenario details",
     instructions: "Instructions",
     help: [
       "Pick a tool and tap the hexes on the map. The map is seen from the Allies' side: the Axis starts at the top.",
       "Terrain: tap a hex to paint it, and again to leave it as plains. Slide your finger to paint several. Rivers and lakes join up with the ones next to them on their own; a bridge is a river that can be crossed.",
       "Units: tap a hex to put the unit there, and again to take it off. They can't go on water.",
       "Marks: Elite and Sandbags go on a unit; barbed wire on any land hex. Clear empties the hex.",
+      "Scenario details: the name and the description, who attacks, each side's cards, the reinforcements and the special rules.",
+      "Below, what's still missing before it can be played; when a line is about some hexes, tap it to see them on the map.",
       "The map is saved on this device as you make it.",
     ],
   },
@@ -156,10 +165,12 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
   const [tool, setTool] = useState<EditorTool>({ kind: "terrain", type: HexType.FOREST });
   const [problem, setProblem] = useState<string | null>(null);
   const [newMapOpen, setNewMapOpen] = useState(false);
-  const { flash, flashInvalid } = useHexFlash();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { flash, flashInvalid, flashHexes } = useHexFlash();
   const art = useBoardArt(draft.tiles);
   const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
   const counts = draftCounts(draft);
+  const problems = useMemo(() => validateScenario(draft), [draft]);
 
   useEffect(() => saveMapDraft(draft), [draft]);
 
@@ -200,6 +211,17 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
   };
   const endStroke = () => {
     stroke.current = null;
+  };
+
+  // The setting last changed in "Datos del escenario": more changes to it go into the same step
+  const lastSetting = useRef<string | null>(null);
+  const openSettings = () => {
+    lastSetting.current = null;
+    setSettingsOpen(true);
+  };
+  const changeSettings = (next: Scenario, field: string) => {
+    dispatch({ kind: "edit", next, amend: lastSetting.current === field });
+    lastSetting.current = field;
   };
 
   const sideLine = (faction: "Allies" | "Axis") => {
@@ -302,6 +324,10 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
               {counts.towns > RATTENKRIEG_MIN_TOWNS && ` · ${t.rattenkrieg}`}
             </Typography>
           </Box>
+          <Button variant="outlined" onClick={openSettings} startIcon={<GameIcon name="history" />}>
+            {t.settings}
+          </Button>
+          <ScenarioProblems problems={problems} onShowHexes={(positions) => flashHexes(positions)} />
           <Box sx={{ mt: "auto" }}>
             <InfoButton title={t.title} label={t.instructions}>
               {t.help.map((line) => (
@@ -313,6 +339,19 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
           </Box>
         </div>
       </div>
+
+      <ScenarioSettingsDialog
+        open={settingsOpen}
+        draft={draft}
+        onChange={changeSettings}
+        problems={problems}
+        onShowHexes={(positions) => {
+          setSettingsOpen(false);
+          // Once the dialog has gone from over the board
+          flashHexes(positions, 300);
+        }}
+        onClose={() => setSettingsOpen(false)}
+      />
 
       <NewMapDialog
         open={newMapOpen}

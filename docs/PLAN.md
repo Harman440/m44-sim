@@ -191,10 +191,13 @@ Decided:
 - [x] Checked in Chromium at 1280×800 and 800×1280 with touch (Spanish) and 1920×1080 with a mouse (English): painting, a stroke, units of both sides, badges, sandbags, wire, a refused unit on a lake, undo, a reload, a copy of Pegasus Bridge; nothing scrolls sideways
 
 ### Step 52: The scenario's settings
-- [ ] "Datos del escenario", a dialog from the editor: name and description (each in Español and English), attacker, command cards to start for each side, the Reinforcements table (a unit or none per die face; starting from the one the built-ins share), air sorties per side (`airPower`), big guns (`bigGuns`), and the optional rules: extra draws (`extraDraws`) and paradrop (`paradrop`)
-- [ ] Each setting explained behind an "i", as in `ScenarioDetails`
-- [ ] What's still wrong (`validateScenario`), as a list; tapping a line flashes its hex on the map. A draft saves at any time, but it can only be played when the list is empty
-- [ ] The two sides as the menu shows them (`ScenarioDetails`: role, starting cards, the combat decks built from the map)
+- [x] "Datos del escenario", a dialog from the editor's side column (`ScenarioSettingsDialog`): name and description (each in Español and English), each side's role (Ataca / Defiende), command cards to start, air sorties (`airPower`) and heavy guns (`bigGuns`) side by side, the Reinforcements table (a unit or none per die face, each face drawn as on the die; a new map starts from the one most built-ins share), and the special rules: extra draws (`extraDraws`: side and first turns, starting with the defender for 2) and paradrop (`paradrop`: side, unit and number, starting with 4 of the attacker's infantry). The edits are pure functions in `scenarioDraft.ts` (`setText`, `setAttacker`, `setHandSize`, `setReinforcement`, `setAirSorties`, `setBigGuns`, `setExtraDraws`, `setParadrop`, within `SETTING_LIMITS`), and air sorties and heavy guns stay out of the file while both sides have the usual ones
+- [x] Each setting explained behind an "i", as in `ScenarioDetails`
+- [x] Changes apply as they're made and go into the editor's undo: typing in one box, or tapping one counter several times, is one step
+- [x] What's still wrong (`validateScenario`), as a list under "Datos del escenario" in the side column and at the foot of the dialog (`ScenarioProblems`), or "Se puede jugar"; tapping a line about some hexes flashes them on the map a few times (`useHexFlash`'s `flashHexes`; from the dialog, once it has closed). A draft saves at any time; playing it only when the list is empty comes with Mis mapas (Step 53)
+- [x] The two sides as the menu shows them (`ScenarioDetails` with no side to pick: role, starting cards, the combat decks built from the map), under "Así lo verá el menú"
+- [x] Also: `DieFaceIcon` moved out of `DiceResult`, so the editor shows the die faces without loading the 3D dice
+- [x] Checked in Chromium at 1280×800 and 800×1280 with touch (Spanish) and 1920×1080 with a mouse (English): the settings, undo, the problem lines flashing their hexes; nothing scrolls sideways
 
 ### Step 53: Mis mapas
 - [ ] `storage.ts` keeps the device's maps (`m44-sim:custom-maps`, a few KB each), failing quietly like the rest

@@ -39,7 +39,7 @@ const TEXT = defineMessages({
     and: " y ",
     seeDeck: (count: number, faction: string, extras: string) =>
       `Ver las ${count} cartas de combate de ${faction}${extras && `, con ${extras}`}`,
-    sides: (scenario: string) => `Bandos de ${scenario}`,
+    sides: (scenario: string) => (scenario ? `Bandos de ${scenario}` : "Bandos"),
   },
   en: {
     role: "Role",
@@ -69,7 +69,7 @@ const TEXT = defineMessages({
     and: " and ",
     seeDeck: (count: number, faction: string, extras: string) =>
       `See the ${count} combat cards of the ${faction}${extras && `, with ${extras}`}`,
-    sides: (scenario: string) => `Sides in ${scenario}`,
+    sides: (scenario: string) => (scenario ? `Sides in ${scenario}` : "Sides"),
   },
 });
 
@@ -84,7 +84,8 @@ interface ScenarioDetailsProps {
   scenario: Scenario;
   /** The side this device plays, or null before one is picked */
   faction: Faction | null;
-  onPickFaction: (faction: Faction) => void;
+  /** Pick a side by its column header; without it the headers only name the sides (the map editor) */
+  onPickFaction?: (faction: Faction) => void;
 }
 
 /** An icon with a count beside it, e.g. the cards in the starting hand */
@@ -198,15 +199,24 @@ function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsPr
             <TableCell sx={{ width: "34%" }} />
             {FACTIONS.map((f) => (
               <TableCell key={f} align="center" sx={{ ...picked(f), pb: 1 }}>
-                <ToggleButton
-                  value={f}
-                  selected={f === faction}
-                  onChange={() => onPickFaction(f)}
-                  sx={{ width: "100%", minHeight: 56, fontSize: "1.05rem", gap: 1, flexWrap: "wrap" }}
-                >
-                  <FactionInsignia faction={f} size={28} decorative />
-                  {labels.factions[f]}
-                </ToggleButton>
+                {onPickFaction ? (
+                  <ToggleButton
+                    value={f}
+                    selected={f === faction}
+                    onChange={() => onPickFaction(f)}
+                    sx={{ width: "100%", minHeight: 56, fontSize: "1.05rem", gap: 1, flexWrap: "wrap" }}
+                  >
+                    <FactionInsignia faction={f} size={28} decorative />
+                    {labels.factions[f]}
+                  </ToggleButton>
+                ) : (
+                  <Stack direction="row" sx={{ justifyContent: "center", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                    <FactionInsignia faction={f} size={28} decorative />
+                    <Typography variant="subtitle1" component="span" sx={{ fontWeight: 600 }}>
+                      {labels.factions[f]}
+                    </Typography>
+                  </Stack>
+                )}
               </TableCell>
             ))}
           </TableRow>

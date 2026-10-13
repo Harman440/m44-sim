@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitForElementToBeRemoved } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MapEditor from "./MapEditor";
 import { scenarios } from "../../data/scenarios";
@@ -125,6 +125,84 @@ describe("MapEditor", () => {
     expect(onExit).toHaveBeenCalled();
   });
 
+  it("lists what's still missing before the map can be played", () => {
+    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    const missing = () => within(screen.getByText("Para poder jugarlo:").parentElement!);
+    expect(missing().getByText("El escenario no tiene nombre")).toBeInTheDocument();
+    expect(missing().getByText("El Eje no tiene unidades")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo mapa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copia de Pegasus Bridge" }));
+    expect(screen.getByText("Se puede jugar")).toBeInTheDocument();
+  });
+
+  it("flashes the hexes a problem is about", async () => {
+    // A map saved with sandbags where no unit starts, which the editor itself doesn't allow
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        version: 1,
+        board: "standard",
+        ...JSON.parse(JSON.stringify(scenarios.find((s) => s.id === "pegasus-bridge")!)),
+        image: undefined,
+        sandbags: [{ row: 4, col: 4 }],
+      }),
+    );
+    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Hay sacos terreros donde no empieza ninguna unidad: ver en el mapa" }));
+    await waitFor(() => expect(hex("4-4").querySelector(".hexagon__flash-invalid")).not.toBeNull());
+  });
+
+  it("sets the scenario's name, sides and rules in Datos del escenario", async () => {
+    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
+    const dialog = within(await screen.findByRole("dialog"));
+
+    fireEvent.change(dialog.getByLabelText("Nombre · Español"), { target: { value: "Bocage" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Defiende" }));
+    fireEvent.click(dialog.getByLabelText("Cartas de mando (Eje): uno menos"));
+    fireEvent.click(within(dialog.getByRole("group", { name: "Refuerzos: Bandera" })).getByRole("button", { name: "Artillería" }));
+    fireEvent.click(dialog.getByLabelText("Lanzamiento de paracaidistas"));
+
+    expect(dialog.queryByText("El escenario no tiene nombre")).not.toBeInTheDocument();
+    // The Axis attack, and drop 4 infantry, so they can start with no units on the map
+    expect(dialog.queryByText("El Eje no tiene unidades")).not.toBeInTheDocument();
+    expect(savedDraft()).toMatchObject({
+      name: { es: "Bocage", en: "" },
+      attacker: "Axis",
+      initialHandSize: { allies: 5, axis: 4 },
+      reinforcements: { flag: "artillery" },
+      paradrop: { faction: "Axis", unitType: "infantry", units: 4 },
+    });
+
+    fireEvent.click(dialog.getByRole("button", { name: "Hecho" }));
+    await dialogClosed();
+    expect(screen.getByRole("heading", { name: "Editor de mapas · Bocage" })).toBeInTheDocument();
+  });
+
+  it("undoes the settings a setting at a time", async () => {
+    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    const name = dialog.getByLabelText("Nombre · Español");
+    const fewerCards = dialog.getByLabelText("Cartas de mando (Eje): uno menos");
+
+    fireEvent.change(name, { target: { value: "Boc" } });
+    fireEvent.change(name, { target: { value: "Bocage" } });
+    fireEvent.click(fewerCards);
+    fireEvent.click(fewerCards);
+    fireEvent.click(dialog.getByRole("button", { name: "Hecho" }));
+    await dialogClosed();
+
+    const undo = screen.getByRole("button", { name: "Deshacer" });
+    fireEvent.click(undo);
+    expect(savedDraft()).toMatchObject({ name: { es: "Bocage" }, initialHandSize: { axis: 5 } });
+    fireEvent.click(undo);
+    expect(savedDraft().name.es).toBe("");
+    expect(undo).toBeDisabled();
+  });
+
   it("speaks English", () => {
     render(
       <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
@@ -138,5 +216,12 @@ describe("MapEditor", () => {
     expect(screen.getByText("Axis: 0 inf., 1 tanks, 0 art.")).toBeInTheDocument();
     expect(screen.getByText("Tool: Tank (Axis)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Forest" })).toBeInTheDocument();
+    expect(screen.getByText("The scenario has no name")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Scenario details" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByLabelText("Name · English")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Defends" })).toBeInTheDocument();
+    expect(dialog.getByRole("switch", { name: "Heavy guns (Axis)" })).toBeChecked();
   });
 });

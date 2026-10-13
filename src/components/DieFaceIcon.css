@@ -1,0 +1,24 @@
+/* A die drawn in 2D: the battle die, or the 8-sided long-range die */
+.die {
+  width: 60px;
+  height: 60px;
+  overflow: visible;
+  filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--m44-ink, #333) 55%, transparent));
+}
+
+.die__face {
+  fill: var(--m44-die, #f5f0e6);
+  stroke: var(--m44-ink, #9ca3af);
+  stroke-width: 2.5;
+}
+
+/* The long-range die: its own colour, and an 8 in the corner */
+.die--d8 .die__face {
+  fill: color-mix(in srgb, var(--m44-accent, #1976d2) 28%, var(--m44-die, #f5f0e6));
+}
+
+.die__d8-mark {
+  font: 700 9px var(--m44-font-display, sans-serif);
+  fill: var(--m44-ink, #333);
+  opacity: 0.7;
+}
