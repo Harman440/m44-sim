@@ -1,9 +1,18 @@
-import { act, fireEvent, render, screen, waitForElementToBeRemoved } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import GameView from "./components/mainComponents/LazyGameView";
 import { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./components/mainComponents/GameViews/CardsView";
 import { same } from "./i18n/lang";
+import { scenarios } from "./data/scenarios";
+import { toScenarioFile } from "./game-core/scenarioFile";
+import { copyDraft, setText } from "./game-core/scenarioDraft";
+
+// jsdom loads no images, so a map from Mis mapas is never drawn: play it without art
+vi.mock("./boardArt/mapArt", () => ({
+  boardArtFor: () => Promise.reject(new Error("no canvas")),
+  withBoardArt: (scenario: unknown) => Promise.resolve(scenario),
+}));
 
 const start = (faction: "Aliados" | "Eje") => {
   fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
@@ -91,6 +100,8 @@ describe("App menu and game flow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Volver al menú" }));
     expect(menuHeading()).toBeInTheDocument();
+    // A map left blank isn't kept
+    expect(screen.getByText("Los mapas que hagas en el editor aparecen aquí.")).toBeInTheDocument();
   });
 
   it("starts a game for the chosen side, with the turn and phase in the header", () => {
@@ -186,6 +197,87 @@ describe("App menu and game flow", () => {
     expect(localStorage.getItem("m44-sim:saved-game")).toBeNull();
   });
 
+});
+
+describe("Mis mapas", () => {
+  // A map made on this device: a copy of Forêt d'Écouves under another name, its id not yet from its name
+  const pegasus = scenarios.find((s) => s.id === "pegasus-bridge")!;
+  const keepMap = (name: string, id = "map-3f9k") => {
+    const map = setText(copyDraft(pegasus, id), "name", "es", name);
+    const kept = JSON.parse(localStorage.getItem("m44-sim:custom-maps") ?? "[]");
+    localStorage.setItem("m44-sim:custom-maps", JSON.stringify([...kept, toScenarioFile(map)]));
+  };
+  const pick = (name: string) => fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
+
+  it("lists the device's maps after the built-ins, and plays one", async () => {
+    keepMap("Puente");
+    render(<App />);
+
+    pick("Puente");
+    fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
+    fireEvent.click(screen.getByRole("button", { name: "Empezar con Aliados" }));
+
+    expect(await screen.findByText("Puente · Aliados")).toBeInTheDocument();
+    // Its id came from its name when the menu read it
+    expect(JSON.parse(localStorage.getItem("m44-sim:saved-game")!).scenarioId).toBe("pegasus-bridge-copy-3f9k");
+  });
+
+  it("picks a game on one of Mis mapas back up after a reload", async () => {
+    keepMap("Puente");
+    const { unmount } = render(<App />);
+    pick("Puente");
+    fireEvent.click(screen.getByRole("button", { name: "Eje" }));
+    fireEvent.click(screen.getByRole("button", { name: "Empezar con Eje" }));
+    await screen.findByText("Puente · Eje");
+    unmount();
+
+    render(<App />);
+    expect(await screen.findByText("Puente · Eje")).toBeInTheDocument();
+    // Nothing to edit, duplicate or delete a map with while a game is going on
+    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    expect(screen.queryByRole("menuitem", { name: /Editor|Editar|Duplicar|Borrar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Editor de mapas|Borrar/ })).not.toBeInTheDocument();
+  });
+
+  it("can't start a map that isn't finished, and says what's missing", () => {
+    keepMap("");
+    localStorage.setItem(
+      "m44-sim:custom-maps",
+      JSON.stringify([{ ...JSON.parse(localStorage.getItem("m44-sim:custom-maps")!)[0], name: same("") }]),
+    );
+    render(<App />);
+
+    pick("Mapa sin nombre");
+    fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
+    expect(screen.getByText("El escenario no tiene nombre")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Todavía no se puede jugar" })).toBeDisabled();
+  });
+
+  it("edits, duplicates and deletes a map, deleting only once it's confirmed", async () => {
+    keepMap("Puente");
+    render(<App />);
+    pick("Puente");
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicar" }));
+    expect(screen.getByRole("heading", { name: "Puente (copia)", level: 2 })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Borrar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+    expect(screen.getByRole("heading", { name: "Puente (copia)", level: 2 })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Borrar" }));
+    expect(screen.getByRole("dialog", { name: "¿Borrar «Puente (copia)»?" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Borrar" }));
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+    expect(screen.queryByRole("button", { name: /^Puente \(copia\)/ })).not.toBeInTheDocument();
+
+    pick("Puente");
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    expect(await screen.findByRole("heading", { name: "Editor de mapas · Puente" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Volver al menú" }));
+    // Back on the map just edited
+    expect(screen.getByRole("heading", { name: "Puente", level: 2 })).toBeInTheDocument();
+  });
 });
 
 describe("App settings", () => {

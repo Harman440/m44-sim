@@ -25,9 +25,65 @@ export const DEFAULT_REINFORCEMENTS: NonNullable<Scenario["reinforcements"]> = {
   [DieFace.FLAG]: null,
 };
 
-/** A new map's id: "map-" and four random letters or digits */
-export const newMapId = (random: () => number = Math.random): string =>
-  `map-${Array.from({ length: 4 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(random() * 36)]).join("")}`;
+// --- Ids ------------------------------------------------------------------------
+// A map's id is its name as lower-case words and a short random part ("bocage-3f9k"), so both
+// tablets and the catalog know it's the same map, and two maps of the same name stay apart. A new
+// map is "map-" and the random part until it leaves the editor with a name; from then on its id
+// stays the same, even when it's renamed.
+
+const randomPart = (random: () => number) =>
+  Array.from({ length: 4 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(random() * 36)]).join("");
+
+/** A new map's id until it has a name: "map-" and four random letters or digits */
+export const newMapId = (random: () => number = Math.random): string => `map-${randomPart(random)}`;
+
+/** Whether a map's id is still the one it was made with, to be replaced by one from its name */
+export const isProvisionalId = (id: string): boolean => /^map-[a-z0-9]{4}$/.test(id);
+
+/** Longest the name part of an id gets */
+const SLUG_LENGTH = 40;
+
+/** A name as lower-case words joined by hyphens, without accents: "Forêt d'Écouves" → "foret-d-ecouves" */
+export function slugOf(name: string): string {
+  const words = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  let slug = "";
+  for (const word of words) {
+    const longer = slug ? `${slug}-${word}` : word;
+    if (longer.length > SLUG_LENGTH) break;
+    slug = longer;
+  }
+  return slug || words[0]?.slice(0, SLUG_LENGTH) || "map";
+}
+
+/** Whether a map has a name in some language */
+export const hasName = (draft: Scenario): boolean => Boolean(draft.name.es.trim() || draft.name.en.trim());
+
+/**
+ * The id a map keeps from its name (the English one first, as the catalog's are): its slug and
+ * the random part of the id it has, or a new random part when that id is `taken` already
+ */
+export function mapIdFor(draft: Scenario, taken: (id: string) => boolean, random: () => number = Math.random): string {
+  const slug = slugOf(draft.name.en.trim() || draft.name.es);
+  const own = /-([a-z0-9]{4})$/.exec(draft.id)?.[1];
+  let id = `${slug}-${own ?? randomPart(random)}`;
+  while (id !== draft.id && taken(id)) id = `${slug}-${randomPart(random)}`;
+  return id;
+}
+
+/** A map with nothing on it yet: no terrain, units, wire, name or description (a new one isn't kept) */
+export const isBlank = (draft: Scenario): boolean =>
+  Object.keys(draft.tiles).length === 0 &&
+  Object.keys(draft.units.allies).length === 0 &&
+  Object.keys(draft.units.axis).length === 0 &&
+  !draft.wire?.length &&
+  !hasName(draft) &&
+  !draft.description.es.trim() &&
+  !draft.description.en.trim();
 
 /** A new, empty map: all plains, no units, 5 command cards each and the Allies attacking */
 export const newDraft = (id: string): Scenario => ({
@@ -44,7 +100,8 @@ export const newDraft = (id: string): Scenario => ({
 /** A scenario's map and settings to start a new map from, with a new id and "(copia)" after its name */
 export const copyDraft = (scenario: Scenario, id: string): Scenario => {
   const { image: _image, ...copy } = structuredClone(scenario);
-  return { ...copy, id, name: { es: `${scenario.name.es} (copia)`, en: `${scenario.name.en} (copy)` } };
+  const { es, en } = scenario.name;
+  return { ...copy, id, name: { es: es.trim() ? `${es} (copia)` : "", en: en.trim() ? `${en} (copy)` : "" } };
 };
 
 const isOnBoard = ({ row, col }: Position, { rows, cols } = BOARD_SIZES.standard) =>

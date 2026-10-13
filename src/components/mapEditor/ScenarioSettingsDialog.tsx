@@ -46,7 +46,7 @@ import DieFaceIcon from "../DieFaceIcon";
 import GameIcon from "../GameIcon";
 import InfoButton from "../InfoButton";
 import ScenarioDetails from "../mainComponents/ScenarioDetails";
-import ScenarioProblems from "./ScenarioProblems";
+import ScenarioProblems from "../ScenarioProblems";
 import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
 
 const TEXT = defineMessages({

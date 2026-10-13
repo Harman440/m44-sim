@@ -12,8 +12,7 @@ import {
   EditorTool,
   Stroke,
   draftCounts,
-  newDraft,
-  newMapId,
+  isBlank,
   recordStep,
   redoStep,
   startHistory,
@@ -24,13 +23,13 @@ import {
 import { validateScenario } from "../../game-core/scenarioFile";
 import { drawBoardArt } from "../../boardArt/drawBoard";
 import { RATTENKRIEG_MIN_TOWNS } from "../../data/combatCards";
-import { loadMapDraft, saveMapDraft } from "../../storage";
+import { loadCustomMaps, saveCustomMap } from "../../storage";
 import { useHexFlash } from "../useHexFlash";
 import GameIcon from "../GameIcon";
 import InfoButton from "../InfoButton";
 import EditorTools from "./EditorTools";
 import NewMapDialog from "./NewMapDialog";
-import ScenarioProblems from "./ScenarioProblems";
+import ScenarioProblems from "../ScenarioProblems";
 import ScenarioSettingsDialog from "./ScenarioSettingsDialog";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import "../mainComponents/GameViews/PhaseLayout.css";
@@ -60,7 +59,7 @@ const TEXT = defineMessages({
       "Marcas: De élite y Sacos terreros van sobre una unidad; la alambrada, en cualquier casilla de tierra. Borrar deja la casilla vacía.",
       "Datos del escenario: el nombre y la descripción, quién ataca, las cartas de cada bando, los refuerzos y las reglas especiales.",
       "Debajo, lo que falta para poder jugarlo; si una línea habla de unas casillas, tócala para verlas en el mapa.",
-      "El mapa se guarda solo en este dispositivo mientras lo haces.",
+      "El mapa se guarda solo en Mis mapas, en este dispositivo, mientras lo haces.",
     ],
   },
   en: {
@@ -86,7 +85,7 @@ const TEXT = defineMessages({
       "Marks: Elite and Sandbags go on a unit; barbed wire on any land hex. Clear empties the hex.",
       "Scenario details: the name and the description, who attacks, each side's cards, the reinforcements and the special rules.",
       "Below, what's still missing before it can be played; when a line is about some hexes, tap it to see them on the map.",
-      "The map is saved on this device as you make it.",
+      "The map is saved in My maps on this device as you make it.",
     ],
   },
 });
@@ -143,24 +142,25 @@ const hexAt = (element: Element | null): Position | null => {
   return { row, col };
 };
 
-const hasContent = (draft: Scenario) =>
-  Object.keys(draft.tiles).length > 0 || Object.keys(draft.units.allies).length > 0 || Object.keys(draft.units.axis).length > 0;
-
 export interface MapEditorProps {
+  /** The map to edit: a new one, or one from Mis mapas */
+  map: Scenario;
   /** Scenarios a new map can start as a copy of */
   scenarios: readonly Scenario[];
-  onExit: () => void;
+  /** Back to the menu, from the map last edited */
+  onExit: (mapId: string) => void;
 }
 
 /**
- * The map editor: paint terrain and put units, badges, sandbags and wire on the board.
- * The map is kept on this device as it's edited (storage.ts), so a reload doesn't lose it.
+ * The map editor: paint terrain and put units, badges, sandbags and wire on the board, and set
+ * the scenario's settings. The map is kept in Mis mapas as it's edited (storage.ts), once it has
+ * something on it, so a reload doesn't lose it.
  */
-function MapEditor({ scenarios, onExit }: MapEditorProps) {
+function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const [history, dispatch] = useReducer(reducer, null, () => startHistory(loadMapDraft() ?? newDraft(newMapId())));
+  const [history, dispatch] = useReducer(reducer, map, startHistory);
   const draft = history.present;
   const [tool, setTool] = useState<EditorTool>({ kind: "terrain", type: HexType.FOREST });
   const [problem, setProblem] = useState<string | null>(null);
@@ -172,7 +172,14 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
   const counts = draftCounts(draft);
   const problems = useMemo(() => validateScenario(draft), [draft]);
 
-  useEffect(() => saveMapDraft(draft), [draft]);
+  // Kept in Mis mapas once there's something on it; a new map left blank isn't
+  const kept = useRef<Set<string>>(null);
+  kept.current ??= new Set(loadCustomMaps().map(({ id }) => id));
+  useEffect(() => {
+    if (isBlank(draft) && !kept.current?.has(draft.id)) return;
+    saveCustomMap(draft);
+    kept.current?.add(draft.id);
+  }, [draft]);
 
   // A stroke's hexes change the map faster than React draws it: each one starts from the last
   const latest = useRef(draft);
@@ -256,7 +263,7 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
           <Button variant="outlined" onClick={() => setNewMapOpen(true)}>
             {t.newMap}
           </Button>
-          <Button variant="text" startIcon={<GameIcon name="exit" />} onClick={onExit}>
+          <Button variant="text" startIcon={<GameIcon name="exit" />} onClick={() => onExit(draft.id)}>
             {t.exit}
           </Button>
         </Stack>
@@ -356,7 +363,7 @@ function MapEditor({ scenarios, onExit }: MapEditorProps) {
       <NewMapDialog
         open={newMapOpen}
         scenarios={scenarios}
-        replacing={hasContent(draft)}
+        keeping={!isBlank(draft)}
         onPick={(next) => dispatch({ kind: "start", draft: next })}
         onClose={() => setNewMapOpen(false)}
       />

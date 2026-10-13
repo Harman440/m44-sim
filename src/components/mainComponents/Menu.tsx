@@ -1,11 +1,19 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import SettingsDialog from "../SettingsDialog";
 import GameIcon from "../GameIcon";
 import ScenarioDetails from "./ScenarioDetails";
+import ScenarioProblems from "../ScenarioProblems";
+import { useMapArt } from "../useMapArt";
 import { TEST_MODE_COINS } from "../../data/coinRules";
+import { validateScenario } from "../../game-core/scenarioFile";
 import {
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControlLabel,
   List,
   ListItemButton,
@@ -48,6 +56,19 @@ const TEXT = defineMessages({
     testModeHelp: (coins: number) =>
       "Para probar las cartas: empiezas con una de cada carta de combate en la mano, sin límite, las " +
       `que juegas vuelven a la mano al acabar el turno y cada turno empieza con al menos ${coins} suministros.`,
+    myMaps: "Mis mapas",
+    noMaps: "Los mapas que hagas en el editor aparecen aquí.",
+    newMap: "Nuevo mapa",
+    untitled: "Mapa sin nombre",
+    unfinished: "Sin terminar",
+    notReady: "Todavía no se puede jugar",
+    mapActions: "Acciones del mapa",
+    edit: "Editar",
+    duplicate: "Duplicar",
+    delete: "Borrar",
+    deleteTitle: (name: string) => `¿Borrar «${name}»?`,
+    deleteText: "Se borra de este dispositivo, y no se puede deshacer.",
+    cancel: "Cancelar",
   },
   en: {
     title: "Memoir '44 Simultaneous",
@@ -78,25 +99,64 @@ const TEXT = defineMessages({
     testModeHelp: (coins: number) =>
       "To try out the cards: you start with one of each combat card in your hand, with no limit, the " +
       `ones you play come back to your hand at the end of the turn and each turn starts with at least ${coins} supplies.`,
+    myMaps: "My maps",
+    noMaps: "The maps you make in the editor show up here.",
+    newMap: "New map",
+    untitled: "Untitled map",
+    unfinished: "Unfinished",
+    notReady: "Can't be played yet",
+    mapActions: "Map actions",
+    edit: "Edit",
+    duplicate: "Duplicate",
+    delete: "Delete",
+    deleteTitle: (name: string) => `Delete "${name}"?`,
+    deleteText: "It's deleted from this device, and it can't be undone.",
+    cancel: "Cancel",
   },
 });
 
 interface MenuProps {
+  /** The built-in scenarios */
   scenarios: readonly Scenario[];
+  /** The maps made on this device ("Mis mapas"), playable or not yet */
+  customMaps?: readonly Scenario[];
+  /** The scenario shown when the menu opens (the map just edited) */
+  initialScenarioId?: string;
   /** Pre-selected choices, e.g. the last game's */
   initialSetup?: Partial<GameSetup>;
   onStart: (setup: GameSetup) => void;
-  /** Open the map editor */
+  /** Open the map editor on a new map */
   onOpenEditor?: () => void;
+  onEditMap?: (id: string) => void;
+  /** Copy a map into Mis mapas; gives the copy's id */
+  onDuplicateMap?: (id: string) => string | null;
+  onDeleteMap?: (id: string) => void;
 }
 
 const ScenarioPreview = lazy(() => import("./ScenarioPreview"));
 const RuleBookDialog = lazy(() => import("../RuleBookDialog"));
 
-/** Start screen: pick a scenario, then which side this device plays */
-function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
-  // Nothing is picked beforehand: the player taps the scenario and the side
-  const [scenarioId, setScenarioId] = useState<string | null>(null);
+/** A scenario's map, small, for the list: its painted art, or the art drawn for a map from Mis mapas */
+function ScenarioThumbnail({ scenario }: { scenario: Scenario }) {
+  const art = useMapArt(scenario);
+  const size = { width: 64, height: 40, flex: "none", borderRadius: 0.5 };
+  return art ? <Box component="img" src={art} alt="" sx={{ ...size, objectFit: "cover" }} /> : <Box sx={{ ...size, bgcolor: "action.hover" }} />;
+}
+
+/** Start screen: pick a scenario (a built-in one or one of Mis mapas), then which side this device plays */
+function Menu({
+  scenarios,
+  customMaps = [],
+  initialScenarioId,
+  initialSetup,
+  onStart,
+  onOpenEditor,
+  onEditMap,
+  onDuplicateMap,
+  onDeleteMap,
+}: MenuProps) {
+  // Nothing is picked beforehand, but the map just edited: the player taps the scenario and the side
+  const [scenarioId, setScenarioId] = useState<string | null>(initialScenarioId ?? null);
   const [faction, setFaction] = useState<Faction | null>(null);
 
   const [longRangeDie, setLongRangeDie] = useState(initialSetup?.longRangeDie === true);
@@ -106,23 +166,67 @@ function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [ruleBookOpen, setRuleBookOpen] = useState(false);
+  const [deleting, setDeleting] = useState<Scenario | null>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const sideBySide = useMediaQuery((theme) => theme.breakpoints.up("md"));
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const scenario = scenarios.find((s) => s.id === scenarioId);
+  const scenario = scenarios.find((s) => s.id === scenarioId) ?? customMaps.find((s) => s.id === scenarioId);
+  const customMap = customMaps.some((s) => s.id === scenarioId);
+  // The built-ins are always playable (scenarios.test.ts); a map from Mis mapas may be half made
+  const problems = useMemo(() => (scenario && customMap ? validateScenario(scenario) : []), [scenario, customMap]);
+  const art = useMapArt(scenario);
+  const shown = useMemo(() => scenario && (scenario.image ? scenario : { ...scenario, image: art }), [scenario, art]);
+  const nameOf = (s: Scenario) => tr(s.name) || t.untitled;
   const testRules = [
     longRangeDie && t.longRangeDieRule,
     artilleryCrew && t.artilleryCrewRule,
     testMode && t.testModeRule,
   ].filter(Boolean);
 
+  const duplicate = (id: string) => {
+    const copy = onDuplicateMap?.(id);
+    if (copy) setScenarioId(copy);
+  };
+
   const pickScenario = (id: string) => {
     setScenarioId(id);
     // In portrait the details open under the list, out of sight
     if (!sideBySide) requestAnimationFrame(() => detailsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   };
+
+  const scenarioList = (list: readonly Scenario[]) => (
+    <List disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
+      {list.map((s, i) => (
+        <ListItemButton
+          key={s.id}
+          selected={s.id === scenarioId}
+          aria-pressed={s.id === scenarioId}
+          onClick={() => pickScenario(s.id)}
+          divider={i < list.length - 1}
+          sx={{
+            gap: 1.5,
+            minHeight: 56,
+            borderLeft: 4,
+            borderLeftColor: s.id === scenarioId ? "primary.main" : "transparent",
+          }}
+        >
+          <ScenarioThumbnail scenario={s} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {nameOf(s)}
+            </Typography>
+            {list === customMaps && validateScenario(s).length > 0 && (
+              <Typography variant="caption" color="text.secondary">
+                {t.unfinished}
+              </Typography>
+            )}
+          </Box>
+        </ListItemButton>
+      ))}
+    </List>
+  );
 
   return (
     <Stack spacing={3} sx={{ width: "100%", maxWidth: 1100, py: 2 }}>
@@ -155,48 +259,35 @@ function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
           <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
             {t.pickScenario}
           </Typography>
-          <List disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
-            {scenarios.map((s, i) => (
-              <ListItemButton
-                key={s.id}
-                selected={s.id === scenarioId}
-                aria-pressed={s.id === scenarioId}
-                onClick={() => pickScenario(s.id)}
-                divider={i < scenarios.length - 1}
-                sx={{
-                  gap: 1.5,
-                  minHeight: 56,
-                  borderLeft: 4,
-                  borderLeftColor: s.id === scenarioId ? "primary.main" : "transparent",
-                }}
-              >
-                {s.image && (
-                  <Box
-                    component="img"
-                    src={s.image}
-                    alt=""
-                    sx={{ width: 64, height: 40, objectFit: "cover", borderRadius: 0.5, flex: "none" }}
-                  />
-                )}
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  {tr(s.name)}
-                </Typography>
-              </ListItemButton>
-            ))}
-          </List>
+          {scenarioList(scenarios)}
+          <Typography variant="h6" component="h2" sx={{ mt: 3, mb: 1 }}>
+            {t.myMaps}
+          </Typography>
+          {customMaps.length > 0 ? (
+            scenarioList(customMaps)
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {t.noMaps}
+            </Typography>
+          )}
+          {onOpenEditor && (
+            <Button variant="outlined" startIcon={<GameIcon name="map" />} onClick={onOpenEditor} sx={{ mt: 1.5 }}>
+              {t.newMap}
+            </Button>
+          )}
         </Box>
 
         {scenario ? (
           <Box
             ref={detailsRef}
             component="section"
-            aria-label={tr(scenario.name)}
+            aria-label={nameOf(scenario)}
             sx={{ scrollMarginTop: 16, border: 1, borderColor: "divider", borderRadius: 1, p: { xs: 1.5, sm: 2 } }}
           >
             <Stack spacing={2}>
               <Box>
                 <Typography variant="h5" component="h2">
-                  {tr(scenario.name)}
+                  {nameOf(scenario)}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
                   {tr(scenario.description)}
@@ -204,17 +295,17 @@ function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
               </Box>
               <Suspense
                 fallback={
-                  scenario.image && (
+                  shown?.image && (
                     <Box
                       component="img"
-                      src={scenario.image}
+                      src={shown.image}
                       alt=""
                       sx={{ width: "100%", display: "block", transform: faction === "Axis" ? "rotate(180deg)" : undefined }}
                     />
                   )
                 }
               >
-                <ScenarioPreview scenario={scenario} faction={faction ?? "Allies"} />
+                <ScenarioPreview scenario={shown ?? scenario} faction={faction ?? "Allies"} />
               </Suspense>
               <ScenarioDetails scenario={scenario} faction={faction} onPickFaction={setFaction} />
               {testRules.length > 0 && (
@@ -222,15 +313,35 @@ function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
                   {t.testRulesInUse(testRules.join(", "))}
                 </Typography>
               )}
+              {problems.length > 0 && <ScenarioProblems problems={problems} />}
               <Button
                 size="large"
-                disabled={!faction}
+                disabled={!faction || problems.length > 0}
                 onClick={() => faction && onStart({ scenarioId: scenario.id, faction, longRangeDie, artilleryCrew, testMode })}
                 startIcon={<GameIcon name="battle" />}
                 sx={{ fontSize: "1.2rem" }}
               >
-                {faction ? t.startWith(labels.factions[faction]) : t.pickSide}
+                {problems.length > 0 ? t.notReady : faction ? t.startWith(labels.factions[faction]) : t.pickSide}
               </Button>
+              {customMap && (
+                <Stack direction="row" role="group" aria-label={t.mapActions} sx={{ gap: 1, flexWrap: "wrap" }}>
+                  {onEditMap && (
+                    <Button variant="outlined" startIcon={<GameIcon name="map" />} onClick={() => onEditMap(scenario.id)}>
+                      {t.edit}
+                    </Button>
+                  )}
+                  {onDuplicateMap && (
+                    <Button variant="outlined" startIcon={<GameIcon name="cards" />} onClick={() => duplicate(scenario.id)}>
+                      {t.duplicate}
+                    </Button>
+                  )}
+                  {onDeleteMap && (
+                    <Button variant="outlined" color="error" startIcon={<GameIcon name="cancel" />} onClick={() => setDeleting(scenario)}>
+                      {t.delete}
+                    </Button>
+                  )}
+                </Stack>
+              )}
             </Stack>
           </Box>
         ) : (
@@ -239,6 +350,33 @@ function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
           </Typography>
         )}
       </Box>
+
+      <Dialog open={deleting !== null} onClose={() => setDeleting(null)} maxWidth="xs" fullWidth>
+        {deleting && (
+          <>
+            <DialogTitle>{t.deleteTitle(nameOf(deleting))}</DialogTitle>
+            <DialogContent>
+              <DialogContentText>{t.deleteText}</DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" onClick={() => setDeleting(null)}>
+                {t.cancel}
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={() => {
+                  onDeleteMap?.(deleting.id);
+                  setScenarioId(null);
+                  setDeleting(null);
+                }}
+              >
+                {t.delete}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
 
       {ruleBookOpen && (
         <Suspense fallback={null}>

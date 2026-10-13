@@ -7,14 +7,14 @@ import { defineMessages, useMessages, useTr } from "../../i18n/useI18n";
 const TEXT = defineMessages({
   es: {
     title: "Nuevo mapa",
-    replaces: "El mapa que estás haciendo se perderá.",
+    kept: "El mapa que estás haciendo queda en Mis mapas.",
     empty: "Mapa vacío",
     copyOf: (name: string) => `Copia de ${name}`,
     cancel: "Cancelar",
   },
   en: {
     title: "New map",
-    replaces: "The map you're making will be lost.",
+    kept: "The map you're making stays in My maps.",
     empty: "Empty map",
     copyOf: (name: string) => `Copy of ${name}`,
     cancel: "Cancel",
@@ -25,14 +25,14 @@ interface NewMapDialogProps {
   open: boolean;
   /** Scenarios a new map can start as a copy of */
   scenarios: readonly Scenario[];
-  /** The map being made has something on it, so starting another loses it */
-  replacing: boolean;
+  /** The map being made has something on it, so it stays in Mis mapas */
+  keeping: boolean;
   onPick: (draft: Scenario) => void;
   onClose: () => void;
 }
 
 /** Start a new map: empty, or a copy of a scenario to change */
-function NewMapDialog({ open, scenarios, replacing, onPick, onClose }: NewMapDialogProps) {
+function NewMapDialog({ open, scenarios, keeping, onPick, onClose }: NewMapDialogProps) {
   const t = useMessages(TEXT);
   const tr = useTr();
   const pick = (draft: Scenario) => {
@@ -44,7 +44,7 @@ function NewMapDialog({ open, scenarios, replacing, onPick, onClose }: NewMapDia
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>{t.title}</DialogTitle>
       <DialogContent>
-        {replacing && <DialogContentText sx={{ mb: 1 }}>{t.replaces}</DialogContentText>}
+        {keeping && <DialogContentText sx={{ mb: 1 }}>{t.kept}</DialogContentText>}
         <List disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
           <ListItemButton divider onClick={() => pick(newDraft(newMapId()))} sx={{ gap: 1.5, minHeight: 56 }}>
             <Box sx={{ width: 64, display: "grid", placeItems: "center", flex: "none" }}>

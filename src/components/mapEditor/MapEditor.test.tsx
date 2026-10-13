@@ -1,11 +1,17 @@
 import { fireEvent, render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import MapEditor from "./MapEditor";
+import MapEditor, { MapEditorProps } from "./MapEditor";
 import { scenarios } from "../../data/scenarios";
+import { newDraft } from "../../game-core/scenarioDraft";
 import { SettingsContext, DEFAULT_SETTINGS } from "../../settings";
 
-const DRAFT_KEY = "m44-sim:map-draft";
-const savedDraft = () => JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
+const MAPS_KEY = "m44-sim:custom-maps";
+/** The maps kept in Mis mapas, as files */
+const savedMaps = () => JSON.parse(localStorage.getItem(MAPS_KEY) ?? "[]");
+const savedDraft = () => savedMaps().find((map: { id: string }) => map.id === "map-test");
+const Editor = (props: Partial<MapEditorProps>) => (
+  <MapEditor map={newDraft("map-test")} scenarios={scenarios} onExit={() => {}} {...props} />
+);
 const hex = (key: string) => document.querySelector(`[data-position="${key}"]`)!;
 const tap = (key: string) => {
   fireEvent.pointerDown(hex(key));
@@ -25,7 +31,7 @@ afterEach(() => {
 
 describe("MapEditor", () => {
   it("starts an empty map, and puts either side's units on it", () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     expect(screen.getByRole("heading", { name: "Editor de mapas · Mapa sin nombre" })).toBeInTheDocument();
 
     tool("Tanque (Eje)");
@@ -39,7 +45,7 @@ describe("MapEditor", () => {
   });
 
   it("takes a unit off when it's tapped again, with undo and redo", () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     tool("Infantería (Aliados)");
     tap("8-4");
     tap("8-4");
@@ -53,7 +59,7 @@ describe("MapEditor", () => {
   });
 
   it("says why a tap can't be done", () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     tool("Lago");
     tap("4-4");
     tool("Infantería (Aliados)");
@@ -66,7 +72,7 @@ describe("MapEditor", () => {
   });
 
   it("paints terrain across a stroke of the finger, undone in one go", () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     // jsdom lays nothing out: the hexes the finger passes over, in turn
     const under = ["4-5", "4-5", "4-6"].map(hex);
     document.elementFromPoint = vi.fn(() => under.shift() ?? null);
@@ -85,7 +91,7 @@ describe("MapEditor", () => {
   });
 
   it("starts a new map as a copy of a scenario", async () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     fireEvent.click(screen.getByRole("button", { name: "Nuevo mapa" }));
     fireEvent.click(screen.getByRole("button", { name: "Copia de Pegasus Bridge" }));
     await dialogClosed();
@@ -94,39 +100,46 @@ describe("MapEditor", () => {
     expect(screen.getByText("Aliados: 9 inf., 0 tanq., 0 art.")).toBeInTheDocument();
   });
 
-  it("warns that a new map replaces the one being made", async () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+  it("says the map being made stays in Mis mapas when a new one is started", async () => {
+    render(<Editor />);
     fireEvent.click(screen.getByRole("button", { name: "Nuevo mapa" }));
-    expect(screen.queryByText("El mapa que estás haciendo se perderá.")).not.toBeInTheDocument();
+    expect(screen.queryByText("El mapa que estás haciendo queda en Mis mapas.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     await dialogClosed();
 
     tool("Bosque");
     tap("4-4");
     fireEvent.click(screen.getByRole("button", { name: "Nuevo mapa" }));
-    expect(screen.getByText("El mapa que estás haciendo se perderá.")).toBeInTheDocument();
+    expect(screen.getByText("El mapa que estás haciendo queda en Mis mapas.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copia de Pegasus Bridge" }));
+    await dialogClosed();
+
+    expect(savedMaps().map((map: { name: { es: string } }) => map.name.es)).toEqual(["", "Pegasus Bridge (copia)"]);
   });
 
-  it("picks the map back up when it's opened again", () => {
-    const { unmount } = render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+  it("keeps the map in Mis mapas as it's made, but not while it's blank", () => {
+    render(<Editor />);
+    expect(savedMaps()).toEqual([]);
+
     tool("Artillería (Aliados)");
     tap("7-4");
-    unmount();
+    expect(savedDraft().units).toEqual({ allies: { artillery: [{ row: 7, col: 4 }] }, axis: {} });
 
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
-    expect(screen.getByText("Aliados: 0 inf., 0 tanq., 1 art.")).toBeInTheDocument();
+    // Once kept, it's kept even when emptied again
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(savedDraft().units).toEqual({ allies: {}, axis: {} });
   });
 
   it("goes back to the menu", () => {
     const onExit = vi.fn();
-    render(<MapEditor scenarios={scenarios} onExit={onExit} />);
+    render(<Editor onExit={onExit} />);
     fireEvent.click(screen.getByRole("button", { name: "Volver al menú" }));
 
-    expect(onExit).toHaveBeenCalled();
+    expect(onExit).toHaveBeenCalledWith("map-test");
   });
 
   it("lists what's still missing before the map can be played", () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     const missing = () => within(screen.getByText("Para poder jugarlo:").parentElement!);
     expect(missing().getByText("El escenario no tiene nombre")).toBeInTheDocument();
     expect(missing().getByText("El Eje no tiene unidades")).toBeInTheDocument();
@@ -137,25 +150,16 @@ describe("MapEditor", () => {
   });
 
   it("flashes the hexes a problem is about", async () => {
-    // A map saved with sandbags where no unit starts, which the editor itself doesn't allow
-    localStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({
-        version: 1,
-        board: "standard",
-        ...JSON.parse(JSON.stringify(scenarios.find((s) => s.id === "pegasus-bridge")!)),
-        image: undefined,
-        sandbags: [{ row: 4, col: 4 }],
-      }),
-    );
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    // A map with sandbags where no unit starts, which the editor itself doesn't allow
+    const pegasus = scenarios.find((s) => s.id === "pegasus-bridge")!;
+    render(<Editor map={{ ...pegasus, image: undefined, sandbags: [{ row: 4, col: 4 }] }} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Hay sacos terreros donde no empieza ninguna unidad: ver en el mapa" }));
     await waitFor(() => expect(hex("4-4").querySelector(".hexagon__flash-invalid")).not.toBeNull());
   });
 
   it("sets the scenario's name, sides and rules in Datos del escenario", async () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
     const dialog = within(await screen.findByRole("dialog"));
 
@@ -182,7 +186,7 @@ describe("MapEditor", () => {
   });
 
   it("undoes the settings a setting at a time", async () => {
-    render(<MapEditor scenarios={scenarios} onExit={() => {}} />);
+    render(<Editor />);
     fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
     const dialog = within(await screen.findByRole("dialog"));
     const name = dialog.getByLabelText("Nombre · Español");
@@ -206,7 +210,7 @@ describe("MapEditor", () => {
   it("speaks English", () => {
     render(
       <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
-        <MapEditor scenarios={scenarios} onExit={() => {}} />
+        <Editor />
       </SettingsContext.Provider>,
     );
     expect(screen.getByRole("heading", { name: "Map editor · Untitled map" })).toBeInTheDocument();

@@ -6,6 +6,10 @@ import {
   defaultExtraDraws,
   defaultParadrop,
   draftCounts,
+  isBlank,
+  isProvisionalId,
+  mapIdFor,
+  slugOf,
   hasSandbags,
   hasWire,
   isElite,
@@ -84,6 +88,46 @@ describe("a new map", () => {
     expect(copy.image).toBeUndefined();
     expect(copy.tiles).not.toBe(pegasus.tiles);
     expect(validateScenario(copy)).toEqual([]);
+  });
+
+  it("names a copy in the languages its scenario is named in", () => {
+    const copy = copyDraft(setText(newDraft("map-a"), "name", "es", "Setos"), "map-b");
+    expect(copy.name).toEqual({ es: "Setos (copia)", en: "" });
+  });
+});
+
+describe("a map's id", () => {
+  it("is a new map's random one until it has a name", () => {
+    expect(isProvisionalId(newMapId())).toBe(true);
+    expect(isProvisionalId("bocage-3f9k")).toBe(false);
+  });
+
+  it("makes lower-case words of a name, without accents or signs", () => {
+    expect(slugOf("Forêt d'Écouves")).toBe("foret-d-ecouves");
+    expect(slugOf("  Sainte-Mère-Église (1944)! ")).toBe("sainte-mere-eglise-1944");
+    expect(slugOf("¡¿…?!")).toBe("map");
+    expect(slugOf("La batalla de los setos de la Normandía, junio y julio de 1944")).toBe("la-batalla-de-los-setos-de-la-normandia");
+  });
+
+  it("comes from the name, the English one first, keeping the id's random part", () => {
+    const draft = setText(setText(newDraft("map-3f9k"), "name", "es", "Los setos"), "name", "en", "The hedgerows");
+    expect(mapIdFor(draft, () => false)).toBe("the-hedgerows-3f9k");
+    expect(mapIdFor(setText(draft, "name", "en", ""), () => false)).toBe("los-setos-3f9k");
+  });
+
+  it("gets a new random part when the id is taken", () => {
+    const draft = setText(newDraft("map-3f9k"), "name", "es", "Bocage");
+    const taken = new Set(["bocage-3f9k", "bocage-aaaa"]);
+    const random = [0, 0, 0, 0, 0.99, 0.99, 0.99, 0.99][Symbol.iterator]();
+
+    expect(mapIdFor(draft, (id) => taken.has(id), () => random.next().value ?? 0)).toBe("bocage-9999");
+  });
+
+  it("isn't made for a blank map, which isn't kept", () => {
+    expect(isBlank(empty())).toBe(true);
+    expect(isBlank(setText(empty(), "description", "es", "Normandía"))).toBe(false);
+    expect(isBlank(withInfantry())).toBe(false);
+    expect(isBlank(edit(empty(), (d) => paintTerrain(d, A, HexType.FOREST)))).toBe(false);
   });
 });
 

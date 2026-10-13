@@ -1,8 +1,8 @@
 import { Box, List, ListItem, ListItemButton, Stack, Typography } from "@mui/material";
-import { Position } from "../../types/scenario";
-import { ScenarioProblem } from "../../game-core/scenarioFile";
-import GameIcon from "../GameIcon";
-import { defineMessages, useMessages, useTr } from "../../i18n/useI18n";
+import { Position } from "../types/scenario";
+import { ScenarioProblem } from "../game-core/scenarioFile";
+import GameIcon from "./GameIcon";
+import { defineMessages, useMessages, useTr } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
@@ -20,11 +20,11 @@ const TEXT = defineMessages({
 interface ScenarioProblemsProps {
   /** What keeps the map from being played (validateScenario) */
   problems: readonly ScenarioProblem[];
-  /** Point a problem's hexes out on the map */
-  onShowHexes: (positions: readonly Position[]) => void;
+  /** Point a problem's hexes out on the map; without it, no line can be tapped */
+  onShowHexes?: (positions: readonly Position[]) => void;
 }
 
-/** What's still wrong with the map, a line each; tapping a line about some hexes shows them on the map */
+/** What's still wrong with a map, a line each; tapping a line about some hexes shows them on the map */
 function ScenarioProblems({ problems, onShowHexes }: ScenarioProblemsProps) {
   const t = useMessages(TEXT);
   const tr = useTr();
@@ -48,7 +48,7 @@ function ScenarioProblems({ problems, onShowHexes }: ScenarioProblemsProps) {
       <List dense disablePadding>
         {problems.map((problem) => {
           const message = tr(problem.message);
-          return problem.positions.length ? (
+          return onShowHexes && problem.positions.length ? (
             <ListItemButton
               key={message}
               onClick={() => onShowHexes(problem.positions)}
