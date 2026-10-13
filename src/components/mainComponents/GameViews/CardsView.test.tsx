@@ -12,7 +12,7 @@ const makeSession = (cardNames: string[], initialHandSize: number) =>
   new GameSession({
     scenario: {
       id: "test",
-      name: "Test",
+      name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 3, axis: 3 },
       attacker: "Allies",

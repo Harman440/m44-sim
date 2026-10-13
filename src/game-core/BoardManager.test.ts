@@ -9,7 +9,7 @@ import { same } from "../i18n/lang";
 
 const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   id: "test",
-  name: "Test",
+  name: { es: "Test", en: "Test" },
   description: same(""),
   initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",

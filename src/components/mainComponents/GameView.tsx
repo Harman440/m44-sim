@@ -28,7 +28,7 @@ import WaitingView from "./GameViews/WaitingView";
 import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
-import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
 import FactionInsignia from "../FactionInsignia";
@@ -108,6 +108,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const play = useSound();
   const t = useMessages(TEXT);
   const labels = useLabels();
+  const tr = useTr();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -158,7 +159,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
             <FactionInsignia faction={faction} size={34} decorative />
             <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
-              {scenario.name} · {labels.factions[faction]}
+              {tr(scenario.name)} · {labels.factions[faction]}
             </Typography>
             {session.testMode && <Chip label={t.testMode} color="warning" size="small" />}
             <Chip label={game.extraTurn ? t.extraTurn : t.turn(game.turn)} color="secondary" size="small" />

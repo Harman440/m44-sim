@@ -19,7 +19,7 @@ const SAVED_GAME_KEY = "m44-sim:saved-game";
 
 const scenario: Scenario = {
   id: "test",
-  name: "Test",
+  name: { es: "Test", en: "Test" },
   description: same(""),
   initialHandSize: { allies: 2, axis: 2 },
   attacker: "Axis",

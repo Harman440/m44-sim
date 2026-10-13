@@ -21,7 +21,7 @@ const makeSession = () => {
   const session = new GameSession({
     scenario: {
       id: "test",
-      name: "Test",
+      name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 3, axis: 3 },
       attacker: "Allies",
@@ -200,7 +200,7 @@ describe("OrdersView card rules", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Allies",
@@ -288,7 +288,7 @@ describe("OrdersView orders paid in coins", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
@@ -361,7 +361,7 @@ describe("OrdersView combat card markers", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
@@ -414,7 +414,7 @@ describe("OrdersView Reinforcements card", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
@@ -452,7 +452,7 @@ describe("OrdersView movement combat cards", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",

@@ -12,7 +12,7 @@ import { same } from "../i18n/lang";
 const board = (tiles: Scenario["tiles"] = {}, units: Scenario["units"]["allies"] = {}) =>
   new BoardManager({
     id: "test",
-    name: "Test",
+    name: { es: "Test", en: "Test" },
     description: same(""),
     initialHandSize: { allies: 1, axis: 1 },
     attacker: "Allies",

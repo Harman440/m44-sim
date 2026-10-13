@@ -28,7 +28,7 @@ const makeBattleSession = ({ moveTank = false } = {}) => {
   const session = new GameSession({
     scenario: {
       id: "test",
-      name: "Test",
+      name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
@@ -251,7 +251,7 @@ describe("BattleView Close Assault card", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Allies",
@@ -322,7 +322,7 @@ describe("BattleView combat cards", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
@@ -401,7 +401,7 @@ describe("BattleView combat card effects", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",

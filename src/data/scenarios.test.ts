@@ -2,44 +2,21 @@ import { describe, expect, it } from "vitest";
 import { scenarios } from "./scenarios";
 import BoardManager from "../game-core/BoardManager";
 import { Position, UnitGroup } from "../types/scenario";
-import { SIX_SIDED_FACES } from "../game-core/dice";
-import { isUnitType } from "../game-core/unit";
-import { positionKey } from "../game-core/position";
-
-const isOnBoard = ({ row, col }: Position) =>
-  row >= 0 && row < 9 && col >= 0 && col < 13 - (row % 2);
+import { describeProblem, validateScenario } from "../game-core/scenarioFile";
 
 const flatten = (groups: Partial<Record<string, Position[]>>) =>
   Object.values(groups).flatMap((positions) => positions ?? []);
 
 // BoardManager silently drops off-board positions and units placed on an
-// occupied hex, so typos in scenario data would otherwise go unnoticed
+// occupied hex, so typos in scenario data would otherwise go unnoticed.
+// The catalog's files are checked as they're read (data/catalog.ts)
 describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, scenario) => {
-  it("has board art and a starting hand for each side", () => {
+  it("has board art", () => {
     expect(scenario.image).toBeTruthy();
-    expect(scenario.initialHandSize.allies).toBeGreaterThan(0);
-    expect(scenario.initialHandSize.axis).toBeGreaterThan(0);
   });
 
-  it("says which unit each die face brings with the Reinforcements card", () => {
-    expect(Object.keys(scenario.reinforcements ?? {}).sort()).toEqual([...SIX_SIDED_FACES].sort());
-    expect(Object.values(scenario.reinforcements ?? {}).every((unit) => unit === null || isUnitType(unit))).toBe(true);
-  });
-
-  it("gives each hex at most one terrain", () => {
-    const keys = flatten(scenario.tiles).map(positionKey);
-
-    expect(new Set(keys).size).toBe(keys.length);
-  });
-
-  it("only uses positions that are on the board", () => {
-    const positions = [
-      ...flatten(scenario.tiles),
-      ...flatten(scenario.units.allies),
-      ...flatten(scenario.units.axis),
-    ];
-
-    expect(positions.filter((p) => !isOnBoard(p))).toEqual([]);
+  it("breaks none of the rules a scenario file is checked against", () => {
+    expect(validateScenario(scenario).map((problem) => describeProblem(problem, "en"))).toEqual([]);
   });
 
   it.each([
@@ -51,12 +28,6 @@ describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, sce
     const board = new BoardManager(scenario, faction);
 
     expect(board.getAllHexes().filter((h) => h.hasUnit())).toHaveLength(expected);
-  });
-
-  it("puts sandbags and elite badges only where a unit starts", () => {
-    const units = [...flatten(scenario.units.allies), ...flatten(scenario.units.axis)].map(positionKey);
-
-    expect([...(scenario.sandbags ?? []), ...(scenario.elite ?? [])].map(positionKey).filter((key) => !units.includes(key))).toEqual([]);
   });
 });
 

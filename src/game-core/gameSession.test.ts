@@ -24,7 +24,7 @@ const AT_INFANTRY = { infantry: true, closeAssault: false };
 // tank in the open center at (4,6) with forest to its east at (4,7)
 const scenario: Scenario = {
   id: "test",
-  name: "Test",
+  name: { es: "Test", en: "Test" },
   description: same(""),
   initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",

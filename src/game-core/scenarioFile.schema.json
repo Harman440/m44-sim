@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "scenarioFile.schema.json",
+  "title": "Memoir '44 Sim scenario",
+  "description": "A scenario for the m44-sim app: the map editor's maps and the catalog's files (src/data/catalog/<id>.json). Positions are { row, col } on the 13 × 9 board seen from the Allies' side (row 0 is the Axis' back row; odd rows have 12 hexes). The app checks the rules too (parseScenario in scenarioFile.ts): no unit on water, one unit per hex, and so on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "board", "id", "name", "description", "initialHandSize", "attacker", "tiles", "units", "reinforcements"],
+  "properties": {
+    "$schema": { "type": "string", "description": "Where an editor finds this format; the app ignores it" },
+    "version": { "const": 1, "description": "The file format's version" },
+    "board": { "enum": ["standard"], "description": "The standard board: 13 hexes across, 9 rows" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Lower-case words joined by hyphens; saves and the catalog find the scenario by it, and a catalog file is named after it"
+    },
+    "name": { "$ref": "#/definitions/localized" },
+    "description": { "$ref": "#/definitions/localized", "description": "A few sentences shown in the menu" },
+    "notes": { "type": "string", "description": "Where the scenario comes from and the rulings made for it; not shown in the app" },
+    "initialHandSize": {
+      "description": "Command cards each side starts with",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allies", "axis"],
+      "properties": {
+        "allies": { "type": "integer", "minimum": 1 },
+        "axis": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "attacker": { "$ref": "#/definitions/faction", "description": "The side that normally starts; it plays one extra turn before the defender joins in" },
+    "tiles": {
+      "description": "The hexes of each terrain; a hex not listed is plains",
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/hexType" },
+      "additionalProperties": { "$ref": "#/definitions/positions" }
+    },
+    "units": {
+      "description": "Where each side's units start, by unit type",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allies", "axis"],
+      "properties": {
+        "allies": { "$ref": "#/definitions/unitGroup" },
+        "axis": { "$ref": "#/definitions/unitGroup" }
+      }
+    },
+    "reinforcements": {
+      "description": "Reinforcements card: the unit each face of the battle die brings onto this map (null: none)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["infantry", "tank", "grenade", "supply", "flag"],
+      "properties": {
+        "infantry": { "$ref": "#/definitions/unitOrNone" },
+        "tank": { "$ref": "#/definitions/unitOrNone" },
+        "grenade": { "$ref": "#/definitions/unitOrNone" },
+        "supply": { "$ref": "#/definitions/unitOrNone" },
+        "flag": { "$ref": "#/definitions/unitOrNone" }
+      }
+    },
+    "paradrop": {
+      "description": "Units one side drops on the table before the game starts; that side's app asks where they landed",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["faction", "unitType", "units"],
+      "properties": {
+        "faction": { "$ref": "#/definitions/faction" },
+        "unitType": { "$ref": "#/definitions/unitType" },
+        "units": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "wire": { "$ref": "#/definitions/positions", "description": "Hexes with barbed wire (not on water)" },
+    "sandbags": { "$ref": "#/definitions/positions", "description": "Hexes whose unit starts with sandbags (either side's)" },
+    "elite": { "$ref": "#/definitions/positions", "description": "Hexes whose unit starts as elite (either side's)" },
+    "extraDraws": {
+      "description": "One side draws 2 command cards instead of 1 after each of its first turns",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["faction", "turns"],
+      "properties": {
+        "faction": { "$ref": "#/definitions/faction" },
+        "turns": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "bigGuns": {
+      "description": "Sides that get Cortina de Fuego (Barrage); both when left out",
+      "type": "array",
+      "items": { "$ref": "#/definitions/faction" },
+      "uniqueItems": true
+    },
+    "airPower": {
+      "description": "Copies of each air card per side: one per air sortie, 0 against the enemy's air superiority; 1 each when left out",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allies", "axis"],
+      "properties": {
+        "allies": { "type": "integer", "minimum": 0 },
+        "axis": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "definitions": {
+    "localized": {
+      "description": "A text in each language; an empty one shows the other",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["es", "en"],
+      "properties": {
+        "es": { "type": "string" },
+        "en": { "type": "string" }
+      }
+    },
+    "faction": { "enum": ["Allies", "Axis"] },
+    "unitType": { "enum": ["infantry", "tank", "artillery"] },
+    "unitOrNone": { "enum": ["infantry", "tank", "artillery", null] },
+    "hexType": { "enum": ["plains", "forest", "hill", "town", "hedgerow", "river", "bridge", "lake"] },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row", "col"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "col": { "type": "integer", "minimum": 0, "maximum": 12, "description": "Up to 11 on odd rows" }
+      }
+    },
+    "positions": { "type": "array", "items": { "$ref": "#/definitions/position" } },
+    "unitGroup": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/unitType" },
+      "additionalProperties": { "$ref": "#/definitions/positions" }
+    }
+  }
+}

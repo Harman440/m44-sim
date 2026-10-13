@@ -6,7 +6,7 @@ import InfoButton from "../InfoButton";
 import { Scenario } from "../../types/scenario";
 import { FACTIONS, Faction } from "../../types/faction";
 import { STARTING_COMBAT_CARDS, combatDeckEntries } from "../../data/combatCards";
-import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import type { Labels } from "../../labels";
 
 const TEXT = defineMessages({
@@ -187,11 +187,12 @@ function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void, 
 function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
+  const tr = useTr();
   const [deckShown, setDeckShown] = useState<Faction | null>(null);
   const picked = (f: Faction) => (f === faction ? { bgcolor: "action.selected" } : {});
   return (
     <>
-      <Table size="small" aria-label={t.sides(scenario.name)} sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
+      <Table size="small" aria-label={t.sides(tr(scenario.name))} sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
         <TableHead>
           <TableRow>
             <TableCell sx={{ width: "34%" }} />

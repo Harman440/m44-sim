@@ -170,7 +170,7 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
                   />
                 )}
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  {s.name}
+                  {tr(s.name)}
                 </Typography>
               </ListItemButton>
             ))}
@@ -181,13 +181,13 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
           <Box
             ref={detailsRef}
             component="section"
-            aria-label={scenario.name}
+            aria-label={tr(scenario.name)}
             sx={{ scrollMarginTop: 16, border: 1, borderColor: "divider", borderRadius: 1, p: { xs: 1.5, sm: 2 } }}
           >
             <Stack spacing={2}>
               <Box>
                 <Typography variant="h5" component="h2">
-                  {scenario.name}
+                  {tr(scenario.name)}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
                   {tr(scenario.description)}

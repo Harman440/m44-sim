@@ -21,9 +21,12 @@ export interface Factions {
 }
 
 export interface Scenario {
+  /** Lower case words joined by hyphens (`pegasus-bridge`); saves and the catalog find the scenario by it */
   id: string;
-  name: string;
+  name: Localized;
   description: Localized;
+  /** Where the scenario comes from and the rulings made for it; kept in its file, not shown */
+  notes?: string;
   /** Board artwork drawn under the hexes (imported asset URL) */
   image?: string;
   /** Command cards each side starts with */

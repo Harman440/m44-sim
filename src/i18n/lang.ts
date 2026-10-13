@@ -19,6 +19,10 @@ export const byLang = (text: (lang: Lang) => string): Localized => ({ es: text("
 /** A text that is the same in every language: a name, a number */
 export const same = (text: string): Localized => ({ es: text, en: text });
 
+/** The text in one language; when that one is empty (a map's name written in one language only), another's */
+export const textIn = (text: Localized, lang: Lang): string =>
+  text[lang] || LANGS.map((other) => text[other]).find(Boolean) || "";
+
 /** Whether a saved value is a text in every language */
 export const isLocalized = (value: unknown): value is Localized =>
   typeof value === "object" && value !== null && LANGS.every((lang) => typeof (value as Record<string, unknown>)[lang] === "string");

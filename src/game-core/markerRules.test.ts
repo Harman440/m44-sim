@@ -14,7 +14,7 @@ const RIVER: Position = { row: 2, col: 2 };
 const board = new BoardManager(
   {
     id: "test",
-    name: "Test",
+    name: { es: "Test", en: "Test" },
     description: same(""),
     initialHandSize: { allies: 1, axis: 1 },
     attacker: "Allies",

@@ -10,7 +10,7 @@ import { same } from "../i18n/lang";
 
 const scenario = (axis: Scenario["units"]["axis"], extra: Partial<Scenario> = {}): Scenario => ({
   id: "test",
-  name: "Test",
+  name: { es: "Test", en: "Test" },
   description: same(""),
   initialHandSize: { allies: 1, axis: 1 },
   attacker: "Allies",

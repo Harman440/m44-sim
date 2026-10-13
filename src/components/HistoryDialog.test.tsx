@@ -23,7 +23,7 @@ const playedSession = () => {
   const session = new GameSession({
     scenario: {
       id: "test",
-      name: "Test",
+      name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 2, axis: 2 },
       attacker: "Allies",

@@ -28,7 +28,7 @@ const makeSession = (
   const session = new GameSession({
     scenario: {
       id: "test",
-      name: "Test",
+      name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
@@ -307,7 +307,7 @@ describe("FireDialog", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",

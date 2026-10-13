@@ -3,6 +3,8 @@
 import { Scenario, Tiles } from "../types/scenario";
 import { DieFace } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
+import { same } from "../i18n/lang";
+import { catalogScenarios } from "./catalog";
 // Board art made with `npm run board` from the same terrain file
 import foretDEcouvesImage from "../assets/scenarios/ForetDEcouves.webp";
 import foretDEcouvesTiles from "./boards/foret-decouves.json";
@@ -13,7 +15,7 @@ import sainteMereEgliseTiles from "./boards/sainte-mere-eglise.json";
 import pegasusBridgeImage from "../assets/scenarios/PegasusBridge.webp";
 import pegasusBridgeTiles from "./boards/pegasus-bridge.json";
 
-export const scenarios: Scenario[] = [
+const builtIns: Scenario[] = [
   {
     // Official scenario 7045 by jdrommel (Days of Wonder archives, 12 August 1944): Leclerc's
     // French 2e DB attacks the Germans dug into the Écouves forest. The map, units, sandbags,
@@ -21,7 +23,7 @@ export const scenarios: Scenario[] = [
     // Écouché, the Allies' temporary medal objective, and the medals stay on the table; air
     // and the reinforcement table are ours
     id: 'foret-decouves',
-    name: "Forêt d'Écouves",
+    name: same("Forêt d'Écouves"),
     description: {
       es:
         'Agosto de 1944: la 2.ª División Blindada de Leclerc ataca a los alemanes atrincherados en el bosque de Écouves. ' +
@@ -72,7 +74,7 @@ export const scenarios: Scenario[] = [
     // where the US 4th Armored Division waits in the fog. The map, units, sandbags and hands are
     // the official ones; the medals stay on the table, and the reinforcement table is ours
     id: 'arracourt',
-    name: 'Arracourt',
+    name: same('Arracourt'),
     description: {
       es:
         'Septiembre de 1944: entre la niebla, las brigadas Panzer atacan Lezey y Arracourt, ' +
@@ -119,7 +121,7 @@ export const scenarios: Scenario[] = [
     // Memoir '44 base game, scenario 2 (6 June 1944): the US 82nd Airborne drops round the
     // town at night. The map and units are the official ones; the reinforcement table is ours
     id: 'sainte-mere-eglise',
-    name: 'Sainte-Mère-Église',
+    name: same('Sainte-Mère-Église'),
     description: {
       es: 'Los paracaidistas estadounidenses caen de noche alrededor del pueblo, entre setos y bosques.',
       en: 'American paratroopers drop at night around the town, among hedgerows and woods.',
@@ -161,7 +163,7 @@ export const scenarios: Scenario[] = [
     // each of its first two turns) are the official ones; the medals are only on the table, and
     // the reinforcement table is ours
     id: 'pegasus-bridge',
-    name: 'Pegasus Bridge',
+    name: same('Pegasus Bridge'),
     description: {
       es: 'Los planeadores británicos aterrizan junto a los puentes del canal de Caen y del Orne: hay que tomarlos.',
       en: 'British gliders land by the bridges over the Caen canal and the Orne: they must be taken.',
@@ -200,3 +202,9 @@ export const scenarios: Scenario[] = [
     },
   },
 ];
+
+// The catalog's files, and the board art they're painted with (by id)
+const catalogFiles = import.meta.glob("./catalog/*.json", { eager: true, import: "default" });
+const catalogArt = import.meta.glob<string>("../assets/scenarios/*.webp", { eager: true, import: "default" });
+
+export const scenarios: Scenario[] = [...builtIns, ...catalogScenarios(catalogFiles, catalogArt)];

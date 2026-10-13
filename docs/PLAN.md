@@ -165,12 +165,12 @@ Decided:
 - **Decided:** a map is sent as a link (Web Share) or a file (Step 54), and by QR code as the very last step (Step 57).
 
 ### Step 49: A scenario file
-- [ ] `ScenarioFile`: a `Scenario` as plain JSON (no `image`), with a `version`, `board: "standard"` (13×9; room for other sizes later) and `notes` (sources and rulings, which the built-ins keep in comments)
-- [ ] `Scenario.name` becomes `Localized`, like the description (the built-ins use `same()`), shown with `tr()`. A map needs a name in at least one language; an empty field shows the other language's text
-- [ ] A JSON Schema for the file, kept in step with the type by a test. It documents the format that Claude Code writes maps in (Step 56)
-- [ ] `game-core/scenarioFile.ts`: `validateScenario` lists what's wrong as `Localized` messages: a position off the board, a hex with two terrains, a unit on a river or lake (`MovementRule.BLOCK`), two units on one hex, wire on water, sandbags or a badge where no unit starts, a side with no units, a missing hand size or face in the Reinforcements table, a paradrop or extra draws for a side that doesn't exist. `parseScenario` reads unknown JSON into a `Scenario` or throws with those messages
-- [ ] `scenarios.test.ts` checks every scenario with `validateScenario` (its checks move there), so the built-ins and the editor's maps pass the same checks
-- [ ] The catalog also reads `src/data/scenarios/*.json`, and the art with the same id in `src/assets/scenarios/`, with `import.meta.glob`; the four built-ins stay in `scenarios.ts`
+- [x] `ScenarioFile` (`game-core/scenarioFile.ts`): a `Scenario` as plain JSON (no `image`), with a `version`, `board: "standard"` (13×9; room for other sizes later) and `notes` (`Scenario.notes`: sources and rulings, which the built-ins keep in comments). `toScenarioFile` writes one
+- [x] `Scenario.name` is `Localized`, like the description (the built-ins use `same()`), shown with `tr()`. A map needs a name in at least one language; an empty text shows the other language's (`textIn`, which `useTr` uses)
+- [x] A JSON Schema for the file, `game-core/scenarioFile.schema.json`, kept in step by a test (with `ajv`, a dev dependency): its fields, terrains, unit types, sides and die faces are the app's, the built-ins pass it, and it refuses what `parseScenario` refuses. It documents the format that Claude Code writes maps in (Step 56); a file can point an editor at it with `$schema`
+- [x] `validateScenario` lists what's wrong as `ScenarioProblem`s, a `Localized` message and the hexes it's about: a bad id, no name, a hand under 1 card, a position off the board (odd rows have one hex less), a hex with two terrains, two units on one hex, a unit or wire on a river or lake (`MovementRule.BLOCK`), sandbags or a badge where no unit starts, a side with no units (unless it drops them by parachute), no full Reinforcements table, and the paradrop's, extra draws' and air sorties' numbers. `parseScenario` reads unknown JSON into a `Scenario`, or throws a `ScenarioFileError` listing every field of the wrong shape (unknown fields too), then the rules
+- [x] `scenarios.test.ts` checks every scenario with `validateScenario` (its own checks moved there), so the built-ins and the editor's maps pass the same checks, and each built-in round-trips through a file
+- [x] The catalog also reads `src/data/catalog/<id>.json` (named after its id) and its art, `src/assets/scenarios/<id>.webp`, with `import.meta.glob` (`data/catalog.ts`). A broken file fails the tests, so it can't deploy. The four built-ins stay in `scenarios.ts`
 
 ### Step 50: Board art in the browser
 - [ ] Share the drawn terrain (`scripts/terrain-tiles.mjs`: rivers, bridges, lakes, hedgerows as SVG, no Node imports) between the script and the app: move it to `src/boardArt/`, and `compose-board.mjs` imports it from there. Same for the seeded tile pick and turn (`pickFor`), so a hex looks the same in both
@@ -210,7 +210,7 @@ Decided:
 - [ ] Test the round trip (link and file give back the same scenario); a broken link or file shows a message and changes nothing
 
 ### Step 55: Adding a map to the catalog
-- [ ] `npm run add-scenario -- <file>`: checks the exported file (`parseScenario`), writes `src/data/scenarios/<id>.json`, adds its board to `scripts/boards.json` (`compose-board.mjs` reads the terrain from the scenario file), and runs `npm run board -- <id>` for the painted art, with ridges
+- [ ] `npm run add-scenario -- <file>`: checks the exported file (`parseScenario`), writes `src/data/catalog/<id>.json`, adds its board to `scripts/boards.json` (`compose-board.mjs` reads the terrain from the scenario file), and runs `npm run board -- <id>` for the painted art, with ridges
 - [ ] Then by hand: the description in both languages, the sources and rulings in `notes`, `drawn` or `separateHills` in `boards.json` if the art needs them, and tests for any special rule. Pushing to `main` deploys it to every device
 - [ ] The script keeps the map's id, terrain and units as exported (it only adds texts and notes), so a game in progress on the device's copy goes on with the catalog's after an update
 - [ ] A map that's both in the catalog and on the device shows once, the catalog's version, and the menu offers to delete the device's copy

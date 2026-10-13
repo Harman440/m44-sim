@@ -19,7 +19,7 @@ const makeFinalSession = () => {
   const session = new GameSession({
     scenario: {
       id: "test",
-      name: "Test",
+      name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
@@ -163,7 +163,7 @@ describe("EndOfTurnView after a special card", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Allies",
@@ -368,7 +368,7 @@ describe("EndOfTurnView table reminders", () => {
     const session = new GameSession({
       scenario: {
         id: "test",
-        name: "Test",
+        name: { es: "Test", en: "Test" },
         description: same(""),
         initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",

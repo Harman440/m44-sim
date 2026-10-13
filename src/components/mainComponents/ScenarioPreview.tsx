@@ -4,7 +4,7 @@ import Board from "../Board";
 import BoardManager from "../../game-core/BoardManager";
 import { Scenario } from "../../types/scenario";
 import { Faction } from "../../types/faction";
-import { defineMessages, useMessages } from "../../i18n/useI18n";
+import { defineMessages, useMessages, useTr } from "../../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: { map: (scenario: string) => `Mapa de ${scenario}` },
@@ -25,9 +25,10 @@ const noop = () => {};
  */
 function ScenarioPreview({ scenario, faction }: ScenarioPreviewProps) {
   const t = useMessages(TEXT);
+  const tr = useTr();
   const board = useMemo(() => new BoardManager(scenario, faction), [scenario, faction]);
   return (
-    <Box aria-label={t.map(scenario.name)} role="img" sx={{ pointerEvents: "none", "& svg": { display: "block" } }}>
+    <Box aria-label={t.map(tr(scenario.name))} role="img" sx={{ pointerEvents: "none", "& svg": { display: "block" } }}>
       <Board
         onTileClick={noop}
         unitHexPosition={null}

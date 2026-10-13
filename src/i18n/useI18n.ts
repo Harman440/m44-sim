@@ -4,7 +4,7 @@
 import { useCallback } from "react";
 import { useSettings } from "../settings";
 import { LABELS, Labels } from "../labels";
-import type { Lang, Localized } from "./lang";
+import { textIn, type Lang, type Localized } from "./lang";
 
 /** A component's texts, one set per language; the English set must match the Spanish one */
 export type Messages<T> = Readonly<Record<Lang, T>>;
@@ -26,5 +26,5 @@ export const useLabels = (): Labels => LABELS[useLang()];
 /** Picks the player's language out of a game object's text: `tr(card.name)` */
 export const useTr = (): ((text: Localized) => string) => {
   const lang = useLang();
-  return useCallback((text: Localized) => text[lang], [lang]);
+  return useCallback((text: Localized) => textIn(text, lang), [lang]);
 };
