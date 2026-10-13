@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 27;
+export const SAVE_VERSION = 28;
 
 interface SavedUnit {
   type: UnitType;
@@ -74,7 +74,7 @@ export interface SavedGame {
   unmovedFireSkipped: boolean;
   battleEdits: ((
     | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
-    | { kind: "move"; from: Position; to: Position; sandbags?: Position[]; clearedWire?: boolean }
+    | { kind: "move"; from: Position; to: Position; unit: number; sandbags?: Position[]; clearedWire?: boolean }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
     | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
@@ -234,7 +234,8 @@ export function writeSave(
       ...(order.clearedWire && { clearedWire: true }),
     })),
     battleEdits: state.battleEdits.map((edit): SavedGame["battleEdits"][number] => {
-      if (edit.kind === "move" || edit.kind === "wire" || edit.kind === "sandbags") return edit;
+      if (edit.kind === "wire" || edit.kind === "sandbags") return edit;
+      if (edit.kind === "move") return { ...edit, unit: unitIndex(edit.unit) };
       const beforeOrders = edit.beforeOrders && { beforeOrders: true };
       if (edit.kind === "add") return { kind: "add", position: edit.position, unit: unitIndex(edit.unit), ...beforeOrders };
       return {
@@ -419,7 +420,8 @@ export function readSave(
     orders,
     unmovedFireSkipped: saved.unmovedFireSkipped,
     battleEdits: saved.battleEdits.map((edit): BattleEdit => {
-      if (edit.kind === "move" || edit.kind === "wire" || edit.kind === "sandbags") return edit;
+      if (edit.kind === "wire" || edit.kind === "sandbags") return edit;
+      if (edit.kind === "move") return { ...edit, unit: unit(edit.unit) };
       const beforeOrders = edit.beforeOrders === true && { beforeOrders: true };
       if (edit.kind === "add") return { kind: "add", position: edit.position, unit: unit(edit.unit), ...beforeOrders };
       return {

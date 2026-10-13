@@ -1,11 +1,9 @@
 // game-core/turnLog.ts
-import BoardManager from "./BoardManager";
 import CommandCard from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { DieFace } from "./dice";
 import { DiceStep } from "./fireRules";
-import { positionKey } from "./position";
 import { Position } from "../types/scenario";
 import type { AmbushShot, BattleEdit, CardAttack, ReinforcementRoll, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
@@ -88,8 +86,6 @@ interface TurnState {
   orders: readonly Order[];
   shots: readonly Shot[];
   battleEdits: readonly BattleEdit[];
-  /** The board after the battle edits, to find which unit each move was */
-  board: BoardManager;
   coins: readonly CoinEntry[];
   coinsAfter: number;
   reward: RewardChoice | null;
@@ -108,7 +104,6 @@ export function recordTurn({
   orders,
   shots,
   battleEdits,
-  board,
   coins,
   coinsAfter,
   reward,
@@ -144,19 +139,19 @@ export function recordTurn({
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
       ...(shot.blocked && { blocked: true }),
     })),
-    battleEdits: editedUnits(battleEdits, board).map((unit, i): TurnRecord["battleEdits"][number] => {
-      const edit = battleEdits[i]!;
+    battleEdits: battleEdits.map((edit): TurnRecord["battleEdits"][number] => {
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
       if (edit.kind === "sandbags") {
         return { kind: "sandbags", position: { ...edit.position }, placed: edit.placed, ...(edit.fortify && { fortify: true }) };
       }
+      const { unit } = edit;
       if (edit.kind === "move") {
-        return { kind: "move", unit: unit!.getUnitType(), ...eliteOf(unit!), from: { ...edit.from }, to: { ...edit.to } };
+        return { kind: "move", unit: unit.getUnitType(), ...eliteOf(unit), from: { ...edit.from }, to: { ...edit.to } };
       }
       return {
         kind: edit.kind,
-        unit: unit!.getUnitType(),
-        ...(edit.kind === "remove" && eliteOf(unit!)),
+        unit: unit.getUnitType(),
+        ...(edit.kind === "remove" && eliteOf(unit)),
         position: { ...edit.position },
         ...(edit.kind === "remove" && edit.replacement && { replacedBy: edit.replacement.getUnitType() }),
       };
@@ -191,36 +186,3 @@ export const copyAmbush = (ambush: AmbushShot): AmbushShot => ({
 
 /** `elite: true` for a unit with the scenario's badge, nothing otherwise */
 const eliteOf = (unit: Unit): { elite?: true } => (unit.elite ? { elite: true } : {});
-
-/**
- * The unit each edit applied to (null for wire and sandbags). A move only knows its
- * hexes, so the edits are undone one by one, newest first, on a copy of the board.
- */
-
-function editedUnits(edits: readonly BattleEdit[], board: BoardManager): (Unit | null)[] {
-  const units = new Map<string, Unit>();
-  board.getAllHexes().forEach((hex) => {
-    if (hex.unit) units.set(positionKey(hex.getPosition()), hex.unit);
-  });
-
-  const edited: (Unit | null)[] = [];
-  for (let i = edits.length - 1; i >= 0; i--) {
-    const edit = edits[i]!;
-    if (edit.kind === "remove") {
-      units.set(positionKey(edit.position), edit.unit);
-      edited[i] = edit.unit;
-    } else if (edit.kind === "add") {
-      units.delete(positionKey(edit.position));
-      edited[i] = edit.unit;
-    } else if (edit.kind === "wire" || edit.kind === "sandbags") {
-      edited[i] = null;
-    } else {
-      const unit = units.get(positionKey(edit.to));
-      if (!unit) throw new Error(`No unit at ${positionKey(edit.to)} to undo a move`);
-      units.delete(positionKey(edit.to));
-      units.set(positionKey(edit.from), unit);
-      edited[i] = unit;
-    }
-  }
-  return edited;
-}

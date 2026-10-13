@@ -275,8 +275,11 @@ export type BattleEdit = (
    * `sandbags`: the unit's sandbags went with it (a crew left behind keeps them)
    */
   | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit; sandbags?: boolean }
-  /** `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to` */
-  | { kind: "move"; from: Position; to: Position; sandbags?: Position[]; clearedWire?: boolean }
+  /**
+   * `unit`: the unit moved, kept so the turn log names it (orders after a fix in Órdenes move units too);
+   * `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to`
+   */
+  | { kind: "move"; from: Position; to: Position; unit: Unit; sandbags?: Position[]; clearedWire?: boolean }
   /** A unit that arrived: the Reinforcements card */
   | { kind: "add"; position: Position; unit: Unit }
   /** Barbed wire removed at the table (by the other side, or missed here) */
@@ -910,14 +913,14 @@ class GameSession {
   takeGround(orderIndex: number): boolean {
     if (!this.canTakeGround(orderIndex)) return false;
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex)!;
-    const from = this.orders[orderIndex]!.end;
+    const { end: from, unit } = this.orders[orderIndex]!;
     const to = last.targetPosition!;
     const sandbags = this.moveUnit(from, to);
     if (!sandbags) return false;
-    const clearedWire = this.clearWire(this.orders[orderIndex]!.unit, to);
+    const clearedWire = this.clearWire(unit, to);
     this.battleEdits = [
       ...this.battleEdits,
-      { kind: "move", from, to, ...(sandbags.length > 0 && { sandbags }), ...(clearedWire && { clearedWire }) },
+      { kind: "move", from, to, unit, ...(sandbags.length > 0 && { sandbags }), ...(clearedWire && { clearedWire }) },
     ];
     this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: true } : shot));
     return this.publish();
@@ -1427,10 +1430,11 @@ class GameSession {
   relocateUnit(from: Position, to: Position): boolean {
     if (!this.canEditMap() || samePosition(from, to)) return false;
     if (!this.board.getHex(to)?.isPassable()) return false;
+    const unit = this.board.getHex(from)?.unit;
     const sandbags = this.moveUnit(from, to);
-    if (!sandbags) return false;
+    if (!unit || !sandbags) return false;
 
-    this.addBattleEdit({ kind: "move", from, to, ...(sandbags.length > 0 && { sandbags }) });
+    this.addBattleEdit({ kind: "move", from, to, unit, ...(sandbags.length > 0 && { sandbags }) });
     return this.publish();
   }
 
@@ -1689,7 +1693,6 @@ class GameSession {
       orders: this.orders,
       shots: this.shots,
       battleEdits: this.battleEdits,
-      board: this.board,
       coins: this.turnCoinEntries(),
       coinsAfter: coins,
       reward: this.rewardChoice,

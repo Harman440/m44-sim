@@ -1215,6 +1215,23 @@ describe("GameSession turn log", () => {
     ]);
   });
 
+  it("ends the turn after a map fix in Órdenes whose unit was then ordered on", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    const fixed = { row: 3, col: 3 };
+    // The tank wasn't where the map had it; once fixed, it's ordered on from there
+    expect(session.relocateUnit(TANK, fixed)).toBe(true);
+    expect(session.issueOrder(fixed, { row: 3, col: 4 })).toBe(true);
+    orderAllAndFight(session);
+    session.endBattle();
+    // Reloaded in the final phase, the edit still knows its unit
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+
+    finishTurn(restored);
+
+    expect(restored.getSnapshot().log[0]!.battleEdits).toEqual([{ kind: "move", unit: "tank", from: TANK, to: fixed }]);
+  });
+
   it("leaves out orders, shots and edits that were undone", () => {
     const { session, card } = sessionWithAllCards();
     session.pickCard(card("left"));
@@ -1333,7 +1350,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 26 as 27 })).toThrow();
+    expect(broken({ version: 27 as 28 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
