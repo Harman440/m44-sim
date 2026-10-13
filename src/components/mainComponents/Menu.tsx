@@ -23,6 +23,7 @@ const TEXT = defineMessages({
     title: "Memoir '44 Simultáneo",
     settings: "Ajustes",
     ruleBook: "Reglamento",
+    mapEditor: "Editor de mapas",
     scenarios: "Escenarios",
     pickScenario: "Elige escenario:",
     testRules: "Reglas de prueba",
@@ -52,6 +53,7 @@ const TEXT = defineMessages({
     title: "Memoir '44 Simultaneous",
     settings: "Settings",
     ruleBook: "Rule book",
+    mapEditor: "Map editor",
     scenarios: "Scenarios",
     pickScenario: "Pick a scenario:",
     testRules: "Test rules",
@@ -84,13 +86,15 @@ interface MenuProps {
   /** Pre-selected choices, e.g. the last game's */
   initialSetup?: Partial<GameSetup>;
   onStart: (setup: GameSetup) => void;
+  /** Open the map editor */
+  onOpenEditor?: () => void;
 }
 
 const ScenarioPreview = lazy(() => import("./ScenarioPreview"));
 const RuleBookDialog = lazy(() => import("../RuleBookDialog"));
 
 /** Start screen: pick a scenario, then which side this device plays */
-function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
+function Menu({ scenarios, initialSetup, onStart, onOpenEditor }: MenuProps) {
   // Nothing is picked beforehand: the player taps the scenario and the side
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [faction, setFaction] = useState<Faction | null>(null);
@@ -126,6 +130,11 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
         <Typography variant="h3" component="h1" sx={{ flexGrow: 1 }}>
           {t.title}
         </Typography>
+        {onOpenEditor && (
+          <Button variant="outlined" startIcon={<GameIcon name="map" />} onClick={onOpenEditor} sx={{ whiteSpace: "nowrap" }}>
+            {t.mapEditor}
+          </Button>
+        )}
         <Button variant="outlined" startIcon={<GameIcon name="ruleBook" />} onClick={() => setRuleBookOpen(true)} sx={{ whiteSpace: "nowrap" }}>
           {t.ruleBook}
         </Button>

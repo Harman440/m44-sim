@@ -8,6 +8,7 @@ import { commandDeckFor } from './data/commandCards';
 import { allCombatCards, combatDeckFor } from './data/combatCards';
 import GameSession from './game-core/gameSession';
 import GameView from './components/mainComponents/LazyGameView';
+import MapEditor from './components/mapEditor/LazyMapEditor';
 import Menu from './components/mainComponents/Menu';
 import UpdatePrompt from './components/UpdatePrompt';
 import OldBrowser from './components/OldBrowser';
@@ -28,6 +29,7 @@ import { createLookTheme } from './looks/theme';
 
 const TITLES = { es: "Memoir '44 Simultáneo", en: "Memoir '44 Simultaneous" } as const;
 const LOADING = { es: 'Cargando partida', en: 'Loading the game' } as const;
+const LOADING_EDITOR = { es: 'Cargando el editor de mapas', en: 'Loading the map editor' } as const;
 
 interface CurrentGame {
   session: GameSession;
@@ -83,6 +85,9 @@ const App = () => {
     if (!game) void GameView.preload();
   }, [game]);
 
+  // The map editor, open from the menu
+  const [editing, setEditing] = useState(false);
+
   const handleStart = (setup: GameSetup) => {
     const scenario = scenarios.find((s) => s.id === setup.scenarioId);
     if (!scenario) return;
@@ -116,8 +121,13 @@ const App = () => {
             <Suspense fallback={<CircularProgress aria-label={LOADING[language]} sx={{ m: 'auto' }} />}>
               <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
             </Suspense>
+          ) : editing ? (
+            // Only from the menu, so a map is never edited during a game
+            <Suspense fallback={<CircularProgress aria-label={LOADING_EDITOR[language]} sx={{ m: 'auto' }} />}>
+              <MapEditor scenarios={scenarios} onExit={() => setEditing(false)} />
+            </Suspense>
           ) : (
-            <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} />
+            <Menu scenarios={scenarios} initialSetup={loadLastSetup()} onStart={handleStart} onOpenEditor={() => setEditing(true)} />
           )}
         </div>
         <UpdatePrompt />

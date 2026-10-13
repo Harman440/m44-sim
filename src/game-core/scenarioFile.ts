@@ -304,9 +304,10 @@ class FileReader {
 /**
  * Read a scenario file (JSON already parsed, of any shape). Throws a
  * ScenarioFileError listing everything wrong with it, the shape first: the
- * rules are only checked on a file that has the right shape.
+ * rules are only checked on a file that has the right shape. With `rules: false`
+ * only the shape is checked, for a map still being made (the editor's draft).
  */
-export function parseScenario(json: unknown): Scenario {
+export function parseScenario(json: unknown, { rules = true }: { rules?: boolean } = {}): Scenario {
   const reader = new FileReader();
   if (!isRecord(json)) throw new ScenarioFileError([{ message: NOT_A_SCENARIO, positions: [] }]);
   const file = reader.object(json, "", SCENARIO_FILE_FIELDS)!;
@@ -339,7 +340,7 @@ export function parseScenario(json: unknown): Scenario {
 
   // The shape is right, so every field read is what Scenario says it is
   const scenario = Object.fromEntries(Object.entries(read).filter(([, value]) => value !== undefined)) as unknown as Scenario;
-  const problems = validateScenario(scenario);
+  const problems = rules ? validateScenario(scenario) : [];
   if (problems.length) throw new ScenarioFileError(problems);
   return scenario;
 }

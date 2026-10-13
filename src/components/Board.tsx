@@ -44,6 +44,8 @@ interface BoardProps {
   focus?: readonly Position[];
   hexSize?: number;
   faction: Faction;
+  /** The side of the unit on a hex, when the board shows both sides' units (the map editor) */
+  unitFactionAt?: (position: Position) => Faction;
 }
 
 function Board({
@@ -64,7 +66,8 @@ function Board({
   selectedTarget = null,
   focus = [],
   hexSize = 50,
-  faction
+  faction,
+  unitFactionAt,
 }: BoardProps) {
   const { width: boardWidth, height: boardHeight } = boardManager;
   const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
@@ -174,7 +177,7 @@ function Board({
             invalidFlashId={flashesInvalid ? invalidFlash.id : null}
             hexSize={hexSize}
             hexData={hexData}
-            faction={faction}
+            faction={unitFactionAt?.(position) ?? faction}
           />
         );
       }

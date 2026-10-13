@@ -8,6 +8,7 @@
 // only pastes images: the editor can redraw the whole board on every tap (about 25 ms on a
 // desktop, 100 ms with its processor slowed 4 times; the JPEG takes most of it).
 import { Tiles } from "../types/scenario";
+import { HexType } from "../types/hex";
 import {
   APP_ART_HEIGHT,
   ART_HEIGHT,
@@ -167,3 +168,28 @@ export async function drawBoardArt(tiles: Tiles, height = APP_ART_HEIGHT): Promi
   if (!blob) throw new Error("Couldn't draw the board");
   return URL.createObjectURL(blob);
 }
+
+// The editor's terrain tools show a hex of their terrain, cut from a board drawn with only that hex
+const SWATCH_HEX = "4-6";
+const swatches = new Map<string, Promise<string>>();
+
+/** A picture of one hex of a terrain on the board (a data: URL), for the map editor's tools */
+export const terrainSwatch = (type: HexType): Promise<string> =>
+  cached(swatches, type, async () => {
+    const board = document.createElement("canvas");
+    const [row = 0, col = 0] = SWATCH_HEX.split("-").map(Number);
+    await paintBoard(board, type === HexType.PLAINS ? {} : { [type]: [{ row, col }] });
+    const grid = artGrid(APP_ART_HEIGHT);
+    const { x, y } = grid.center(SWATCH_HEX);
+    const [width, height] = [Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius)];
+    const swatch = document.createElement("canvas");
+    swatch.width = width;
+    swatch.height = height;
+    const ctx = swatch.getContext("2d");
+    if (!ctx) throw new Error("No canvas to draw the terrain on");
+    ctx.beginPath();
+    hexPath(ctx, { x: width / 2, y: height / 2 }, grid.radius);
+    ctx.clip();
+    ctx.drawImage(board, x - width / 2, y - height / 2, width, height, 0, 0, width, height);
+    return swatch.toDataURL("image/png");
+  });

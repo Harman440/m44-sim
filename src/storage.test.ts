@@ -1,13 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearMapDraft,
   clearSavedGame,
+  loadMapDraft,
   loadLastSetup,
   loadSavedGame,
   loadSettings,
   saveGame,
   saveLastSetup,
+  saveMapDraft,
   saveSettings,
 } from "./storage";
+import { newDraft, placeUnit } from "./game-core/scenarioDraft";
+import { UnitType } from "./game-core/unit";
 import { DEFAULT_SETTINGS } from "./settings";
 import GameSession from "./game-core/gameSession";
 import { commandDeckFor } from "./data/commandCards";
@@ -125,5 +130,26 @@ describe("saved game", () => {
     expect(() => saveLastSetup({ scenarioId: "test", faction: "Allies", longRangeDie: false })).not.toThrow();
     expect(loadSavedGame([scenario])).toBeNull();
     expect(loadLastSetup()).toBeUndefined();
+  });
+});
+
+describe("map draft", () => {
+  const KEY = "m44-sim:map-draft";
+
+  it("keeps the map being made, even before it can be played", () => {
+    const draft = placeUnit(newDraft("map-test"), { row: 8, col: 4 }, "Allies", UnitType.TANK);
+    if (!draft) throw new Error("not placed");
+    saveMapDraft(draft);
+
+    expect(loadMapDraft()).toEqual(draft);
+    clearMapDraft();
+    expect(loadMapDraft()).toBeNull();
+  });
+
+  it("drops a draft it can't read", () => {
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, board: "standard", id: "map-x", units: "lots" }));
+
+    expect(loadMapDraft()).toBeNull();
+    expect(localStorage.getItem(KEY)).toBeNull();
   });
 });

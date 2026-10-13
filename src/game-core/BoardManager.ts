@@ -19,16 +19,20 @@ class BoardManager {
   height: number;
   hexes: Map<string, Hex>;
 
-  constructor(scenario: Scenario, faction: Faction = "Allies", width = 13, height = 9) {
-    this.width = width;
-    this.height = height;
+  /**
+   * The board as `faction` sees it, with its units. `bothSides` puts the other side's units on it
+   * too, with every sandbag: the map editor shows the whole scenario (from the Allies' side)
+   */
+  constructor(scenario: Scenario, faction: Faction = "Allies", { bothSides = false }: { bothSides?: boolean } = {}) {
+    this.width = 13;
+    this.height = 9;
     this.hexes = new Map(); // Store hexes by "row-col" key
 
-    this.initializeBoard(scenario, faction);
+    this.initializeBoard(scenario, faction, bothSides);
   }
 
   // Initialize the board with default terrain
-  private initializeBoard(scenario: Scenario, faction: Faction) {
+  private initializeBoard(scenario: Scenario, faction: Faction, bothSides: boolean) {
     // Factions can come from a saved game, so check even though the type says so
     if (!isFaction(faction)) throw new Error(`Invalid faction: ${faction}`);
 
@@ -77,9 +81,10 @@ class BoardManager {
 
     // Place initial units (flipped for Axis)
     const factionKey = faction.toLowerCase() as keyof Factions;
-    const unitGroups = scenario.units[factionKey];
+    const sides: (keyof Factions)[] = bothSides ? ["allies", "axis"] : [factionKey];
+    const unitGroups = sides.flatMap((side) => Object.entries(scenario.units[side]));
 
-    for (const [unitType, positions] of Object.entries(unitGroups)) {
+    for (const [unitType, positions] of unitGroups) {
       const typedUnitType = unitType as UnitType;
       positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);

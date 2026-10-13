@@ -1,0 +1,28 @@
+/* The map editor lays out like the game's board screens (PhaseLayout.css): in
+   landscape it's exactly one screen high, the board filling what the header
+   and the tools column leave */
+.map-editor {
+  width: 100%;
+  max-width: 1400px;
+}
+
+/* A finger on the board paints; it doesn't scroll or zoom the page */
+.map-editor__board {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (orientation: landscape) {
+  .map-editor {
+    max-width: none;
+    height: calc(100dvh - 2 * var(--app-padding));
+    display: flex;
+    flex-direction: column;
+  }
+
+  .map-editor__main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}

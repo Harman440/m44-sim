@@ -84,6 +84,15 @@ describe("App menu and game flow", () => {
     expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
   });
 
+  it("opens the map editor from the menu, and goes back", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Editor de mapas" }));
+    expect(await screen.findByRole("heading", { name: "Editor de mapas · Mapa sin nombre" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver al menú" }));
+    expect(menuHeading()).toBeInTheDocument();
+  });
+
   it("starts a game for the chosen side, with the turn and phase in the header", () => {
     render(<App />);
 

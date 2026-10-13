@@ -1,0 +1,328 @@
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { PointerEvent } from "react";
+import { Box, Button, Stack, Typography } from "@mui/material";
+import Board from "../Board";
+import BoardManager from "../../game-core/BoardManager";
+import { Position, Scenario, Tiles } from "../../types/scenario";
+import { HexType } from "../../types/hex";
+import { UnitType } from "../../game-core/unit";
+import { positionKey } from "../../game-core/position";
+import {
+  DraftHistory,
+  EditorTool,
+  Stroke,
+  draftCounts,
+  newDraft,
+  newMapId,
+  recordStep,
+  redoStep,
+  startHistory,
+  strokeOf,
+  undoStep,
+  unitAt,
+} from "../../game-core/scenarioDraft";
+import { drawBoardArt } from "../../boardArt/drawBoard";
+import { RATTENKRIEG_MIN_TOWNS } from "../../data/combatCards";
+import { loadMapDraft, saveMapDraft } from "../../storage";
+import { useHexFlash } from "../useHexFlash";
+import GameIcon from "../GameIcon";
+import InfoButton from "../InfoButton";
+import EditorTools from "./EditorTools";
+import NewMapDialog from "./NewMapDialog";
+import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
+import "../mainComponents/GameViews/PhaseLayout.css";
+import "./MapEditor.css";
+
+const TEXT = defineMessages({
+  es: {
+    title: "Editor de mapas",
+    untitled: "Mapa sin nombre",
+    newMap: "Nuevo mapa",
+    exit: "Volver al menú",
+    undo: "Deshacer",
+    redo: "Rehacer",
+    map: "Mapa",
+    onWater: "No puede ir en un río ni en un lago.",
+    noUnit: "Ahí no hay ninguna unidad.",
+    side: (side: string, infantry: number, tanks: number, artillery: number) =>
+      `${side}: ${infantry} inf., ${tanks} tanq., ${artillery} art.`,
+    towns: (towns: number) => `Pueblos: ${towns}`,
+    rattenkrieg: `Más de ${RATTENKRIEG_MIN_TOWNS}: se reparte Rattenkrieg`,
+    instructions: "Instrucciones",
+    help: [
+      "Elige una herramienta y toca las casillas del mapa. El mapa se ve desde el lado de los Aliados: el Eje empieza arriba.",
+      "Terreno: toca una casilla para pintarla, y otra vez para dejarla en llano. Desliza el dedo para pintar varias. Los ríos y lagos se unen solos con los de al lado; un puente es un río que se puede cruzar.",
+      "Unidades: toca una casilla para poner la unidad, y otra vez para quitarla. No pueden ir en el agua.",
+      "Marcas: De élite y Sacos terreros van sobre una unidad; la alambrada, en cualquier casilla de tierra. Borrar deja la casilla vacía.",
+      "El mapa se guarda solo en este dispositivo mientras lo haces.",
+    ],
+  },
+  en: {
+    title: "Map editor",
+    untitled: "Untitled map",
+    newMap: "New map",
+    exit: "Back to the menu",
+    undo: "Undo",
+    redo: "Redo",
+    map: "Map",
+    onWater: "It can't go on a river or a lake.",
+    noUnit: "There's no unit there.",
+    side: (side: string, infantry: number, tanks: number, artillery: number) =>
+      `${side}: ${infantry} inf., ${tanks} tanks, ${artillery} art.`,
+    towns: (towns: number) => `Towns: ${towns}`,
+    rattenkrieg: `More than ${RATTENKRIEG_MIN_TOWNS}: Rattenkrieg is dealt`,
+    instructions: "Instructions",
+    help: [
+      "Pick a tool and tap the hexes on the map. The map is seen from the Allies' side: the Axis starts at the top.",
+      "Terrain: tap a hex to paint it, and again to leave it as plains. Slide your finger to paint several. Rivers and lakes join up with the ones next to them on their own; a bridge is a river that can be crossed.",
+      "Units: tap a hex to put the unit there, and again to take it off. They can't go on water.",
+      "Marks: Elite and Sandbags go on a unit; barbed wire on any land hex. Clear empties the hex.",
+      "The map is saved on this device as you make it.",
+    ],
+  },
+});
+
+type Action = { kind: "edit"; next: Scenario; amend: boolean } | { kind: "undo" } | { kind: "redo" } | { kind: "start"; draft: Scenario };
+
+const reducer = (history: DraftHistory, action: Action): DraftHistory => {
+  switch (action.kind) {
+    case "edit":
+      return recordStep(history, action.next, action.amend);
+    case "undo":
+      return undoStep(history);
+    case "redo":
+      return redoStep(history);
+    case "start":
+      return startHistory(action.draft);
+  }
+};
+
+/** The map's board art, drawn again when its terrain changes */
+function useBoardArt(tiles: Tiles): string | undefined {
+  const [art, setArt] = useState<string>();
+  const shown = useRef<string>(undefined);
+  useEffect(() => {
+    let current = true;
+    drawBoardArt(tiles).then(
+      (url) => {
+        if (!current) return URL.revokeObjectURL(url);
+        const before = shown.current;
+        shown.current = url;
+        setArt(url);
+        if (before) URL.revokeObjectURL(before);
+      },
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [tiles]);
+  useEffect(
+    () => () => {
+      if (shown.current) URL.revokeObjectURL(shown.current);
+    },
+    [],
+  );
+  return art;
+}
+
+/** The hex under a point on the screen, or the one an event started on */
+const hexAt = (element: Element | null): Position | null => {
+  const key = element?.closest("[data-position]")?.getAttribute("data-position");
+  if (!key) return null;
+  const [row = 0, col = 0] = key.split("-").map(Number);
+  return { row, col };
+};
+
+const hasContent = (draft: Scenario) =>
+  Object.keys(draft.tiles).length > 0 || Object.keys(draft.units.allies).length > 0 || Object.keys(draft.units.axis).length > 0;
+
+export interface MapEditorProps {
+  /** Scenarios a new map can start as a copy of */
+  scenarios: readonly Scenario[];
+  onExit: () => void;
+}
+
+/**
+ * The map editor: paint terrain and put units, badges, sandbags and wire on the board.
+ * The map is kept on this device as it's edited (storage.ts), so a reload doesn't lose it.
+ */
+function MapEditor({ scenarios, onExit }: MapEditorProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
+  const [history, dispatch] = useReducer(reducer, null, () => startHistory(loadMapDraft() ?? newDraft(newMapId())));
+  const draft = history.present;
+  const [tool, setTool] = useState<EditorTool>({ kind: "terrain", type: HexType.FOREST });
+  const [problem, setProblem] = useState<string | null>(null);
+  const [newMapOpen, setNewMapOpen] = useState(false);
+  const { flash, flashInvalid } = useHexFlash();
+  const art = useBoardArt(draft.tiles);
+  const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
+  const counts = draftCounts(draft);
+
+  useEffect(() => saveMapDraft(draft), [draft]);
+
+  // A stroke's hexes change the map faster than React draws it: each one starts from the last
+  const latest = useRef(draft);
+  latest.current = draft;
+  const stroke = useRef<(Stroke & { done: Set<string>; recorded: boolean }) | null>(null);
+
+  const applyAt = (position: Position) => {
+    const current = stroke.current;
+    if (!current || current.done.has(positionKey(position))) return;
+    current.done.add(positionKey(position));
+    const next = current.apply(latest.current, position);
+    if (next === false) {
+      flashInvalid(position);
+      setProblem(tool.kind === "elite" || tool.kind === "sandbags" ? t.noUnit : t.onWater);
+      return;
+    }
+    setProblem(null);
+    if (next === latest.current) return;
+    latest.current = next;
+    dispatch({ kind: "edit", next, amend: current.recorded });
+    current.recorded = true;
+  };
+
+  const handlePointerDown = (event: PointerEvent) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const position = hexAt(event.target as Element);
+    if (!position) return;
+    event.preventDefault();
+    stroke.current = { ...strokeOf(tool, latest.current, position), done: new Set(), recorded: false };
+    applyAt(position);
+  };
+  const handlePointerMove = (event: PointerEvent) => {
+    if (!stroke.current?.drags) return;
+    const position = hexAt(document.elementFromPoint(event.clientX, event.clientY));
+    if (position) applyAt(position);
+  };
+  const endStroke = () => {
+    stroke.current = null;
+  };
+
+  const sideLine = (faction: "Allies" | "Axis") => {
+    const side = counts[faction === "Allies" ? "allies" : "axis"];
+    return t.side(labels.factions[faction], side[UnitType.INFANTRY], side[UnitType.TANK], side[UnitType.ARTILLERY]);
+  };
+
+  return (
+    <Box className="map-editor">
+      <Box
+        component="header"
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          flex: "none",
+          mb: 1.5,
+          pb: 1,
+          borderBottom: "3px double",
+          borderColor: "divider",
+        }}
+      >
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+          <GameIcon name="map" size={30} />
+          <Typography variant="h6" component="h1" sx={{ lineHeight: 1.1 }}>
+            {t.title} · {tr(draft.name) || t.untitled}
+          </Typography>
+        </Stack>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+          <Button variant="outlined" onClick={() => setNewMapOpen(true)}>
+            {t.newMap}
+          </Button>
+          <Button variant="text" startIcon={<GameIcon name="exit" />} onClick={onExit}>
+            {t.exit}
+          </Button>
+        </Stack>
+      </Box>
+
+      <div className="phase-layout map-editor__main">
+        <div
+          className="phase-layout__board map-editor__board"
+          aria-label={t.map}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endStroke}
+          onPointerCancel={endStroke}
+        >
+          <Board
+            onTileClick={() => {}}
+            unitHexPosition={null}
+            possibleMovePositions={[]}
+            possibleMoveAndFirePositions={[]}
+            boardManager={board}
+            orders={[]}
+            backgroundImage={art}
+            invalidFlash={flash}
+            faction="Allies"
+            unitFactionAt={(position) => unitAt(draft, position)?.faction ?? "Allies"}
+          />
+        </div>
+
+        <div className="phase-layout__controls">
+          <EditorTools
+            tool={tool}
+            onTool={(next) => {
+              setTool(next);
+              setProblem(null);
+            }}
+          />
+          {problem && (
+            <Typography variant="body2" color="error" role="alert">
+              {problem}
+            </Typography>
+          )}
+          <Stack direction="row" sx={{ gap: 1 }}>
+            <Button
+              variant="outlined"
+              disabled={history.past.length === 0}
+              onClick={() => dispatch({ kind: "undo" })}
+              startIcon={<GameIcon name="undo" />}
+            >
+              {t.undo}
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={history.future.length === 0}
+              onClick={() => dispatch({ kind: "redo" })}
+              startIcon={<Box sx={{ display: "flex", transform: "scaleX(-1)" }}><GameIcon name="undo" /></Box>}
+            >
+              {t.redo}
+            </Button>
+          </Stack>
+          <Box>
+            <Typography variant="body2">{sideLine("Allies")}</Typography>
+            <Typography variant="body2">{sideLine("Axis")}</Typography>
+            <Typography variant="body2">
+              {t.towns(counts.towns)}
+              {counts.towns > RATTENKRIEG_MIN_TOWNS && ` · ${t.rattenkrieg}`}
+            </Typography>
+          </Box>
+          <Box sx={{ mt: "auto" }}>
+            <InfoButton title={t.title} label={t.instructions}>
+              {t.help.map((line) => (
+                <Typography key={line} variant="body1" sx={{ mb: 1 }}>
+                  {line}
+                </Typography>
+              ))}
+            </InfoButton>
+          </Box>
+        </div>
+      </div>
+
+      <NewMapDialog
+        open={newMapOpen}
+        scenarios={scenarios}
+        replacing={hasContent(draft)}
+        onPick={(next) => dispatch({ kind: "start", draft: next })}
+        onClose={() => setNewMapOpen(false)}
+      />
+    </Box>
+  );
+}
+
+export default MapEditor;

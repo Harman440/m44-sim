@@ -6,6 +6,7 @@ import GameSession from "./game-core/gameSession";
 import { SavedGame } from "./game-core/saveGame";
 import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
+import { parseScenario, toScenarioFile } from "./game-core/scenarioFile";
 import { allCombatCards, combatDeckFor } from "./data/combatCards";
 import { commandDeckFor } from "./data/commandCards";
 import { Settings, normalizeSettings } from "./settings";
@@ -13,6 +14,7 @@ import { Settings, normalizeSettings } from "./settings";
 const LAST_SETUP_KEY = "m44-sim:last-setup";
 const SAVED_GAME_KEY = "m44-sim:saved-game";
 const SETTINGS_KEY = "m44-sim:settings";
+const MAP_DRAFT_KEY = "m44-sim:map-draft";
 
 /** Look and sound for this device; defaults for anything missing or unreadable */
 export const loadSettings = (): Settings => {
@@ -78,6 +80,33 @@ export const saveGame = (session: GameSession) => {
 export const clearSavedGame = () => {
   try {
     localStorage.removeItem(SAVED_GAME_KEY);
+  } catch {
+    // Nothing to clear
+  }
+};
+
+/** The map being made in the editor, so a reload doesn't lose it; one that can't be read is dropped */
+export const loadMapDraft = (): Scenario | null => {
+  try {
+    const json = localStorage.getItem(MAP_DRAFT_KEY);
+    return json ? parseScenario(JSON.parse(json), { rules: false }) : null;
+  } catch {
+    clearMapDraft();
+    return null;
+  }
+};
+
+export const saveMapDraft = (draft: Scenario) => {
+  try {
+    localStorage.setItem(MAP_DRAFT_KEY, JSON.stringify(toScenarioFile(draft)));
+  } catch {
+    // The map just won't survive a reload
+  }
+};
+
+export const clearMapDraft = () => {
+  try {
+    localStorage.removeItem(MAP_DRAFT_KEY);
   } catch {
     // Nothing to clear
   }

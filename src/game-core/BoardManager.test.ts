@@ -55,6 +55,21 @@ describe("BoardManager setup", () => {
     expect(unitPositions(new BoardManager(scenario, "Allies"))).toEqual(["7-1"]);
   });
 
+  it("places both sides' units and every sandbag for the map editor, from the Allies' side", () => {
+    const scenario = makeScenario({
+      units: {
+        allies: { infantry: [{ row: 7, col: 1 }] },
+        axis: { tank: [{ row: 0, col: 4 }] },
+      },
+      sandbags: [{ row: 0, col: 4 }],
+      elite: [{ row: 0, col: 4 }],
+    });
+    const board = new BoardManager(scenario, "Allies", { bothSides: true });
+
+    expect(unitPositions(board).sort()).toEqual(["0-4", "7-1"]);
+    expect(board.getHex({ row: 0, col: 4 })).toMatchObject({ sandbags: true, unit: { elite: true } });
+  });
+
   it("rotates positions 180 degrees for Axis", () => {
     const scenario = makeScenario({
       tiles: { forest: [{ row: 1, col: 3 }] },
