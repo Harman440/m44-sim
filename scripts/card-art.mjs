@@ -28,6 +28,8 @@ const WHITE_CLEAR = 6;
 
 /** The lightest a checker pixel can be: below the darker checker tone, for the JPEG noise round it */
 let checkerFloor = 218;
+/** The lightest grey counted as the darker checker tone in an enclosed patch: above the tone, as some originals draw it lighter (about 242) */
+let checkerDark = 238;
 
 const isNeutral = (data, i) => {
   const r = data[i * 3], g = data[i * 3 + 1], b = data[i * 3 + 2];
@@ -93,7 +95,7 @@ function checkerboard(data, w, h) {
       const i = queue.pop();
       region.push(i);
       if (data[i * 3] >= 248) light++;
-      else if (data[i * 3] <= 238) dark++;
+      else if (data[i * 3] <= checkerDark) dark++;
       for (const n of neighbours(i)) {
         if (!seen[n] && !bg[n] && isChecker(data, n)) {
           seen[n] = 1;
@@ -183,7 +185,9 @@ function whiteToAlpha(data, w, h) {
 
 /** The image's checkerboard see-through, and the pixels along the cut half see-through to soften it */
 function checkerToAlpha(data, w, h) {
-  checkerFloor = Math.min(checkerFloor, darkCheckerTone(data, w, h) - 10);
+  const tone = darkCheckerTone(data, w, h);
+  checkerFloor = Math.min(checkerFloor, tone - 10);
+  checkerDark = Math.max(checkerDark, tone + 3);
   const bg = checkerboard(data, w, h);
   const rgba = Buffer.alloc(w * h * 4);
   for (let i = 0; i < w * h; i++) {
