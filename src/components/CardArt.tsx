@@ -33,6 +33,7 @@ import reinforcementsArt from "../assets/cards/reinforcements.webp";
 import heatOfBattleArt from "../assets/cards/heat-of-battle.webp";
 import airBombardmentArt from "../assets/cards/air-bombardment.webp";
 import barrageArt from "../assets/cards/barrage.webp";
+import airPowerArt from "../assets/cards/air-power.webp";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -866,6 +867,7 @@ const COMBAT_PAINTINGS: Record<string, string> = {
   "heat-of-battle": heatOfBattleArt,
   "air-bombardment": airBombardmentArt,
   barrage: barrageArt,
+  "air-power": airPowerArt,
 };
 
 export function CombatCardArt({ card, faction }: { card: CombatCard; faction: Faction }) {
