@@ -6,44 +6,46 @@
 // and `separateHills`: each hill on its own tile instead of joined into ridges.
 //
 // The art is the empty board cropped to the edges of its hex grid, which is the box the app lays
-// the image in (components/boardGeometry.ts), at the empty board's resolution.
+// the image in (components/boardGeometry.ts), at the empty board's resolution. The same crop,
+// smaller, is written for the app to draw maps on (src/assets/board-art/empty-board.webp).
+// Which art goes on each hex is planned in src/boardArt/boardPlan.mjs, which the app uses too.
 // Painted terrain comes from scripts/board-art/tiles/<terrain>/: one hex per image, filling the
 // image's width, at any resolution. Each hex gets one of its terrain's tiles, turned 60° a random
 // number of times. A river tile's name starts with the edges its river joins (0 = east, then
 // clockwise: 3-0.webp runs west to east), and it's turned to join the river's edges; a painted
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
 // A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
-// Drawn terrain comes from terrain-tiles.mjs: lakes always, and rivers, bridges and hedgerows when
-// the board asks. A river runs through the edges it shares with the next river or bridge hexes,
-// and a lake joins the lake hexes next to it. The frame round the grid is put back over the new hexes.
+// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
+// hedgerows when the board asks. A river runs through the edges it shares with the next river or
+// bridge hexes, and a lake joins the lake hexes next to it. The frame round the grid is put back
+// over the new hexes.
 import sharp from "sharp";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { TILES as DRAWN_TILES } from "./terrain-tiles.mjs";
+import { readFileSync, readdirSync } from "node:fs";
+import {
+  APP_ART_HEIGHT,
+  ART_HEIGHT,
+  BOARD_KEYS,
+  COLS,
+  PIECE_HEX_WIDTH,
+  artGrid,
+  bridgeAngle,
+  drawnSvg,
+  planBoard,
+} from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
 
-const COLS = 13;
-const ROWS = 9;
 const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
 // (found by fitting the grid to the printed hex lines)
 const EMPTY_BOARD = { file: `${ART}/empty-board.webp`, x0: 115.1, y0: 130.4, width: 187.35 };
-// The pieces were cut out on a hex box from a board whose hexes are this wide, in pixels
-const PIECE_HEX_WIDTH = 173.35;
-// The terrain a board can ask to draw, and the terrain each choice takes along
-const DRAWABLE = { river: ["river", "bridge"], hedgerow: ["hedgerow"] };
-const ALWAYS_DRAWN = ["lake"];
+const APP_EMPTY_BOARD = "src/assets/board-art/empty-board.webp";
 const CLEAR = { r: 0, g: 0, b: 0, alpha: 0 };
 
 // The art's grid: 13 hexes across, and 9 rows, 14 hex radii high. Odd rows are shifted right
 const emptyRadius = EMPTY_BOARD.width / Math.sqrt(3);
 const H = Math.round(14 * emptyRadius);
-const W = Math.round((H * COLS * Math.sqrt(3)) / 14);
-const hexWidth = W / COLS;
-const radius = H / 14;
-const center = (key) => {
-  const [row, col] = key.split("-").map(Number);
-  return { x: hexWidth / 2 + col * hexWidth + (row % 2) * (hexWidth / 2), y: radius + row * 1.5 * radius };
-};
+if (H !== ART_HEIGHT) throw new Error(`The empty board's grid is ${H} pixels high: set ART_HEIGHT in boardPlan.mjs`);
+const { width: W, hexWidth, radius, center } = artGrid(H);
 const hexPath = ({ x, y }, r) =>
   [...Array(6)]
     .map((_, i) => {
@@ -53,13 +55,6 @@ const hexPath = ({ x, y }, r) =>
     .join("") + "Z";
 const svg = (width, height, body) =>
   Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`);
-// A number from 0 to n − 1 picked by the hex and a salt, so a rebuild gives the same map
-const pickFor = (key, salt, n) => {
-  const [row, col] = key.split("-").map(Number);
-  let h = Math.imul(row + 1, 73856093) ^ Math.imul(col + 1, 19349663) ^ Math.imul(salt, 83492791);
-  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
-  return ((h ^ (h >>> 15)) >>> 0) % n;
-};
 
 const board = await sharp(EMPTY_BOARD.file)
   .extract({
@@ -72,17 +67,16 @@ const board = await sharp(EMPTY_BOARD.file)
   .png()
   .toBuffer();
 // The frame: everything outside the hexes
-const keys = [...Array(ROWS)].flatMap((_, row) => [...Array(COLS - (row % 2))].map((_, col) => `${row}-${col}`));
-const frameMask = svg(W, H, `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${keys.map((k) => hexPath(center(k), radius)).join("")}"/>`);
+const frameMask = svg(W, H, `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${BOARD_KEYS.map((k) => hexPath(center(k), radius)).join("")}"/>`);
 const frame = await sharp(board).ensureAlpha().composite([{ input: frameMask, blend: "dest-in" }]).png().toBuffer();
 // Tiles are pasted on the board with a margin, so hexes on the edge can stick out
 const PAD = 200;
 const padded = await sharp(board).ensureAlpha().extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR }).png().toBuffer();
 
-const tilesOf = (terrain) => {
-  const dir = `${ART}/tiles/${terrain}`;
-  return existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".webp")).sort().map((f) => `${dir}/${f}`) : [];
-};
+// The painted tiles' file names by terrain folder
+const library = Object.fromEntries(
+  readdirSync(`${ART}/tiles`).map((terrain) => [terrain, readdirSync(`${ART}/tiles/${terrain}`).filter((f) => f.endsWith(".webp")).sort()])
+);
 const tileWidth = Math.round(hexWidth);
 const tileHeight = Math.round(2 * radius);
 const tileMask = svg(tileWidth, tileHeight, `<path d="${hexPath({ x: tileWidth / 2, y: tileHeight / 2 }, tileHeight / 2 + 0.5)}"/>`);
@@ -111,104 +105,41 @@ const placed = (input, key, width, height) => {
   const { x, y } = center(key);
   return { input, left: Math.round(x - width / 2) + PAD, top: Math.round(y - height / 2) + PAD };
 };
-
-// The painted river tiles that join edges a and b, each with its turn
-const riverTile = (key, [a, b]) => {
-  const fits = tilesOf("river").flatMap((file) => {
-    const [p, q] = file.split("/").pop().match(/^(\d)-(\d)/).slice(1).map(Number);
-    return [...Array(6).keys()]
-      .filter((t) => [(p + t) % 6, (q + t) % 6].sort().join() === [a, b].sort().join())
-      .map((turns) => ({ file, turns }));
-  });
-  if (!fits.length) {
-    throw new Error(
-      `No painted river tile joins edges ${a} and ${b} (at ${key}): add one to ${ART}/tiles/river, or draw this board's rivers ("drawn": ["river"] in scripts/boards.json)`
-    );
-  }
-  return fits[pickFor(key, 3, fits.length)];
-};
-// The bridge piece laid square across the river from edge a to edge b, with its shadow.
-// In the piece's image its deck runs north to south, across a river running west to east
-const edgeMid = (d) => ({ x: Math.cos((d * Math.PI) / 3), y: Math.sin((d * Math.PI) / 3) });
-const bridgeOver = async (key, [a, b]) => {
+// The bridge piece laid square across the river from edge to edge, with its shadow
+const bridgeOver = async (key, edges) => {
   const file = `${ART}/pieces/bridge.webp`;
   const { width, height } = await sharp(file).metadata();
   const k = hexWidth / PIECE_HEX_WIDTH;
   const scaled = await sharp(file).resize(Math.round(width * k), Math.round(height * k)).png().toBuffer();
-  const [ma, mb] = [edgeMid(a), edgeMid(b)];
-  const angle = (Math.atan2(mb.y - ma.y, mb.x - ma.x) * 180) / Math.PI;
-  const turned = await sharp(scaled).rotate(angle, { background: CLEAR }).png().toBuffer({ resolveWithObject: true });
+  const turned = await sharp(scaled).rotate(bridgeAngle(edges), { background: CLEAR }).png().toBuffer({ resolveWithObject: true });
   // The board's light comes from the top left
   const shadow = await sharp(turned.data).linear([0, 0, 0, 0.45], [0, 0, 0, 0]).blur(3).png().toBuffer();
   const piece = placed(turned.data, key, turned.info.width, turned.info.height);
   return [{ ...piece, input: shadow, left: piece.left + 4, top: piece.top + 5 }, piece];
 };
+// A drawn tile, rendered at the board's hex size
+const drawnTile = async (hex) => {
+  const input = await sharp(Buffer.from(drawnSvg(hex))).resize(tileWidth, tileHeight).png().toBuffer();
+  return placed(input, hex.key, tileWidth, tileHeight);
+};
 
-async function build({ terrain, image, drawn: drawnChoice = [], separateHills = false }) {
+async function build({ terrain, image, drawn = [], separateHills = false }) {
   const tiles = JSON.parse(readFileSync(terrain, "utf8"));
-  const drawn = new Set([
-    ...ALWAYS_DRAWN,
-    ...drawnChoice.flatMap((t) => {
-      if (!DRAWABLE[t]) throw new Error(`${terrain}: can't draw ${t}`);
-      return DRAWABLE[t];
-    }),
-  ]);
-  const wanted = new Map();
-  for (const [type, positions] of Object.entries(tiles)) {
-    const art = drawn.has(type) ? DRAWN_TILES[type] : type === "bridge" ? tilesOf("river").length : tilesOf(type).length;
-    if (!art) throw new Error(`${terrain}: no art for ${type}`);
-    positions.forEach(({ row, col }) => wanted.set(`${row}-${col}`, type));
+  let plan;
+  try {
+    plan = planBoard(tiles, library, { drawn, separateHills });
+  } catch (error) {
+    const hint = error.message.startsWith("No painted river") ? ' ("drawn": ["river"] in scripts/boards.json)' : "";
+    throw new Error(`${terrain}: ${error.message}${hint}`);
   }
 
-  // The hex across each edge (0 = east, then clockwise), odd rows shifted right
-  const neighbor = (key, d) => {
-    const [row, col] = key.split("-").map(Number);
-    const shift = row % 2;
-    const [dr, dc] = [[0, 1], [1, shift], [1, shift - 1], [0, -1], [-1, shift - 1], [-1, shift]][d];
-    return `${row + dr}-${col + dc}`;
-  };
-  const edgesTo = (key, types) => [...Array(6)].map((_, d) => types.includes(wanted.get(neighbor(key, d))));
-  // Where a river flows through a hex: the edges it shares with the next river or bridge hexes.
-  // At the end of a river (on the board's edge) it carries straight on off the board.
-  const riverEdges = (key) => {
-    const edges = edgesTo(key, ["river", "bridge"]).flatMap((water, d) => (water ? [d] : []));
-    if (edges.length > 2) throw new Error(`River at ${key} joins more than two river hexes`);
-    if (edges.length === 2) return edges;
-    if (edges.length === 1) return [edges[0], (edges[0] + 3) % 6];
-    return [0, 3];
-  };
-  // A drawn tile, rendered at the board's hex size; seeded by the hex so every one differs
-  const drawnTile = async (type, key) => {
-    const [row, col] = key.split("-").map(Number);
-    const seed = row * 13 + col + 1;
-    const tile =
-      type === "river" || type === "bridge" ? DRAWN_TILES[type](...riverEdges(key), seed)
-      : type === "lake" ? DRAWN_TILES.lake(edgesTo(key, ["lake"]), seed)
-      : DRAWN_TILES[type](seed);
-    const input = await sharp(Buffer.from(tile)).resize(tileWidth, tileHeight).png().toBuffer();
-    return placed(input, key, tileWidth, tileHeight);
-  };
-
   const layers = [];
-  for (const [key, type] of wanted) {
-    if (drawn.has(type)) {
-      layers.push(await drawnTile(type, key));
-    } else if (type === "river" || type === "bridge") {
-      const edges = riverEdges(key);
-      const { file, turns } = riverTile(key, edges);
-      layers.push(placed(await paintedTile(file, turns), key, tileWidth, tileHeight));
-      if (type === "bridge") layers.push(...(await bridgeOver(key, edges)));
-    } else {
-      const choices = tilesOf(type);
-      const file = choices[pickFor(key, 1, choices.length)];
-      const ridge = type === "hill" && !separateHills ? edgesTo(key, ["hill"]) : [];
-      if (ridge.some(Boolean)) {
-        const [row, col] = key.split("-").map(Number);
-        layers.push(placed(await joinedHill(file, ridge, key, row * 13 + col + 1), key, tileWidth, tileHeight));
-      } else {
-        layers.push(placed(await paintedTile(file, pickFor(key, 2, 6)), key, tileWidth, tileHeight));
-      }
-    }
+  for (const hex of plan) {
+    const file = "tile" in hex ? `${ART}/tiles/${hex.tile}` : null;
+    if (hex.art === "drawn") layers.push(await drawnTile(hex));
+    else if (hex.art === "painted") layers.push(placed(await paintedTile(file, hex.turns), hex.key, tileWidth, tileHeight));
+    else if (hex.art === "ridge") layers.push(placed(await joinedHill(file, hex.open, hex.key, hex.seed), hex.key, tileWidth, tileHeight));
+    else layers.push(...(await bridgeOver(hex.key, hex.edges)));
   }
 
   // Pasted on the padded board, cropped back, then the frame put back on top
@@ -218,8 +149,9 @@ async function build({ terrain, image, drawn: drawnChoice = [], separateHills = 
     .removeAlpha()
     .webp({ quality: 85 })
     .toFile(image);
-  const notes = [...(drawnChoice.length ? [`drawn ${drawnChoice.join(" and ")}`] : []), ...(separateHills ? ["separate hills"] : [])];
-  console.log(`${image}: ${W}×${H}, ${wanted.size} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
+  const notes = [...(drawn.length ? [`drawn ${drawn.join(" and ")}`] : []), ...(separateHills ? ["separate hills"] : [])];
+  const hexes = new Set(plan.map((hex) => hex.key)).size;
+  console.log(`${image}: ${W}×${H}, ${hexes} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
 }
 
 const only = process.argv[2]?.toLowerCase();
@@ -231,3 +163,8 @@ if (!boards.length) {
   process.exit(1);
 }
 for (const b of boards) await build(b);
+
+// The empty board the app draws maps on, at the size it draws them
+const appWidth = artGrid(APP_ART_HEIGHT).width;
+await sharp(board).resize(appWidth, APP_ART_HEIGHT, { fit: "fill" }).webp({ quality: 85 }).toFile(APP_EMPTY_BOARD);
+console.log(`${APP_EMPTY_BOARD}: ${appWidth}×${APP_ART_HEIGHT}`);

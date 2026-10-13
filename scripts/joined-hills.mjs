@@ -1,12 +1,12 @@
 // Hills that join the hills next to them into a ridge, made from a painted hill tile.
 // The plateau's outline runs out through every edge shared with another hill, as a lake's shore
-// does (shoreCurves in terrain-tiles.mjs), wide enough there to read as one ridge. The tile's
+// does (shoreCurves in src/boardArt/terrainTiles.mjs), wide enough there to read as one ridge. The tile's
 // cliff ring, measured at every angle, is unrolled along that outline, so the cliffs are the
 // tile's own strokes. The plateau and the grass at the foot of the cliffs are textures laid
 // across the whole board, so they carry on over the hex lines. The tile's bevel stays on the
 // edges that don't join a hill; where one does, a faint hex line crosses the ridge.
 import sharp from "sharp";
-import { R, edgeDir, rng, shoreCurves } from "./terrain-tiles.mjs";
+import { R, edgeDir, rng, shoreCurves } from "../src/boardArt/terrainTiles.mjs";
 
 const SQRT3 = Math.sqrt(3);
 // How far from the middle of a shared edge towards its corners the plateau crosses it

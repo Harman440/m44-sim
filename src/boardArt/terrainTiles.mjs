@@ -1,8 +1,10 @@
+// @ts-nocheck: SVG drawing, checked by eye on the boards it makes
 // Hex tiles drawn as SVG in the Memoir '44 board style (top-down, painted, lit from the top
 // left): rivers, bridges and lakes, which join their neighbours, and hedgerows.
 // Every tile is an SVG in a viewBox centred on the hex, radius R (pointy-top), clipped to the
-// hex with the board's hex line; compose-board.mjs renders them at the board's size.
-// A seed gives each hex its own rocks and bushes.
+// hex with the board's hex line. Plain JavaScript shared by scripts/compose-board.mjs, which
+// renders them at the board's size with sharp, and the app (drawBoard.ts), which draws them on a
+// canvas. A seed gives each hex its own rocks and bushes.
 export const R = 100;
 const W = R * Math.sqrt(3);
 const f = (n) => Math.round(n * 10) / 10;
