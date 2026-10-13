@@ -31,6 +31,7 @@ import behindEnemyLinesArt from "../assets/cards/behind-enemy-lines.webp";
 import motorizedArt from "../assets/cards/motorized.webp";
 import reinforcementsArt from "../assets/cards/reinforcements.webp";
 import heatOfBattleArt from "../assets/cards/heat-of-battle.webp";
+import airBombardmentArt from "../assets/cards/air-bombardment.webp";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -862,6 +863,7 @@ const COMBAT_PAINTINGS: Record<string, string> = {
   motorized: motorizedArt,
   reinforcements: reinforcementsArt,
   "heat-of-battle": heatOfBattleArt,
+  "air-bombardment": airBombardmentArt,
 };
 
 export function CombatCardArt({ card, faction }: { card: CombatCard; faction: Faction }) {
