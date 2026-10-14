@@ -11,7 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { MotionConfig } from "motion/react";
-import PassAndPlayMatch from "../../../game-core/passAndPlay";
+import PassAndPlayMatch, { otherSide } from "../../../game-core/passAndPlay";
 import { UnitType } from "../../../game-core/unit";
 import { Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
@@ -19,13 +19,15 @@ import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import FireDialog from "../../FireDialog";
+import AmbushDialog from "../../AmbushDialog";
+import ShotDice from "../../ShotDice";
 import HexThumbnail from "../../HexThumbnail";
 import FactionInsignia from "../../FactionInsignia";
 import BattleReserve from "./BattleReserve";
 import CoinsDialog from "../../CoinsDialog";
 import { OpponentContext } from "../../OpponentContext";
 import { useSound } from "../../../sound";
-import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 import "../GameView.css";
 import "./PhaseLayout.css";
 
@@ -58,6 +60,16 @@ const TEXT = defineMessages({
     retreatText: (unit: string, n: number) =>
       `${unit}: ${n === 1 ? "1 casilla" : `${n} casillas`} más. Toca en el mapa la casilla a la que se retira, hacia su borde.`,
     retreatsAfter: "Las unidades marcadas se retiran: primero las del atacante.",
+    attack: (card: string, side: string) => `${card} (${side}): se tira antes de que nadie dispare.`,
+    rollAttack: "Tirar en las casillas marcadas",
+    attackResults: (card: string) => `${card}: resultados`,
+    emptyHex: "Casilla vacía: no se tira.",
+    ambush: (side: string) => `Emboscada (${side}): tu unidad atacada en asalto cercano dispara primero.`,
+    ambushFire: "Disparar primero",
+    block: (card: string, side: string) => `${card} (${side}): toca en el mapa la unidad enemiga que no dispara.`,
+    noBlockTargets: "Ninguna unidad enemiga puede disparar ya.",
+    relocate: { Allies: "Sin munición: los Aliados eligen", Axis: "Sin munición: el Eje elige" },
+    relocateText: "Toca en el mapa una casilla vacía de su línea de fondo para la unidad.",
   },
   en: {
     title: (turn: number) => `Turn ${turn}: the battle`,
@@ -87,6 +99,16 @@ const TEXT = defineMessages({
     retreatText: (unit: string, n: number) =>
       `${unit}: ${n === 1 ? "1 more hex" : `${n} more hexes`}. Tap the hex on the map it retreats to, toward its edge.`,
     retreatsAfter: "The marked units retreat, the attacker's first.",
+    attack: (card: string, side: string) => `${card} (${side}): rolled before anyone fires.`,
+    rollAttack: "Roll on the marked hexes",
+    attackResults: (card: string) => `${card}: results`,
+    emptyHex: "Empty hex: no roll.",
+    ambush: (side: string) => `Ambush (${side}): your unit attacked in close assault fires first.`,
+    ambushFire: "Fire first",
+    block: (card: string, side: string) => `${card} (${side}): tap the enemy unit on the map that can't fire.`,
+    noBlockTargets: "No enemy unit can fire any more.",
+    relocate: { Allies: "Out of Ammo: the Allies pick", Axis: "Out of Ammo: the Axis picks" },
+    relocateText: "Tap an empty hex on its baseline on the map for the unit.",
   },
 });
 
@@ -109,6 +131,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const [cardsOf, setCardsOf] = useState<Faction | null>(null);
   const [coinsOf, setCoinsOf] = useState<Faction | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const [ambushing, setAmbushing] = useState(false);
+  const [attackShown, setAttackShown] = useState<Faction | null>(null);
+  const tr = useTr();
   if (!battle) return null;
 
   // The map as the attacker sees it, with both armies
@@ -123,12 +148,36 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     0
   );
 
-  // Positions between the retreating side's view and the map's (the attacker's)
+  // The map picks a hex for a unit of one side: a retreat, Out of Ammo's baseline, or the enemy
+  // unit a card stops. Positions turn between that side's view and the map's (the attacker's)
   const retreat = battle.retreat;
-  const toMap = (position: Position) => (retreat && retreat.side !== viewer ? turnedRound(position) : position);
-  const retreatOptions = retreat?.options.map(toMap) ?? [];
+  const relocate = retreat ? null : battle.relocate;
+  const card = retreat || relocate ? null : battle.card;
+  const pick = retreat
+    ? { side: retreat.side, from: retreat.position as Position | null, options: retreat.options, act: (p: Position) => match.retreat(p) }
+    : relocate
+      ? { side: relocate.side, from: relocate.position as Position | null, options: relocate.options, act: (p: Position) => match.relocate(p) }
+      : card?.kind === "block"
+        ? { side: otherSide(card.side), from: null, options: card.targets, act: (p: Position) => match.block(p) }
+        : null;
+  const toMap = (position: Position) => (pick && pick.side !== viewer ? turnedRound(position) : position);
+  const pickOptions = pick?.options.map(toMap) ?? [];
   const tapMap = (position: Position) => {
-    if (retreat) match.retreat(toMap(position));
+    if (pick) pick.act(toMap(position));
+  };
+  // The order combat cards' marks: the attacker's, or else the defender's, turned onto the map
+  const otherGame = match.sessions[otherSide(viewer)].getSnapshot();
+  const marks =
+    view.markers.length > 0 || otherGame.markers.length === 0
+      ? { positions: view.markers, kind: view.orderCombatCard?.marker?.kind }
+      : { positions: otherGame.markers.map((m) => turnedRound(m)), kind: otherGame.orderCombatCard?.marker?.kind };
+  const cardName = (faction: Faction) => {
+    const played = match.sessions[faction].getSnapshot().battleCombatCard;
+    return played ? tr(played.name) : "";
+  };
+  const attackCard = (faction: Faction) => {
+    const played = match.sessions[faction].getSnapshot().orderCombatCard;
+    return played ? tr(played.name) : "";
   };
   const retreatingUnit = retreat
     ? match.sessions[retreat.side].board.getHex(retreat.position)?.unit?.getUnitType()
@@ -153,9 +202,12 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
           <div className="phase-layout">
             <div className="phase-layout__board">
               <Board
-                onTileClick={retreat ? tapMap : noop}
-                unitHexPosition={retreat ? toMap(retreat.position) : null}
-                possibleMovePositions={retreatOptions}
+                onTileClick={pick ? tapMap : noop}
+                unitHexPosition={pick?.from ? toMap(pick.from) : null}
+                possibleMovePositions={pick?.from ? pickOptions : []}
+                markablePositions={pick && !pick.from ? pickOptions : []}
+                markers={marks.positions}
+                markerKind={marks.kind}
                 possibleMoveAndFirePositions={[]}
                 boardManager={viewSession.board}
                 orders={view.orders}
@@ -172,7 +224,46 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 {t.title(battle.turn)}
               </Typography>
 
-              {retreat ? (
+              {/* An attack card goes before anyone fires */}
+              {battle.attacks.map((faction) => (
+                <Stack key={faction} spacing={1} data-testid="card-attack">
+                  <Typography variant="body2">{t.attack(attackCard(faction), labels.factions[faction])}</Typography>
+                  <Button
+                    startIcon={<GameIcon name="bomb" />}
+                    onClick={() => {
+                      if (match.rollAttacks(faction)) {
+                        play("dice");
+                        setAttackShown(faction);
+                      }
+                    }}
+                  >
+                    {t.rollAttack}
+                  </Button>
+                </Stack>
+              ))}
+
+              {card?.kind === "ambush" && (
+                <Stack spacing={1} data-testid="card-ambush">
+                  <Typography variant="body2">{t.ambush(labels.factions[card.side])}</Typography>
+                  <Button startIcon={<GameIcon name="fire" />} onClick={() => setAmbushing(true)}>
+                    {t.ambushFire}
+                  </Button>
+                </Stack>
+              )}
+              {card?.kind === "block" && (
+                <Typography variant="body2" color={card.targets.length ? "warning.main" : "text.secondary"} data-testid="card-block">
+                  {card.targets.length ? t.block(cardName(card.side), labels.factions[card.side]) : t.noBlockTargets}
+                </Typography>
+              )}
+
+              {relocate ? (
+                <Stack spacing={1} data-testid="relocate">
+                  <Typography variant="subtitle1" component="h2">
+                    {t.relocate[relocate.side]}
+                  </Typography>
+                  <Typography variant="body2">{t.relocateText}</Typography>
+                </Stack>
+              ) : retreat ? (
                 <Stack spacing={1} data-testid="retreat">
                   <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                     <FactionInsignia faction={retreat.side} size={28} decorative />
@@ -263,9 +354,11 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   })}
                 </Stack>
               ) : (
-                <Typography variant="body2" color="text.secondary">
-                  {t.nobody}
-                </Typography>
+                battle.attacks.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    {t.nobody}
+                  </Typography>
+                )
               )}
 
               <Box sx={{ mt: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
@@ -281,7 +374,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 ))}
                 <Button
                   onClick={() => (canStillFire > 0 ? setConfirmingEnd(true) : match.endBattle())}
-                  disabled={!!battle.pending || !!battle.ground || !!retreat || battle.retreating}
+                  disabled={
+                    !!battle.pending || !!battle.ground || !!retreat || !!relocate || battle.retreating || battle.attacks.length > 0
+                  }
                   startIcon={<GameIcon name="endTurn" />}
                 >
                   {t.end}
@@ -320,6 +415,60 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
               onClose={closeFire}
             />
           </OpponentContext.Provider>
+        )}
+
+        {ambushing && card?.kind === "ambush" && (
+          <OpponentContext.Provider
+            value={{ opponent: match.opponentOf(card.side), strength: match.sessions[card.side].getSnapshot().strength }}
+          >
+            <AmbushDialog
+              open
+              faction={card.side}
+              session={match.sessions[card.side]}
+              game={match.sessions[card.side].getSnapshot()}
+              onFired={() => play("dice")}
+              onClose={() => {
+                if (battle.pending?.ambush && !battle.pending.mustChoose) match.applyShot();
+                setAmbushing(false);
+              }}
+              onAmbush={(from, target) => match.ambush(from, target)}
+              knownTarget={(position) => {
+                const enemy = match.sessions[card.side].enemyAt(position);
+                return enemy && { infantry: enemy.unitType === UnitType.INFANTRY, sandbags: enemy.sandbags };
+              }}
+              onKeepResults={(kept) => match.keepShotResults(kept)}
+            />
+          </OpponentContext.Provider>
+        )}
+
+        {attackShown && (
+          <Dialog open onClose={() => setAttackShown(null)} fullWidth maxWidth="sm">
+            <DialogTitle>{t.attackResults(attackCard(attackShown))}</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2}>
+                {match.sessions[attackShown].getSnapshot().cardAttacks.map((attack) =>
+                  attack.target ? (
+                    <ShotDice
+                      key={attack.marker}
+                      shot={{ steps: [], dice: attack.dice, faces: attack.faces, notes: [], collision: false, target: attack.target, combatBonus: false, kept: null }}
+                      rollId={attack.marker + 1}
+                      faction={attackShown}
+                      rolling
+                    />
+                  ) : (
+                    <Typography key={attack.marker} variant="body2" color="text.secondary">
+                      {t.emptyHex}
+                    </Typography>
+                  )
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="text" onClick={() => setAttackShown(null)}>
+                {t.close}
+              </Button>
+            </DialogActions>
+          </Dialog>
         )}
 
         {cardsOf && (

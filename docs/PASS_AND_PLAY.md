@@ -64,10 +64,11 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 In order; the first ones finish what PP1–PP4 started.
 
 ### PP6: Combat cards in the shared battle
-- [ ] Attack cards (Barrage, Air Power, Air Bombardment): rolled per marked hex before any unit fires, the hits dealt by the app
-- [ ] Ambush: the attacked unit fires first, picked on the shared battle screen
-- [ ] Close Assault: the units adjacent to an enemy found by the app instead of marked by hand
-- [ ] Out of Ammo, Shell Shortage, Out of Fuel: played by the opponent on the unit about to fire, instead of "Bloqueado por el rival"
+- [x] Attack cards (Barrage, Air Power, Air Bombardment): "Tirar en las casillas marcadas" rolls every marked hex before anyone fires (`PassAndPlayMatch.rollAttacks`), the hits and flags dealt to the enemy unit standing there now (retreats can't be ignored), the results in a dialog. The marks show on the battle map, whichever side played the card
+- [x] Ambush: once played from the side's cards, "Disparar primero" opens `AmbushDialog` in shared mode (`onAmbush`, `knownTarget`, no undo): the unit attacked fires first at the adjacent enemy (`PassAndPlayMatch.ambush`), its hits dealt like a shot's (limited damage included)
+- [x] Close Assault: the units next to an enemy are marked by the app as the battle starts (`markCloseAssaults`)
+- [x] Out of Ammo, Shell Shortage, Out of Fuel: once played, the card's player taps the enemy unit on the map (ordered units that can still fire, of the card's types: `BLOCKING_CARDS`), which can't fire any more (`GameSession.blockUnit`). Out of Ammo then moves it to an empty hex of its baseline, its player tapping the hex (`relocate`, `GameSession.baselineHexes`, `moveUnitTo`); Out of Fuel sends it back to the hex it started from, if free. `MATCH_SAVE_VERSION` 6
+- [ ] **Decide:** the cards are played whenever their player wants (Ambush meant for when an enemy is about to close-assault, the blocking cards for the unit about to fire); the app doesn't check the moment. The other battle cards (Not One Step Back, Camouflage, Pull Back, Medic, Personal Armor…) still only remind the players, as in the one-side game
 
 ### PP7: Polish
 - [ ] The one-side screens in pass and play stop speaking of the table (Movimiento's instructions, the battle's "¿Ha habido un choque?", "Actualizar mapa")

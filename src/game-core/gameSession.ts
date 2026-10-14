@@ -1236,7 +1236,7 @@ class GameSession {
   ambushTargets(from: Position): FireTarget[] {
     const context = this.ambushContext(from);
     if (!this.ambushPlayed() || !context) return [];
-    return fireTargets(this.board, from, context);
+    return fireTargets(this.board, from, context, this.enemyView?.().map((enemy) => enemy.position));
   }
 
   /** This side's units that can fire with Ambush now: at least one adjacent hex worth a die */
@@ -1321,6 +1321,39 @@ class GameSession {
     const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
     const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, blocked: true };
     this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
+  /**
+   * Pass and play: the opponent's card stops this unit firing (Out of Ammo, Shell Shortage, Out
+   * of Fuel), whether or not it's its turn: a blocked shot, and no more shots this turn
+   */
+  blockUnit(orderIndex: number): boolean {
+    if (this.phase !== TurnPhase.BATTLE || this.shotsLeft(orderIndex) <= 0) return false;
+    const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
+    const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, blocked: true };
+    this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
+  /** Pass and play: the empty hexes on this side's baseline (the bottom row of its view), with no enemy on them */
+  baselineHexes(): Position[] {
+    const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
+    return this.board
+      .getAllHexes()
+      .filter((hex) => hex.getPosition().row === this.board.height - 1 && hex.isPassable() && !enemies.has(hex.getKey()))
+      .map((hex) => hex.getPosition());
+  }
+
+  /** Pass and play: a card moves this side's unit to an empty hex (Out of Ammo, Out of Fuel), as a map edit */
+  moveUnitTo(from: Position, to: Position): boolean {
+    if (!this.figures || samePosition(from, to)) return false;
+    const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
+    if (!this.board.getHex(to)?.isPassable() || enemies.has(positionKey(to))) return false;
+    const unit = this.board.getHex(from)?.unit;
+    const sandbags = this.moveUnit(from, to);
+    if (!unit || !sandbags) return false;
+    this.addBattleEdit({ kind: "move", from: { ...from }, to: { ...to }, unit, ...(sandbags.length > 0 && { sandbags }) });
     return this.publish();
   }
 
