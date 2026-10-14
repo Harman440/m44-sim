@@ -71,10 +71,10 @@ In order; the first ones finish what PP1–PP4 started.
 - [ ] **Decide:** the cards are played whenever their player wants (Ambush meant for when an enemy is about to close-assault, the blocking cards for the unit about to fire); the app doesn't check the moment. The other battle cards (Not One Step Back, Camouflage, Pull Back, Medic, Personal Armor…) still only remind the players, as in the one-side game
 
 ### PP7: Polish
-- [ ] The one-side screens in pass and play stop speaking of the table (Movimiento's instructions, the battle's "¿Ha habido un choque?", "Actualizar mapa")
-- [ ] A player's hand doesn't deal in again every time they get the device back
-- [ ] The collision results on the reveal screen fit the landscape column without scrolling
-- [ ] The rule book's pages for pass and play (`data/ruleBook.ts`)
+- [x] The one-side screens in pass and play stop speaking of the table (`OpponentContext` set means pass and play): Órdenes has no "Actualizar mapa" and its sandbags note leaves out the table; the final phase says the app did the retreats and casualties and keeps "Actualizar mapa" only for what a card says (Pull Back, Medic…), and the Reinforcements lines don't mention the table. Movimiento and the one-side battle aren't shown in pass and play (the reveal and the shared battle take their place)
+- [x] A player's hand doesn't deal in again every time they get the device back (`MatchView` remembers the sides already dealt, `GameView`'s `handDealt`; a resumed match counts both as dealt)
+- [x] The reveal's collisions fit the landscape column: one line per collision with what each unit dealt, the dice in a dialog that opens as they're rolled ("Ver dados"), where a unit with more results than figures picks them and "Aplicar" deals them; the collision rules behind an "i"
+- [x] The rule book's pages for pass and play (`data/ruleBook.ts`, the "Pasar y jugar" group: everything in the app, figures, moving at once, the battle, retreats after the battle, combat cards on the map, no victory yet)
 - [ ] Play a whole game on the tablet and note what feels wrong
 
 ## Later

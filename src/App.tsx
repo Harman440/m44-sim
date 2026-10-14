@@ -148,7 +148,7 @@ const App = () => {
           ) : game ? (
             <Suspense fallback={<CircularProgress aria-label={LOADING[language]} sx={{ m: 'auto' }} />}>
               {'match' in game.play ? (
-                <MatchView key={game.number} match={game.play.match} onExit={handleExit} />
+                <MatchView key={game.number} match={game.play.match} resumed={game.resumed} onExit={handleExit} />
               ) : (
                 <GameView key={game.number} session={game.play.session} resumed={game.resumed} onExit={handleExit} />
               )}

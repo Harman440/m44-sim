@@ -1,5 +1,7 @@
 import { useState, useSyncExternalStore } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
+import { appliedFaces, readRoll } from "../../../game-core/rollResult";
+import InfoButton from "../../InfoButton";
 import { MotionConfig } from "motion/react";
 import PassAndPlayMatch, { CollisionView, otherSide } from "../../../game-core/passAndPlay";
 import { turnedRound } from "../../../game-core/BoardManager";
@@ -33,6 +35,12 @@ const TEXT = defineMessages({
     apply: "Aplicar los resultados",
     go: { Allies: "Seguir: empiezan los Aliados", Axis: "Seguir: empieza el Eje" },
     rollFirst: "Tira todos los choques para seguir.",
+    rules: "Reglas del choque",
+    dealt: (hits: number, flags: number) =>
+      [hits === 1 ? "1 impacto" : `${hits} impactos`, flags === 1 ? "1 retirada" : `${flags} retiradas`].join(", "),
+    noBattle: "no combate",
+    seeDice: "Ver dados",
+    close: "Cerrar",
   },
   en: {
     title: (turn: number) => `Turn ${turn}: the orders`,
@@ -52,6 +60,12 @@ const TEXT = defineMessages({
     apply: "Apply the results",
     go: { Allies: "Go on: the Allies start", Axis: "Go on: the Axis starts" },
     rollFirst: "Roll every collision to go on.",
+    rules: "Collision rules",
+    dealt: (hits: number, flags: number) =>
+      [hits === 1 ? "1 hit" : `${hits} hits`, flags === 1 ? "1 retreat" : `${flags} retreats`].join(", "),
+    noBattle: "doesn't battle",
+    seeDice: "See the dice",
+    close: "Close",
   },
 });
 
@@ -81,12 +95,16 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
   const { movement } = useSyncExternalStore(match.subscribe, match.getSnapshot);
   // Collisions rolled on this screen, so their dice are thrown in once
   const [justRolled, setJustRolled] = useState<ReadonlySet<number>>(new Set());
+  /** The collision whose dice are on show */
+  const [shown, setShown] = useState<number | null>(null);
   const session = match.sessions[viewer];
   const game = session.getSnapshot();
   const moved = movement?.turn === turn ? movement : null;
 
   const roll = (index: number) => {
-    if (match.rollCollision(index)) setJustRolled((prev) => new Set(prev).add(index));
+    if (!match.rollCollision(index)) return;
+    setJustRolled((prev) => new Set(prev).add(index));
+    setShown(index);
   };
 
   return (
@@ -122,57 +140,40 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                     {moved.collisions.length === 0 ? t.noCollisions : t.collisions(moved.collisions.length)}
                   </Typography>
                   {moved.collisions.length > 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      {t.collisionRule}
-                    </Typography>
+                    <InfoButton title={t.rules} label={t.rules}>
+                      <Typography variant="body1">{t.collisionRule}</Typography>
+                    </InfoButton>
                   )}
+                  {/* One line per collision; its dice in a dialog, opened as it's rolled */}
                   {moved.collisions.map((collision, i) => (
-                    <Stack key={i} component="section" aria-label={t.collision(i + 1)} spacing={0.75} data-testid="collision">
-                      <Typography variant="subtitle1" component="h2">
+                    <Stack key={i} component="section" aria-label={t.collision(i + 1)} spacing={0.5} data-testid="collision">
+                      <Typography variant="subtitle2" component="h2">
                         {t.collision(i + 1)} · {t.kinds[collision.kind]}
                       </Typography>
-                      {collision.units.map((unit, u) => (
-                        <Stack key={unit.side} spacing={0.5}>
-                          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                            <FactionInsignia faction={unit.side} size={22} decorative />
-                            <Typography variant="body2">{t.unit(labels.units[unit.unitType], labels.factions[unit.side])}</Typography>
-                          </Stack>
-                          {unit.mustChoose && (
-                            <Typography variant="body2" color="warning.main">
-                              {t.choose(unit.limit)}
+                      {collision.units.map((unit) => {
+                        const result = unit.roll && readRoll(appliedFaces(unit.roll.faces, unit.roll.kept), unit.roll.target);
+                        return (
+                          <Stack key={unit.side} direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+                            <FactionInsignia faction={unit.side} size={20} decorative />
+                            <Typography variant="body2">
+                              {labels.units[unit.unitType]}
+                              {collision.rolled && ` · ${result ? t.dealt(result.hits, result.retreats) : t.noBattle}`}
                             </Typography>
-                          )}
-                          {unit.roll ? (
-                            <ShotDice
-                              shot={unit.roll}
-                              rollId={i + 1}
-                              faction={unit.side}
-                              rolling={justRolled.has(i)}
-                              onKeepResults={
-                                collision.applied ? undefined : (kept) => match.keepCollisionResults(i, u as 0 | 1, kept)
-                              }
-                            />
-                          ) : (
-                            collision.rolled && (
-                              <Typography variant="body2" color="text.secondary">
-                                {t.cantBattle}
-                              </Typography>
-                            )
-                          )}
-                        </Stack>
-                      ))}
-                      {!collision.rolled && (
+                          </Stack>
+                        );
+                      })}
+                      {collision.rolled ? (
+                        <Button
+                          variant={collision.applied ? "text" : "contained"}
+                          size="small"
+                          onClick={() => setShown(i)}
+                          startIcon={<GameIcon name="dice" />}
+                        >
+                          {collision.applied ? t.seeDice : t.apply}
+                        </Button>
+                      ) : (
                         <Button onClick={() => roll(i)} startIcon={<GameIcon name="dice" />}>
                           {t.roll}
-                        </Button>
-                      )}
-                      {collision.rolled && !collision.applied && (
-                        <Button
-                          onClick={() => match.applyCollision(i)}
-                          disabled={collision.units.some((unit) => unit.mustChoose)}
-                          startIcon={<GameIcon name="confirm" />}
-                        >
-                          {t.apply}
                         </Button>
                       )}
                     </Stack>
@@ -229,6 +230,64 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
             </div>
           </div>
         </Box>
+
+        {shown !== null && moved?.collisions[shown] && (() => {
+          const collision = moved.collisions[shown]!;
+          return (
+            <Dialog open onClose={() => setShown(null)} fullWidth maxWidth="sm">
+              <DialogTitle>
+                {t.collision(shown + 1)} · {t.kinds[collision.kind]}
+              </DialogTitle>
+              <DialogContent>
+                <Stack spacing={2}>
+                  {collision.units.map((unit, u) => (
+                    <Stack key={unit.side} spacing={0.5}>
+                      <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                        <FactionInsignia faction={unit.side} size={22} decorative />
+                        <Typography variant="body2">{t.unit(labels.units[unit.unitType], labels.factions[unit.side])}</Typography>
+                      </Stack>
+                      {unit.mustChoose && (
+                        <Typography variant="body2" color="warning.main">
+                          {t.choose(unit.limit)}
+                        </Typography>
+                      )}
+                      {unit.roll ? (
+                        <ShotDice
+                          shot={unit.roll}
+                          rollId={shown + 1}
+                          faction={unit.side}
+                          rolling={justRolled.has(shown)}
+                          onKeepResults={
+                            collision.applied ? undefined : (kept) => match.keepCollisionResults(shown, u as 0 | 1, kept)
+                          }
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          {t.cantBattle}
+                        </Typography>
+                      )}
+                    </Stack>
+                  ))}
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                {collision.applied ? (
+                  <Button variant="text" onClick={() => setShown(null)}>
+                    {t.close}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => match.applyCollision(shown) && setShown(null)}
+                    disabled={collision.units.some((unit) => unit.mustChoose)}
+                    startIcon={<GameIcon name="confirm" />}
+                  >
+                    {t.apply}
+                  </Button>
+                )}
+              </DialogActions>
+            </Dialog>
+          );
+        })()}
       </Box>
     </MotionConfig>
   );

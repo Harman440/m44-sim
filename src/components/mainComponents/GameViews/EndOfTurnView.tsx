@@ -1,4 +1,5 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { OpponentContext } from "../../OpponentContext";
 import { Alert, Box, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { motion } from "motion/react";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
@@ -38,6 +39,11 @@ const TEXT = defineMessages({
     step1: "1. Retiradas y bajas",
     step1Info:
       "Haz en la mesa las retiradas marcadas en la batalla. Después, en «Actualizar mapa», refleja en el mapa las unidades eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.",
+    step1InfoShared:
+      "La app ya ha hecho las retiradas y las bajas de la batalla. Usa «Actualizar mapa» solo para lo que diga una carta (Repliegue, Médico…).",
+    reinforcementToPlaceShared: (unit: string) =>
+      `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en «Actualizar mapa», en una casilla libre.`,
+    reinforcementPlacedShared: (unit: string) => `llega ${unit.toLowerCase()}, en la casilla de la cruz.`,
     mapEdits: (n: number) => (n === 1 ? "1 cambio" : `${n} cambios`),
     updateMap: "Actualizar mapa",
     rollPrompt: (card: string) => `${card}: tira el dado para ver qué unidad llega a la casilla de la cruz.`,
@@ -99,6 +105,11 @@ const TEXT = defineMessages({
     step1: "1. Retreats and casualties",
     step1Info:
       "Carry out on the table the retreats marked in the battle. Then, in “Update map”, show on the map the units removed and the ones that moved (retreats or ground taken), on both sides.",
+    step1InfoShared:
+      "The app has already carried out the battle's retreats and casualties. Use “Update map” only for what a card says (Pull Back, Medic…).",
+    reinforcementToPlaceShared: (unit: string) =>
+      `${unit.toLowerCase()} arrives. The cross hex is taken: place it in “Update map”, on a free hex.`,
+    reinforcementPlacedShared: (unit: string) => `${unit.toLowerCase()} arrives, on the cross hex.`,
     mapEdits: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
     updateMap: "Update map",
     rollPrompt: (card: string) => `${card}: roll the die to see which unit arrives on the cross hex.`,
@@ -243,6 +254,8 @@ function EndOfTurnView({
   const deckRef = useRef<HTMLDivElement>(null);
   const discardRef = useRef<HTMLDivElement>(null);
   const handRef = useRef<HTMLElement>(null);
+  // Pass and play: there's no table, the app's map is the game
+  const shared = useContext(OpponentContext) !== null;
   const tableRef = useRef<HTMLDivElement>(null);
   const rewardRef = useRef<HTMLDivElement>(null);
   /** The latest hand, for a flight that lands after the card has left it */
@@ -440,7 +453,7 @@ function EndOfTurnView({
   return (
     <div className="end-of-turn">
       <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
-        <StepHeading title={t.step1} info={<Typography variant="body1">{t.step1Info}</Typography>}>
+        <StepHeading title={t.step1} info={<Typography variant="body1">{shared ? t.step1InfoShared : t.step1Info}</Typography>}>
           {game.battleEdits > 0 && (
             <Typography variant="body2" color="text.secondary" data-testid="map-edits">
               {t.mapEdits(game.battleEdits)}
@@ -483,8 +496,8 @@ function EndOfTurnView({
                     {!game.reinforcement.unitType
                       ? t.noReinforcements
                       : game.reinforcementToPlace
-                        ? t.reinforcementToPlace(labels.units[game.reinforcement.unitType])
-                        : t.reinforcementPlaced(labels.units[game.reinforcement.unitType])}
+                        ? (shared ? t.reinforcementToPlaceShared : t.reinforcementToPlace)(labels.units[game.reinforcement.unitType])
+                        : (shared ? t.reinforcementPlacedShared : t.reinforcementPlaced)(labels.units[game.reinforcement.unitType])}
                   </Typography>
                 </Stack>
               )

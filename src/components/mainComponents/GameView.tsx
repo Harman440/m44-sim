@@ -51,6 +51,8 @@ export interface GameViewProps {
   onExit: () => void;
   /** Pass and play: hand the device to the other player */
   onPass?: () => void;
+  /** The hand on show was already dealt (pass and play: this side's player has seen it before) */
+  handDealt?: boolean;
 }
 
 const TEXT = defineMessages({
@@ -108,7 +110,7 @@ const PHASE_STEPS: { phase: TurnPhase; label: keyof (typeof TEXT)["es"]["phases"
   { phase: TurnPhase.END_OF_TURN, label: "final" },
 ];
 
-function GameView({ session, resumed = false, onExit, onPass }: GameViewProps) {
+function GameView({ session, resumed = false, onExit, onPass, handDealt = false }: GameViewProps) {
   const { scenario, faction } = session;
   const { settings, updateSettings } = useSettings();
   const play = useSound();
@@ -128,7 +130,7 @@ function GameView({ session, resumed = false, onExit, onPass }: GameViewProps) {
   // so it survives CardsView unmounting during the other phases.
   // A resumed game's hand was already dealt before the reload.
   const [dealtCardIds, setDealtCardIds] = useState<ReadonlySet<string>>(
-    () => new Set(resumed ? session.getSnapshot().hand.map((card) => card.id) : [])
+    () => new Set(resumed || handDealt ? session.getSnapshot().hand.map((card) => card.id) : [])
   );
 
   const handleCardDealt = useCallback((card: CommandCard) => {
