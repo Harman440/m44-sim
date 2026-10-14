@@ -36,7 +36,7 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 - [x] Cards and orders for each side in turn, in the one-side screens. Locking the orders hands the device to the other side when it hasn't given its own (even if it's still finishing the last turn); the defender joins in at turn 2 as soon as the attacker's extra turn ends, and "Pasar" is off during that turn
 - [x] Both armies on every map of the game screen (`OpponentContext`, `Board`'s `opponent`): the other army turned round onto this side's view, at the hexes its orders started from while they're secret (orders move units on their side's board as they're given), and its orders, in its colour, once revealed (`PassAndPlayMatch.opponentOf`)
 - [x] The reveal (`RevealView`): once both sides have locked their orders, both cards and both armies' orders on one map; "Seguir" gives the device to the attacker for movement, battle and the final phase, still each side in its own screens, passing by hand, until PP3 and PP4
-- [ ] The shared board for the rules: line of sight and targets still only know this side's units (PP4)
+- [x] The shared board for the rules: targets and line of sight know both armies (PP4b)
 
 ### PP3: Movement
 - [x] **Decided:** units move step by step, all together: every unit's first hex, then the second, … A collision is two units in the same hex after a step, or two units swapping hexes in the same step
@@ -55,11 +55,26 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 - [x] PP4c: retreats and taking ground. "Terminar la batalla" carries out the retreats: the attacker's marked units first, then the defender's, each hex tapped on the map by the unit's player among the two behind it toward its own edge that are free (`GameSession.retreatOptions`, `retreatTo`); with none, the unit loses a figure for that hex (`retreatBlocked`, done by the app). After a close assault that destroyed the enemy unit or marked it to retreat, armour (or infantry with Fragor del combate) is asked "¿Tomar terreno?" (`decideGround`): yes, the enemy unit retreats at once, its player picking the hexes, then the unit moves in and fires once more in close assault (`MatchBattle.bonus`); no, the enemy unit stays marked. A unit marked to retreat can't take ground
 - [ ] **Later:** the attack combat cards (Barrage, Air Power…), Ambush, Close Assault's marking and the cards that stop an enemy unit firing (Out of Ammo, Shell Shortage, Out of Fuel) aren't wired into the shared battle yet: they should be applied by the app instead of "Bloqueado por el rival"
 - [ ] **Decide:** the order of the retreats after the battle (now: the attacker's units first, top of its view first), and whether a retreat may go through or onto a hex the units can't fire from (now: any free, passable hex behind)
-- [ ] The rule book's pages for pass and play (`data/ruleBook.ts`)
 
 ### PP5: Winning
 - [x] **Decided:** no winning for now: the game goes on until the players stop. Winning conditions depend on the scenario and come later
 - [ ] **Later:** medals and objective hexes per scenario, and the end of the game with a summary (from myNextPlan.md)
+
+## Next steps
+In order; the first ones finish what PP1–PP4 started.
+
+### PP6: Combat cards in the shared battle
+- [ ] Attack cards (Barrage, Air Power, Air Bombardment): rolled per marked hex before any unit fires, the hits dealt by the app
+- [ ] Ambush: the attacked unit fires first, picked on the shared battle screen
+- [ ] Close Assault: the units adjacent to an enemy found by the app instead of marked by hand
+- [ ] Out of Ammo, Shell Shortage, Out of Fuel: played by the opponent on the unit about to fire, instead of "Bloqueado por el rival"
+
+### PP7: Polish
+- [ ] The one-side screens in pass and play stop speaking of the table (Movimiento's instructions, the battle's "¿Ha habido un choque?", "Actualizar mapa")
+- [ ] A player's hand doesn't deal in again every time they get the device back
+- [ ] The collision results on the reveal screen fit the landscape column without scrolling
+- [ ] The rule book's pages for pass and play (`data/ruleBook.ts`)
+- [ ] Play a whole game on the tablet and note what feels wrong
 
 ## Later
 - Fog of war, and playing against the computer (myNextPlan.md)
