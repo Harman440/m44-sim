@@ -13,13 +13,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { AmbushShot, BattleEdit, CardAttack, Shot } from "./gameSession";
+import type { AmbushShot, BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
 import { TurnRecord, copyAmbush } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 28;
+export const SAVE_VERSION = 29;
 
 interface SavedUnit {
   type: UnitType;
@@ -92,6 +92,7 @@ export interface SavedGame {
   cardAttacks: CardAttack[];
   battleCombatCard: string | null;
   ambush: AmbushShot | null;
+  standingCollisions: StandingCollisionRoll[];
   drawnCombatCard: string | null;
   drops: Position[];
   reinforcementFace: SixSidedFace | null;
@@ -130,6 +131,8 @@ export interface SessionState {
   battleCombatCard: CombatCard | null;
   /** The Ambush card's shot */
   ambush: AmbushShot | null;
+  /** Pass and play: collision rolls of units without an order */
+  standingCollisions: readonly StandingCollisionRoll[];
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
@@ -161,6 +164,19 @@ function readAmbush(ambush: unknown): AmbushShot | null {
   if (!Array.isArray(shot.faces) || !shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
   if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
   return shot;
+}
+
+function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
+  if (!Array.isArray(rolls)) throw new Error("Collision rolls are not a list");
+  const faces = new Set<string>(Object.values(DieFace));
+  return rolls.map((roll: StandingCollisionRoll) => {
+    if (!isPosition(roll?.from) || !isUnitType(roll.unitType) || !isShotTarget(roll.target)) {
+      throw new Error("Unknown collision roll");
+    }
+    if (!Array.isArray(roll.faces) || !roll.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
+    if (roll.kept !== null && !isKeptList(roll.kept, roll.faces.length)) throw new Error("Unknown kept dice");
+    return roll;
+  });
 }
 
 function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
@@ -273,6 +289,15 @@ export function writeSave(
     })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
     ambush: state.ambush && copyAmbush(state.ambush),
+    standingCollisions: state.standingCollisions.map((roll) => ({
+      ...roll,
+      from: { ...roll.from },
+      steps: roll.steps.map((step) => ({ ...step })),
+      faces: [...roll.faces],
+      target: { ...roll.target },
+      kept: roll.kept && [...roll.kept],
+      notes: [...roll.notes],
+    })),
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     drops: state.drops.map((p) => ({ ...p })),
     reinforcementFace: state.reinforcementFace,
@@ -446,6 +471,7 @@ export function readSave(
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     ambush: readAmbush(saved.ambush),
+    standingCollisions: readStandingCollisions(saved.standingCollisions),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
     reinforcementFace,

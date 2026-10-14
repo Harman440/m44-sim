@@ -36,11 +36,16 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 - [x] Cards and orders for each side in turn, in the one-side screens. Locking the orders hands the device to the other side when it hasn't given its own (even if it's still finishing the last turn); the defender joins in at turn 2 as soon as the attacker's extra turn ends, and "Pasar" is off during that turn
 - [x] Both armies on every map of the game screen (`OpponentContext`, `Board`'s `opponent`): the other army turned round onto this side's view, at the hexes its orders started from while they're secret (orders move units on their side's board as they're given), and its orders, in its colour, once revealed (`PassAndPlayMatch.opponentOf`)
 - [x] The reveal (`RevealView`): once both sides have locked their orders, both cards and both armies' orders on one map; "Seguir" gives the device to the attacker for movement, battle and the final phase, still each side in its own screens, passing by hand, until PP3 and PP4
-- [ ] The shared board for the rules: pathfinding, line of sight and targets still only know this side's units (PP3, PP4)
+- [ ] The shared board for the rules: line of sight and targets still only know this side's units (PP4)
 
 ### PP3: Movement
-- [ ] Simultaneous movement on the shared map, with the collisions resolved by the app
 - [x] **Decided:** units move step by step, all together: every unit's first hex, then the second, … A collision is two units in the same hex after a step, or two units swapping hexes in the same step
+- [x] **Decided:** a unit may be ordered into or through a hex where an enemy stands: stepping into it is a collision too. Both units roll at once (close assault dice minus 1, terrain ignored); the collision is the unit's shot for the turn; the winner always stops where it is
+- [x] `game-core/simultaneousMove.ts`: `moveSimultaneously` carries out every move in the Allies' view, one step at a time: enemies stepping into the same hex (`same-hex`), into each other's hex (`crossing`) or into the hex of an enemy that stays there (`standing`) stop and collide, short of the hex; a unit whose next hex holds one of its own that stays there waits behind it (of two wanting the same hex, the earlier order goes)
+- [x] `GameSession.haltOrders` cuts the orders short where the units stopped (the wire a tank didn't reach goes back, a unit that never left keeps its sandbags); `rollCollision` rolls a unit's collision: an ordered unit's is its shot, an unordered unit's is kept apart (`standingCollisions`, its supplies count), also while the defender waits out the extra turn. `SAVE_VERSION` 29
+- [x] `PassAndPlayMatch.moveUnits` and `rollCollision`, saved in `SavedMatch.movement` (`MATCH_SAVE_VERSION` 3). The extra first turn is revealed and carried out too, the attacker's orders alone, as its moves can run into the defender's units
+- [x] The reveal screen: "Mover las unidades", then the map as it stands with each collision numbered on it, and per collision "Tirar los dados" for both units (`ShotDice`); "Seguir" once all are rolled
+- [ ] **Later (PP4):** the collision's hits and retreats are applied by the app; for now each side mirrors them in its final phase ("Actualizar mapa"). The one-side screens after the reveal still speak of the table (Movimiento's instructions, the battle's "¿Ha habido un choque?")
 
 ### PP4: Battle
 - [ ] Figures per unit, shown on the token; units lose figures and are removed when they reach 0

@@ -33,6 +33,22 @@
   dominant-baseline: middle;
 }
 
+/* A collision in the movement (pass and play): a numbered burst */
+.board__collision polygon {
+  fill: var(--m44-accent, #e53935);
+  stroke: var(--m44-paper, #fff);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.board__collision text {
+  fill: var(--m44-on-accent, #fff);
+  font-family: var(--m44-font-display);
+  font-size: 24px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 /* The dice a shot at a target hex would roll */
 .board__target-dice circle {
   fill: var(--m44-paper);

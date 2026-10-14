@@ -1,13 +1,16 @@
-import GameSession, { GameSnapshot } from "./gameSession";
+import GameSession, { GameSnapshot, ShotRoll } from "./gameSession";
 import { SavedGame } from "./saveGame";
-import Unit from "./unit";
+import Unit, { UnitType } from "./unit";
 import Order from "./order";
-import { Faction } from "../types/faction";
+import { turnedRound } from "./BoardManager";
+import { samePosition } from "./position";
+import { Collision, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
+import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 2;
+export const MATCH_SAVE_VERSION = 3;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -15,6 +18,34 @@ export interface SavedMatch {
   sides: { allies: SavedGame; axis: SavedGame };
   active: Faction;
   revealedTurn: number;
+  movement: MatchMovement | null;
+}
+
+/** Where a collision's roll was kept: one of its side's shots, or its rolls for units without an order */
+export interface RollRef {
+  kind: "shot" | "standing";
+  index: number;
+}
+
+/** The turn's movement, carried out by the app: the collisions to roll, each once rolled */
+export interface MatchMovement {
+  turn: number;
+  collisions: (Collision & { rolls: [RollRef, RollRef] | null })[];
+}
+
+/** One of a collision's units, for the screen: positions in the Allies' view, as in `Collision` */
+export interface CollidingUnitView {
+  side: Faction;
+  order: number | null;
+  position: Position;
+  unitType: UnitType;
+  /** Its roll, once the collision is rolled */
+  roll: ShotRoll | null;
+}
+
+export interface CollisionView extends Omit<Collision, "units"> {
+  units: [CollidingUnitView, CollidingUnitView];
+  rolled: boolean;
 }
 
 export interface MatchSnapshot {
@@ -29,6 +60,11 @@ export interface MatchSnapshot {
   revealTurn: number | null;
   /** The player holding the device can hand it over ("Pasar") */
   canPass: boolean;
+  /**
+   * The units of the turn being revealed have moved: the collisions, each with both units'
+   * rolls once rolled. Null before "Mover"
+   */
+  movement: { turn: number; collisions: readonly CollisionView[]; allRolled: boolean } | null;
 }
 
 /** A unit and where it stands, as seen from its own side of the table */
@@ -44,6 +80,10 @@ export interface ArmyView {
   /** Its orders this turn, once they've been revealed; none while they're secret */
   orders: readonly Order[];
 }
+
+/** A side's position in the Allies' view of the board, or back: the Axis sees it turned round */
+const inAlliesView = (side: Faction, position: Position): Position =>
+  side === "Axis" ? turnedRound(position) : position;
 
 export const otherSide = (faction: Faction): Faction => (faction === "Axis" ? "Allies" : "Axis");
 
@@ -74,8 +114,9 @@ class PassAndPlayMatch {
   readonly sessions: Readonly<Record<Faction, GameSession>>;
   private active: Faction;
   private covered: boolean;
-  /** The last turn whose orders were shown to both players */
+  /** The last turn whose orders were shown to both players and carried out */
   private revealedTurn: number;
+  private movement: MatchMovement | null;
 
   private readonly listeners = new Set<() => void>();
   private snapshot: MatchSnapshot;
@@ -83,7 +124,12 @@ class PassAndPlayMatch {
   constructor(
     scenario: Scenario,
     sessions: Record<Faction, GameSession>,
-    { active = scenario.attacker, covered = true, revealedTurn = 0 }: { active?: Faction; covered?: boolean; revealedTurn?: number } = {}
+    {
+      active = scenario.attacker,
+      covered = true,
+      revealedTurn = 0,
+      movement = null,
+    }: { active?: Faction; covered?: boolean; revealedTurn?: number; movement?: MatchMovement | null } = {}
   ) {
     if (sessions.Allies.faction !== "Allies" || sessions.Axis.faction !== "Axis") {
       throw new Error("Each side needs its own session");
@@ -96,6 +142,7 @@ class PassAndPlayMatch {
     this.active = active;
     this.covered = covered;
     this.revealedTurn = revealedTurn;
+    this.movement = movement;
     this.follow();
     this.snapshot = this.createSnapshot();
     sessions.Allies.subscribe(this.onSessionChange);
@@ -132,13 +179,77 @@ class PassAndPlayMatch {
   }
 
   /**
-   * Both players have seen the orders: the attacker goes on with movement, battle and the
-   * final phase, behind the cover screen
+   * Carry out the revealed orders, both sides at once and one hex at a time: units that meet an
+   * enemy stop and collide, units held up by their own stop behind them
+   */
+  moveUnits(): boolean {
+    const turn = this.revealTurn();
+    if (turn === null || this.movement?.turn === turn) return false;
+
+    const movers: Mover[] = [];
+    const standers: Stander[] = [];
+    for (const side of FACTIONS) {
+      const session = this.sessions[side];
+      const { orders } = session.getSnapshot();
+      const view = (position: Position) => inAlliesView(side, position);
+      orders.forEach((order, index) => {
+        if (samePosition(order.start, order.end)) standers.push({ side, order: index, position: view(order.start) });
+        else movers.push({ side, order: index, path: (order.path ?? [order.start, order.end]).map(view) });
+      });
+      const ordered = new Set(orders.map((order) => order.unit));
+      armyOf(session)
+        .filter(({ unit }) => !ordered.has(unit))
+        .forEach(({ position }) => standers.push({ side, order: null, position: view(position) }));
+    }
+
+    const result = moveSimultaneously(movers, standers);
+    for (const side of FACTIONS) {
+      const halts = result.ends
+        .filter((end) => end.side === side && end.stopped)
+        .map((end) => ({ order: end.order, at: inAlliesView(side, end.end) }));
+      if (halts.length > 0 && !this.sessions[side].haltOrders(halts)) return false;
+    }
+    this.movement = { turn, collisions: result.collisions.map((collision) => ({ ...collision, rolls: null })) };
+    return this.publish();
+  }
+
+  /** Both units of the collision roll at once: close assault dice minus 1, terrain ignored */
+  rollCollision(index: number): boolean {
+    const collision = this.movement?.collisions[index];
+    if (!collision || collision.rolls) return false;
+    const units = collision.units.map((unit) => ({ ...unit, at: inAlliesView(unit.side, unit.position) }));
+    const placed = units.map((unit) => this.sessions[unit.side].board.getHex(unit.at)?.unit);
+    if (!placed[0] || !placed[1]) return false;
+
+    const rolls = units.map((unit, i) => {
+      const session = this.sessions[unit.side];
+      const game = session.getSnapshot();
+      const ref: RollRef =
+        unit.order === null
+          ? { kind: "standing", index: game.standingCollisions.length }
+          : { kind: "shot", index: game.shots.length };
+      const enemyIsInfantry = placed[1 - i]!.getUnitType() === UnitType.INFANTRY;
+      return session.rollCollision(unit.at, enemyIsInfantry, unit.order) ? ref : null;
+    });
+    if (!rolls[0] || !rolls[1]) return false;
+
+    this.movement = {
+      ...this.movement!,
+      collisions: this.movement!.collisions.map((c, i) => (i === index ? { ...c, rolls: [rolls[0]!, rolls[1]!] } : c)),
+    };
+    return this.publish();
+  }
+
+  /**
+   * Both players have seen the orders and the moves, and every collision is rolled: the attacker
+   * goes on with the battle and the final phase, behind the cover screen
    */
   finishReveal(): boolean {
     const turn = this.revealTurn();
-    if (turn === null) return false;
+    if (turn === null || this.movement?.turn !== turn) return false;
+    if (this.movement.collisions.some((collision) => !collision.rolls)) return false;
     this.revealedTurn = turn;
+    this.movement = null;
     this.active = this.scenario.attacker;
     this.covered = true;
     return this.publish();
@@ -168,6 +279,7 @@ class PassAndPlayMatch {
       sides: { allies: this.sessions.Allies.save(), axis: this.sessions.Axis.save() },
       active: this.active,
       revealedTurn: this.revealedTurn,
+      movement: this.movement && JSON.parse(JSON.stringify(this.movement)),
     };
   }
 
@@ -181,15 +293,43 @@ class PassAndPlayMatch {
     if (saved.active !== "Allies" && saved.active !== "Axis") throw new Error(`Invalid side ${saved.active}`);
     if (!Number.isInteger(saved.revealedTurn)) throw new Error("Invalid revealed turn");
     const sessions = { Allies: restoreSide(saved.sides.allies), Axis: restoreSide(saved.sides.axis) };
-    return new PassAndPlayMatch(scenario, sessions, { active: saved.active, revealedTurn: saved.revealedTurn });
+    const movement = saved.movement;
+    if (movement !== null && (!Number.isInteger(movement?.turn) || !Array.isArray(movement.collisions))) {
+      throw new Error("Invalid movement");
+    }
+    return new PassAndPlayMatch(scenario, sessions, { active: saved.active, revealedTurn: saved.revealedTurn, movement });
   }
 
-  /** The turn whose orders both sides have locked and nobody has seen yet, if any */
+  /**
+   * The turn whose orders both sides have locked and that hasn't been carried out yet, if any; in
+   * the extra first turn, the attacker's alone
+   */
   private revealTurn(): number | null {
-    const allies = this.sessions.Allies.getSnapshot();
-    const axis = this.sessions.Axis.getSnapshot();
-    const both = allies.phase === TurnPhase.MOVEMENT && axis.phase === TurnPhase.MOVEMENT && allies.turn === axis.turn;
-    return both && allies.turn > this.revealedTurn ? allies.turn : null;
+    const attacker = this.sessions[this.scenario.attacker].getSnapshot();
+    const defender = this.sessions[otherSide(this.scenario.attacker)].getSnapshot();
+    const locked = (game: GameSnapshot) => game.phase === TurnPhase.MOVEMENT;
+    const both = locked(attacker) && locked(defender) && attacker.turn === defender.turn;
+    const alone = locked(attacker) && attacker.turn === 1 && defender.phase === TurnPhase.AWAIT_ATTACKER;
+    return (both || alone) && attacker.turn > this.revealedTurn ? attacker.turn : null;
+  }
+
+  private movementView(): MatchSnapshot["movement"] {
+    const movement = this.movement;
+    if (!movement) return null;
+    const rollOf = (side: Faction, ref: RollRef): ShotRoll | null => {
+      const game = this.sessions[side].getSnapshot();
+      return (ref.kind === "shot" ? game.shots[ref.index] : game.standingCollisions[ref.index]) ?? null;
+    };
+    const collisions = movement.collisions.map(({ rolls, units, ...collision }): CollisionView => ({
+      ...collision,
+      rolled: rolls !== null,
+      units: units.map((unit, i) => ({
+        ...unit,
+        unitType: this.sessions[unit.side].board.getHex(inAlliesView(unit.side, unit.position))?.unit?.getUnitType() ?? UnitType.INFANTRY,
+        roll: rolls ? rollOf(unit.side, rolls[i]!) : null,
+      })) as [CollidingUnitView, CollidingUnitView],
+    }));
+    return { turn: movement.turn, collisions, allRolled: collisions.every((collision) => collision.rolled) };
   }
 
   private canPass(): boolean {
@@ -236,7 +376,13 @@ class PassAndPlayMatch {
   };
 
   private createSnapshot(): MatchSnapshot {
-    return { active: this.active, covered: this.covered, revealTurn: this.revealTurn(), canPass: this.canPass() };
+    return {
+      active: this.active,
+      covered: this.covered,
+      revealTurn: this.revealTurn(),
+      canPass: this.canPass(),
+      movement: this.movementView(),
+    };
   }
 
   private publish(): true {

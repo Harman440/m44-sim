@@ -1350,7 +1350,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 27 as 28 })).toThrow();
+    expect(broken({ version: 28 as 29 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
@@ -3177,5 +3177,59 @@ describe("GameSession elite units", () => {
 
     expect(restored.board.getHex(LEFT_INF)!.unit!.elite).toBe(true);
     expect(restored.board.getHex({ row: 7, col: 3 })!.unit!.elite).toBe(false);
+  });
+});
+
+describe("pass and play movement", () => {
+  /** The left infantry ordered 2 hexes and the left-center one to hold; the tank and the right infantry have no order */
+  const movedTwo = () => {
+    const { session, card } = sessionWithAllCards();
+    expect(session.pickCard(card("left"))).toBe(true);
+    const far = session.getMoveOptions(LEFT_INF)!.moves.find((p) => hexDistance(p, LEFT_INF) === 2)!;
+    expect(session.issueOrder(LEFT_INF, far)).toBe(true);
+    expect(session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 })).toBe(true);
+    expect(session.commitOrders()).toBe(true);
+    return { session, order: session.getSnapshot().orders[0]! };
+  };
+
+  it("cuts an order short where its unit stopped, and only on its way", () => {
+    const { session, order } = movedTwo();
+    const halfway = order.path![1]!;
+
+    expect(session.haltOrders([{ order: 0, at: order.end }])).toBe(false); // the end isn't a stop
+    expect(session.haltOrders([{ order: 0, at: { row: 0, col: 0 } }])).toBe(false);
+    expect(session.haltOrders([{ order: 0, at: halfway }])).toBe(true);
+
+    const halted = session.getSnapshot().orders[0]!;
+    expect(halted.end).toEqual(halfway);
+    expect(halted.path).toEqual(order.path!.slice(0, 2));
+    expect(unitAt(session, halfway)).toBe(order.unit);
+    expect(unitAt(session, order.end)).toBeNull();
+  });
+
+  it("is only for the movement phase", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    expect(session.haltOrders([])).toBe(false);
+    expect(session.rollCollision(LEFT_INF, true, null)).toBe(false);
+  });
+
+  it("rolls an ordered unit's collision as its shot, and an unordered unit's apart", () => {
+    const { session, order } = movedTwo();
+    expect(session.rollCollision(order.end, false, 1)).toBe(false); // not that order's unit
+    expect(session.rollCollision(order.end, false, 0)).toBe(true);
+    const shot = session.getSnapshot().shots[0]!;
+    expect(shot).toMatchObject({ orderIndex: 0, collision: true, target: { infantry: false, closeAssault: true } });
+    // Infantry rolls 3 dice in close assault, minus 1 for the collision
+    expect(shot.dice).toBe(2);
+
+    expect(session.rollCollision(TANK, true, null)).toBe(true);
+    expect(session.rollCollision({ row: 7, col: 3 }, true, null)).toBe(false); // it has an order
+    expect(session.getSnapshot().standingCollisions).toHaveLength(1);
+    // A tank rolls 3 dice in close assault, minus 1
+    expect(session.getSnapshot().standingCollisions[0]).toMatchObject({ from: TANK, dice: 2, unitType: UnitType.TANK });
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+    expect(restored.getSnapshot().standingCollisions).toEqual(session.getSnapshot().standingCollisions);
   });
 });

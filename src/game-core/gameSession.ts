@@ -137,6 +137,8 @@ export interface GameSnapshot {
   ambushUnits: readonly Position[];
   /** The Ambush card's shot, once rolled */
   ambush: AmbushShot | null;
+  /** Pass and play: collision rolls of units without an order */
+  standingCollisions: readonly StandingCollisionRoll[];
   /** The combat card drawn in the final phase */
   drawnCombatCard: CombatCard | null;
   /** The final phase still owes a combat card: drawing it is the next step */
@@ -212,6 +214,16 @@ export interface AmbushShot extends ShotRoll {
   from: Position;
   unitType: UnitType;
   targetPosition: Position;
+}
+
+/**
+ * Pass and play: a collision roll of one of this side's units that had no order (an ordered
+ * unit's roll is one of its shots)
+ */
+export interface StandingCollisionRoll extends ShotRoll {
+  /** Where the unit stands */
+  from: Position;
+  unitType: UnitType;
 }
 
 /** The roll of an attack combat card on one marked hex (Barrage, Air Power, Air Bombardment) */
@@ -344,6 +356,7 @@ class GameSession {
   private cardAttacks: CardAttack[] = [];
   private battleCombatCard: CombatCard | null = null;
   private ambush: AmbushShot | null = null;
+  private standingCollisions: StandingCollisionRoll[] = [];
   private drawnCombatCard: CombatCard | null = null;
   private drops: Position[] = [];
   private reinforcementFace: SixSidedFace | null = null;
@@ -692,6 +705,79 @@ class GameSession {
     if (this.markersLeft() > 0) return false;
 
     this.phase = TurnPhase.MOVEMENT;
+    return this.publish();
+  }
+
+  // --- Pass and play: the app carries out both sides' moves at once (PassAndPlayMatch)
+
+  /**
+   * Cut orders short where their units stopped: a collision, or one of their own units in the
+   * way. Each stop is a hex of the order's path before its end. Only in the movement phase
+   */
+  haltOrders(stops: readonly { order: number; at: Position }[]): boolean {
+    if (this.phase !== TurnPhase.MOVEMENT) return false;
+    if (new Set(stops.map((stop) => stop.order)).size !== stops.length) return false;
+    const halts = stops.map(({ order, at }) => ({ index: order, order: this.orders[order], at }));
+    const onTheWay = (order: Order | undefined, at: Position) =>
+      !!order && (order.path ?? []).slice(0, -1).some((hex) => samePosition(hex, at));
+    if (!halts.every(({ order, at }) => onTheWay(order, at))) return false;
+
+    // Lift every unit first: one may stop where another's move ended
+    halts.forEach(({ order }) => this.board.removeUnitAt(order!.end));
+    const orders = [...this.orders];
+    for (const { index, order, at } of halts) {
+      const halted = order!;
+      this.board.getHex(at)!.placeUnit(halted.unit);
+      // A tank that didn't get there didn't clear the wire; a unit still home keeps its sandbags
+      if (halted.clearedWire) this.board.getHex(halted.end)?.setWire(true);
+      const home = samePosition(at, halted.start);
+      if (home) this.restoreSandbags(halted.lostSandbags);
+      const reached = halted.path!.findIndex((hex) => samePosition(hex, at));
+      orders[index] = new Order({
+        ...halted,
+        end: { ...at },
+        path: halted.path!.slice(0, reached + 1),
+        clearedWire: false,
+        lostSandbags: home ? [] : halted.lostSandbags,
+      });
+    }
+    this.orders = orders;
+    return this.publish();
+  }
+
+  /**
+   * Pass and play: this side's unit at `position` rolls in a collision against an enemy unit
+   * that is or isn't infantry: its close assault dice minus 1, terrain ignored. `order` is its
+   * order's index (the roll is then its shot this turn), or null for a unit without an order,
+   * which can also be hit while its side waits out the attacker's extra turn
+   */
+  rollCollision(position: Position, infantry: boolean, order: number | null): boolean {
+    const waiting = this.phase === TurnPhase.AWAIT_ATTACKER && order === null;
+    if (this.phase !== TurnPhase.MOVEMENT && !waiting) return false;
+    const unit = this.board.getHex(position)?.unit;
+    if (!unit) return false;
+    const ordered = order === null ? null : this.orders[order];
+    if (ordered === undefined || (ordered && ordered.unit !== unit)) return false;
+    if (!ordered && this.orders.some((o) => o.unit === unit)) return false;
+
+    const steps = collisionSteps({ unitType: unit.getUnitType(), card: ordered ? this.cardFor(ordered) : null });
+    const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
+    const target: ShotTarget = { infantry, closeAssault: true, die: "battle" };
+    if (ordered) return this.recordShot(order!, dice, steps, [...COLLISION_NOTES], target, true);
+
+    const roll: StandingCollisionRoll = {
+      from: { ...position },
+      unitType: unit.getUnitType(),
+      steps,
+      dice,
+      faces: rollDice(dice, this.random, SIDES_OF[target.die]),
+      notes: [...COLLISION_NOTES],
+      collision: true,
+      target,
+      combatBonus: false,
+      kept: null,
+    };
+    this.standingCollisions = [...this.standingCollisions, roll];
     return this.publish();
   }
 
@@ -1189,6 +1275,7 @@ class GameSession {
       combatCards: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
       shots: this.shots,
       ambush: this.ambush,
+      standingCollisions: this.standingCollisions,
       adjustments: this.coinAdjustments,
       reward: this.rewardChoice,
       cardReward: endOfTurn ? (this.chosenCard?.endOfTurnReward?.coins ?? 0) : 0,
@@ -1716,6 +1803,7 @@ class GameSession {
     this.cardAttacks = [];
     this.battleCombatCard = null;
     this.ambush = null;
+    this.standingCollisions = [];
     this.drawnCombatCard = null;
     this.reinforcementFace = null;
 
@@ -1768,6 +1856,7 @@ class GameSession {
       cardAttacks: this.cardAttacks,
       battleCombatCard: this.battleCombatCard,
       ambush: this.ambush,
+      standingCollisions: this.standingCollisions,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
       reinforcementFace: this.reinforcementFace,
@@ -1821,6 +1910,7 @@ class GameSession {
     session.cardAttacks = state.cardAttacks;
     session.battleCombatCard = state.battleCombatCard;
     session.ambush = state.ambush;
+    session.standingCollisions = [...state.standingCollisions];
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
     session.reinforcementFace = state.reinforcementFace;
@@ -1876,6 +1966,7 @@ class GameSession {
       battleCombatCard: this.battleCombatCard,
       ambushUnits: this.ambushUnits(),
       ambush: this.ambush,
+      standingCollisions: this.standingCollisions,
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),
       mustDiscardCombatCard: this.mustDiscardCombatCard(),

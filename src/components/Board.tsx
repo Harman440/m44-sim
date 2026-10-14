@@ -54,6 +54,11 @@ interface BoardProps {
    * its colour; by default the game screen's (`OpponentContext`)
    */
   opponent?: ArmyView | null;
+  /**
+   * Collisions of the movement (pass and play), numbered: each on the hex fought over, or between
+   * the two hexes of units that crossed
+   */
+  collisions?: readonly (readonly Position[])[];
 }
 
 function Board({
@@ -75,7 +80,8 @@ function Board({
   focus = [],
   hexSize = 50,
   faction,
-  opponent: opponentProp
+  opponent: opponentProp,
+  collisions = []
 }: BoardProps) {
   const opponentInContext = useContext(OpponentContext);
   const opponent = opponentProp === undefined ? opponentInContext : opponentProp;
@@ -129,6 +135,26 @@ function Board({
       </g>
     );
   };
+
+  /** A burst with the collision's number, on its hex or on the edge between two */
+  const renderCollisions = () =>
+    collisions.map((hexes, i) => {
+      const centers = hexes.map(geometry.hexCenter);
+      const x = centers.reduce((sum, c) => sum + c.x, 0) / centers.length;
+      const y = centers.reduce((sum, c) => sum + c.y, 0) / centers.length;
+      const r = hexSize * 0.42;
+      const spikes = Array.from({ length: 16 }, (_, k) => {
+        const radius = k % 2 === 0 ? r : r * 0.62;
+        const angle = (k * Math.PI) / 8;
+        return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`;
+      }).join(' ');
+      return (
+        <g key={i} className="board__collision" data-testid="collision-mark" pointerEvents="none">
+          <polygon points={spikes} />
+          <text x={x} y={y}>{i + 1}</text>
+        </g>
+      );
+    });
 
   /** A target (attack) or a cross (a unit appears), like pencil on the paper map */
   const renderMarkers = () =>
@@ -281,8 +307,9 @@ function Board({
         {renderOrders()}
         {renderOpponent()}
 
-        {/* Layer 4: Combat card markers */}
+        {/* Layer 4: Combat card markers and collisions */}
         {renderMarkers()}
+        {renderCollisions()}
 
         {/* Layer 5: dice at each hex a unit can fire at (top layer) */}
         {renderTargetDice()}
