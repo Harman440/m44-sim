@@ -29,12 +29,14 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 - [x] `game-core/passAndPlay.ts`: `PassAndPlayMatch` holds one `GameSession` per side (hand, decks, coins, orders), so the one-side rules are reused, plus who holds the device (`active`) and the cover screen (`covered`); `pass()` and `uncover()`
 - [x] `MatchView`: the cover screen ("Turno del Eje", "Juego con el Eje: mostrar"), then the side's `GameView` with a "Pasar" button in the header. For now each side still plays its whole one-side turn, passing by hand; PP2 makes the handover automatic
 - [x] Save and resume the match (`m44-sim:saved-match`, beside the one-side save; a new game of either kind replaces the other). A match resumes behind the cover screen
-- [ ] The shared board with both armies (needed from PP2's reveal on)
+
 
 ### PP2: Hidden turns
-- [ ] The cover screen between the players, saying whose turn it is
-- [ ] Cards and orders for each side in turn, reusing `CardsView` and `OrdersView` on the shared map (the board turned for the Axis)
-- [ ] The reveal: both cards and both sides' orders
+- [x] The cover screen between the players, saying whose turn it is
+- [x] Cards and orders for each side in turn, in the one-side screens. Locking the orders hands the device to the other side when it hasn't given its own (even if it's still finishing the last turn); the defender joins in at turn 2 as soon as the attacker's extra turn ends, and "Pasar" is off during that turn
+- [x] Both armies on every map of the game screen (`OpponentContext`, `Board`'s `opponent`): the other army turned round onto this side's view, at the hexes its orders started from while they're secret (orders move units on their side's board as they're given), and its orders, in its colour, once revealed (`PassAndPlayMatch.opponentOf`)
+- [x] The reveal (`RevealView`): once both sides have locked their orders, both cards and both armies' orders on one map; "Seguir" gives the device to the attacker for movement, battle and the final phase, still each side in its own screens, passing by hand, until PP3 and PP4
+- [ ] The shared board for the rules: pathfinding, line of sight and targets still only know this side's units (PP3, PP4)
 
 ### PP3: Movement
 - [ ] Simultaneous movement on the shared map, with the collisions resolved by the app

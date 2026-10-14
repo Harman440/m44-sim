@@ -149,7 +149,7 @@ describe("saved pass and play match", () => {
 
     const restored = loadSavedMatch([scenario]);
 
-    expect(restored?.getSnapshot()).toEqual({ active: "Axis", covered: true });
+    expect(restored?.getSnapshot()).toMatchObject({ active: "Axis", covered: true, revealTurn: null });
     expect(restored?.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
     expect(restored?.sessions.Allies.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
   });

@@ -1,10 +1,15 @@
+import { useContext } from 'react';
 import type React from 'react';
+import type { ArmyView } from '../game-core/passAndPlay';
+import { OpponentContext } from './OpponentContext';
 import Hexagon, { HexHighlight } from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
 import { Faction } from '../types/faction';
 import { includesPosition, positionKey, samePosition } from '../game-core/position';
-import BoardManager from '../game-core/BoardManager';
+import BoardManager, { turnedRound } from '../game-core/BoardManager';
+import UnitComponent from './UnitComponent';
+import { FACTION_COLORS } from '../looks/looks';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
@@ -44,6 +49,11 @@ interface BoardProps {
   focus?: readonly Position[];
   hexSize?: number;
   faction: Faction;
+  /**
+   * The other army (pass and play), drawn turned round onto this side's view with its orders in
+   * its colour; by default the game screen's (`OpponentContext`)
+   */
+  opponent?: ArmyView | null;
 }
 
 function Board({
@@ -64,8 +74,11 @@ function Board({
   selectedTarget = null,
   focus = [],
   hexSize = 50,
-  faction
+  faction,
+  opponent: opponentProp
 }: BoardProps) {
+  const opponentInContext = useContext(OpponentContext);
+  const opponent = opponentProp === undefined ? opponentInContext : opponentProp;
   const { width: boardWidth, height: boardHeight } = boardManager;
   const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
   const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
@@ -91,6 +104,30 @@ function Board({
         hexSize={hexSize}
       />
     ));
+  };
+
+  /** The other army's units and order arrows, turned round onto this side's view */
+  const renderOpponent = () => {
+    if (!opponent) return null;
+    const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardWidth, boardHeight));
+    return (
+      <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
+        {opponent.units.map(({ position, unit }) => {
+          const { x, y } = center(position);
+          return <UnitComponent key={positionKey(position)} x={x} y={y} faction={opponent.faction} unitData={unit} />;
+        })}
+        {opponent.orders.map((order, index) => (
+          <OrderComponent
+            key={index}
+            orderIndex={index}
+            order={order}
+            getHexCenter={center}
+            hexSize={hexSize}
+            color={FACTION_COLORS[opponent.faction]}
+          />
+        ))}
+      </g>
+    );
   };
 
   /** A target (attack) or a cross (a unit appears), like pencil on the paper map */
@@ -240,8 +277,9 @@ function Board({
         {/* Layer 2: Hexagon tiles*/}
         {renderBoard()}
 
-        {/* Layer 3: Orders */}
+        {/* Layer 3: Orders, and the other army on a shared map */}
         {renderOrders()}
+        {renderOpponent()}
 
         {/* Layer 4: Combat card markers */}
         {renderMarkers()}

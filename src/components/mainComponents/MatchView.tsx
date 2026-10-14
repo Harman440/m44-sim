@@ -1,7 +1,8 @@
-import { Suspense, useSyncExternalStore } from "react";
+import { lazy, Suspense, useSyncExternalStore } from "react";
 import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import PassAndPlayMatch from "../../game-core/passAndPlay";
 import GameView from "./LazyGameView";
+import { OpponentContext } from "../OpponentContext";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import { defineMessages, useMessages } from "../../i18n/useI18n";
@@ -27,6 +28,9 @@ const TEXT = defineMessages({
   },
 });
 
+// The board comes with it, so it loads with the game screen's code
+const RevealView = lazy(() => import("./GameViews/RevealView"));
+
 interface MatchViewProps {
   match: PassAndPlayMatch;
   onExit: () => void;
@@ -37,8 +41,18 @@ interface MatchViewProps {
  * device changes hands, so neither player sees the other's cards and orders
  */
 function MatchView({ match, onExit }: MatchViewProps) {
-  const { active, covered } = useSyncExternalStore(match.subscribe, match.getSnapshot);
+  const { active, covered, revealTurn, canPass } = useSyncExternalStore(match.subscribe, match.getSnapshot);
   const t = useMessages(TEXT);
+  const loading = <CircularProgress aria-label={t.loading} sx={{ m: "auto" }} />;
+
+  // Both sides' orders are given: both players look
+  if (revealTurn !== null) {
+    return (
+      <Suspense fallback={loading}>
+        <RevealView match={match} turn={revealTurn} viewer={active} />
+      </Suspense>
+    );
+  }
 
   if (covered) {
     return (
@@ -58,9 +72,12 @@ function MatchView({ match, onExit }: MatchViewProps) {
   }
 
   return (
-    <Suspense fallback={<CircularProgress aria-label={t.loading} sx={{ m: "auto" }} />}>
-      {/* Keyed by side: each player's screen starts with its own UI state */}
-      <GameView key={active} session={match.activeSession()} onExit={onExit} onPass={() => match.pass()} />
+    <Suspense fallback={loading}>
+      {/* The other army on every map: where it stands, and its orders once revealed */}
+      <OpponentContext.Provider value={match.opponentOf(active)}>
+        {/* Keyed by side: each player's screen starts with its own UI state */}
+        <GameView key={active} session={match.activeSession()} onExit={onExit} onPass={canPass ? () => match.pass() : undefined} />
+      </OpponentContext.Provider>
     </Suspense>
   );
 }
