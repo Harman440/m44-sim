@@ -38,7 +38,7 @@ const newSession = () =>
 
 const newMatch = () => {
   const side = (faction: Faction) =>
-    new GameSession({ scenario, faction, initialHandSize: 2, commandCards: commandDeckFor(scenario, faction) });
+    new GameSession({ scenario, faction, initialHandSize: 2, commandCards: commandDeckFor(scenario, faction), figures: true });
   return new PassAndPlayMatch(scenario, { Allies: side("Allies"), Axis: side("Axis") });
 };
 

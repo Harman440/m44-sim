@@ -47,6 +47,7 @@ import {
 } from "./orderRules";
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
+import { ARTILLERY_CREW_FIGURES, figuresLeft, hitsToDestroy } from "../data/figures";
 import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
@@ -139,6 +140,8 @@ export interface GameSnapshot {
   ambush: AmbushShot | null;
   /** Pass and play: collision rolls of units without an order */
   standingCollisions: readonly StandingCollisionRoll[];
+  /** Pass and play: each unit's figures left and the flags it must retreat, by hex (none in the one-side game) */
+  strength: readonly UnitStrength[];
   /** The combat card drawn in the final phase */
   drawnCombatCard: CombatCard | null;
   /** The final phase still owes a combat card: drawing it is the next step */
@@ -161,6 +164,14 @@ export interface GameSnapshot {
   reinforcementDue: boolean;
   /** The unit rolled isn't on the map yet: the player taps an empty hex for it (its marked hex was taken) */
   reinforcementToPlace: UnitType | null;
+}
+
+/** Pass and play: how a unit stands */
+export interface UnitStrength {
+  position: Position;
+  figures: number;
+  /** Flags to retreat after the battle; it can't battle any more this turn */
+  retreats: number;
 }
 
 export interface ReinforcementRoll {
@@ -272,6 +283,11 @@ interface GameSessionOptions {
   testMode?: boolean;
   /** Experimental rule: a destroyed artillery unit leaves its crew behind as an infantry unit */
   artilleryCrew?: boolean;
+  /**
+   * Pass and play: units have figures and take the hits the app applies (`sufferHits`); a flag
+   * marks the unit to retreat after the battle, and it can't battle any more this turn
+   */
+  figures?: boolean;
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
   random?: () => number;
 }
@@ -324,6 +340,8 @@ class GameSession {
   readonly testMode: boolean;
   /** Experimental rule: artillery destroyed in the battle turns into an infantry unit */
   readonly artilleryCrew: boolean;
+  /** Pass and play: units have figures and take hits */
+  readonly figures: boolean;
   readonly board: BoardManager;
   /** Every command card in this side's deck, wherever it is now */
   readonly commandCards: readonly CommandCard[];
@@ -357,6 +375,10 @@ class GameSession {
   private battleCombatCard: CombatCard | null = null;
   private ambush: AmbushShot | null = null;
   private standingCollisions: StandingCollisionRoll[] = [];
+  /** Pass and play: hits each unit has taken (kept from turn to turn) */
+  private hits = new Map<Unit, number>();
+  /** Pass and play: flags each unit must retreat after this turn's battle */
+  private retreatFlags = new Map<Unit, number>();
   private drawnCombatCard: CombatCard | null = null;
   private drops: Position[] = [];
   private reinforcementFace: SixSidedFace | null = null;
@@ -374,8 +396,10 @@ class GameSession {
     longRangeDie = false,
     testMode = false,
     artilleryCrew = false,
+    figures = false,
     random = () => Math.random(),
   }: GameSessionOptions) {
+    this.figures = figures;
     this.scenario = scenario;
     this.longRangeDie = longRangeDie;
     this.testMode = testMode;
@@ -708,6 +732,66 @@ class GameSession {
     return this.publish();
   }
 
+  // --- Pass and play: figures, hits and retreats
+
+  /** Figures left of the unit on this hex; null without one, or in the one-side game */
+  figuresAt(position: Position): number | null {
+    const unit = this.board.getHex(position)?.unit;
+    if (!this.figures || !unit) return null;
+    return figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0);
+  }
+
+  /** The unit on this hex must retreat after the battle, so it can't battle any more this turn */
+  isRetreating(position: Position): boolean {
+    const unit = this.board.getHex(position)?.unit;
+    return !!unit && (this.retreatFlags.get(unit) ?? 0) > 0;
+  }
+
+  /**
+   * The enemy's roll hit the unit on this hex (pass and play): it takes `hits` and, if it
+   * survives, is marked to retreat `flags` hexes after the battle. A unit that loses its last
+   * figure is removed; artillery leaves its crew behind, `ARTILLERY_CREW_FIGURES` infantry figures
+   */
+  sufferHits(position: Position, hits: number, flags: number): boolean {
+    const unit = this.board.getHex(position)?.unit;
+    if (!this.figures || !unit || hits < 0 || flags < 0) return false;
+    const taken = (this.hits.get(unit) ?? 0) + hits;
+    if (taken < hitsToDestroy(unit.getUnitType())) {
+      if (hits > 0) this.hits = new Map(this.hits).set(unit, taken);
+      if (flags > 0) this.retreatFlags = new Map(this.retreatFlags).set(unit, (this.retreatFlags.get(unit) ?? 0) + flags);
+      return this.publish();
+    }
+
+    this.board.removeUnitAt(position);
+    const damage = new Map(this.hits);
+    damage.delete(unit);
+    const flagged = new Map(this.retreatFlags);
+    flagged.delete(unit);
+    const crew = unit.getUnitType() === UnitType.ARTILLERY ? new Unit(UnitType.INFANTRY) : undefined;
+    if (crew) {
+      this.board.placeUnitAt(position, crew);
+      damage.set(crew, hitsToDestroy(UnitType.INFANTRY) - ARTILLERY_CREW_FIGURES);
+    }
+    this.hits = damage;
+    this.retreatFlags = flagged;
+    // The sandbags go with the unit; a crew left behind stays behind them
+    const hex = this.board.getHex(position)!;
+    const sandbags = hex.sandbags && !crew;
+    if (sandbags) hex.setSandbags(false);
+    this.addBattleEdit({ kind: "remove", position, unit, ...(crew && { replacement: crew }), ...(sandbags && { sandbags }) });
+    return this.publish();
+  }
+
+  private strength(): UnitStrength[] {
+    if (!this.figures) return [];
+    return this.board.getAllHexes().flatMap((hex) => {
+      const unit = hex.unit;
+      if (!unit) return [];
+      const figures = figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0);
+      return [{ position: hex.getPosition(), figures, retreats: this.retreatFlags.get(unit) ?? 0 }];
+    });
+  }
+
   // --- Pass and play: the app carries out both sides' moves at once (PassAndPlayMatch)
 
   /**
@@ -746,6 +830,15 @@ class GameSession {
   }
 
   /**
+   * Whether this side's unit can battle in a collision: not when its order doesn't let it fire
+   * (it moved too far, or into terrain it can't fire from), nor once it's marked to retreat
+   */
+  canRollCollision(position: Position, order: number | null): boolean {
+    if (order !== null && !this.orders[order]?.canFire) return false;
+    return !this.isRetreating(position);
+  }
+
+  /**
    * Pass and play: this side's unit at `position` rolls in a collision against an enemy unit
    * that is or isn't infantry: its close assault dice minus 1, terrain ignored. `order` is its
    * order's index (the roll is then its shot this turn), or null for a unit without an order,
@@ -759,6 +852,7 @@ class GameSession {
     const ordered = order === null ? null : this.orders[order];
     if (ordered === undefined || (ordered && ordered.unit !== unit)) return false;
     if (!ordered && this.orders.some((o) => o.unit === unit)) return false;
+    if (!this.canRollCollision(position, order)) return false;
 
     const steps = collisionSteps({ unitType: unit.getUnitType(), card: ordered ? this.cardFor(ordered) : null });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
@@ -816,10 +910,14 @@ class GameSession {
   // Firing: the dice are rolled here, once, and the result is kept
 
   private summaries() {
-    return summarizeOrders(this.orders, this.board, this.shots, this.unmovedFireSkipped, {
-      orderCombatCard: this.orderCombatCard,
-      battleCombatCard: this.battleCombatCard,
-    });
+    return summarizeOrders(
+      this.orders,
+      this.board,
+      this.shots,
+      this.unmovedFireSkipped,
+      { orderCombatCard: this.orderCombatCard, battleCombatCard: this.battleCombatCard },
+      new Set(this.retreatFlags.keys())
+    );
   }
 
   /** No unit that didn't move has a shot left (or the player skipped them) */
@@ -1235,13 +1333,23 @@ class GameSession {
    * null applies them all again. The roll itself stays as it was.
    */
   keepResults(orderIndex: number, shotNumber: number, kept: readonly number[] | null): boolean {
-    if (this.phase !== TurnPhase.BATTLE) return false;
     const shot = this.shots.filter((s) => s.orderIndex === orderIndex)[shotNumber];
     if (!shot) return false;
+    // A collision is rolled in the movement phase (pass and play)
+    if (this.phase !== TurnPhase.BATTLE && !(shot.collision && this.phase === TurnPhase.MOVEMENT)) return false;
     if (kept !== null && !isKeptList(kept, shot.faces.length)) return false;
 
     const sorted = kept && kept.length < shot.faces.length ? [...kept].sort((a, b) => a - b) : null;
     this.shots = this.shots.map((s) => (s === shot ? { ...s, kept: sorted } : s));
+    return this.publish();
+  }
+
+  /** Pass and play: apply only some results of a collision roll of a unit without an order, as `keepResults` */
+  keepStandingResults(index: number, kept: readonly number[] | null): boolean {
+    const roll = this.standingCollisions[index];
+    if (!roll || (kept !== null && !isKeptList(kept, roll.faces.length))) return false;
+    const sorted = kept && kept.length < roll.faces.length ? [...kept].sort((a, b) => a - b) : null;
+    this.standingCollisions = this.standingCollisions.map((r, i) => (i === index ? { ...r, kept: sorted } : r));
     return this.publish();
   }
 
@@ -1804,6 +1912,7 @@ class GameSession {
     this.battleCombatCard = null;
     this.ambush = null;
     this.standingCollisions = [];
+    this.retreatFlags = new Map();
     this.drawnCombatCard = null;
     this.reinforcementFace = null;
 
@@ -1828,6 +1937,7 @@ class GameSession {
       longRangeDie: this.longRangeDie,
       testMode: this.testMode,
       artilleryCrew: this.artilleryCrew,
+      figures: this.figures,
     }, this.board, {
       turn: this.turn,
       phase: this.phase,
@@ -1857,6 +1967,8 @@ class GameSession {
       battleCombatCard: this.battleCombatCard,
       ambush: this.ambush,
       standingCollisions: this.standingCollisions,
+      hits: this.hits,
+      retreatFlags: this.retreatFlags,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
       reinforcementFace: this.reinforcementFace,
@@ -1882,6 +1994,7 @@ class GameSession {
       longRangeDie: saved.longRangeDie,
       testMode: saved.testMode,
       artilleryCrew: saved.artilleryCrew,
+      figures: saved.figures,
       random,
     });
     const state: SessionState = readSave(saved, session.board, commandCards, combatCards);
@@ -1911,6 +2024,8 @@ class GameSession {
     session.battleCombatCard = state.battleCombatCard;
     session.ambush = state.ambush;
     session.standingCollisions = [...state.standingCollisions];
+    session.hits = new Map(state.hits);
+    session.retreatFlags = new Map(state.retreatFlags);
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
     session.reinforcementFace = state.reinforcementFace;
@@ -1967,6 +2082,7 @@ class GameSession {
       ambushUnits: this.ambushUnits(),
       ambush: this.ambush,
       standingCollisions: this.standingCollisions,
+      strength: this.strength(),
       drawnCombatCard: this.drawnCombatCard,
       combatCardDue: this.combatCardDue(),
       mustDiscardCombatCard: this.mustDiscardCombatCard(),

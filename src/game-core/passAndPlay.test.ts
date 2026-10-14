@@ -5,6 +5,7 @@ import { SavedGame } from "./saveGame";
 import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { turnedRound } from "./BoardManager";
+import { readRoll } from "./rollResult";
 import { Faction } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Scenario } from "../types/scenario";
@@ -27,7 +28,7 @@ const scenario: Scenario = {
 // Cards that order every unit, so a turn needs no section
 const cards = () => Array.from({ length: 8 }, (_, i) => new CommandCard({ id: `all-${i}`, orders: 6 }));
 
-const newSession = (faction: Faction) => new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards() });
+const newSession = (faction: Faction) => new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards(), figures: true });
 
 const restoreSide = (saved: SavedGame) => GameSession.restore(saved, scenario, cards());
 
@@ -120,7 +121,7 @@ describe("PassAndPlayMatch", () => {
 
     expect(match.moveUnits()).toBe(true);
     expect(match.moveUnits()).toBe(false);
-    expect(match.getSnapshot().movement).toEqual({ turn: 2, collisions: [], allRolled: true });
+    expect(match.getSnapshot().movement).toEqual({ turn: 2, collisions: [], done: true });
     expect(match.finishReveal()).toBe(true);
     expect(match.getSnapshot()).toMatchObject({ active: "Axis", covered: true, revealTurn: null, movement: null });
     expect(match.finishReveal()).toBe(false);
@@ -184,7 +185,11 @@ describe("PassAndPlayMatch", () => {
     expect(axis.issueOrder(from, to)).toBe(true);
     expect(axis.commitOrders()).toBe(true);
 
-    expect(match.opponentOf("Allies")).toEqual({ faction: "Axis", units: [{ position: from, unit: expect.anything() }], orders: [] });
+    expect(match.opponentOf("Allies")).toMatchObject({
+      faction: "Axis",
+      units: [{ position: from, unit: expect.anything(), figures: 7, retreats: 0 }],
+      orders: [],
+    });
 
     giveOrders(match); // the Allies' orders: both are revealed
     expect(match.opponentOf("Allies").units[0]!.position).toEqual(to);
@@ -201,7 +206,7 @@ describe("PassAndPlayMatch", () => {
       ...scenario,
       units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
     };
-    const side = (faction: Faction) => new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards() });
+    const side = (faction: Faction) => new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true });
     const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
 
     // The Axis' extra turn: its infantry heads 2 hexes west, into the Allied unit
@@ -214,19 +219,19 @@ describe("PassAndPlayMatch", () => {
 
     expect(match.moveUnits()).toBe(true);
     const movement = match.getSnapshot().movement!;
-    expect(movement.allRolled).toBe(false);
-    expect(movement.collisions).toEqual([
-      {
-        step: 2,
-        kind: "standing",
-        hex: { row: 4, col: 2 },
-        rolled: false,
-        units: [
-          { side: "Axis", order: 0, position: { row: 4, col: 3 }, unitType: UnitType.INFANTRY, roll: null },
-          { side: "Allies", order: null, position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, roll: null },
-        ],
-      },
-    ]);
+    expect(movement.done).toBe(false);
+    expect(movement.collisions).toHaveLength(1);
+    expect(movement.collisions[0]).toMatchObject({
+      step: 2,
+      kind: "standing",
+      hex: { row: 4, col: 2 },
+      rolled: false,
+      applied: false,
+      units: [
+        { side: "Axis", order: 0, position: { row: 4, col: 3 }, unitType: UnitType.INFANTRY, roll: null },
+        { side: "Allies", order: null, position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, roll: null },
+      ],
+    });
     // The Axis unit stopped short, on its own board too
     expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }));
     expect(match.finishReveal()).toBe(false); // the collision isn't rolled
@@ -240,12 +245,52 @@ describe("PassAndPlayMatch", () => {
     expect(match.rollCollision(0)).toBe(true);
     expect(match.rollCollision(0)).toBe(false);
     const [axisUnit, alliedUnit] = match.getSnapshot().movement!.collisions[0]!.units;
-    // Infantry against infantry: 3 dice in close assault, minus 1
-    expect(axisUnit.roll).toMatchObject({ dice: 2, collision: true, target: { infantry: true } });
+    // Ordered 2 hexes, the Axis infantry couldn't have fired: it doesn't roll
+    expect(axisUnit.roll).toBeNull();
+    expect(axis.getSnapshot().shots).toHaveLength(0);
+    // The Allied unit, without an order, rolls infantry's 3 close assault dice minus 1
     expect(alliedUnit.roll).toMatchObject({ dice: 2, collision: true, target: { infantry: true } });
-    expect(axis.getSnapshot().shots).toHaveLength(1); // the Axis unit's shot
     expect(match.sessions.Allies.getSnapshot().standingCollisions).toHaveLength(1);
 
+    // Dealt at once: the Axis unit took the Allied hits and flags
+    const { hits, retreats } = readRoll(alliedUnit.roll!.faces, alliedUnit.roll!.target);
+    expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
+    expect(axis.getSnapshot().strength).toEqual([
+      { position: turnedRound({ row: 4, col: 3 }), figures: 7 - hits, retreats },
+    ]);
+    expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7);
+    expect(match.finishReveal()).toBe(true);
+  });
+
+  it("lets a unit with fewer figures than results pick the ones it applies", () => {
+    const close: Scenario = {
+      ...scenario,
+      units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
+    };
+    // Every die shows infantry: a hit on infantry
+    const side = (faction: Faction) =>
+      new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 0 });
+    const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+    match.sessions.Allies.sufferHits({ row: 4, col: 2 }, 6, 0); // 1 figure left
+
+    match.uncover();
+    const axis = match.activeSession();
+    axis.pickCard(axis.getSnapshot().hand[0]!);
+    axis.issueOrder(turnedRound({ row: 4, col: 4 }), turnedRound({ row: 4, col: 2 }));
+    axis.commitOrders();
+    match.moveUnits();
+    expect(match.rollCollision(0)).toBe(true);
+
+    // 2 hits rolled, 1 figure: nothing is dealt until the player picks
+    const allied = match.getSnapshot().movement!.collisions[0]!.units[1];
+    expect(allied).toMatchObject({ limit: 1, mustChoose: true });
+    expect(match.applyCollision(0)).toBe(false);
+    expect(match.finishReveal()).toBe(false);
+
+    expect(match.keepCollisionResults(0, 1, [0])).toBe(true);
+    expect(match.getSnapshot().movement!.collisions[0]!.units[1].mustChoose).toBe(false);
+    expect(match.applyCollision(0)).toBe(true);
+    expect(axis.figuresAt(turnedRound({ row: 4, col: 3 }))).toBe(6);
     expect(match.finishReveal()).toBe(true);
   });
 

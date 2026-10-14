@@ -27,6 +27,9 @@ const TEXT = defineMessages({
     kinds: { "same-hex": "Entran en la misma casilla", crossing: "Se cruzan", standing: "Entra en la casilla enemiga" },
     unit: (unit: string, side: string) => `${unit} · ${side}`,
     roll: "Tirar los dados",
+    cantBattle: "No combate: su orden no le deja disparar, o ya se retira.",
+    choose: (n: number) => `Sacó más resultados que figuras: toca los ${n} dados que aplica.`,
+    apply: "Aplicar los resultados",
     go: { Allies: "Seguir: empiezan los Aliados", Axis: "Seguir: empieza el Eje" },
     rollFirst: "Tira todos los choques para seguir.",
   },
@@ -43,6 +46,9 @@ const TEXT = defineMessages({
     kinds: { "same-hex": "They enter the same hex", crossing: "They cross", standing: "It enters the enemy's hex" },
     unit: (unit: string, side: string) => `${unit} · ${side}`,
     roll: "Roll the dice",
+    cantBattle: "It doesn't battle: its order doesn't let it fire, or it's already retreating.",
+    choose: (n: number) => `It rolled more results than it has figures: tap the ${n} dice it applies.`,
+    apply: "Apply the results",
     go: { Allies: "Go on: the Allies start", Axis: "Go on: the Axis starts" },
     rollFirst: "Roll every collision to go on.",
   },
@@ -100,6 +106,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 backgroundImage={session.scenario.image}
                 faction={viewer}
                 opponent={match.opponentOf(viewer)}
+                strength={game.strength}
                 collisions={moved?.collisions.map((collision) => markOf(collision, viewer)) ?? []}
               />
             </div>
@@ -123,14 +130,33 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                       <Typography variant="subtitle1" component="h2">
                         {t.collision(i + 1)} · {t.kinds[collision.kind]}
                       </Typography>
-                      {collision.units.map((unit) => (
+                      {collision.units.map((unit, u) => (
                         <Stack key={unit.side} spacing={0.5}>
                           <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
                             <FactionInsignia faction={unit.side} size={22} decorative />
                             <Typography variant="body2">{t.unit(labels.units[unit.unitType], labels.factions[unit.side])}</Typography>
                           </Stack>
-                          {unit.roll && (
-                            <ShotDice shot={unit.roll} rollId={i + 1} faction={unit.side} rolling={justRolled.has(i)} />
+                          {unit.mustChoose && (
+                            <Typography variant="body2" color="warning.main">
+                              {t.choose(unit.limit)}
+                            </Typography>
+                          )}
+                          {unit.roll ? (
+                            <ShotDice
+                              shot={unit.roll}
+                              rollId={i + 1}
+                              faction={unit.side}
+                              rolling={justRolled.has(i)}
+                              onKeepResults={
+                                collision.applied ? undefined : (kept) => match.keepCollisionResults(i, u as 0 | 1, kept)
+                              }
+                            />
+                          ) : (
+                            collision.rolled && (
+                              <Typography variant="body2" color="text.secondary">
+                                {t.cantBattle}
+                              </Typography>
+                            )
                           )}
                         </Stack>
                       ))}
@@ -139,15 +165,24 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                           {t.roll}
                         </Button>
                       )}
+                      {collision.rolled && !collision.applied && (
+                        <Button
+                          onClick={() => match.applyCollision(i)}
+                          disabled={collision.units.some((unit) => unit.mustChoose)}
+                          startIcon={<GameIcon name="confirm" />}
+                        >
+                          {t.apply}
+                        </Button>
+                      )}
                     </Stack>
                   ))}
                   <Box sx={{ mt: "auto", display: "flex", flexDirection: "column", gap: 0.5 }}>
-                    {!moved.allRolled && (
+                    {!moved.done && (
                       <Typography variant="body2" color="text.secondary">
                         {t.rollFirst}
                       </Typography>
                     )}
-                    <Button onClick={() => match.finishReveal()} disabled={!moved.allRolled} startIcon={<GameIcon name="battle" />}>
+                    <Button onClick={() => match.finishReveal()} disabled={!moved.done} startIcon={<GameIcon name="battle" />}>
                       {t.go[match.scenario.attacker]}
                     </Button>
                   </Box>

@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
+import type { UnitStrength } from '../game-core/gameSession';
 import { OpponentContext } from './OpponentContext';
 import Hexagon, { HexHighlight } from './Hexagon';
 import './Board.css';
@@ -54,6 +55,8 @@ interface BoardProps {
    * its colour; by default the game screen's (`OpponentContext`)
    */
   opponent?: ArmyView | null;
+  /** Pass and play: this side's units' figures and retreats; by default the game screen's */
+  strength?: readonly UnitStrength[] | null;
   /**
    * Collisions of the movement (pass and play), numbered: each on the hex fought over, or between
    * the two hexes of units that crossed
@@ -81,10 +84,14 @@ function Board({
   hexSize = 50,
   faction,
   opponent: opponentProp,
+  strength: strengthProp,
   collisions = []
 }: BoardProps) {
-  const opponentInContext = useContext(OpponentContext);
-  const opponent = opponentProp === undefined ? opponentInContext : opponentProp;
+  const shared = useContext(OpponentContext);
+  const opponent = opponentProp === undefined ? (shared?.opponent ?? null) : opponentProp;
+  const strength = new Map(
+    (strengthProp === undefined ? (shared?.strength ?? []) : (strengthProp ?? [])).map((s) => [positionKey(s.position), s])
+  );
   const { width: boardWidth, height: boardHeight } = boardManager;
   const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
   const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
@@ -118,9 +125,19 @@ function Board({
     const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardWidth, boardHeight));
     return (
       <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
-        {opponent.units.map(({ position, unit }) => {
+        {opponent.units.map(({ position, unit, figures, retreats }) => {
           const { x, y } = center(position);
-          return <UnitComponent key={positionKey(position)} x={x} y={y} faction={opponent.faction} unitData={unit} />;
+          return (
+            <UnitComponent
+              key={positionKey(position)}
+              x={x}
+              y={y}
+              faction={opponent.faction}
+              unitData={unit}
+              figures={figures}
+              retreats={retreats}
+            />
+          );
         })}
         {opponent.orders.map((order, index) => (
           <OrderComponent
@@ -238,6 +255,8 @@ function Board({
             hexSize={hexSize}
             hexData={hexData}
             faction={faction}
+            figures={strength.get(positionKey(position))?.figures}
+            retreats={strength.get(positionKey(position))?.retreats}
           />
         );
       }

@@ -36,7 +36,7 @@ const TITLES = { es: "Memoir '44 Simultáneo", en: "Memoir '44 Simultaneous" } a
 const LOADING = { es: 'Cargando partida', en: 'Loading the game' } as const;
 
 /** A new game for one side, as the menu set it up */
-const newSession = (scenario: Scenario, faction: Faction, setup: MatchSetup) =>
+const newSession = (scenario: Scenario, faction: Faction, setup: MatchSetup, figures = false) =>
   new GameSession({
     scenario,
     faction,
@@ -46,6 +46,7 @@ const newSession = (scenario: Scenario, faction: Faction, setup: MatchSetup) =>
     longRangeDie: setup.longRangeDie,
     testMode: setup.testMode === true,
     artilleryCrew: setup.artilleryCrew === true,
+    figures,
   });
 
 interface CurrentGame {
@@ -124,8 +125,9 @@ const App = () => {
     if (!scenario) return;
     clearSavedGame();
     const match = new PassAndPlayMatch(scenario, {
-      Allies: newSession(scenario, 'Allies', setup),
-      Axis: newSession(scenario, 'Axis', setup),
+      // Both armies are in the app: units have figures and take the hits
+      Allies: newSession(scenario, 'Allies', setup, true),
+      Axis: newSession(scenario, 'Axis', setup, true),
     });
     setGame((prev) => ({ play: { match }, resumed: false, number: (prev?.number ?? 0) + 1 }));
   };

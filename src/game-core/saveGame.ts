@@ -39,6 +39,12 @@ export interface SavedGame {
   testMode: boolean;
   /** Experimental rule: destroyed artillery turns into infantry (the session's `artilleryCrew`) */
   artilleryCrew: boolean;
+  /** Pass and play: units have figures and take hits (the session's `figures`) */
+  figures: boolean;
+  /** Hits each damaged unit has taken, by unit index */
+  hits: { unit: number; hits: number }[];
+  /** Flags each unit must retreat after the battle, by unit index */
+  retreatFlags: { unit: number; flags: number }[];
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -135,6 +141,10 @@ export interface SessionState {
   standingCollisions: readonly StandingCollisionRoll[];
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
+  /** Pass and play: hits taken, by unit (it keeps them from turn to turn) */
+  hits: ReadonlyMap<Unit, number>;
+  /** Pass and play: flags the unit must retreat after this turn's battle */
+  retreatFlags: ReadonlyMap<Unit, number>;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
   /** The Reinforcements die, rolled in the final phase */
@@ -179,6 +189,21 @@ function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
   });
 }
 
+/** A count per unit (hits taken, flags to retreat) */
+function readUnitCounts<K extends "hits" | "flags">(
+  entries: unknown,
+  key: K,
+  unit: (index: number) => Unit
+): Map<Unit, number> {
+  if (!Array.isArray(entries)) throw new Error(`Unit ${key} are not a list`);
+  return new Map(
+    entries.map((entry: { unit: number } & Record<K, number>) => {
+      if (!Number.isInteger(entry?.[key]) || entry[key] < 0) throw new Error(`Unknown unit ${key}`);
+      return [unit(entry.unit), entry[key]] as const;
+    })
+  );
+}
+
 function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
   if (!Array.isArray(attacks)) throw new Error("Card attacks are not a list");
   const faces = new Set<string>(Object.values(DieFace));
@@ -193,7 +218,7 @@ function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
 }
 
 /** The per-game rule settings a save keeps */
-export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew">;
+export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew" | "figures">;
 
 export function writeSave(
   scenarioId: string,
@@ -301,6 +326,8 @@ export function writeSave(
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     drops: state.drops.map((p) => ({ ...p })),
     reinforcementFace: state.reinforcementFace,
+    hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     units: savedUnits,
     wire: board.wirePositions(),
     sandbags: board.sandbagPositions(),
@@ -323,6 +350,7 @@ export function readSave(
   if (typeof saved.longRangeDie !== "boolean") throw new Error("Long-range die setting is missing");
   if (typeof saved.testMode !== "boolean") throw new Error("Test mode setting is missing");
   if (typeof saved.artilleryCrew !== "boolean") throw new Error("Artillery crew setting is missing");
+  if (typeof saved.figures !== "boolean") throw new Error("Figures setting is missing");
   if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
     throw new Error(`Unknown phase ${saved.phase}`);
   }
@@ -472,6 +500,8 @@ export function readSave(
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     ambush: readAmbush(saved.ambush),
     standingCollisions: readStandingCollisions(saved.standingCollisions),
+    hits: readUnitCounts(saved.hits, "hits", unit),
+    retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
     reinforcementFace,

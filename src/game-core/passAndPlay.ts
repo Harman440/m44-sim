@@ -5,6 +5,8 @@ import Order from "./order";
 import { turnedRound } from "./BoardManager";
 import { samePosition } from "./position";
 import { Collision, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
+import { appliedFaces, readRoll } from "./rollResult";
+import { resultLimit } from "../data/figures";
 import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
@@ -30,7 +32,17 @@ export interface RollRef {
 /** The turn's movement, carried out by the app: the collisions to roll, each once rolled */
 export interface MatchMovement {
   turn: number;
-  collisions: (Collision & { rolls: [RollRef, RollRef] | null })[];
+  collisions: MatchCollision[];
+}
+
+/**
+ * A collision of the turn's movement: `rolls` once rolled, each unit's (null for a unit that
+ * couldn't battle: its order didn't let it fire, it was marked to retreat, or it was destroyed
+ * in an earlier collision); `applied` once its hits and flags have been dealt
+ */
+export interface MatchCollision extends Collision {
+  rolls: [RollRef | null, RollRef | null] | null;
+  applied: boolean;
 }
 
 /** One of a collision's units, for the screen: positions in the Allies' view, as in `Collision` */
@@ -39,13 +51,18 @@ export interface CollidingUnitView {
   order: number | null;
   position: Position;
   unitType: UnitType;
-  /** Its roll, once the collision is rolled */
+  /** Its roll, once the collision is rolled; null too for a unit that couldn't battle */
   roll: ShotRoll | null;
+  /** Results it may apply (limited damage: as many as its figures) */
+  limit: number;
+  /** Its roll has more results than it may apply: the player picks which dice count */
+  mustChoose: boolean;
 }
 
 export interface CollisionView extends Omit<Collision, "units"> {
   units: [CollidingUnitView, CollidingUnitView];
   rolled: boolean;
+  applied: boolean;
 }
 
 export interface MatchSnapshot {
@@ -62,15 +79,18 @@ export interface MatchSnapshot {
   canPass: boolean;
   /**
    * The units of the turn being revealed have moved: the collisions, each with both units'
-   * rolls once rolled. Null before "Mover"
+   * rolls once rolled; `done` once every one has been dealt. Null before "Mover"
    */
-  movement: { turn: number; collisions: readonly CollisionView[]; allRolled: boolean } | null;
+  movement: { turn: number; collisions: readonly CollisionView[]; done: boolean } | null;
 }
 
 /** A unit and where it stands, as seen from its own side of the table */
 export interface PlacedUnit {
   position: Position;
   unit: Unit;
+  /** Its figures left and the hexes it must retreat after the battle (`ArmyView`) */
+  figures?: number;
+  retreats?: number;
 }
 
 /** One army as another side may see it, each position in the army's own view */
@@ -209,50 +229,114 @@ class PassAndPlayMatch {
         .map((end) => ({ order: end.order, at: inAlliesView(side, end.end) }));
       if (halts.length > 0 && !this.sessions[side].haltOrders(halts)) return false;
     }
-    this.movement = { turn, collisions: result.collisions.map((collision) => ({ ...collision, rolls: null })) };
-    return this.publish();
-  }
-
-  /** Both units of the collision roll at once: close assault dice minus 1, terrain ignored */
-  rollCollision(index: number): boolean {
-    const collision = this.movement?.collisions[index];
-    if (!collision || collision.rolls) return false;
-    const units = collision.units.map((unit) => ({ ...unit, at: inAlliesView(unit.side, unit.position) }));
-    const placed = units.map((unit) => this.sessions[unit.side].board.getHex(unit.at)?.unit);
-    if (!placed[0] || !placed[1]) return false;
-
-    const rolls = units.map((unit, i) => {
-      const session = this.sessions[unit.side];
-      const game = session.getSnapshot();
-      const ref: RollRef =
-        unit.order === null
-          ? { kind: "standing", index: game.standingCollisions.length }
-          : { kind: "shot", index: game.shots.length };
-      const enemyIsInfantry = placed[1 - i]!.getUnitType() === UnitType.INFANTRY;
-      return session.rollCollision(unit.at, enemyIsInfantry, unit.order) ? ref : null;
-    });
-    if (!rolls[0] || !rolls[1]) return false;
-
     this.movement = {
-      ...this.movement!,
-      collisions: this.movement!.collisions.map((c, i) => (i === index ? { ...c, rolls: [rolls[0]!, rolls[1]!] } : c)),
+      turn,
+      collisions: result.collisions.map((collision) => ({ ...collision, rolls: null, applied: false })),
     };
     return this.publish();
   }
 
   /**
-   * Both players have seen the orders and the moves, and every collision is rolled: the attacker
-   * goes on with the battle and the final phase, behind the cover screen
+   * Both units of the collision roll at once: close assault dice minus 1, terrain ignored. A unit
+   * that can't battle doesn't roll. The results are dealt at once, unless a unit rolled more
+   * results than it may apply: then its player picks them (`keepCollisionResults`) and
+   * `applyCollision` deals them
+   */
+  rollCollision(index: number): boolean {
+    const collision = this.movement?.collisions[index];
+    if (!collision || collision.rolls) return false;
+    const units = collision.units.map((unit) => ({ ...unit, at: inAlliesView(unit.side, unit.position) }));
+    const placed = units.map((unit) => this.sessions[unit.side].board.getHex(unit.at)?.unit);
+
+    const rolls = units.map((unit, i): RollRef | null => {
+      const session = this.sessions[unit.side];
+      const enemy = placed[1 - i];
+      if (!placed[i] || !enemy || !session.canRollCollision(unit.at, unit.order)) return null;
+      const game = session.getSnapshot();
+      const ref: RollRef =
+        unit.order === null
+          ? { kind: "standing", index: game.standingCollisions.length }
+          : { kind: "shot", index: game.shots.length };
+      return session.rollCollision(unit.at, enemy.getUnitType() === UnitType.INFANTRY, unit.order) ? ref : null;
+    }) as [RollRef | null, RollRef | null];
+
+    this.updateCollision(index, { rolls });
+    if (!this.mustChoose(index)) this.applyCollision(index);
+    return this.publish();
+  }
+
+  /** The player of the collision's unit `unit` (0 or 1) applies only these dice, or all with null */
+  keepCollisionResults(index: number, unit: 0 | 1, kept: readonly number[] | null): boolean {
+    const collision = this.movement?.collisions[index];
+    const ref = collision?.rolls?.[unit];
+    if (!collision || collision.applied || !ref) return false;
+    const session = this.sessions[collision.units[unit].side];
+    if (ref.kind === "standing") return session.keepStandingResults(ref.index, kept);
+    const shots = session.getSnapshot().shots;
+    const shot = shots[ref.index]!;
+    const number = shots.filter((s, i) => s.orderIndex === shot.orderIndex && i < ref.index).length;
+    return session.keepResults(shot.orderIndex, number, kept);
+  }
+
+  /** Deal both units' results at once: each the hits and flags of the other's roll */
+  applyCollision(index: number): boolean {
+    const collision = this.movement?.collisions[index];
+    if (!collision?.rolls || collision.applied || this.mustChoose(index)) return false;
+    const results = collision.units.map((unit, i) => {
+      const roll = this.rollOf(unit.side, collision.rolls![i]!);
+      return roll ? readRoll(appliedFaces(roll.faces, roll.kept), roll.target) : null;
+    });
+    collision.units.forEach((unit, i) => {
+      const result = results[1 - i];
+      if (result) this.sessions[unit.side].sufferHits(inAlliesView(unit.side, unit.position), result.hits, result.retreats);
+    });
+    this.updateCollision(index, { applied: true });
+    return this.publish();
+  }
+
+  /**
+   * Both players have seen the orders and the moves, and every collision has been dealt: the
+   * attacker goes on with the battle and the final phase, behind the cover screen
    */
   finishReveal(): boolean {
     const turn = this.revealTurn();
     if (turn === null || this.movement?.turn !== turn) return false;
-    if (this.movement.collisions.some((collision) => !collision.rolls)) return false;
+    if (this.movement.collisions.some((collision) => !collision.applied)) return false;
     this.revealedTurn = turn;
     this.movement = null;
     this.active = this.scenario.attacker;
     this.covered = true;
     return this.publish();
+  }
+
+  private updateCollision(index: number, changes: Partial<MatchCollision>) {
+    this.movement = {
+      ...this.movement!,
+      collisions: this.movement!.collisions.map((c, i) => (i === index ? { ...c, ...changes } : c)),
+    };
+  }
+
+  private rollOf(side: Faction, ref: RollRef | null): ShotRoll | null {
+    if (!ref) return null;
+    const game = this.sessions[side].getSnapshot();
+    return (ref.kind === "shot" ? game.shots[ref.index] : game.standingCollisions[ref.index]) ?? null;
+  }
+
+  /** Results the collision's unit may apply: as many as its figures */
+  private limitOf(side: Faction, position: Position): number {
+    return resultLimit(this.sessions[side].figuresAt(inAlliesView(side, position)) ?? 0, false);
+  }
+
+  /** A unit of the rolled collision has more results than it may apply, and its player hasn't picked */
+  private mustChoose(index: number): boolean {
+    const collision = this.movement!.collisions[index]!;
+    if (!collision.rolls || collision.applied) return false;
+    return collision.units.some((unit, i) => {
+      const roll = this.rollOf(unit.side, collision.rolls![i]!);
+      if (!roll) return false;
+      const { hits, retreats } = readRoll(appliedFaces(roll.faces, roll.kept), roll.target);
+      return hits + retreats > this.limitOf(unit.side, unit.position);
+    });
   }
 
   /**
@@ -266,10 +350,17 @@ class PassAndPlayMatch {
     const game = session.getSnapshot();
     const revealed =
       ordersGiven(game, game.turn) && (game.turn <= this.revealedTurn || this.revealTurn() === game.turn);
-    if (revealed) return { faction, units: armyOf(session), orders: game.orders };
+    const strength = (position: Position) => {
+      const figures = session.figuresAt(position);
+      if (figures === null) return {};
+      const retreats = game.strength.find((s) => samePosition(s.position, position))?.retreats ?? 0;
+      return { figures, retreats };
+    };
+    const army = armyOf(session).map((placed) => ({ ...placed, ...strength(placed.position) }));
+    if (revealed) return { faction, units: army, orders: game.orders };
 
     const startOf = new Map(game.orders.map((order) => [order.unit, order.start]));
-    const units = armyOf(session).map(({ position, unit }) => ({ position: startOf.get(unit) ?? position, unit }));
+    const units = army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position }));
     return { faction, units, orders: [] };
   }
 
@@ -316,20 +407,26 @@ class PassAndPlayMatch {
   private movementView(): MatchSnapshot["movement"] {
     const movement = this.movement;
     if (!movement) return null;
-    const rollOf = (side: Faction, ref: RollRef): ShotRoll | null => {
-      const game = this.sessions[side].getSnapshot();
-      return (ref.kind === "shot" ? game.shots[ref.index] : game.standingCollisions[ref.index]) ?? null;
-    };
-    const collisions = movement.collisions.map(({ rolls, units, ...collision }): CollisionView => ({
+    const collisions = movement.collisions.map(({ rolls, units, applied, ...collision }, index): CollisionView => ({
       ...collision,
       rolled: rolls !== null,
-      units: units.map((unit, i) => ({
-        ...unit,
-        unitType: this.sessions[unit.side].board.getHex(inAlliesView(unit.side, unit.position))?.unit?.getUnitType() ?? UnitType.INFANTRY,
-        roll: rolls ? rollOf(unit.side, rolls[i]!) : null,
-      })) as [CollidingUnitView, CollidingUnitView],
+      applied,
+      units: units.map((unit, i) => {
+        const roll = rolls ? this.rollOf(unit.side, rolls[i]!) : null;
+        const limit = this.limitOf(unit.side, unit.position);
+        const results = roll ? readRoll(appliedFaces(roll.faces, roll.kept), roll.target) : null;
+        return {
+          ...unit,
+          unitType:
+            this.sessions[unit.side].board.getHex(inAlliesView(unit.side, unit.position))?.unit?.getUnitType() ??
+            UnitType.INFANTRY,
+          roll,
+          limit,
+          mustChoose: !applied && !!results && results.hits + results.retreats > limit && this.mustChoose(index),
+        };
+      }) as [CollidingUnitView, CollidingUnitView],
     }));
-    return { turn: movement.turn, collisions, allRolled: collisions.every((collision) => collision.rolled) };
+    return { turn: movement.turn, collisions, done: collisions.every((collision) => collision.applied) };
   }
 
   private canPass(): boolean {

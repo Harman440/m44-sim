@@ -27,6 +27,9 @@ interface HexProps {
   hexSize?: number;
   hexData: Hex;
   faction: Faction;
+  /** Pass and play: the unit's figures left and the hexes it must retreat */
+  figures?: number;
+  retreats?: number;
 }
 
 function Hexagon({
@@ -41,7 +44,9 @@ function Hexagon({
   invalidFlashId = null,
   hexSize = 25,
   hexData,
-  faction
+  faction,
+  figures,
+  retreats
 }: HexProps) {
 
   // Pointy-top hexagon: corners start at 90 degrees
@@ -78,6 +83,8 @@ function Hexagon({
           readyToFire={unitReadyToFire}
           fired={unitFired}
           orderable={unitOrderable}
+          figures={figures}
+          retreats={retreats}
         />
       )}
       {/* Over the token, as a wall in front of it */}

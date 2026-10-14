@@ -12,8 +12,16 @@ import { FACTION_COLORS } from "../looks/looks";
 import { defineMessages, useMessages } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
-  es: { elite: "De élite" },
-  en: { elite: "Elite" },
+  es: {
+    elite: "De élite",
+    figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
+    retreats: (n: number) => (n === 1 ? "Se retira 1 casilla tras la batalla" : `Se retira ${n} casillas tras la batalla`),
+  },
+  en: {
+    elite: "Elite",
+    figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
+    retreats: (n: number) => (n === 1 ? "Retreats 1 hex after the battle" : `Retreats ${n} hexes after the battle`),
+  },
 });
 
 // Tank and artillery are placeholder SVGs; drop real art in the same folders to replace them
@@ -44,6 +52,10 @@ interface UnitProps {
   fired?: boolean;
   /** It can be ordered */
   orderable?: boolean;
+  /** Pass and play: its figures left, shown bottom right */
+  figures?: number;
+  /** Pass and play: hexes it must retreat after the battle, shown bottom left */
+  retreats?: number;
 }
 
 const TOKEN_RADIUS = 27;
@@ -73,6 +85,8 @@ const UnitComponent: React.FC<UnitProps> = ({
   readyToFire = false,
   fired = false,
   orderable = false,
+  figures,
+  retreats = 0,
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
@@ -125,6 +139,45 @@ const UnitComponent: React.FC<UnitProps> = ({
             d={starPath(x - TOKEN_RADIUS * 0.72, badgeY, 6.5, 2.7)}
             fill="#3b2a07"
           />
+        </g>
+      )}
+
+      {/* Pass and play: figures left, bottom right */}
+      {figures !== undefined && (
+        <g className="unit__badge unit__badge--figures" data-testid="figures-badge">
+          <title>{t.figures(figures)}</title>
+          <circle cx={badgeX} cy={y + TOKEN_RADIUS * 0.72} r={BADGE_RADIUS + 1} fill="#f1ead6" stroke={FACTION_COLORS[faction]} strokeWidth={2.5} />
+          <text
+            x={badgeX}
+            y={y + TOKEN_RADIUS * 0.72}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={14}
+            fontWeight={700}
+            fill="#2b2418"
+          >
+            {figures}
+          </text>
+        </g>
+      )}
+
+      {/* Marked to retreat after the battle: a flag with the hexes, bottom left */}
+      {retreats > 0 && (
+        <g className="unit__badge unit__badge--retreat" data-testid="retreat-badge">
+          <title>{t.retreats(retreats)}</title>
+          <circle cx={x - TOKEN_RADIUS * 0.72} cy={y + TOKEN_RADIUS * 0.72} r={BADGE_RADIUS + 1} fill="#c9a227" stroke="#f1ead6" strokeWidth={2} />
+          <path
+            d={`M${x - TOKEN_RADIUS * 0.72 - 4} ${y + TOKEN_RADIUS * 0.72 + 6}v-12l8 3.5l-8 3.5`}
+            fill="#3b2a07"
+            stroke="#3b2a07"
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+          />
+          {retreats > 1 && (
+            <text x={x - TOKEN_RADIUS * 0.72 + 6} y={y + TOKEN_RADIUS * 0.72 + 5} fontSize={10} fontWeight={700} fill="#3b2a07">
+              {retreats}
+            </text>
+          )}
         </g>
       )}
 
