@@ -25,9 +25,11 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 ## Steps
 
 ### PP1: The mode and the match
-- [ ] "Pasar y jugar" / "Pass and play" in the menu: pick a scenario, no side to choose
-- [ ] `game-core`: a match that holds the shared board (both armies) and, per side, the hand, decks, coins and orders; the current `GameSession` per-side rules are reused rather than copied
-- [ ] Save and resume the match (its own save, beside the companion one)
+- [x] "Pasar y jugar" / "Pass and play" in the menu: pick a scenario, no side to choose
+- [x] `game-core/passAndPlay.ts`: `PassAndPlayMatch` holds one `GameSession` per side (hand, decks, coins, orders), so the one-side rules are reused, plus who holds the device (`active`) and the cover screen (`covered`); `pass()` and `uncover()`
+- [x] `MatchView`: the cover screen ("Turno del Eje", "Juego con el Eje: mostrar"), then the side's `GameView` with a "Pasar" button in the header. For now each side still plays its whole one-side turn, passing by hand; PP2 makes the handover automatic
+- [x] Save and resume the match (`m44-sim:saved-match`, beside the one-side save; a new game of either kind replaces the other). A match resumes behind the cover screen
+- [ ] The shared board with both armies (needed from PP2's reveal on)
 
 ### PP2: Hidden turns
 - [ ] The cover screen between the players, saying whose turn it is

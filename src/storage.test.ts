@@ -1,15 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearSavedGame,
+  clearSavedMatch,
   loadLastSetup,
   loadSavedGame,
+  loadSavedMatch,
   loadSettings,
   saveGame,
+  saveMatch,
   saveLastSetup,
   saveSettings,
 } from "./storage";
 import { DEFAULT_SETTINGS } from "./settings";
 import GameSession from "./game-core/gameSession";
+import PassAndPlayMatch from "./game-core/passAndPlay";
+import { Faction } from "./types/faction";
 import { commandDeckFor } from "./data/commandCards";
 import { TurnPhase } from "./types/gameManager";
 import { Scenario } from "./types/scenario";
@@ -30,6 +35,12 @@ const scenario: Scenario = {
 // The saved game is read back with the side's own deck
 const newSession = () =>
   new GameSession({ scenario, faction: "Axis", initialHandSize: 2, commandCards: commandDeckFor(scenario, "Axis") });
+
+const newMatch = () => {
+  const side = (faction: Faction) =>
+    new GameSession({ scenario, faction, initialHandSize: 2, commandCards: commandDeckFor(scenario, faction) });
+  return new PassAndPlayMatch(scenario, { Allies: side("Allies"), Axis: side("Axis") });
+};
 
 beforeEach(() => {
   localStorage.clear();
@@ -125,5 +136,39 @@ describe("saved game", () => {
     expect(() => saveLastSetup({ scenarioId: "test", faction: "Allies", longRangeDie: false })).not.toThrow();
     expect(loadSavedGame([scenario])).toBeNull();
     expect(loadLastSetup()).toBeUndefined();
+  });
+});
+
+describe("saved pass and play match", () => {
+  it("saves a match and picks it up again behind the cover screen", () => {
+    const match = newMatch();
+    match.uncover();
+    const axis = match.activeSession();
+    axis.pickCard(axis.getSnapshot().hand[0]!);
+    saveMatch(match);
+
+    const restored = loadSavedMatch([scenario]);
+
+    expect(restored?.getSnapshot()).toEqual({ active: "Axis", covered: true });
+    expect(restored?.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
+    expect(restored?.sessions.Allies.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+  });
+
+  it("is kept apart from the one-side game, and dropped when it can't be read", () => {
+    saveGame(newSession());
+    expect(loadSavedMatch([scenario])).toBeNull();
+
+    saveMatch(newMatch());
+    expect(loadSavedMatch([{ ...scenario, id: "other" }])).toBeNull();
+    expect(localStorage.getItem("m44-sim:saved-match")).toBeNull();
+    expect(loadSavedGame([scenario])).not.toBeNull();
+  });
+
+  it("forgets the match on exit", () => {
+    saveMatch(newMatch());
+
+    clearSavedMatch();
+
+    expect(loadSavedMatch([scenario])).toBeNull();
   });
 });
