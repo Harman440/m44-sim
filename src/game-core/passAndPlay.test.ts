@@ -402,6 +402,77 @@ describe("PassAndPlayMatch", () => {
       expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null });
     });
 
+    it("carries out the retreats after the firing, each hex picked by the unit's player", () => {
+      const match = battleMatch(5); // flags
+      allHold(match);
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true); // 2 flags on the Allied infantry
+      expect(match.getSnapshot().battle).toMatchObject({ ground: null, retreat: null, retreating: false });
+
+      expect(match.endBattle()).toBe(true);
+      const battle = match.getSnapshot().battle!;
+      expect(battle).toMatchObject({ retreating: true, side: null, retreat: { side: "Allies", position: { row: 4, col: 2 }, flags: 2 } });
+      expect(match.endBattle()).toBe(false);
+
+      const first = battle.retreat!.options[0]!;
+      expect(first.row).toBe(5);
+      expect(match.retreat({ row: 0, col: 0 })).toBe(false);
+      expect(match.retreat(first)).toBe(true);
+      const second = match.getSnapshot().battle!.retreat!;
+      expect(second).toMatchObject({ position: first, flags: 1 });
+      expect(match.retreat(second.options[0]!)).toBe(true);
+
+      // Nothing left to retreat: the final phase, behind the cover screen
+      expect(match.getSnapshot()).toMatchObject({ battle: null, covered: true, active: "Axis" });
+      expect(match.sessions.Allies.figuresAt({ row: 6, col: second.options[0]!.col })).toBe(7);
+    });
+
+    it("lets armour take ground after a close assault: the enemy retreats at once and it fires again", () => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
+      };
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 5 / 6 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+
+      // The Axis tank's close assault: 3 flags on the Allied infantry
+      expect(match.fire(0, axisView(4, 2))).toBe(true);
+      expect(match.getSnapshot().battle).toMatchObject({ ground: { side: "Axis", order: 0 }, side: null });
+      expect(match.endBattle()).toBe(false);
+
+      expect(match.decideGround(true)).toBe(true);
+      // The Allied infantry retreats its 3 hexes now
+      for (let i = 0; i < 3; i++) {
+        const retreat = match.getSnapshot().battle!.retreat!;
+        expect(retreat.side).toBe("Allies");
+        expect(match.retreat(retreat.options[0]!)).toBe(true);
+      }
+      // The tank moved in and fires once more, in close assault
+      expect(match.sessions.Axis.board.getHex(axisView(4, 2))?.unit?.getUnitType()).toBe(UnitType.TANK);
+      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", fireable: [0], retreat: null });
+      expect(match.holdFire(0)).toBe(true);
+      expect(match.endBattle()).toBe(true);
+      expect(match.getSnapshot().battle).toBeNull();
+    });
+
+    it("leaves the enemy marked when the unit doesn't take ground", () => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
+      };
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 5 / 6 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+      match.fire(0, axisView(4, 2));
+      expect(match.decideGround(false)).toBe(true);
+      expect(match.sessions.Allies.isRetreating({ row: 4, col: 2 })).toBe(true);
+      expect(match.getSnapshot().battle).toMatchObject({ ground: null, retreat: null });
+    });
+
     it("lets sandbags ignore a flag", () => {
       const match = battleMatch(5); // flags
       allHold(match);

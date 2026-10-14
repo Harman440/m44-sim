@@ -12,7 +12,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 4;
+export const MATCH_SAVE_VERSION = 5;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -37,6 +37,14 @@ export interface MatchBattle {
   fired: { side: Faction; group: FireGroup; order: number; shot: number | null }[];
   /** A shot rolled but not dealt yet: its player still picks the results it applies */
   pending: { side: Faction; shot: number } | null;
+  /** The last close assault lets the unit take ground: its player decides */
+  ground: { side: Faction; order: number } | null;
+  /** Taking ground: the enemy unit (on this hex, in its own view) retreats now, then the unit moves in */
+  overrun: { side: Faction; order: number; enemy: Position } | null;
+  /** The unit took ground: it fires once more, now, in close assault */
+  bonus: { side: Faction; order: number } | null;
+  /** The firing is over: the units marked to retreat retreat, the attacker's first */
+  retreating: boolean;
 }
 
 /** The battle for the screen */
@@ -48,6 +56,12 @@ export interface BattleState {
   /** The order indexes of that side's units that can fire now */
   fireable: readonly number[];
   pending: { side: Faction; shot: number; limit: number; mustChoose: boolean } | null;
+  /** The unit that may take ground after its close assault: its player decides */
+  ground: { side: Faction; order: number } | null;
+  /** The unit retreating now (in its side's view) and the hexes it can retreat to */
+  retreat: { side: Faction; position: Position; options: readonly Position[]; flags: number } | null;
+  /** The firing is over and the retreats are being carried out */
+  retreating: boolean;
 }
 
 /** Where a collision's roll was kept: one of its side's shots, or its rolls for units without an order */
@@ -344,7 +358,7 @@ class PassAndPlayMatch {
     this.revealedTurn = turn;
     this.movement = null;
     // The battle, on one screen for both players
-    this.battle = { turn, fired: [], pending: null };
+    this.battle = { turn, fired: [], pending: null, ground: null, overrun: null, bonus: null, retreating: false };
     for (const side of FACTIONS) this.sessions[side].startBattle();
     this.active = this.scenario.attacker;
     this.covered = false;
@@ -360,7 +374,11 @@ class PassAndPlayMatch {
    */
   private battleTurn(): { side: Faction; group: FireGroup } | null {
     const battle = this.battle;
-    if (!battle || battle.pending) return null;
+    if (!battle || battle.pending || battle.ground || battle.overrun || battle.retreating) return null;
+    if (battle.bonus) {
+      const summary = this.sessions[battle.bonus.side].orderSummaries()[battle.bonus.order];
+      return { side: battle.bonus.side, group: summary?.hold ? "unmoved" : "moved" };
+    }
     const group: FireGroup | null = FACTIONS.some((side) => this.fireable(side, "unmoved").length > 0)
       ? "unmoved"
       : FACTIONS.some((side) => this.fireable(side, "moved").length > 0)
@@ -379,6 +397,10 @@ class PassAndPlayMatch {
     const session = this.sessions[side];
     if (!battle || session.getSnapshot().phase !== TurnPhase.BATTLE) return [];
     const held = new Set(battle.fired.filter((turn) => turn.side === side && turn.shot === null).map((turn) => turn.order));
+    if (battle.bonus) {
+      const { order } = battle.bonus;
+      return battle.bonus.side === side && (session.orderSummaries()[order]?.shotsLeft ?? 0) > 0 ? [order] : [];
+    }
     return session
       .orderSummaries()
       .filter((summary) => summary.shotsLeft > 0 && !held.has(summary.index))
@@ -407,6 +429,7 @@ class PassAndPlayMatch {
       ...battle,
       fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot }],
       pending: { side: turn.side, shot },
+      bonus: null,
     };
     if (!this.shotMustChoose()) this.applyShot();
     return this.publish();
@@ -417,7 +440,11 @@ class PassAndPlayMatch {
     const turn = this.battleTurn();
     if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
     const battle = this.battle!;
-    this.battle = { ...battle, fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot: null }] };
+    this.battle = {
+      ...battle,
+      fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot: null }],
+      bonus: null,
+    };
     return this.publish();
   }
 
@@ -442,18 +469,106 @@ class PassAndPlayMatch {
     const { hits, retreats } = readRoll(appliedFaces(shot.faces, shot.kept), shot.target);
     const sandbags = enemy.board.getHex(at)?.sandbags ? 1 : 0;
     enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags));
-    this.battle = { ...this.battle!, pending: null };
+
+    // After a close assault that destroyed the enemy unit or makes it retreat, the unit may take ground
+    const shooter = this.sessions[pending.side];
+    const from = shooter.orderSummaries()[shot.orderIndex]!.firingFrom;
+    const leaves = !enemy.board.getHex(at)?.unit || enemy.isRetreating(at);
+    const ground =
+      shot.target.closeAssault && leaves && shooter.canTakeGround(shot.orderIndex) && !shooter.isRetreating(from)
+        ? { side: pending.side, order: shot.orderIndex }
+        : null;
+    this.battle = { ...this.battle!, pending: null, ground };
     return this.publish();
   }
 
-  /** The battle is over (units that haven't fired lose their shot): each side goes on to its final phase */
+  /**
+   * The unit takes ground after its close assault, or doesn't. Taking it, the enemy unit
+   * retreats at once (its player picks the hexes, `retreat`), then the unit moves in and fires
+   * once more; otherwise the enemy unit stays marked to retreat after the battle
+   */
+  decideGround(take: boolean): boolean {
+    const ground = this.battle?.ground;
+    if (!ground) return false;
+    if (!take) {
+      this.battle = { ...this.battle!, ground: null };
+      return this.publish();
+    }
+    const session = this.sessions[ground.side];
+    const shot = session.getSnapshot().shots.findLast((s) => s.orderIndex === ground.order)!;
+    const enemy = turnedRound(shot.targetPosition!);
+    this.battle = { ...this.battle!, ground: null, overrun: { ...ground, enemy } };
+    this.settleRetreats();
+    return this.publish();
+  }
+
+  /** The unit retreating now moves one hex back, to one of its options (in its side's view) */
+  retreat(to: Position): boolean {
+    const next = this.nextRetreat();
+    if (!next || !this.sessions[next.side].retreatTo(next.position, to)) return false;
+    if (this.battle?.overrun) this.battle = { ...this.battle, overrun: { ...this.battle.overrun, enemy: { ...to } } };
+    this.settleRetreats();
+    return this.publish();
+  }
+
+  /** The unit that retreats next: the one being overrun, or after the battle the attacker's units first */
+  private nextRetreat(): { side: Faction; position: Position } | null {
+    const battle = this.battle;
+    if (!battle) return null;
+    if (battle.overrun) {
+      const side = otherSide(battle.overrun.side);
+      return this.sessions[side].isRetreating(battle.overrun.enemy) ? { side, position: battle.overrun.enemy } : null;
+    }
+    if (!battle.retreating) return null;
+    for (const side of [this.scenario.attacker, otherSide(this.scenario.attacker)]) {
+      const marked = this.sessions[side].getSnapshot().strength.find((unit) => unit.retreats > 0);
+      if (marked) return { side, position: marked.position };
+    }
+    return null;
+  }
+
+  /**
+   * Carry the retreats as far as they go without a choice: a unit with nowhere to go loses a
+   * figure for the hex. Then an overrun ends with the unit moving in, and the retreats after the
+   * battle with the final phase
+   */
+  private settleRetreats() {
+    for (let next = this.nextRetreat(); next; next = this.nextRetreat()) {
+      const session = this.sessions[next.side];
+      if (session.retreatOptions(next.position).length > 0) return;
+      session.retreatBlocked(next.position);
+    }
+    const battle = this.battle!;
+    if (battle.overrun) {
+      const { side, order } = battle.overrun;
+      const session = this.sessions[side];
+      const shot = session.getSnapshot().shots.findLast((s) => s.orderIndex === order)!;
+      // The hex is free once the enemy unit has retreated or been destroyed
+      const free = !this.sessions[otherSide(side)].board.getHex(turnedRound(shot.targetPosition!))?.unit;
+      const took = free && session.takeGround(order);
+      this.battle = { ...battle, overrun: null, bonus: took ? { side, order } : null };
+    } else if (battle.retreating) {
+      this.finishBattle();
+    }
+  }
+
+  /**
+   * The firing is over (units that haven't fired lose their shot): the units marked to retreat
+   * retreat, the attacker's first, then each side goes on to its final phase
+   */
   endBattle(): boolean {
-    if (!this.battle || this.battle.pending) return false;
+    const battle = this.battle;
+    if (!battle || battle.pending || battle.ground || battle.overrun || battle.retreating) return false;
+    this.battle = { ...battle, bonus: null, retreating: true };
+    this.settleRetreats();
+    return this.publish();
+  }
+
+  private finishBattle() {
     for (const side of FACTIONS) this.sessions[side].endBattle();
     this.battle = null;
     this.active = this.scenario.attacker;
     this.covered = true;
-    return this.publish();
   }
 
   /** Results the pending shot's unit may apply: as many as its figures, one more with a card's dice */
@@ -483,7 +598,18 @@ class PassAndPlayMatch {
       group: turn?.group ?? null,
       fireable: turn ? this.fireable(turn.side, turn.group) : [],
       pending: battle.pending && { ...battle.pending, limit: this.shotLimit(), mustChoose: this.shotMustChoose() },
+      ground: battle.ground,
+      retreat: this.retreatView(),
+      retreating: battle.retreating,
     };
+  }
+
+  private retreatView(): BattleState["retreat"] {
+    const next = this.nextRetreat();
+    if (!next) return null;
+    const session = this.sessions[next.side];
+    const flags = session.getSnapshot().strength.find((unit) => samePosition(unit.position, next.position))?.retreats ?? 0;
+    return { ...next, options: session.retreatOptions(next.position), flags };
   }
 
   /** The other army's units as `viewer` sees them, for its session's targets */

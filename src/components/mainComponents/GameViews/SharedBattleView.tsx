@@ -14,6 +14,8 @@ import { MotionConfig } from "motion/react";
 import PassAndPlayMatch from "../../../game-core/passAndPlay";
 import { UnitType } from "../../../game-core/unit";
 import { Faction } from "../../../types/faction";
+import { Position } from "../../../types/scenario";
+import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import FireDialog from "../../FireDialog";
@@ -24,6 +26,7 @@ import CoinsDialog from "../../CoinsDialog";
 import { OpponentContext } from "../../OpponentContext";
 import { useSound } from "../../../sound";
 import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
+import "../GameView.css";
 import "./PhaseLayout.css";
 
 const TEXT = defineMessages({
@@ -46,6 +49,15 @@ const TEXT = defineMessages({
     confirmEndText: (n: number) =>
       n === 1 ? "Una unidad aún puede disparar y perderá su disparo." : `${n} unidades aún pueden disparar y perderán su disparo.`,
     keepFighting: "Seguir",
+    groundTitle: "¿Tomar terreno?",
+    groundText: (unit: string) =>
+      `Tras el asalto cercano, ${unit} puede tomar la casilla: la unidad enemiga se retira ya, y la tuya entra y dispara otra vez. Si no, el enemigo se retira tras la batalla.`,
+    takeGround: "Tomar terreno",
+    stay: "Quedarse",
+    retreats: { Allies: "Retirada de los Aliados", Axis: "Retirada del Eje" },
+    retreatText: (unit: string, n: number) =>
+      `${unit}: ${n === 1 ? "1 casilla" : `${n} casillas`} más. Toca en el mapa la casilla a la que se retira, hacia su borde.`,
+    retreatsAfter: "Las unidades marcadas se retiran: primero las del atacante.",
   },
   en: {
     title: (turn: number) => `Turn ${turn}: the battle`,
@@ -66,6 +78,15 @@ const TEXT = defineMessages({
     confirmEndText: (n: number) =>
       n === 1 ? "One unit can still fire and will lose its shot." : `${n} units can still fire and will lose their shot.`,
     keepFighting: "Keep fighting",
+    groundTitle: "Take ground?",
+    groundText: (unit: string) =>
+      `After the close assault, ${unit} can take the hex: the enemy unit retreats now, and yours moves in and fires again. If not, the enemy retreats after the battle.`,
+    takeGround: "Take ground",
+    stay: "Stay",
+    retreats: { Allies: "Allied retreat", Axis: "Axis retreat" },
+    retreatText: (unit: string, n: number) =>
+      `${unit}: ${n === 1 ? "1 more hex" : `${n} more hexes`}. Tap the hex on the map it retreats to, toward its edge.`,
+    retreatsAfter: "The marked units retreat, the attacker's first.",
   },
 });
 
@@ -102,6 +123,20 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     0
   );
 
+  // Positions between the retreating side's view and the map's (the attacker's)
+  const retreat = battle.retreat;
+  const toMap = (position: Position) => (retreat && retreat.side !== viewer ? turnedRound(position) : position);
+  const retreatOptions = retreat?.options.map(toMap) ?? [];
+  const tapMap = (position: Position) => {
+    if (retreat) match.retreat(toMap(position));
+  };
+  const retreatingUnit = retreat
+    ? match.sessions[retreat.side].board.getHex(retreat.position)?.unit?.getUnitType()
+    : undefined;
+  const groundUnit = battle.ground
+    ? match.sessions[battle.ground.side].orderSummaries()[battle.ground.order]?.unitType
+    : undefined;
+
   const closeFire = () => {
     // A shot whose results are picked is dealt once its dialog closes
     if (battle.pending && !battle.pending.mustChoose) match.applyShot();
@@ -118,9 +153,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
           <div className="phase-layout">
             <div className="phase-layout__board">
               <Board
-                onTileClick={noop}
-                unitHexPosition={null}
-                possibleMovePositions={[]}
+                onTileClick={retreat ? tapMap : noop}
+                unitHexPosition={retreat ? toMap(retreat.position) : null}
+                possibleMovePositions={retreatOptions}
                 possibleMoveAndFirePositions={[]}
                 boardManager={viewSession.board}
                 orders={view.orders}
@@ -137,7 +172,37 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 {t.title(battle.turn)}
               </Typography>
 
-              {battle.pending ? (
+              {retreat ? (
+                <Stack spacing={1} data-testid="retreat">
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    <FactionInsignia faction={retreat.side} size={28} decorative />
+                    <Typography variant="subtitle1" component="h2">
+                      {t.retreats[retreat.side]}
+                    </Typography>
+                  </Stack>
+                  {battle.retreating && (
+                    <Typography variant="body2" color="text.secondary">
+                      {t.retreatsAfter}
+                    </Typography>
+                  )}
+                  <Typography variant="body2">
+                    {t.retreatText(retreatingUnit ? labels.units[retreatingUnit] : "", retreat.flags)}
+                  </Typography>
+                </Stack>
+              ) : battle.ground && groundUnit ? (
+                <Stack spacing={1} data-testid="take-ground">
+                  <Typography variant="subtitle1" component="h2">
+                    {t.groundTitle}
+                  </Typography>
+                  <Typography variant="body2">{t.groundText(labels.units[groundUnit].toLowerCase())}</Typography>
+                  <Button color="success" onClick={() => match.decideGround(true)}>
+                    {t.takeGround}
+                  </Button>
+                  <Button variant="outlined" onClick={() => match.decideGround(false)}>
+                    {t.stay}
+                  </Button>
+                </Stack>
+              ) : battle.pending ? (
                 <Stack spacing={1}>
                   {battle.pending.mustChoose && (
                     <Typography variant="body2" color="warning.main">
@@ -216,7 +281,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 ))}
                 <Button
                   onClick={() => (canStillFire > 0 ? setConfirmingEnd(true) : match.endBattle())}
-                  disabled={!!battle.pending}
+                  disabled={!!battle.pending || !!battle.ground || !!retreat || battle.retreating}
                   startIcon={<GameIcon name="endTurn" />}
                 >
                   {t.end}

@@ -1,5 +1,5 @@
 import { TEST_MODE_COINS } from "../data/coinRules";
-import { UnitType } from "./unit";
+import Unit, { UnitType } from "./unit";
 import { shoot } from "../test/shots";
 import { DieFace } from "./dice";
 import { describe, expect, it, vi } from "vitest";
@@ -3321,6 +3321,44 @@ describe("pass and play figures", () => {
     expect(session.getSnapshot().orders[0]!.canFire).toBe(true);
     expect(session.shotsLeft(0)).toBe(0);
     expect(session.shotsLeft(1)).toBeGreaterThan(0);
+  });
+
+  it("retreats a hex toward its own edge for each flag, to a free hex", () => {
+    const session = figuresSession();
+    expect(session.retreatOptions(LEFT_INF)).toEqual([]); // not marked
+    session.sufferHits(LEFT_INF, 0, 2);
+
+    const options = session.retreatOptions(LEFT_INF);
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.every((p) => p.row === LEFT_INF.row + 1 && hexDistance(p, LEFT_INF) === 1)).toBe(true);
+    expect(session.retreatTo(LEFT_INF, { row: 3, col: 3 })).toBe(false);
+
+    const to = options[0]!;
+    expect(session.retreatTo(LEFT_INF, to)).toBe(true);
+    expect(unitAt(session, to)?.getUnitType()).toBe(UnitType.INFANTRY);
+    expect(session.getSnapshot().strength.find((u) => samePosition(u.position, to))).toMatchObject({ retreats: 1 });
+  });
+
+  it("loses a figure for each hex it can't retreat", () => {
+    const session = figuresSession();
+    const edge: Position = { row: 8, col: 11 }; // the right infantry, on its own edge
+    session.sufferHits(edge, 0, 2);
+    expect(session.retreatOptions(edge)).toEqual([]);
+    expect(session.retreatBlocked(edge)).toBe(true);
+    expect(session.figuresAt(edge)).toBe(6);
+    expect(session.retreatBlocked(edge)).toBe(true);
+    expect(session.figuresAt(edge)).toBe(5);
+    expect(session.isRetreating(edge)).toBe(false);
+    expect(session.retreatBlocked(edge)).toBe(false);
+  });
+
+  it("takes an armour figure that already lost a hit down to the next one when it can't retreat", () => {
+    const session = figuresSession();
+    // A hit on the tank, then both hexes behind it taken
+    session.sufferHits(TANK, 1, 1);
+    for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
+    expect(session.retreatBlocked(TANK)).toBe(true);
+    expect(session.figuresAt(TANK)).toBe(2);
   });
 
   it("keeps hits from turn to turn and saves them, the flags only for the turn", () => {

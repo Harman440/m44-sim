@@ -11,6 +11,7 @@ import PlayedCards from "../../PlayedCards";
 import ShotDice from "../../ShotDice";
 import FactionInsignia from "../../FactionInsignia";
 import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
+import "../GameView.css";
 import "./PhaseLayout.css";
 
 const TEXT = defineMessages({

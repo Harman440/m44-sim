@@ -47,7 +47,7 @@ import {
 } from "./orderRules";
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
-import { ARTILLERY_CREW_FIGURES, figuresLeft, hitsToDestroy } from "../data/figures";
+import { ARTILLERY_CREW_FIGURES, FIGURES, figuresLeft, hitsToDestroy } from "../data/figures";
 import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
@@ -790,6 +790,51 @@ class GameSession {
     if (sandbags) hex.setSandbags(false);
     this.addBattleEdit({ kind: "remove", position, unit, ...(crew && { replacement: crew }), ...(sandbags && { sandbags }) });
     return this.publish();
+  }
+
+  /**
+   * Pass and play: where the unit on this hex can retreat one hex, toward its own edge (the
+   * bottom of this side's view): the two hexes behind it that are free and passable
+   */
+  retreatOptions(position: Position): Position[] {
+    if (!this.isRetreating(position)) return [];
+    const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
+    return this.board
+      .getHex(position)!
+      .getNeighbors()
+      .filter((next) => next.row === position.row + 1)
+      .filter((next) => !!this.board.getHex(next)?.isPassable() && !enemies.has(positionKey(next)));
+  }
+
+  /** Pass and play: the unit retreats one hex, one of `retreatOptions`; it has a flag less to go */
+  retreatTo(position: Position, to: Position): boolean {
+    if (!includesPosition(this.retreatOptions(position), to)) return false;
+    const unit = this.board.getHex(position)!.unit!;
+    const sandbags = this.moveUnit(position, to);
+    if (!sandbags) return false;
+    this.retreatFlags = this.countDown(this.retreatFlags, unit);
+    this.addBattleEdit({ kind: "move", from: { ...position }, to: { ...to }, unit, ...(sandbags.length > 0 && { sandbags }) });
+    return this.publish();
+  }
+
+  /** Pass and play: the unit can't retreat this hex (nowhere free behind it): it loses a figure instead */
+  retreatBlocked(position: Position): boolean {
+    if (!this.isRetreating(position) || this.retreatOptions(position).length > 0) return false;
+    const unit = this.board.getHex(position)!.unit!;
+    const type = unit.getUnitType();
+    const taken = this.hits.get(unit) ?? 0;
+    // Down to the next figure: an armour figure that took a hit loses its second
+    const toNextFigure = hitsToDestroy(type) - (figuresLeft(type, taken) - 1) * FIGURES[type].hitsPerFigure - taken;
+    this.retreatFlags = this.countDown(this.retreatFlags, unit);
+    return this.sufferHits(position, toNextFigure, 0);
+  }
+
+  private countDown(flags: ReadonlyMap<Unit, number>, unit: Unit): Map<Unit, number> {
+    const next = new Map(flags);
+    const left = (next.get(unit) ?? 0) - 1;
+    if (left > 0) next.set(unit, left);
+    else next.delete(unit);
+    return next;
   }
 
   private strength(): UnitStrength[] {
