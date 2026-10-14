@@ -10,6 +10,7 @@ import { Faction } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
+import { samePosition } from "./position";
 
 // Axis attacks: it plays turn 1 alone
 const scenario: Scenario = {
@@ -46,19 +47,19 @@ const giveOrders = (match: PassAndPlayMatch) => {
   expect(session.commitOrders()).toBe(true);
 };
 
-/** The reveal: the units move, every collision is rolled and the attacker goes on */
+/** The reveal: the units move, every collision is rolled, then a battle where nobody fires */
 const carryOut = (match: PassAndPlayMatch) => {
   expect(match.moveUnits()).toBe(true);
   match.getSnapshot().movement!.collisions.forEach((_, i) => expect(match.rollCollision(i)).toBe(true));
   expect(match.finishReveal()).toBe(true);
+  expect(match.endBattle()).toBe(true);
 };
 
-/** Movement, battle and the final phase of the side holding the device, to the next turn */
+/** The final phase of the side holding the device, to the next turn */
 const finishTurn = (match: PassAndPlayMatch) => {
   match.uncover();
   const session = match.activeSession();
-  expect(session.startBattle()).toBe(true);
-  expect(session.endBattle()).toBe(true);
+  expect(session.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
   if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("coins")).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
@@ -123,8 +124,12 @@ describe("PassAndPlayMatch", () => {
     expect(match.moveUnits()).toBe(false);
     expect(match.getSnapshot().movement).toEqual({ turn: 2, collisions: [], done: true });
     expect(match.finishReveal()).toBe(true);
-    expect(match.getSnapshot()).toMatchObject({ active: "Axis", covered: true, revealTurn: null, movement: null });
+    // The battle, on one screen: nobody fires (hold orders but no enemy in range)
+    expect(match.getSnapshot()).toMatchObject({ covered: false, revealTurn: null, movement: null, battle: { turn: 2 } });
     expect(match.finishReveal()).toBe(false);
+    expect(match.pass()).toBe(false);
+    expect(match.endBattle()).toBe(true);
+    expect(match.getSnapshot()).toMatchObject({ active: "Axis", covered: true, battle: null });
   });
 
   it("hands the device to a side still finishing the last turn", () => {
@@ -140,7 +145,7 @@ describe("PassAndPlayMatch", () => {
     giveOrders(match); // and its turn 3 orders, while the Allies are still moving in turn 2
 
     expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: true, revealTurn: null });
-    expect(match.activeSession().getSnapshot()).toMatchObject({ phase: TurnPhase.MOVEMENT, turn: 2 });
+    expect(match.activeSession().getSnapshot()).toMatchObject({ phase: TurnPhase.END_OF_TURN, turn: 2 });
   });
 
   it("tells listeners about its own changes and either side's", () => {
@@ -294,6 +299,126 @@ describe("PassAndPlayMatch", () => {
     expect(match.finishReveal()).toBe(true);
   });
 
+  describe("the shared battle", () => {
+    // In the Allies' view: Allied infantry (4,2) and tank (3,2), behind sandbags; Axis infantry (4,4) and tank (2,4)
+    const front: Scenario = {
+      ...scenario,
+      units: {
+        allies: { infantry: [{ row: 4, col: 2 }], tank: [{ row: 3, col: 2 }] },
+        axis: { infantry: [{ row: 4, col: 4 }], tank: [{ row: 2, col: 4 }] },
+      },
+      sandbags: [{ row: 3, col: 2 }],
+    };
+    /** Every die shows `face` (0: infantry, 5: flag) */
+    const battleMatch = (face = 0) => {
+      const side = (faction: Faction) =>
+        new GameSession({
+          scenario: front,
+          faction,
+          initialHandSize: 2,
+          commandCards: cards(),
+          figures: true,
+          random: () => face / 6,
+        });
+      return new PassAndPlayMatch(front, { Allies: side("Allies"), Axis: side("Axis") });
+    };
+    const allHold = (match: PassAndPlayMatch) => {
+      giveOrders(match);
+      expect(match.moveUnits()).toBe(true);
+      expect(match.finishReveal()).toBe(true);
+    };
+    const axisView = (row: number, col: number) => turnedRound({ row, col });
+
+    it("lets the side whose turn it is fire, dealing the hits to the enemy unit", () => {
+      const match = battleMatch();
+      allHold(match); // the Axis' extra turn: only the Axis can fire
+      const battle = match.getSnapshot().battle!;
+      expect(battle).toMatchObject({ side: "Axis", group: "unmoved", pending: null });
+      expect(battle.fireable).toHaveLength(2);
+
+      // Its targets are the enemy units only
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+      const targets = axis.fireTargetsFor(infantry).map((t) => t.position);
+      expect(targets).toContainEqual(axisView(4, 2));
+      expect(targets.every((p) => axis.enemyAt(p) !== null)).toBe(true);
+
+      expect(match.fire(infantry, axisView(4, 3))).toBe(false); // no enemy there
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true);
+      // 2 dice at 2 hexes, both infantry: 2 hits on the Allied infantry
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(5);
+      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null, fireable: [1 - infantry] });
+      expect(match.fire(infantry, axisView(4, 2))).toBe(false); // it has fired
+
+      expect(match.holdFire(1 - infantry)).toBe(true);
+      expect(match.getSnapshot().battle).toMatchObject({ side: null, group: null, fireable: [] });
+      expect(match.endBattle()).toBe(true);
+      expect(match.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
+    });
+
+    it("alternates the sides, the attacker first", () => {
+      const match = battleMatch();
+      allHold(match);
+      match.endBattle();
+      finishTurn(match);
+      giveOrders(match); // the Axis' turn 2
+      giveOrders(match); // the Allies'
+      match.moveUnits();
+      match.finishReveal();
+
+      const order = () => match.getSnapshot().battle!.side;
+      const fireFirst = () => {
+        const battle = match.getSnapshot().battle!;
+        expect(match.holdFire(battle.fireable[0]!)).toBe(true);
+      };
+      expect(order()).toBe("Axis");
+      fireFirst();
+      expect(order()).toBe("Allies");
+      fireFirst();
+      expect(order()).toBe("Axis");
+      fireFirst();
+      expect(order()).toBe("Allies");
+      fireFirst();
+      expect(order()).toBeNull();
+    });
+
+    it("waits for the player of a unit with fewer figures than results to pick them", () => {
+      const match = battleMatch();
+      match.sessions.Axis.sufferHits(axisView(4, 4), 6, 0); // 1 figure left
+      allHold(match);
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true);
+      expect(match.getSnapshot().battle!.pending).toMatchObject({ side: "Axis", limit: 1, mustChoose: true });
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7); // nothing dealt yet
+      expect(match.applyShot()).toBe(false);
+      expect(match.endBattle()).toBe(false);
+      expect(match.getSnapshot().battle).toMatchObject({ side: null, fireable: [] });
+
+      expect(match.keepShotResults([1])).toBe(true);
+      expect(match.applyShot()).toBe(true);
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(6);
+      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null });
+    });
+
+    it("lets sandbags ignore a flag", () => {
+      const match = battleMatch(5); // flags
+      allHold(match);
+      const axis = match.sessions.Axis;
+      const tank = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(2, 4)));
+      // The Axis tank fires at the Allied tank behind sandbags: 3 flags, 1 ignored
+      expect(match.fire(tank, axisView(3, 2))).toBe(true);
+      const shot = axis.getSnapshot().shots.at(-1)!;
+      expect(shot.dice).toBeGreaterThan(1);
+      expect(match.sessions.Allies.getSnapshot().strength.find((u) => samePosition(u.position, { row: 3, col: 2 }))).toEqual({
+        position: { row: 3, col: 2 },
+        figures: 3,
+        retreats: shot.dice - 1,
+      });
+    });
+  });
+
   it("refuses sessions of the wrong side", () => {
     expect(() => new PassAndPlayMatch(scenario, { Allies: newSession("Axis"), Axis: newSession("Axis") })).toThrow();
   });
@@ -313,7 +438,7 @@ describe("PassAndPlayMatch", () => {
 
     expect(restored.getSnapshot()).toMatchObject({ active: "Axis", covered: true, revealTurn: null });
     for (const side of ["Allies", "Axis"] as const) {
-      expect(restored.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.MOVEMENT, turn: 2 });
+      expect(restored.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.END_OF_TURN, turn: 2 });
     }
     expect(otherSide(restored.getSnapshot().active)).toBe("Allies");
   });

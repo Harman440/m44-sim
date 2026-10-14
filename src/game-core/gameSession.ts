@@ -166,6 +166,14 @@ export interface GameSnapshot {
   reinforcementToPlace: UnitType | null;
 }
 
+/** Pass and play: an enemy unit as this side sees it, from the match (`setEnemyView`) */
+export interface EnemyUnit {
+  /** In this side's view of the board */
+  position: Position;
+  unitType: UnitType;
+  sandbags: boolean;
+}
+
 /** Pass and play: how a unit stands */
 export interface UnitStrength {
   position: Position;
@@ -379,6 +387,8 @@ class GameSession {
   private hits = new Map<Unit, number>();
   /** Pass and play: flags each unit must retreat after this turn's battle */
   private retreatFlags = new Map<Unit, number>();
+  /** Pass and play: where the enemy units are, from the match; null in the one-side game */
+  private enemyView: (() => readonly EnemyUnit[]) | null = null;
   private drawnCombatCard: CombatCard | null = null;
   private drops: Position[] = [];
   private reinforcementFace: SixSidedFace | null = null;
@@ -1017,7 +1027,26 @@ class GameSession {
   fireTargetsFor(orderIndex: number): FireTarget[] {
     const context = this.fireContextFor(orderIndex);
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
-    return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context);
+    const enemies = this.enemyView?.().map((enemy) => enemy.position);
+    return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, enemies);
+  }
+
+  /**
+   * Pass and play: the match tells the session where the enemy units are. Then only they are
+   * targets, they block the view, and a shot knows its target's type and sandbags
+   */
+  setEnemyView(view: () => readonly EnemyUnit[]) {
+    this.enemyView = view;
+  }
+
+  /** Pass and play: the enemy unit on this hex (this side's view), if any */
+  enemyAt(position: Position): EnemyUnit | null {
+    return this.enemyView?.().find((enemy) => samePosition(enemy.position, position)) ?? null;
+  }
+
+  /** The battle's order summaries, as the snapshot's (for the pass and play match) */
+  orderSummaries() {
+    return this.summaries();
   }
 
   /** Fire answering the questionnaire by hand (the answers include the distance and the target's terrain) */
@@ -1032,11 +1061,19 @@ class GameSession {
    */
   fireAt(
     orderIndex: number,
-    { position, infantry, sandbags, useCombatBonus = false }: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
+    choice: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
   ): boolean {
+    const { position, useCombatBonus = false } = choice;
+    let { infantry, sandbags } = choice;
     const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
     if (!target || !target.lineOfSight || target.dice <= 0) return false;
     const context = this.fireContextFor(orderIndex)!;
+    // Pass and play: the enemy unit there is known
+    const enemy = this.enemyAt(position);
+    if (enemy) {
+      infantry = enemy.unitType === UnitType.INFANTRY;
+      sandbags = enemy.sandbags;
+    }
     const answers: Record<string, string> = {
       ...mapAnswers(target),
       targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,

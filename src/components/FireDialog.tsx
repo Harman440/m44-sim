@@ -135,8 +135,12 @@ interface FireDialogProps {
   longRangeDie?: boolean;
   /** What the enemy can have in the scenario */
   targetKinds: TargetKinds;
-  /** Take back the unit's last shot (a mistake) */
-  onUndoShot: () => boolean;
+  /** Take back the unit's last shot (a mistake); without it, a shot can't be taken back (pass and play deals it at once) */
+  onUndoShot?: () => boolean;
+  /** Pass and play: what's on each target hex is known, so it isn't asked */
+  knownTarget?: (position: Position) => { infantry: boolean; sandbags: boolean } | null;
+  /** The unit may fire its further shots from here; off in pass and play, where the turn passes after each shot */
+  canFireAgain?: boolean;
   /** Apply only some of the dice of the unit's shot `shotNumber` (or all, with null) */
   onKeepResults: (shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
@@ -298,6 +302,8 @@ function FireDialog({
   onRemoveWire,
   onBlockShot,
   onUndoShot,
+  knownTarget,
+  canFireAgain = true,
   onKeepResults,
   onClose,
 }: FireDialogProps) {
@@ -342,7 +348,7 @@ function FireDialog({
   };
 
   const handleUndo = () => {
-    if (!onUndoShot()) return;
+    if (!onUndoShot?.()) return;
     setConfirmingUndo(false);
     setUndoChecked(false);
     setJustFired(false);
@@ -416,7 +422,7 @@ function FireDialog({
               {t.opponentFiresRest}
             </Alert>
           )}
-          {canFire && (
+          {canFire && canFireAgain && (
             <Button
               fullWidth
               size="large"
@@ -469,6 +475,7 @@ function FireDialog({
         card={card}
         longRangeDie={longRangeDie}
         targetKinds={targetKinds}
+        knownTarget={knownTarget}
         onFire={handleFire}
       />
     );
@@ -490,7 +497,7 @@ function FireDialog({
     const canGoBack = aiming && (firingAgain || (canRemoveWire && firingFromWire));
     return (
       <>
-        {!aiming && summary.shots.length > 0 && (
+        {!aiming && summary.shots.length > 0 && onUndoShot && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
             {t.cancelShot}
           </Button>

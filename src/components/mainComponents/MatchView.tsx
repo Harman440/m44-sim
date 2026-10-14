@@ -30,6 +30,7 @@ const TEXT = defineMessages({
 
 // The board comes with it, so it loads with the game screen's code
 const RevealView = lazy(() => import("./GameViews/RevealView"));
+const SharedBattleView = lazy(() => import("./GameViews/SharedBattleView"));
 
 interface MatchViewProps {
   match: PassAndPlayMatch;
@@ -41,7 +42,7 @@ interface MatchViewProps {
  * device changes hands, so neither player sees the other's cards and orders
  */
 function MatchView({ match, onExit }: MatchViewProps) {
-  const { active, covered, revealTurn, canPass } = useSyncExternalStore(match.subscribe, match.getSnapshot);
+  const { active, covered, revealTurn, canPass, battle } = useSyncExternalStore(match.subscribe, match.getSnapshot);
   const t = useMessages(TEXT);
   const loading = <CircularProgress aria-label={t.loading} sx={{ m: "auto" }} />;
 
@@ -50,6 +51,15 @@ function MatchView({ match, onExit }: MatchViewProps) {
     return (
       <Suspense fallback={loading}>
         <RevealView match={match} turn={revealTurn} viewer={active} />
+      </Suspense>
+    );
+  }
+
+  // The battle, on one screen for both players
+  if (battle) {
+    return (
+      <Suspense fallback={loading}>
+        <SharedBattleView match={match} />
       </Suspense>
     );
   }

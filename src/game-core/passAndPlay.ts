@@ -1,4 +1,4 @@
-import GameSession, { GameSnapshot, ShotRoll } from "./gameSession";
+import GameSession, { EnemyUnit, GameSnapshot, ShotRoll } from "./gameSession";
 import { SavedGame } from "./saveGame";
 import Unit, { UnitType } from "./unit";
 import Order from "./order";
@@ -12,7 +12,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 3;
+export const MATCH_SAVE_VERSION = 4;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -21,6 +21,33 @@ export interface SavedMatch {
   active: Faction;
   revealedTurn: number;
   movement: MatchMovement | null;
+  battle: MatchBattle | null;
+}
+
+/** The units that didn't move fire first, then the ones that moved */
+export type FireGroup = "unmoved" | "moved";
+
+/**
+ * The shared battle: both sides take turns to fire, one unit at a time, the attacker first in
+ * each group (house rules, "Battle phase")
+ */
+export interface MatchBattle {
+  turn: number;
+  /** Each turn to fire so far, in order: a shot (its index in its side's shots) or a unit holding its fire (null) */
+  fired: { side: Faction; group: FireGroup; order: number; shot: number | null }[];
+  /** A shot rolled but not dealt yet: its player still picks the results it applies */
+  pending: { side: Faction; shot: number } | null;
+}
+
+/** The battle for the screen */
+export interface BattleState {
+  turn: number;
+  /** Whose turn it is to fire, and in which group; null once nobody can fire */
+  side: Faction | null;
+  group: FireGroup | null;
+  /** The order indexes of that side's units that can fire now */
+  fireable: readonly number[];
+  pending: { side: Faction; shot: number; limit: number; mustChoose: boolean } | null;
 }
 
 /** Where a collision's roll was kept: one of its side's shots, or its rolls for units without an order */
@@ -82,6 +109,8 @@ export interface MatchSnapshot {
    * rolls once rolled; `done` once every one has been dealt. Null before "Mover"
    */
   movement: { turn: number; collisions: readonly CollisionView[]; done: boolean } | null;
+  /** The shared battle, once the movement is over; null otherwise */
+  battle: BattleState | null;
 }
 
 /** A unit and where it stands, as seen from its own side of the table */
@@ -137,6 +166,7 @@ class PassAndPlayMatch {
   /** The last turn whose orders were shown to both players and carried out */
   private revealedTurn: number;
   private movement: MatchMovement | null;
+  private battle: MatchBattle | null;
 
   private readonly listeners = new Set<() => void>();
   private snapshot: MatchSnapshot;
@@ -149,7 +179,14 @@ class PassAndPlayMatch {
       covered = true,
       revealedTurn = 0,
       movement = null,
-    }: { active?: Faction; covered?: boolean; revealedTurn?: number; movement?: MatchMovement | null } = {}
+      battle = null,
+    }: {
+      active?: Faction;
+      covered?: boolean;
+      revealedTurn?: number;
+      movement?: MatchMovement | null;
+      battle?: MatchBattle | null;
+    } = {}
   ) {
     if (sessions.Allies.faction !== "Allies" || sessions.Axis.faction !== "Axis") {
       throw new Error("Each side needs its own session");
@@ -163,6 +200,8 @@ class PassAndPlayMatch {
     this.covered = covered;
     this.revealedTurn = revealedTurn;
     this.movement = movement;
+    this.battle = battle;
+    for (const side of FACTIONS) sessions[side].setEnemyView(() => this.enemiesOf(side));
     this.follow();
     this.snapshot = this.createSnapshot();
     sessions.Allies.subscribe(this.onSessionChange);
@@ -304,9 +343,157 @@ class PassAndPlayMatch {
     if (this.movement.collisions.some((collision) => !collision.applied)) return false;
     this.revealedTurn = turn;
     this.movement = null;
+    // The battle, on one screen for both players
+    this.battle = { turn, fired: [], pending: null };
+    for (const side of FACTIONS) this.sessions[side].startBattle();
+    this.active = this.scenario.attacker;
+    this.covered = false;
+    return this.publish();
+  }
+
+  // --- The battle: the sides take turns to fire, one unit at a time
+
+  /**
+   * The side whose turn it is to fire, and the group: the units that didn't move first, then
+   * the ones that moved. In each group the attacker fires first and the sides alternate; a side
+   * with nothing left to fire lets the other go on. Null once nobody can fire
+   */
+  private battleTurn(): { side: Faction; group: FireGroup } | null {
+    const battle = this.battle;
+    if (!battle || battle.pending) return null;
+    const group: FireGroup | null = FACTIONS.some((side) => this.fireable(side, "unmoved").length > 0)
+      ? "unmoved"
+      : FACTIONS.some((side) => this.fireable(side, "moved").length > 0)
+        ? "moved"
+        : null;
+    if (!group) return null;
+    const can = (side: Faction) => this.fireable(side, group).length > 0;
+    const last = battle.fired.filter((turn) => turn.group === group).at(-1);
+    const first = last ? otherSide(last.side) : this.scenario.attacker;
+    return { side: can(first) ? first : otherSide(first), group };
+  }
+
+  /** The order indexes of a side's units that can still fire in this group */
+  private fireable(side: Faction, group: FireGroup): number[] {
+    const battle = this.battle;
+    const session = this.sessions[side];
+    if (!battle || session.getSnapshot().phase !== TurnPhase.BATTLE) return [];
+    const held = new Set(battle.fired.filter((turn) => turn.side === side && turn.shot === null).map((turn) => turn.order));
+    return session
+      .orderSummaries()
+      .filter((summary) => summary.shotsLeft > 0 && !held.has(summary.index))
+      .filter((summary) => (group === "unmoved") === summary.hold)
+      .map((summary) => summary.index);
+  }
+
+  /**
+   * The unit of the side whose turn it is fires at an enemy hex. The hits and flags are dealt at
+   * once, unless the unit rolled more results than it has figures: its player picks them first
+   * (`keepShotResults`, then `applyShot`)
+   */
+  fire(order: number, target: Position, useCombatBonus = false): boolean {
+    const turn = this.battleTurn();
+    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
+    const session = this.sessions[turn.side];
+    // The units that moved fire once every unit that didn't move has fired, on either side
+    if (turn.group === "moved" && session.orderSummaries().some((s) => s.hold && s.shotsLeft > 0)) {
+      session.skipUnmovedFire();
+    }
+    const shot = session.getSnapshot().shots.length;
+    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false, useCombatBonus })) return false;
+
+    const battle = this.battle!;
+    this.battle = {
+      ...battle,
+      fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot }],
+      pending: { side: turn.side, shot },
+    };
+    if (!this.shotMustChoose()) this.applyShot();
+    return this.publish();
+  }
+
+  /** The unit whose turn it is holds its fire: it gives up its shot */
+  holdFire(order: number): boolean {
+    const turn = this.battleTurn();
+    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
+    const battle = this.battle!;
+    this.battle = { ...battle, fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot: null }] };
+    return this.publish();
+  }
+
+  /** The player of the shot waiting to be dealt applies only these dice, or all with null */
+  keepShotResults(kept: readonly number[] | null): boolean {
+    const pending = this.battle?.pending;
+    if (!pending) return false;
+    const session = this.sessions[pending.side];
+    const shots = session.getSnapshot().shots;
+    const shot = shots[pending.shot]!;
+    const number = shots.filter((s, i) => s.orderIndex === shot.orderIndex && i < pending.shot).length;
+    return session.keepResults(shot.orderIndex, number, kept);
+  }
+
+  /** Deal the shot's hits and flags to the enemy unit; sandbags there ignore 1 flag */
+  applyShot(): boolean {
+    const pending = this.battle?.pending;
+    if (!pending || this.shotMustChoose()) return false;
+    const shot = this.sessions[pending.side].getSnapshot().shots[pending.shot]!;
+    const enemy = this.sessions[otherSide(pending.side)];
+    const at = turnedRound(shot.targetPosition!);
+    const { hits, retreats } = readRoll(appliedFaces(shot.faces, shot.kept), shot.target);
+    const sandbags = enemy.board.getHex(at)?.sandbags ? 1 : 0;
+    enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags));
+    this.battle = { ...this.battle!, pending: null };
+    return this.publish();
+  }
+
+  /** The battle is over (units that haven't fired lose their shot): each side goes on to its final phase */
+  endBattle(): boolean {
+    if (!this.battle || this.battle.pending) return false;
+    for (const side of FACTIONS) this.sessions[side].endBattle();
+    this.battle = null;
     this.active = this.scenario.attacker;
     this.covered = true;
     return this.publish();
+  }
+
+  /** Results the pending shot's unit may apply: as many as its figures, one more with a card's dice */
+  private shotLimit(): number {
+    const pending = this.battle!.pending!;
+    const session = this.sessions[pending.side];
+    const shot = session.getSnapshot().shots[pending.shot]!;
+    const from = session.orderSummaries()[shot.orderIndex]!.firingFrom;
+    return resultLimit(session.figuresAt(from) ?? 0, shot.combatBonus);
+  }
+
+  private shotMustChoose(): boolean {
+    const pending = this.battle?.pending;
+    if (!pending) return false;
+    const shot = this.sessions[pending.side].getSnapshot().shots[pending.shot]!;
+    const { hits, retreats } = readRoll(appliedFaces(shot.faces, shot.kept), shot.target);
+    return hits + retreats > this.shotLimit();
+  }
+
+  private battleView(): BattleState | null {
+    const battle = this.battle;
+    if (!battle) return null;
+    const turn = this.battleTurn();
+    return {
+      turn: battle.turn,
+      side: turn?.side ?? null,
+      group: turn?.group ?? null,
+      fireable: turn ? this.fireable(turn.side, turn.group) : [],
+      pending: battle.pending && { ...battle.pending, limit: this.shotLimit(), mustChoose: this.shotMustChoose() },
+    };
+  }
+
+  /** The other army's units as `viewer` sees them, for its session's targets */
+  private enemiesOf(viewer: Faction): EnemyUnit[] {
+    const enemy = this.sessions[otherSide(viewer)];
+    return enemy.board.getAllHexes().flatMap((hex) =>
+      hex.unit
+        ? [{ position: turnedRound(hex.getPosition()), unitType: hex.unit.getUnitType(), sandbags: hex.sandbags }]
+        : []
+    );
   }
 
   private updateCollision(index: number, changes: Partial<MatchCollision>) {
@@ -371,6 +558,7 @@ class PassAndPlayMatch {
       active: this.active,
       revealedTurn: this.revealedTurn,
       movement: this.movement && JSON.parse(JSON.stringify(this.movement)),
+      battle: this.battle && JSON.parse(JSON.stringify(this.battle)),
     };
   }
 
@@ -388,7 +576,16 @@ class PassAndPlayMatch {
     if (movement !== null && (!Number.isInteger(movement?.turn) || !Array.isArray(movement.collisions))) {
       throw new Error("Invalid movement");
     }
-    return new PassAndPlayMatch(scenario, sessions, { active: saved.active, revealedTurn: saved.revealedTurn, movement });
+    const battle = saved.battle;
+    if (battle !== null && (!Number.isInteger(battle?.turn) || !Array.isArray(battle.fired))) {
+      throw new Error("Invalid battle");
+    }
+    return new PassAndPlayMatch(scenario, sessions, {
+      active: saved.active,
+      revealedTurn: saved.revealedTurn,
+      movement,
+      battle,
+    });
   }
 
   /**
@@ -430,7 +627,7 @@ class PassAndPlayMatch {
   }
 
   private canPass(): boolean {
-    if (this.covered || this.revealTurn() !== null) return false;
+    if (this.covered || this.revealTurn() !== null || this.battle) return false;
     return this.sessions[otherSide(this.active)].getSnapshot().phase !== TurnPhase.AWAIT_ATTACKER;
   }
 
@@ -479,6 +676,7 @@ class PassAndPlayMatch {
       revealTurn: this.revealTurn(),
       canPass: this.canPass(),
       movement: this.movementView(),
+      battle: this.battleView(),
     };
   }
 
