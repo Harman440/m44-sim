@@ -49,6 +49,8 @@ export interface GameViewProps {
   resumed?: boolean;
   /** Leave the game and go back to the menu */
   onExit: () => void;
+  /** Pass and play: hand the device to the other player */
+  onPass?: () => void;
 }
 
 const TEXT = defineMessages({
@@ -71,6 +73,8 @@ const TEXT = defineMessages({
     confirmExitText: "Se perderá la partida en curso.",
     keepPlaying: "Seguir jugando",
     exit: "Salir",
+    pass: "Pasar",
+    passLabel: "Pasar el dispositivo al rival",
   },
   en: {
     phases: { card: "Card", orders: "Orders", movement: "Movement", battle: "Battle", final: "Final" },
@@ -91,6 +95,8 @@ const TEXT = defineMessages({
     confirmExitText: "The game in progress will be lost.",
     keepPlaying: "Keep playing",
     exit: "Exit",
+    pass: "Pass",
+    passLabel: "Pass the device to the opponent",
   },
 });
 
@@ -102,7 +108,7 @@ const PHASE_STEPS: { phase: TurnPhase; label: keyof (typeof TEXT)["es"]["phases"
   { phase: TurnPhase.END_OF_TURN, label: "final" },
 ];
 
-function GameView({ session, resumed = false, onExit }: GameViewProps) {
+function GameView({ session, resumed = false, onExit, onPass }: GameViewProps) {
   const { scenario, faction } = session;
   const { settings, updateSettings } = useSettings();
   const play = useSound();
@@ -196,6 +202,11 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             >
               <GameIcon name={settings.sound ? "soundOn" : "soundOff"} size={26} />
             </IconButton>
+            {onPass && (
+              <Button variant="outlined" onClick={onPass} startIcon={<GameIcon name="pass" />} aria-label={t.passLabel}>
+                {t.pass}
+              </Button>
+            )}
             <Button
               variant="text"
               id="game-menu-button"

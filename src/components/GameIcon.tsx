@@ -27,6 +27,7 @@ import mortar from "../assets/icons/mortar.svg";
 import tankTread from "../assets/icons/tank-tread.svg";
 import village from "../assets/icons/village.svg";
 import openBook from "../assets/icons/open-book.svg";
+import backForth from "../assets/icons/back-forth.svg";
 import type { DeckReason } from "../game-core/combatCard";
 
 const ICONS = {
@@ -62,6 +63,8 @@ const ICONS = {
   town: village,
   /** The rule book */
   ruleBook: openBook,
+  /** Pass and play: hand the device to the other player */
+  pass: backForth,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;

@@ -8,6 +8,9 @@ export const FACTIONS: readonly Faction[] = ["Allies", "Axis"];
 export const isFaction = (value: unknown): value is Faction =>
   FACTIONS.includes(value as Faction);
 
+/** What the menu starts a pass and play match with: both sides play on this device */
+export type MatchSetup = Omit<GameSetup, "faction">;
+
 /** What the menu starts a game with */
 export interface GameSetup {
   scenarioId: string;

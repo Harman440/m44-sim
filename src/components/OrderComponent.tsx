@@ -7,6 +7,8 @@ interface OrderProps {
   order: Order;
   getHexCenter: (position: Position) => { x: number; y: number };
   hexSize: number;
+  /** The arrow's colour, in place of the shade for its index (the opponent's orders) */
+  color?: string;
 }
 
 // Different colors based on order index
@@ -24,7 +26,7 @@ export const orderColor = (orderIndex: number = 0): string =>
   orangeShades[orderIndex % orangeShades.length]!;
 
 // Draws an order as an arrow along the unit's path, from start to destination
-function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps) {
+function OrderComponent({ orderIndex, order, getHexCenter, hexSize, color: arrowColor }: OrderProps) {
   // Hold-and-fire orders have no movement; the unit's ready-to-fire glow shows them
   if (samePosition(order.start, order.end)) {
     return null;
@@ -75,7 +77,7 @@ function OrderComponent({ orderIndex, order, getHexCenter, hexSize }: OrderProps
   const pathString = createPathString(pathPoints);
   const arrowHead = getArrowHead(pathPoints);
 
-  const color = orderColor(orderIndex);
+  const color = arrowColor ?? orderColor(orderIndex);
 
   return (
     <g className="order-arrow" filter="url(#board-pencil)">

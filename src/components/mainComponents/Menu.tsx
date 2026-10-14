@@ -15,7 +15,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { Scenario } from "../../types/scenario";
-import { Faction, GameSetup } from "../../types/faction";
+import { Faction, GameSetup, MatchSetup } from "../../types/faction";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 
 const TEXT = defineMessages({
@@ -32,6 +32,8 @@ const TEXT = defineMessages({
     testModeRule: "modo prueba",
     startWith: (faction: string) => `Empezar con ${faction}`,
     pickSide: "Elige bando",
+    passAndPlay: "Pasar y jugar: los dos bandos aquí",
+    passAndPlayHelp: "Los dos jugadores en este dispositivo, pasándolo en cada turno.",
     tapScenario: "Toca un escenario para ver su mapa y sus bandos.",
     nextGame: "Para la próxima partida.",
     longRangeDie: "Dado de 8 caras a distancia",
@@ -61,6 +63,8 @@ const TEXT = defineMessages({
     testModeRule: "test mode",
     startWith: (faction: string) => `Start as the ${faction}`,
     pickSide: "Pick a side",
+    passAndPlay: "Pass and play: both sides here",
+    passAndPlayHelp: "Both players on this device, passing it every turn.",
     tapScenario: "Tap a scenario to see its map and its sides.",
     nextGame: "For the next game.",
     longRangeDie: "8-sided die at range",
@@ -84,13 +88,15 @@ interface MenuProps {
   /** Pre-selected choices, e.g. the last game's */
   initialSetup?: Partial<GameSetup>;
   onStart: (setup: GameSetup) => void;
+  /** Start a pass and play match: both sides on this device */
+  onPassAndPlay?: (setup: MatchSetup) => void;
 }
 
 const ScenarioPreview = lazy(() => import("./ScenarioPreview"));
 const RuleBookDialog = lazy(() => import("../RuleBookDialog"));
 
 /** Start screen: pick a scenario, then which side this device plays */
-function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
+function Menu({ scenarios, initialSetup, onStart, onPassAndPlay }: MenuProps) {
   // Nothing is picked beforehand: the player taps the scenario and the side
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [faction, setFaction] = useState<Faction | null>(null);
@@ -222,6 +228,21 @@ function Menu({ scenarios, initialSetup, onStart }: MenuProps) {
               >
                 {faction ? t.startWith(labels.factions[faction]) : t.pickSide}
               </Button>
+              {onPassAndPlay && (
+                <Stack spacing={0.5}>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => onPassAndPlay({ scenarioId: scenario.id, longRangeDie, artilleryCrew, testMode })}
+                    startIcon={<GameIcon name="pass" />}
+                  >
+                    {t.passAndPlay}
+                  </Button>
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                    {t.passAndPlayHelp}
+                  </Typography>
+                </Stack>
+              )}
             </Stack>
           </Box>
         ) : (
