@@ -8,7 +8,7 @@ Work through it one step at a time, as in [PLAN.md](PLAN.md), and tick items off
 
 The companion mode rests on two decisions (see PLAN.md) that this mode reverses:
 - **One shared map with both armies.** The app knows every unit, so it works out line of sight, the enemy's sandbags, targets and terrain itself, and applies casualties and retreats. No "Actualizar mapa", no questions about the table.
-- **Figures per unit.** The app has to apply hits, so units have figures again. **Decided** (not the official counts): infantry 7 figures (7 hits); armour 3 figures, each taking 2 hits (6 hits); artillery 3 pieces (3 hits), then its crew stays as an infantry figure. The limited-damage rule (keep at most as many results as figures) is applied by the app.
+- **Figures per unit.** The app has to apply hits, so units have figures again. **Decided** (not the official counts): infantry 7 figures (7 hits); armour 3 figures, each taking 2 hits (6 hits); artillery 3 pieces (3 hits), then its crew stays as an infantry unit of 1 figure, destroyed by one more hit. The limited-damage rule is applied by the app: a unit keeps at most as many results as it has figures (armour at most 3, infantry down to 2 figures at most 2); cards with bonus dice keep one more.
 
 What stays hidden: each player's hand, the cards they pick and the orders they give. A cover screen ("Pasa el dispositivo a …", tap to continue) goes up between the two players whenever the device changes hands.
 
