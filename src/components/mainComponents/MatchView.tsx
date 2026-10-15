@@ -3,7 +3,7 @@ import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import PassAndPlayMatch from "../../game-core/passAndPlay";
 import { Faction } from "../../types/faction";
 import GameView from "./LazyGameView";
-import { OpponentContext } from "../OpponentContext";
+import { OpponentContext, ViewSideContext } from "../OpponentContext";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import { defineMessages, useMessages } from "../../i18n/useI18n";
@@ -44,7 +44,16 @@ interface MatchViewProps {
  * Pass and play: the game of the side holding the device, with a cover screen whenever the
  * device changes hands, so neither player sees the other's cards and orders
  */
-function MatchView({ match, resumed = false, onExit }: MatchViewProps) {
+function MatchView(props: MatchViewProps) {
+  // Every map is seen from the main side, whoever holds the device
+  return (
+    <ViewSideContext.Provider value={props.match.mainSide}>
+      <MatchScreen {...props} />
+    </ViewSideContext.Provider>
+  );
+}
+
+function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
   const { active, covered, revealTurn, canPass, battle } = useSyncExternalStore(match.subscribe, match.getSnapshot);
   // The sides whose hand has been dealt on screen: it isn't dealt again each time the device comes back
   const dealt = useRef(new Set<Faction>(resumed ? ["Allies", "Axis"] : []));
@@ -59,7 +68,7 @@ function MatchView({ match, resumed = false, onExit }: MatchViewProps) {
   if (revealTurn !== null) {
     return (
       <Suspense fallback={loading}>
-        <RevealView match={match} turn={revealTurn} viewer={active} />
+        <RevealView match={match} turn={revealTurn} viewer={match.mainSide} />
       </Suspense>
     );
   }

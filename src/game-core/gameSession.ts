@@ -174,6 +174,20 @@ export interface EnemyUnit {
   sandbags: boolean;
 }
 
+/** Pass and play: a shot aimed at an enemy unit, before it's rolled (`GameSession.aimAt`) */
+export interface ShotAim {
+  position: Position;
+  distance: number;
+  terrain: HexType;
+  enemy: EnemyUnit;
+  dice: number;
+  steps: DiceStep[];
+  /** It throws the 8-sided long-range die */
+  eightSided: boolean;
+  /** The battle card's extra dice it may add, or null when no card applies */
+  bonus: number | null;
+}
+
 /** Pass and play: how a unit stands */
 export interface UnitStrength {
   position: Position;
@@ -1108,10 +1122,19 @@ class GameSession {
     orderIndex: number,
     choice: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
   ): boolean {
+    const aim = this.aimAnswers(orderIndex, choice);
+    return !!aim && this.fireWith(orderIndex, aim.answers, choice.position);
+  }
+
+  /** The fire answers for a shot at a hex picked on the map; null when the hex can't be fired at */
+  private aimAnswers(
+    orderIndex: number,
+    choice: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
+  ): { answers: Record<string, string>; target: FireTarget; context: FireContext; asksBonus: boolean } | null {
     const { position, useCombatBonus = false } = choice;
     let { infantry, sandbags } = choice;
     const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
-    if (!target || !target.lineOfSight || target.dice <= 0) return false;
+    if (!target || !target.lineOfSight || target.dice <= 0) return null;
     const context = this.fireContextFor(orderIndex)!;
     // Pass and play: the enemy unit there is known
     const enemy = this.enemyAt(position);
@@ -1124,8 +1147,33 @@ class GameSession {
       targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
       sandbags: sandbags ? "yes" : "no",
     };
-    if (combatBonusQuestion.appliesTo?.(context, answers) ?? false) answers.combatCard = useCombatBonus ? "yes" : "no";
-    return this.fireWith(orderIndex, answers, position);
+    const asksBonus = combatBonusQuestion.appliesTo?.(context, answers) ?? false;
+    if (asksBonus) answers.combatCard = useCombatBonus ? "yes" : "no";
+    return { answers, target, context, asksBonus };
+  }
+
+  /**
+   * Pass and play: the shot this unit would fire at the enemy unit on this hex, before it's
+   * rolled: its dice and where they come from, the die thrown, and the battle card's extra dice
+   * it may add (`bonus`, already counted when `useCombatBonus`). Null when it can't fire there.
+   */
+  aimAt(orderIndex: number, position: Position, useCombatBonus = false): ShotAim | null {
+    const enemy = this.enemyAt(position);
+    if (!enemy || this.shotsLeft(orderIndex) <= 0) return null;
+    const aim = this.aimAnswers(orderIndex, { position, infantry: true, sandbags: false, useCombatBonus });
+    if (!aim) return null;
+    const { dice, steps, blocked } = calculateFireDice(FIRE_QUESTIONS, aim.context, aim.answers, fireBonusSteps);
+    if (blocked || (aim.context.closeAssaultOnly && aim.target.distance !== 1)) return null;
+    return {
+      position,
+      distance: aim.target.distance,
+      terrain: aim.target.terrain,
+      enemy,
+      dice,
+      steps,
+      eightSided: this.longRangeDie && aim.target.distance > 1,
+      bonus: aim.asksBonus ? (aim.context.combatBonus?.dice ?? 0) : null,
+    };
   }
 
   private fireWith(orderIndex: number, answers: FireAnswers, targetPosition?: Position): boolean {

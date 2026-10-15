@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
 import type { UnitStrength } from '../game-core/gameSession';
-import { OpponentContext } from './OpponentContext';
+import { OpponentContext, ViewSideContext } from './OpponentContext';
 import Hexagon, { HexHighlight } from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
@@ -93,7 +93,14 @@ function Board({
     (strengthProp === undefined ? (shared?.strength ?? []) : (strengthProp ?? [])).map((s) => [positionKey(s.position), s])
   );
   const { width: boardWidth, height: boardHeight } = boardManager;
-  const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
+  const grid = createBoardGeometry(boardWidth, boardHeight, hexSize);
+  // Pass and play: the map is seen from the main side, so the other side's board is drawn turned
+  // round; positions stay in this board's own view (taps, targets, orders)
+  const viewSide = useContext(ViewSideContext) ?? faction;
+  const turned = viewSide !== faction;
+  const geometry = turned
+    ? { ...grid, hexCenter: (position: Position) => grid.hexCenter(turnedRound(position, boardWidth, boardHeight)) }
+    : grid;
   const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
 
   const highlightAt = (position: Position): HexHighlight => {
@@ -312,7 +319,7 @@ function Board({
             height={height - 2 * imageMargin}
             preserveAspectRatio="xMidYMid meet"
             transform={
-              faction === "Axis"
+              viewSide === "Axis"
                 ? `rotate(180 ${(width / 2)} ${(height / 2)})`
                 : undefined
             }

@@ -135,12 +135,8 @@ interface FireDialogProps {
   longRangeDie?: boolean;
   /** What the enemy can have in the scenario */
   targetKinds: TargetKinds;
-  /** Take back the unit's last shot (a mistake); without it, a shot can't be taken back (pass and play deals it at once) */
+  /** Take back the unit's last shot (a mistake); without it, a shot can't be taken back */
   onUndoShot?: () => boolean;
-  /** Pass and play: what's on each target hex is known, so it isn't asked */
-  knownTarget?: (position: Position) => { infantry: boolean; sandbags: boolean } | null;
-  /** The unit may fire its further shots from here; off in pass and play, where the turn passes after each shot */
-  canFireAgain?: boolean;
   /** Apply only some of the dice of the unit's shot `shotNumber` (or all, with null) */
   onKeepResults: (shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
@@ -302,8 +298,6 @@ function FireDialog({
   onRemoveWire,
   onBlockShot,
   onUndoShot,
-  knownTarget,
-  canFireAgain = true,
   onKeepResults,
   onClose,
 }: FireDialogProps) {
@@ -422,7 +416,7 @@ function FireDialog({
               {t.opponentFiresRest}
             </Alert>
           )}
-          {canFire && canFireAgain && (
+          {canFire && (
             <Button
               fullWidth
               size="large"
@@ -475,7 +469,6 @@ function FireDialog({
         card={card}
         longRangeDie={longRangeDie}
         targetKinds={targetKinds}
-        knownTarget={knownTarget}
         onFire={handleFire}
       />
     );

@@ -33,7 +33,10 @@ const TEXT = defineMessages({
     startWith: (faction: string) => `Empezar con ${faction}`,
     pickSide: "Elige bando",
     passAndPlay: "Pasar y jugar: los dos bandos aquí",
-    passAndPlayHelp: "Los dos jugadores en este dispositivo, pasándolo en cada turno.",
+    passAndPlayHelp: (side: string | null) =>
+      `Los dos jugadores en este dispositivo, pasándolo en cada turno. ${
+        side ? `El mapa se ve siempre desde el lado de: ${side}.` : "Elige antes el bando desde cuyo lado se ve el mapa."
+      }`,
     tapScenario: "Toca un escenario para ver su mapa y sus bandos.",
     nextGame: "Para la próxima partida.",
     longRangeDie: "Dado de 8 caras a distancia",
@@ -64,7 +67,10 @@ const TEXT = defineMessages({
     startWith: (faction: string) => `Start as the ${faction}`,
     pickSide: "Pick a side",
     passAndPlay: "Pass and play: both sides here",
-    passAndPlayHelp: "Both players on this device, passing it every turn.",
+    passAndPlayHelp: (side: string | null) =>
+      `Both players on this device, passing it every turn. ${
+        side ? `The map is always seen from this side: ${side}.` : "First pick the side the map is seen from."
+      }`,
     tapScenario: "Tap a scenario to see its map and its sides.",
     nextGame: "For the next game.",
     longRangeDie: "8-sided die at range",
@@ -233,13 +239,16 @@ function Menu({ scenarios, initialSetup, onStart, onPassAndPlay }: MenuProps) {
                   <Button
                     variant="outlined"
                     size="large"
-                    onClick={() => onPassAndPlay({ scenarioId: scenario.id, longRangeDie, artilleryCrew, testMode })}
+                    disabled={!faction}
+                    onClick={() =>
+                      faction && onPassAndPlay({ scenarioId: scenario.id, mainSide: faction, longRangeDie, artilleryCrew, testMode })
+                    }
                     startIcon={<GameIcon name="pass" />}
                   >
                     {t.passAndPlay}
                   </Button>
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-                    {t.passAndPlayHelp}
+                    {t.passAndPlayHelp(faction ? labels.factions[faction] : null)}
                   </Typography>
                 </Stack>
               )}

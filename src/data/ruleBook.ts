@@ -464,8 +464,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Todo en la app", en: "Everything in the app" },
         house: {
-          es: "Sin tablero: la app conoce los dos ejércitos, mueve las unidades, tira los dados y aplica los impactos y las retiradas. Cada jugador elige carta y da órdenes en secreto; una pantalla tapa el juego cada vez que el dispositivo cambia de manos.",
-          en: "No board: the app knows both armies, moves the units, rolls the dice and deals the hits and retreats. Each player picks a card and gives orders in secret; a screen covers the game every time the device changes hands.",
+          es: "Sin tablero: la app conoce los dos ejércitos, mueve las unidades, tira los dados y aplica los impactos y las retiradas. Cada jugador elige carta y da órdenes en secreto; una pantalla tapa el juego cada vez que el dispositivo cambia de manos. El mapa se ve siempre desde el lado del bando elegido en el menú, sin girar al pasar el dispositivo.",
+          en: "No board: the app knows both armies, moves the units, rolls the dice and deals the hits and retreats. Each player picks a card and gives orders in secret; a screen covers the game every time the device changes hands. The map is always seen from the side picked in the menu, without turning round as the device is passed.",
         },
       },
       {
@@ -489,8 +489,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "La batalla", en: "The battle" },
         house: {
-          es: "Una pantalla para los dos: disparan primero las unidades que no se movieron y luego las que se movieron, alternando los bandos y empezando el atacante. Solo se dispara a unidades enemigas, que tapan la vista. Los sacos terreros ignoran una bandera.",
-          en: "One screen for both: the units that didn't move fire first, then the ones that moved, the sides alternating and the attacker first. Only enemy units can be fired at, and they block the view. Sandbags ignore one flag.",
+          es: "Una pantalla para los dos: disparan primero las unidades que no se movieron y luego las que se movieron, alternando los bandos y empezando el atacante. Se toca en el mapa la unidad que dispara y luego su objetivo, que muestra los dados que tira; la tirada sale sobre el mapa. Solo se dispara a unidades enemigas, que tapan la vista. Los sacos terreros ignoran una bandera.",
+          en: "One screen for both: the units that didn't move fire first, then the ones that moved, the sides alternating and the attacker first. Tap the unit that fires on the map, then its target, which shows the dice it rolls; the roll comes up over the map. Only enemy units can be fired at, and they block the view. Sandbags ignore one flag.",
         },
       },
       {
