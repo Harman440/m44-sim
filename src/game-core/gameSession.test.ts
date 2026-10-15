@@ -3307,6 +3307,7 @@ describe("pass and play figures", () => {
       figures: 6,
       retreats: 2,
       damaged: false,
+      hitThisTurn: 1,
     });
     expect(session.canRollCollision(LEFT_INF, null)).toBe(false);
 
@@ -3369,6 +3370,19 @@ describe("pass and play figures", () => {
     for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
     expect(session.retreatBlocked(TANK)).toBe(true);
     expect(session.figuresAt(TANK)).toBe(2);
+  });
+
+  it("records the hits each unit took this turn, saved, until the turn ends", () => {
+    const session = figuresSession();
+    session.sufferHits(TANK, 1, 0);
+    session.sufferHits(TANK, 1, 0);
+    const tank = (s: GameSession) => s.getSnapshot().strength.find((u) => samePosition(u.position, TANK))!;
+    expect(tank(session)).toMatchObject({ figures: 2, hitThisTurn: 2 });
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withArtillery, cards());
+    expect(tank(restored).hitThisTurn).toBe(2);
+    // A save from before the record still loads, with none
+    const { turnHits: _, ...older } = session.save();
+    expect(tank(GameSession.restore(JSON.parse(JSON.stringify(older)), withArtillery, cards())).hitThisTurn).toBe(0);
   });
 
   it("keeps hits from turn to turn and saves them, the flags only for the turn", () => {

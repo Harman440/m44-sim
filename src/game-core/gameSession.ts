@@ -197,6 +197,8 @@ export interface UnitStrength {
   retreats: number;
   /** A figure took a hit but not all it takes (armour hit once): the next hit removes it */
   damaged: boolean;
+  /** Hits it took this turn, shown on the map until the turn ends */
+  hitThisTurn: number;
 }
 
 export interface ReinforcementRoll {
@@ -406,6 +408,8 @@ class GameSession {
   private hits = new Map<Unit, number>();
   /** Pass and play: flags each unit must retreat after this turn's battle */
   private retreatFlags = new Map<Unit, number>();
+  /** Pass and play: hits each unit has taken this turn, shown on the map until the turn ends */
+  private turnHits = new Map<Unit, number>();
   /** Pass and play: where the enemy units are, from the match; null in the one-side game */
   private enemyView: (() => readonly EnemyUnit[]) | null = null;
   private drawnCombatCard: CombatCard | null = null;
@@ -786,7 +790,10 @@ class GameSession {
     if (!this.figures || !unit || hits < 0 || flags < 0) return false;
     const taken = (this.hits.get(unit) ?? 0) + hits;
     if (taken < hitsToDestroy(unit.getUnitType())) {
-      if (hits > 0) this.hits = new Map(this.hits).set(unit, taken);
+      if (hits > 0) {
+        this.hits = new Map(this.hits).set(unit, taken);
+        this.turnHits = new Map(this.turnHits).set(unit, (this.turnHits.get(unit) ?? 0) + hits);
+      }
       if (flags > 0) this.retreatFlags = new Map(this.retreatFlags).set(unit, (this.retreatFlags.get(unit) ?? 0) + flags);
       return this.publish();
     }
@@ -803,6 +810,9 @@ class GameSession {
     }
     this.hits = damage;
     this.retreatFlags = flagged;
+    const hitThisTurn = new Map(this.turnHits);
+    hitThisTurn.delete(unit);
+    this.turnHits = hitThisTurn;
     // The sandbags go with the unit; a crew left behind stays behind them
     const hex = this.board.getHex(position)!;
     const sandbags = hex.sandbags && !crew;
@@ -861,7 +871,8 @@ class GameSession {
       const hits = this.hits.get(unit) ?? 0;
       const figures = figuresLeft(unit.getUnitType(), hits);
       const damaged = figureDamaged(unit.getUnitType(), hits);
-      return [{ position: hex.getPosition(), figures, retreats: this.retreatFlags.get(unit) ?? 0, damaged }];
+      const hitThisTurn = this.turnHits.get(unit) ?? 0;
+      return [{ position: hex.getPosition(), figures, retreats: this.retreatFlags.get(unit) ?? 0, damaged, hitThisTurn }];
     });
   }
 
@@ -2103,6 +2114,7 @@ class GameSession {
     this.ambush = null;
     this.standingCollisions = [];
     this.retreatFlags = new Map();
+    this.turnHits = new Map();
     this.drawnCombatCard = null;
     this.reinforcementFace = null;
 
@@ -2159,6 +2171,7 @@ class GameSession {
       standingCollisions: this.standingCollisions,
       hits: this.hits,
       retreatFlags: this.retreatFlags,
+      turnHits: this.turnHits,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
       reinforcementFace: this.reinforcementFace,
@@ -2216,6 +2229,7 @@ class GameSession {
     session.standingCollisions = [...state.standingCollisions];
     session.hits = new Map(state.hits);
     session.retreatFlags = new Map(state.retreatFlags);
+    session.turnHits = new Map(state.turnHits);
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
     session.reinforcementFace = state.reinforcementFace;

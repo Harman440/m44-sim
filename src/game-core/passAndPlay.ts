@@ -162,6 +162,8 @@ export interface PlacedUnit {
   retreats?: number;
   /** A figure was hit once (armour): marked */
   damaged?: boolean;
+  /** Hits it took this turn */
+  hitThisTurn?: number;
 }
 
 /** One army as another side may see it, each position in the army's own view */
@@ -894,7 +896,12 @@ class PassAndPlayMatch {
       const figures = session.figuresAt(position);
       if (figures === null) return {};
       const stands = game.strength.find((s) => samePosition(s.position, position));
-      return { figures, retreats: stands?.retreats ?? 0, damaged: stands?.damaged ?? false };
+      return {
+        figures,
+        retreats: stands?.retreats ?? 0,
+        damaged: stands?.damaged ?? false,
+        hitThisTurn: stands?.hitThisTurn ?? 0,
+      };
     };
     const army = armyOf(session).map((placed) => ({ ...placed, ...strength(placed.position) }));
     if (revealed) return { faction, units: army, orders: game.orders };

@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useRef } from 'react';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
 import type { UnitStrength } from '../game-core/gameSession';
@@ -83,6 +83,7 @@ interface PlacedToken {
   figures?: number;
   retreats?: number;
   damaged?: boolean;
+  hitThisTurn?: number;
 }
 
 /** A stable key per unit, so its token is the same element wherever it moves and can glide there */
@@ -122,6 +123,9 @@ function Board({
   atStart = false
 }: BoardProps) {
   const shared = useContext(OpponentContext);
+  /** Each unit's hits this turn when this map last drew it, and the count it last shook at (renderUnits) */
+  const seenHits = useRef(new WeakMap<Unit, number>());
+  const shookAt = useRef(new WeakMap<Unit, number>());
   const opponent = opponentProp === undefined ? (shared?.opponent ?? null) : opponentProp;
   const strength = new Map(
     (strengthProp === undefined ? (shared?.strength ?? []) : (strengthProp ?? [])).map((s) => [positionKey(s.position), s])
@@ -305,11 +309,12 @@ function Board({
         figures: stands?.figures,
         retreats: stands?.retreats,
         damaged: stands?.damaged,
+        hitThisTurn: stands?.hitThisTurn,
       }];
     });
     if (!opponent) return own;
     const otherStarts = atStart ? startOf(opponent.orders) : null;
-    const other = opponent.units.map(({ position, unit, figures, retreats, damaged }): PlacedToken => ({
+    const other = opponent.units.map(({ position, unit, figures, retreats, damaged, hitThisTurn }): PlacedToken => ({
       unit,
       faction: opponent.faction,
       position: otherStarts?.get(unit) ?? position,
@@ -317,6 +322,7 @@ function Board({
       figures,
       retreats,
       damaged,
+      hitThisTurn,
     }));
     return [...own, ...other];
   };
@@ -325,8 +331,17 @@ function Board({
    * The units, each keyed by itself rather than its hex: when one moves, its token glides to the
    * new hex (a CSS transition). Taps go through to the hexes underneath
    */
-  const renderUnits = () =>
-    tokens()
+  const renderUnits = () => {
+    // A unit hit since this map last drew it shakes once: the hits it had then, and the count it shook at
+    const seen = seenHits.current;
+    const shaken = shookAt.current;
+    const drawn = tokens();
+    for (const { unit, hitThisTurn = 0 } of drawn) {
+      const before = seen.get(unit);
+      if (before !== undefined && hitThisTurn > before) shaken.set(unit, hitThisTurn);
+      seen.set(unit, hitThisTurn);
+    }
+    return drawn
       .sort((a, b) => unitKey(a.unit) - unitKey(b.unit))
       .map((token) => {
         const { x, y } = geometry.hexCenter(token.other ? turnedRound(token.position, boardWidth, boardHeight) : token.position);
@@ -339,21 +354,29 @@ function Board({
             pointerEvents="none"
             style={{ transform: `translate(${x}px, ${y}px)` }}
           >
-            <UnitComponent
-              x={0}
-              y={0}
-              faction={token.faction}
-              unitData={token.unit}
-              readyToFire={token.readyToFire}
-              fired={token.fired}
-              orderable={token.orderable}
-              figures={token.figures}
-              retreats={token.retreats}
-              damaged={token.damaged}
-            />
+            {/* Keyed by its hits, so each new hit plays the shake again */}
+            <g
+              key={token.hitThisTurn ?? 0}
+              className={shaken.get(token.unit) === (token.hitThisTurn ?? 0) ? 'board__unit-hit' : undefined}
+            >
+              <UnitComponent
+                x={0}
+                y={0}
+                faction={token.faction}
+                unitData={token.unit}
+                readyToFire={token.readyToFire}
+                fired={token.fired}
+                orderable={token.orderable}
+                figures={token.figures}
+                retreats={token.retreats}
+                damaged={token.damaged}
+                hitThisTurn={token.hitThisTurn}
+              />
+            </g>
           </g>
         );
       });
+  };
 
   /** This side's sandbags, in front of the tokens like a wall */
   const renderSandbags = () =>

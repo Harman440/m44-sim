@@ -45,6 +45,8 @@ export interface SavedGame {
   hits: { unit: number; hits: number }[];
   /** Flags each unit must retreat after the battle, by unit index */
   retreatFlags: { unit: number; flags: number }[];
+  /** Hits each unit took this turn, by unit index; missing in older saves */
+  turnHits?: { unit: number; hits: number }[];
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -145,6 +147,8 @@ export interface SessionState {
   hits: ReadonlyMap<Unit, number>;
   /** Pass and play: flags the unit must retreat after this turn's battle */
   retreatFlags: ReadonlyMap<Unit, number>;
+  /** Pass and play: hits taken this turn, by unit */
+  turnHits: ReadonlyMap<Unit, number>;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
   /** The Reinforcements die, rolled in the final phase */
@@ -328,6 +332,7 @@ export function writeSave(
     reinforcementFace: state.reinforcementFace,
     hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
+    turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     units: savedUnits,
     wire: board.wirePositions(),
     sandbags: board.sandbagPositions(),
@@ -503,6 +508,7 @@ export function readSave(
     standingCollisions: readStandingCollisions(saved.standingCollisions),
     hits: readUnitCounts(saved.hits, "hits", unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
+    turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
     reinforcementFace,

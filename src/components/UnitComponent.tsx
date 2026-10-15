@@ -16,12 +16,14 @@ const TEXT = defineMessages({
     elite: "De élite",
     figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     damaged: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`}, una ya tocada: el próximo impacto la quita`,
+    hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     retreats: (n: number) => (n === 1 ? "Se retira 1 casilla tras la batalla" : `Se retira ${n} casillas tras la batalla`),
   },
   en: {
     elite: "Elite",
     figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     damaged: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`}, one already hit: the next hit removes it`,
+    hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     retreats: (n: number) => (n === 1 ? "Retreats 1 hex after the battle" : `Retreats ${n} hexes after the battle`),
   },
 });
@@ -60,6 +62,8 @@ interface UnitProps {
   retreats?: number;
   /** Pass and play: a figure took one hit of two (armour): the figures badge is marked red */
   damaged?: boolean;
+  /** Pass and play: hits it took this turn, a red tag over the token until the turn ends */
+  hitThisTurn?: number;
 }
 
 const TOKEN_RADIUS = 27;
@@ -92,6 +96,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   figures,
   retreats = 0,
   damaged = false,
+  hitThisTurn = 0,
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
@@ -173,6 +178,34 @@ const UnitComponent: React.FC<UnitProps> = ({
             fill={damaged ? "#f1ead6" : "#2b2418"}
           >
             {figures}
+          </text>
+        </g>
+      )}
+
+      {/* Pass and play: the hits it took this turn, a red tag at the top */}
+      {hitThisTurn > 0 && (
+        <g className="unit__badge unit__badge--hits" data-testid="hits-badge">
+          <title>{t.hitThisTurn(hitThisTurn)}</title>
+          <rect
+            x={x - 15}
+            y={y - TOKEN_RADIUS - 11}
+            width={30}
+            height={18}
+            rx={9}
+            fill="#b3261e"
+            stroke="#f1ead6"
+            strokeWidth={1.5}
+          />
+          <text
+            x={x}
+            y={y - TOKEN_RADIUS - 2}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={12}
+            fontWeight={700}
+            fill="#f1ead6"
+          >
+            −{hitThisTurn}
           </text>
         </g>
       )}

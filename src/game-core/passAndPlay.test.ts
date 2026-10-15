@@ -263,7 +263,7 @@ describe("PassAndPlayMatch", () => {
     // Without a flag the Axis unit goes back the hex it came from (bounceBack)
     const stays = retreats > 0 ? { row: 4, col: 3 } : { row: 4, col: 4 };
     expect(axis.getSnapshot().strength).toEqual([
-      { position: turnedRound(stays), figures: 7 - hits, retreats, damaged: false },
+      { position: turnedRound(stays), figures: 7 - hits, retreats, damaged: false, hitThisTurn: hits },
     ]);
     expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7);
     expect(match.finishReveal()).toBe(true);
@@ -409,6 +409,30 @@ describe("PassAndPlayMatch", () => {
       expect(match.fire(infantry, axisView(4, 2))).toBe(true);
       expect(axis.getSnapshot().shots.at(-1)!.dice).toBe(aim.dice);
       expect(axis.aimAt(infantry, axisView(4, 2))).toBeNull(); // it has fired
+    });
+
+    it("records the hits a unit took this turn until its side's turn ends", () => {
+      const match = battleMatch();
+      allHold(match);
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true); // 2 hits
+      const hit = () => match.sessions.Allies.getSnapshot().strength.find((u) => samePosition(u.position, { row: 4, col: 2 }))!;
+      expect(hit().hitThisTurn).toBe(2);
+      expect(match.opponentOf("Axis").units.find((u) => u.unit.getUnitType() === UnitType.INFANTRY)).toMatchObject({ hitThisTurn: 2 });
+
+      match.endBattle();
+      finishTurn(match); // the Axis' extra turn ends; the Allies' turn 2 is still to come
+      expect(hit().hitThisTurn).toBe(2);
+      giveOrders(match);
+      giveOrders(match);
+      carryOut(match);
+      finishTurn(match); // the Axis
+      expect(hit().hitThisTurn).toBe(2);
+      expect(match.pass()).toBe(true);
+      finishTurn(match); // the Allies' turn 2 ends
+      expect(hit().hitThisTurn).toBe(0);
+      expect(hit().figures).toBe(5);
     });
 
     it("alternates the sides, the attacker first", () => {
@@ -593,6 +617,7 @@ describe("PassAndPlayMatch", () => {
         figures: 3,
         retreats: shot.dice - 1,
         damaged: false,
+        hitThisTurn: 0,
       });
     });
   });
