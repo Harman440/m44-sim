@@ -229,14 +229,20 @@ describe("orders paid in coins (Finest Hour)", () => {
 });
 
 describe("extra orders bought with coins", () => {
-  it("lets any unit not yet ordered take one, with 4 coins", () => {
+  it("lets any unit not yet ordered take one: 3 coins for infantry, 4 for armour or artillery", () => {
     const board = new BoardManager(scenario);
     const unit = board.getHex(LEFT)!.unit!;
+    expect(unit.getUnitType()).toBe(UnitType.INFANTRY);
+    const tank = new Unit(UnitType.TANK);
 
-    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 3 }), unit)).toBe(false);
-    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 4 }), unit)).toBe(true);
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 2 }), unit)).toBe(false);
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 3 }), unit)).toBe(true);
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 3 }), tank)).toBe(false);
+    expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 4 }), tank)).toBe(true);
     expect(canBuyExtraOrder(context({ orders: 1 }, { board, coins: 4, orders: [holdAt(board, LEFT)] }), unit)).toBe(false);
     expect(extraOrderablePositions(context({ orders: 1, sections: [Side.RIGHT] }, { board, coins: 4 }))).toHaveLength(6);
+    expect(slotCost(new CommandCard({ orders: 1 }), unit, { section: null, onTheMove: false, extra: true })).toBe(3);
+    expect(slotCost(new CommandCard({ orders: 1 }), tank, { section: null, onTheMove: false, extra: true })).toBe(4);
   });
 
   it("doesn't use up the card's orders", () => {

@@ -1459,19 +1459,21 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot()).toMatchObject({ turn: 2, extraTurn: false, coins: earned, canAdjustCoins: true });
   });
 
-  it("buys an extra order for 4 coins, for any unit, without using the card's orders", () => {
-    const session = turnWithCoins(5, "left");
+  it("buys an extra order for 3 coins (infantry) or 4 (armour, artillery), for any unit, without using the card's orders", () => {
+    const session = turnWithCoins(6, "left");
     expect(session.getSnapshot().extraOrderable).toHaveLength(4);
     expect(session.getSnapshot().orderable.map(positionKey)).not.toContain(positionKey(RIGHT_INF));
 
     expect(session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA)).toBe(true);
 
-    expect(session.getSnapshot()).toMatchObject({ coins: 1, ordersLeft: 2, extraOrderable: [] });
-    expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
+    expect(session.getSnapshot()).toMatchObject({ coins: 3, ordersLeft: 2 });
+    expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 3 });
     expect(session.getSnapshot().coinEntries).toEqual([
-      { kind: "extraOrder", amount: -4, unit: UnitType.INFANTRY },
-      { kind: "adjustment", amount: 5 },
+      { kind: "extraOrder", amount: -3, unit: UnitType.INFANTRY },
+      { kind: "adjustment", amount: 6 },
     ]);
+    // 3 coins left: another infantry, but not the tank
+    expect(session.getSnapshot().extraOrderable.map(positionKey)).not.toContain(positionKey(TANK));
     expect(session.issueOrder(TANK, TANK, EXTRA)).toBe(false);
   });
 
@@ -1580,11 +1582,11 @@ describe("GameSession coins", () => {
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, coinCards());
 
-    expect(restored.getSnapshot().coins).toBe(1);
-    expect(restored.getSnapshot().coinEntries).toEqual(session.getSnapshot().coinEntries);
-    expect(restored.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
-    expect(restored.undoCoinAdjustment()).toBe(true);
     expect(restored.getSnapshot().coins).toBe(2);
+    expect(restored.getSnapshot().coinEntries).toEqual(session.getSnapshot().coinEntries);
+    expect(restored.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 3 });
+    expect(restored.undoCoinAdjustment()).toBe(true);
+    expect(restored.getSnapshot().coins).toBe(3);
   });
 });
 
@@ -3269,7 +3271,7 @@ describe("pass and play figures", () => {
 
   it("takes hits figure by figure: 2 for an armour figure", () => {
     const session = figuresSession();
-    expect(session.figuresAt(LEFT_INF)).toBe(7);
+    expect(session.figuresAt(LEFT_INF)).toBe(6);
     expect(session.figuresAt(TANK)).toBe(3);
 
     expect(session.sufferHits(TANK, 1, 0)).toBe(true);
@@ -3277,7 +3279,7 @@ describe("pass and play figures", () => {
     expect(session.sufferHits(TANK, 1, 0)).toBe(true);
     expect(session.figuresAt(TANK)).toBe(2);
     expect(session.sufferHits(LEFT_INF, 5, 0)).toBe(true);
-    expect(session.figuresAt(LEFT_INF)).toBe(2);
+    expect(session.figuresAt(LEFT_INF)).toBe(1);
   });
 
   it("removes a unit that loses its last figure", () => {
@@ -3304,7 +3306,7 @@ describe("pass and play figures", () => {
     expect(session.isRetreating(LEFT_INF)).toBe(true);
     expect(session.getSnapshot().strength.find((s) => samePosition(s.position, LEFT_INF))).toEqual({
       position: LEFT_INF,
-      figures: 6,
+      figures: 5,
       retreats: 2,
       damaged: false,
       hitThisTurn: 1,
@@ -3347,9 +3349,9 @@ describe("pass and play figures", () => {
     session.sufferHits(edge, 0, 2);
     expect(session.retreatOptions(edge)).toEqual([]);
     expect(session.retreatBlocked(edge)).toBe(true);
-    expect(session.figuresAt(edge)).toBe(6);
-    expect(session.retreatBlocked(edge)).toBe(true);
     expect(session.figuresAt(edge)).toBe(5);
+    expect(session.retreatBlocked(edge)).toBe(true);
+    expect(session.figuresAt(edge)).toBe(4);
     expect(session.isRetreating(edge)).toBe(false);
     expect(session.retreatBlocked(edge)).toBe(false);
   });

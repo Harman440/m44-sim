@@ -65,7 +65,7 @@ After all units have retreated, pick up a command card from the deck, attacking 
 ## New combat cards
 Combat cards now have a new rule where you have to pay to use them. At the start you get 2 combat cards as usual.
 
-Whenever you want to use a combat card in your hand you must pay the amount marked with a pen (powerful combat cards cost more). One extra unit can be ordered anywhere on the field costing 4 coins. Units ordered in this way do not benefit from anything that the main command card may have. This can be done in conjunction with a combat card and as many times as you want per turn. Remember to record the order on your map in the ordering phase.
+Whenever you want to use a combat card in your hand you must pay the amount marked with a pen (powerful combat cards cost more). One extra unit can be ordered anywhere on the field costing 3 coins for infantry and 4 for armour or artillery. Units ordered in this way do not benefit from anything that the main command card may have. This can be done in conjunction with a combat card and as many times as you want per turn. Remember to record the order on your map in the ordering phase.
 
 If a new unit is to be placed on the field because of a combat card (Reinforcements) a cross must be drawn on the small map to indicate where it is going to appear.
 
@@ -110,6 +110,15 @@ At the end of each turn (in the last phase) when battling has finished and after
 ### New cards
 (Ambush, behind enemy, barrage and airpower now combat cards, and maybe medics and dig in.)
 - Preparations (×4): 1 unit, receive 3 coins and combat card instead of choosing
+
+## Card rebalance (October 2026)
+Armour was too easy to play, and no card is played as a reaction in the battle any more. Built in the app's Part J (docs/PLAN.md, Steps 58–66); where this section and the lists below disagree, this section is the rule.
+- Probe: 1 per section, and no more "draw 2, keep 1".
+- Preparations: also draws 2 command cards in the final phase and keeps 1 (on top of its 3 coins and combat card).
+- One more Move Out and one more General Advance in every deck (24 cards).
+- Motorized (was Frozen Ground) — 2: 3 infantry units move 1 extra hex.
+- An extra order costs 3 coins for infantry and 4 for armour or artillery.
+- Pass and play: infantry units have 6 figures.
 
 ## Combat cards database
 Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "return to duty" variation), mechanic (pay 4 recover 2 armor figures) and dig in (more "fortify"). Add ambush, behind enemy, barrage and air power. For each card: cost, battle or order phase.
@@ -160,26 +169,26 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 
 ## Deck composition
 
-### The smaller deck (Step 44, the one in use)
-Each player gets 25 cards:
+### The smaller deck (Steps 44 and 58, the one in use)
+Each player gets 24 cards:
 - Assault (all units in the section): 1 1 1
 - Attack (3 units in the section): 1 1 1
-- Probe (2 units in the section + 1 on the move; in the final phase choose 1 of 2 cards instead of gambling): 2 2 2
+- Probe (2 units in the section + 1 on the move): 1 1 1
 - No Recon
 - Recon in Force (1 1 1): 1
-- General Advance (2 2 2): 2
+- General Advance (2 2 2): 3
 - Pincer (2 0 2): 1
-- Preparations: 1
+- Preparations (1 unit; in the final phase 3 coins and a combat card, and choose 1 of 2 command cards instead of gambling): 1
 - Finest Hour: 1
 - Infantry Assault: 1
 - Close Assault: 1
 - Fire Fight: 1
 
-Plus 4 cards depending on the units the player has in the scenario:
-- Only infantry: Move Out 4
-- Infantry and armour: Move Out 1, Armour Overrun (Armor Assault) 1, Orders from HQ 2
-- Infantry and artillery: Move Out 1, Artillery Bombardment 1, Orders from HQ 2
-- All three: Move Out 1, Armour Overrun 1, Artillery Bombardment 1, Orders from HQ 1
+Plus 5 cards depending on the units the player has in the scenario:
+- Only infantry: Move Out 5
+- Infantry and armour: Move Out 2, Armour Overrun (Armor Assault) 1, Orders from HQ 2
+- Infantry and artillery: Move Out 2, Artillery Bombardment 1, Orders from HQ 2
+- All three: Move Out 2, Armour Overrun 1, Artillery Bombardment 1, Orders from HQ 1
 - A player without infantry gets the set for the armour, artillery or both that they have
 
 The Breakthrough-based deck below was used before.

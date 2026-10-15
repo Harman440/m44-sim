@@ -238,6 +238,92 @@ Decided:
 - [ ] The link short enough for a code a camera reads at a glance from a screen: measure it on the busiest built-in map, and write positions more compactly if it's too long
 - [ ] Check on the iPad: its camera opens links in Safari, not in the app on the home screen (Step 54). If the map lands in Safari, add "Escanear" to Mis mapas (the camera and a QR reader in the app)
 
+## Part J: Card rebalance
+
+The player's rebalance (October 2026). Armour is too easy to play, and no card is played as a reaction in the battle any more: every combat card is played with the command card, in the Command Zone, and a card that acts on one unit is given to that unit while ordering. The changes apply to both ways of playing:
+- **Own tablets** (each side on its own device): what a card does to the enemy's rolls (retreats or hits ignored) is resolved at the table. The app shows the card on the unit and reminds the player.
+- **Pass and play**: the app applies everything (`passAndPlay.ts`, figures).
+
+The steps go from data-only changes to new mechanics, each its own commit. Each step also updates the rule book (`data/ruleBook.ts`), `docs/house-rules.md` and CLAUDE.md wherever they describe what it changes. A step that changes the save's shape bumps `SAVE_VERSION` (and `MATCH_SAVE_VERSION`), which drops a game in progress on the tablets: finish games before pushing those steps, or push the part in one go.
+
+Every **Decide** has a proposal; its step waits on the player's answer.
+
+### Step 58: Command deck and costs (data)
+- [x] Probe (Batida): 1 per section instead of 2, and no more "draw 2, keep 1" (`drawChoice` 1). It still orders 2 units in its section and 1 on the move
+- [x] Preparations (Preparativos) takes Probe's old draw: in the final phase, draw 2 and keep 1 (`drawChoice: 2`), on top of its 3 supplies and combat card. `EndOfTurnView` handles a card with both a `drawChoice` and an `endOfTurnReward` (tested)
+- [x] One more Move Out (En marcha) and one more General Advance (Avance General) in every deck: General Advance 3, and Move Out +1 in each `unitTemplates` set (2 in the mixed sets, 5 with infantry only). Each deck has 19 shared cards + 5 by unit type = 24 (it was 25): update "25" in `commandCards.ts`, CLAUDE.md and the deck tests. The deck visualizer's chances follow on their own
+- [x] Motorized (Motorizado): infantry only (`unitTypes: [INFANTRY]` on its move effect), costs 2 instead of 3. It stays an attacker's card
+- [x] An extra order costs by unit type: infantry 3, armour and artillery 4. `EXTRA_ORDER_COST` becomes a `Record<UnitType, number>` (`slotCost`, `canBuyExtraOrder` with the unit's cost, `coins.ts`'s ledger, OrdersView's texts, the rule book)
+- [x] Pass and play: infantry units have 6 figures instead of 7 (`FIGURES`). Medic, limited damage and the artillery crew already read it from there. A saved match with an infantry unit on 6 hits would load it destroyed but still on the board, so bump `MATCH_SAVE_VERSION`
+
+### Step 59: Refuel, the only way to get Armor Assault
+- [ ] A new tactic command card, Repostaje / Refuel (house name): order 1 unit. In the final phase, 3 supplies and a combat card (as Preparations), and instead of a command card drawn from the deck, the side gets Armor Assault
+- [ ] Armor Assault leaves the deck, and Refuel takes its place in the decks of sides with armour (tanks and artillery: Move Out 2, Refuel 1, Artillery Bombardment 1, Direct from HQ 1; tanks: Move Out 2, Refuel 1, Direct from HQ 2)
+- [ ] `GameSession` keeps Armor Assault outside the piles (one copy, saved). Once played, it goes back there and never into the discard pile, so a reshuffle never brings it into the deck. The command card says what its final phase gives (a new `CommandCard` field, e.g. `rewardCard: "armor-assault"`), and that replaces `deck.draw`. No "Descartar y robar otra" for it
+- [ ] **Decide:** "if there are no tanks in your army, get another Direct from HQ". (a) A Refuel played when the side has no armour left on the board gives a Direct from HQ instead of Armor Assault. It also comes from outside the deck and leaves the game once played, so the deck keeps its size (proposal). (b) A side with no armour in the scenario gets one more Direct from HQ in its deck where Refuel would be (only infantry: Move Out 4, Direct from HQ 1)
+- [ ] **Decide:** a second Refuel while Armor Assault is still in the hand (possible after a reshuffle): the side draws from the deck as usual (proposal)
+- [ ] Final phase: Armor Assault flies into the hand from beside the piles (`CardPiles`), marked "Nueva". The deck visualizer shows it apart ("Solo con Repostaje"), with no chance of drawing it. Refuel's card art: its pictograms (1 order, supplies, a combat card, the Armor Assault card), and a painting when the player has one (`TACTIC_PAINTINGS`)
+- [ ] The same per side in pass and play. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
+
+### Step 60: Reinforcements without a roll
+- [ ] Reinforcements: in the final phase an infantry unit arrives on the cross, with no die. **Decide:** a whole infantry unit (proposal; in pass and play it arrives with its 6 figures), or one infantry figure added to a unit. The cost stays at 6 unless the player says otherwise
+- [ ] The roll goes: `rollReinforcements`, `ReinforcementRoll`, `reinforcementFace`, `reinforcementDue`, the "Tirar dado de refuerzos" button and its result in `EndOfTurnView`, the line in `HistoryDialog`, the table in Órdenes (`describeReinforcements`), and the die in the card's pictograms (cross → infantry). `placeReinforcement` stays, for a cross that's been taken
+- [ ] The scenario's table goes: `Scenario.reinforcements`, its check in `validateScenario`, `DEFAULT_REINFORCEMENTS` and `setReinforcement`, its section in "Datos del escenario", the tables in the four built-ins, and the open **Decide** in Step 42. Files that still have the field (Mis mapas on the tablets, exported maps) must keep loading: `parseScenario` accepts the field and drops it (today it refuses unknown fields, so a map would be lost), and the schema marks it as no longer used
+- [ ] Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
+
+### Step 61: The reaction cards go
+- [ ] Out of Ammo (Sin munición), Ambush (Emboscada), Pull Back (Repliegue), Out of Fuel (Sin combustible) and Shell Shortage (Escasez de proyectiles) leave `combatCards.ts`
+- [ ] Their code goes:
+  - Ambush: `AmbushDialog`, `ambushAt`, `ambushTargets`, `ambushUnits`, `undoAmbush`, `keepAmbushResults`, `AmbushShot`, the `ambush` effect, its line in the coins ledger, the save and the turn log, and pass and play's `ambush` and `pending.ambush`
+  - The blocking cards: pass and play's `BLOCKING_CARDS`, `cardInPlay`, `blockable`, `block`, `relocate` and `MatchBattle.relocate`; `GameSession.blockShot`, `blockUnit`, `baselineHexes` and `moveUnitTo` (unless something else uses them); `Shot.blocked` and "Bloqueado por el rival" in the Fire dialog
+  - Their glyphs in `CardArt`
+- [ ] The `enemyTanks` deck reason goes, since only Out of Fuel and Shell Shortage had it: `DeckReason`, the labels, its icon and `REASON_ORDER`
+- [ ] The combat deck sizes in `ScenarioDetails` follow on their own; the rule book's and house rules' card lists don't. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
+
+### Step 62: Combat cards are played with the orders
+- [ ] **Decide:** how many combat cards per turn. (a) Two, today's maximum: one order card (today's order cards) and one support card (today's battle cards, now played with the orders, and the two new ones), with a third slot in "Tu jugada" (proposal). (b) One card of either kind. (c) As many as the player can pay for
+- [ ] No more combat cards in the battle: `CombatPhase "battle"` becomes the support kind, and `playBattleCombatCard`, `undoBattleCombatCard` and `battleCombatCard` go (`pickCard` takes the cards played). Also gone: the cards in `BattleReserve` (the coins stay), the shared battle's battle cards, `handOrder`'s battle group, CardsView's "se juega en la batalla", and `CombatCardComponent`'s fire icon and accent. `unpickCard` gives back every combat card played with the command card
+- [ ] Cards given to a unit while ordering: `CombatCard.assign` (how many units, which types, ordered or any). An ordered unit takes the card with the "Usar …" toggle that the move cards already have (`Order.boosted` generalised to name the card it uses, so two cards can each be on a unit). A unit without an order (Personal Armor) is tapped on the orders map, like a marker. The orders can't be confirmed until the card is on its unit, as with markers
+- [ ] The unit carries the card as a badge on every map (Órdenes, Movimiento, the battle's thumbnails and `BattleMap`, pass and play's maps) and in its `FireOrderList` row; tapping the badge shows the card (`CardDialog`)
+- [ ] The first cards on it, the dice cards (`DiceBonusEffect` says whether it's for the card's unit or for every unit of its types, and it's no longer used up by the first shot):
+  - Street Fight becomes **Street Equipment** (Equipo urbano, a proposed name): given to 1 ordered infantry unit, +1 die when it fires from a town hex or a hex next to one. The app checks the hex, so the Fire dialog stops asking. **Decide:** checked on the hex it fires from (proposal), or the hex it started on
+  - Street Equipment's painting is ready: `npm run card-art -- images/street-equipment.png` makes `src/assets/cards/street-equipment.webp`, which goes into `COMBAT_PAINTINGS` in `CardArt.tsx` under the new id (`street-equipment`). And not a step back is also ready. And Camouflage is ready too.
+  - Explosives (Explosivos): given to 1 ordered infantry unit, +1 die on each of its close assaults this turn
+  - Spotter (Observador): every ordered artillery unit fires with +1 die this turn, on each shot (Artillery Bombardment's two included). The cost stays at 1. Confirming the orders warns when no artillery has an order (`needsOrdered`, checked then instead of in the battle)
+- [ ] The other former battle cards are played with the orders from this step on, and keep their table reminder until Steps 63–64 rework them
+- [ ] The turn log and History say which unit had which card. Test mode still has one of every card in hand. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
+
+### Step 63: Rifles Up! and Heat of Battle
+- [ ] Rifles Up! (¡Fusiles arriba!) costs 2: this turn, the side's infantry that moved fires with the units that didn't move (in `summarizeOrders`, and pass and play's groups in `battleTurn`). Its dice don't change: only when it fires does. The `firesFirst` effect kind goes; Behind Enemy Lines' `MoveEffect.firesFirst` stays
+- [ ] Heat of Battle (Fragor del combate): this turn, each close assault by the side's infantry rolls one more die, which is always a flag. It's a face added to the roll, not thrown: `DiceResult` shows that die already showing its flag, and `ShotSteps` shows the card's step. For limited damage it counts as a card's extra die (one more result kept). Cost 1, an attacker's card, as now
+- [ ] Infantry never overruns any more: the `takeGround` effect kind and the card branch of `canOverrun` go; armour still overruns. The rule book's taking ground and the battle's "Instrucciones" follow
+- [ ] **Decide:** pass and play's infantry push-back (`PUSH_BACK_UNIT_TYPES`: it moves into the hex its close assault made the enemy leave, but doesn't fire again) stays (proposal) or goes
+- [ ] **Decide:** Heat of Battle's flag on a collision roll by infantry too, since a collision counts as the unit's shot (proposal: yes)
+
+### Step 64: The defensive cards
+- [ ] Not One Step Back (Ni un paso atrás) costs 2: this turn all the side's infantry ignores every flag (shots, attack cards, collisions). On own tablets: a reminder in the battle's "Instrucciones" and in the final phase, since the opponent's flags are resolved at the table. In pass and play, `sufferHits` drops the flags on that side's infantry. A collision's bounce back isn't a flag, so it stays
+- [ ] Personal Armor (Blindaje personal): given to 1 infantry unit, ordered or not, at the start of the turn. This turn it ignores the first 2 infantry-symbol hits in total; grenades still hit. On own tablets: the badge and a reminder. In pass and play, `sufferHits` is told which hits are infantry symbols and grenades, and the unit's hits ignored so far this turn are saved
+- [ ] Camouflage (Camuflaje): given to 1 ordered infantry unit at the start of the turn, and it gets the camouflage token after the battle. **Decide:** what the token does, so pass and play can apply it. Proposal: as the official camouflage badge, the unit can only be fired at in close assault, and loses it when it moves or fires. On own tablets the enemy's camouflage can't be known, so the Fire dialog would ask, as with sandbags
+- [ ] Fortify (Fortificar), played with the orders: in the battle, each of the side's ordered infantry units that could still fire may fortify instead, putting sandbags on its hex and not firing. It's a 0-dice shot, like removing wire (`Shot.fortified`), and "Anular disparo" takes it back. Infantry only now (it was infantry or artillery). The final-phase placement (`fortifyDue`, `fortifiable`, the reminder) goes. On own tablets, a reminder to put the sandbags on the table. **Decide:** the sandbags count straight away, against the enemy's later shots in the battle (proposal), or only from the next turn
+- [ ] Reposition (Reposicionamiento): given to 1 ordered artillery unit at the start of the turn (it used to be all ordered artillery). After the battle it moves up to 2 hexes: on own tablets with the reminder and "Actualizar mapa" as now; in pass and play, check how the final phase lets it move, since `MapPreview` replaces "Actualizar mapa" there. **Decide:** ordered artillery only (proposal) or any
+- [ ] Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION` if the shape changes (Personal Armor's hits, Fortify's shot)
+
+### Step 65: Two new combat cards
+- [ ] **Decide** the names. Proposals: Fuego concentrado / Concentrated Fire, and Fuego de supresión / Suppressive Fire. Both cost 1, in every side's deck (`always`), each with its own glyph in `CardArt`
+- [ ] **Concentrated Fire:** this turn, units that didn't move and fire at the same enemy unit may roll together, one roll with all their dice
+  - In the Fire dialog (and the shared battle's side column), after the target, "Sumar unidad" adds another ordered unit that didn't move, has a shot left and can fire at that hex. Each unit adds the dice it would roll there (its own distance, terrain and cards), the dice are rolled once, and each unit has used its shot (the lead shot lists the others, whose shots point to it). "Anular disparo" takes back the whole roll
+  - The roll is read once against the target, so sandbags ignore 1 flag for the whole roll. In pass and play, limited damage adds up the units' limits, and the units fire in one go before the enemy answers
+  - Each unit rolls its own die (the battle die adjacent, the long-range die further away when it's on), all in the same roll
+  - **Decide:** any number of groups this turn (proposal), or one
+- [ ] **Suppressive Fire:** this turn the side's dice have one infantry side changed to a flag. The battle die becomes 1 infantry, tank, grenade, supply, 2 flags; the long-range die becomes 2 infantry, 2 tanks, 2 flags, 2 supplies
+  - New die kinds in `dice.ts` (`SIDES_OF`, `ShotTarget.die`), drawn in 3D and 2D: the faces already exist, only how many of each changes. `DicePool` and `DiceResult` show them
+  - **Decide:** it changes every shot by the side's ordered units this turn, but not collisions or attack cards (proposal), or the player picks per shot (a switch in the Fire dialog)
+
+### Step 66: Check and tidy
+- [ ] With "Modo prueba": a whole game on own tablets and a pass and play match using every changed card, at 1280×800 and 800×1280 with touch, in Spanish and English
+- [ ] Read through the rule book, `docs/house-rules.md` (no "battle combat cards" lists left, the new deck counts) and CLAUDE.md (no Ambush, blocking cards or battle cards; the cards given to a unit). Tick off the note on reaction cards in `docs/myNextPlan.md`
+- [ ] Card art: Refuel's painting (the player's image, through `npm run card-art`), and the pictograms of the reworked cards (Spotter on all artillery, Personal Armor's 2, Not One Step Back on all infantry). Street Equipment already has its painting from Step 62
+
 ## Part G: Carried over from the first plan (postponed)
 
 - New unit types: mobile artillery, jeep, half-track (old Step 29)

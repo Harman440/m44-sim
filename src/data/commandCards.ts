@@ -1,7 +1,7 @@
 // data/commandCards.ts
 // The house command-card decks (docs/house-rules.md, "Command cards database",
-// and the smaller deck of Step 44). Each side gets 25 cards: 21 shared by every
-// side, plus 4 that depend on the unit types it has in the scenario
+// and the smaller deck of Steps 44 and 58). Each side gets 24 cards: 19 shared by
+// every side, plus 5 that depend on the unit types it has in the scenario
 // (`commandDeckFor`). The counts are meant to be tuned here. Names are the
 // official Spanish edition's where we found them (Overlord supplement, Days of Wonder),
 // and the official English edition's in English.
@@ -66,15 +66,14 @@ const ON_THE_MOVE: Localized = {
 
 /** The cards every side gets */
 const sharedTemplates: CardTemplate[] = [
-  // --- Section cards (16)
-  ...perSection('probe', { es: 'Batida', en: 'Probe' }, [2, 2, 2], (where) => ({
+  // --- Section cards (14)
+  ...perSection('probe', { es: 'Batida', en: 'Probe' }, [1, 1, 1], (where) => ({
     description: {
-      es: `Da órdenes a 2 unidades ${where.es}. ${ON_THE_MOVE.es} En la fase final, roba 2 cartas y quédate con 1.`,
-      en: `Order 2 units ${where.en}. ${ON_THE_MOVE.en} In the final phase, draw 2 cards and keep 1.`,
+      es: `Da órdenes a 2 unidades ${where.es}. ${ON_THE_MOVE.es}`,
+      en: `Order 2 units ${where.en}. ${ON_THE_MOVE.en}`,
     },
     orders: 2,
     onTheMove: 1,
-    drawChoice: 2,
   })),
   ...perSection('attack', { es: 'Ataque', en: 'Attack' }, [1, 1, 1], (where) => ({
     description: { es: `Da órdenes a 3 unidades ${where.es}.`, en: `Order 3 units ${where.en}.` },
@@ -95,7 +94,7 @@ const sharedTemplates: CardTemplate[] = [
     },
   },
   {
-    count: 2,
+    count: 3,
     props: {
       id: 'general-advance',
       name: { es: 'Avance General', en: 'General Advance' },
@@ -205,15 +204,16 @@ const sharedTemplates: CardTemplate[] = [
       id: 'preparations',
       name: { es: 'Preparativos', en: 'Preparations' },
       summary: {
-        es: '1 orden. Al final: 3 suministros y 1 carta de combate.',
-        en: '1 order. At the end: 3 supplies and 1 combat card.',
+        es: '1 orden. Al final: 3 suministros, 1 de combate, roba 2 y quédate 1.',
+        en: '1 order. At the end: 3 supplies, 1 combat card, draw 2, keep 1.',
       },
       description: {
-        es: 'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas.',
-        en: 'Order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing between them.',
+        es: 'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas, y robas 2 cartas de mando y te quedas con 1.',
+        en: 'Order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing between them, and you draw 2 command cards and keep 1.',
       },
       tactic: true,
       orders: 1,
+      drawChoice: 2,
       endOfTurnReward: { coins: 3, combatCard: true },
     },
   },
@@ -272,18 +272,23 @@ const directFromHq: CommandCardProps & { id: string } = {
 };
 
 /**
- * The 4 unit-type cards for a side with (or without) tanks and artillery. Infantry
+ * The 5 unit-type cards for a side with (or without) tanks and artillery. Infantry
  * isn't checked: a side without it gets the set for its armour and artillery
  */
 const unitTemplates = (tanks: boolean, artillery: boolean): CardTemplate[] => {
   if (tanks && artillery) {
-    return [moveOut, armorAssault, artilleryBombardment, directFromHq].map((props) => ({ count: 1, props }));
+    return [
+      { count: 2, props: moveOut },
+      { count: 1, props: armorAssault },
+      { count: 1, props: artilleryBombardment },
+      { count: 1, props: directFromHq },
+    ];
   }
-  if (tanks) return [{ count: 1, props: moveOut }, { count: 1, props: armorAssault }, { count: 2, props: directFromHq }];
+  if (tanks) return [{ count: 2, props: moveOut }, { count: 1, props: armorAssault }, { count: 2, props: directFromHq }];
   if (artillery) {
-    return [{ count: 1, props: moveOut }, { count: 1, props: artilleryBombardment }, { count: 2, props: directFromHq }];
+    return [{ count: 2, props: moveOut }, { count: 1, props: artilleryBombardment }, { count: 2, props: directFromHq }];
   }
-  return [{ count: 4, props: moveOut }];
+  return [{ count: 5, props: moveOut }];
 };
 
 const buildDeck = (templates: CardTemplate[]): CommandCard[] =>
@@ -297,7 +302,7 @@ export const hasUnits = (scenario: Scenario, faction: Faction, type: UnitType): 
   (scenario.units[faction === 'Axis' ? 'axis' : 'allies'][type]?.length ?? 0) > 0 ||
   (scenario.paradrop?.faction === faction && scenario.paradrop.unitType === type);
 
-/** A side's 25-card command deck: the shared cards plus 4 for the unit types it has */
+/** A side's 24-card command deck: the shared cards plus 5 for the unit types it has */
 export function commandDeckFor(scenario: Scenario, faction: Faction): CommandCard[] {
   return buildDeck([
     ...sharedTemplates,

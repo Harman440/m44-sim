@@ -10,6 +10,9 @@ import { Faction } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
+import { FIGURES } from "../data/figures";
+
+const INFANTRY_FIGURES = FIGURES[UnitType.INFANTRY].figures;
 
 // The Axis attacks. In the Allies' view: Allied infantry (4,2) and tank (6,2);
 // Axis infantry (4,3), next to it, and tank (2,4)
@@ -108,7 +111,7 @@ describe("combat cards in the shared battle", () => {
     expect(match.rollAttacks("Axis")).toBe(false);
     expect(match.rollAttacks("Allies")).toBe(true);
     // Barrage rolls 4 dice on the hex: 4 hits on the Axis infantry
-    expect(match.sessions.Axis.figuresAt(axisView(4, 3))).toBe(3);
+    expect(match.sessions.Axis.figuresAt(axisView(4, 3))).toBe(INFANTRY_FIGURES - 4);
     expect(match.getSnapshot().battle).toMatchObject({ attacks: [], side: "Axis" });
   });
 
@@ -136,7 +139,7 @@ describe("combat cards in the shared battle", () => {
     expect(match.ambush({ row: 4, col: 2 }, { row: 2, col: 4 })).toBe(false); // not adjacent
     expect(match.ambush({ row: 4, col: 2 }, { row: 4, col: 3 })).toBe(true);
     // 3 close assault dice, all hits on the Axis infantry
-    expect(match.sessions.Axis.figuresAt(axisView(4, 3))).toBe(4);
+    expect(match.sessions.Axis.figuresAt(axisView(4, 3))).toBe(INFANTRY_FIGURES - 3);
     expect(match.getSnapshot().battle).toMatchObject({ card: null, pending: null });
     expect(match.ambush({ row: 4, col: 2 }, { row: 4, col: 3 })).toBe(false); // once
   });

@@ -307,24 +307,24 @@ describe("OrdersView orders paid in coins", () => {
     return { session, tap };
   };
 
-  it("buys an extra order for any unit with 4 coins", () => {
-    const { session, tap } = withCoins(4, { sections: [Side.LEFT], orders: 1 });
+  it("buys an extra order for any unit, 3 coins for infantry", () => {
+    const { session, tap } = withCoins(3, { sections: [Side.LEFT], orders: 1 });
 
-    fireEvent.click(screen.getByRole("button", { name: "Orden extra (4 suministros)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Orden extra (3–4 suministros)" }));
     expect(screen.getByText(/toca cualquier unidad sin orden/)).toBeInTheDocument();
     tap(RIGHT);
-    expect(screen.getByText("Orden extra: cuesta 4 suministros")).toBeInTheDocument();
+    expect(screen.getByText("Orden extra: cuesta 3 suministros")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
 
-    expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 4 });
+    expect(session.getSnapshot().orders[0]).toMatchObject({ extra: true, cost: 3 });
     expect(session.getSnapshot().coins).toBe(0);
-    expect(screen.queryByRole("button", { name: "Orden extra (4 suministros)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Orden extra (3–4 suministros)" })).not.toBeInTheDocument();
   });
 
-  it("hides the extra order without 4 coins", () => {
-    withCoins(3, { sections: [Side.LEFT], orders: 1 });
+  it("hides the extra order without the coins for any unit", () => {
+    withCoins(2, { sections: [Side.LEFT], orders: 1 });
 
-    expect(screen.queryByRole("button", { name: "Orden extra (4 suministros)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Orden extra (3–4 suministros)" })).not.toBeInTheDocument();
   });
 
   it("lets a card paid in coins be confirmed with the orders the player wants to pay", () => {

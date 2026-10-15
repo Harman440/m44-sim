@@ -246,6 +246,32 @@ describe("EndOfTurnView after a special card", () => {
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
   });
 
+  it("gives Preparations its supplies and combat card, and 2 command cards to keep 1", async () => {
+    const session = finalAfter(
+      new CommandCard({
+        id: "preparations",
+        name: same("Preparativos"),
+        orders: 1,
+        drawChoice: 2,
+        endOfTurnReward: { coins: 3, combatCard: true },
+      }),
+      2
+    );
+
+    expect(screen.getByTestId("end-of-turn-reward")).toHaveTextContent("+3 suministros y una carta de combate.");
+    expect(session.getSnapshot().coins).toBe(3);
+    expect(screen.getAllByRole("button", { name: /^Elegir / })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Elegir Y" }));
+    expect(session.getSnapshot().hand.map((c) => c.name.es)).toEqual(["Y"]);
+    await landed();
+    fireEvent.click(screen.getByRole("button", { name: "Robar carta de combate" }));
+    await landed();
+
+    expect(session.getSnapshot().combatHand).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
+  });
+
   it("switches between 2 supplies and a combat card freely, and takes the supplies with Confirmar", async () => {
     const session = finalAfter(new CommandCard({ id: "plain", name: same("Ataque"), orders: 1 }), 2);
     const coins = screen.getByRole("button", { name: /2 suministros/ });

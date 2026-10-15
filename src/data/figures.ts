@@ -6,7 +6,7 @@ import { UnitType } from "../game-core/unit";
  * in all); a destroyed artillery leaves its crew behind, `ARTILLERY_CREW_FIGURES` infantry figures
  */
 export const FIGURES: Record<UnitType, { figures: number; hitsPerFigure: number }> = {
-  [UnitType.INFANTRY]: { figures: 7, hitsPerFigure: 1 },
+  [UnitType.INFANTRY]: { figures: 6, hitsPerFigure: 1 },
   [UnitType.TANK]: { figures: 3, hitsPerFigure: 2 },
   [UnitType.ARTILLERY]: { figures: 3, hitsPerFigure: 1 },
 };

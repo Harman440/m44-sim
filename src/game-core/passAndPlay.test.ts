@@ -4,6 +4,7 @@ import PassAndPlayMatch, { armyOf, otherSide } from "./passAndPlay";
 import { SavedGame } from "./saveGame";
 import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
+import { FIGURES } from "../data/figures";
 import { turnedRound } from "./BoardManager";
 import { readRoll } from "./rollResult";
 import { Faction } from "../types/faction";
@@ -12,6 +13,8 @@ import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
 import { samePosition } from "./position";
 import { Side } from "../types/hex";
+
+const INFANTRY_FIGURES = FIGURES[UnitType.INFANTRY].figures;
 
 // Axis attacks: it plays turn 1 alone
 const scenario: Scenario = {
@@ -193,7 +196,7 @@ describe("PassAndPlayMatch", () => {
 
     expect(match.opponentOf("Allies")).toMatchObject({
       faction: "Axis",
-      units: [{ position: from, unit: expect.anything(), figures: 7, retreats: 0, damaged: false }],
+      units: [{ position: from, unit: expect.anything(), figures: INFANTRY_FIGURES, retreats: 0, damaged: false }],
       orders: [],
     });
 
@@ -264,9 +267,9 @@ describe("PassAndPlayMatch", () => {
     // Without a flag the Axis unit goes back the hex it came from (bounceBack)
     const stays = retreats > 0 ? { row: 4, col: 3 } : { row: 4, col: 4 };
     expect(axis.getSnapshot().strength).toEqual([
-      { position: turnedRound(stays), figures: 7 - hits, retreats, damaged: false, hitThisTurn: hits },
+      { position: turnedRound(stays), figures: INFANTRY_FIGURES - hits, retreats, damaged: false, hitThisTurn: hits },
     ]);
-    expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7);
+    expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES);
     expect(match.finishReveal()).toBe(true);
   });
 
@@ -315,7 +318,7 @@ describe("PassAndPlayMatch", () => {
     const side = (faction: Faction) =>
       new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 0 });
     const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
-    match.sessions.Allies.sufferHits({ row: 4, col: 2 }, 6, 0); // 1 figure left
+    match.sessions.Allies.sufferHits({ row: 4, col: 2 }, INFANTRY_FIGURES - 1, 0); // 1 figure left
 
     match.uncover();
     const axis = match.activeSession();
@@ -335,7 +338,7 @@ describe("PassAndPlayMatch", () => {
     expect(match.getSnapshot().movement!.collisions[0]!.units[1].mustChoose).toBe(false);
     expect(match.applyCollision(0)).toBe(true);
     // No flag: the Axis unit went back the hex it came from
-    expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }))).toBe(6);
+    expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }))).toBe(INFANTRY_FIGURES - 1);
     expect(match.finishReveal()).toBe(true);
   });
 
@@ -386,7 +389,7 @@ describe("PassAndPlayMatch", () => {
       expect(match.fire(infantry, axisView(4, 3))).toBe(false); // no enemy there
       expect(match.fire(infantry, axisView(4, 2))).toBe(true);
       // 2 dice at 2 hexes, both infantry: 2 hits on the Allied infantry
-      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(5);
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES - 2);
       expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null, fireable: [1 - infantry] });
       expect(match.fire(infantry, axisView(4, 2))).toBe(false); // it has fired
 
@@ -433,7 +436,7 @@ describe("PassAndPlayMatch", () => {
       expect(match.pass()).toBe(true);
       finishTurn(match); // the Allies' turn 2 ends
       expect(hit().hitThisTurn).toBe(0);
-      expect(hit().figures).toBe(5);
+      expect(hit().figures).toBe(INFANTRY_FIGURES - 2);
     });
 
     it("alternates the sides, the attacker first", () => {
@@ -464,21 +467,21 @@ describe("PassAndPlayMatch", () => {
 
     it("waits for the player of a unit with fewer figures than results to pick them", () => {
       const match = battleMatch();
-      match.sessions.Axis.sufferHits(axisView(4, 4), 6, 0); // 1 figure left
+      match.sessions.Axis.sufferHits(axisView(4, 4), INFANTRY_FIGURES - 1, 0); // 1 figure left
       allHold(match);
       const axis = match.sessions.Axis;
       const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
 
       expect(match.fire(infantry, axisView(4, 2))).toBe(true);
       expect(match.getSnapshot().battle!.pending).toMatchObject({ side: "Axis", limit: 1, mustChoose: true });
-      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7); // nothing dealt yet
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES); // nothing dealt yet
       expect(match.applyShot()).toBe(false);
       expect(match.endBattle()).toBe(false);
       expect(match.getSnapshot().battle).toMatchObject({ side: null, fireable: [] });
 
       expect(match.keepShotResults([1])).toBe(true);
       expect(match.applyShot()).toBe(true);
-      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(6);
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES - 1);
       expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null });
     });
 
@@ -505,7 +508,7 @@ describe("PassAndPlayMatch", () => {
 
       // Nothing left to retreat: the final phase, behind the cover screen
       expect(match.getSnapshot()).toMatchObject({ battle: null, covered: true, active: "Axis" });
-      expect(match.sessions.Allies.figuresAt({ row: 6, col: second.options[0]!.col })).toBe(7);
+      expect(match.sessions.Allies.figuresAt({ row: 6, col: second.options[0]!.col })).toBe(INFANTRY_FIGURES);
     });
 
     it("lets armour take ground after a close assault: the enemy retreats at once and it fires again", () => {

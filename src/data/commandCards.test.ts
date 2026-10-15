@@ -21,12 +21,12 @@ const countsById = (scenario: Scenario) => {
 };
 
 describe("command card data", () => {
-  it("gives every side of every scenario 25 cards with unique ids (they are used as React keys)", () => {
+  it("gives every side of every scenario 24 cards with unique ids (they are used as React keys)", () => {
     scenarios.forEach((scenario) =>
       (["Allies", "Axis"] as const).forEach((faction) => {
         const ids = commandDeckFor(scenario, faction).map((card) => card.id);
-        expect(ids).toHaveLength(25);
-        expect(new Set(ids).size).toBe(25);
+        expect(ids).toHaveLength(24);
+        expect(new Set(ids).size).toBe(24);
       })
     );
   });
@@ -37,32 +37,34 @@ describe("command card data", () => {
     expect(counts).toMatchObject({
       "assault-left": 1, "assault-center": 1, "assault-right": 1,
       "attack-left": 1, "attack-center": 1, "attack-right": 1,
-      "probe-left": 2, "probe-center": 2, "probe-right": 2,
-      "recon-in-force": 1, "general-advance": 2, pincer: 1,
+      "probe-left": 1, "probe-center": 1, "probe-right": 1,
+      "recon-in-force": 1, "general-advance": 3, pincer: 1,
       preparations: 1, "finest-hour": 1, "infantry-assault": 1, "close-assault": 1, firefight: 1,
     });
     expect(Object.keys(counts).some((id) => id.startsWith("recon-") && id !== "recon-in-force")).toBe(false);
   });
 
-  it("lets Probe choose 1 of 2 cards in the final phase", () => {
-    const probe = commandDeckFor(base, "Allies").find((card) => card.id === "probe-left-1")!;
+  it("lets only Preparations choose 1 of 2 cards in the final phase", () => {
+    const deck = commandDeckFor(base, "Allies");
+    const preparations = deck.find((card) => card.id === "preparations-1")!;
 
-    expect(probe.drawChoice).toBe(2);
-    expect(commandDeckFor(base, "Allies").filter((card) => card.drawChoice > 1).every((card) => card.id.startsWith("probe"))).toBe(true);
+    expect(preparations.drawChoice).toBe(2);
+    expect(preparations.endOfTurnReward).toEqual({ coins: 3, combatCard: true });
+    expect(deck.filter((card) => card.drawChoice > 1).map((card) => card.id)).toEqual(["preparations-1"]);
   });
 
   it.each([
-    [[UnitType.INFANTRY], { "move-out": 4 }],
-    [[UnitType.INFANTRY, UnitType.TANK], { "move-out": 1, "armor-assault": 1, "direct-from-hq": 2 }],
-    [[UnitType.INFANTRY, UnitType.ARTILLERY], { "move-out": 1, "artillery-bombardment": 1, "direct-from-hq": 2 }],
+    [[UnitType.INFANTRY], { "move-out": 5 }],
+    [[UnitType.INFANTRY, UnitType.TANK], { "move-out": 2, "armor-assault": 1, "direct-from-hq": 2 }],
+    [[UnitType.INFANTRY, UnitType.ARTILLERY], { "move-out": 2, "artillery-bombardment": 1, "direct-from-hq": 2 }],
     [
       [UnitType.INFANTRY, UnitType.TANK, UnitType.ARTILLERY],
-      { "move-out": 1, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 },
+      { "move-out": 2, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 },
     ],
     // Without infantry, the set still follows the armour and artillery
-    [[UnitType.TANK], { "move-out": 1, "armor-assault": 1, "direct-from-hq": 2 }],
-    [[UnitType.ARTILLERY], { "move-out": 1, "artillery-bombardment": 1, "direct-from-hq": 2 }],
-    [[UnitType.TANK, UnitType.ARTILLERY], { "move-out": 1, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 }],
+    [[UnitType.TANK], { "move-out": 2, "armor-assault": 1, "direct-from-hq": 2 }],
+    [[UnitType.ARTILLERY], { "move-out": 2, "artillery-bombardment": 1, "direct-from-hq": 2 }],
+    [[UnitType.TANK, UnitType.ARTILLERY], { "move-out": 2, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 }],
   ])("adds the unit-type cards for %j", (types, expected) => {
     const counts = countsById(withAlliedUnits(types));
     const unitCards = ["move-out", "armor-assault", "artillery-bombardment", "direct-from-hq"];

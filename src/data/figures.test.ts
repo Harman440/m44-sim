@@ -3,8 +3,8 @@ import { figuresLeft, hitsToDestroy, resultLimit } from "./figures";
 import { UnitType } from "../game-core/unit";
 
 describe("figures", () => {
-  it("takes 7 hits to destroy infantry, 6 armour (2 a figure) and 3 artillery", () => {
-    expect(hitsToDestroy(UnitType.INFANTRY)).toBe(7);
+  it("takes 6 hits to destroy infantry, 6 armour (2 a figure) and 3 artillery", () => {
+    expect(hitsToDestroy(UnitType.INFANTRY)).toBe(6);
     expect(hitsToDestroy(UnitType.TANK)).toBe(6);
     expect(hitsToDestroy(UnitType.ARTILLERY)).toBe(3);
   });
@@ -15,7 +15,7 @@ describe("figures", () => {
     expect(figuresLeft(UnitType.TANK, 2)).toBe(2);
     expect(figuresLeft(UnitType.TANK, 5)).toBe(1);
     expect(figuresLeft(UnitType.TANK, 9)).toBe(0);
-    expect(figuresLeft(UnitType.INFANTRY, 5)).toBe(2);
+    expect(figuresLeft(UnitType.INFANTRY, 5)).toBe(1);
   });
 
   it("applies as many results as figures, one more with a card's extra dice", () => {

@@ -13,6 +13,9 @@ import { UnitType } from "../game-core/unit";
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
 const artillery = FIGURES[UnitType.ARTILLERY];
+const EXTRA_INFANTRY = EXTRA_ORDER_COST[UnitType.INFANTRY];
+// The texts give tanks and artillery one cost (ruleBook.test.ts checks they're the same)
+const EXTRA_ARMOUR = EXTRA_ORDER_COST[UnitType.TANK];
 
 export type TutorialStepId = "setup" | "turn" | "card" | "orders" | "movement" | "battle" | "final" | "tips";
 
@@ -116,8 +119,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Tap a highlighted unit, then the hex it goes to, or hold it where it is. The map shows where it can still fire from.",
       },
       {
-        es: `Una orden extra cuesta ${EXTRA_ORDER_COST} suministros: cualquier unidad, sin las ventajas de la carta.`,
-        en: `An extra order costs ${EXTRA_ORDER_COST} supplies: any unit, without the card's benefits.`,
+        es: `Una orden extra cuesta ${EXTRA_INFANTRY} suministros por una infantería y ${EXTRA_ARMOUR} por un tanque o una artillería: cualquier unidad, sin las ventajas de la carta.`,
+        en: `An extra order costs ${EXTRA_INFANTRY} supplies for infantry and ${EXTRA_ARMOUR} for a tank or artillery: any unit, without the card's benefits.`,
       },
       {
         es: "Si la carta de combate marca casillas (Cortina de Fuego, Refuerzos…), márcalas en el mapa.",
@@ -351,8 +354,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "One 60-card deck shared by both players.",
         },
         house: {
-          es: "Cada bando tiene su mazo de 25 cartas: 21 comunes y 4 según sus unidades. No hay Reconocimiento ni Contraataque. Emboscada, Cortina de Fuego, Poder aéreo y Tras las líneas enemigas pasan a ser cartas de combate; Médicos y Mecánicos se divide en Médico y Mecánico, y Atrincherarse pasa a ser Fortificar.",
-          en: "Each side has its own 25-card deck: 21 shared cards and 4 by its units. There's no Recon or Counter-Attack. Ambush, Barrage, Air Power and Behind Enemy Lines become combat cards; Medics & Mechanics splits into Medic and Mechanic, and Dig-In becomes Fortify.",
+          es: "Cada bando tiene su mazo de 24 cartas: 19 comunes y 5 según sus unidades. No hay Reconocimiento ni Contraataque. Emboscada, Cortina de Fuego, Poder aéreo y Tras las líneas enemigas pasan a ser cartas de combate; Médicos y Mecánicos se divide en Médico y Mecánico, y Atrincherarse pasa a ser Fortificar.",
+          en: "Each side has its own 24-card deck: 19 shared cards and 5 by its units. There's no Recon or Counter-Attack. Ambush, Barrage, Air Power and Behind Enemy Lines become combat cards; Medics & Mechanics splits into Medic and Mechanic, and Dig-In becomes Fortify.",
         },
       },
       {
@@ -370,8 +373,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         title: { es: "Batida", en: "Probe" },
         official: { es: "Órdenes a 2 unidades de la sección.", en: "Order 2 units in the section." },
         house: {
-          es: "Órdenes a 2 unidades de la sección y, además, 1 unidad en cualquier lugar se mueve sin disparar. En la fase final robas 2 cartas y te quedas 1.",
-          en: "Order 2 units in the section, and 1 more unit anywhere may move but not fire. In the final phase you draw 2 cards and keep 1.",
+          es: "Órdenes a 2 unidades de la sección y, además, 1 unidad en cualquier lugar se mueve sin disparar. Solo 1 por sección en el mazo.",
+          en: "Order 2 units in the section, and 1 more unit anywhere may move but not fire. Only 1 per section in the deck.",
         },
       },
       {
@@ -410,8 +413,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Preparativos", en: "Preparations" },
         house: {
-          es: "Una carta táctica nueva: orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir.",
-          en: "A new tactic card: order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing.",
+          es: "Una carta táctica nueva: orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir, y robas 2 cartas de mando y te quedas 1.",
+          en: "A new tactic card: order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing, and you draw 2 command cards and keep 1.",
         },
       },
     ],
@@ -430,8 +433,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Órdenes extra", en: "Extra orders" },
         house: {
-          es: `Por ${EXTRA_ORDER_COST} suministros das una orden a cualquier unidad, en cualquier sección, sin las ventajas de la carta de mando. Tantas como puedas pagar.`,
-          en: `For ${EXTRA_ORDER_COST} supplies you order any unit, in any section, without the command card's benefits. As many as you can pay for.`,
+          es: `Por ${EXTRA_INFANTRY} suministros (infantería) o ${EXTRA_ARMOUR} (tanque o artillería) das una orden a cualquier unidad, en cualquier sección, sin las ventajas de la carta de mando. Tantas como puedas pagar.`,
+          en: `For ${EXTRA_INFANTRY} supplies (infantry) or ${EXTRA_ARMOUR} (tank or artillery) you order any unit, in any section, without the command card's benefits. As many as you can pay for.`,
         },
       },
       {

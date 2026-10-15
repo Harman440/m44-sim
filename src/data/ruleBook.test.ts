@@ -36,7 +36,8 @@ describe("rule book", () => {
 
   it("takes its numbers from the rules' data", () => {
     const rule = (title: string) => HOUSE_RULES.flatMap((group) => group.rules).find((r) => r.title.en === title)!;
-    expect(rule("Extra orders").house.es).toContain(`Por ${EXTRA_ORDER_COST} suministros`);
+    expect(rule("Extra orders").house.es).toContain(`Por ${EXTRA_ORDER_COST[UnitType.INFANTRY]} suministros (infantería)`);
+    expect(EXTRA_ORDER_COST[UnitType.ARTILLERY]).toBe(EXTRA_ORDER_COST[UnitType.TANK]);
     expect(rule("Supplies").house.en).toContain(`pick ${END_OF_TURN_COINS} supplies`);
     expect(rule("Combat cards").house.en).toContain(`start with ${STARTING_COMBAT_CARDS} and hold ${MAX_COMBAT_HAND} at most`);
     const figures = FIGURES[UnitType.INFANTRY].figures;

@@ -36,7 +36,8 @@ import "./PhaseLayout.css";
 
 const TEXT = defineMessages({
   es: {
-    extraOrderCoins: (cost: number) => `Orden extra (${cost} suministros)`,
+    extraOrderCoins: (coins: string) => `Orden extra (${coins})`,
+    coinRange: (min: number, max: number) => `${min}–${max} suministros`,
     onTheMove: "En movimiento (no dispara)",
     sectionOrder: (section: string) => `Orden del ${section}`,
     cardOrder: "Orden de la carta",
@@ -54,8 +55,8 @@ const TEXT = defineMessages({
     promptTapUnit: "Toca una unidad resaltada",
     helpMark: (rule: string, n: number) => `${rule} Faltan ${n}.`,
     helpExtraSelected: "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción.",
-    helpExtra: (cost: number) =>
-      `Orden extra (${cost} suministros): toca cualquier unidad sin orden. No tiene las ventajas de la carta.`,
+    helpExtra: (costs: string) =>
+      `Orden extra (suministros: ${costs}): toca cualquier unidad sin orden. No tiene las ventajas de la carta.`,
     helpPaid: (costs: string) =>
       `Cada orden de la carta cuesta suministros (${costs}): da las que quieras pagar y confirma.`,
     helpCantAfford: "No te llega para más órdenes de la carta: confirma las órdenes o deshaz la última.",
@@ -78,7 +79,7 @@ const TEXT = defineMessages({
     ordersLeft: (n: number) => `Órdenes restantes: ${n}`,
     selectedUnit: "Unidad seleccionada",
     hedgerowExit: ". Al salir de un seto solo avanza 1 casilla",
-    extraOrderHelp: (cost: number) => `Orden extra: cuesta ${cost} suministros y no tiene las ventajas de la carta.`,
+    extraOrderHelp: (coins: string) => `Orden extra: cuesta ${coins} y no tiene las ventajas de la carta.`,
     extraOrderCost: (coins: string) => `Orden extra: cuesta ${coins}`,
     hasSandbags: "Tiene sacos terreros: si se mueve, los pierde.",
     orderCosts: (coins: string) => `Esta orden cuesta ${coins}`,
@@ -95,7 +96,8 @@ const TEXT = defineMessages({
     instructions: "Instrucciones",
     howToOrderText:
       "Las casillas resaltadas son adonde puede ir la unidad; la leyenda dice en cuáles aún podrá disparar. Tocar otra vez la unidad la deselecciona. «Volver» deshace la última orden.",
-    extraOrderRule: (coins: string) => `Una orden extra cuesta ${coins} y no tiene las ventajas de la carta.`,
+    extraOrderRule: (costs: string) =>
+      `Una orden extra cuesta suministros según la unidad (${costs}) y no tiene las ventajas de la carta.`,
     updateMap: "Actualizar mapa",
     leftSandbags: "La unidad deja sus sacos terreros: quítalos de la mesa al moverla.",
     leftSandbagsShared: "La unidad deja sus sacos terreros al moverse.",
@@ -104,7 +106,8 @@ const TEXT = defineMessages({
       "Solo si el mapa no coincide con la mesa: por ejemplo, si se cambió una tirada o falta una retirada del turno anterior. Se puede hacer mientras no hayas dado ninguna orden.",
   },
   en: {
-    extraOrderCoins: (cost: number) => `Extra order (${cost} supplies)`,
+    extraOrderCoins: (coins: string) => `Extra order (${coins})`,
+    coinRange: (min: number, max: number) => `${min}–${max} supplies`,
     onTheMove: "On the move (doesn't fire)",
     sectionOrder: (section: string) => `${section} order`,
     cardOrder: "The card's order",
@@ -122,8 +125,8 @@ const TEXT = defineMessages({
     promptTapUnit: "Tap a highlighted unit",
     helpMark: (rule: string, n: number) => `${rule} ${n} left.`,
     helpExtraSelected: "Extra order: tap a highlighted hex to move the unit, or pick an action.",
-    helpExtra: (cost: number) =>
-      `Extra order (${cost} supplies): tap any unit without an order. It doesn't get the card's advantages.`,
+    helpExtra: (costs: string) =>
+      `Extra order (supplies: ${costs}): tap any unit without an order. It doesn't get the card's advantages.`,
     helpPaid: (costs: string) =>
       `Each of the card's orders costs supplies (${costs}): give the ones you want to pay for and confirm.`,
     helpCantAfford: "You can't afford more of the card's orders: confirm the orders or undo the last one.",
@@ -146,7 +149,7 @@ const TEXT = defineMessages({
     ordersLeft: (n: number) => `Orders left: ${n}`,
     selectedUnit: "Selected unit",
     hedgerowExit: ". Leaving a hedgerow it only moves 1 hex",
-    extraOrderHelp: (cost: number) => `Extra order: costs ${cost} supplies and doesn't get the card's advantages.`,
+    extraOrderHelp: (coins: string) => `Extra order: costs ${coins} and doesn't get the card's advantages.`,
     extraOrderCost: (coins: string) => `Extra order: costs ${coins}`,
     hasSandbags: "It has sandbags: if it moves, it loses them.",
     orderCosts: (coins: string) => `This order costs ${coins}`,
@@ -163,7 +166,8 @@ const TEXT = defineMessages({
     instructions: "Instructions",
     howToOrderText:
       "The highlighted hexes are where the unit can go; the legend says from which ones it can still fire. Tapping the unit again deselects it. “Back” undoes the last order.",
-    extraOrderRule: (coins: string) => `An extra order costs ${coins} and doesn't get the card's advantages.`,
+    extraOrderRule: (costs: string) =>
+      `An extra order costs supplies by the unit (${costs}) and doesn't get the card's advantages.`,
     updateMap: "Update map",
     leftSandbags: "The unit leaves its sandbags behind: take them off the table when you move it.",
     leftSandbagsShared: "The unit leaves its sandbags behind when it moves.",
@@ -191,21 +195,34 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-/** What an order slot means, for picking one */
-const slotLabel = (slot: OrderSlot, t: Text, labels: Labels) => {
-  if (slot.extra) return t.extraOrderCoins(EXTRA_ORDER_COST);
+/** What an order slot means, for picking one; `unitType`: the unit taking it */
+const slotLabel = (slot: OrderSlot, unitType: UnitType, t: Text, labels: Labels) => {
+  if (slot.extra) return t.extraOrderCoins(labels.coins(EXTRA_ORDER_COST[unitType]));
   if (slot.onTheMove) return t.onTheMove;
   return slot.section ? t.sectionOrder(labels.sections[slot.section]) : t.cardOrder;
 };
 
 const slotKey = (slot: OrderSlot) => `${slot.section ?? "card"}-${slot.onTheMove}-${!!slot.extra}`;
 
-/** "infantería 1, tanque 2, artillería 2": what each of the card's orders costs */
-const describeCoinCost = (card: CommandCard, labels: Labels) =>
+/** "infantería 1, tanque 2, artillería 2": what each order costs, by unit type */
+const describeCosts = (costOf: (type: UnitType) => number, labels: Labels) =>
   Object.values(UnitType)
-    .filter((type) => card.coinCostOf(type) > 0)
-    .map((type) => `${labels.units[type].toLowerCase()} ${card.coinCostOf(type)}`)
+    .filter((type) => costOf(type) > 0)
+    .map((type) => `${labels.units[type].toLowerCase()} ${costOf(type)}`)
     .join(", ");
+
+const describeCoinCost = (card: CommandCard, labels: Labels) => describeCosts((type) => card.coinCostOf(type), labels);
+
+const describeExtraCosts = (labels: Labels) => describeCosts((type) => EXTRA_ORDER_COST[type], labels);
+
+const EXTRA_COSTS = Object.values(EXTRA_ORDER_COST);
+
+/** The extra order's button: its cost, or the range of costs */
+const extraOrderButton = (t: Text, labels: Labels) => {
+  const min = Math.min(...EXTRA_COSTS);
+  const max = Math.max(...EXTRA_COSTS);
+  return t.extraOrderCoins(min === max ? labels.coins(min) : t.coinRange(min, max));
+};
 
 /** The slot used when the player doesn't pick: the card's only order, else on the move; null when they must pick */
 function defaultSlot(slots: readonly OrderSlot[]): OrderSlot | null {
@@ -376,7 +393,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
       return t.helpMark(labels.describeMarkerRule(markerRule), markersLeft);
     }
     if (extraMode) {
-      return selectedHex ? t.helpExtraSelected : t.helpExtra(EXTRA_ORDER_COST);
+      return selectedHex ? t.helpExtraSelected : t.helpExtra(describeExtraCosts(labels));
     }
     if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
       return game.orderable.length > 0 ? t.helpPaid(describeCoinCost(game.activeCard!, labels)) : t.helpCantAfford;
@@ -522,7 +539,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                   )}
                   {slot?.extra && (
                     <Typography variant="body1">
-                      {t.extraOrderHelp(EXTRA_ORDER_COST)}
+                      {t.extraOrderHelp(labels.coins(EXTRA_ORDER_COST[selectedHex.unit!.getUnitType()]))}
                     </Typography>
                   )}
                 </Stack>
@@ -530,7 +547,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             </Stack>
             {slot?.extra && (
               <Typography variant="body2" color="warning.main">
-                {t.extraOrderCost(labels.coins(EXTRA_ORDER_COST))}
+                {t.extraOrderCost(labels.coins(EXTRA_ORDER_COST[selectedHex.unit!.getUnitType()]))}
               </Typography>
             )}
             {selectedHex.sandbags && (moveOptions?.moves.length ?? 0) > 0 && (
@@ -577,7 +594,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                 >
                   {moveOptions.slots.map((s) => (
                     <ToggleButton key={slotKey(s)} value={slotKey(s)} sx={{ minHeight: 48 }}>
-                      {slotLabel(s, t, labels)}
+                      {slotLabel(s, selectedHex.unit!.getUnitType(), t, labels)}
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
@@ -603,7 +620,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               startIcon={<GameIcon name={extraMode ? "cancel" : "coins"} />}
               aria-pressed={extraMode}
             >
-              {extraMode ? t.cancelExtra : t.extraOrderCoins(EXTRA_ORDER_COST)}
+              {extraMode ? t.cancelExtra : extraOrderButton(t, labels)}
             </Button>
           )}
           {orders.length > 0 && !unitHexPosition && (
@@ -632,7 +649,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               </Typography>
               {!game.extraTurn && (
                 <Typography variant="body1">
-                  {t.extraOrderRule(labels.coins(EXTRA_ORDER_COST))}
+                  {t.extraOrderRule(describeExtraCosts(labels))}
                 </Typography>
               )}
             </Stack>

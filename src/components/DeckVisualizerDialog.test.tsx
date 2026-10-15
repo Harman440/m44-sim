@@ -23,11 +23,11 @@ describe("DeckVisualizerDialog", () => {
   it("shows the command and combat cards with their copies", () => {
     renderDeck();
 
-    expect(screen.getByRole("heading", { name: "Cartas de sección (16)" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cartas tácticas (9)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cartas de sección (14)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cartas tácticas (10)" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^Cartas de combate \(\d+\)$/ })).toBeInTheDocument();
-    // Move Out: 4 of 25 in an infantry-only deck
-    expect(screen.getByLabelText("4 copias, 16 % de robarla")).toBeInTheDocument();
+    // Move Out: 5 of 24 in an infantry-only deck
+    expect(screen.getByLabelText("5 copias, 21 % de robarla")).toBeInTheDocument();
   });
 
   it("shows a card's full text when it is tapped", () => {

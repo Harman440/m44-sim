@@ -112,7 +112,7 @@ export function fallbackCard(card: CommandCard, board: BoardManager): CommandCar
 
 /** Coins an order in this slot costs */
 export function slotCost(card: CommandCard, unit: Unit, slot: OrderSlot): number {
-  if (slot.extra) return EXTRA_ORDER_COST;
+  if (slot.extra) return EXTRA_ORDER_COST[unit.getUnitType()];
   return slot.onTheMove ? 0 : card.coinCostOf(unit.getUnitType());
 }
 
@@ -143,7 +143,7 @@ export function orderSlots(context: OrderContext, unit: Unit, side: Side): Order
 
 /** The unit hasn't been ordered and the player has the coins for an extra order */
 export function canBuyExtraOrder(context: OrderContext, unit: Unit): boolean {
-  return !isOrdered(context, unit) && context.coins >= EXTRA_ORDER_COST;
+  return !isOrdered(context, unit) && context.coins >= EXTRA_ORDER_COST[unit.getUnitType()];
 }
 
 /** The positions of the units the card can still order */

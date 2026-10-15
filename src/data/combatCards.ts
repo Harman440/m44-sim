@@ -152,9 +152,9 @@ const TEMPLATES: CombatCardTemplate[] = [
         en: "Behind Enemy Lines: move the infantry up to 3 hexes now and mirror it in “Update map”.",
       },
     }),
-  order("motorized", { es: "Motorizado", en: "Motorized" }, 3, offensive,
-    { es: "3 unidades mueven 1 casilla más.", en: "3 units move 1 extra hex." },
-    { effect: { kind: "move", units: 3, moveBonus: 1 } }),
+  order("motorized", { es: "Motorizado", en: "Motorized" }, 2, offensive,
+    { es: "3 unidades de infantería mueven 1 casilla más.", en: "3 infantry units move 1 extra hex." },
+    { effect: { kind: "move", units: 3, unitTypes: [UnitType.INFANTRY], moveBonus: 1 } }),
   order("air-bombardment", { es: "Bombardeo aéreo", en: "Air Bombardment" }, 4, airCards,
     {
       es: "Elige 2 casillas que no estén junto a tus unidades: 2 dados de ataque (con una granada en lugar del suministro) en cada una si hay una unidad. Las banderas no se pueden ignorar.",
