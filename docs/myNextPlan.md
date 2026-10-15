@@ -8,8 +8,12 @@
 
 - Finish game with game summary
 
+- rework reinforcements card
+
+- More hexes, more map sizes
 
 - More maps, with a map reader to quicken things
+- PDF reader
 - More rules will appear with more maps
 
 - Tell AI to create a rule book for the game and a tutorial. a ver que tal
