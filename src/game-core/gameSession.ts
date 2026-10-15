@@ -1109,6 +1109,15 @@ class GameSession {
    * Pass and play: the match tells the session where the enemy units are. Then only they are
    * targets, they block the view, and a shot knows its target's type and sandbags
    */
+  /**
+   * Pass and play: both sides use the sections as `viewSide` (the main side, where the device
+   * sits) sees them, so a card for the right orders the units on the screen's right for both
+   */
+  sectionsSeenFrom(viewSide: Faction) {
+    this.board.sectionsSeenFrom(this.faction, viewSide);
+    this.publish();
+  }
+
   setEnemyView(view: () => readonly EnemyUnit[]) {
     this.enemyView = view;
   }

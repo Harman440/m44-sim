@@ -101,6 +101,14 @@ class BoardManager {
     });
   }
 
+  /**
+   * Pass and play: the sections follow `viewSide`'s left and right, so the same hexes are each
+   * section for both armies. For the other side the sections swap
+   */
+  sectionsSeenFrom(faction: Faction, viewSide: Faction) {
+    this.hexes.forEach((hex) => hex.mirrorSections(faction !== viewSide));
+  }
+
   // Get hex at specific position
   getHex(position: Position): Hex | null {
     return this.hexes.get(positionKey(position)) || null;
