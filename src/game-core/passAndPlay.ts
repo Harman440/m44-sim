@@ -160,6 +160,8 @@ export interface PlacedUnit {
   /** Its figures left and the hexes it must retreat after the battle (`ArmyView`) */
   figures?: number;
   retreats?: number;
+  /** A figure was hit once (armour): marked */
+  damaged?: boolean;
 }
 
 /** One army as another side may see it, each position in the army's own view */
@@ -520,7 +522,8 @@ class PassAndPlayMatch {
     }
     const shot = this.sessions[pending.side].getSnapshot().shots[pending.shot]!;
 
-    // After a close assault that destroyed the enemy unit or makes it retreat, the unit may take ground
+    // After a close assault that destroyed the enemy unit or makes it retreat, the unit may take
+    // ground: armour overruns; infantry pushes back a unit it made retreat
     const shooter = this.sessions[pending.side];
     const from = shooter.orderSummaries()[shot.orderIndex]!.firingFrom;
     const leaves = !enemy.board.getHex(at)?.unit || enemy.isRetreating(at);
@@ -596,7 +599,9 @@ class PassAndPlayMatch {
       // The hex is free once the enemy unit has retreated or been destroyed
       const free = !this.sessions[otherSide(side)].board.getHex(turnedRound(shot.targetPosition!))?.unit;
       const took = free && session.takeGround(order);
-      this.battle = { ...battle, overrun: null, bonus: took ? { side, order } : null };
+      // Infantry that pushed the enemy back moves in without firing again
+      const bonus = took && !session.getSnapshot().shots.findLast((s) => s.orderIndex === order)?.pushedBack;
+      this.battle = { ...battle, overrun: null, bonus: bonus ? { side, order } : null };
     } else if (battle.retreating) {
       this.finishBattle();
     }
@@ -855,8 +860,8 @@ class PassAndPlayMatch {
     const strength = (position: Position) => {
       const figures = session.figuresAt(position);
       if (figures === null) return {};
-      const retreats = game.strength.find((s) => samePosition(s.position, position))?.retreats ?? 0;
-      return { figures, retreats };
+      const stands = game.strength.find((s) => samePosition(s.position, position));
+      return { figures, retreats: stands?.retreats ?? 0, damaged: stands?.damaged ?? false };
     };
     const army = armyOf(session).map((placed) => ({ ...placed, ...strength(placed.position) }));
     if (revealed) return { faction, units: army, orders: game.orders };

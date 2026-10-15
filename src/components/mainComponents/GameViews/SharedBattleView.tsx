@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
 import {
+  Alert,
   Box,
   Button,
   FormControlLabel,
@@ -23,7 +24,10 @@ import { BASE_DICE_BY_DISTANCE } from "../../../data/fireQuestions";
 import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
-import { ShotResult } from "../../FireDialog";
+import DiceResult, { rollDuration } from "../../DiceResult";
+import RollReading from "../../RollReading";
+import ShotSteps from "../../ShotSteps";
+import { appliedFaces } from "../../../game-core/rollResult";
 import DicePool from "../../DicePool";
 import InfoButton from "../../InfoButton";
 import AmbushDialog from "../../AmbushDialog";
@@ -57,11 +61,18 @@ const TEXT = defineMessages({
     fire: "Disparar",
     rollTitle: (unit: string) => `Disparo: ${unit}`,
     done: "Seguir",
+    pickHint: "Toca en el mapa los dados cuyo resultado aplica. Los demás se descartan.",
+    applyPicked: (picked: number, rolled: number) => `Aplicar ${picked} de ${rolled}`,
+    cancel: "Cancelar",
+    applyFewer: "Aplicar menos resultados",
+    changeApplied: "Cambiar resultados aplicados",
+    applyAll: "Aplicar todos",
+    dice: "Dados tirados",
     figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     hold: "No disparar",
     holdLabel: (unit: string) => `${unit}: no disparar`,
     nobody: "Ninguna unidad puede disparar ya.",
-    choose: (n: number) => `Sacó más resultados que figuras: toca "Aplicar menos resultados" y elige los ${n} dados que aplica.`,
+    choose: (n: number) => `Sacó más resultados que figuras: aplica solo ${n}.`,
     apply: "Aplicar los resultados",
     cards: { Allies: "Cartas de los Aliados", Axis: "Cartas del Eje" },
     cardsPrivate: "Solo su jugador mira estas cartas.",
@@ -74,6 +85,8 @@ const TEXT = defineMessages({
     groundTitle: "¿Tomar terreno?",
     groundText: (unit: string) =>
       `Tras el asalto cercano, ${unit} puede tomar la casilla: la unidad enemiga se retira ya, y la tuya entra y dispara otra vez. Si no, el enemigo se retira tras la batalla.`,
+    pushText: (unit: string) =>
+      `Tras el asalto cercano, ${unit} puede echar ya al enemigo: se retira ahora y la tuya entra en su casilla, sin volver a disparar. Si no, el enemigo se retira tras la batalla.`,
     takeGround: "Tomar terreno",
     stay: "Quedarse",
     retreats: { Allies: "Retirada de los Aliados", Axis: "Retirada del Eje" },
@@ -109,11 +122,18 @@ const TEXT = defineMessages({
     fire: "Fire",
     rollTitle: (unit: string) => `Fire: ${unit}`,
     done: "Continue",
+    pickHint: "Tap the dice on the map whose results it applies. The rest are discarded.",
+    applyPicked: (picked: number, rolled: number) => `Apply ${picked} of ${rolled}`,
+    cancel: "Cancel",
+    applyFewer: "Apply fewer results",
+    changeApplied: "Change applied results",
+    applyAll: "Apply all",
+    dice: "Dice rolled",
     figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     hold: "Hold fire",
     holdLabel: (unit: string) => `${unit}: hold fire`,
     nobody: "No unit can fire any more.",
-    choose: (n: number) => `It rolled more results than it has figures: tap "Apply fewer results" and pick the ${n} dice it applies.`,
+    choose: (n: number) => `It rolled more results than it has figures: it applies only ${n}.`,
     apply: "Apply the results",
     cards: { Allies: "Allied cards", Axis: "Axis cards" },
     cardsPrivate: "Only their player looks at these cards.",
@@ -126,6 +146,8 @@ const TEXT = defineMessages({
     groundTitle: "Take ground?",
     groundText: (unit: string) =>
       `After the close assault, ${unit} can take the hex: the enemy unit retreats now, and yours moves in and fires again. If not, the enemy retreats after the battle.`,
+    pushText: (unit: string) =>
+      `After the close assault, ${unit} can push the enemy out now: it retreats at once and yours moves into its hex, without firing again. If not, the enemy retreats after the battle.`,
     takeGround: "Take ground",
     stay: "Stay",
     retreats: { Allies: "Allied retreat", Axis: "Axis retreat" },
@@ -259,6 +281,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const [useBonus, setUseBonus] = useState(true);
   /** The shot rolled on this screen, whose dice are thrown in: its side and index in that side's shots */
   const [rolled, setRolled] = useState<{ side: Faction; shot: number } | null>(null);
+  /** Picking the dice of the shot shown whose results apply; null when not picking */
+  const [pickedDice, setPickedDice] = useState<number[] | null>(null);
   const [cardsOf, setCardsOf] = useState<Faction | null>(null);
   const [coinsOf, setCoinsOf] = useState<Faction | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
@@ -357,6 +381,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     if (pending && !match.applyShot()) return;
     setAiming(null);
     setRolled(null);
+    setPickedDice(null);
   };
 
   const cardName = (faction: Faction) => {
@@ -373,6 +398,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const groundUnit = battle.ground
     ? match.sessions[battle.ground.side].orderSummaries()[battle.ground.order]?.unitType
     : undefined;
+  const pushesBack = battle.ground ? match.sessions[battle.ground.side].groundRuleFor(battle.ground.order) === "pushBack" : false;
 
   // The shot shown keeps its unit and target on the map
   const shotFrom = shownUnit?.firingFrom ?? null;
@@ -406,56 +432,39 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 }
               />
 
-              {/* The roll, over the map, until it's dismissed (and its results picked, if they must be) */}
-              {shown && shownShot && shownUnit && shownSession && (
+              {/* The dice, thrown onto the map; what they do is in the side column */}
+              {shownShot && shown && (
                 <Box
-                  data-testid="shot-roll"
-                  role="region"
-                  aria-label={t.rollTitle(labels.unitKind(shownUnit.unitType, shownUnit.elite))}
+                  data-testid="shot-dice"
+                  role="group"
+                  aria-label={t.dice}
                   sx={{
                     position: "absolute",
-                    top: 8,
-                    left: 8,
-                    right: 8,
-                    maxHeight: "calc(100% - 16px)",
-                    overflowY: "auto",
-                    p: 2,
-                    bgcolor: "var(--m44-paper)",
-                    border: "1px solid var(--m44-border)",
-                    borderRadius: "var(--m44-radius)",
-                    boxShadow: 6,
+                    top: 12,
+                    left: 0,
+                    right: 0,
+                    display: "flex",
+                    justifyContent: "center",
+                    pointerEvents: pickedDice ? "auto" : "none",
+                    filter: "drop-shadow(0 6px 8px rgb(0 0 0 / 0.45))",
                   }}
                 >
-                  <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1 }}>
-                    <FactionInsignia faction={shown.side} size={28} decorative />
-                    <Typography variant="h6" component="h2">
-                      {t.rollTitle(labels.unitKind(shownUnit.unitType, shownUnit.elite))}
-                    </Typography>
-                  </Stack>
-                  <ShotResult
-                    shot={shownShot}
-                    number={null}
-                    unitType={shownUnit.unitType}
+                  <DiceResult
+                    roll={{ faces: [...shownShot.faces], id: shown.shot + 1 }}
                     faction={shown.side}
-                    board={shownSession.board}
-                    image={shownSession.scenario.image}
+                    kept={shownShot.kept}
+                    die={shownShot.target.die}
+                    picking={
+                      pickedDice
+                        ? {
+                            selected: pickedDice,
+                            onToggle: (i) => setPickedDice((prev) => (prev?.includes(i) ? prev.filter((d) => d !== i) : [...(prev ?? []), i])),
+                          }
+                        : undefined
+                    }
+                    target={shownShot.target}
                     rolling={rolled?.side === shown.side && rolled.shot === shown.shot}
-                    onKeepResults={pending ? (kept) => match.keepShotResults(kept) : undefined}
                   />
-                  {pending?.mustChoose && (
-                    <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                      {t.choose(pending.limit)}
-                    </Typography>
-                  )}
-                  <Button
-                    onClick={closeRoll}
-                    disabled={pending?.mustChoose}
-                    startIcon={<GameIcon name="confirm" />}
-                    sx={{ mt: 2 }}
-                    fullWidth
-                  >
-                    {pending ? t.apply : t.done}
-                  </Button>
                 </Box>
               )}
             </Box>
@@ -464,6 +473,85 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
               <Typography variant="h6" component="h1" sx={{ textAlign: "center" }}>
                 {t.title(battle.turn)}
               </Typography>
+
+              {/* The shot rolled: how its dice add up and what they do */}
+              {shown && shownShot && shownUnit && shownSession && (
+                <Stack spacing={1} data-testid="shot-roll">
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    <FactionInsignia faction={shown.side} size={28} decorative />
+                    <Typography variant="subtitle1" component="h2">
+                      {t.rollTitle(labels.unitKind(shownUnit.unitType, shownUnit.elite))}
+                    </Typography>
+                  </Stack>
+                  <ShotSteps
+                    shot={shownShot}
+                    unitType={shownUnit.unitType}
+                    faction={shown.side}
+                    targetHex={
+                      shownShot.targetPosition && (
+                        <HexThumbnail
+                          board={shownSession.board}
+                          position={shownShot.targetPosition}
+                          image={shownSession.scenario.image}
+                          faction={shown.side}
+                          size={28}
+                        />
+                      )
+                    }
+                  />
+                  <RollReading
+                    faces={appliedFaces(shownShot.faces, pickedDice ?? shownShot.kept)}
+                    target={shownShot.target}
+                    withCoins
+                    delay={rolled?.side === shown.side && rolled.shot === shown.shot ? rollDuration(shownShot.faces.length) : 0}
+                  />
+                  {shownShot.notes.map((note) => (
+                    <Alert key={note.es} severity="info" sx={{ py: 0 }}>
+                      {tr(note)}
+                    </Alert>
+                  ))}
+                  {pending?.mustChoose && (
+                    <Typography variant="body2" color="warning.main">
+                      {t.choose(pending.limit)}
+                    </Typography>
+                  )}
+                  {pending &&
+                    (pickedDice ? (
+                      <>
+                        <Typography variant="body2">{t.pickHint}</Typography>
+                        <Button
+                          onClick={() => {
+                            if (match.keepShotResults(pickedDice)) setPickedDice(null);
+                          }}
+                        >
+                          {t.applyPicked(pickedDice.length, shownShot.faces.length)}
+                        </Button>
+                        <Button variant="outlined" onClick={() => setPickedDice(null)}>
+                          {t.cancel}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outlined"
+                          onClick={() => setPickedDice(shownShot.kept ? [...shownShot.kept] : shownShot.faces.map((_, i) => i))}
+                        >
+                          {shownShot.kept ? t.changeApplied : t.applyFewer}
+                        </Button>
+                        {shownShot.kept && (
+                          <Button variant="text" onClick={() => match.keepShotResults(null)}>
+                            {t.applyAll}
+                          </Button>
+                        )}
+                      </>
+                    ))}
+                  {!pickedDice && (
+                    <Button onClick={closeRoll} disabled={pending?.mustChoose} startIcon={<GameIcon name="confirm" />}>
+                      {pending ? t.apply : t.done}
+                    </Button>
+                  )}
+                </Stack>
+              )}
 
               {/* An attack card goes before anyone fires */}
               {battle.attacks.map((faction) => (
@@ -526,7 +614,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   <Typography variant="subtitle1" component="h2">
                     {t.groundTitle}
                   </Typography>
-                  <Typography variant="body2">{t.groundText(labels.units[groundUnit].toLowerCase())}</Typography>
+                  <Typography variant="body2">{(pushesBack ? t.pushText : t.groundText)(labels.units[groundUnit].toLowerCase())}</Typography>
                   <Button color="success" onClick={() => match.decideGround(true)}>
                     {t.takeGround}
                   </Button>
@@ -582,7 +670,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   )}
                 </Stack>
               ) : (
-                battle.attacks.length === 0 && (
+                battle.attacks.length === 0 &&
+                !shownShot && (
                   <Typography variant="body2" color="text.secondary">
                     {t.nobody}
                   </Typography>

@@ -20,6 +20,10 @@ export const hitsToDestroy = (unitType: UnitType): number => FIGURES[unitType].f
 export const figuresLeft = (unitType: UnitType, hits: number): number =>
   Math.max(0, Math.ceil((hitsToDestroy(unitType) - hits) / FIGURES[unitType].hitsPerFigure));
 
+/** A figure has taken some of its hits but not all (armour hit once): it's marked on the map */
+export const figureDamaged = (unitType: UnitType, hits: number): boolean =>
+  hits > 0 && hits < hitsToDestroy(unitType) && hits % FIGURES[unitType].hitsPerFigure !== 0;
+
 /**
  * Limited damage (house rule): a unit applies at most as many results as it has figures, one
  * more with a card's extra dice

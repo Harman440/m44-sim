@@ -30,6 +30,8 @@ interface HexProps {
   /** Pass and play: the unit's figures left and the hexes it must retreat */
   figures?: number;
   retreats?: number;
+  /** Pass and play: a figure hit once (armour) */
+  damaged?: boolean;
 }
 
 function Hexagon({
@@ -46,7 +48,8 @@ function Hexagon({
   hexData,
   faction,
   figures,
-  retreats
+  retreats,
+  damaged
 }: HexProps) {
 
   // Pointy-top hexagon: corners start at 90 degrees
@@ -85,6 +88,7 @@ function Hexagon({
           orderable={unitOrderable}
           figures={figures}
           retreats={retreats}
+          damaged={damaged}
         />
       )}
       {/* Over the token, as a wall in front of it */}

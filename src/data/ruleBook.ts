@@ -475,8 +475,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Infantry 4 figures, armor 3, artillery 2; each hit takes one.",
         },
         house: {
-          es: `Infantería ${infantry.figures} figuras; blindados ${armor.figures}, de ${armor.hitsPerFigure} impactos cada una; artillería ${artillery.figures}, y al caer deja a sus artilleros: ${ARTILLERY_CREW_FIGURES} figura de infantería. Una unidad no aplica más resultados que figuras le quedan.`,
-          en: `Infantry ${infantry.figures} figures; armor ${armor.figures}, ${armor.hitsPerFigure} hits each; artillery ${artillery.figures}, and when it falls its crew stays: ${ARTILLERY_CREW_FIGURES} infantry figure. A unit applies no more results than the figures it has left.`,
+          es: `Infantería ${infantry.figures} figuras; blindados ${armor.figures}, de ${armor.hitsPerFigure} impactos cada una (una figura tocada se marca en rojo y cae al siguiente impacto); artillería ${artillery.figures}, y al caer deja a sus artilleros: ${ARTILLERY_CREW_FIGURES} figura de infantería. Una unidad no aplica más resultados que figuras le quedan.`,
+          en: `Infantry ${infantry.figures} figures; armor ${armor.figures}, ${armor.hitsPerFigure} hits each (a figure hit once is marked red and falls to the next hit); artillery ${artillery.figures}, and when it falls its crew stays: ${ARTILLERY_CREW_FIGURES} infantry figure. A unit applies no more results than the figures it has left.`,
         },
       },
       {
@@ -489,15 +489,15 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "La batalla", en: "The battle" },
         house: {
-          es: "Una pantalla para los dos: disparan primero las unidades que no se movieron y luego las que se movieron, alternando los bandos y empezando el atacante. Se toca en el mapa la unidad que dispara y luego su objetivo, que muestra los dados que tira; la tirada sale sobre el mapa. Solo se dispara a unidades enemigas, que tapan la vista. Los sacos terreros ignoran una bandera.",
-          en: "One screen for both: the units that didn't move fire first, then the ones that moved, the sides alternating and the attacker first. Tap the unit that fires on the map, then its target, which shows the dice it rolls; the roll comes up over the map. Only enemy units can be fired at, and they block the view. Sandbags ignore one flag.",
+          es: "Una pantalla para los dos: disparan primero las unidades que no se movieron y luego las que se movieron, alternando los bandos y empezando el atacante. Se toca en el mapa la unidad que dispara y luego su objetivo, que muestra los dados que tira; los dados caen sobre el mapa y lo que hacen sale al lado. Solo se dispara a unidades enemigas, que tapan la vista. Los sacos terreros ignoran una bandera.",
+          en: "One screen for both: the units that didn't move fire first, then the ones that moved, the sides alternating and the attacker first. Tap the unit that fires on the map, then its target, which shows the dice it rolls; the dice land on the map and what they do shows beside it. Only enemy units can be fired at, and they block the view. Sandbags ignore one flag.",
         },
       },
       {
         title: { es: "Retiradas tras la batalla", en: "Retreats after the battle" },
         house: {
-          es: "Una bandera marca la unidad: ya no combate este turno, y al acabar la batalla se retira una casilla por bandera hacia su borde, eligiendo su jugador; si no hay casilla libre pierde una figura. Solo se retira en el acto si, tras un asalto cercano, el atacante toma terreno.",
-          en: "A flag marks the unit: it doesn't battle any more this turn, and after the battle it retreats one hex per flag toward its edge, its player choosing; with no free hex it loses a figure. It only retreats at once if, after a close assault, the attacker takes ground.",
+          es: "Una bandera marca la unidad: ya no combate este turno, y al acabar la batalla se retira una casilla por bandera hacia su borde, eligiendo su jugador; si no hay casilla libre pierde una figura. Solo se retira en el acto si, tras un asalto cercano, el atacante toma terreno: los blindados entran y disparan otra vez; la infantería, si su asalto le hizo retirarse, puede echarlo y entrar en su casilla, sin volver a disparar.",
+          en: "A flag marks the unit: it doesn't battle any more this turn, and after the battle it retreats one hex per flag toward its edge, its player choosing; with no free hex it loses a figure. It only retreats at once if, after a close assault, the attacker takes ground: armour moves in and fires again; infantry whose assault made it retreat can push it out and move into its hex, without firing again.",
         },
       },
       {

@@ -96,8 +96,10 @@ function summarizeEach(
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
     // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)
     const groundShot = unitShots.find((shot) => shot.tookGround);
-    const allowed = order.shots + (groundShot ? 1 : 0);
-    const overrunPending = !!groundShot && unitShots.at(-1) === groundShot;
+    // Pushing back (pass and play's infantry) moves the unit in without a shot more
+    const bonusShot = !!groundShot && !groundShot.pushedBack;
+    const allowed = order.shots + (bonusShot ? 1 : 0);
+    const overrunPending = bonusShot && unitShots.at(-1) === groundShot;
     // An enemy card stopped it: no more shots this turn
     const blocked = unitShots.some((shot) => shot.blocked) || retreating.has(order.unit);
     const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;

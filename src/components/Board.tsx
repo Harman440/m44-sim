@@ -132,7 +132,7 @@ function Board({
     const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardWidth, boardHeight));
     return (
       <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
-        {opponent.units.map(({ position, unit, figures, retreats }) => {
+        {opponent.units.map(({ position, unit, figures, retreats, damaged }) => {
           const { x, y } = center(position);
           return (
             <UnitComponent
@@ -143,6 +143,7 @@ function Board({
               unitData={unit}
               figures={figures}
               retreats={retreats}
+              damaged={damaged}
             />
           );
         })}
@@ -264,6 +265,7 @@ function Board({
             faction={faction}
             figures={strength.get(positionKey(position))?.figures}
             retreats={strength.get(positionKey(position))?.retreats}
+            damaged={strength.get(positionKey(position))?.damaged}
           />
         );
       }

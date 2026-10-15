@@ -192,7 +192,7 @@ describe("PassAndPlayMatch", () => {
 
     expect(match.opponentOf("Allies")).toMatchObject({
       faction: "Axis",
-      units: [{ position: from, unit: expect.anything(), figures: 7, retreats: 0 }],
+      units: [{ position: from, unit: expect.anything(), figures: 7, retreats: 0, damaged: false }],
       orders: [],
     });
 
@@ -261,7 +261,7 @@ describe("PassAndPlayMatch", () => {
     const { hits, retreats } = readRoll(alliedUnit.roll!.faces, alliedUnit.roll!.target);
     expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
     expect(axis.getSnapshot().strength).toEqual([
-      { position: turnedRound({ row: 4, col: 3 }), figures: 7 - hits, retreats },
+      { position: turnedRound({ row: 4, col: 3 }), figures: 7 - hits, retreats, damaged: false },
     ]);
     expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7);
     expect(match.finishReveal()).toBe(true);
@@ -474,6 +474,57 @@ describe("PassAndPlayMatch", () => {
       expect(match.getSnapshot().battle).toBeNull();
     });
 
+    it("lets infantry that made the enemy retreat in close assault push it out now, without firing again", () => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
+      };
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 5 / 6 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+
+      // The Axis infantry's close assault: all flags on the Allied infantry
+      expect(match.fire(0, axisView(4, 2))).toBe(true);
+      expect(match.getSnapshot().battle).toMatchObject({ ground: { side: "Axis", order: 0 } });
+      expect(match.sessions.Axis.groundRuleFor(0)).toBe("pushBack");
+
+      expect(match.decideGround(true)).toBe(true);
+      for (let retreat = match.getSnapshot().battle!.retreat; retreat; retreat = match.getSnapshot().battle!.retreat) {
+        expect(retreat.side).toBe("Allies");
+        expect(match.retreat(retreat.options[0]!)).toBe(true);
+      }
+      // It moved in, and has no shot more
+      expect(match.sessions.Axis.board.getHex(axisView(4, 2))?.unit?.getUnitType()).toBe(UnitType.INFANTRY);
+      expect(match.sessions.Axis.orderSummaries()[0]).toMatchObject({ tookGround: true, shotsLeft: 0 });
+      expect(match.getSnapshot().battle).toMatchObject({ side: null, fireable: [], retreat: null });
+    });
+
+    it("doesn't offer infantry ground when its close assault made nobody retreat", () => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
+      };
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 0 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+      expect(match.fire(0, axisView(4, 2))).toBe(true); // hits only
+      expect(match.getSnapshot().battle).toMatchObject({ ground: null });
+    });
+
+    it("marks armour hit once: its next hit takes a figure", () => {
+      const match = battleMatch();
+      const allies = match.sessions.Allies;
+      const tank = () => allies.getSnapshot().strength.find((u) => samePosition(u.position, { row: 3, col: 2 }))!;
+      expect(tank()).toMatchObject({ figures: 3, damaged: false });
+      allies.sufferHits({ row: 3, col: 2 }, 1, 0);
+      expect(tank()).toMatchObject({ figures: 3, damaged: true });
+      expect(match.opponentOf("Axis").units.find((u) => u.unit.getUnitType() === UnitType.TANK)).toMatchObject({ damaged: true });
+      allies.sufferHits({ row: 3, col: 2 }, 1, 0);
+      expect(tank()).toMatchObject({ figures: 2, damaged: false });
+    });
+
     it("leaves the enemy marked when the unit doesn't take ground", () => {
       const close: Scenario = {
         ...scenario,
@@ -502,6 +553,7 @@ describe("PassAndPlayMatch", () => {
         position: { row: 3, col: 2 },
         figures: 3,
         retreats: shot.dice - 1,
+        damaged: false,
       });
     });
   });

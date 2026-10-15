@@ -14,6 +14,7 @@ import {
   FIRE_QUESTIONS,
   collisionSteps,
   TAKE_GROUND_UNIT_TYPES,
+  PUSH_BACK_UNIT_TYPES,
   TARGET_INFANTRY,
   TARGET_OTHER,
   combatBonusQuestion,
@@ -47,7 +48,7 @@ import {
 } from "./orderRules";
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
-import { ARTILLERY_CREW_FIGURES, FIGURES, figuresLeft, hitsToDestroy } from "../data/figures";
+import { ARTILLERY_CREW_FIGURES, FIGURES, figureDamaged, figuresLeft, hitsToDestroy } from "../data/figures";
 import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
@@ -194,6 +195,8 @@ export interface UnitStrength {
   figures: number;
   /** Flags to retreat after the battle; it can't battle any more this turn */
   retreats: number;
+  /** A figure took a hit but not all it takes (armour hit once): the next hit removes it */
+  damaged: boolean;
 }
 
 export interface ReinforcementRoll {
@@ -231,6 +234,8 @@ export interface Shot extends ShotRoll {
   orderIndex: number;
   /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
   tookGround?: boolean;
+  /** Pass and play: infantry took ground by pushing back the unit its close assault made retreat; no more shot */
+  pushedBack?: boolean;
   /** Instead of firing, the unit removed the barbed wire on this hex (no dice) */
   removedWire?: Position;
   /** The opponent's card stopped the unit from firing (Out of Ammo…): no dice, and no more shots this turn */
@@ -856,8 +861,10 @@ class GameSession {
     return this.board.getAllHexes().flatMap((hex) => {
       const unit = hex.unit;
       if (!unit) return [];
-      const figures = figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0);
-      return [{ position: hex.getPosition(), figures, retreats: this.retreatFlags.get(unit) ?? 0 }];
+      const hits = this.hits.get(unit) ?? 0;
+      const figures = figuresLeft(unit.getUnitType(), hits);
+      const damaged = figureDamaged(unit.getUnitType(), hits);
+      return [{ position: hex.getPosition(), figures, retreats: this.retreatFlags.get(unit) ?? 0, damaged }];
     });
   }
 
@@ -1199,7 +1206,28 @@ class GameSession {
    * Once per unit per turn; not after a collision.
    */
   canTakeGround(orderIndex: number): boolean {
-    if (this.phase !== TurnPhase.BATTLE) return false;
+    return this.groundRuleFor(orderIndex) !== null;
+  }
+
+  /**
+   * How the unit may take ground after its last shot: an overrun (it fires once more) or, in
+   * pass and play, infantry pushing back the unit its close assault made retreat (no more shot)
+   */
+  groundRuleFor(orderIndex: number): "overrun" | "pushBack" | null {
+    if (this.phase !== TurnPhase.BATTLE) return null;
+    const overrun = this.canOverrun(orderIndex);
+    if (overrun) return "overrun";
+    if (!this.figures) return null;
+    const order = this.orders[orderIndex];
+    const summary = this.summaries()[orderIndex];
+    const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
+    if (!order || !summary || summary.removed || summary.tookGround || !last) return null;
+    if (!last.target.closeAssault || last.collision || !last.targetPosition) return null;
+    if (!PUSH_BACK_UNIT_TYPES.includes(order.unit.getUnitType())) return null;
+    return readRoll(appliedFaces(last.faces, last.kept), last.target).retreats > 0 ? "pushBack" : null;
+  }
+
+  private canOverrun(orderIndex: number): boolean {
     const order = this.orders[orderIndex];
     const summary = this.summaries()[orderIndex];
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
@@ -1225,7 +1253,8 @@ class GameSession {
    * shot, in close assault, from there.
    */
   takeGround(orderIndex: number): boolean {
-    if (!this.canTakeGround(orderIndex)) return false;
+    const rule = this.groundRuleFor(orderIndex);
+    if (!rule) return false;
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex)!;
     const { end: from, unit } = this.orders[orderIndex]!;
     const to = last.targetPosition!;
@@ -1236,7 +1265,8 @@ class GameSession {
       ...this.battleEdits,
       { kind: "move", from, to, unit, ...(sandbags.length > 0 && { sandbags }), ...(clearedWire && { clearedWire }) },
     ];
-    this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: true } : shot));
+    const taken = rule === "pushBack" ? { tookGround: true, pushedBack: true } : { tookGround: true };
+    this.shots = this.shots.map((shot) => (shot === last ? { ...shot, ...taken } : shot));
     return this.publish();
   }
 
@@ -1257,7 +1287,7 @@ class GameSession {
       if (moved.clearedWire) this.board.getHex(to)?.setWire(true);
     }
     this.battleEdits = this.battleEdits.filter((_, i) => i !== edit);
-    this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: false } : shot));
+    this.shots = this.shots.map((shot) => (shot === last ? { ...shot, tookGround: false, pushedBack: undefined } : shot));
     return this.publish();
   }
 

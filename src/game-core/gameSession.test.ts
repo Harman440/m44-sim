@@ -3306,6 +3306,7 @@ describe("pass and play figures", () => {
       position: LEFT_INF,
       figures: 6,
       retreats: 2,
+      damaged: false,
     });
     expect(session.canRollCollision(LEFT_INF, null)).toBe(false);
 
