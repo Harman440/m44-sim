@@ -99,6 +99,15 @@ describe("summarizeOrders", () => {
     expect(summarizeOrders(orders, session.board, shots)[1]!.shotsLeft).toBe(1);
   });
 
+  it("leaves a unit that fought a collision no more shots, even an order that fires twice", () => {
+    const session = playTurn();
+    shoot(session, 1, AT_INFANTRY);
+    const { orders, shots } = session.getSnapshot();
+    orders[1]!.shots = 2;
+    const collided = shots.map((shot) => ({ ...shot, collision: true }));
+    expect(summarizeOrders(orders, session.board, collided)[1]!.shotsLeft).toBe(0);
+  });
+
   it("marks units removed after the battle", () => {
     const session = playTurn();
     session.endBattle();
