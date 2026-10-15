@@ -70,7 +70,6 @@ const TEXT = defineMessages({
     changeCard: "Cambiar carta",
     combatCardTitle: (card: string) => `Carta de combate: ${card}`,
     notePaper: "Si hace falta, anota en papel sobre qué unidades la usas.",
-    reinforcementsHere: "Refuerzos en este mapa:",
     stopMarking: "Dejar de marcar",
     markOnMap: "Marcar en el mapa",
     eraseLastMark: "Borrar última marca",
@@ -140,7 +139,6 @@ const TEXT = defineMessages({
     changeCard: "Change card",
     combatCardTitle: (card: string) => `Combat card: ${card}`,
     notePaper: "If needed, note on paper which units you use it on.",
-    reinforcementsHere: "Reinforcements on this map:",
     stopMarking: "Stop marking",
     markOnMap: "Mark on the map",
     eraseLastMark: "Erase last mark",
@@ -474,11 +472,6 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
                 {!markerRule && (
                   <Typography variant="body1" sx={{ mt: 1 }}>
                     {t.notePaper}
-                  </Typography>
-                )}
-                {game.orderCombatCard.effect?.kind === "reinforcements" && session.scenario.reinforcements && (
-                  <Typography variant="body1" sx={{ mt: 1 }} data-testid="reinforcements-table">
-                    <strong>{t.reinforcementsHere}</strong> {labels.describeReinforcements(session.scenario.reinforcements)}
                   </Typography>
                 )}
               </InfoButton>

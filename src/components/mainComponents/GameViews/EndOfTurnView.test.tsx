@@ -447,3 +447,47 @@ describe("EndOfTurnView table reminders", () => {
     expect(container.querySelector(`[data-sandbags-at="${INFANTRY.row}-${INFANTRY.col}"] [data-testid="sandbags"]`)).not.toBeNull();
   });
 });
+
+describe("EndOfTurnView Reinforcements", () => {
+  it("says the infantry arrived on the cross, with no die to roll", () => {
+    const reinforcements: CombatCard = {
+      id: "reinforcements",
+      name: same("Refuerzos"),
+      description: same(""),
+      cost: 0,
+      phase: "order",
+      marker: { kind: "cross", count: 1 },
+      effect: { kind: "reinforcements", unitType: UnitType.INFANTRY },
+    };
+    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: { es: "Test", en: "Test" },
+        description: same(""),
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards: [reinforcements],
+    });
+    session.startFirstTurn();
+    session.pickCard(card, undefined, reinforcements);
+    session.markHex(EMPTY);
+    session.issueOrder(INFANTRY, INFANTRY);
+    session.commitOrders();
+    session.startBattle();
+    session.endBattle();
+    render(<Harness session={session} />);
+
+    expect(screen.getByTestId("reinforcements")).toHaveTextContent(
+      "Refuerzos: llega infantería, ya en el mapa. Ponla en la mesa en la casilla de la cruz."
+    );
+    expect(screen.queryByRole("button", { name: /dado/ })).not.toBeInTheDocument();
+    expect(session.board.getHex(EMPTY)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
+  });
+});

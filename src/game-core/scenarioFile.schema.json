@@ -5,7 +5,7 @@
   "description": "A scenario for the m44-sim app: the map editor's maps and the catalog's files (src/data/catalog/<id>.json). Positions are { row, col } on the 13 × 9 board seen from the Allies' side (row 0 is the Axis' back row; odd rows have 12 hexes). The app checks the rules too (parseScenario in scenarioFile.ts): no unit on water, one unit per hex, and so on.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "board", "id", "name", "description", "initialHandSize", "attacker", "tiles", "units", "reinforcements"],
+  "required": ["version", "board", "id", "name", "description", "initialHandSize", "attacker", "tiles", "units"],
   "properties": {
     "$schema": { "type": "string", "description": "Where an editor finds this format; the app ignores it" },
     "version": { "const": 1, "description": "The file format's version" },
@@ -46,17 +46,7 @@
       }
     },
     "reinforcements": {
-      "description": "Reinforcements card: the unit each face of the battle die brings onto this map (null: none)",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["infantry", "tank", "grenade", "supply", "flag"],
-      "properties": {
-        "infantry": { "$ref": "#/definitions/unitOrNone" },
-        "tank": { "$ref": "#/definitions/unitOrNone" },
-        "grenade": { "$ref": "#/definitions/unitOrNone" },
-        "supply": { "$ref": "#/definitions/unitOrNone" },
-        "flag": { "$ref": "#/definitions/unitOrNone" }
-      }
+      "description": "No longer used: the Reinforcements card's old table of a unit per die face (the card now always brings infantry). Older files still have it, and the app drops it"
     },
     "paradrop": {
       "description": "Units one side drops on the table before the game starts; that side's app asks where they landed",
@@ -112,7 +102,6 @@
     },
     "faction": { "enum": ["Allies", "Axis"] },
     "unitType": { "enum": ["infantry", "tank", "artillery"] },
-    "unitOrNone": { "enum": ["infantry", "tank", "artillery", null] },
     "hexType": { "enum": ["plains", "forest", "hill", "town", "hedgerow", "river", "bridge", "lake"] },
     "position": {
       "type": "object",

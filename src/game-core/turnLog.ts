@@ -5,7 +5,7 @@ import Unit, { UnitType } from "./unit";
 import { DieFace } from "./dice";
 import { DiceStep } from "./fireRules";
 import { Position } from "../types/scenario";
-import type { AmbushShot, BattleEdit, CardAttack, ReinforcementRoll, Shot } from "./gameSession";
+import type { AmbushShot, BattleEdit, CardAttack, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
@@ -74,8 +74,6 @@ export interface TurnRecord {
   markers: Position[];
   /** The attack combat card's rolls on the marked hexes */
   cardAttacks: CardAttack[];
-  /** The Reinforcements card's roll and the unit it brought */
-  reinforcement: ReinforcementRoll | null;
   /** The Ambush card's shot (missing in turns saved before Ambush fired in the app) */
   ambush?: AmbushShot | null;
 }
@@ -94,7 +92,6 @@ interface TurnState {
   markers: readonly Position[];
   cardAttacks: readonly CardAttack[];
   ambush: AmbushShot | null;
-  reinforcement: ReinforcementRoll | null;
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
@@ -112,7 +109,6 @@ export function recordTurn({
   markers,
   cardAttacks,
   ambush,
-  reinforcement,
 }: TurnState): TurnRecord {
   return {
     turn,
@@ -167,7 +163,6 @@ export function recordTurn({
       target: attack.target && { ...attack.target },
       faces: [...attack.faces],
     })),
-    reinforcement: reinforcement && { ...reinforcement },
     ambush: ambush && copyAmbush(ambush),
   };
 }

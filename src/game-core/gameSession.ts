@@ -5,7 +5,7 @@ import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds } from "../data/hitRules";
-import { ATTACK_DIE_SIDES, DieFace, SIDES_OF, SixSidedFace, rollDice } from "./dice";
+import { ATTACK_DIE_SIDES, DieFace, SIDES_OF, rollDice } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
@@ -159,11 +159,7 @@ export interface GameSnapshot {
   dropsLeft: number;
   /** Giving orders with none given yet: the card can be taken back (`unpickCard`) */
   canUnpickCard: boolean;
-  /** The Reinforcements card's roll in the final phase, and the unit it brings on this map (null: none) */
-  reinforcement: ReinforcementRoll | null;
-  /** The Reinforcements card was played and its die is still to roll (final phase) */
-  reinforcementDue: boolean;
-  /** The unit rolled isn't on the map yet: the player taps an empty hex for it (its marked hex was taken) */
+  /** The Reinforcements card's unit isn't on the map yet: the player taps an empty hex for it (its marked hex was taken) */
   reinforcementToPlace: UnitType | null;
 }
 
@@ -199,11 +195,6 @@ export interface UnitStrength {
   damaged: boolean;
   /** Hits it took this turn, shown on the map until the turn ends */
   hitThisTurn: number;
-}
-
-export interface ReinforcementRoll {
-  face: SixSidedFace;
-  unitType: UnitType | null;
 }
 
 /** A roll at an enemy unit: how the dice were worked out, the faces and what was applied */
@@ -414,7 +405,6 @@ class GameSession {
   private enemyView: (() => readonly EnemyUnit[]) | null = null;
   private drawnCombatCard: CombatCard | null = null;
   private drops: Position[] = [];
-  private reinforcementFace: SixSidedFace | null = null;
   private readonly random: () => number;
 
   private readonly listeners = new Set<() => void>();
@@ -971,13 +961,16 @@ class GameSession {
 
   /**
    * Move on to the final phase; units that haven't fired lose their shot. The
-   * command card is drawn straight away (see `drawCard`).
+   * command card is drawn straight away (see `drawCard`), and the Reinforcements
+   * card's unit arrives on its cross if the hex is still empty.
    */
   endBattle(): boolean {
     if (this.phase !== TurnPhase.BATTLE) return false;
 
     this.phase = TurnPhase.END_OF_TURN;
     if (this.chosenCard) this.draw();
+    const cross = this.reinforcementUnit() && this.markers[0];
+    if (cross) this.addReinforcement(cross);
     return this.publish();
   }
 
@@ -1952,40 +1945,22 @@ class GameSession {
     return this.publish();
   }
 
-  // Reinforcements: in the final phase the app rolls the die, and the unit the
-  // scenario's table gives for the face appears on the hex marked with the cross
+  // Reinforcements: as the final phase starts, the card's unit appears on the
+  // hex marked with the cross (`endBattle`), with no roll
 
-  private reinforcementTable() {
-    return this.orderCombatCard?.effect?.kind === "reinforcements" ? (this.scenario.reinforcements ?? null) : null;
-  }
-
-  private reinforcementDue(): boolean {
-    return this.phase === TurnPhase.END_OF_TURN && !!this.reinforcementTable() && this.reinforcementFace === null;
-  }
-
-  private reinforcementRoll(): ReinforcementRoll | null {
-    const table = this.reinforcementTable();
-    if (!table || !this.reinforcementFace) return null;
-    return { face: this.reinforcementFace, unitType: table[this.reinforcementFace] };
+  /** The unit the Reinforcements card played this turn brings */
+  private reinforcementUnit(): UnitType | null {
+    const effect = this.orderCombatCard?.effect;
+    return effect?.kind === "reinforcements" ? effect.unitType : null;
   }
 
   private reinforcementToPlace(): UnitType | null {
     if (this.phase !== TurnPhase.END_OF_TURN) return null;
-    const unitType = this.reinforcementRoll()?.unitType ?? null;
+    const unitType = this.reinforcementUnit();
     return unitType && !this.battleEdits.some((edit) => edit.kind === "add") ? unitType : null;
   }
 
-  /** Roll the Reinforcements die; the unit it brings is put on the marked hex if that is still empty */
-  rollReinforcements(): boolean {
-    if (!this.reinforcementDue()) return false;
-
-    this.reinforcementFace = rollDice(1, this.random)[0] as SixSidedFace;
-    const marked = this.markers[0];
-    if (marked) this.addReinforcement(marked);
-    return this.publish();
-  }
-
-  /** Put the unit rolled on an empty hex, when its marked hex was taken (or the placing was undone) */
+  /** Put the unit on an empty hex, when its marked hex was taken (or the placing was undone) */
   placeReinforcement(position: Position): boolean {
     return this.addReinforcement(position) && this.publish();
   }
@@ -2113,7 +2088,7 @@ class GameSession {
     if (this.phase !== TurnPhase.END_OF_TURN || !this.chosenCard || !this.drawnCard) return false;
     if (this.needsRewardChoice() && !this.rewardChoice) return false;
     if (this.combatCardDue() || this.mustDiscardCombatCard()) return false;
-    if (this.reinforcementDue() || this.reinforcementToPlace()) return false;
+    if (this.reinforcementToPlace()) return false;
 
     const playedCard = this.chosenCard;
     const coins = this.coins();
@@ -2131,7 +2106,6 @@ class GameSession {
       markers: this.markers,
       cardAttacks: this.cardAttacks,
       ambush: this.ambush,
-      reinforcement: this.reinforcementRoll(),
     });
     this.log = [...this.log, record];
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
@@ -2150,7 +2124,6 @@ class GameSession {
     this.retreatFlags = new Map();
     this.turnHits = new Map();
     this.drawnCombatCard = null;
-    this.reinforcementFace = null;
 
     this.chosenCard = null;
     this.chosenSection = null;
@@ -2208,7 +2181,6 @@ class GameSession {
       turnHits: this.turnHits,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
-      reinforcementFace: this.reinforcementFace,
     });
   }
 
@@ -2266,7 +2238,6 @@ class GameSession {
     session.turnHits = new Map(state.turnHits);
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
-    session.reinforcementFace = state.reinforcementFace;
     session.snapshot = session.createSnapshot();
     return session;
   }
@@ -2329,8 +2300,6 @@ class GameSession {
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
       canUnpickCard: this.canUnpickCard(),
-      reinforcement: this.reinforcementRoll(),
-      reinforcementDue: this.reinforcementDue(),
       reinforcementToPlace: this.reinforcementToPlace(),
     };
   }

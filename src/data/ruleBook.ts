@@ -465,8 +465,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Refuerzos", en: "Reinforcements" },
         house: {
-          es: "La carta marca una cruz en el mapa. En la fase final la app tira el dado y llega a esa casilla la unidad que diga la tabla del escenario; con bandera no llega nada.",
-          en: "The card marks a cross on the map. In the final phase the app rolls the die, and the unit the scenario's table names arrives on that hex; on a flag nothing arrives.",
+          es: "La carta marca una cruz en el mapa. Al empezar la fase final llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre.",
+          en: "The card marks a cross on the map. As the final phase starts, an infantry unit arrives on that hex, with no die roll; if the hex is taken, you pick another empty one.",
         },
       },
     ],

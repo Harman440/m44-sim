@@ -1,7 +1,7 @@
 // labels/es.ts
 // Spanish UI text for game enums
 import { UnitType } from "../game-core/unit";
-import { DieFace, DieKind, SIX_SIDED_FACES, countFaces } from "../game-core/dice";
+import { DieFace, DieKind, countFaces } from "../game-core/dice";
 import { HexType, Side } from "../types/hex";
 import { appliedFaces } from "../game-core/rollResult";
 import type { Labels } from ".";
@@ -107,11 +107,6 @@ const es: Labels = {
     return `Mueve hasta ${hexes(maxMove)}; ${fire}`;
   },
   describeFaces,
-  describeReinforcements: (table) =>
-    SIX_SIDED_FACES.map((face) => {
-      const unit = table[face];
-      return `${DIE_FACES[face]} → ${unit ? UNITS[unit].toLowerCase() : "sin refuerzos"}`;
-    }).join(" · "),
   describeAppliedFaces: (faces, kept) =>
     kept === null
       ? describeFaces(faces)

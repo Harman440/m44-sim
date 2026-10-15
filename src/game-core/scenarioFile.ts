@@ -9,7 +9,6 @@ import { Position, Scenario } from "../types/scenario";
 import { HexType, MovementRule, isHexType } from "../types/hex";
 import { Faction, isFaction } from "../types/faction";
 import { isUnitType } from "./unit";
-import { SIX_SIDED_FACES } from "./dice";
 import { positionKey } from "./position";
 import { TERRAIN } from "../data/terrain";
 import { Lang, Localized, isLocalized } from "../i18n/lang";
@@ -25,6 +24,11 @@ export interface ScenarioFile extends Omit<Scenario, "image"> {
   $schema?: string;
   version: typeof SCENARIO_FILE_VERSION;
   board: BoardSize;
+  /**
+   * No longer used: the Reinforcements card's table of a unit per die face, from before the card
+   * always brought infantry. Older files (and maps kept on a device) still have it; it's dropped
+   */
+  reinforcements?: unknown;
 }
 
 // Every field a file can have; the compiler keeps it in step with ScenarioFile
@@ -107,10 +111,6 @@ const MESSAGES = {
   wireOnWater: { es: "Hay alambradas en un río o un lago", en: "Some barbed wire is on a river or a lake" },
   sandbagsWithoutUnit: { es: "Hay sacos terreros donde no empieza ninguna unidad", en: "Some sandbags are where no unit starts" },
   eliteWithoutUnit: { es: "Hay distintivos de élite donde no empieza ninguna unidad", en: "Some elite badges are where no unit starts" },
-  noReinforcements: {
-    es: "Falta la tabla de Refuerzos: la unidad, o ninguna, de cada cara del dado",
-    en: "The Reinforcements table is missing: the unit, or none, for each die face",
-  },
   paradropUnits: { es: "El lanzamiento en paracaídas necesita 1 unidad o más", en: "The paradrop needs 1 unit or more" },
   extraDrawTurns: { es: "Los robos extra necesitan 1 turno o más", en: "The extra draws need 1 turn or more" },
   airPower: { es: "Las salidas aéreas deben ser 0 o más", en: "Air sorties must be 0 or more" },
@@ -176,9 +176,6 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
     if (!onTheBoard && scenario.paradrop?.faction !== faction) problem(MESSAGES.noUnits[faction]);
   }
 
-  const table = scenario.reinforcements;
-  const fullTable = table && SIX_SIDED_FACES.every((face) => table[face] === null || isUnitType(table[face]));
-  if (!fullTable) problem(MESSAGES.noReinforcements);
   if (scenario.paradrop && !isWholeNumber(scenario.paradrop.units, 1)) problem(MESSAGES.paradropUnits);
   if (scenario.extraDraws && !isWholeNumber(scenario.extraDraws.turns, 1)) problem(MESSAGES.extraDrawTurns);
   const airPower = scenario.airPower;
@@ -201,7 +198,6 @@ const EXPECTED = {
   positions: { es: 'debe ser una lista de casillas { "row": …, "col": … }', en: 'must be a list of hexes { "row": …, "col": … }' },
   hexType: { es: "no es un terreno", en: "isn't a terrain" },
   unitType: { es: "no es un tipo de unidad", en: "isn't a unit type" },
-  unitOrNone: { es: "debe ser un tipo de unidad o null", en: "must be a unit type or null" },
   version: { es: `debe ser ${SCENARIO_FILE_VERSION}`, en: `must be ${SCENARIO_FILE_VERSION}` },
   board: { es: 'debe ser "standard"', en: 'must be "standard"' },
 } satisfies Record<string, Localized>;
@@ -272,17 +268,6 @@ class FileReader {
   number = (value: unknown, path: string) => this.check(value, path, isNumber, EXPECTED.wholeNumber);
   faction = (value: unknown, path: string) => this.check(value, path, isFaction, EXPECTED.faction);
 
-  reinforcements(value: unknown, path: string) {
-    const table = this.object(value, path, SIX_SIDED_FACES);
-    if (!table) return undefined;
-    for (const face of SIX_SIDED_FACES) {
-      const unit = table[face];
-      if (unit === undefined) this.fail(join(path, face), EXPECTED.missing);
-      else if (unit !== null && !isUnitType(unit)) this.fail(join(path, face), EXPECTED.unitOrNone);
-    }
-    return table;
-  }
-
   paradrop(value: unknown, path: string) {
     const drop = this.object(value, path, ["faction", "unitType", "units"]);
     if (!drop) return undefined;
@@ -327,7 +312,6 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     attacker: reader.faction(file.attacker, "attacker"),
     tiles: reader.groups(file.tiles, "tiles", isHexType, EXPECTED.hexType),
     units: reader.sides(file.units, "units", (value, path) => reader.groups(value, path, isUnitType, EXPECTED.unitType)),
-    reinforcements: reader.reinforcements(file.reinforcements, "reinforcements"),
     paradrop: optional("paradrop", (value, path) => reader.paradrop(value, path)),
     wire: optional("wire", reader.positions),
     sandbags: optional("sandbags", reader.positions),

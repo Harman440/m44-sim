@@ -399,45 +399,6 @@ describe("OrdersView combat card markers", () => {
   });
 });
 
-describe("OrdersView Reinforcements card", () => {
-  it("shows the map's table of which unit each die face brings", () => {
-    const reinforcements: CombatCard = {
-      id: "reinforcements",
-      name: same("Refuerzos"),
-      description: same("Tira 1 dado."),
-      cost: 0,
-      phase: "order",
-      marker: { kind: "cross", count: 1 },
-      effect: { kind: "reinforcements" },
-    };
-    const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders: 1 });
-    const session = new GameSession({
-      scenario: {
-        id: "test",
-        name: { es: "Test", en: "Test" },
-        description: same(""),
-        initialHandSize: { allies: 1, axis: 1 },
-        attacker: "Axis",
-        tiles: {},
-        units: { allies: { infantry: [LEFT_A] }, axis: {} },
-        reinforcements: { infantry: UnitType.INFANTRY, tank: UnitType.TANK, grenade: UnitType.TANK, supply: UnitType.ARTILLERY, flag: null },
-      },
-      faction: "Allies",
-      initialHandSize: 1,
-      commandCards: [card],
-      combatCards: [reinforcements],
-    });
-    session.startFirstTurn();
-    session.pickCard(card, undefined, reinforcements);
-    render(<Harness session={session} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Información: Carta de combate: Refuerzos" }));
-    expect(screen.getByTestId("reinforcements-table")).toHaveTextContent(
-      "Infantería → infantería · Tanque → tanque · Granada → tanque · Suministro → artillería · Bandera → sin refuerzos"
-    );
-  });
-});
-
 describe("OrdersView movement combat cards", () => {
   it("lets the player use the card's movement on a unit, as many times as it allows", () => {
     const frozen: CombatCard = {

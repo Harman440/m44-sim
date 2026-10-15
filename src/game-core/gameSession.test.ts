@@ -2350,30 +2350,19 @@ describe("GameSession Reinforcements", () => {
     cost: 0,
     phase: "order",
     marker: { kind: "cross", count: 1 },
-    effect: { kind: "reinforcements" },
+    effect: { kind: "reinforcements", unitType: UnitType.INFANTRY },
   };
-  const withTable: Scenario = {
-    ...scenario,
-    attacker: "Axis",
-    reinforcements: {
-      [DieFace.INFANTRY]: UnitType.INFANTRY,
-      [DieFace.TANK]: UnitType.TANK,
-      [DieFace.GRENADE]: UnitType.INFANTRY,
-      [DieFace.SUPPLY]: UnitType.ARTILLERY,
-      [DieFace.FLAG]: null,
-    },
-  };
+  const defending: Scenario = { ...scenario, attacker: "Axis" };
   const commandCards = () => [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 }), ...cards().slice(1)];
 
-  /** The final phase of turn 2 with Reinforcements played and its cross on `cross`; the die shows `random` */
-  const finalPhase = (random: number, cross = FAR) => {
+  /** The final phase of turn 2 with Reinforcements played and its cross on `cross` */
+  const finalPhase = (cross = FAR) => {
     const session = new GameSession({
-      scenario: withTable,
+      scenario: defending,
       faction: "Allies",
       initialHandSize: 1,
       commandCards: commandCards(),
       combatCards: [reinforcements],
-      random: () => random,
     });
     session.startFirstTurn();
     expect(session.pickCard(session.getSnapshot().hand[0]!, undefined, reinforcements)).toBe(true);
@@ -2383,79 +2372,46 @@ describe("GameSession Reinforcements", () => {
     return session;
   };
 
-  it("rolls the die in the final phase and puts the unit on the cross", () => {
-    const session = finalPhase(0.7); // supply
-    expect(session.getSnapshot().reinforcementDue).toBe(true);
-    expect(session.board.getHex(FAR)!.unit).toBeNull();
+  it("puts an infantry unit on the cross as the final phase starts, with no roll", () => {
+    const session = finalPhase();
 
-    expect(session.rollReinforcements()).toBe(true);
-
-    expect(session.getSnapshot()).toMatchObject({
-      reinforcement: { face: DieFace.SUPPLY, unitType: UnitType.ARTILLERY },
-      reinforcementDue: false,
-      reinforcementToPlace: null,
-      battleEdits: 1,
-    });
-    expect(session.board.getHex(FAR)!.unit!.getUnitType()).toBe(UnitType.ARTILLERY);
-    expect(session.rollReinforcements()).toBe(false); // once
+    expect(session.getSnapshot()).toMatchObject({ reinforcementToPlace: null, battleEdits: 1 });
+    expect(session.board.getHex(FAR)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
   });
 
-  it("brings nothing on a flag", () => {
-    const session = finalPhase(0.99); // flag
-    session.rollReinforcements();
-
-    expect(session.getSnapshot()).toMatchObject({ reinforcement: { face: DieFace.FLAG, unitType: null }, battleEdits: 0 });
+  it("asks for another hex when the cross is taken, and the placing can be undone", () => {
+    const session = finalPhase();
+    expect(session.undoBattleEdit()).toBe(true);
     expect(session.board.getHex(FAR)!.unit).toBeNull();
-    finishTurn(session);
-    expect(session.getSnapshot().log.at(-1)!.reinforcement).toEqual({ face: DieFace.FLAG, unitType: null });
-  });
-
-  it("can't end the turn before the die is rolled", () => {
-    const session = finalPhase(0);
-    session.drawCard();
+    expect(session.getSnapshot().reinforcementToPlace).toBe(UnitType.INFANTRY);
     session.chooseReward("coins");
+    expect(session.endTurn()).toBe(false); // the unit must be placed first
 
-    expect(session.endTurn()).toBe(false);
-    session.rollReinforcements();
-    expect(session.endTurn()).toBe(true);
-  });
-
-  it("asks for another hex when the cross was taken, and the placing can be undone", () => {
-    const session = finalPhase(0); // infantry
-    const taken = session.getSnapshot().orders[0]!.end;
     // A unit retreated onto the cross on the table
+    const taken = session.getSnapshot().orders[0]!.end;
     expect(session.relocateUnit(taken, FAR)).toBe(true);
-
-    session.rollReinforcements();
-    expect(session.getSnapshot()).toMatchObject({ reinforcementToPlace: UnitType.INFANTRY, battleEdits: 1 });
     expect(session.placeReinforcement(FAR)).toBe(false);
 
     expect(session.placeReinforcement(taken)).toBe(true);
     expect(session.getSnapshot().reinforcementToPlace).toBeNull();
     expect(session.board.getHex(taken)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
-
-    expect(session.undoBattleEdit()).toBe(true);
-    expect(session.board.getHex(taken)!.unit).toBeNull();
-    expect(session.getSnapshot().reinforcementToPlace).toBe(UnitType.INFANTRY);
+    expect(session.endTurn()).toBe(true);
   });
 
-  it("keeps the roll and the new unit through a save", () => {
-    const session = finalPhase(0.4); // tank
-    session.rollReinforcements();
+  it("keeps the new unit through a save", () => {
+    const session = finalPhase();
 
-    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withTable, commandCards(), [reinforcements]);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defending, commandCards(), [reinforcements]);
 
-    expect(restored.getSnapshot().reinforcement).toEqual({ face: DieFace.TANK, unitType: UnitType.TANK });
-    expect(restored.board.getHex(FAR)!.unit!.getUnitType()).toBe(UnitType.TANK);
+    expect(restored.board.getHex(FAR)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
     expect(restored.undoBattleEdit()).toBe(true);
     expect(restored.board.getHex(FAR)!.unit).toBeNull();
-    expect(restored.endTurn()).toBe(false); // the unit rolled must be placed
+    expect(restored.getSnapshot().reinforcementToPlace).toBe(UnitType.INFANTRY);
     expect(restored.placeReinforcement(FAR)).toBe(true);
   });
 
   it("records the new unit in the turn log", () => {
-    const session = finalPhase(0);
-    session.rollReinforcements();
+    const session = finalPhase();
     finishTurn(session);
 
     expect(session.getSnapshot().log.at(-1)!.battleEdits).toEqual([{ kind: "add", unit: UnitType.INFANTRY, position: FAR }]);

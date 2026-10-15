@@ -22,7 +22,6 @@ import { MAX_COMBAT_HAND } from "../../../data/combatCards";
 import CombatCardComponent from "../../CombatCardComponent";
 import { useSound } from "../../../sound";
 import "./EndOfTurnView.css";
-import DieFaceIcon from "../../DieFaceIcon";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
 const TEXT = defineMessages({
@@ -31,7 +30,6 @@ const TEXT = defineMessages({
     extraCard: "Extra",
     pendingKeep: "Elige la carta de mando que te quedas para empezar el siguiente turno.",
     pendingDraw: "Roba tu carta de mando para empezar el siguiente turno.",
-    pendingRoll: "Tira el dado de refuerzos para empezar el siguiente turno.",
     pendingPlace: "Coloca el refuerzo en el mapa para empezar el siguiente turno.",
     pendingReward: "Confirma suministros o carta de combate para empezar el siguiente turno.",
     pendingCombatCard: "Roba la carta de combate para empezar el siguiente turno.",
@@ -48,9 +46,6 @@ const TEXT = defineMessages({
     reinforcementPlacedShared: (unit: string) => `llega ${unit.toLowerCase()}, en la casilla de la cruz.`,
     mapEdits: (n: number) => (n === 1 ? "1 cambio" : `${n} cambios`),
     updateMap: "Actualizar mapa",
-    rollPrompt: (card: string) => `${card}: tira el dado para ver qué unidad llega a la casilla de la cruz.`,
-    rollReinforcements: "Tirar dado de refuerzos",
-    noReinforcements: "no hay refuerzos.",
     reinforcementToPlace: (unit: string) =>
       `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en la mesa y en «Actualizar mapa», en una casilla libre.`,
     reinforcementPlaced: (unit: string) =>
@@ -100,7 +95,6 @@ const TEXT = defineMessages({
     extraCard: "Extra",
     pendingKeep: "Choose the command card you keep to start the next turn.",
     pendingDraw: "Draw your command card to start the next turn.",
-    pendingRoll: "Roll the reinforcements die to start the next turn.",
     pendingPlace: "Place the reinforcement on the map to start the next turn.",
     pendingReward: "Confirm supplies or a combat card to start the next turn.",
     pendingCombatCard: "Draw the combat card to start the next turn.",
@@ -117,9 +111,6 @@ const TEXT = defineMessages({
     reinforcementPlacedShared: (unit: string) => `${unit.toLowerCase()} arrives, on the cross hex.`,
     mapEdits: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
     updateMap: "Update map",
-    rollPrompt: (card: string) => `${card}: roll the die to see which unit arrives on the cross hex.`,
-    rollReinforcements: "Roll reinforcements die",
-    noReinforcements: "no reinforcements.",
     reinforcementToPlace: (unit: string) =>
       `${unit.toLowerCase()} arrives. The cross hex is taken: put it on the table and, in “Update map”, on a free hex.`,
     reinforcementPlaced: (unit: string) =>
@@ -429,17 +420,18 @@ function EndOfTurnView({
     ? drawOptions.length > 0
       ? t.pendingKeep
       : t.pendingDraw
-    : game.reinforcementDue
-      ? t.pendingRoll
-      : game.reinforcementToPlace
-        ? t.pendingPlace
-        : game.needsRewardChoice && !game.rewardChoice
-          ? t.pendingReward
-          : game.combatCardDue
-            ? t.pendingCombatCard
-            : discarding
-              ? t.pendingDiscard
-              : null;
+    : game.reinforcementToPlace
+      ? t.pendingPlace
+      : game.needsRewardChoice && !game.rewardChoice
+        ? t.pendingReward
+        : game.combatCardDue
+          ? t.pendingCombatCard
+          : discarding
+            ? t.pendingDiscard
+            : null;
+  /** The Reinforcements card played this turn, and the unit it brings */
+  const reinforcements = [game.orderCombatCard].find((card) => card?.effect?.kind === "reinforcements");
+  const reinforcementUnit = reinforcements?.effect?.kind === "reinforcements" ? reinforcements.effect.unitType : null;
 
   if (showMap) {
     return (
@@ -496,35 +488,13 @@ function EndOfTurnView({
             {reminder}
           </Alert>
         ))}
-        {(game.reinforcementDue || game.reinforcement) && (
-          <Box sx={{ mt: 1 }} data-testid="reinforcements">
-            {game.reinforcementDue ? (
-              <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
-                <Typography variant="body1">
-                  {t.rollPrompt(game.orderCombatCard ? tr(game.orderCombatCard.name) : "")}
-                </Typography>
-                <Button onClick={() => session.rollReinforcements()} startIcon={<GameIcon name="dice" />}>
-                  {t.rollReinforcements}
-                </Button>
-              </Stack>
-            ) : (
-              game.reinforcement && (
-                <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
-                  <Box sx={{ flex: "none", display: "flex" }}>
-                    <DieFaceIcon face={game.reinforcement.face} faction={faction} />
-                  </Box>
-                  <Typography variant="body1">
-                    {labels.dieFaces[game.reinforcement.face]}:{" "}
-                    {!game.reinforcement.unitType
-                      ? t.noReinforcements
-                      : game.reinforcementToPlace
-                        ? (shared ? t.reinforcementToPlaceShared : t.reinforcementToPlace)(labels.units[game.reinforcement.unitType])
-                        : (shared ? t.reinforcementPlacedShared : t.reinforcementPlaced)(labels.units[game.reinforcement.unitType])}
-                  </Typography>
-                </Stack>
-              )
-            )}
-          </Box>
+        {reinforcements && reinforcementUnit && (
+          <Typography variant="body1" sx={{ mt: 1 }} data-testid="reinforcements">
+            {tr(reinforcements.name)}:{" "}
+            {game.reinforcementToPlace
+              ? (shared ? t.reinforcementToPlaceShared : t.reinforcementToPlace)(labels.units[reinforcementUnit])
+              : (shared ? t.reinforcementPlacedShared : t.reinforcementPlaced)(labels.units[reinforcementUnit])}
+          </Typography>
         )}
       </Paper>
 

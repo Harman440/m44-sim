@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { enemyTargetKinds, onlyTargetKind } from "./hitRules";
 import { UnitType } from "../game-core/unit";
-import { DieFace } from "../game-core/dice";
 import { Scenario } from "../types/scenario";
 import GameSession from "../game-core/gameSession";
 import CommandCard from "../game-core/commandCard";
@@ -19,14 +18,6 @@ const scenario = (axis: Scenario["units"]["axis"], extra: Partial<Scenario> = {}
   ...extra,
 });
 
-const NO_REINFORCEMENTS = {
-  [DieFace.INFANTRY]: null,
-  [DieFace.TANK]: null,
-  [DieFace.GRENADE]: null,
-  [DieFace.SUPPLY]: null,
-  [DieFace.FLAG]: null,
-};
-
 describe("enemyTargetKinds", () => {
   it("reads the enemy's starting units", () => {
     expect(enemyTargetKinds(scenario({ infantry: [{ row: 1, col: 1 }] }), "Allies")).toEqual({ infantry: true, other: false });
@@ -41,15 +32,9 @@ describe("enemyTargetKinds", () => {
     expect(enemyTargetKinds(scenario({ tank: [{ row: 1, col: 1 }] }), "Axis")).toEqual({ infantry: true, other: false });
   });
 
-  it("counts the enemy's paratroopers, but not the units the map's reinforcements could bring", () => {
+  it("counts the enemy's paratroopers", () => {
     const paratroopers = scenario({ tank: [{ row: 1, col: 1 }] }, { paradrop: { faction: "Axis", unitType: UnitType.INFANTRY, units: 2 } });
     expect(enemyTargetKinds(paratroopers, "Allies")).toEqual({ infantry: true, other: true });
-
-    const reinforced = scenario(
-      { infantry: [{ row: 1, col: 1 }] },
-      { reinforcements: { ...NO_REINFORCEMENTS, [DieFace.TANK]: UnitType.TANK } }
-    );
-    expect(enemyTargetKinds(reinforced, "Allies")).toEqual({ infantry: true, other: false });
   });
 
   it("offers both when the enemy has no units at all", () => {

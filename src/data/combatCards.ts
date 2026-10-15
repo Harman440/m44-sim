@@ -163,10 +163,10 @@ const TEMPLATES: CombatCardTemplate[] = [
     { marker: { kind: "target", count: 2, awayFromOwnUnits: true }, effect: { kind: "attack", dicePerHex: 2 } }),
   order("reinforcements", { es: "Refuerzos", en: "Reinforcements" }, 6, always,
     {
-      es: "En la fase final se tira 1 dado y, según el mapa, llega la unidad que salga (bandera: no hay refuerzos).",
-      en: "In the final phase, roll 1 die and, depending on the map, the unit rolled arrives (flag: no reinforcements).",
+      es: "Marca una casilla libre con una cruz: en la fase final llega allí una unidad de infantería.",
+      en: "Mark an empty hex with a cross: in the final phase an infantry unit arrives there.",
     },
-    { marker: { kind: "cross", count: 1 }, effect: { kind: "reinforcements" } }),
+    { marker: { kind: "cross", count: 1 }, effect: { kind: "reinforcements", unitType: UnitType.INFANTRY } }),
   order("tactician", { es: "Táctico", en: "Tactician" }, 2, always,
     { es: "Cambia la sección de una carta de sección.", en: "Change the section of a section card." },
     { effect: { kind: "changeSection" } }),

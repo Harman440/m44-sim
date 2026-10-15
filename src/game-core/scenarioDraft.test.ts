@@ -26,7 +26,6 @@ import {
   setExtraDraws,
   setHandSize,
   setParadrop,
-  setReinforcement,
   setText,
   setWire,
   startHistory,
@@ -41,7 +40,6 @@ import { ScenarioFileError, parseScenario, toScenarioFile, validateScenario } fr
 import { Scenario } from "../types/scenario";
 import { HexType } from "../types/hex";
 import { UnitType } from "./unit";
-import { DieFace } from "./dice";
 import { scenarios } from "../data/scenarios";
 import { airSortiesOf, combatDeckEntries, hasBigGuns } from "../data/combatCards";
 
@@ -65,7 +63,6 @@ describe("a new map", () => {
     const draft = empty();
 
     expect(draft).toMatchObject({ id: "map-test", tiles: {}, units: { allies: {}, axis: {} }, attacker: "Allies", initialHandSize: { allies: 5, axis: 5 } });
-    expect(Object.values(draft.reinforcements!)).toEqual(["infantry", "tank", "infantry", "infantry", null]);
   });
 
   it("can be saved and read back before it can be played", () => {
@@ -242,14 +239,6 @@ describe("the scenario's settings", () => {
     expect(setHandSize(draft, "Axis", 3)).toBe(draft);
     expect(setHandSize(draft, "Axis", 0)).toBe(false);
     expect(setHandSize(draft, "Allies", 11)).toBe(false);
-  });
-
-  it("changes a face of the Reinforcements table", () => {
-    const draft = setReinforcement(empty(), DieFace.FLAG, UnitType.ARTILLERY);
-
-    expect(draft.reinforcements).toMatchObject({ [DieFace.FLAG]: UnitType.ARTILLERY, [DieFace.TANK]: UnitType.TANK });
-    expect(setReinforcement(draft, DieFace.TANK, null).reinforcements![DieFace.TANK]).toBeNull();
-    expect(setReinforcement(draft, DieFace.FLAG, UnitType.ARTILLERY)).toBe(draft);
   });
 
   it("keeps air sorties and big guns out of the map while both sides have the usual ones", () => {

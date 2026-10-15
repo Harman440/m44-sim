@@ -23,10 +23,8 @@ import {
 import { Position, Scenario } from "../../types/scenario";
 import { FACTIONS, Faction } from "../../types/faction";
 import { UnitType } from "../../game-core/unit";
-import { SIX_SIDED_FACES } from "../../game-core/dice";
 import { ScenarioProblem } from "../../game-core/scenarioFile";
 import {
-  DEFAULT_REINFORCEMENTS,
   SETTING_LIMITS,
   defaultExtraDraws,
   defaultParadrop,
@@ -36,13 +34,11 @@ import {
   setExtraDraws,
   setHandSize,
   setParadrop,
-  setReinforcement,
   setText,
 } from "../../game-core/scenarioDraft";
 import { airSortiesOf, hasBigGuns } from "../../data/combatCards";
 import { LANGS, LANG_NAMES, Lang } from "../../i18n/lang";
 import FactionInsignia from "../FactionInsignia";
-import DieFaceIcon from "../DieFaceIcon";
 import GameIcon from "../GameIcon";
 import InfoButton from "../InfoButton";
 import ScenarioDetails from "../mainComponents/ScenarioDetails";
@@ -78,12 +74,6 @@ const TEXT = defineMessages({
       "Si tiene la carta Cortina de Fuego en su mazo de combate. Los dos bandos la tienen, salvo que el escenario diga que uno no tiene artillería pesada.",
     yes: "Sí",
     no: "No",
-    reinforcements: "Refuerzos",
-    reinforcementsInfo: [
-      "Con la carta Refuerzos, el bando marca una casilla, y en la fase final la app tira un dado: llega a esa casilla la unidad de la cara que sale, o ninguna. La tabla es la misma para los dos bandos.",
-      "Un mapa nuevo empieza con la tabla de casi todos los escenarios del juego: infantería con la infantería, la granada y el suministro, un tanque con el tanque y nada con la bandera.",
-    ],
-    none: "Ninguna",
     specialRules: "Reglas especiales",
     extraDraws: "Robo extra de cartas",
     extraDrawsInfo:
@@ -130,12 +120,6 @@ const TEXT = defineMessages({
       "Whether its combat deck has the Barrage card. Both sides have it, unless the scenario says one has no heavy guns.",
     yes: "Yes",
     no: "No",
-    reinforcements: "Reinforcements",
-    reinforcementsInfo: [
-      "With the Reinforcements card, the side marks a hex, and in the final phase the app rolls a die: the unit on the face rolled arrives on that hex, or none. The table is the same for both sides.",
-      "A new map starts with the table almost all the game's scenarios use: infantry on the infantry, the grenade and the supply, a tank on the tank and nothing on the flag.",
-    ],
-    none: "None",
     specialRules: "Special rules",
     extraDraws: "Extra card draws",
     extraDrawsInfo:
@@ -214,8 +198,8 @@ interface ScenarioSettingsDialogProps {
 
 /**
  * "Datos del escenario": everything about a map but its hexes. The name and description in each
- * language, the attacker, each side's starting cards, air sorties and big guns, the Reinforcements
- * table and the special rules; then the sides as the menu will show them, and what's still wrong
+ * language, the attacker, each side's starting cards, air sorties and big guns, and the special
+ * rules; then the sides as the menu will show them, and what's still wrong
  */
 function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, onClose }: ScenarioSettingsDialogProps) {
   const t = useMessages(TEXT);
@@ -333,7 +317,6 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
 
   const extraDraws = draft.extraDraws;
   const paradrop = draft.paradrop;
-  const reinforcements = draft.reinforcements ?? DEFAULT_REINFORCEMENTS;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
@@ -402,38 +385,6 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
                 ))}
               </TableBody>
             </Table>
-          </Box>
-
-          <Box component="section" aria-label={t.reinforcements}>
-            <Heading title={t.reinforcements} info={paragraphs(t.reinforcementsInfo)} />
-            <Stack sx={{ gap: 1 }}>
-              {SIX_SIDED_FACES.map((face) => (
-                <Stack key={face} direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-                  <Stack direction="row" sx={{ alignItems: "center", gap: 1, width: 150, "& .die": { width: 40, height: 40 } }}>
-                    <DieFaceIcon face={face} faction="Allies" />
-                    <Typography variant="body2">{labels.dieFaces[face]}</Typography>
-                  </Stack>
-                  <ToggleButtonGroup
-                    exclusive
-                    value={reinforcements[face] ?? "none"}
-                    onChange={(_, unit: UnitType | "none" | null) =>
-                      unit && change(setReinforcement(draft, face, unit === "none" ? null : unit), `reinforcements.${face}`)
-                    }
-                    aria-label={`${t.reinforcements}: ${labels.dieFaces[face]}`}
-                    sx={{ flexWrap: "wrap" }}
-                  >
-                    {UNIT_TYPES.map((type) => (
-                      <ToggleButton key={type} value={type} sx={{ px: 1.5 }}>
-                        {labels.units[type]}
-                      </ToggleButton>
-                    ))}
-                    <ToggleButton value="none" sx={{ px: 1.5 }}>
-                      {t.none}
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </Stack>
-              ))}
-            </Stack>
           </Box>
 
           <Stack component="section" aria-label={t.specialRules} sx={{ gap: 1 }}>

@@ -88,7 +88,7 @@ The two decisions from the first plan still hold:
 - [x] The Axis' surprise in Pegasus Bridge (`Scenario.extraDraws`): 2 cards to start, and 2 drawn instead of 1 after each of its first two turns, so 4 in hand from then on
 - [x] Sandbags on this side's units (`Scenario.sandbags`, `Hex.sandbags`): Pegasus Bridge's two German units by the canal bridge start with them (shown in the Axis app). They go when the unit moves off (Órdenes warns first) or retreats or is destroyed; Fortificar puts them on one infantry or artillery in «Actualizar mapa». **Decided:** the enemy's sandbags aren't tracked (whether its unit moved, lost them or got new ones can't be known), so the fire dialog still asks; a crew left by the `artilleryCrew` rule keeps them
 - [x] Forêt d'Écouves is the official scenario 7045 by jdrommel (Days of Wonder archives, 12 August 1944): its units, sandbags and hands (Allies 6, Axis 5, Allies first) from the archive's `.m44` data; the terrain already matched. Its special rule, elite units (`Scenario.elite`, `Unit.elite`, a star badge on the token): every French infantry unit and the German units with a badge move their whole move and still fire (elite infantry moves 2 and fires); the elite tank plays as any tank (its 4th figure is only on the table). Écouché, the Allies' temporary medal objective, stays on the table
-- [ ] **Decide:** the Pegasus Bridge reinforcement table is a proposal (grenade and star → infantry, flag → none), like Sainte-Mère-Église
+- [x] ~~**Decide:** the Pegasus Bridge reinforcement table is a proposal (grenade and star → infantry, flag → none), like Sainte-Mère-Église~~ No tables any more: Reinforcements always brings infantry (Step 60)
 - [x] **Decide:** the Sainte-Mère-Église reinforcement table is a proposal (grenade and star → infantry, flag → none), like the other two
 
 ## Part F: The deck
@@ -266,10 +266,10 @@ The player answered every **Decide** before Step 59 was built; each is marked **
 - [x] The same per side in pass and play. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
 
 ### Step 60: Reinforcements without a roll
-- [ ] Reinforcements: in the final phase an infantry unit arrives on the cross, with no die. **Decided:** a whole infantry unit (in pass and play it arrives with its 6 figures); the cost stays at 6
-- [ ] The roll goes: `rollReinforcements`, `ReinforcementRoll`, `reinforcementFace`, `reinforcementDue`, the "Tirar dado de refuerzos" button and its result in `EndOfTurnView`, the line in `HistoryDialog`, the table in Órdenes (`describeReinforcements`), and the die in the card's pictograms (cross → infantry). `placeReinforcement` stays, for a cross that's been taken
-- [ ] The scenario's table goes: `Scenario.reinforcements`, its check in `validateScenario`, `DEFAULT_REINFORCEMENTS` and `setReinforcement`, its section in "Datos del escenario", the tables in the four built-ins, and the open **Decide** in Step 42. Files that still have the field (Mis mapas on the tablets, exported maps) must keep loading: `parseScenario` accepts the field and drops it (today it refuses unknown fields, so a map would be lost), and the schema marks it as no longer used
-- [ ] Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
+- [x] Reinforcements: in the final phase an infantry unit arrives on the cross, with no die. **Decided:** a whole infantry unit (in pass and play it arrives with its 6 figures); the cost stays at 6
+- [x] The roll goes: `rollReinforcements`, `ReinforcementRoll`, `reinforcementFace`, `reinforcementDue`, the "Tirar dado de refuerzos" button and its result in `EndOfTurnView`, the line in `HistoryDialog`, the table in Órdenes (`describeReinforcements`), and the die in the card's pictograms (cross → infantry). The unit arrives on the cross as the final phase starts (`endBattle`); `placeReinforcement` stays, for a cross that's been taken. The card's effect names the unit (`{ kind: "reinforcements", unitType }`)
+- [x] The scenario's table goes: `Scenario.reinforcements`, its check in `validateScenario`, `DEFAULT_REINFORCEMENTS` and `setReinforcement`, its section in "Datos del escenario", the tables in the four built-ins, and the open **Decide** in Step 42. Files that still have the field (Mis mapas on the tablets, exported maps) must keep loading: `parseScenario` accepts the field and drops it (today it refuses unknown fields, so a map would be lost), and the schema marks it as no longer used
+- [x] Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
 
 ### Step 61: The reaction cards go
 - [ ] Out of Ammo (Sin munición), Ambush (Emboscada), Pull Back (Repliegue), Out of Fuel (Sin combustible) and Shell Shortage (Escasez de proyectiles) leave `combatCards.ts`

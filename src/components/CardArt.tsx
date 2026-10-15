@@ -532,7 +532,7 @@ function combatRules(card: CombatCard): Glyph[][] {
       { kind: "text", text: `${effect.dicePerHex}` },
     ]);
   }
-  if (effect?.kind === "reinforcements") rules.push([{ kind: "cross" }, { kind: "die" }, { kind: "text", text: "→" }, { kind: "token", type: UnitType.INFANTRY }]);
+  if (effect?.kind === "reinforcements") rules.push([{ kind: "cross" }, { kind: "text", text: "→" }, { kind: "token", type: effect.unitType }]);
   if (effect?.kind === "diceBonus") {
     rules.push(fireBonusGlyphs({ dice: effect.dice, unitTypes: effect.unitTypes, closeAssault: effect.closeAssault }));
   }

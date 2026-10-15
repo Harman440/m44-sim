@@ -130,7 +130,7 @@ function EndOfTurnMap({
   /** Removing the selected artillery leaves its crew as infantry (experimental rule) */
   const leavesCrew = !!selected && session.leavesCrew(selected);
   /** The Reinforcements card's cross, until its unit is on the map */
-  const reinforcements = game.reinforcementDue || game.reinforcementToPlace !== null;
+  const reinforcements = game.reinforcementToPlace !== null;
   const canPlaceSandbags = !!selected && session.canPlaceSandbags(selected);
   const fortifying = game.fortifiable.length > 0;
 

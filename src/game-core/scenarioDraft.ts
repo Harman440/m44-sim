@@ -7,7 +7,6 @@ import { Position, Scenario, Tiles, UnitGroup } from "../types/scenario";
 import { HexType, MovementRule } from "../types/hex";
 import { FACTIONS, Faction } from "../types/faction";
 import { UnitType } from "./unit";
-import { DieFace, SixSidedFace } from "./dice";
 import { samePosition } from "./position";
 import { BOARD_SIZES } from "./scenarioFile";
 import { TERRAIN } from "../data/terrain";
@@ -15,15 +14,6 @@ import { airSortiesOf, hasBigGuns } from "../data/combatCards";
 import type { Lang } from "../i18n/lang";
 
 const SIDE = { Allies: "allies", Axis: "axis" } as const;
-
-/** The Reinforcements table a new map starts with: the one most built-in scenarios use */
-export const DEFAULT_REINFORCEMENTS: NonNullable<Scenario["reinforcements"]> = {
-  [DieFace.INFANTRY]: UnitType.INFANTRY,
-  [DieFace.TANK]: UnitType.TANK,
-  [DieFace.GRENADE]: UnitType.INFANTRY,
-  [DieFace.SUPPLY]: UnitType.INFANTRY,
-  [DieFace.FLAG]: null,
-};
 
 // --- Ids ------------------------------------------------------------------------
 // A map's id is its name as lower-case words and a short random part ("bocage-3f9k"), so both
@@ -94,7 +84,6 @@ export const newDraft = (id: string): Scenario => ({
   attacker: "Allies",
   tiles: {},
   units: { allies: {}, axis: {} },
-  reinforcements: { ...DEFAULT_REINFORCEMENTS },
 });
 
 /** A scenario's map and settings to start a new map from, with a new id and "(copia)" after its name */
@@ -246,13 +235,6 @@ export function setHandSize(draft: Scenario, faction: Faction, cards: number): S
   const side = SIDE[faction];
   if (draft.initialHandSize[side] === cards) return draft;
   return { ...draft, initialHandSize: { ...draft.initialHandSize, [side]: cards } };
-}
-
-/** The unit a face of the Reinforcements die brings, or none */
-export function setReinforcement(draft: Scenario, face: SixSidedFace, unit: UnitType | null): Scenario {
-  const table = draft.reinforcements ?? DEFAULT_REINFORCEMENTS;
-  if (draft.reinforcements && table[face] === unit) return draft;
-  return { ...draft, reinforcements: { ...table, [face]: unit } };
 }
 
 /** A side's air sorties (its copies of each air card); left out of the map while both have the usual 1 */

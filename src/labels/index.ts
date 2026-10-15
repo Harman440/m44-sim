@@ -6,7 +6,7 @@
 import type Hex from "../game-core/hex";
 import type Unit from "../game-core/unit";
 import type { UnitType } from "../game-core/unit";
-import type { DieFace, SixSidedFace } from "../game-core/dice";
+import type { DieFace } from "../game-core/dice";
 import type { HexType, Side } from "../types/hex";
 import type { Faction } from "../types/faction";
 import type { ShotTarget } from "../data/hitRules";
@@ -44,8 +44,6 @@ export interface Labels {
   describeMovement: (limits: MoveLimits) => string;
   /** "2 × Infantry · 1 × Grenade", or "no effect" when no dice were rolled */
   describeFaces: (faces: readonly DieFace[]) => string;
-  /** The Reinforcements card's table: "Infantry → infantry · … · Flag → no reinforcements" */
-  describeReinforcements: (table: Record<SixSidedFace, UnitType | null>) => string;
   /** The results a shot applies, and how many of the dice rolled they are when some were set aside */
   describeAppliedFaces: (faces: readonly DieFace[], kept: readonly number[] | null) => string;
   /** "Against infantry · close assault" */

@@ -8,7 +8,7 @@ export enum DieFace {
   FLAG = "flag",
 }
 
-/** The faces of the normal battle die, which also name the Reinforcements table */
+/** The faces of the normal battle die */
 export type SixSidedFace = DieFace;
 export const SIX_SIDED_FACES: readonly SixSidedFace[] = [
   DieFace.INFANTRY,

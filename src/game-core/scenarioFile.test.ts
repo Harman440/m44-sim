@@ -15,7 +15,6 @@ import { Scenario } from "../types/scenario";
 import { HexType } from "../types/hex";
 import { FACTIONS } from "../types/faction";
 import { UnitType } from "./unit";
-import { SIX_SIDED_FACES } from "./dice";
 
 const matchesSchema = new Ajv({ allErrors: true }).compile(schema);
 
@@ -32,7 +31,6 @@ const testFile = (): ScenarioFile => ({
     allies: { [UnitType.INFANTRY]: [{ row: 8, col: 0 }, { row: 8, col: 1 }] },
     axis: { [UnitType.TANK]: [{ row: 0, col: 0 }] },
   },
-  reinforcements: { infantry: UnitType.INFANTRY, tank: UnitType.TANK, grenade: UnitType.INFANTRY, supply: null, flag: null },
 });
 
 /** The file as JSON.parse gives it back, to change it in ways the type wouldn't allow */
@@ -70,11 +68,22 @@ describe("the JSON Schema", () => {
     expect(schema.required.every((field) => (SCENARIO_FILE_FIELDS as string[]).includes(field))).toBe(true);
   });
 
-  it("lists the app's terrains, unit types, sides and die faces", () => {
+  it("lists the app's terrains, unit types and sides", () => {
     expect(schema.definitions.hexType.enum).toEqual(Object.values(HexType));
     expect(schema.definitions.unitType.enum).toEqual(Object.values(UnitType));
     expect(schema.definitions.faction.enum).toEqual([...FACTIONS]);
-    expect(Object.keys(schema.properties.reinforcements.properties)).toEqual([...SIX_SIDED_FACES]);
+  });
+});
+
+describe("parseScenario reads older files", () => {
+  it("drops the Reinforcements table of a file from before the card always brought infantry", () => {
+    const file = json({ reinforcements: { infantry: "infantry", tank: "tank", grenade: "infantry", supply: null, flag: null } });
+
+    const scenario = parseScenario(file);
+
+    expect(scenario).not.toHaveProperty("reinforcements");
+    expect(scenario.id).toBe("test-map");
+    expect(matchesSchema(file)).toBe(true);
   });
 });
 
@@ -91,7 +100,6 @@ describe("parseScenario refuses a file of the wrong shape", () => {
     ["a hex with something else in it", json({ wire: [{ row: 1, col: 1, kind: "wire" }] }), '"wire" must be a list of hexes'],
     ["half a hand size", json({ initialHandSize: { allies: 4.5, axis: 4 } }), '"initialHandSize.allies" must be a whole number'],
     ["a side that isn't one", json({ attacker: "Soviets" }), '"attacker" must be "Allies" or "Axis"'],
-    ["a die face missing from the Reinforcements table", json({ reinforcements: { infantry: "infantry", tank: "tank", grenade: null, supply: null } }), '"reinforcements.flag" is missing'],
   ])("%s", (_case, file, message) => {
     expect(() => parseScenario(file)).toThrow(ScenarioFileError);
     expect(() => parseScenario(file)).toThrow(message);
@@ -156,11 +164,10 @@ describe("validateScenario", () => {
     expect(problemsWith({ name: { es: "Prueba", en: "" } })).toEqual([]);
   });
 
-  it("checks the id, the hands, the Reinforcements table and the numbers", () => {
+  it("checks the id, the hands and the numbers", () => {
     const problems = problemsWith({
       id: "Test Map",
       initialHandSize: { allies: 0, axis: 4 },
-      reinforcements: undefined,
       paradrop: { faction: "Allies", unitType: UnitType.INFANTRY, units: 0 },
       extraDraws: { faction: "Axis", turns: 0 },
       airPower: { allies: -1, axis: 0 },
@@ -169,7 +176,6 @@ describe("validateScenario", () => {
     expect(messages(problems)).toEqual([
       'The id "Test Map" must be lower-case words joined by hyphens',
       "The Allies must start with 1 command card or more",
-      "The Reinforcements table is missing: the unit, or none, for each die face",
       "The paradrop needs 1 unit or more",
       "The extra draws need 1 turn or more",
       "Air sorties must be 0 or more",

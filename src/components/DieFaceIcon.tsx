@@ -1,7 +1,7 @@
 // components/DieFaceIcon.tsx
 // A die showing one face, drawn in 2D: the dice rolled when there's no WebGL, and wherever a
-// face is named (the Reinforcements table). Kept apart from DiceResult, so the screens that only
-// show a face don't load the 3D dice.
+// face is named. Kept apart from DiceResult, so the screens that only show a face don't load the
+// 3D dice.
 import { useId } from "react";
 import { DieFace } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";

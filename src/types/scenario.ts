@@ -1,7 +1,6 @@
 import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "./faction";
-import type { SixSidedFace } from "../game-core/dice";
 import type { Localized } from "../i18n/lang";
 
 // src/types/scenario.ts
@@ -35,8 +34,6 @@ export interface Scenario {
   attacker: Faction;
   tiles: Tiles;
   units: Factions;
-  /** Reinforcements card: the unit each die face brings onto this map (null: no reinforcements) */
-  reinforcements?: Record<SixSidedFace, UnitType | null>;
   /**
    * Units one side drops on the table before the game starts (Sainte-Mère-Église); that
    * side's app first asks where they landed. Units off the board or on another unit are lost.

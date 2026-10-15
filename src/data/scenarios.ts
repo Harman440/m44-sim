@@ -1,7 +1,6 @@
 // data/scenarios.ts
 
 import { Scenario, Tiles } from "../types/scenario";
-import { DieFace } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
 import { same } from "../i18n/lang";
 import { catalogScenarios } from "./catalog";
@@ -21,7 +20,7 @@ const builtIns: Scenario[] = [
     // French 2e DB attacks the Germans dug into the Écouves forest. The map, units, sandbags,
     // elite badges and hands are the official ones (in the .m44 file a column is twice ours).
     // Écouché, the Allies' temporary medal objective, and the medals stay on the table; air
-    // and the reinforcement table are ours
+    // is ours
     id: 'foret-decouves',
     name: same("Forêt d'Écouves"),
     description: {
@@ -37,13 +36,6 @@ const builtIns: Scenario[] = [
     attacker: 'Allies',
     // August 1944: the French 2e DB attacks with Allied fighter-bombers overhead
     airPower: { allies: 1, axis: 0 },
-    reinforcements: {
-      [DieFace.INFANTRY]: UnitType.INFANTRY,
-      [DieFace.TANK]: UnitType.TANK,
-      [DieFace.GRENADE]: UnitType.INFANTRY,
-      [DieFace.SUPPLY]: UnitType.ARTILLERY,
-      [DieFace.FLAG]: null,
-    },
     tiles: foretDEcouvesTiles as Tiles,
     // The German infantry dug in at Carrouges, Sées and in the forest
     sandbags: [{ row: 3, col: 1 }, { row: 3, col: 10 }, { row: 4, col: 5 }],
@@ -72,7 +64,7 @@ const builtIns: Scenario[] = [
   {
     // Memoir '44 scenario 23 (19 September 1944): the 111th Panzer Brigade drives on Arracourt,
     // where the US 4th Armored Division waits in the fog. The map, units, sandbags and hands are
-    // the official ones; the medals stay on the table, and the reinforcement table is ours
+    // the official ones; the medals stay on the table
     id: 'arracourt',
     name: same('Arracourt'),
     description: {
@@ -89,13 +81,6 @@ const builtIns: Scenario[] = [
     // Air rules: one air sortie to the Axis; the other is shuffled into the deck, which gives
     // the Allies none
     airPower: { allies: 0, axis: 1 },
-    reinforcements: {
-      [DieFace.INFANTRY]: UnitType.INFANTRY,
-      [DieFace.TANK]: UnitType.TANK,
-      [DieFace.GRENADE]: UnitType.TANK,
-      [DieFace.SUPPLY]: UnitType.ARTILLERY,
-      [DieFace.FLAG]: null,
-    },
     tiles: arracourtTiles as Tiles,
     // The artillery dug in west of Arracourt
     sandbags: [{ row: 7, col: 4 }],
@@ -119,7 +104,7 @@ const builtIns: Scenario[] = [
   },
   {
     // Memoir '44 base game, scenario 2 (6 June 1944): the US 82nd Airborne drops round the
-    // town at night. The map and units are the official ones; the reinforcement table is ours
+    // town at night. The map and units are the official ones
     id: 'sainte-mere-eglise',
     name: same('Sainte-Mère-Église'),
     description: {
@@ -131,13 +116,6 @@ const builtIns: Scenario[] = [
     attacker: 'Allies',
     // The scenario says nothing about air superiority, so both sides keep their air cards
     paradrop: { faction: 'Allies', unitType: UnitType.INFANTRY, units: 4 },
-    reinforcements: {
-      [DieFace.INFANTRY]: UnitType.INFANTRY,
-      [DieFace.TANK]: UnitType.TANK,
-      [DieFace.GRENADE]: UnitType.INFANTRY,
-      [DieFace.SUPPLY]: UnitType.INFANTRY,
-      [DieFace.FLAG]: null,
-    },
     tiles: sainteMereEgliseTiles as Tiles,
     units: {
       allies: {
@@ -160,8 +138,7 @@ const builtIns: Scenario[] = [
     // Memoir '44 base game, scenario 1 (6 June 1944): British gliders land by the bridges over
     // the Caen canal and the Orne at night. The map, units, barbed wire, the sandbags of the two
     // German units guarding the canal bridge and the Axis' surprise (2 cards, and 2 drawn after
-    // each of its first two turns) are the official ones; the medals are only on the table, and
-    // the reinforcement table is ours
+    // each of its first two turns) are the official ones; the medals are only on the table
     id: 'pegasus-bridge',
     name: same('Pegasus Bridge'),
     description: {
@@ -175,13 +152,6 @@ const builtIns: Scenario[] = [
     // A night glider raid on two bridges: no heavy guns (the player's ruling) or aircraft on either side
     bigGuns: [],
     airPower: { allies: 0, axis: 0 },
-    reinforcements: {
-      [DieFace.INFANTRY]: UnitType.INFANTRY,
-      [DieFace.TANK]: UnitType.TANK,
-      [DieFace.GRENADE]: UnitType.INFANTRY,
-      [DieFace.SUPPLY]: UnitType.INFANTRY,
-      [DieFace.FLAG]: null,
-    },
     tiles: pegasusBridgeTiles as Tiles,
     wire: [{ row: 2, col: 5 }, { row: 3, col: 4 }, { row: 4, col: 3 }, { row: 4, col: 4 }],
     sandbags: [{ row: 2, col: 4 }, { row: 3, col: 3 }],

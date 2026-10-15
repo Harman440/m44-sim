@@ -166,7 +166,6 @@ describe("MapEditor", () => {
     fireEvent.change(dialog.getByLabelText("Nombre · Español"), { target: { value: "Bocage" } });
     fireEvent.click(dialog.getByRole("button", { name: "Defiende" }));
     fireEvent.click(dialog.getByLabelText("Cartas de mando (Eje): uno menos"));
-    fireEvent.click(within(dialog.getByRole("group", { name: "Refuerzos: Bandera" })).getByRole("button", { name: "Artillería" }));
     fireEvent.click(dialog.getByLabelText("Lanzamiento de paracaidistas"));
 
     expect(dialog.queryByText("El escenario no tiene nombre")).not.toBeInTheDocument();
@@ -176,7 +175,6 @@ describe("MapEditor", () => {
       name: { es: "Bocage", en: "" },
       attacker: "Axis",
       initialHandSize: { allies: 5, axis: 4 },
-      reinforcements: { flag: "artillery" },
       paradrop: { faction: "Axis", unitType: "infantry", units: 4 },
     });
 

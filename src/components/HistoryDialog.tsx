@@ -65,8 +65,6 @@ const TEXT = defineMessages({
     attack: (n: number) => `Ataque en la casilla ${n}:`,
     empty: "vacía",
     ambush: "Emboscada",
-    reinforcements: "Refuerzos",
-    noReinforcements: "sin refuerzos",
     drawn: (name: string) => `Robada en la fase final: ${name}`,
     exportGame: "Exportar partida",
     close: "Cerrar",
@@ -108,8 +106,6 @@ const TEXT = defineMessages({
     attack: (n: number) => `Attack on hex ${n}:`,
     empty: "empty",
     ambush: "Ambush",
-    reinforcements: "Reinforcements",
-    noReinforcements: "no reinforcements",
     drawn: (name: string) => `Drawn in the final phase: ${name}`,
     exportGame: "Export game",
     close: "Close",
@@ -302,14 +298,6 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         {t.dice(record.ambush.dice)} → {labels.describeAppliedFaces(record.ambush.faces, record.ambush.kept)} (
                         {labels.describeTarget(record.ambush.target).toLowerCase()}:{" "}
                         {labels.describeRoll(readRoll(appliedFaces(record.ambush.faces, record.ambush.kept), record.ambush.target))})
-                      </Typography>
-                    )}
-                    {record.reinforcement && (
-                      <Typography component="li" variant="body2">
-                        {t.reinforcements}: {labels.dieFaces[record.reinforcement.face].toLowerCase()} →{" "}
-                        {record.reinforcement.unitType
-                          ? labels.units[record.reinforcement.unitType].toLowerCase()
-                          : t.noReinforcements}
                       </Typography>
                     )}
                     {record.combatCardDrawn && (

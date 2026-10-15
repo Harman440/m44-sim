@@ -6,7 +6,7 @@ import BoardManager from "./BoardManager";
 import CommandCard, { Section, isSection } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType, isUnitType } from "./unit";
-import { DIE_KINDS, DieFace, SIX_SIDED_FACES, SixSidedFace } from "./dice";
+import { DIE_KINDS, DieFace } from "./dice";
 import type { ShotTarget } from "../data/hitRules";
 import { isKeptList } from "./rollResult";
 import { positionKey } from "./position";
@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 30;
+export const SAVE_VERSION = 31;
 
 interface SavedUnit {
   type: UnitType;
@@ -103,7 +103,6 @@ export interface SavedGame {
   standingCollisions: StandingCollisionRoll[];
   drawnCombatCard: string | null;
   drops: Position[];
-  reinforcementFace: SixSidedFace | null;
 }
 
 /** Everything a GameSession keeps between actions, apart from the board's units */
@@ -151,8 +150,6 @@ export interface SessionState {
   turnHits: ReadonlyMap<Unit, number>;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
-  /** The Reinforcements die, rolled in the final phase */
-  reinforcementFace: SixSidedFace | null;
 }
 
 const isPosition = (value: unknown): value is Position =>
@@ -329,7 +326,6 @@ export function writeSave(
     })),
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     drops: state.drops.map((p) => ({ ...p })),
-    reinforcementFace: state.reinforcementFace,
     hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
@@ -459,11 +455,6 @@ export function readSave(
     throw new Error(`Unknown reward ${saved.rewardChoice}`);
   }
 
-  const { reinforcementFace } = saved;
-  if (reinforcementFace !== null && !SIX_SIDED_FACES.includes(reinforcementFace)) {
-    throw new Error(`Unknown reinforcement roll ${reinforcementFace}`);
-  }
-
   return {
     turn: saved.turn,
     phase: saved.phase,
@@ -511,6 +502,5 @@ export function readSave(
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
-    reinforcementFace,
   };
 }
