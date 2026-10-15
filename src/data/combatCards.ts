@@ -3,13 +3,15 @@
 // cards in the player's set"); costs are the ones marked with a pen. Each side's
 // deck is built from the scenario (`combatDeckFor`): 1 copy of each card the side
 // gets, the defensive cards for the defender, the offensive ones for the attacker,
-// and the rest by its units, its enemy's, the towns on the map, its big guns and
-// its air power.
+// and the rest by its units, the towns on the map, its big guns and its air
+// power.
 // Tune them here.
 //
 // Not in the deck yet: the command combat cards that act on the opponent's
 // hand or orders (Spies, HQ Distraction, Message Interception, Lost Message),
 // which come in Step 33. Sniper is left out: the player doesn't want snipers.
+// Out of Ammo, Ambush, Pull Back, Out of Fuel and Shell Shortage were taken out
+// with the reaction cards (Step 61).
 import { CombatCard, CombatEffect, CombatPhase, DeckReason, MarkerRule } from "../game-core/combatCard";
 
 export type { DeckReason };
@@ -48,7 +50,6 @@ interface SideContext {
   attacker: boolean;
   tanks: boolean;
   artillery: boolean;
-  enemyTanks: boolean;
   /** Town hexes on the map */
   towns: number;
   bigGuns: boolean;
@@ -190,10 +191,6 @@ const TEMPLATES: CombatCardTemplate[] = [
       en: "1 infantry unit that wins a close assault (retreat or elimination) can overrun like armor: it takes ground and battles again, even if the hex would prevent it.",
     },
     { effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 } }),
-  battle("out-of-ammo", { es: "Sin munición", en: "Out of Ammo" }, 4, always, {
-    es: "1 unidad enemiga no puede combatir y se mueve a una casilla libre de su línea de fondo.",
-    en: "1 enemy unit can't battle and moves to an empty hex on its baseline.",
-  }),
   battle("street-fight", { es: "Lucha callejera", en: "Street Fight" }, 1, always,
     { es: "1 infantería en un edificio o junto a uno tira 1 dado más.", en: "1 infantry unit on or next to a building rolls 1 extra die." },
     {
@@ -204,24 +201,6 @@ const TEMPLATES: CombatCardTemplate[] = [
         condition: { es: "¿La unidad está en un edificio o junto a uno?", en: "Is the unit on or next to a building?" },
       },
     }),
-  battle("ambush", { es: "Emboscada", en: "Ambush" }, 3, always,
-    {
-      es: "Cuando una unidad enemiga te ataca en asalto cercano, combates tú primero: si se retira o es eliminada, su ataque no se hace.",
-      en: "When an enemy unit attacks you in close assault, you battle first: if it retreats or is eliminated, its attack doesn't happen.",
-    },
-    { effect: { kind: "ambush" } }),
-  battle("pull-back", { es: "Repliegue", en: "Pull Back" }, 3, defensive,
-    { es: "Antes de que el enemigo combata, retira tu unidad hasta 2 casillas.", en: "Before the enemy battles, pull your unit back up to 2 hexes." },
-    {
-      tableReminder: {
-        es: "Repliegue: refleja en «Actualizar mapa» la unidad que se replegó.",
-        en: "Pull Back: mirror the unit that pulled back in “Update map”.",
-      },
-    }),
-  battle("out-of-fuel", { es: "Sin combustible", en: "Out of Fuel" }, 3, ifSide("enemyTanks", (side) => side.enemyTanks), {
-    es: "1 unidad de blindados enemiga no puede combatir y vuelve a su casilla de salida.",
-    en: "1 enemy armor unit can't battle and goes back to the hex it started from.",
-  }),
   battle("not-a-step-back", { es: "Ni un paso atrás", en: "Not One Step Back" }, 1, defensive,
     { es: "1 unidad ignora todas las retiradas.", en: "1 unit ignores all retreats." }),
   battle("camouflage", { es: "Camuflaje", en: "Camouflage" }, 2, defensive,
@@ -269,10 +248,6 @@ const TEMPLATES: CombatCardTemplate[] = [
   battle("explosives", { es: "Explosivos", en: "Explosives" }, 1, always,
     { es: "1 infantería tira 1 dado más en asalto cercano.", en: "1 infantry unit rolls 1 extra die in close assault." },
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true } }),
-  battle("shells-shortage", { es: "Escasez de proyectiles", en: "Shell Shortage" }, 2, ifSide("enemyTanks", (side) => side.enemyTanks), {
-    es: "1 unidad de artillería o blindados enemiga no puede disparar.",
-    en: "1 enemy artillery or armor unit can't fire.",
-  }),
   battle("rifles-up", { es: "¡Fusiles arriba!", en: "Rifles Up!" }, 1, always,
     { es: "Elige una unidad tuya: dispara antes que nadie.", en: "Pick one of your units: it fires before anyone else." },
     { effect: { kind: "firesFirst" } }),
@@ -298,12 +273,10 @@ export const airSortiesOf = (scenario: Scenario, faction: Faction): number =>
   scenario.airPower?.[faction === "Axis" ? "axis" : "allies"] ?? 1;
 
 function sideContext(scenario: Scenario, faction: Faction): SideContext {
-  const enemy: Faction = faction === "Axis" ? "Allies" : "Axis";
   return {
     attacker: scenario.attacker === faction,
     tanks: hasUnits(scenario, faction, UnitType.TANK),
     artillery: hasUnits(scenario, faction, UnitType.ARTILLERY),
-    enemyTanks: hasUnits(scenario, enemy, UnitType.TANK),
     towns: scenario.tiles[HexType.TOWN]?.length ?? 0,
     bigGuns: hasBigGuns(scenario, faction),
     air: airSortiesOf(scenario, faction),

@@ -13,7 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 9;
+export const MATCH_SAVE_VERSION = 10;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -38,8 +38,8 @@ export interface MatchBattle {
   turn: number;
   /** Each turn to fire so far, in order: a shot (its index in its side's shots) or a unit holding its fire (null) */
   fired: { side: Faction; group: FireGroup; order: number; shot: number | null }[];
-  /** A shot rolled but not dealt yet (or the Ambush shot): its player still picks the results it applies */
-  pending: { side: Faction; shot: number; ambush?: boolean } | null;
+  /** A shot rolled but not dealt yet: its player still picks the results it applies */
+  pending: { side: Faction; shot: number } | null;
   /** The last close assault lets the unit take ground: its player decides */
   ground: { side: Faction; order: number } | null;
   /** Taking ground: the enemy unit (on this hex, in its own view) retreats now, then the unit moves in */
@@ -48,21 +48,7 @@ export interface MatchBattle {
   bonus: { side: Faction; order: number } | null;
   /** The firing is over: the units marked to retreat retreat, the attacker's first */
   retreating: boolean;
-  /** The sides whose battle card against an enemy unit (Out of Ammo…) has been used */
-  cardsUsed: Faction[];
-  /** Out of Ammo: the enemy unit (on this hex, in its side's view) moves to an empty hex of its baseline, its player picks */
-  relocate: { side: Faction; position: Position } | null;
 }
-
-/**
- * The battle cards played on an enemy unit, by template id: it can't fire any more this turn and,
- * with Out of Ammo, moves to its baseline; with Out of Fuel, back to the hex it started from
- */
-const BLOCKING_CARDS: Record<string, { unitTypes?: UnitType[]; move?: "baseline" | "start" }> = {
-  "out-of-ammo": { move: "baseline" },
-  "shells-shortage": { unitTypes: [UnitType.ARTILLERY, UnitType.TANK] },
-  "out-of-fuel": { unitTypes: [UnitType.TANK], move: "start" },
-};
 
 /** The battle for the screen */
 export interface BattleState {
@@ -72,7 +58,7 @@ export interface BattleState {
   group: FireGroup | null;
   /** The order indexes of that side's units that can fire now */
   fireable: readonly number[];
-  pending: { side: Faction; shot: number; ambush?: boolean; limit: number; mustChoose: boolean } | null;
+  pending: { side: Faction; shot: number; limit: number; mustChoose: boolean } | null;
   /** The unit that may take ground after its close assault: its player decides */
   ground: { side: Faction; order: number } | null;
   /** The unit retreating now (in its side's view) and the hexes it can retreat to */
@@ -81,13 +67,6 @@ export interface BattleState {
   retreating: boolean;
   /** Sides whose attack combat card (Barrage…) is still to be rolled, before anyone fires */
   attacks: readonly Faction[];
-  /**
-   * A side's battle card waiting to be used: Ambush (its unit fires first), or a card on an enemy
-   * unit (`targets`: the enemy units it can pick, in the enemy's view)
-   */
-  card: { side: Faction; kind: "ambush" | "block"; targets: readonly Position[] } | null;
-  /** Out of Ammo: the enemy unit (in its side's view) moves to one of these hexes of its baseline */
-  relocate: { side: Faction; position: Position; options: readonly Position[] } | null;
 }
 
 /** Where a collision's roll was kept: one of its side's shots, or its rolls for units without an order */
@@ -437,8 +416,6 @@ class PassAndPlayMatch {
       overrun: null,
       bonus: null,
       retreating: false,
-      cardsUsed: [],
-      relocate: null,
     };
     for (const side of FACTIONS) {
       this.sessions[side].startBattle();
@@ -537,7 +514,6 @@ class PassAndPlayMatch {
     const pending = this.battle?.pending;
     if (!pending) return false;
     const session = this.sessions[pending.side];
-    if (pending.ambush) return session.keepAmbushResults(kept);
     const shots = session.getSnapshot().shots;
     const shot = shots[pending.shot]!;
     const number = shots.filter((s, i) => s.orderIndex === shot.orderIndex && i < pending.shot).length;
@@ -554,10 +530,6 @@ class PassAndPlayMatch {
     const { hits, retreats } = readRoll(appliedFaces(rolled.roll.faces, rolled.roll.kept), rolled.roll.target);
     const sandbags = enemy.board.getHex(at)?.sandbags ? 1 : 0;
     enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags));
-    if (pending.ambush) {
-      this.battle = { ...this.battle!, pending: null };
-      return this.publish();
-    }
     const shot = this.sessions[pending.side].getSnapshot().shots[pending.shot]!;
 
     // After a close assault that destroyed the enemy unit or makes it retreat, the unit may take
@@ -670,10 +642,6 @@ class PassAndPlayMatch {
     if (!pending) return null;
     const session = this.sessions[pending.side];
     const game = session.getSnapshot();
-    if (pending.ambush) {
-      const ambush = game.ambush!;
-      return { roll: ambush, from: ambush.from, target: ambush.targetPosition };
-    }
     const shot = game.shots[pending.shot]!;
     return { roll: shot, from: session.orderSummaries()[shot.orderIndex]!.firingFrom, target: shot.targetPosition! };
   }
@@ -701,7 +669,6 @@ class PassAndPlayMatch {
       !!battle.ground ||
       !!battle.overrun ||
       battle.retreating ||
-      !!battle.relocate ||
       FACTIONS.some((side) => this.sessions[side].getSnapshot().attacksPending)
     );
   }
@@ -739,81 +706,6 @@ class PassAndPlayMatch {
     return this.publish();
   }
 
-  /** The side with a battle card waiting to be used, and how */
-  private cardInPlay(): BattleState["card"] {
-    const battle = this.battle;
-    if (!battle || battle.pending || battle.retreating || battle.relocate) return null;
-    for (const side of FACTIONS) {
-      const game = this.sessions[side].getSnapshot();
-      const card = game.battleCombatCard;
-      if (!card || battle.cardsUsed.includes(side)) continue;
-      if (card.effect?.kind === "ambush" && !game.ambush) return { side, kind: "ambush", targets: [] };
-      const template = card.templateId ?? card.id;
-      if (BLOCKING_CARDS[template]) return { side, kind: "block", targets: this.blockable(side, template) };
-    }
-    return null;
-  }
-
-  /** The enemy units the side's card can stop: ordered units that can still fire, of the card's types (enemy's view) */
-  private blockable(side: Faction, cardId: string): Position[] {
-    const rule = BLOCKING_CARDS[cardId]!;
-    return this.sessions[otherSide(side)]
-      .orderSummaries()
-      .filter((summary) => summary.shotsLeft > 0 && (!rule.unitTypes || rule.unitTypes.includes(summary.unitType)))
-      .map((summary) => summary.firingFrom);
-  }
-
-  /** Ambush: the side's unit at `from` fires first at the adjacent enemy unit attacking it (the side's view) */
-  ambush(from: Position, target: Position): boolean {
-    const card = this.cardInPlay();
-    if (!card || card.kind !== "ambush") return false;
-    const session = this.sessions[card.side];
-    const enemy = session.enemyAt(target);
-    if (!enemy) return false;
-    if (!session.ambushAt(from, { position: target, infantry: enemy.unitType === UnitType.INFANTRY, sandbags: enemy.sandbags })) {
-      return false;
-    }
-    const battle = this.battle!;
-    this.battle = { ...battle, pending: { side: card.side, shot: -1, ambush: true }, cardsUsed: [...battle.cardsUsed, card.side] };
-    if (!this.shotMustChoose()) this.applyShot();
-    return this.publish();
-  }
-
-  /**
-   * The side's card stops the enemy unit on this hex (the enemy's view) firing: Out of Ammo then
-   * moves it to its baseline (its player picks the hex), Out of Fuel back to where it started
-   */
-  block(position: Position): boolean {
-    const card = this.cardInPlay();
-    if (!card || card.kind !== "block" || !includesPosition(card.targets, position)) return false;
-    const enemySide = otherSide(card.side);
-    const enemy = this.sessions[enemySide];
-    const order = enemy.orderSummaries().find((s) => s.shotsLeft > 0 && samePosition(s.firingFrom, position))!;
-    if (!enemy.blockUnit(order.index)) return false;
-    const played = this.sessions[card.side].getSnapshot().battleCombatCard!;
-    const rule = BLOCKING_CARDS[played.templateId ?? played.id]!;
-    const battle = this.battle!;
-    let relocate: MatchBattle["relocate"] = null;
-    if (rule.move === "start") {
-      const start = enemy.getSnapshot().orders[order.index]!.start;
-      if (!samePosition(start, position)) enemy.moveUnitTo(position, start);
-    } else if (rule.move === "baseline" && position.row !== enemy.board.height - 1 && enemy.baselineHexes().length > 0) {
-      relocate = { side: enemySide, position: { ...position } };
-    }
-    this.battle = { ...battle, cardsUsed: [...battle.cardsUsed, card.side], relocate };
-    return this.publish();
-  }
-
-  /** Out of Ammo: the enemy unit moves to this empty hex of its baseline (its side's view) */
-  relocate(to: Position): boolean {
-    const relocate = this.battle?.relocate;
-    if (!relocate) return false;
-    const session = this.sessions[relocate.side];
-    if (!includesPosition(session.baselineHexes(), to) || !session.moveUnitTo(relocate.position, to)) return false;
-    this.battle = { ...this.battle!, relocate: null };
-    return this.publish();
-  }
-
   private battleView(): BattleState | null {
     const battle = this.battle;
     if (!battle) return null;
@@ -825,11 +717,6 @@ class PassAndPlayMatch {
       fireable: turn ? this.fireable(turn.side, turn.group) : [],
       pending: battle.pending && { ...battle.pending, limit: this.shotLimit(), mustChoose: this.shotMustChoose() },
       attacks: FACTIONS.filter((side) => this.sessions[side].getSnapshot().attacksPending),
-      card: this.cardInPlay(),
-      relocate: battle.relocate && {
-        ...battle.relocate,
-        options: this.sessions[battle.relocate.side].baselineHexes(),
-      },
       ground: battle.ground,
       retreat: this.retreatView(),
       retreating: battle.retreating,

@@ -272,13 +272,13 @@ The player answered every **Decide** before Step 59 was built; each is marked **
 - [x] Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
 
 ### Step 61: The reaction cards go
-- [ ] Out of Ammo (Sin munición), Ambush (Emboscada), Pull Back (Repliegue), Out of Fuel (Sin combustible) and Shell Shortage (Escasez de proyectiles) leave `combatCards.ts`
-- [ ] Their code goes:
+- [x] Out of Ammo (Sin munición), Ambush (Emboscada), Pull Back (Repliegue), Out of Fuel (Sin combustible) and Shell Shortage (Escasez de proyectiles) leave `combatCards.ts`
+- [x] Their code goes:
   - Ambush: `AmbushDialog`, `ambushAt`, `ambushTargets`, `ambushUnits`, `undoAmbush`, `keepAmbushResults`, `AmbushShot`, the `ambush` effect, its line in the coins ledger, the save and the turn log, and pass and play's `ambush` and `pending.ambush`
-  - The blocking cards: pass and play's `BLOCKING_CARDS`, `cardInPlay`, `blockable`, `block`, `relocate` and `MatchBattle.relocate`; `GameSession.blockShot`, `blockUnit`, `baselineHexes` and `moveUnitTo` (unless something else uses them); `Shot.blocked` and "Bloqueado por el rival" in the Fire dialog
+  - The blocking cards: pass and play's `BLOCKING_CARDS`, `cardInPlay`, `blockable`, `block`, `relocate` and `MatchBattle.relocate`; `GameSession.blockShot`, `blockUnit` and `baselineHexes` (`moveUnitTo` stays for Reposition in pass and play, Step 64); `Shot.blocked` and "Bloqueado por el rival" in the Fire dialog
   - Their glyphs in `CardArt`
-- [ ] The `enemyTanks` deck reason goes, since only Out of Fuel and Shell Shortage had it: `DeckReason`, the labels, its icon and `REASON_ORDER`
-- [ ] The combat deck sizes in `ScenarioDetails` follow on their own; the rule book's and house rules' card lists don't. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
+- [x] The `enemyTanks` deck reason goes, since only Out of Fuel and Shell Shortage had it: `DeckReason`, the labels, its icon and `REASON_ORDER`
+- [x] The combat deck sizes in `ScenarioDetails` follow on their own; the rule book's and house rules' card lists don't. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
 
 ### Step 62: Combat cards are played with the orders
 - [ ] **Decided:** combat cards aren't told apart any more: up to two per turn, any two different cards (not two copies of one card), both played with the command card. Two cards that mark hexes each mark their own; two that change movement each go on their own units. The "Con las órdenes" label at the foot of a combat card goes

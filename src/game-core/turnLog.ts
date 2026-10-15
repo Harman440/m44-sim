@@ -5,7 +5,7 @@ import Unit, { UnitType } from "./unit";
 import { DieFace } from "./dice";
 import { DiceStep } from "./fireRules";
 import { Position } from "../types/scenario";
-import type { AmbushShot, BattleEdit, CardAttack, Shot } from "./gameSession";
+import type { BattleEdit, CardAttack, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
 import type { CoinEntry, RewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
@@ -47,8 +47,6 @@ export interface TurnRecord {
     target: ShotTarget;
     /** Instead of firing, the unit removed the barbed wire on this hex */
     removedWire?: Position;
-    /** The opponent's card stopped the unit from firing */
-    blocked?: boolean;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -74,8 +72,6 @@ export interface TurnRecord {
   markers: Position[];
   /** The attack combat card's rolls on the marked hexes */
   cardAttacks: CardAttack[];
-  /** The Ambush card's shot (missing in turns saved before Ambush fired in the app) */
-  ambush?: AmbushShot | null;
 }
 
 interface TurnState {
@@ -91,7 +87,6 @@ interface TurnState {
   combatCardDrawn: CombatCard | null;
   markers: readonly Position[];
   cardAttacks: readonly CardAttack[];
-  ambush: AmbushShot | null;
 }
 
 /** Record a turn at its end, before the orders and edits are cleared */
@@ -108,7 +103,6 @@ export function recordTurn({
   combatCardDrawn,
   markers,
   cardAttacks,
-  ambush,
 }: TurnState): TurnRecord {
   return {
     turn,
@@ -133,7 +127,6 @@ export function recordTurn({
       collision: shot.collision,
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
-      ...(shot.blocked && { blocked: true }),
     })),
     battleEdits: battleEdits.map((edit): TurnRecord["battleEdits"][number] => {
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
@@ -163,21 +156,8 @@ export function recordTurn({
       target: attack.target && { ...attack.target },
       faces: [...attack.faces],
     })),
-    ambush: ambush && copyAmbush(ambush),
   };
 }
-
-/** A copy of an Ambush shot as plain data */
-export const copyAmbush = (ambush: AmbushShot): AmbushShot => ({
-  ...ambush,
-  from: { ...ambush.from },
-  targetPosition: { ...ambush.targetPosition },
-  steps: ambush.steps.map((step) => ({ ...step })),
-  faces: [...ambush.faces],
-  kept: ambush.kept && [...ambush.kept],
-  notes: [...ambush.notes],
-  target: { ...ambush.target },
-});
 
 /** `elite: true` for a unit with the scenario's badge, nothing otherwise */
 const eliteOf = (unit: Unit): { elite?: true } => (unit.elite ? { elite: true } : {});

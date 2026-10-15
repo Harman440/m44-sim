@@ -6,7 +6,7 @@ import Order from "./order";
 import { UnitType } from "./unit";
 import { appliedFaces, readRoll } from "./rollResult";
 import { END_OF_TURN_COINS } from "../data/coinRules";
-import type { AmbushShot, Shot, StandingCollisionRoll } from "./gameSession";
+import type { Shot, StandingCollisionRoll } from "./gameSession";
 import type { CombatCard } from "./combatCard";
 import type { Localized } from "../i18n/lang";
 
@@ -28,8 +28,6 @@ export interface TurnCoinsState {
   /** Combat cards played this turn, paid when played */
   combatCards: readonly CombatCard[];
   shots: readonly Shot[];
-  /** The Ambush card's shot, whose supply faces earn coins too */
-  ambush?: AmbushShot | null;
   /** Pass and play: collision rolls of units without an order, whose supply faces earn coins too */
   standingCollisions?: readonly StandingCollisionRoll[];
   /** Coins added or taken by hand (to match the table) */
@@ -46,7 +44,6 @@ export function turnCoins({
   orders,
   combatCards,
   shots,
-  ambush = null,
   standingCollisions = [],
   adjustments,
   reward,
@@ -65,7 +62,7 @@ export function turnCoins({
     const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
     if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
   });
-  [...(ambush ? [ambush] : []), ...standingCollisions].forEach((roll) => {
+  standingCollisions.forEach((roll) => {
     const coins = readRoll(appliedFaces(roll.faces, roll.kept), roll.target).coins;
     if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: roll.unitType });
   });

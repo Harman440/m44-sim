@@ -85,7 +85,6 @@ const en: Labels = {
     defender: "Defends",
     tanks: "Armor",
     artillery: "Artillery",
-    enemyTanks: "Enemy armor",
     towns: "Street fighting",
     bigGuns: "Heavy guns",
     air: "Air power",

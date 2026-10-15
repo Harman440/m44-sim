@@ -135,10 +135,6 @@ export interface GameSnapshot {
   attacksPending: boolean;
   /** The battle combat card played in this turn's battle (one per battle) */
   battleCombatCard: CombatCard | null;
-  /** Ambush was played and hasn't fired yet: this side's units that can fire first, at an adjacent hex */
-  ambushUnits: readonly Position[];
-  /** The Ambush card's shot, once rolled */
-  ambush: AmbushShot | null;
   /** Pass and play: collision rolls of units without an order */
   standingCollisions: readonly StandingCollisionRoll[];
   /** Pass and play: each unit's figures left and the flags it must retreat, by hex (none in the one-side game) */
@@ -231,20 +227,6 @@ export interface Shot extends ShotRoll {
   pushedBack?: boolean;
   /** Instead of firing, the unit removed the barbed wire on this hex (no dice) */
   removedWire?: Position;
-  /** The opponent's card stopped the unit from firing (Out of Ammo…): no dice, and no more shots this turn */
-  blocked?: boolean;
-}
-
-/**
- * Ambush (a battle combat card): one of this side's units, ordered or not,
- * fires first at the enemy unit attacking it in close assault. It isn't one
- * of the unit's own shots, and the command card adds nothing to it.
- */
-export interface AmbushShot extends ShotRoll {
-  /** Where the ambushing unit stands */
-  from: Position;
-  unitType: UnitType;
-  targetPosition: Position;
 }
 
 /**
@@ -393,7 +375,6 @@ class GameSession {
   private markers: Position[] = [];
   private cardAttacks: CardAttack[] = [];
   private battleCombatCard: CombatCard | null = null;
-  private ambush: AmbushShot | null = null;
   private standingCollisions: StandingCollisionRoll[] = [];
   /** Pass and play: hits each unit has taken (kept from turn to turn) */
   private hits = new Map<Unit, number>();
@@ -1302,83 +1283,6 @@ class GameSession {
     return this.publish();
   }
 
-  // Ambush: a unit of this side fires first at the enemy that attacks it in close assault
-
-  private ambushPlayed(): boolean {
-    return this.phase === TurnPhase.BATTLE && this.battleCombatCard?.effect?.kind === "ambush";
-  }
-
-  /** What the fire questions need to know about an ambush from this hex: close assault, no command card */
-  ambushContext(from: Position): FireContext | null {
-    const hex = this.board.getHex(from);
-    if (!hex?.hasUnit()) return null;
-    return {
-      unitType: hex.unit.getUnitType(),
-      card: null,
-      closeAssaultOnly: true,
-      fromTerrain: hex.getType(),
-      fromWire: hex.wire,
-    };
-  }
-
-  /** The adjacent hexes a unit at `from` can fire at with Ambush, with their dice */
-  ambushTargets(from: Position): FireTarget[] {
-    const context = this.ambushContext(from);
-    if (!this.ambushPlayed() || !context) return [];
-    return fireTargets(this.board, from, context, this.enemyView?.().map((enemy) => enemy.position));
-  }
-
-  /** This side's units that can fire with Ambush now: at least one adjacent hex worth a die */
-  private ambushUnits(): Position[] {
-    if (!this.ambushPlayed() || this.ambush) return [];
-    return this.board
-      .getAllHexes()
-      .filter((hex) => hex.hasUnit() && this.ambushTargets(hex.getPosition()).some((t) => t.dice > 0))
-      .map((hex) => hex.getPosition());
-  }
-
-  /** Fire first with the unit at `from`, at the adjacent hex of the enemy unit attacking it (Ambush) */
-  ambushAt(from: Position, { position, infantry, sandbags }: { position: Position; infantry: boolean; sandbags: boolean }): boolean {
-    if (!this.ambushPlayed() || this.ambush || !this.canBeTarget(infantry)) return false;
-    const target = this.ambushTargets(from).find((t) => samePosition(t.position, position));
-    if (!target || target.dice <= 0) return false;
-    const context = this.ambushContext(from)!;
-    const answers = { ...mapAnswers(target), targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER, sandbags: sandbags ? "yes" : "no" };
-    const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-    if (blocked) return false;
-
-    this.ambush = {
-      from: { ...from },
-      unitType: context.unitType,
-      targetPosition: { ...position },
-      steps,
-      dice,
-      faces: rollDice(dice, this.random),
-      notes,
-      collision: false,
-      target: { infantry, closeAssault: true, die: "battle" },
-      combatBonus: false,
-      kept: null,
-    };
-    return this.publish();
-  }
-
-  /** Take back the Ambush shot, recorded by mistake */
-  undoAmbush(): boolean {
-    if (this.phase !== TurnPhase.BATTLE || !this.ambush) return false;
-    this.ambush = null;
-    return this.publish();
-  }
-
-  /** Apply only some of the Ambush shot's results (or all again, with null) */
-  keepAmbushResults(kept: readonly number[] | null): boolean {
-    if (this.phase !== TurnPhase.BATTLE || !this.ambush) return false;
-    if (kept !== null && !isKeptList(kept, this.ambush.faces.length)) return false;
-    const sorted = kept && kept.length < this.ambush.faces.length ? [...kept].sort((a, b) => a - b) : null;
-    this.ambush = { ...this.ambush, kept: sorted };
-    return this.publish();
-  }
-
   // Barbed wire: infantry standing on it fires with a die less (fireBonusSteps),
   // or removes it instead of firing, which uses up the shot
 
@@ -1401,40 +1305,7 @@ class GameSession {
     return this.publish();
   }
 
-  /**
-   * The opponent played a card that stops this unit from firing (Out of Ammo,
-   * Shell Shortage, Out of Fuel): no roll, and the unit fires no more this turn
-   */
-  blockShot(orderIndex: number): boolean {
-    if (this.phase !== TurnPhase.BATTLE || !this.canFireNow(orderIndex)) return false;
-    const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
-    const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, blocked: true };
-    this.shots = [...this.shots, shot];
-    return this.publish();
-  }
-
-  /**
-   * Pass and play: the opponent's card stops this unit firing (Out of Ammo, Shell Shortage, Out
-   * of Fuel), whether or not it's its turn: a blocked shot, and no more shots this turn
-   */
-  blockUnit(orderIndex: number): boolean {
-    if (this.phase !== TurnPhase.BATTLE || this.shotsLeft(orderIndex) <= 0) return false;
-    const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
-    const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, blocked: true };
-    this.shots = [...this.shots, shot];
-    return this.publish();
-  }
-
-  /** Pass and play: the empty hexes on this side's baseline (the bottom row of its view), with no enemy on them */
-  baselineHexes(): Position[] {
-    const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
-    return this.board
-      .getAllHexes()
-      .filter((hex) => hex.getPosition().row === this.board.height - 1 && hex.isPassable() && !enemies.has(hex.getKey()))
-      .map((hex) => hex.getPosition());
-  }
-
-  /** Pass and play: a card moves this side's unit to an empty hex (Out of Ammo, Out of Fuel), as a map edit */
+  /** Pass and play: a card moves this side's unit to an empty hex (Reposition), as a map edit */
   moveUnitTo(from: Position, to: Position): boolean {
     if (!this.figures || samePosition(from, to)) return false;
     const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
@@ -1586,7 +1457,6 @@ class GameSession {
       orders: this.orders,
       combatCards: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
       shots: this.shots,
-      ambush: this.ambush,
       standingCollisions: this.standingCollisions,
       adjustments: this.coinAdjustments,
       reward: this.rewardChoice,
@@ -1730,8 +1600,8 @@ class GameSession {
   /** Take back the battle combat card played by mistake; its coins come back */
   undoBattleCombatCard(): boolean {
     if (this.phase !== TurnPhase.BATTLE || !this.battleCombatCard) return false;
-    // A shot already used its dice, or Ambush fired: undo that shot first
-    if (this.shots.some((shot) => shot.combatBonus) || this.ambush) return false;
+    // A shot already used its dice: undo that shot first
+    if (this.shots.some((shot) => shot.combatBonus)) return false;
 
     this.combatHand = [...this.combatHand, this.battleCombatCard];
     this.battleCombatCard = null;
@@ -2105,7 +1975,6 @@ class GameSession {
       combatCardDrawn: this.drawnCombatCard,
       markers: this.markers,
       cardAttacks: this.cardAttacks,
-      ambush: this.ambush,
     });
     this.log = [...this.log, record];
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
@@ -2119,7 +1988,6 @@ class GameSession {
     this.markers = [];
     this.cardAttacks = [];
     this.battleCombatCard = null;
-    this.ambush = null;
     this.standingCollisions = [];
     this.retreatFlags = new Map();
     this.turnHits = new Map();
@@ -2174,7 +2042,6 @@ class GameSession {
       markers: this.markers,
       cardAttacks: this.cardAttacks,
       battleCombatCard: this.battleCombatCard,
-      ambush: this.ambush,
       standingCollisions: this.standingCollisions,
       hits: this.hits,
       retreatFlags: this.retreatFlags,
@@ -2231,7 +2098,6 @@ class GameSession {
     session.markers = state.markers;
     session.cardAttacks = state.cardAttacks;
     session.battleCombatCard = state.battleCombatCard;
-    session.ambush = state.ambush;
     session.standingCollisions = [...state.standingCollisions];
     session.hits = new Map(state.hits);
     session.retreatFlags = new Map(state.retreatFlags);
@@ -2288,8 +2154,6 @@ class GameSession {
       cardAttacks: this.cardAttacks,
       attacksPending: this.attacksPending(),
       battleCombatCard: this.battleCombatCard,
-      ambushUnits: this.ambushUnits(),
-      ambush: this.ambush,
       standingCollisions: this.standingCollisions,
       strength: this.strength(),
       drawnCombatCard: this.drawnCombatCard,

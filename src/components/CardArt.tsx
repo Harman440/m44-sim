@@ -708,13 +708,6 @@ function CombatScene({ card, faction, hexes }: { card: CombatCard; faction: Fact
   );
 }
 
-/** Cards that stop an enemy unit of this type (any type: infantry is drawn) */
-const DENIED: Record<string, UnitType> = {
-  "out-of-ammo": UnitType.INFANTRY,
-  "out-of-fuel": UnitType.TANK,
-  "shells-shortage": UnitType.ARTILLERY,
-};
-
 /** Art for some cards resolved at the table, drawn from what they do; null for the rest */
 function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: number) {
   const id = baseId(card);
@@ -748,9 +741,9 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
     );
   }
 
-  if (id === "pull-back" || id === "reposition") {
-    // A unit stepping back two hexes, towards its own side
-    const type = id === "reposition" ? UnitType.ARTILLERY : UnitType.INFANTRY;
+  if (id === "reposition") {
+    // An artillery unit stepping back two hexes, towards its own side
+    const type = UnitType.ARTILLERY;
     const start = at(mid + 1);
     const end = at(mid - 2);
     return (
@@ -763,20 +756,6 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
     );
   }
 
-  if (DENIED[id]) {
-    // An enemy unit, struck out
-    const cx = at(mid).x;
-    return (
-      <>
-        <Token type={DENIED[id]!} faction={enemy} x={cx} y={y} r={15} />
-        <g className="card-art__denied">
-          <circle cx={cx} cy={y} r={20} />
-          <line x1={cx - 14} y1={y + 14} x2={cx + 14} y2={y - 14} />
-        </g>
-      </>
-    );
-  }
-
   if (id === "camouflage") {
     // A unit half hidden under a net
     const cx = at(mid).x;
@@ -784,22 +763,6 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
       <>
         <Token type={UnitType.INFANTRY} faction={faction} x={cx} y={y} r={15} />
         <circle cx={cx} cy={y} r={20} className="card-art__net" />
-      </>
-    );
-  }
-
-  if (id === "ambush") {
-    // The enemy closes in, and your unit fires first
-    const own = at(mid - 1);
-    const them = at(mid);
-    return (
-      <>
-        <Token type={UnitType.INFANTRY} faction={faction} x={own.x} y={y} r={12} />
-        <Token type={UnitType.INFANTRY} faction={enemy} x={them.x} y={y} r={10} />
-        <Reticle x={them.x} y={y} r={8} />
-        <text x={own.x} y={y - 18} className="card-art__bonus">
-          1º
-        </text>
       </>
     );
   }

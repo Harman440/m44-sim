@@ -134,14 +134,6 @@
   stroke-width: 1;
 }
 
-.card-art__denied circle,
-.card-art__denied line {
-  fill: none;
-  stroke: #b3261e;
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-
 /* A camouflage net over the unit */
 .card-art__net {
   fill: color-mix(in srgb, #4f6b2c 45%, transparent);

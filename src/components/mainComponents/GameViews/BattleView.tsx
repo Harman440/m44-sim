@@ -24,7 +24,6 @@ import BattleMap from "./BattleMap";
 import CloseAssaultMap from "./CloseAssaultMap";
 import GameIcon from "../../GameIcon";
 import CardAttackDialog from "../../CardAttackDialog";
-import AmbushDialog from "../../AmbushDialog";
 import { useSound } from "../../../sound";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
@@ -38,8 +37,6 @@ const TEXT = defineMessages({
     endBattle: "Terminar batalla",
     emptyCloseAssault: "Marca las unidades en asalto cercano para que disparen.",
     emptyNoOrders: "No se dieron órdenes este turno.",
-    seeAmbush: "Ver emboscada",
-    fireFirst: "Disparar primero",
     tapFiresFirst: "Toca en el orden de fuego la unidad que dispara primero.",
     onlyBeforeFiring: "Solo antes de que dispare ninguna unidad.",
     needsOrdered: (units: string) => `Necesita una unidad de ${units} con orden.`,
@@ -69,8 +66,6 @@ const TEXT = defineMessages({
     endBattle: "End battle",
     emptyCloseAssault: "Mark the units in close assault so they fire.",
     emptyNoOrders: "No orders were given this turn.",
-    seeAmbush: "See ambush",
-    fireFirst: "Fire first",
     tapFiresFirst: "In the firing order, tap the unit that fires first.",
     onlyBeforeFiring: "Only before any unit fires.",
     needsOrdered: (units: string) => `Needs an ordered ${units} unit.`,
@@ -116,11 +111,9 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const [collisionOpen, setCollisionOpen] = useState(false);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
   const [markingCloseAssault, setMarkingCloseAssault] = useState(false);
-  const [ambushOpen, setAmbushOpen] = useState(false);
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const ambushPlayed = game.battleCombatCard?.effect?.kind === "ambush";
   // ¡Fusiles arriba! goes before any unit fires (collisions aside)
   const unitFired = game.shots.some((shot) => !shot.collision);
   const anyFiresFirst = game.battleCombatCard?.effect?.kind === "firesFirst";
@@ -232,19 +225,13 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               canPlayCombatCards={game.canPlayCombatCards}
               battleCards={battleCards}
               played={game.battleCombatCard}
-              canUndo={!bonusUsed && !game.ambush}
+              canUndo={!bonusUsed}
               playedAction={
-                ambushPlayed ? (
-                  <Button onClick={() => setAmbushOpen(true)} startIcon={<GameIcon name="fire" />}>
-                    {game.ambush ? t.seeAmbush : t.fireFirst}
-                  </Button>
-                ) : (
-                  anyFiresFirst &&
-                  !unitFired && (
-                    <Typography variant="body2" sx={{ textAlign: "center" }}>
-                      {t.tapFiresFirst}
-                    </Typography>
-                  )
+                anyFiresFirst &&
+                !unitFired && (
+                  <Typography variant="body2" sx={{ textAlign: "center" }}>
+                    {t.tapFiresFirst}
+                  </Typography>
                 )
               }
               blockedReason={(card) => {
@@ -256,8 +243,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               onPlay={(card) => {
                 const done = session.playBattleCombatCard(card);
                 if (done) play("cardPlay");
-                // Ambush: straight to the map, to pick the unit attacked and fire first
-                if (done && card.effect?.kind === "ambush") setAmbushOpen(true);
                 return done;
               }}
               onUndo={() => session.undoBattleCombatCard()}
@@ -291,7 +276,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         targetKinds={session.targetKinds}
         canRemoveWire={firingIndex !== null && (game.canRemoveWire[firingIndex] ?? false)}
         onRemoveWire={() => withSound(firingIndex !== null && session.removeWire(firingIndex))}
-        onBlockShot={() => firingIndex !== null && session.blockShot(firingIndex)}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}
@@ -319,15 +303,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           onClose={() => setAttackingHex(null)}
         />
       )}
-
-      <AmbushDialog
-        open={ambushOpen && ambushPlayed}
-        faction={faction}
-        session={session}
-        game={game}
-        onFired={() => play((session.getSnapshot().ambush?.dice ?? 0) > 0 ? "dice" : "stamp")}
-        onClose={() => setAmbushOpen(false)}
-      />
 
       <CollisionDialog
         open={collisionOpen}

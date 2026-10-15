@@ -354,8 +354,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "One 60-card deck shared by both players.",
         },
         house: {
-          es: "Cada bando tiene su mazo de 24 cartas: 19 comunes y 5 según sus unidades. No hay Reconocimiento ni Contraataque. Emboscada, Cortina de Fuego, Poder aéreo y Tras las líneas enemigas pasan a ser cartas de combate; Médicos y Mecánicos se divide en Médico y Mecánico, y Atrincherarse pasa a ser Fortificar.",
-          en: "Each side has its own 24-card deck: 19 shared cards and 5 by its units. There's no Recon or Counter-Attack. Ambush, Barrage, Air Power and Behind Enemy Lines become combat cards; Medics & Mechanics splits into Medic and Mechanic, and Dig-In becomes Fortify.",
+          es: "Cada bando tiene su mazo de 24 cartas: 19 comunes y 5 según sus unidades. No hay Reconocimiento ni Contraataque. Cortina de Fuego, Poder aéreo y Tras las líneas enemigas pasan a ser cartas de combate; Médicos y Mecánicos se divide en Médico y Mecánico, y Atrincherarse pasa a ser Fortificar.",
+          en: "Each side has its own 24-card deck: 19 shared cards and 5 by its units. There's no Recon or Counter-Attack. Barrage, Air Power and Behind Enemy Lines become combat cards; Medics & Mechanics splits into Medic and Mechanic, and Dig-In becomes Fortify.",
         },
       },
       {
@@ -517,8 +517,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Cartas de combate en el mapa", en: "Combat cards on the map" },
         house: {
-          es: "Las cartas de ataque se tiran antes de que nadie dispare; Asalto cercano marca solo las unidades junto a un enemigo; Emboscada dispara primero; Sin munición, Escasez de proyectiles y Sin combustible se juegan sobre la unidad enemiga que se toca en el mapa.",
-          en: "Attack cards are rolled before anyone fires; Close Assault marks the units next to an enemy by itself; Ambush fires first; Out of Ammo, Shell Shortage and Out of Fuel are played on the enemy unit tapped on the map.",
+          es: "Las cartas de ataque se tiran antes de que nadie dispare, y Asalto cercano marca solo las unidades junto a un enemigo.",
+          en: "Attack cards are rolled before anyone fires, and Close Assault marks the units next to an enemy by itself.",
         },
       },
       {

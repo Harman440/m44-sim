@@ -44,7 +44,6 @@ const TEXT = defineMessages({
     shots: "Disparos",
     noShots: "Nadie disparó.",
     removedWire: (unit: string, place: string) => `${unit}: quitó la alambrada (${place})`,
-    blocked: (unit: string) => `${unit}: no tiró, bloqueado por una carta del rival`,
     dice: (n: number) => (n === 1 ? "1 dado" : `${n} dados`),
     inCollision: " en un choque",
     mapChanges: "Cambios en el mapa",
@@ -64,7 +63,6 @@ const TEXT = defineMessages({
     markers: (places: string) => `Marcas en el mapa: ${places}`,
     attack: (n: number) => `Ataque en la casilla ${n}:`,
     empty: "vacía",
-    ambush: "Emboscada",
     drawn: (name: string) => `Robada en la fase final: ${name}`,
     exportGame: "Exportar partida",
     close: "Cerrar",
@@ -85,7 +83,6 @@ const TEXT = defineMessages({
     shots: "Shots",
     noShots: "Nobody fired.",
     removedWire: (unit: string, place: string) => `${unit}: removed the barbed wire (${place})`,
-    blocked: (unit: string) => `${unit}: no roll, blocked by an enemy card`,
     dice: (n: number) => (n === 1 ? "1 die" : `${n} dice`),
     inCollision: " in a collision",
     mapChanges: "Map changes",
@@ -105,7 +102,6 @@ const TEXT = defineMessages({
     markers: (places: string) => `Marks on the map: ${places}`,
     attack: (n: number) => `Attack on hex ${n}:`,
     empty: "empty",
-    ambush: "Ambush",
     drawn: (name: string) => `Drawn in the final phase: ${name}`,
     exportGame: "Export game",
     close: "Close",
@@ -204,8 +200,6 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     >
                       {shot.removedWire ? (
                         t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
-                      ) : shot.blocked ? (
-                        t.blocked(labels.unitKind(shot.unit, shot.elite))
                       ) : (
                         <>
                           {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}
@@ -292,14 +286,6 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                           : t.empty}
                       </Typography>
                     ))}
-                    {record.ambush && (
-                      <Typography component="li" variant="body2">
-                        {t.ambush}: {labels.units[record.ambush.unitType].toLowerCase()} ({placeOf(record.ambush.from)}),{" "}
-                        {t.dice(record.ambush.dice)} → {labels.describeAppliedFaces(record.ambush.faces, record.ambush.kept)} (
-                        {labels.describeTarget(record.ambush.target).toLowerCase()}:{" "}
-                        {labels.describeRoll(readRoll(appliedFaces(record.ambush.faces, record.ambush.kept), record.ambush.target))})
-                      </Typography>
-                    )}
                     {record.combatCardDrawn && (
                       <Typography component="li" variant="body2">
                         {t.drawn(tr(record.combatCardDrawn.name))}

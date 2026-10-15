@@ -13,13 +13,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { AmbushShot, BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
-import { TurnRecord, copyAmbush } from "./turnLog";
+import type { BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
+import { TurnRecord } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 31;
+export const SAVE_VERSION = 32;
 
 interface SavedUnit {
   type: UnitType;
@@ -99,7 +99,6 @@ export interface SavedGame {
   markers: Position[];
   cardAttacks: CardAttack[];
   battleCombatCard: string | null;
-  ambush: AmbushShot | null;
   standingCollisions: StandingCollisionRoll[];
   drawnCombatCard: string | null;
   drops: Position[];
@@ -136,8 +135,6 @@ export interface SessionState {
   markers: Position[];
   cardAttacks: CardAttack[];
   battleCombatCard: CombatCard | null;
-  /** The Ambush card's shot */
-  ambush: AmbushShot | null;
   /** Pass and play: collision rolls of units without an order */
   standingCollisions: readonly StandingCollisionRoll[];
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
@@ -165,17 +162,6 @@ function readPositions(positions: unknown, what: string): Position[] {
 
 const isShotTarget = (target: ShotTarget | undefined): boolean =>
   typeof target?.infantry === "boolean" && typeof target.closeAssault === "boolean" && DIE_KINDS.includes(target.die);
-
-function readAmbush(ambush: unknown): AmbushShot | null {
-  if (ambush === null) return null;
-  const shot = ambush as AmbushShot;
-  const faces = new Set<string>(Object.values(DieFace));
-  if (!isPosition(shot?.from) || !isPosition(shot.targetPosition)) throw new Error("Unknown ambush hexes");
-  if (!isUnitType(shot.unitType) || !isShotTarget(shot.target)) throw new Error("Unknown ambush units");
-  if (!Array.isArray(shot.faces) || !shot.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
-  if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
-  return shot;
-}
 
 function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
   if (!Array.isArray(rolls)) throw new Error("Collision rolls are not a list");
@@ -314,7 +300,6 @@ export function writeSave(
       faces: [...attack.faces],
     })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
-    ambush: state.ambush && copyAmbush(state.ambush),
     standingCollisions: state.standingCollisions.map((roll) => ({
       ...roll,
       from: { ...roll.from },
@@ -434,7 +419,6 @@ export function readSave(
     if (!isShotTarget(shot.target)) throw new Error("Unknown shot target");
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
-    if (shot.blocked !== undefined && typeof shot.blocked !== "boolean") throw new Error("Unknown blocked shot");
     if (shot.pushedBack !== undefined && typeof shot.pushedBack !== "boolean") throw new Error("Unknown push back");
     return shot;
   });
@@ -495,7 +479,6 @@ export function readSave(
     markers: readPositions(saved.markers, "Markers"),
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
-    ambush: readAmbush(saved.ambush),
     standingCollisions: readStandingCollisions(saved.standingCollisions),
     hits: readUnitCounts(saved.hits, "hits", unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),

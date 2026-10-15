@@ -24,7 +24,6 @@ import crossedSwords from "../assets/icons/crossed-swords.svg";
 import checkedShield from "../assets/icons/checked-shield.svg";
 import battleTank from "../assets/icons/battle-tank.svg";
 import mortar from "../assets/icons/mortar.svg";
-import tankTread from "../assets/icons/tank-tread.svg";
 import village from "../assets/icons/village.svg";
 import openBook from "../assets/icons/open-book.svg";
 import backForth from "../assets/icons/back-forth.svg";
@@ -59,7 +58,6 @@ const ICONS = {
   defensive: checkedShield,
   tank: battleTank,
   artillery: mortar,
-  enemyTanks: tankTread,
   town: village,
   /** The rule book */
   ruleBook: openBook,
@@ -75,7 +73,6 @@ export const DECK_REASON_ICONS: Partial<Record<DeckReason, GameIconName>> = {
   defender: "defensive",
   tanks: "tank",
   artillery: "artillery",
-  enemyTanks: "enemyTanks",
   towns: "town",
   bigGuns: "bigGuns",
   air: "strafe",

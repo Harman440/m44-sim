@@ -48,11 +48,11 @@ describe("CombatCardArt", () => {
     expect(container.querySelector(".card-art__bonus")).toHaveTextContent("+1");
   });
 
-  it("strikes out the enemy unit of Out of Fuel, and stamps the phase on cards without art of their own", () => {
-    const fuel = render(<CombatCardArt card={combat({ id: "out-of-fuel-2", phase: "battle" })} faction="Allies" />);
+  it("draws a glyph for some cards resolved at the table, and stamps the phase on cards without art of their own", () => {
+    const camouflage = render(<CombatCardArt card={combat({ id: "camouflage-1", phase: "battle" })} faction="Allies" />);
     const plain = render(<CombatCardArt card={combat({ id: "personal-armor-1", phase: "battle" })} faction="Allies" />);
 
-    expect(fuel.container.querySelector(".card-art__denied")).not.toBeNull();
+    expect(camouflage.container.querySelector(".card-art__net")).not.toBeNull();
     expect(plain.container.querySelector(".card-art__seal")).not.toBeNull();
   });
 });

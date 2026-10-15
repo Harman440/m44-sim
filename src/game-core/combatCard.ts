@@ -16,7 +16,6 @@ export type DeckReason =
   | "defender"
   | "tanks"
   | "artillery"
-  | "enemyTanks"
   | "towns"
   | "bigGuns"
   | "air";
@@ -53,8 +52,6 @@ export type CombatEffect =
   | { kind: "takeGround"; unitTypes: readonly UnitType[]; units: number }
   /** Reinforcements: a unit of this type arrives on the cross in the final phase */
   | { kind: "reinforcements"; unitType: UnitType }
-  /** Ambush: a unit attacked in close assault fires first, picked on the map when the card is played */
-  | { kind: "ambush" }
   /** Fortify: after the battle, one of this side's infantry or artillery units gets sandbags on the map */
   | { kind: "fortify"; unitTypes: readonly UnitType[] }
   /** Rifles Up: played before any unit fires, the first unit to fire can be any of them, whatever the firing order */

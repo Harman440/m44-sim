@@ -460,28 +460,4 @@ describe("BattleView combat card effects", () => {
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
   });
 
-  it("opens the map as soon as Ambush is played, to fire first with the unit attacked", async () => {
-    const ambush: CombatCard = { id: "ambush", name: same("Emboscada"), description: same(""), cost: 0, phase: "battle", effect: { kind: "ambush" } };
-    const session = effectSetup([ambush]);
-    const section = screen.getByTestId("battle-combat-cards");
-    fireEvent.click(within(section).getByRole("button", { name: /^Emboscada/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Jugar Emboscada" }));
-
-    // Pick the unit attacked, then the attacker's hex, as when firing
-    expect(await screen.findByText("¿Qué unidad atacan?")).toBeInTheDocument();
-    fireEvent.click(document.querySelector(`[data-testid="ambush-map"] [data-position="${INFANTRY.row}-${INFANTRY.col}"]`)!);
-    aimAt({ row: 6, col: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Blindados o artillería" }));
-    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
-    fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
-
-    expect(session.getSnapshot().ambush).toMatchObject({ from: INFANTRY, dice: 3 });
-    expect(session.getSnapshot().shots).toEqual([]);
-    expect(screen.getByTestId("shot-result")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    // The card can't be taken back once it fired, and the shot can be seen again
-    expect(within(section).queryByRole("button", { name: "Deshacer" })).not.toBeInTheDocument();
-    expect(within(section).getByRole("button", { name: "Ver emboscada" })).toBeInTheDocument();
-  });
 });

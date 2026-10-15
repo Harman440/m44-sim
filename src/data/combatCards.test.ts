@@ -9,10 +9,12 @@ const names = (s: Scenario, faction: Faction) => combatDeckFor(s, faction).map((
 const copies = (s: Scenario, faction: Faction, name: string) => names(s, faction).filter((n) => n === name).length;
 
 const ALWAYS = [
-  "Tras las líneas enemigas", "Emboscada", "Médico", "Sin munición", "Refuerzos",
+  "Tras las líneas enemigas", "Médico", "Refuerzos",
   "Lucha callejera", "Táctico", "Blindaje personal", "Explosivos", "¡Fusiles arriba!",
 ];
-const DEFENSIVE = ["Fortificar", "Ni un paso atrás", "Camuflaje", "Repliegue"];
+const DEFENSIVE = ["Fortificar", "Ni un paso atrás", "Camuflaje"];
+/** Taken out with the reaction cards (Step 61) */
+const REMOVED = ["Emboscada", "Sin munición", "Repliegue", "Sin combustible", "Escasez de proyectiles"];
 const OFFENSIVE = ["Motorizado", "Sin tregua", "Fragor del combate"];
 
 describe("combat card data", () => {
@@ -36,6 +38,14 @@ describe("combat card data", () => {
     }
   });
 
+  it("has no reaction cards any more", () => {
+    for (const s of scenarios) {
+      for (const faction of ["Allies", "Axis"] as const) {
+        REMOVED.forEach((name) => expect(names(s, faction)).not.toContain(name));
+      }
+    }
+  });
+
   it("gives the defensive cards to the defender and the offensive ones to the attacker, Sin tregua twice", () => {
     const arracourt = scenario("arracourt"); // the Axis attacks
     DEFENSIVE.forEach((name) => {
@@ -48,13 +58,13 @@ describe("combat card data", () => {
     expect(copies(arracourt, "Axis", "Sin tregua")).toBe(2);
   });
 
-  it("deals the unit cards by the side's units and the enemy's armour", () => {
+  it("deals the unit cards by the side's units", () => {
     const pegasus = scenario("pegasus-bridge"); // infantry only
-    ["Mecánico", "Blindados adelante", "Observador", "Reposicionamiento", "Sin combustible", "Escasez de proyectiles"]
+    ["Mecánico", "Blindados adelante", "Observador", "Reposicionamiento"]
       .forEach((name) => expect(names(pegasus, "Allies")).not.toContain(name));
 
     const arracourt = scenario("arracourt"); // the Allies have tanks and artillery, the Axis tanks
-    ["Mecánico", "Blindados adelante", "Observador", "Reposicionamiento", "Sin combustible", "Escasez de proyectiles"]
+    ["Mecánico", "Blindados adelante", "Observador", "Reposicionamiento"]
       .forEach((name) => expect(copies(arracourt, "Allies", name)).toBe(1));
     expect(names(arracourt, "Axis")).not.toContain("Observador");
 
@@ -63,8 +73,7 @@ describe("combat card data", () => {
     expect(names(ecouves, "Allies")).not.toContain("Observador");
 
     const sme = scenario("sainte-mere-eglise"); // only the Axis has a tank
-    expect(names(sme, "Allies")).toContain("Sin combustible");
-    expect(names(sme, "Axis")).not.toContain("Sin combustible");
+    expect(names(sme, "Allies")).not.toContain("Mecánico");
     expect(names(sme, "Axis")).toContain("Mecánico");
   });
 

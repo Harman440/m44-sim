@@ -7,7 +7,8 @@
 // and the official English edition's in English.
 //
 // Not in the deck: Recon, Counter Attack (not in the game) and Behind Enemy
-// Lines, Ambush, Barrage, Air Power, Dig In and Medics (combat cards, Step 24).
+// Lines, Barrage, Air Power, Dig In and Medics (combat cards, Step 24). Ambush was a
+// combat card too, until the reaction cards were taken out (Step 61).
 import CommandCard, { CommandCardProps, Section } from '../game-core/commandCard';
 import { UnitType } from '../game-core/unit';
 import { Side } from '../types/hex';

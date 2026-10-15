@@ -38,7 +38,7 @@ interface CombatDeckDialogProps {
 }
 
 /** The groups in the order shown: what everyone gets first, then what this side's situation adds */
-const REASON_ORDER: DeckReason[] = ["shared", "attacker", "defender", "tanks", "artillery", "enemyTanks", "towns", "bigGuns", "air"];
+const REASON_ORDER: DeckReason[] = ["shared", "attacker", "defender", "tanks", "artillery", "towns", "bigGuns", "air"];
 
 /**
  * A side's combat deck in the chosen scenario, shown from the menu: the cards
