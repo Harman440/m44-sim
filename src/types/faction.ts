@@ -9,7 +9,10 @@ export const isFaction = (value: unknown): value is Faction =>
   FACTIONS.includes(value as Faction);
 
 /** What the menu starts a pass and play match with: both sides play on this device */
-export type MatchSetup = Omit<GameSetup, "faction">;
+export type MatchSetup = Omit<GameSetup, "faction"> & {
+  /** The side whose end of the table the device sits at: the map is always seen from it */
+  mainSide: Faction;
+};
 
 /** What the menu starts a game with */
 export interface GameSetup {

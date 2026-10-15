@@ -20,6 +20,8 @@ export interface SavedMatch {
   version: typeof MATCH_SAVE_VERSION;
   sides: { allies: SavedGame; axis: SavedGame };
   active: Faction;
+  /** The side the map is seen from on every screen; older saves without it take the attacker */
+  mainSide?: Faction;
   revealedTurn: number;
   movement: MatchMovement | null;
   battle: MatchBattle | null;
@@ -199,6 +201,8 @@ export const armyOf = (session: GameSession): PlacedUnit[] =>
 class PassAndPlayMatch {
   readonly scenario: Scenario;
   readonly sessions: Readonly<Record<Faction, GameSession>>;
+  /** The side whose end of the table the device sits at: every map is seen from it, for both players */
+  readonly mainSide: Faction;
   private active: Faction;
   private covered: boolean;
   /** The last turn whose orders were shown to both players and carried out */
@@ -214,12 +218,14 @@ class PassAndPlayMatch {
     sessions: Record<Faction, GameSession>,
     {
       active = scenario.attacker,
+      mainSide = scenario.attacker,
       covered = true,
       revealedTurn = 0,
       movement = null,
       battle = null,
     }: {
       active?: Faction;
+      mainSide?: Faction;
       covered?: boolean;
       revealedTurn?: number;
       movement?: MatchMovement | null;
@@ -235,6 +241,7 @@ class PassAndPlayMatch {
     this.scenario = scenario;
     this.sessions = sessions;
     this.active = active;
+    this.mainSide = mainSide;
     this.covered = covered;
     this.revealedTurn = revealedTurn;
     this.movement = movement;
@@ -864,6 +871,7 @@ class PassAndPlayMatch {
       version: MATCH_SAVE_VERSION,
       sides: { allies: this.sessions.Allies.save(), axis: this.sessions.Axis.save() },
       active: this.active,
+      mainSide: this.mainSide,
       revealedTurn: this.revealedTurn,
       movement: this.movement && JSON.parse(JSON.stringify(this.movement)),
       battle: this.battle && JSON.parse(JSON.stringify(this.battle)),
@@ -878,6 +886,9 @@ class PassAndPlayMatch {
   static restore(saved: SavedMatch, scenario: Scenario, restoreSide: (saved: SavedGame) => GameSession): PassAndPlayMatch {
     if (saved.version !== MATCH_SAVE_VERSION) throw new Error(`Unsupported match save version ${saved.version}`);
     if (saved.active !== "Allies" && saved.active !== "Axis") throw new Error(`Invalid side ${saved.active}`);
+    if (saved.mainSide !== undefined && saved.mainSide !== "Allies" && saved.mainSide !== "Axis") {
+      throw new Error(`Invalid side ${saved.mainSide}`);
+    }
     if (!Number.isInteger(saved.revealedTurn)) throw new Error("Invalid revealed turn");
     const sessions = { Allies: restoreSide(saved.sides.allies), Axis: restoreSide(saved.sides.axis) };
     const movement = saved.movement;
@@ -890,6 +901,7 @@ class PassAndPlayMatch {
     }
     return new PassAndPlayMatch(scenario, sessions, {
       active: saved.active,
+      mainSide: saved.mainSide,
       revealedTurn: saved.revealedTurn,
       movement,
       battle,

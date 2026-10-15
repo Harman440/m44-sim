@@ -356,6 +356,22 @@ describe("PassAndPlayMatch", () => {
       expect(match.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
     });
 
+    it("shows a shot's dice before it's rolled, as the shot rolls them", () => {
+      const match = battleMatch();
+      allHold(match);
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+
+      expect(axis.aimAt(infantry, axisView(4, 3))).toBeNull(); // no enemy there
+      const aim = axis.aimAt(infantry, axisView(4, 2))!;
+      expect(aim).toMatchObject({ distance: 2, dice: 2, eightSided: false, bonus: null });
+      expect(aim.enemy.unitType).toBe(UnitType.INFANTRY);
+
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true);
+      expect(axis.getSnapshot().shots.at(-1)!.dice).toBe(aim.dice);
+      expect(axis.aimAt(infantry, axisView(4, 2))).toBeNull(); // it has fired
+    });
+
     it("alternates the sides, the attacker first", () => {
       const match = battleMatch();
       allHold(match);
@@ -512,6 +528,15 @@ describe("PassAndPlayMatch", () => {
       expect(restored.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.END_OF_TURN, turn: 2 });
     }
     expect(otherSide(restored.getSnapshot().active)).toBe("Allies");
+  });
+
+  it("keeps the main side the map is seen from, the attacker's by default", () => {
+    expect(newMatch().mainSide).toBe("Axis");
+    const match = new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { mainSide: "Allies" });
+    const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), scenario, restoreSide);
+    expect(restored.mainSide).toBe("Allies");
+    const { mainSide: _, ...older } = match.save();
+    expect(PassAndPlayMatch.restore(older, scenario, restoreSide).mainSide).toBe("Axis");
   });
 
   it("drops a save of another version", () => {

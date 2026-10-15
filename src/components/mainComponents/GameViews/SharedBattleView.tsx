@@ -2,6 +2,8 @@ import { useState, useSyncExternalStore } from "react";
 import {
   Box,
   Button,
+  FormControlLabel,
+  Switch,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,10 +17,15 @@ import PassAndPlayMatch, { otherSide } from "../../../game-core/passAndPlay";
 import { UnitType } from "../../../game-core/unit";
 import { Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
+import GameSession, { ShotAim } from "../../../game-core/gameSession";
+import { samePosition } from "../../../game-core/position";
+import { BASE_DICE_BY_DISTANCE } from "../../../data/fireQuestions";
 import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
-import FireDialog from "../../FireDialog";
+import { ShotResult } from "../../FireDialog";
+import DicePool from "../../DicePool";
+import InfoButton from "../../InfoButton";
 import AmbushDialog from "../../AmbushDialog";
 import ShotDice from "../../ShotDice";
 import HexThumbnail from "../../HexThumbnail";
@@ -36,12 +43,25 @@ const TEXT = defineMessages({
     title: (turn: number) => `Turno ${turn}: la batalla`,
     fires: { Allies: "Disparan los Aliados", Axis: "Dispara el Eje" },
     groups: { unmoved: "Unidades que no se movieron", moved: "Unidades que se movieron" },
-    tapUnit: "Toca la unidad que dispara.",
+    tapUnit: "Toca en el mapa una de las unidades marcadas.",
+    range: (range: string) => `Alcance: ${range}`,
+    closeAssaultOnly: "Solo asalto cercano",
+    tapTarget: "Toca un objetivo en el mapa: el número son los dados que tira.",
+    noTargets: "No tiene a ningún enemigo a tiro.",
+    target: (unit: string, terrain: string, distance: number) =>
+      `${unit} · ${terrain} · a ${distance} ${distance === 1 ? "casilla (asalto cercano)" : "casillas"}`,
+    sandbags: "con sacos terreros",
+    useBonus: (card: string, dice: number) => `Usar ${card} (+${dice})`,
+    whereDiceComeFrom: "De dónde salen los dados",
+    total: (dice: number) => `Total: ${dice}`,
+    fire: "Disparar",
+    rollTitle: (unit: string) => `Disparo: ${unit}`,
+    done: "Seguir",
     figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     hold: "No disparar",
     holdLabel: (unit: string) => `${unit}: no disparar`,
     nobody: "Ninguna unidad puede disparar ya.",
-    choose: (n: number) => `Sacó más resultados que figuras: en el disparo, toca los ${n} dados que aplica.`,
+    choose: (n: number) => `Sacó más resultados que figuras: toca "Aplicar menos resultados" y elige los ${n} dados que aplica.`,
     apply: "Aplicar los resultados",
     cards: { Allies: "Cartas de los Aliados", Axis: "Cartas del Eje" },
     cardsPrivate: "Solo su jugador mira estas cartas.",
@@ -75,12 +95,25 @@ const TEXT = defineMessages({
     title: (turn: number) => `Turn ${turn}: the battle`,
     fires: { Allies: "The Allies fire", Axis: "The Axis fires" },
     groups: { unmoved: "Units that didn't move", moved: "Units that moved" },
-    tapUnit: "Tap the unit that fires.",
+    tapUnit: "Tap one of the marked units on the map.",
+    range: (range: string) => `Range: ${range}`,
+    closeAssaultOnly: "Close assault only",
+    tapTarget: "Tap a target on the map: the number is the dice it rolls.",
+    noTargets: "No enemy is within its fire.",
+    target: (unit: string, terrain: string, distance: number) =>
+      `${unit} · ${terrain} · ${distance} ${distance === 1 ? "hex away (close assault)" : "hexes away"}`,
+    sandbags: "behind sandbags",
+    useBonus: (card: string, dice: number) => `Use ${card} (+${dice})`,
+    whereDiceComeFrom: "Where the dice come from",
+    total: (dice: number) => `Total: ${dice}`,
+    fire: "Fire",
+    rollTitle: (unit: string) => `Fire: ${unit}`,
+    done: "Continue",
     figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     hold: "Hold fire",
     holdLabel: (unit: string) => `${unit}: hold fire`,
     nobody: "No unit can fire any more.",
-    choose: (n: number) => `It rolled more results than it has figures: in the shot, tap the ${n} dice it applies.`,
+    choose: (n: number) => `It rolled more results than it has figures: tap "Apply fewer results" and pick the ${n} dice it applies.`,
     apply: "Apply the results",
     cards: { Allies: "Allied cards", Axis: "Axis cards" },
     cardsPrivate: "Only their player looks at these cards.",
@@ -118,16 +151,114 @@ interface SharedBattleViewProps {
 
 const noop = () => {};
 
+interface FiringUnitProps {
+  side: Faction;
+  session: GameSession;
+  order: number;
+  /** The enemy units it can fire at, with their dice */
+  aims: readonly ShotAim[];
+  /** The target picked on the map */
+  aim: ShotAim | null;
+  useBonus: boolean;
+  onUseBonus: (use: boolean) => void;
+  onFire: () => void;
+  onHold: () => void;
+}
+
+const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
+
+/** The unit picked on the map to fire: where it stands, its target and the dice it rolls */
+function FiringUnit({ side, session, order, aims, aim, useBonus, onUseBonus, onFire, onHold }: FiringUnitProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const tr = useTr();
+  const summary = session.orderSummaries()[order]!;
+  const unit = labels.unitKind(summary.unitType, summary.elite);
+  const figures = session.figuresAt(summary.firingFrom);
+  const range = BASE_DICE_BY_DISTANCE[summary.unitType];
+  const bonusCard = session.combatBonusFor(order);
+
+  return (
+    <Stack spacing={1} data-testid="firing-unit">
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+        <HexThumbnail board={session.board} position={summary.firingFrom} image={session.scenario.image} faction={side} size={36} />
+        <Box>
+          <Typography variant="subtitle2">{unit}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {[
+              figures !== null && t.figures(figures),
+              summary.closeAssaultOnly ? t.closeAssaultOnly : t.range(range.join(" / ")),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </Typography>
+        </Box>
+      </Stack>
+
+      {aim ? (
+        <Stack spacing={1} data-testid="fire-target">
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            <HexThumbnail board={session.board} position={aim.position} image={session.scenario.image} faction={side} size={36} />
+            <Typography variant="body2">
+              {t.target(labels.units[aim.enemy.unitType], labels.terrain[aim.terrain], aim.distance)}
+              {aim.enemy.sandbags && ` · ${t.sandbags}`}
+            </Typography>
+          </Stack>
+          {aim.bonus !== null && bonusCard && (
+            <FormControlLabel
+              control={<Switch checked={useBonus} onChange={(e) => onUseBonus(e.target.checked)} />}
+              label={t.useBonus(tr(bonusCard.name), aim.bonus)}
+              sx={{ minHeight: 48, m: 0 }}
+            />
+          )}
+          <DicePool dice={aim.dice} eightSided={aim.eightSided} faction={side}>
+            <InfoButton title={t.whereDiceComeFrom}>
+              <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
+                {aim.steps.map((step) => (
+                  <Stack key={step.label.es} direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
+                    <Typography variant="body1">{tr(step.label)}</Typography>
+                    <Typography variant="body1">{formatDice(step.dice)}</Typography>
+                  </Stack>
+                ))}
+                <Typography variant="h6" sx={{ mt: 1 }}>
+                  {t.total(aim.dice)}
+                </Typography>
+              </Stack>
+            </InfoButton>
+          </DicePool>
+          <Button size="large" startIcon={<GameIcon name="fire" />} onClick={onFire}>
+            {t.fire}
+          </Button>
+        </Stack>
+      ) : (
+        <Typography variant="body2" color={aims.length ? "text.primary" : "warning.main"}>
+          {aims.length ? t.tapTarget : t.noTargets}
+        </Typography>
+      )}
+
+      <Button variant="outlined" aria-label={t.holdLabel(unit)} onClick={onHold}>
+        {t.hold}
+      </Button>
+    </Stack>
+  );
+}
+
 /**
  * Pass and play's battle, on one screen for both players: the sides take turns to fire, one unit
- * at a time, and the app deals the hits. Each side's combat cards are behind its own button
+ * at a time, and the app deals the hits. The side whose turn it is taps one of its units on the
+ * map, then a target (each with its dice); the roll comes up over the map. Each side's combat
+ * cards are behind its own button
  */
 function SharedBattleView({ match }: SharedBattleViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const play = useSound();
   const { battle } = useSyncExternalStore(match.subscribe, match.getSnapshot);
-  const [firing, setFiring] = useState<{ side: Faction; order: number } | null>(null);
+  /** The unit picked to fire (an order of the side whose turn it is) and its target, on the map */
+  const [aiming, setAiming] = useState<{ side: Faction; order: number; target: Position | null } | null>(null);
+  const [useBonus, setUseBonus] = useState(true);
+  /** The shot rolled on this screen, whose dice are thrown in: its side and index in that side's shots */
+  const [rolled, setRolled] = useState<{ side: Faction; shot: number } | null>(null);
   const [cardsOf, setCardsOf] = useState<Faction | null>(null);
   const [coinsOf, setCoinsOf] = useState<Faction | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
@@ -136,10 +267,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const tr = useTr();
   if (!battle) return null;
 
-  // The map as the attacker sees it, with both armies
-  const viewer = match.scenario.attacker;
-  const viewSession = match.sessions[viewer];
-  const view = viewSession.getSnapshot();
+  const mainSide = match.mainSide;
   const side = battle.side;
   const session = side ? match.sessions[side] : null;
   const summaries = session?.orderSummaries() ?? [];
@@ -149,7 +277,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   );
 
   // The map picks a hex for a unit of one side: a retreat, Out of Ammo's baseline, or the enemy
-  // unit a card stops. Positions turn between that side's view and the map's (the attacker's)
+  // unit a card stops. The board drawn is that side's, so its positions need no turning: the
+  // map is still seen from the main side (ViewSideContext)
   const retreat = battle.retreat;
   const relocate = retreat ? null : battle.relocate;
   const card = retreat || relocate ? null : battle.card;
@@ -160,17 +289,76 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
       : card?.kind === "block"
         ? { side: otherSide(card.side), from: null, options: card.targets, act: (p: Position) => match.block(p) }
         : null;
-  const toMap = (position: Position) => (pick && pick.side !== viewer ? turnedRound(position) : position);
-  const pickOptions = pick?.options.map(toMap) ?? [];
-  const tapMap = (position: Position) => {
-    if (pick) pick.act(toMap(position));
-  };
-  // The order combat cards' marks: the attacker's, or else the defender's, turned onto the map
-  const otherGame = match.sessions[otherSide(viewer)].getSnapshot();
+
+  // The shot rolled here (dealt at once unless its player picks the results), or one waiting for
+  // its results to be picked: shown over the map until it's dismissed
+  const pending = battle.pending && !battle.pending.ambush ? battle.pending : null;
+  const shown = pending ? { side: pending.side, shot: pending.shot } : rolled;
+  const shownSession = shown ? match.sessions[shown.side] : null;
+  const shownShot = shown ? shownSession!.getSnapshot().shots[shown.shot] : undefined;
+  const shownUnit = shownShot ? shownSession!.orderSummaries()[shownShot.orderIndex] : undefined;
+
+  // Firing: the side whose turn it is taps one of its units, then a target
+  const fireTurn = !pick && !shownShot && !battle.pending && !battle.ground && side && session ? { side, session } : null;
+  const picked = fireTurn && aiming?.side === fireTurn.side && battle.fireable.includes(aiming.order) ? aiming : null;
+  const pickedSummary = picked ? summaries[picked.order] : undefined;
+  const aims: ShotAim[] =
+    picked && fireTurn
+      ? fireTurn.session
+          .fireTargetsFor(picked.order)
+          .filter((target) => target.lineOfSight && target.dice > 0)
+          .flatMap((target) => fireTurn.session.aimAt(picked.order, target.position, useBonus) ?? [])
+      : [];
+  const aim = picked?.target ? (aims.find((a) => samePosition(a.position, picked.target!)) ?? null) : null;
+  const fireablePositions = fireTurn ? battle.fireable.map((order) => summaries[order]!.firingFrom) : [];
+
+  // The board of the side acting now, seen from the main side
+  const boardSide: Faction = pick?.side ?? (shownShot ? shown!.side : undefined) ?? fireTurn?.side ?? mainSide;
+  const boardSession = match.sessions[boardSide];
+  const boardGame = boardSession.getSnapshot();
+  const inBoardView = (faction: Faction, position: Position) => (faction === boardSide ? position : turnedRound(position));
+
+  // The order combat cards' marks: the attacker's, or else the defender's
+  const attackerGame = match.sessions[match.scenario.attacker].getSnapshot();
+  const defender = otherSide(match.scenario.attacker);
+  const defenderGame = match.sessions[defender].getSnapshot();
   const marks =
-    view.markers.length > 0 || otherGame.markers.length === 0
-      ? { positions: view.markers, kind: view.orderCombatCard?.marker?.kind }
-      : { positions: otherGame.markers.map((m) => turnedRound(m)), kind: otherGame.orderCombatCard?.marker?.kind };
+    attackerGame.markers.length > 0 || defenderGame.markers.length === 0
+      ? {
+          positions: attackerGame.markers.map((m) => inBoardView(match.scenario.attacker, m)),
+          kind: attackerGame.orderCombatCard?.marker?.kind,
+        }
+      : { positions: defenderGame.markers.map((m) => inBoardView(defender, m)), kind: defenderGame.orderCombatCard?.marker?.kind };
+
+  const tapMap = (position: Position) => {
+    if (pick) {
+      pick.act(position);
+      return;
+    }
+    if (!fireTurn) return;
+    const order = battle.fireable.find((o) => samePosition(summaries[o]!.firingFrom, position));
+    if (order !== undefined) {
+      setAiming(picked?.order === order ? null : { side: fireTurn.side, order, target: null });
+      setUseBonus(true);
+    } else if (picked && aims.some((a) => samePosition(a.position, position))) {
+      setAiming({ ...picked, target: position });
+    }
+  };
+
+  const fire = () => {
+    if (!picked || !aim || !fireTurn) return;
+    const shot = fireTurn.session.getSnapshot().shots.length;
+    if (!match.fire(picked.order, aim.position, aim.bonus !== null && useBonus)) return;
+    play("dice");
+    setRolled({ side: fireTurn.side, shot });
+  };
+
+  const closeRoll = () => {
+    if (pending && !match.applyShot()) return;
+    setAiming(null);
+    setRolled(null);
+  };
+
   const cardName = (faction: Faction) => {
     const played = match.sessions[faction].getSnapshot().battleCombatCard;
     return played ? tr(played.name) : "";
@@ -186,38 +374,91 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     ? match.sessions[battle.ground.side].orderSummaries()[battle.ground.order]?.unitType
     : undefined;
 
-  const closeFire = () => {
-    // A shot whose results are picked is dealt once its dialog closes
-    if (battle.pending && !battle.pending.mustChoose) match.applyShot();
-    setFiring(null);
-  };
-
-  const fireSession = firing ? match.sessions[firing.side] : null;
-  const fireSummary = firing && fireSession ? (fireSession.orderSummaries()[firing.order] ?? null) : null;
+  // The shot shown keeps its unit and target on the map
+  const shotFrom = shownUnit?.firingFrom ?? null;
+  const shotTarget = shownShot?.targetPosition ?? null;
 
   return (
     <MotionConfig reducedMotion="user">
       <Box className="game-screen" sx={{ width: "100%", maxWidth: 1400 }}>
         <Box component="main" className="game-screen__main">
           <div className="phase-layout">
-            <div className="phase-layout__board">
+            <Box className="phase-layout__board" sx={{ position: "relative" }}>
               <Board
-                onTileClick={pick ? tapMap : noop}
-                unitHexPosition={pick?.from ? toMap(pick.from) : null}
-                possibleMovePositions={pick?.from ? pickOptions : []}
-                markablePositions={pick && !pick.from ? pickOptions : []}
+                onTileClick={pick || fireTurn ? tapMap : noop}
+                unitHexPosition={pick?.from ?? (shownShot ? shotFrom : (pickedSummary?.firingFrom ?? null))}
+                possibleMovePositions={pick?.from ? [...pick.options] : []}
+                markablePositions={pick && !pick.from ? pick.options : []}
+                orderablePositions={fireTurn ? fireablePositions.filter((p) => !pickedSummary || !samePosition(p, pickedSummary.firingFrom)) : []}
+                fireTargets={shownShot ? [] : aims.map((a) => ({ position: a.position, dice: a.dice }))}
+                selectedTarget={shownShot ? shotTarget : (picked?.target ?? null)}
                 markers={marks.positions}
                 markerKind={marks.kind}
                 possibleMoveAndFirePositions={[]}
-                boardManager={viewSession.board}
-                orders={view.orders}
-                backgroundImage={viewSession.scenario.image}
-                faction={viewer}
-                opponent={match.opponentOf(viewer)}
-                strength={view.strength}
-                firedUnits={new Set(view.orders.filter((_, i) => viewSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))}
+                boardManager={boardSession.board}
+                orders={boardGame.orders}
+                backgroundImage={boardSession.scenario.image}
+                faction={boardSide}
+                opponent={match.opponentOf(boardSide)}
+                strength={boardGame.strength}
+                firedUnits={
+                  new Set(boardGame.orders.filter((_, i) => boardSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))
+                }
               />
-            </div>
+
+              {/* The roll, over the map, until it's dismissed (and its results picked, if they must be) */}
+              {shown && shownShot && shownUnit && shownSession && (
+                <Box
+                  data-testid="shot-roll"
+                  role="region"
+                  aria-label={t.rollTitle(labels.unitKind(shownUnit.unitType, shownUnit.elite))}
+                  sx={{
+                    position: "absolute",
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    maxHeight: "calc(100% - 16px)",
+                    overflowY: "auto",
+                    p: 2,
+                    bgcolor: "var(--m44-paper)",
+                    border: "1px solid var(--m44-border)",
+                    borderRadius: "var(--m44-radius)",
+                    boxShadow: 6,
+                  }}
+                >
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1 }}>
+                    <FactionInsignia faction={shown.side} size={28} decorative />
+                    <Typography variant="h6" component="h2">
+                      {t.rollTitle(labels.unitKind(shownUnit.unitType, shownUnit.elite))}
+                    </Typography>
+                  </Stack>
+                  <ShotResult
+                    shot={shownShot}
+                    number={null}
+                    unitType={shownUnit.unitType}
+                    faction={shown.side}
+                    board={shownSession.board}
+                    image={shownSession.scenario.image}
+                    rolling={rolled?.side === shown.side && rolled.shot === shown.shot}
+                    onKeepResults={pending ? (kept) => match.keepShotResults(kept) : undefined}
+                  />
+                  {pending?.mustChoose && (
+                    <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                      {t.choose(pending.limit)}
+                    </Typography>
+                  )}
+                  <Button
+                    onClick={closeRoll}
+                    disabled={pending?.mustChoose}
+                    startIcon={<GameIcon name="confirm" />}
+                    sx={{ mt: 2 }}
+                    fullWidth
+                  >
+                    {pending ? t.apply : t.done}
+                  </Button>
+                </Box>
+              )}
+            </Box>
 
             <div className="phase-layout__controls">
               <Typography variant="h6" component="h1" sx={{ textAlign: "center" }}>
@@ -294,64 +535,51 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   </Button>
                 </Stack>
               ) : battle.pending ? (
-                <Stack spacing={1}>
-                  {battle.pending.mustChoose && (
-                    <Typography variant="body2" color="warning.main">
-                      {t.choose(battle.pending.limit)}
-                    </Typography>
-                  )}
-                  <Button
-                    onClick={() => match.applyShot()}
-                    disabled={battle.pending.mustChoose}
-                    startIcon={<GameIcon name="confirm" />}
-                  >
-                    {t.apply}
-                  </Button>
-                </Stack>
-              ) : side && session ? (
+                // The Ambush shot's results are picked in its dialog; a fire's over the map
+                battle.pending.ambush && (
+                  <Stack spacing={1}>
+                    {battle.pending.mustChoose && (
+                      <Typography variant="body2" color="warning.main">
+                        {t.choose(battle.pending.limit)}
+                      </Typography>
+                    )}
+                    <Button
+                      onClick={() => match.applyShot()}
+                      disabled={battle.pending.mustChoose}
+                      startIcon={<GameIcon name="confirm" />}
+                    >
+                      {t.apply}
+                    </Button>
+                  </Stack>
+                )
+              ) : fireTurn ? (
                 <Stack spacing={1} data-testid="fire-turn">
                   <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                    <FactionInsignia faction={side} size={28} decorative />
+                    <FactionInsignia faction={fireTurn.side} size={28} decorative />
                     <Typography variant="subtitle1" component="h2">
-                      {t.fires[side]}
+                      {t.fires[fireTurn.side]}
                     </Typography>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    {t.groups[battle.group!]} · {t.tapUnit}
+                    {t.groups[battle.group!]}
                   </Typography>
-                  {battle.fireable.map((order) => {
-                    const summary = summaries[order]!;
-                    const figures = session.figuresAt(summary.firingFrom);
-                    const unit = labels.units[summary.unitType as UnitType];
-                    return (
-                      <Stack key={order} direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                        <Button
-                          variant="outlined"
-                          onClick={() => setFiring({ side, order })}
-                          sx={{ flex: 1, justifyContent: "flex-start", gap: 1, textTransform: "none" }}
-                        >
-                          <HexThumbnail
-                            board={session.board}
-                            position={summary.firingFrom}
-                            image={session.scenario.image}
-                            faction={side}
-                            size={32}
-                          />
-                          <Box component="span" sx={{ textAlign: "left" }}>
-                            {unit}
-                            {figures !== null && (
-                              <Typography component="span" variant="body2" color="text.secondary" sx={{ display: "block" }}>
-                                {t.figures(figures)}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Button>
-                        <Button variant="text" size="small" aria-label={t.holdLabel(unit)} onClick={() => match.holdFire(order)}>
-                          {t.hold}
-                        </Button>
-                      </Stack>
-                    );
-                  })}
+                  {picked && pickedSummary ? (
+                    <FiringUnit
+                      side={fireTurn.side}
+                      session={fireTurn.session}
+                      order={picked.order}
+                      aims={aims}
+                      aim={aim}
+                      useBonus={useBonus}
+                      onUseBonus={setUseBonus}
+                      onFire={fire}
+                      onHold={() => {
+                        if (match.holdFire(picked.order)) setAiming(null);
+                      }}
+                    />
+                  ) : (
+                    <Typography variant="body2">{t.tapUnit}</Typography>
+                  )}
                 </Stack>
               ) : (
                 battle.attacks.length === 0 && (
@@ -385,37 +613,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
             </div>
           </div>
         </Box>
-
-        {firing && fireSession && (
-          <OpponentContext.Provider
-            value={{ opponent: match.opponentOf(firing.side), strength: fireSession.getSnapshot().strength }}
-          >
-            <FireDialog
-              key={`${firing.side}-${firing.order}`}
-              summary={fireSummary}
-              card={fireSummary?.extra ? null : fireSession.getSnapshot().activeCard}
-              combatBonus={fireSession.combatBonusFor(firing.order)}
-              faction={firing.side}
-              board={fireSession.board}
-              image={fireSession.scenario.image}
-              targets={fireSession.fireTargetsFor(firing.order)}
-              onFireAt={(choice) => {
-                const done = match.fire(firing.order, choice.position, choice.useCombatBonus);
-                if (done) play("dice");
-                return done;
-              }}
-              longRangeDie={fireSession.longRangeDie}
-              targetKinds={fireSession.targetKinds}
-              knownTarget={(position) => {
-                const enemy = fireSession.enemyAt(position);
-                return enemy && { infantry: enemy.unitType === UnitType.INFANTRY, sandbags: enemy.sandbags };
-              }}
-              canFireAgain={false}
-              onKeepResults={(_, kept) => match.keepShotResults(kept)}
-              onClose={closeFire}
-            />
-          </OpponentContext.Provider>
-        )}
 
         {ambushing && card?.kind === "ambush" && (
           <OpponentContext.Provider
