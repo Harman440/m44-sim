@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Box,
   Button,
@@ -28,6 +28,8 @@ import WaitingView from "./GameViews/WaitingView";
 import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
+import MapPreview from "./GameViews/MapPreview";
+import { OpponentContext } from "../OpponentContext";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
@@ -49,6 +51,10 @@ export interface GameViewProps {
   resumed?: boolean;
   /** Leave the game and go back to the menu */
   onExit: () => void;
+  /** Pass and play: hand the device to the other player */
+  onPass?: () => void;
+  /** The hand on show was already dealt (pass and play: this side's player has seen it before) */
+  handDealt?: boolean;
 }
 
 const TEXT = defineMessages({
@@ -71,6 +77,8 @@ const TEXT = defineMessages({
     confirmExitText: "Se perderá la partida en curso.",
     keepPlaying: "Seguir jugando",
     exit: "Salir",
+    pass: "Pasar",
+    passLabel: "Pasar el dispositivo al rival",
   },
   en: {
     phases: { card: "Card", orders: "Orders", movement: "Movement", battle: "Battle", final: "Final" },
@@ -91,6 +99,8 @@ const TEXT = defineMessages({
     confirmExitText: "The game in progress will be lost.",
     keepPlaying: "Keep playing",
     exit: "Exit",
+    pass: "Pass",
+    passLabel: "Pass the device to the opponent",
   },
 });
 
@@ -102,7 +112,7 @@ const PHASE_STEPS: { phase: TurnPhase; label: keyof (typeof TEXT)["es"]["phases"
   { phase: TurnPhase.END_OF_TURN, label: "final" },
 ];
 
-function GameView({ session, resumed = false, onExit }: GameViewProps) {
+function GameView({ session, resumed = false, onExit, onPass, handDealt = false }: GameViewProps) {
   const { scenario, faction } = session;
   const { settings, updateSettings } = useSettings();
   const play = useSound();
@@ -118,12 +128,14 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  // Pass and play: both armies are in the app
+  const shared = useContext(OpponentContext) !== null;
 
   // Cards already animated into the hand. Kept here (UI state, not game state)
   // so it survives CardsView unmounting during the other phases.
   // A resumed game's hand was already dealt before the reload.
   const [dealtCardIds, setDealtCardIds] = useState<ReadonlySet<string>>(
-    () => new Set(resumed ? session.getSnapshot().hand.map((card) => card.id) : [])
+    () => new Set(resumed || handDealt ? session.getSnapshot().hand.map((card) => card.id) : [])
   );
 
   const handleCardDealt = useCallback((card: CommandCard) => {
@@ -197,6 +209,11 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
             >
               <GameIcon name={settings.sound ? "soundOn" : "soundOff"} size={26} />
             </IconButton>
+            {onPass && (
+              <Button variant="outlined" onClick={onPass} startIcon={<GameIcon name="pass" />} aria-label={t.passLabel}>
+                {t.pass}
+              </Button>
+            )}
             <Button
               variant="text"
               id="game-menu-button"
@@ -299,6 +316,7 @@ function GameView({ session, resumed = false, onExit }: GameViewProps) {
               canPlayCombatCards={game.canPlayCombatCards}
               coins={game.coins}
               faction={faction}
+              mapPreview={shared ? <MapPreview session={session} faction={faction} /> : undefined}
             />
           )}
 

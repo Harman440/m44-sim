@@ -79,6 +79,7 @@ const GROUP_ICONS: Record<HouseRuleGroupId, GameIconName> = {
   dice: "dice",
   commandCards: "cards",
   supplies: "coins",
+  passAndPlay: "pass",
   optional: "settings",
 };
 

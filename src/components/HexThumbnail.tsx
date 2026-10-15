@@ -1,5 +1,6 @@
-import { useId } from "react";
-import BoardManager from "../game-core/BoardManager";
+import { useContext, useId } from "react";
+import BoardManager, { turnedRound } from "../game-core/BoardManager";
+import { ViewSideContext } from "./OpponentContext";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { createBoardGeometry } from "./boardGeometry";
@@ -27,7 +28,9 @@ function HexThumbnail({ board, position, image, faction, size = 28, label }: Hex
   const clipId = `hex-clip-${useId().replace(/[^\w-]/g, "")}`;
   const geometry = createBoardGeometry(board.width, board.height, HEX_SIZE);
   const { width, height, imageMargin } = geometry;
-  const { x, y } = geometry.hexCenter(position);
+  // Pass and play: seen from the main side, as on the map
+  const viewSide = useContext(ViewSideContext) ?? faction;
+  const { x, y } = geometry.hexCenter(viewSide === faction ? position : turnedRound(position, board.width, board.height));
   // Pointy-top, as in Hexagon
   const points = Array.from({ length: 6 }, (_, i) => {
     const angle = (i * Math.PI) / 3 + Math.PI / 2;
@@ -61,7 +64,7 @@ function HexThumbnail({ board, position, image, faction, size = 28, label }: Hex
             width={width - 2 * imageMargin}
             height={height - 2 * imageMargin}
             preserveAspectRatio="xMidYMid meet"
-            transform={faction === "Axis" ? `rotate(180 ${width / 2} ${height / 2})` : undefined}
+            transform={viewSide === "Axis" ? `rotate(180 ${width / 2} ${height / 2})` : undefined}
           />
         </g>
       )}

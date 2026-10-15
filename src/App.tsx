@@ -7,29 +7,35 @@ import { scenarios } from './data/scenarios';
 import { commandDeckFor } from './data/commandCards';
 import { allCombatCards, combatDeckFor } from './data/combatCards';
 import GameSession from './game-core/gameSession';
+import PassAndPlayMatch from './game-core/passAndPlay';
 import GameView from './components/mainComponents/LazyGameView';
+import MatchView from './components/mainComponents/MatchView';
 import MapEditor from './components/mapEditor/LazyMapEditor';
 import Menu from './components/mainComponents/Menu';
 import UpdatePrompt from './components/UpdatePrompt';
 import OldBrowser from './components/OldBrowser';
 import { isBrowserTooOld } from './browserSupport';
-import { GameSetup } from './types/faction';
+import { Faction, GameSetup, MatchSetup } from './types/faction';
 import { Scenario } from './types/scenario';
 import { validateScenario } from './game-core/scenarioFile';
 import { copyDraft, mapIdFor, newDraft, newMapId } from './game-core/scenarioDraft';
 import { withBoardArt } from './boardArt/mapArt';
 import {
   clearSavedGame,
+  clearSavedMatch,
   deleteCustomMap,
   loadCustomMaps,
   loadLastSetup,
   loadSavedGame,
+  loadSavedMatch,
   loadSettings,
   saveCustomMap,
   saveGame,
+  saveMatch,
   saveLastSetup,
   saveSettings,
   savedGameScenarioId,
+  savedMatchScenarioId,
   settleMapIds,
 } from './storage';
 import { Settings, SettingsContext } from './settings';
@@ -49,13 +55,36 @@ const loadMaps = () => {
   return { maps: loadCustomMaps(), renamed };
 };
 
+/** A new game for one side, as the menu set it up */
+const newSession = (scenario: Scenario, faction: Faction, setup: Omit<GameSetup, 'faction'>, figures = false) =>
+  new GameSession({
+    scenario,
+    faction,
+    initialHandSize: scenario.initialHandSize[faction === 'Axis' ? 'axis' : 'allies'],
+    commandCards: commandDeckFor(scenario, faction),
+    combatCards: setup.testMode ? allCombatCards() : combatDeckFor(scenario, faction),
+    longRangeDie: setup.longRangeDie,
+    testMode: setup.testMode === true,
+    artilleryCrew: setup.artilleryCrew === true,
+    figures,
+  });
+
 interface CurrentGame {
-  session: GameSession;
+  /** One side's game (one device per side), or a pass and play match (both sides on this device) */
+  play: { session: GameSession } | { match: PassAndPlayMatch };
   /** Picked back up from a save rather than started from the menu */
   resumed: boolean;
   /** Keys GameView so every game starts with fresh UI state */
   number: number;
 }
+
+/** The match or game in progress, picked back up from its save */
+const resumeSaved = (scenarios: readonly Scenario[]): CurrentGame | null => {
+  const match = loadSavedMatch(scenarios);
+  if (match) return { play: { match }, resumed: true, number: 0 };
+  const session = loadSavedGame(scenarios);
+  return session && { play: { session }, resumed: true, number: 0 };
+};
 
 const App = () => {
   const [settings, setSettings] = useState<Settings>(loadSettings);
@@ -89,23 +118,20 @@ const App = () => {
   const [customMaps, setCustomMaps] = useState<Scenario[]>(() => loadMaps().maps);
   const allScenarios = useMemo(() => [...scenarios, ...customMaps], [customMaps]);
 
-  // A game on a map from Mis mapas is picked back up once its board art is drawn
-  const [restoring, setRestoring] = useState<Scenario | null>(
-    () => customMaps.find(({ id }) => id === savedGameScenarioId()) ?? null,
-  );
-  const [game, setGame] = useState<CurrentGame | null>(() => {
-    if (restoring) return null;
-    const session = loadSavedGame(allScenarios);
-    return session && { session, resumed: true, number: 0 };
+  // A game or match on a map from Mis mapas is picked back up once its board art is drawn
+  const [restoring, setRestoring] = useState<Scenario | null>(() => {
+    const savedId = savedMatchScenarioId() ?? savedGameScenarioId();
+    return customMaps.find(({ id }) => id === savedId) ?? null;
   });
+  const [game, setGame] = useState<CurrentGame | null>(() => (restoring ? null : resumeSaved(allScenarios)));
   useEffect(() => {
     if (!restoring) return;
     let current = true;
     void withBoardArt(restoring).then((scenario) => {
       if (!current) return;
-      const session = loadSavedGame([scenario]);
+      const resumed = resumeSaved([scenario]);
       setRestoring(null);
-      if (session) setGame({ session, resumed: true, number: 0 });
+      if (resumed) setGame(resumed);
     });
     return () => {
       current = false;
@@ -115,9 +141,13 @@ const App = () => {
   // Save after every change, so a reload or the tablet dropping the tab resumes here
   useEffect(() => {
     if (!game) return;
-    const { session } = game;
-    saveGame(session);
-    return session.subscribe(() => saveGame(session));
+    const { play } = game;
+    if ('match' in play) {
+      saveMatch(play.match);
+      return play.match.subscribe(() => saveMatch(play.match));
+    }
+    saveGame(play.session);
+    return play.session.subscribe(() => saveGame(play.session));
   }, [game]);
 
   // The menu shows first; load the game screen while the player picks a side
@@ -131,34 +161,51 @@ const App = () => {
   // A map from Mis mapas having its board art drawn before its game starts
   const [drawing, setDrawing] = useState(false);
 
-  const handleStart = (setup: GameSetup) => {
-    const scenario = allScenarios.find((s) => s.id === setup.scenarioId);
-    if (!scenario || validateScenario(scenario).length > 0) return;
-    saveLastSetup(setup);
-    if (scenario.image) return startGame(scenario, setup);
+  /** The scenario picked in the menu, if it can be played (a map from Mis mapas may not be yet) */
+  const playable = (id: string) => {
+    const scenario = allScenarios.find((s) => s.id === id);
+    return scenario && validateScenario(scenario).length === 0 ? scenario : null;
+  };
+
+  /** Start on a scenario with its board art: a map from Mis mapas has it drawn first */
+  const withArt = (scenario: Scenario, start: (scenario: Scenario) => void) => {
+    if (scenario.image) return start(scenario);
     setDrawing(true);
     void withBoardArt(scenario).then((drawn) => {
       setDrawing(false);
-      startGame(drawn, setup);
+      start(drawn);
     });
   };
 
-  const startGame = (scenario: Scenario, setup: GameSetup) => {
-    const session = new GameSession({
-      scenario,
-      faction: setup.faction,
-      initialHandSize: scenario.initialHandSize[setup.faction === "Axis" ? "axis" : "allies"],
-      commandCards: commandDeckFor(scenario, setup.faction),
-      combatCards: setup.testMode ? allCombatCards() : combatDeckFor(scenario, setup.faction),
-      longRangeDie: setup.longRangeDie,
-      testMode: setup.testMode === true,
-      artilleryCrew: setup.artilleryCrew === true,
+  const handleStart = (setup: GameSetup) => {
+    const scenario = playable(setup.scenarioId);
+    if (!scenario) return;
+    saveLastSetup(setup);
+    withArt(scenario, (drawn) => {
+      // Only one game is kept: a new one replaces any other save
+      clearSavedMatch();
+      const session = newSession(drawn, setup.faction, setup);
+      setGame((prev) => ({ play: { session }, resumed: false, number: (prev?.number ?? 0) + 1 }));
     });
-    setGame((prev) => ({ session, resumed: false, number: (prev?.number ?? 0) + 1 }));
+  };
+
+  const handlePassAndPlay = (setup: MatchSetup) => {
+    const scenario = playable(setup.scenarioId);
+    if (!scenario) return;
+    withArt(scenario, (drawn) => {
+      clearSavedGame();
+      const match = new PassAndPlayMatch(drawn, {
+        // Both armies are in the app: units have figures and take the hits
+        Allies: newSession(drawn, 'Allies', setup, true),
+        Axis: newSession(drawn, 'Axis', setup, true),
+      }, { mainSide: setup.mainSide });
+      setGame((prev) => ({ play: { match }, resumed: false, number: (prev?.number ?? 0) + 1 }));
+    });
   };
 
   const handleExit = () => {
     clearSavedGame();
+    clearSavedMatch();
     setGame(null);
   };
 
@@ -196,7 +243,11 @@ const App = () => {
             <CircularProgress aria-label={DRAWING_MAP[language]} sx={{ m: 'auto' }} />
           ) : game ? (
             <Suspense fallback={<CircularProgress aria-label={LOADING[language]} sx={{ m: 'auto' }} />}>
-              <GameView key={game.number} session={game.session} resumed={game.resumed} onExit={handleExit} />
+              {'match' in game.play ? (
+                <MatchView key={game.number} match={game.play.match} resumed={game.resumed} onExit={handleExit} />
+              ) : (
+                <GameView key={game.number} session={game.play.session} resumed={game.resumed} onExit={handleExit} />
+              )}
             </Suspense>
           ) : editing ? (
             // Only from the menu, so a map is never edited during a game
@@ -210,6 +261,7 @@ const App = () => {
               initialScenarioId={shownMap}
               initialSetup={loadLastSetup()}
               onStart={handleStart}
+              onPassAndPlay={handlePassAndPlay}
               onOpenEditor={() => setEditing(newDraft(newMapId()))}
               onEditMap={(id) => setEditing(customMaps.find((map) => map.id === id) ?? null)}
               onDuplicateMap={duplicateMap}

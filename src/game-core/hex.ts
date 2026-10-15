@@ -4,10 +4,18 @@ import { TERRAIN, TerrainRules } from "../data/terrain";
 import { positionKey } from "./position";
 import Unit from "./unit";
 
+const MIRRORED_SIDE: Record<Side, Side> = {
+  [Side.LEFT]: Side.RIGHT,
+  [Side.LEFT_CENTER]: Side.RIGHT_CENTER,
+  [Side.CENTER]: Side.CENTER,
+  [Side.RIGHT_CENTER]: Side.LEFT_CENTER,
+  [Side.RIGHT]: Side.LEFT,
+};
+
 class Hex {
   private readonly position: Position;
   private readonly posAxial: AxialCoord;
-  private readonly side: Side;
+  private side: Side;
   private readonly type: HexType;
 
   private _unit: Unit | null = null;
@@ -25,6 +33,15 @@ class Hex {
 
     //get the side of the hex
     this.side = this._setSide(this.position);
+  }
+
+  /**
+   * Pass and play: the sections as the other end of the table sees them, so a card's left is the
+   * same hexes for both sides (the grid's sections are symmetric, so left and right just swap)
+   */
+  mirrorSections(mirrored: boolean) {
+    const side = this._setSide(this.position);
+    this.side = mirrored ? MIRRORED_SIDE[side] : side;
   }
 
   private _setSide(pos: Position): Side {

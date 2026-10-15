@@ -1,5 +1,5 @@
 import { TEST_MODE_COINS } from "../data/coinRules";
-import { UnitType } from "./unit";
+import Unit, { UnitType } from "./unit";
 import { shoot } from "../test/shots";
 import { DieFace } from "./dice";
 import { describe, expect, it, vi } from "vitest";
@@ -1350,7 +1350,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 27 as 28 })).toThrow();
+    expect(broken({ version: 28 as 29 })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
@@ -3177,5 +3177,220 @@ describe("GameSession elite units", () => {
 
     expect(restored.board.getHex(LEFT_INF)!.unit!.elite).toBe(true);
     expect(restored.board.getHex({ row: 7, col: 3 })!.unit!.elite).toBe(false);
+  });
+});
+
+describe("pass and play movement", () => {
+  /** The left infantry ordered 2 hexes and the left-center one to hold; the tank and the right infantry have no order */
+  const movedTwo = () => {
+    const { session, card } = sessionWithAllCards();
+    expect(session.pickCard(card("left"))).toBe(true);
+    const far = session.getMoveOptions(LEFT_INF)!.moves.find((p) => hexDistance(p, LEFT_INF) === 2)!;
+    expect(session.issueOrder(LEFT_INF, far)).toBe(true);
+    expect(session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 })).toBe(true);
+    expect(session.commitOrders()).toBe(true);
+    return { session, order: session.getSnapshot().orders[0]! };
+  };
+
+  /** The left infantry ordered 1 hex, so it can still fire; the left-center one holds */
+  const movedOne = () => {
+    const { session, card } = sessionWithAllCards();
+    expect(session.pickCard(card("left"))).toBe(true);
+    const near = session.getMoveOptions(LEFT_INF)!.moveAndFire.find((p) => hexDistance(p, LEFT_INF) === 1)!;
+    expect(session.issueOrder(LEFT_INF, near)).toBe(true);
+    expect(session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 })).toBe(true);
+    expect(session.commitOrders()).toBe(true);
+    return { session, order: session.getSnapshot().orders[0]! };
+  };
+
+  it("cuts an order short where its unit stopped, and only on its way", () => {
+    const { session, order } = movedTwo();
+    const halfway = order.path![1]!;
+
+    expect(session.haltOrders([{ order: 0, at: order.end }])).toBe(false); // the end isn't a stop
+    expect(session.haltOrders([{ order: 0, at: { row: 0, col: 0 } }])).toBe(false);
+    expect(session.haltOrders([{ order: 0, at: halfway }])).toBe(true);
+
+    const halted = session.getSnapshot().orders[0]!;
+    expect(halted.end).toEqual(halfway);
+    expect(halted.path).toEqual(order.path!.slice(0, 2));
+    expect(unitAt(session, halfway)).toBe(order.unit);
+    expect(unitAt(session, order.end)).toBeNull();
+  });
+
+  it("is only for the movement phase", () => {
+    const { session, card } = sessionWithAllCards();
+    session.pickCard(card("all"));
+    expect(session.haltOrders([])).toBe(false);
+    expect(session.rollCollision(LEFT_INF, true, null)).toBe(false);
+  });
+
+  it("rolls an ordered unit's collision as its shot, and an unordered unit's apart", () => {
+    const { session, order } = movedOne();
+    expect(session.rollCollision(order.end, false, 1)).toBe(false); // not that order's unit
+    expect(session.rollCollision(order.end, false, 0)).toBe(true);
+    const shot = session.getSnapshot().shots[0]!;
+    expect(shot).toMatchObject({ orderIndex: 0, collision: true, target: { infantry: false, closeAssault: true } });
+    // Infantry rolls 3 dice in close assault, minus 1 for the collision
+    expect(shot.dice).toBe(2);
+
+    expect(session.rollCollision(TANK, true, null)).toBe(true);
+    expect(session.rollCollision({ row: 7, col: 3 }, true, null)).toBe(false); // it has an order
+    expect(session.getSnapshot().standingCollisions).toHaveLength(1);
+    // A tank rolls 3 dice in close assault, minus 1
+    expect(session.getSnapshot().standingCollisions[0]).toMatchObject({ from: TANK, dice: 2, unitType: UnitType.TANK });
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), scenario, cards());
+    expect(restored.getSnapshot().standingCollisions).toEqual(session.getSnapshot().standingCollisions);
+  });
+
+  it("doesn't roll a collision for a unit whose order doesn't let it fire", () => {
+    const { session, order } = movedTwo();
+    expect(order.canFire).toBe(false);
+    expect(session.canRollCollision(order.end, 0)).toBe(false);
+    expect(session.rollCollision(order.end, true, 0)).toBe(false);
+  });
+});
+
+describe("pass and play figures", () => {
+  const ARTILLERY: Position = { row: 8, col: 6 };
+  const withArtillery: Scenario = {
+    ...scenario,
+    units: { ...scenario.units, allies: { ...scenario.units.allies, artillery: [ARTILLERY] } },
+  };
+  const figuresSession = () =>
+    new GameSession({ scenario: withArtillery, faction: "Allies", initialHandSize: 4, commandCards: cards(), figures: true });
+
+  it("only counts figures in pass and play", () => {
+    expect(makeSession().figuresAt(TANK)).toBeNull();
+    expect(makeSession().sufferHits(TANK, 1, 0)).toBe(false);
+    expect(makeSession().getSnapshot().strength).toEqual([]);
+  });
+
+  it("takes hits figure by figure: 2 for an armour figure", () => {
+    const session = figuresSession();
+    expect(session.figuresAt(LEFT_INF)).toBe(7);
+    expect(session.figuresAt(TANK)).toBe(3);
+
+    expect(session.sufferHits(TANK, 1, 0)).toBe(true);
+    expect(session.figuresAt(TANK)).toBe(3);
+    expect(session.sufferHits(TANK, 1, 0)).toBe(true);
+    expect(session.figuresAt(TANK)).toBe(2);
+    expect(session.sufferHits(LEFT_INF, 5, 0)).toBe(true);
+    expect(session.figuresAt(LEFT_INF)).toBe(2);
+  });
+
+  it("removes a unit that loses its last figure", () => {
+    const session = figuresSession();
+    expect(session.sufferHits(TANK, 6, 2)).toBe(true);
+    expect(unitAt(session, TANK)).toBeNull();
+    expect(session.getSnapshot().strength.some((s) => samePosition(s.position, TANK))).toBe(false);
+  });
+
+  it("leaves a destroyed artillery's crew behind, 1 infantry figure", () => {
+    const session = figuresSession();
+    expect(session.sufferHits(ARTILLERY, 3, 0)).toBe(true);
+    expect(unitAt(session, ARTILLERY)?.getUnitType()).toBe(UnitType.INFANTRY);
+    expect(session.figuresAt(ARTILLERY)).toBe(1);
+    expect(session.sufferHits(ARTILLERY, 1, 0)).toBe(true);
+    expect(unitAt(session, ARTILLERY)).toBeNull();
+  });
+
+  it("marks a unit to retreat, flags adding up, so it can't battle any more this turn", () => {
+    const session = figuresSession();
+    expect(session.isRetreating(LEFT_INF)).toBe(false);
+    session.sufferHits(LEFT_INF, 0, 1);
+    session.sufferHits(LEFT_INF, 1, 1);
+    expect(session.isRetreating(LEFT_INF)).toBe(true);
+    expect(session.getSnapshot().strength.find((s) => samePosition(s.position, LEFT_INF))).toEqual({
+      position: LEFT_INF,
+      figures: 6,
+      retreats: 2,
+      damaged: false,
+      hitThisTurn: 1,
+    });
+    expect(session.canRollCollision(LEFT_INF, null)).toBe(false);
+
+    // Ordered to hold, it has no shot left in the battle
+    expect(session.pickCard(session.getSnapshot().hand.find((c) => c.id === "all")!)).toBe(true);
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+    while (session.getSnapshot().ordersLeft > 0) {
+      const p = session.getSnapshot().orderable[0]!;
+      expect(session.issueOrder(p, p)).toBe(true);
+    }
+    expect(session.commitOrders()).toBe(true);
+    expect(session.startBattle()).toBe(true);
+    expect(session.getSnapshot().orders[0]!.canFire).toBe(true);
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.shotsLeft(1)).toBeGreaterThan(0);
+  });
+
+  it("retreats a hex toward its own edge for each flag, to a free hex", () => {
+    const session = figuresSession();
+    expect(session.retreatOptions(LEFT_INF)).toEqual([]); // not marked
+    session.sufferHits(LEFT_INF, 0, 2);
+
+    const options = session.retreatOptions(LEFT_INF);
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.every((p) => p.row === LEFT_INF.row + 1 && hexDistance(p, LEFT_INF) === 1)).toBe(true);
+    expect(session.retreatTo(LEFT_INF, { row: 3, col: 3 })).toBe(false);
+
+    const to = options[0]!;
+    expect(session.retreatTo(LEFT_INF, to)).toBe(true);
+    expect(unitAt(session, to)?.getUnitType()).toBe(UnitType.INFANTRY);
+    expect(session.getSnapshot().strength.find((u) => samePosition(u.position, to))).toMatchObject({ retreats: 1 });
+  });
+
+  it("loses a figure for each hex it can't retreat", () => {
+    const session = figuresSession();
+    const edge: Position = { row: 8, col: 11 }; // the right infantry, on its own edge
+    session.sufferHits(edge, 0, 2);
+    expect(session.retreatOptions(edge)).toEqual([]);
+    expect(session.retreatBlocked(edge)).toBe(true);
+    expect(session.figuresAt(edge)).toBe(6);
+    expect(session.retreatBlocked(edge)).toBe(true);
+    expect(session.figuresAt(edge)).toBe(5);
+    expect(session.isRetreating(edge)).toBe(false);
+    expect(session.retreatBlocked(edge)).toBe(false);
+  });
+
+  it("counts each hex armour can't retreat as one hit", () => {
+    const session = figuresSession();
+    session.sufferHits(TANK, 0, 1);
+    for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
+    expect(session.retreatBlocked(TANK)).toBe(true);
+    // 1 hit of its figure's 2: still 3 figures, one marked
+    expect(session.getSnapshot().strength.find((s) => samePosition(s.position, TANK))).toMatchObject({ figures: 3, damaged: true });
+  });
+
+  it("takes an armour figure that already lost a hit down to the next one when it can't retreat", () => {
+    const session = figuresSession();
+    // A hit on the tank, then both hexes behind it taken
+    session.sufferHits(TANK, 1, 1);
+    for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
+    expect(session.retreatBlocked(TANK)).toBe(true);
+    expect(session.figuresAt(TANK)).toBe(2);
+  });
+
+  it("records the hits each unit took this turn, saved, until the turn ends", () => {
+    const session = figuresSession();
+    session.sufferHits(TANK, 1, 0);
+    session.sufferHits(TANK, 1, 0);
+    const tank = (s: GameSession) => s.getSnapshot().strength.find((u) => samePosition(u.position, TANK))!;
+    expect(tank(session)).toMatchObject({ figures: 2, hitThisTurn: 2 });
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withArtillery, cards());
+    expect(tank(restored).hitThisTurn).toBe(2);
+    // A save from before the record still loads, with none
+    const { turnHits: _, ...older } = session.save();
+    expect(tank(GameSession.restore(JSON.parse(JSON.stringify(older)), withArtillery, cards())).hitThisTurn).toBe(0);
+  });
+
+  it("keeps hits from turn to turn and saves them, the flags only for the turn", () => {
+    const session = figuresSession();
+    session.sufferHits(TANK, 3, 1);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withArtillery, cards());
+    expect(restored.figures).toBe(true);
+    expect(restored.figuresAt(TANK)).toBe(2);
+    expect(restored.isRetreating(TANK)).toBe(true);
   });
 });

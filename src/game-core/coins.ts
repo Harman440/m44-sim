@@ -6,7 +6,7 @@ import Order from "./order";
 import { UnitType } from "./unit";
 import { appliedFaces, readRoll } from "./rollResult";
 import { END_OF_TURN_COINS } from "../data/coinRules";
-import type { AmbushShot, Shot } from "./gameSession";
+import type { AmbushShot, Shot, StandingCollisionRoll } from "./gameSession";
 import type { CombatCard } from "./combatCard";
 import type { Localized } from "../i18n/lang";
 
@@ -30,6 +30,8 @@ export interface TurnCoinsState {
   shots: readonly Shot[];
   /** The Ambush card's shot, whose supply faces earn coins too */
   ambush?: AmbushShot | null;
+  /** Pass and play: collision rolls of units without an order, whose supply faces earn coins too */
+  standingCollisions?: readonly StandingCollisionRoll[];
   /** Coins added or taken by hand (to match the table) */
   adjustments: readonly number[];
   reward: RewardChoice | null;
@@ -45,6 +47,7 @@ export function turnCoins({
   combatCards,
   shots,
   ambush = null,
+  standingCollisions = [],
   adjustments,
   reward,
   cardReward,
@@ -62,10 +65,10 @@ export function turnCoins({
     const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
     if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: orders[shot.orderIndex]!.unit.getUnitType() });
   });
-  if (ambush) {
-    const coins = readRoll(appliedFaces(ambush.faces, ambush.kept), ambush.target).coins;
-    if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: ambush.unitType });
-  }
+  [...(ambush ? [ambush] : []), ...standingCollisions].forEach((roll) => {
+    const coins = readRoll(appliedFaces(roll.faces, roll.kept), roll.target).coins;
+    if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: roll.unitType });
+  });
   // The extra first turn has no final-phase reward (nor Preparations' coins)
   if (!extraTurn) {
     if (reward === "coins") entries.push({ kind: "endOfTurn", amount: END_OF_TURN_COINS });

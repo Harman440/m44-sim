@@ -141,7 +141,7 @@ describe("OrdersView giving orders", () => {
     expect(order!.start).toEqual(LEFT_A);
     expect(order!.end).toEqual(LEFT_A);
     expect(order!.canFire).toBe(true);
-    expect(container.querySelector('[data-position="7-1"] .unit__badge--fire')).not.toBeNull();
+    expect(container.querySelector('[data-unit-at="7-1"] .unit__badge--fire')).not.toBeNull();
     expect(container.querySelectorAll("g.order-arrow")).toHaveLength(0);
   });
 });

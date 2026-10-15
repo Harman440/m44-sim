@@ -397,6 +397,6 @@ describe("EndOfTurnView table reminders", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fortificar: poner sacos terreros" }));
 
     expect(session.board.getHex(INFANTRY)!.sandbags).toBe(true);
-    expect(container.querySelector(`[data-position="${INFANTRY.row}-${INFANTRY.col}"] [data-testid="sandbags"]`)).not.toBeNull();
+    expect(container.querySelector(`[data-sandbags-at="${INFANTRY.row}-${INFANTRY.col}"] [data-testid="sandbags"]`)).not.toBeNull();
   });
 });

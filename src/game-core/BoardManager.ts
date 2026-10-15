@@ -14,6 +14,16 @@ export interface MoveRules {
   fireInto?: readonly HexType[];
 }
 
+/**
+ * A position as seen from the other side of the table: the Axis' board is the Allies' turned
+ * round. Doing it twice gives the position back (the board has an odd number of rows)
+ */
+export const turnedRound = (position: Position, width = 13, height = 9): Position => {
+  const flippedCol = width - 1 - position.col;
+  // Odd rows have one hex fewer
+  return { row: height - 1 - position.row, col: position.row % 2 !== 0 ? flippedCol - 1 : flippedCol };
+};
+
 class BoardManager {
   width: number;
   height: number;
@@ -36,22 +46,9 @@ class BoardManager {
     // Factions can come from a saved game, so check even though the type says so
     if (!isFaction(faction)) throw new Error(`Invalid faction: ${faction}`);
 
-    // Helper function to flip positions for Axis faction
-    const flipPosition = (position: Position): Position => {
-      if (faction === "Axis") {
-        const flippedRow = this.height - 1 - position.row;
-        const flippedCol = this.width - 1 - position.col;
-
-        // Adjust column depending on row parity after flipping
-        const needsShift = position.row % 2 !== 0;
-
-        return {
-          row: flippedRow,
-          col: needsShift ? flippedCol - 1 : flippedCol,
-        };
-      }
-      return position;
-    };
+    // Axis sees the board turned round
+    const flipPosition = (position: Position): Position =>
+      faction === "Axis" ? turnedRound(position, this.width, this.height) : position;
 
     // Initialize hexes with default terrain
     for (let row = 0; row < this.height; row++) {
@@ -107,6 +104,14 @@ class BoardManager {
       const hex = this.getHex(flipPosition(position));
       if (hex?.hasUnit()) hex.setSandbags(true);
     });
+  }
+
+  /**
+   * Pass and play: the sections follow `viewSide`'s left and right, so the same hexes are each
+   * section for both armies. For the other side the sections swap
+   */
+  sectionsSeenFrom(faction: Faction, viewSide: Faction) {
+    this.hexes.forEach((hex) => hex.mirrorSections(faction !== viewSide));
   }
 
   // Get hex at specific position

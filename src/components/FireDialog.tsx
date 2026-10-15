@@ -135,8 +135,8 @@ interface FireDialogProps {
   longRangeDie?: boolean;
   /** What the enemy can have in the scenario */
   targetKinds: TargetKinds;
-  /** Take back the unit's last shot (a mistake) */
-  onUndoShot: () => boolean;
+  /** Take back the unit's last shot (a mistake); without it, a shot can't be taken back */
+  onUndoShot?: () => boolean;
   /** Apply only some of the dice of the unit's shot `shotNumber` (or all, with null) */
   onKeepResults: (shotNumber: number, kept: number[] | null) => boolean;
   onClose: () => void;
@@ -342,7 +342,7 @@ function FireDialog({
   };
 
   const handleUndo = () => {
-    if (!onUndoShot()) return;
+    if (!onUndoShot?.()) return;
     setConfirmingUndo(false);
     setUndoChecked(false);
     setJustFired(false);
@@ -490,7 +490,7 @@ function FireDialog({
     const canGoBack = aiming && (firingAgain || (canRemoveWire && firingFromWire));
     return (
       <>
-        {!aiming && summary.shots.length > 0 && (
+        {!aiming && summary.shots.length > 0 && onUndoShot && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
             {t.cancelShot}
           </Button>

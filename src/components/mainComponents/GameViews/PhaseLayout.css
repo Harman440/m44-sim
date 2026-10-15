@@ -122,3 +122,17 @@
     --card-width: clamp(110px, (100vh - 300px) * 5 / 7, 200px);
   }
 }
+
+/* Pass and play's reveal: both sides' cards in the column, one side above the other,
+   each side's cards side by side */
+@media (orientation: landscape) {
+  .reveal-side .played-cards {
+    flex-direction: row;
+    align-items: flex-start;
+    --card-width: 96px;
+  }
+
+  .reveal-side .played-cards:has(> :only-child) {
+    --card-width: clamp(96px, (100vh - 340px) * 5 / 14, 190px);
+  }
+}

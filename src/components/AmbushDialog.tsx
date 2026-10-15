@@ -69,6 +69,14 @@ interface AmbushDialogProps {
   /** The shot was just rolled (for the dice sound) */
   onFired: () => void;
   onClose: () => void;
+  /**
+   * Pass and play: the match fires the Ambush and deals its hits, so it can't be taken back,
+   * and what's on the target hex is known
+   */
+  onAmbush?: (from: Position, target: Position) => boolean;
+  knownTarget?: (position: Position) => { infantry: boolean; sandbags: boolean } | null;
+  /** Pass and play: keeping fewer results goes through the match, which deals them once picked */
+  onKeepResults?: (kept: number[] | null) => boolean;
 }
 
 /**
@@ -76,7 +84,7 @@ interface AmbushDialogProps {
  * enemy attacks in close assault, then the attacker's hex, as when firing
  * (FireAim): the dice are worked out and rolled, and this side fires first.
  */
-function AmbushDialog({ open, faction, session, game, onFired, onClose }: AmbushDialogProps) {
+function AmbushDialog({ open, faction, session, game, onFired, onClose, onAmbush, knownTarget, onKeepResults }: AmbushDialogProps) {
   const fullScreen = useMediaQuery("(max-width: 899px), (max-height: 599px)");
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -104,7 +112,8 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
   };
 
   const handleFire = (choice: FireAimChoice) => {
-    if (!from || !session.ambushAt(from, choice)) return;
+    if (!from) return;
+    if (!(onAmbush ? onAmbush(from, choice.position) : session.ambushAt(from, choice))) return;
     setJustFired(true);
     onFired();
   };
@@ -147,7 +156,7 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
             board={board}
             image={image}
             rolling={justFired}
-            onKeepResults={(kept) => session.keepAmbushResults(kept)}
+            onKeepResults={(kept) => (onKeepResults ? onKeepResults(kept) : session.keepAmbushResults(kept))}
           />
           <Alert severity="info">
             {t.outcome}
@@ -168,6 +177,7 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
           card={null}
           longRangeDie={false}
           targetKinds={session.targetKinds}
+          knownTarget={knownTarget}
           onFire={handleFire}
         />
       );
@@ -220,7 +230,7 @@ function AmbushDialog({ open, faction, session, game, onFired, onClose }: Ambush
     }
     return (
       <>
-        {ambush && (
+        {ambush && !onAmbush && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
             {t.undoShot}
           </Button>

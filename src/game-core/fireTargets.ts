@@ -7,7 +7,7 @@ import { Position } from "../types/scenario";
 import { HexType } from "../types/hex";
 import { FireAnswers, FireContext, calculateFireDice } from "./fireRules";
 import { BASE_DICE_BY_DISTANCE, FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
-import { samePosition } from "./position";
+import { positionKey, samePosition } from "./position";
 import { checksLineOfSight } from "./unit";
 
 interface Cube {
@@ -53,7 +53,16 @@ export function hexDistance(a: Position, b: Position): number {
  * Memoir '44), and from a hill to a hill the hills in between don't. The
  * ends never block. Enemy units in between aren't known.
  */
-export function hasLineOfSight(board: BoardManager, from: Position, to: Position): boolean {
+/**
+ * `enemies`: in pass and play, the other army's hexes, which block the view too (in the
+ * one-side game only this side's units are known)
+ */
+export function hasLineOfSight(
+  board: BoardManager,
+  from: Position,
+  to: Position,
+  enemies: ReadonlySet<string> = new Set()
+): boolean {
   const distance = hexDistance(from, to);
   if (distance <= 1) return true;
   const a = toCube(from);
@@ -63,7 +72,7 @@ export function hasLineOfSight(board: BoardManager, from: Position, to: Position
   const blocks = (position: Position) => {
     const hex = board.getHex(position);
     if (!hex) return false;
-    if (hex.hasUnit()) return true;
+    if (hex.hasUnit() || enemies.has(positionKey(position))) return true;
     if (hillToHill && hex.getType() === HexType.HILL) return false;
     return hex.getTerrain().blocksSight;
   };
@@ -110,13 +119,21 @@ export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): Fi
  * may only fire in close assault (Close Assault card, taking ground) reaches
  * adjacent hexes only.
  */
-export function fireTargets(board: BoardManager, from: Position, firing: FireContext): FireTarget[] {
+export function fireTargets(
+  board: BoardManager,
+  from: Position,
+  firing: FireContext,
+  /** Pass and play: the other army's hexes; then only they are targets, and they block the view */
+  enemies?: readonly Position[]
+): FireTarget[] {
   const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
   const needsSight = checksLineOfSight(context.unitType);
   const range = context.closeAssaultOnly ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
+  const enemyKeys = new Set((enemies ?? []).map(positionKey));
   return board
     .getAllHexes()
     .filter((hex) => hex.canEnter() && !samePosition(hex.getPosition(), from))
+    .filter((hex) => !enemies || enemyKeys.has(hex.getKey()))
     .map((hex) => ({ hex, distance: hexDistance(from, hex.getPosition()) }))
     .filter(({ distance }) => distance >= 1 && distance <= range)
     .map(({ hex, distance }) => {
@@ -124,6 +141,6 @@ export function fireTargets(board: BoardManager, from: Position, firing: FireCon
       // The combat card's dice count: it can make a hex worth firing at
       const answers = { ...mapAnswers({ distance, terrain }), combatCard: "yes" };
       const { dice } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight: !needsSight || hasLineOfSight(board, from, hex.getPosition()) };
+      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight: !needsSight || hasLineOfSight(board, from, hex.getPosition(), enemyKeys) };
     });
 }

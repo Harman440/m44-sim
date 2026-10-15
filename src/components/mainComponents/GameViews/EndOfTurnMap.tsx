@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { OpponentContext } from "../../OpponentContext";
 import { Button, Paper, Stack, Typography } from "@mui/material";
 import { Position } from "../../../types/scenario";
 import { Faction } from "../../../types/faction";
@@ -15,6 +16,7 @@ import "./PhaseLayout.css";
 const TEXT = defineMessages({
   es: {
     hint: "Refleja aquí las bajas, retiradas y terreno tomado de la mesa: toca una unidad",
+    hintShared: "Para lo que diga una carta: toca una unidad",
     wireSelected: "Alambrada: quítala si ya no está en la mesa",
     unitSelected: "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala",
     placeReinforcement: (unit: string) => `Refuerzo (${unit.toLowerCase()}): toca la casilla libre donde lo pones`,
@@ -31,6 +33,7 @@ const TEXT = defineMessages({
   },
   en: {
     hint: "Mirror the casualties, retreats and ground taken on the table: tap a unit",
+    hintShared: "For what a card says: tap a unit",
     wireSelected: "Barbed wire: remove it if it's no longer on the table",
     unitSelected: "Tap an empty hex to move the unit (retreat or advance), or remove it",
     placeReinforcement: (unit: string) => `Reinforcement (${unit.toLowerCase()}): tap the free hex where you put it`,
@@ -74,6 +77,8 @@ function EndOfTurnMap({
   onDone,
 }: EndOfTurnMapProps) {
   const t = useMessages(TEXT);
+  // Pass and play: there's no table, the app's map is the game
+  const shared = useContext(OpponentContext) !== null;
   const labels = useLabels();
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
@@ -161,7 +166,7 @@ function EndOfTurnMap({
               ? t.placeReinforcement(labels.units[game.reinforcementToPlace])
               : fortifying
                 ? t.fortifying
-                : (hint ?? t.hint)}
+                : (hint ?? (shared ? t.hintShared : t.hint))}
         </Typography>
 
         {selectedHex && (

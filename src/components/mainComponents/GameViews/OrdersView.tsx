@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { OpponentContext } from "../../OpponentContext";
 import {
   Alert,
   Box,
@@ -97,6 +98,7 @@ const TEXT = defineMessages({
     extraOrderRule: (coins: string) => `Una orden extra cuesta ${coins} y no tiene las ventajas de la carta.`,
     updateMap: "Actualizar mapa",
     leftSandbags: "La unidad deja sus sacos terreros: quítalos de la mesa al moverla.",
+    leftSandbagsShared: "La unidad deja sus sacos terreros al moverse.",
     confirmFixTitle: "¿Actualizar el mapa?",
     confirmFixText:
       "Solo si el mapa no coincide con la mesa: por ejemplo, si se cambió una tirada o falta una retirada del turno anterior. Se puede hacer mientras no hayas dado ninguna orden.",
@@ -164,6 +166,7 @@ const TEXT = defineMessages({
     extraOrderRule: (coins: string) => `An extra order costs ${coins} and doesn't get the card's advantages.`,
     updateMap: "Update map",
     leftSandbags: "The unit leaves its sandbags behind: take them off the table when you move it.",
+    leftSandbagsShared: "The unit leaves its sandbags behind when it moves.",
     confirmFixTitle: "Update the map?",
     confirmFixText:
       "Only if the map doesn't match the table: for example, if a roll was changed or a retreat from the last turn is missing. It can be done as long as you haven't given any order.",
@@ -250,6 +253,8 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   const [fixingMap, setFixingMap] = useState(false);
   /** The last order moved a unit off its sandbags: said for a moment */
   const [leftSandbags, setLeftSandbags] = useState(false);
+  // Pass and play: there's no table, the app's map is the game
+  const shared = useContext(OpponentContext) !== null;
 
   const clearSelection = () => {
     setUnitHexPosition(null);
@@ -633,7 +638,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             </Stack>
           </InfoButton>
           {/* Out of the way, and asked first: only when the map doesn't match the table */}
-          {game.canEditMap && !unitHexPosition && !marking && !extraMode && (
+          {game.canEditMap && !shared && !unitHexPosition && !marking && !extraMode && (
             <Button
               variant="text"
               color="inherit"
@@ -655,7 +660,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert severity="warning" icon={<SandbagsIcon size={26} />} onClose={() => setLeftSandbags(false)} data-testid="sandbags-left">
-          {t.leftSandbags}
+          {shared ? t.leftSandbagsShared : t.leftSandbags}
         </Alert>
       </Snackbar>
 

@@ -7,6 +7,12 @@ import { TurnPhase } from "../types/gameManager";
 import { END_OF_TURN_COINS, EXTRA_ORDER_COST } from "./coinRules";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "./combatCards";
 import { Localized } from "../i18n/lang";
+import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
+import { UnitType } from "../game-core/unit";
+
+const infantry = FIGURES[UnitType.INFANTRY];
+const armor = FIGURES[UnitType.TANK];
+const artillery = FIGURES[UnitType.ARTILLERY];
 
 export type TutorialStepId = "setup" | "turn" | "card" | "orders" | "movement" | "battle" | "final" | "tips";
 
@@ -19,7 +25,7 @@ export interface TutorialStep {
   points: readonly Localized[];
 }
 
-export type HouseRuleGroupId = "simultaneous" | "dice" | "commandCards" | "supplies" | "optional";
+export type HouseRuleGroupId = "simultaneous" | "dice" | "commandCards" | "supplies" | "passAndPlay" | "optional";
 
 /** A rule played differently from the official game */
 export interface HouseRule {
@@ -447,6 +453,65 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: "La carta marca una cruz en el mapa. En la fase final la app tira el dado y llega a esa casilla la unidad que diga la tabla del escenario; con bandera no llega nada.",
           en: "The card marks a cross on the map. In the final phase the app rolls the die, and the unit the scenario's table names arrives on that hex; on a flag nothing arrives.",
+        },
+      },
+    ],
+  },
+  {
+    id: "passAndPlay",
+    title: { es: "Pasar y jugar (los dos bandos en un dispositivo)", en: "Pass and play (both sides on one device)" },
+    rules: [
+      {
+        title: { es: "Todo en la app", en: "Everything in the app" },
+        house: {
+          es: "Sin tablero: la app conoce los dos ejércitos, mueve las unidades, tira los dados y aplica los impactos y las retiradas. Cada jugador elige carta y da órdenes en secreto; una pantalla tapa el juego cada vez que el dispositivo cambia de manos. El mapa se ve siempre desde el lado del bando elegido en el menú, sin girar al pasar el dispositivo, y las secciones también: la izquierda es la izquierda de la pantalla para los dos bandos, así que una carta de la derecha da órdenes en las mismas casillas a cualquiera de los dos.",
+          en: "No board: the app knows both armies, moves the units, rolls the dice and deals the hits and retreats. Each player picks a card and gives orders in secret; a screen covers the game every time the device changes hands. The map is always seen from the side picked in the menu, without turning round as the device is passed, and so are the sections: left is the screen's left for both sides, so a card for the right orders units on the same hexes for either side.",
+        },
+      },
+      {
+        title: { es: "Figuras", en: "Figures" },
+        official: {
+          es: "Infantería 4 figuras, blindados 3, artillería 2; cada impacto quita una.",
+          en: "Infantry 4 figures, armor 3, artillery 2; each hit takes one.",
+        },
+        house: {
+          es: `Infantería ${infantry.figures} figuras; blindados ${armor.figures}, de ${armor.hitsPerFigure} impactos cada una (una figura tocada se marca en rojo y cae al siguiente impacto); los impactos de cada unidad en el turno se ven en el mapa hasta que acaba; artillería ${artillery.figures}, y al caer deja a sus artilleros: ${ARTILLERY_CREW_FIGURES} figura de infantería. Una unidad no aplica más resultados que figuras le quedan.`,
+          en: `Infantry ${infantry.figures} figures; armor ${armor.figures}, ${armor.hitsPerFigure} hits each (a figure hit once is marked red and falls to the next hit); each unit's hits this turn show on the map until the turn ends; artillery ${artillery.figures}, and when it falls its crew stays: ${ARTILLERY_CREW_FIGURES} infantry figure. A unit applies no more results than the figures it has left.`,
+        },
+      },
+      {
+        title: { es: "Movimiento a la vez", en: "Moving at once" },
+        house: {
+          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar no tira. Si ninguna saca bandera, ninguna se gana la casilla: la que se movió vuelve una casilla atrás por donde vino; la que no se movió se queda. Una unidad que ha combatido en un choque ya no dispara en la batalla.",
+          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire doesn't roll. If neither rolls a flag, neither earns the hex: the one that moved goes one hex back the way it came; one that didn't move stays. A unit that fought in a collision doesn't fire in the battle.",
+        },
+      },
+      {
+        title: { es: "La batalla", en: "The battle" },
+        house: {
+          es: "Una pantalla para los dos: disparan primero las unidades que no se movieron y luego las que se movieron, alternando los bandos y empezando el atacante. Se toca en el mapa la unidad que dispara y luego su objetivo, que muestra los dados que tira; los dados caen sobre el mapa y lo que hacen sale al lado. Solo se dispara a unidades enemigas, que tapan la vista. Los sacos terreros ignoran una bandera.",
+          en: "One screen for both: the units that didn't move fire first, then the ones that moved, the sides alternating and the attacker first. Tap the unit that fires on the map, then its target, which shows the dice it rolls; the dice land on the map and what they do shows beside it. Only enemy units can be fired at, and they block the view. Sandbags ignore one flag.",
+        },
+      },
+      {
+        title: { es: "Retiradas tras la batalla", en: "Retreats after the battle" },
+        house: {
+          es: "Una bandera marca la unidad: ya no combate este turno, y al acabar la batalla se retira una casilla por bandera hacia su borde, eligiendo su jugador; cada casilla que no puede retirarse (no hay ninguna libre detrás) cuenta como un impacto. Solo se retira en el acto si, tras un asalto cercano, el atacante toma terreno: los blindados entran y disparan otra vez; la infantería, si su asalto le hizo retirarse, puede echarlo y entrar en su casilla, sin volver a disparar.",
+          en: "A flag marks the unit: it doesn't battle any more this turn, and after the battle it retreats one hex per flag toward its edge, its player choosing; each hex it can't retreat (no free hex behind it) counts as a hit. It only retreats at once if, after a close assault, the attacker takes ground: armour moves in and fires again; infantry whose assault made it retreat can push it out and move into its hex, without firing again.",
+        },
+      },
+      {
+        title: { es: "Cartas de combate en el mapa", en: "Combat cards on the map" },
+        house: {
+          es: "Las cartas de ataque se tiran antes de que nadie dispare; Asalto cercano marca solo las unidades junto a un enemigo; Emboscada dispara primero; Sin munición, Escasez de proyectiles y Sin combustible se juegan sobre la unidad enemiga que se toca en el mapa.",
+          en: "Attack cards are rolled before anyone fires; Close Assault marks the units next to an enemy by itself; Ambush fires first; Out of Ammo, Shell Shortage and Out of Fuel are played on the enemy unit tapped on the map.",
+        },
+      },
+      {
+        title: { es: "Sin victoria por ahora", en: "No victory for now" },
+        house: {
+          es: "La partida sigue hasta que los jugadores paren; las medallas llegarán más adelante.",
+          en: "The game goes on until the players stop; medals will come later.",
         },
       },
     ],

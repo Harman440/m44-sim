@@ -23,7 +23,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { Scenario } from "../../types/scenario";
-import { Faction, GameSetup } from "../../types/faction";
+import { Faction, GameSetup, MatchSetup } from "../../types/faction";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 
 const TEXT = defineMessages({
@@ -41,6 +41,11 @@ const TEXT = defineMessages({
     testModeRule: "modo prueba",
     startWith: (faction: string) => `Empezar con ${faction}`,
     pickSide: "Elige bando",
+    passAndPlay: "Pasar y jugar: los dos bandos aquí",
+    passAndPlayHelp: (side: string | null) =>
+      `Los dos jugadores en este dispositivo, pasándolo en cada turno. ${
+        side ? `El mapa se ve siempre desde el lado de: ${side}.` : "Elige antes el bando desde cuyo lado se ve el mapa."
+      }`,
     tapScenario: "Toca un escenario para ver su mapa y sus bandos.",
     nextGame: "Para la próxima partida.",
     longRangeDie: "Dado de 8 caras a distancia",
@@ -84,6 +89,11 @@ const TEXT = defineMessages({
     testModeRule: "test mode",
     startWith: (faction: string) => `Start as the ${faction}`,
     pickSide: "Pick a side",
+    passAndPlay: "Pass and play: both sides here",
+    passAndPlayHelp: (side: string | null) =>
+      `Both players on this device, passing it every turn. ${
+        side ? `The map is always seen from this side: ${side}.` : "First pick the side the map is seen from."
+      }`,
     tapScenario: "Tap a scenario to see its map and its sides.",
     nextGame: "For the next game.",
     longRangeDie: "8-sided die at range",
@@ -125,6 +135,8 @@ interface MenuProps {
   /** Pre-selected choices, e.g. the last game's */
   initialSetup?: Partial<GameSetup>;
   onStart: (setup: GameSetup) => void;
+  /** Start a pass and play match: both sides on this device */
+  onPassAndPlay?: (setup: MatchSetup) => void;
   /** Open the map editor on a new map */
   onOpenEditor?: () => void;
   onEditMap?: (id: string) => void;
@@ -150,6 +162,7 @@ function Menu({
   initialScenarioId,
   initialSetup,
   onStart,
+  onPassAndPlay,
   onOpenEditor,
   onEditMap,
   onDuplicateMap,
@@ -323,6 +336,24 @@ function Menu({
               >
                 {problems.length > 0 ? t.notReady : faction ? t.startWith(labels.factions[faction]) : t.pickSide}
               </Button>
+              {onPassAndPlay && (
+                <Stack spacing={0.5}>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    disabled={!faction || problems.length > 0}
+                    onClick={() =>
+                      faction && onPassAndPlay({ scenarioId: scenario.id, mainSide: faction, longRangeDie, artilleryCrew, testMode })
+                    }
+                    startIcon={<GameIcon name="pass" />}
+                  >
+                    {t.passAndPlay}
+                  </Button>
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                    {t.passAndPlayHelp(faction ? labels.factions[faction] : null)}
+                  </Typography>
+                </Stack>
+              )}
               {customMap && (
                 <Stack direction="row" role="group" aria-label={t.mapActions} sx={{ gap: 1, flexWrap: "wrap" }}>
                   {onEditMap && (

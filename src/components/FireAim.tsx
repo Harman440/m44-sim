@@ -29,6 +29,9 @@ const TEXT = defineMessages({
     tapHex: "Toca una casilla en el mapa.",
     isInfantry: "¿Es infantería?",
     sandbags: "¿Sacos terreros?",
+    knownInfantry: "Infantería",
+    knownOther: "Blindados o artillería",
+    knownSandbags: "con sacos terreros",
     whereDiceComeFrom: "De dónde salen los dados",
     total: (dice: string) => `Total: ${dice}`,
     fire: "Disparar",
@@ -44,6 +47,9 @@ const TEXT = defineMessages({
     tapHex: "Tap a hex on the map.",
     isInfantry: "Is it infantry?",
     sandbags: "Sandbags?",
+    knownInfantry: "Infantry",
+    knownOther: "Armor or artillery",
+    knownSandbags: "behind sandbags",
     whereDiceComeFrom: "Where the dice come from",
     total: (dice: string) => `Total: ${dice}`,
     fire: "Fire",
@@ -72,6 +78,8 @@ interface FireAimProps {
   longRangeDie: boolean;
   /** What the enemy can have in the scenario */
   targetKinds: TargetKinds;
+  /** Pass and play: what's on each target hex is known, so the unit type and sandbags aren't asked */
+  knownTarget?: (position: Position) => { infantry: boolean; sandbags: boolean } | null;
   onFire: (choice: FireAimChoice) => void;
 }
 
@@ -84,20 +92,24 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
  * The player taps the target's hex, then says what unit is there and whether
  * it has sandbags; the dice are worked out as they go.
  */
-function FireAim({ board, image, faction, from, targets, context, longRangeDie, targetKinds, onFire }: FireAimProps) {
+function FireAim({ board, image, faction, from, targets, context, longRangeDie, targetKinds, knownTarget, onFire }: FireAimProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
   const diceText = useMessages(DICE_TEXT).dice;
   const [picked, setPicked] = useState<Position | null>(null);
-  const [kind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
-  const [sandbags, setSandbags] = useState(false);
+  const [chosenKind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
+  const [chosenSandbags, setSandbags] = useState(false);
   const [useBonus, setUseBonus] = useState(true);
   const [missed, setMissed] = useState(false);
 
   const firable = targets.filter((t) => t.lineOfSight && t.dice > 0);
   const target = picked ? (firable.find((t) => samePosition(t.position, picked)) ?? null) : null;
   const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
+  // Pass and play knows the target: nothing to ask
+  const known = target && knownTarget ? knownTarget(target.position) : null;
+  const kind: TargetChoice | null = known ? (known.infantry ? "infantry" : "other") : chosenKind;
+  const sandbags = known ? known.sandbags : chosenSandbags;
 
   const answers: Record<string, string> = target
     ? { ...mapAnswers(target), targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY, sandbags: sandbags ? "yes" : "no" }
@@ -184,23 +196,34 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           )}
         </Stack>
 
-        <Stack sx={{ gap: 1 }}>
-          {step(2, t.isInfantry)}
-          <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
-        </Stack>
+        {knownTarget ? (
+          known && (
+            <Typography variant="body1" data-testid="known-target">
+              {known.infantry ? t.knownInfantry : t.knownOther}
+              {known.sandbags && ` · ${t.knownSandbags}`}
+            </Typography>
+          )
+        ) : (
+          <Stack sx={{ gap: 1 }}>
+            {step(2, t.isInfantry)}
+            <TargetKindPicker kinds={targetKinds} value={kind} onChange={setKind} enemy={enemy} />
+          </Stack>
+        )}
 
         <Stack sx={{ gap: 0.5 }}>
           {/* One line: the sandbags and a switch */}
-          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
-            {step(3, "")}
-            <SandbagsIcon />
-            <FormControlLabel
-              control={<Switch checked={sandbags} onChange={(e) => setSandbags(e.target.checked)} />}
-              label={t.sandbags}
-              labelPlacement="start"
-              sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
-            />
-          </Stack>
+          {!knownTarget && (
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+              {step(3, "")}
+              <SandbagsIcon />
+              <FormControlLabel
+                control={<Switch checked={sandbags} onChange={(e) => setSandbags(e.target.checked)} />}
+                label={t.sandbags}
+                labelPlacement="start"
+                sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
+              />
+            </Stack>
+          )}
           {asksBonus && (
             <FormControlLabel
               control={<Switch checked={useBonus} onChange={(e) => setUseBonus(e.target.checked)} />}

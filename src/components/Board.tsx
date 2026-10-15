@@ -1,15 +1,22 @@
+import { useContext, useRef } from 'react';
 import type React from 'react';
+import type { ArmyView } from '../game-core/passAndPlay';
+import type { UnitStrength } from '../game-core/gameSession';
+import { OpponentContext, ViewSideContext } from './OpponentContext';
 import Hexagon, { HexHighlight } from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
 import { Faction } from '../types/faction';
 import { includesPosition, positionKey, samePosition } from '../game-core/position';
-import BoardManager from '../game-core/BoardManager';
+import BoardManager, { turnedRound } from '../game-core/BoardManager';
+import UnitComponent from './UnitComponent';
+import { FACTION_COLORS } from '../looks/looks';
 import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
 import Unit from '../game-core/unit';
 import type { MarkerRule } from '../game-core/combatCard';
+import { SandbagsArt } from './SandbagsIcon';
 
 /** Hexes to flash red; a new `id` restarts the animation on the same hexes */
 export interface HexFlash {
@@ -46,7 +53,52 @@ interface BoardProps {
   faction: Faction;
   /** The side of the unit on a hex, when the board shows both sides' units (the map editor) */
   unitFactionAt?: (position: Position) => Faction;
+  /**
+   * The other army (pass and play), drawn turned round onto this side's view with its orders in
+   * its colour; by default the game screen's (`OpponentContext`)
+   */
+  opponent?: ArmyView | null;
+  /** Pass and play: this side's units' figures and retreats; by default the game screen's */
+  strength?: readonly UnitStrength[] | null;
+  /**
+   * Collisions of the movement (pass and play), numbered: each on the hex fought over, or between
+   * the two hexes of units that crossed
+   */
+  collisions?: readonly (readonly Position[])[];
+  /**
+   * Draw the ordered units (this side's and the other army's) on the hex their order starts
+   * from: the reveal before the armies move. Taken off, they glide to where they stand
+   */
+  atStart?: boolean;
 }
+
+/** A unit drawn on the map, where it stands in its own side's view */
+interface PlacedToken {
+  unit: Unit;
+  faction: Faction;
+  position: Position;
+  /** Its position is in the other army's view (turned round onto this board) */
+  other: boolean;
+  readyToFire?: boolean;
+  fired?: boolean;
+  orderable?: boolean;
+  figures?: number;
+  retreats?: number;
+  damaged?: boolean;
+  hitThisTurn?: number;
+}
+
+/** A stable key per unit, so its token is the same element wherever it moves and can glide there */
+const unitKeys = new WeakMap<Unit, number>();
+let nextUnitKey = 1;
+const unitKey = (unit: Unit): number => {
+  let key = unitKeys.get(unit);
+  if (key === undefined) {
+    key = nextUnitKey++;
+    unitKeys.set(unit, key);
+  }
+  return key;
+};
 
 function Board({
   onTileClick,
@@ -68,9 +120,28 @@ function Board({
   hexSize = 50,
   faction,
   unitFactionAt,
+  opponent: opponentProp,
+  strength: strengthProp,
+  collisions = [],
+  atStart = false
 }: BoardProps) {
+  const shared = useContext(OpponentContext);
+  /** Each unit's hits this turn when this map last drew it, and the count it last shook at (renderUnits) */
+  const seenHits = useRef(new WeakMap<Unit, number>());
+  const shookAt = useRef(new WeakMap<Unit, number>());
+  const opponent = opponentProp === undefined ? (shared?.opponent ?? null) : opponentProp;
+  const strength = new Map(
+    (strengthProp === undefined ? (shared?.strength ?? []) : (strengthProp ?? [])).map((s) => [positionKey(s.position), s])
+  );
   const { width: boardWidth, height: boardHeight } = boardManager;
-  const geometry = createBoardGeometry(boardWidth, boardHeight, hexSize);
+  const grid = createBoardGeometry(boardWidth, boardHeight, hexSize);
+  // Pass and play: the map is seen from the main side, so the other side's board is drawn turned
+  // round; positions stay in this board's own view (taps, targets, orders)
+  const viewSide = useContext(ViewSideContext) ?? faction;
+  const turned = viewSide !== faction;
+  const geometry = turned
+    ? { ...grid, hexCenter: (position: Position) => grid.hexCenter(turnedRound(position, boardWidth, boardHeight)) }
+    : grid;
   const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
 
   const highlightAt = (position: Position): HexHighlight => {
@@ -95,6 +166,46 @@ function Board({
       />
     ));
   };
+
+  /** The other army's order arrows, turned round onto this side's view */
+  const renderOpponent = () => {
+    if (!opponent) return null;
+    const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardWidth, boardHeight));
+    return (
+      <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
+        {opponent.orders.map((order, index) => (
+          <OrderComponent
+            key={index}
+            orderIndex={index}
+            order={order}
+            getHexCenter={center}
+            hexSize={hexSize}
+            color={FACTION_COLORS[opponent.faction]}
+          />
+        ))}
+      </g>
+    );
+  };
+
+  /** A burst with the collision's number, on its hex or on the edge between two */
+  const renderCollisions = () =>
+    collisions.map((hexes, i) => {
+      const centers = hexes.map(geometry.hexCenter);
+      const x = centers.reduce((sum, c) => sum + c.x, 0) / centers.length;
+      const y = centers.reduce((sum, c) => sum + c.y, 0) / centers.length;
+      const r = hexSize * 0.42;
+      const spikes = Array.from({ length: 16 }, (_, k) => {
+        const radius = k % 2 === 0 ? r : r * 0.62;
+        const angle = (k * Math.PI) / 8;
+        return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`;
+      }).join(' ');
+      return (
+        <g key={i} className="board__collision" data-testid="collision-mark" pointerEvents="none">
+          <polygon points={spikes} />
+          <text x={x} y={y}>{i + 1}</text>
+        </g>
+      );
+    });
 
   /** A target (attack) or a cross (a unit appears), like pencil on the paper map */
   const renderMarkers = () =>
@@ -171,19 +282,118 @@ function Board({
             position={position}
             onClick={onTileClick}
             highlight={highlightAt(position)}
-            unitReadyToFire={hexData.unit !== null && unitsReadyToFire.has(hexData.unit)}
-            unitFired={hexData.unit !== null && (firedUnits?.has(hexData.unit) ?? false)}
-            unitOrderable={includesPosition(orderablePositions, position)}
             invalidFlashId={flashesInvalid ? invalidFlash.id : null}
             hexSize={hexSize}
             hexData={hexData}
-            faction={unitFactionAt?.(position) ?? faction}
           />
         );
       }
     }
     return tiles;
   };
+
+  /** Every unit on the map, this side's and the other army's, where it's drawn */
+  const tokens = (): PlacedToken[] => {
+    const startOf = (list: readonly Order[]) => new Map(list.map((order) => [order.unit, order.start]));
+    const ownStarts = atStart ? startOf(orders) : null;
+    const own = boardManager.getAllHexes().flatMap((hex): PlacedToken[] => {
+      const unit = hex.unit;
+      if (!unit) return [];
+      const position = hex.getPosition();
+      const stands = strength.get(positionKey(position));
+      return [{
+        unit,
+        faction: unitFactionAt?.(position) ?? faction,
+        position: ownStarts?.get(unit) ?? position,
+        other: false,
+        readyToFire: unitsReadyToFire.has(unit),
+        fired: firedUnits?.has(unit) ?? false,
+        orderable: includesPosition(orderablePositions, position),
+        figures: stands?.figures,
+        retreats: stands?.retreats,
+        damaged: stands?.damaged,
+        hitThisTurn: stands?.hitThisTurn,
+      }];
+    });
+    if (!opponent) return own;
+    const otherStarts = atStart ? startOf(opponent.orders) : null;
+    const other = opponent.units.map(({ position, unit, figures, retreats, damaged, hitThisTurn }): PlacedToken => ({
+      unit,
+      faction: opponent.faction,
+      position: otherStarts?.get(unit) ?? position,
+      other: true,
+      figures,
+      retreats,
+      damaged,
+      hitThisTurn,
+    }));
+    return [...own, ...other];
+  };
+
+  /**
+   * The units, each keyed by itself rather than its hex: when one moves, its token glides to the
+   * new hex (a CSS transition). Taps go through to the hexes underneath
+   */
+  const renderUnits = () => {
+    // A unit hit since this map last drew it shakes once: the hits it had then, and the count it shook at
+    const seen = seenHits.current;
+    const shaken = shookAt.current;
+    const drawn = tokens();
+    for (const { unit, hitThisTurn = 0 } of drawn) {
+      const before = seen.get(unit);
+      if (before !== undefined && hitThisTurn > before) shaken.set(unit, hitThisTurn);
+      seen.set(unit, hitThisTurn);
+    }
+    return drawn
+      .sort((a, b) => unitKey(a.unit) - unitKey(b.unit))
+      .map((token) => {
+        const { x, y } = geometry.hexCenter(token.other ? turnedRound(token.position, boardWidth, boardHeight) : token.position);
+        return (
+          <g
+            key={unitKey(token.unit)}
+            className="board__unit"
+            data-unit-at={positionKey(token.position)}
+            data-faction={token.faction}
+            pointerEvents="none"
+            style={{ transform: `translate(${x}px, ${y}px)` }}
+          >
+            {/* Keyed by its hits, so each new hit plays the shake again */}
+            <g
+              key={token.hitThisTurn ?? 0}
+              className={shaken.get(token.unit) === (token.hitThisTurn ?? 0) ? 'board__unit-hit' : undefined}
+            >
+              <UnitComponent
+                x={0}
+                y={0}
+                faction={token.faction}
+                unitData={token.unit}
+                readyToFire={token.readyToFire}
+                fired={token.fired}
+                orderable={token.orderable}
+                figures={token.figures}
+                retreats={token.retreats}
+                damaged={token.damaged}
+                hitThisTurn={token.hitThisTurn}
+              />
+            </g>
+          </g>
+        );
+      });
+  };
+
+  /** This side's sandbags, in front of the tokens like a wall */
+  const renderSandbags = () =>
+    boardManager
+      .getAllHexes()
+      .filter((hex) => hex.sandbags)
+      .map((hex) => {
+        const { x, y } = geometry.hexCenter(hex.getPosition());
+        return (
+          <g key={positionKey(hex.getPosition())} data-sandbags-at={positionKey(hex.getPosition())}>
+            <SandbagsArt x={x} y={y} hexSize={hexSize} />
+          </g>
+        );
+      });
 
   const { width, height, imageMargin } = geometry;
   // Crop the view to the board image: the hexes all lie inside it, so the
@@ -233,21 +443,25 @@ function Board({
             height={height - 2 * imageMargin}
             preserveAspectRatio="xMidYMid meet"
             transform={
-              faction === "Axis"
+              viewSide === "Axis"
                 ? `rotate(180 ${(width / 2)} ${(height / 2)})`
                 : undefined
             }
           />
         )}
 
-        {/* Layer 2: Hexagon tiles*/}
+        {/* Layer 2: Hexagon tiles, then the units and the sandbags in front of them */}
         {renderBoard()}
+        {renderUnits()}
+        {renderSandbags()}
 
-        {/* Layer 3: Orders */}
+        {/* Layer 3: Orders, and the other army on a shared map */}
         {renderOrders()}
+        {renderOpponent()}
 
-        {/* Layer 4: Combat card markers */}
+        {/* Layer 4: Combat card markers and collisions */}
         {renderMarkers()}
+        {renderCollisions()}
 
         {/* Layer 5: dice at each hex a unit can fire at (top layer) */}
         {renderTargetDice()}

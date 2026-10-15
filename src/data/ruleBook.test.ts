@@ -3,6 +3,8 @@ import { HOUSE_RULES, TUTORIAL } from "./ruleBook";
 import { END_OF_TURN_COINS, EXTRA_ORDER_COST } from "./coinRules";
 import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "./combatCards";
 import { TurnPhase } from "../types/gameManager";
+import { FIGURES } from "./figures";
+import { UnitType } from "../game-core/unit";
 import { LANGS, Localized } from "../i18n/lang";
 
 const texts = (): Localized[] => [
@@ -37,5 +39,7 @@ describe("rule book", () => {
     expect(rule("Extra orders").house.es).toContain(`Por ${EXTRA_ORDER_COST} suministros`);
     expect(rule("Supplies").house.en).toContain(`pick ${END_OF_TURN_COINS} supplies`);
     expect(rule("Combat cards").house.en).toContain(`start with ${STARTING_COMBAT_CARDS} and hold ${MAX_COMBAT_HAND} at most`);
+    const figures = FIGURES[UnitType.INFANTRY].figures;
+    expect(rule("Figures").house.en).toContain(`Infantry ${figures} figures`);
   });
 });

@@ -13,13 +13,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { AmbushShot, BattleEdit, CardAttack, Shot } from "./gameSession";
+import type { AmbushShot, BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
 import { TurnRecord, copyAmbush } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape; older saves are dropped instead of misread */
-export const SAVE_VERSION = 28;
+export const SAVE_VERSION = 29;
 
 interface SavedUnit {
   type: UnitType;
@@ -39,6 +39,14 @@ export interface SavedGame {
   testMode: boolean;
   /** Experimental rule: destroyed artillery turns into infantry (the session's `artilleryCrew`) */
   artilleryCrew: boolean;
+  /** Pass and play: units have figures and take hits (the session's `figures`) */
+  figures: boolean;
+  /** Hits each damaged unit has taken, by unit index */
+  hits: { unit: number; hits: number }[];
+  /** Flags each unit must retreat after the battle, by unit index */
+  retreatFlags: { unit: number; flags: number }[];
+  /** Hits each unit took this turn, by unit index; missing in older saves */
+  turnHits?: { unit: number; hits: number }[];
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -92,6 +100,7 @@ export interface SavedGame {
   cardAttacks: CardAttack[];
   battleCombatCard: string | null;
   ambush: AmbushShot | null;
+  standingCollisions: StandingCollisionRoll[];
   drawnCombatCard: string | null;
   drops: Position[];
   reinforcementFace: SixSidedFace | null;
@@ -130,8 +139,16 @@ export interface SessionState {
   battleCombatCard: CombatCard | null;
   /** The Ambush card's shot */
   ambush: AmbushShot | null;
+  /** Pass and play: collision rolls of units without an order */
+  standingCollisions: readonly StandingCollisionRoll[];
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
   drawnCombatCard: CombatCard | null;
+  /** Pass and play: hits taken, by unit (it keeps them from turn to turn) */
+  hits: ReadonlyMap<Unit, number>;
+  /** Pass and play: flags the unit must retreat after this turn's battle */
+  retreatFlags: ReadonlyMap<Unit, number>;
+  /** Pass and play: hits taken this turn, by unit */
+  turnHits: ReadonlyMap<Unit, number>;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
   /** The Reinforcements die, rolled in the final phase */
@@ -163,6 +180,34 @@ function readAmbush(ambush: unknown): AmbushShot | null {
   return shot;
 }
 
+function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
+  if (!Array.isArray(rolls)) throw new Error("Collision rolls are not a list");
+  const faces = new Set<string>(Object.values(DieFace));
+  return rolls.map((roll: StandingCollisionRoll) => {
+    if (!isPosition(roll?.from) || !isUnitType(roll.unitType) || !isShotTarget(roll.target)) {
+      throw new Error("Unknown collision roll");
+    }
+    if (!Array.isArray(roll.faces) || !roll.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
+    if (roll.kept !== null && !isKeptList(roll.kept, roll.faces.length)) throw new Error("Unknown kept dice");
+    return roll;
+  });
+}
+
+/** A count per unit (hits taken, flags to retreat) */
+function readUnitCounts<K extends "hits" | "flags">(
+  entries: unknown,
+  key: K,
+  unit: (index: number) => Unit
+): Map<Unit, number> {
+  if (!Array.isArray(entries)) throw new Error(`Unit ${key} are not a list`);
+  return new Map(
+    entries.map((entry: { unit: number } & Record<K, number>) => {
+      if (!Number.isInteger(entry?.[key]) || entry[key] < 0) throw new Error(`Unknown unit ${key}`);
+      return [unit(entry.unit), entry[key]] as const;
+    })
+  );
+}
+
 function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
   if (!Array.isArray(attacks)) throw new Error("Card attacks are not a list");
   const faces = new Set<string>(Object.values(DieFace));
@@ -177,7 +222,7 @@ function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
 }
 
 /** The per-game rule settings a save keeps */
-export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew">;
+export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew" | "figures">;
 
 export function writeSave(
   scenarioId: string,
@@ -273,9 +318,21 @@ export function writeSave(
     })),
     battleCombatCard: state.battleCombatCard?.id ?? null,
     ambush: state.ambush && copyAmbush(state.ambush),
+    standingCollisions: state.standingCollisions.map((roll) => ({
+      ...roll,
+      from: { ...roll.from },
+      steps: roll.steps.map((step) => ({ ...step })),
+      faces: [...roll.faces],
+      target: { ...roll.target },
+      kept: roll.kept && [...roll.kept],
+      notes: [...roll.notes],
+    })),
     drawnCombatCard: state.drawnCombatCard?.id ?? null,
     drops: state.drops.map((p) => ({ ...p })),
     reinforcementFace: state.reinforcementFace,
+    hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
+    turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     units: savedUnits,
     wire: board.wirePositions(),
     sandbags: board.sandbagPositions(),
@@ -298,6 +355,7 @@ export function readSave(
   if (typeof saved.longRangeDie !== "boolean") throw new Error("Long-range die setting is missing");
   if (typeof saved.testMode !== "boolean") throw new Error("Test mode setting is missing");
   if (typeof saved.artilleryCrew !== "boolean") throw new Error("Artillery crew setting is missing");
+  if (typeof saved.figures !== "boolean") throw new Error("Figures setting is missing");
   if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
     throw new Error(`Unknown phase ${saved.phase}`);
   }
@@ -381,6 +439,7 @@ export function readSave(
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
     if (shot.blocked !== undefined && typeof shot.blocked !== "boolean") throw new Error("Unknown blocked shot");
+    if (shot.pushedBack !== undefined && typeof shot.pushedBack !== "boolean") throw new Error("Unknown push back");
     return shot;
   });
 
@@ -446,6 +505,10 @@ export function readSave(
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     battleCombatCard: combatCardOrNull(saved.battleCombatCard),
     ambush: readAmbush(saved.ambush),
+    standingCollisions: readStandingCollisions(saved.standingCollisions),
+    hits: readUnitCounts(saved.hits, "hits", unit),
+    retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
+    turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
     reinforcementFace,

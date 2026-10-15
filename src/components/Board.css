@@ -33,6 +33,22 @@
   dominant-baseline: middle;
 }
 
+/* A collision in the movement (pass and play): a numbered burst */
+.board__collision polygon {
+  fill: var(--m44-accent, #e53935);
+  stroke: var(--m44-paper, #fff);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.board__collision text {
+  fill: var(--m44-on-accent, #fff);
+  font-family: var(--m44-font-display);
+  font-size: 24px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 /* The dice a shot at a target hex would roll */
 .board__target-dice circle {
   fill: var(--m44-paper);
@@ -53,4 +69,36 @@
 
 .board__target-dice--picked text {
   fill: var(--m44-on-accent);
+}
+
+/* A unit's token glides from hex to hex when it moves (it's keyed by the unit, see Board) */
+.board__unit {
+  transition: transform 700ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__unit {
+    transition: none;
+  }
+}
+
+/* A unit just hit: it shakes and flashes red, once, as the dice thrown on the map land */
+.board__unit-hit {
+  animation: board-unit-hit 650ms ease-out 1.2s both;
+}
+
+@keyframes board-unit-hit {
+  0% { transform: translate(0, 0); filter: drop-shadow(0 0 0 transparent); }
+  15% { transform: translate(-6px, 0); filter: drop-shadow(0 0 10px var(--m44-accent, #e53935)); }
+  30% { transform: translate(6px, 0); }
+  45% { transform: translate(-4px, 0); }
+  60% { transform: translate(4px, 0); filter: drop-shadow(0 0 8px var(--m44-accent, #e53935)); }
+  80% { transform: translate(-2px, 0); }
+  100% { transform: translate(0, 0); filter: drop-shadow(0 0 0 transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__unit-hit {
+    animation: none;
+  }
 }

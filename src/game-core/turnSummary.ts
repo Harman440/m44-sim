@@ -4,7 +4,7 @@ import Order from "./order";
 import { samePosition } from "./position";
 import type { Shot } from "./gameSession";
 import type { CombatCard } from "./combatCard";
-import { UnitType } from "./unit";
+import Unit, { UnitType } from "./unit";
 import { HexType, Side } from "../types/hex";
 import { Position } from "../types/scenario";
 
@@ -61,9 +61,11 @@ export function summarizeOrders(
   board: BoardManager,
   shots: readonly Shot[] = [],
   unmovedFireSkipped = false,
-  { orderCombatCard = null, battleCombatCard = null }: PlayedCombatCards = {}
+  { orderCombatCard = null, battleCombatCard = null }: PlayedCombatCards = {},
+  /** Pass and play: units marked to retreat, which can't battle any more this turn */
+  retreating: ReadonlySet<Unit> = new Set()
 ): OrderSummary[] {
-  const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped);
+  const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped, retreating);
   const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
   // The unit that used the order combat card's movement, when the card makes it fire first
   const effect = orderCombatCard?.effect;
@@ -82,7 +84,8 @@ function summarizeEach(
   orders: readonly Order[],
   board: BoardManager,
   shots: readonly Shot[],
-  unmovedFireSkipped: boolean
+  unmovedFireSkipped: boolean,
+  retreating: ReadonlySet<Unit>
 ): Omit<OrderSummary, "waiting" | "firesFirst">[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
 
@@ -93,10 +96,13 @@ function summarizeEach(
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
     // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)
     const groundShot = unitShots.find((shot) => shot.tookGround);
-    const allowed = order.shots + (groundShot ? 1 : 0);
-    const overrunPending = !!groundShot && unitShots.at(-1) === groundShot;
-    // An enemy card stopped it: no more shots this turn
-    const blocked = unitShots.some((shot) => shot.blocked);
+    // Pushing back (pass and play's infantry) moves the unit in without a shot more
+    const bonusShot = !!groundShot && !groundShot.pushedBack;
+    const allowed = order.shots + (bonusShot ? 1 : 0);
+    const overrunPending = bonusShot && unitShots.at(-1) === groundShot;
+    // An enemy card stopped it, or it fought a collision (house rule): no more shots this turn
+    const blocked =
+      unitShots.some((shot) => shot.blocked || shot.collision) || retreating.has(order.unit);
     const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;
     return {
       index,

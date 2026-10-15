@@ -27,6 +27,12 @@ export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
 export const TAKE_GROUND_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
 
 /**
+ * Pass and play: units whose close assault makes the target retreat may push it back at once
+ * and take its hex, if their player wants to, without firing again
+ */
+export const PUSH_BACK_UNIT_TYPES: readonly UnitType[] = [UnitType.INFANTRY];
+
+/**
  * Where the target can be: the board's terrain types plus a bunker. No unit can
  * be on water, and a bridge counts as open ground (`effectiveTerrain`).
  */
