@@ -70,3 +70,14 @@
 .board__target-dice--picked text {
   fill: var(--m44-on-accent);
 }
+
+/* A unit's token glides from hex to hex when it moves (it's keyed by the unit, see Board) */
+.board__unit {
+  transition: transform 700ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__unit {
+    transition: none;
+  }
+}

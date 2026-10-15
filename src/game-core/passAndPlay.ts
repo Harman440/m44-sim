@@ -5,7 +5,7 @@ import Order from "./order";
 import { turnedRound } from "./BoardManager";
 import { includesPosition, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
-import { Collision, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
+import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
 import { appliedFaces, readRoll } from "./rollResult";
 import { resultLimit } from "../data/figures";
 import { Faction, FACTIONS } from "../types/faction";
@@ -377,7 +377,40 @@ class PassAndPlayMatch {
       if (result) this.sessions[unit.side].sufferHits(inAlliesView(unit.side, unit.position), result.hits, result.retreats);
     });
     this.updateCollision(index, { applied: true });
+    // No flag on either side: neither unit holds the ground, and the units that moved go back
+    if (!results.some((result) => result && result.retreats > 0)) {
+      collision.units.forEach((unit) => this.bounceBack(unit));
+    }
     return this.publish();
+  }
+
+  /**
+   * After a collision that made neither unit retreat, a unit that moved goes one hex back along
+   * its path (house rule). It stays where it is when it didn't move, was destroyed, never left
+   * its start hex, or the hex behind it is taken. Its other collisions follow it
+   */
+  private bounceBack(unit: CollidingUnit) {
+    if (unit.order === null) return;
+    const session = this.sessions[unit.side];
+    const order = session.getSnapshot().orders[unit.order];
+    const at = inAlliesView(unit.side, unit.position);
+    if (!order || !session.board.getHex(at)?.unit || !samePosition(order.end, at)) return;
+    const path = order.path ?? [];
+    if (path.length < 2) return;
+    const back = path[path.length - 2]!;
+    const enemyBoard = this.sessions[otherSide(unit.side)].board;
+    if (session.board.getHex(back)?.unit || enemyBoard.getHex(turnedRound(back))?.unit) return;
+    if (!session.haltOrders([{ order: unit.order, at: back }])) return;
+    const moved = inAlliesView(unit.side, back);
+    this.movement = {
+      ...this.movement!,
+      collisions: this.movement!.collisions.map((collision) => ({
+        ...collision,
+        units: collision.units.map((u) =>
+          u.side === unit.side && u.order === unit.order ? { ...u, position: moved } : u
+        ) as MatchCollision["units"],
+      })),
+    };
   }
 
   /**

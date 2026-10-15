@@ -127,6 +127,8 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 opponent={match.opponentOf(viewer)}
                 strength={game.strength}
                 collisions={moved?.collisions.map((collision) => markOf(collision, viewer)) ?? []}
+                // Until "Mover" the armies stand where they started; then they glide to where they stop
+                atStart={!moved}
               />
             </div>
 

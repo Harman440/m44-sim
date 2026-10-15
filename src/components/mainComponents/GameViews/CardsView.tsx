@@ -117,6 +117,8 @@ interface CardsViewProps {
   coins?: number;
   /** Whose unit tokens the card art shows */
   faction?: Faction;
+  /** Pass and play: a small map of the armies, beside the tray */
+  mapPreview?: ReactNode;
 }
 
 function CardsView({
@@ -132,6 +134,7 @@ function CardsView({
   canPlayCombatCards = false,
   coins = 0,
   faction = "Allies",
+  mapPreview,
 }: CardsViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -312,6 +315,8 @@ function CardsView({
             </Typography>
           )}
         </Box>
+
+        {mapPreview}
 
         {/* The tray: the cards picked to play, stacked, each with its line */}
         <section className="cards-tray" ref={trayRef} aria-label={t.yourPlay}>

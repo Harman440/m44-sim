@@ -1,11 +1,8 @@
 import './Hexagon.css';
 import { Position } from '../types/scenario';
-import { Faction } from '../types/faction';
 import Hex from '../game-core/hex';
 import { positionKey } from '../game-core/position';
-import UnitComponent from './UnitComponent';
 import { BarbedWireArt } from './BarbedWire';
-import { SandbagsArt } from './SandbagsIcon';
 
 /** How a hex is highlighted: the selected unit, a destination for it, or a hex it can fire at */
 export type HexHighlight = 'selected' | 'move-and-fire' | 'move' | 'mark' | 'target' | 'target-selected' | null;
@@ -16,22 +13,10 @@ interface HexProps {
   position: Position;
   onClick: (position: Position) => void;
   highlight: HexHighlight;
-  /** The unit here has an order that lets it fire this turn */
-  unitReadyToFire: boolean;
-  /** The unit here has used its shots this turn */
-  unitFired?: boolean;
-  /** The unit can be ordered */
-  unitOrderable?: boolean;
   /** Set to flash the hex red; a new value restarts the flash */
   invalidFlashId?: number | null;
   hexSize?: number;
   hexData: Hex;
-  faction: Faction;
-  /** Pass and play: the unit's figures left and the hexes it must retreat */
-  figures?: number;
-  retreats?: number;
-  /** Pass and play: a figure hit once (armour) */
-  damaged?: boolean;
 }
 
 function Hexagon({
@@ -40,16 +25,9 @@ function Hexagon({
   position,
   onClick,
   highlight,
-  unitReadyToFire,
-  unitFired = false,
-  unitOrderable = false,
   invalidFlashId = null,
   hexSize = 25,
-  hexData,
-  faction,
-  figures,
-  retreats,
-  damaged
+  hexData
 }: HexProps) {
 
   // Pointy-top hexagon: corners start at 90 degrees
@@ -77,22 +55,6 @@ function Hexagon({
         className={highlight ? `hexagon__tile hexagon__tile--${highlight}` : 'hexagon__tile'}
       />
       {hexData.wire && <BarbedWireArt x={x} y={y} hexSize={hexSize} underUnit={hexData.unit !== null} />}
-      {hexData.unit && (
-        <UnitComponent
-          x={x}
-          y={y}
-          faction={faction}
-          unitData={hexData.unit}
-          readyToFire={unitReadyToFire}
-          fired={unitFired}
-          orderable={unitOrderable}
-          figures={figures}
-          retreats={retreats}
-          damaged={damaged}
-        />
-      )}
-      {/* Over the token, as a wall in front of it */}
-      {hexData.sandbags && <SandbagsArt x={x} y={y} hexSize={hexSize} />}
       {/* Keyed so each new flash remounts the path and replays the animation */}
       {invalidFlashId !== null && (
         <path key={invalidFlashId} d={pathData} className="hexagon__flash-invalid" />

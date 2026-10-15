@@ -260,11 +260,49 @@ describe("PassAndPlayMatch", () => {
     // Dealt at once: the Axis unit took the Allied hits and flags
     const { hits, retreats } = readRoll(alliedUnit.roll!.faces, alliedUnit.roll!.target);
     expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
+    // Without a flag the Axis unit goes back the hex it came from (bounceBack)
+    const stays = retreats > 0 ? { row: 4, col: 3 } : { row: 4, col: 4 };
     expect(axis.getSnapshot().strength).toEqual([
-      { position: turnedRound({ row: 4, col: 3 }), figures: 7 - hits, retreats, damaged: false },
+      { position: turnedRound(stays), figures: 7 - hits, retreats, damaged: false },
     ]);
     expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(7);
     expect(match.finishReveal()).toBe(true);
+  });
+
+  describe("a collision without a flag", () => {
+    // The Axis infantry moves 2 hexes west from (4,4), into the Allied infantry on (4,2)
+    const collide = (face: number) => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
+      };
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => face / 6 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      match.uncover();
+      const axis = match.activeSession();
+      axis.pickCard(axis.getSnapshot().hand[0]!);
+      expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }), turnedRound({ row: 4, col: 2 }))).toBe(true);
+      expect(axis.commitOrders()).toBe(true);
+      expect(match.moveUnits()).toBe(true);
+      // It stopped on (4,3), next to the Allied unit
+      expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }));
+      expect(match.rollCollision(0)).toBe(true);
+      return match;
+    };
+
+    it("sends the unit that moved one hex back the way it came; the standing one stays", () => {
+      const match = collide(0); // hits only
+      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 4 }));
+      expect(match.sessions.Axis.board.getHex(turnedRound({ row: 4, col: 4 }))?.unit).not.toBeNull();
+      expect(match.sessions.Allies.board.getHex({ row: 4, col: 2 })?.unit).not.toBeNull();
+      expect(match.getSnapshot().movement!.collisions[0]!.units[0].position).toEqual({ row: 4, col: 4 });
+    });
+
+    it("leaves the units where they stopped when a flag was rolled", () => {
+      const match = collide(5); // flags
+      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }));
+    });
   });
 
   it("lets a unit with fewer figures than results pick the ones it applies", () => {
@@ -295,7 +333,8 @@ describe("PassAndPlayMatch", () => {
     expect(match.keepCollisionResults(0, 1, [0])).toBe(true);
     expect(match.getSnapshot().movement!.collisions[0]!.units[1].mustChoose).toBe(false);
     expect(match.applyCollision(0)).toBe(true);
-    expect(axis.figuresAt(turnedRound({ row: 4, col: 3 }))).toBe(6);
+    // No flag: the Axis unit went back the hex it came from
+    expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }))).toBe(6);
     expect(match.finishReveal()).toBe(true);
   });
 

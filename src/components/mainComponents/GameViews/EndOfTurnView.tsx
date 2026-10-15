@@ -14,6 +14,7 @@ import Flight, { Box as ScreenBox, boxOf, centredBox } from "../../Flight";
 import GameIcon from "../../GameIcon";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
+import MapPreview from "./MapPreview";
 import { RewardChoice } from "../../../game-core/coins";
 import { sortCombatHand, sortCommandHand } from "../../../game-core/handOrder";
 import { END_OF_TURN_COINS } from "../../../data/coinRules";
@@ -40,9 +41,10 @@ const TEXT = defineMessages({
     step1Info:
       "Haz en la mesa las retiradas marcadas en la batalla. Después, en «Actualizar mapa», refleja en el mapa las unidades eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.",
     step1InfoShared:
-      "La app ya ha hecho las retiradas y las bajas de la batalla. Usa «Actualizar mapa» solo para lo que diga una carta (Repliegue, Médico…).",
+      "La app ya ha hecho las retiradas y las bajas de la batalla: el mapa está al día. Tócalo para verlo en grande.",
     reinforcementToPlaceShared: (unit: string) =>
-      `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en «Actualizar mapa», en una casilla libre.`,
+      `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en una casilla libre.`,
+    placeReinforcement: "Colocar el refuerzo",
     reinforcementPlacedShared: (unit: string) => `llega ${unit.toLowerCase()}, en la casilla de la cruz.`,
     mapEdits: (n: number) => (n === 1 ? "1 cambio" : `${n} cambios`),
     updateMap: "Actualizar mapa",
@@ -106,9 +108,10 @@ const TEXT = defineMessages({
     step1Info:
       "Carry out on the table the retreats marked in the battle. Then, in “Update map”, show on the map the units removed and the ones that moved (retreats or ground taken), on both sides.",
     step1InfoShared:
-      "The app has already carried out the battle's retreats and casualties. Use “Update map” only for what a card says (Pull Back, Medic…).",
+      "The app has already carried out the battle's retreats and casualties: the map is up to date. Tap it to see it large.",
     reinforcementToPlaceShared: (unit: string) =>
-      `${unit.toLowerCase()} arrives. The cross hex is taken: place it in “Update map”, on a free hex.`,
+      `${unit.toLowerCase()} arrives. The cross hex is taken: place it on a free hex.`,
+    placeReinforcement: "Place the reinforcement",
     reinforcementPlacedShared: (unit: string) => `${unit.toLowerCase()} arrives, on the cross hex.`,
     mapEdits: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
     updateMap: "Update map",
@@ -454,14 +457,28 @@ function EndOfTurnView({
     <div className="end-of-turn">
       <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
         <StepHeading title={t.step1} info={<Typography variant="body1">{shared ? t.step1InfoShared : t.step1Info}</Typography>}>
-          {game.battleEdits > 0 && (
-            <Typography variant="body2" color="text.secondary" data-testid="map-edits">
-              {t.mapEdits(game.battleEdits)}
-            </Typography>
+          {/* Pass and play: the app keeps the map, so there's nothing to update, only to see */}
+          {shared ? (
+            <>
+              {game.reinforcementToPlace && (
+                <Button onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+                  {t.placeReinforcement}
+                </Button>
+              )}
+              <MapPreview session={session} faction={faction} height={110} />
+            </>
+          ) : (
+            <>
+              {game.battleEdits > 0 && (
+                <Typography variant="body2" color="text.secondary" data-testid="map-edits">
+                  {t.mapEdits(game.battleEdits)}
+                </Typography>
+              )}
+              <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+                {t.updateMap}
+              </Button>
+            </>
           )}
-          <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-            {t.updateMap}
-          </Button>
         </StepHeading>
         {tableReminders.map((reminder) => (
           <Alert

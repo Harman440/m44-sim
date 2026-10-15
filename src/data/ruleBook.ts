@@ -482,8 +482,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Movimiento a la vez", en: "Moving at once" },
         house: {
-          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar no tira.",
-          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire doesn't roll.",
+          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar no tira. Si ninguna saca bandera, ninguna se gana la casilla: la que se movió vuelve una casilla atrás por donde vino; la que no se movió se queda.",
+          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire doesn't roll. If neither rolls a flag, neither earns the hex: the one that moved goes one hex back the way it came; one that didn't move stays.",
         },
       },
       {
