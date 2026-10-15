@@ -11,9 +11,10 @@ const withAlliedUnits = (types: UnitType[]): Scenario => ({
   units: { ...base.units, allies: Object.fromEntries(types.map((type) => [type, [{ row: 0, col: 0 }]])) },
 });
 
+/** Copies of each card in the deck itself, not the cards kept out of it */
 const countsById = (scenario: Scenario) => {
   const counts: Record<string, number> = {};
-  commandDeckFor(scenario, "Allies").forEach((card) => {
+  commandDeckFor(scenario, "Allies").filter((card) => !card.reserve).forEach((card) => {
     const id = card.id.replace(/-\d+$/, "");
     counts[id] = (counts[id] ?? 0) + 1;
   });
@@ -24,11 +25,26 @@ describe("command card data", () => {
   it("gives every side of every scenario 24 cards with unique ids (they are used as React keys)", () => {
     scenarios.forEach((scenario) =>
       (["Allies", "Axis"] as const).forEach((faction) => {
-        const ids = commandDeckFor(scenario, faction).map((card) => card.id);
-        expect(ids).toHaveLength(24);
-        expect(new Set(ids).size).toBe(24);
+        const cards = commandDeckFor(scenario, faction);
+        const ids = cards.map((card) => card.id);
+        expect(cards.filter((card) => !card.reserve)).toHaveLength(24);
+        expect(new Set(ids).size).toBe(ids.length);
       })
     );
+  });
+
+  it("keeps Armor Assault, and a Direct from HQ for when no armour is left, out of the deck: only Refuel gives them", () => {
+    const deck = commandDeckFor(withAlliedUnits([UnitType.INFANTRY, UnitType.TANK]), "Allies");
+    const refuel = deck.find((card) => card.templateId === "refuel")!;
+
+    expect(deck.filter((card) => card.reserve).map((card) => card.templateId)).toEqual(["armor-assault", "direct-from-hq"]);
+    expect(refuel).toMatchObject({
+      reserve: false,
+      orders: 1,
+      endOfTurnReward: { coins: 3, combatCard: true },
+      rewardCard: { card: "armor-assault", needs: UnitType.TANK, otherwise: "direct-from-hq" },
+    });
+    expect(commandDeckFor(withAlliedUnits([UnitType.INFANTRY]), "Allies").some((card) => card.reserve)).toBe(false);
   });
 
   it("has the shared section and tactic cards", () => {
@@ -55,19 +71,19 @@ describe("command card data", () => {
 
   it.each([
     [[UnitType.INFANTRY], { "move-out": 5 }],
-    [[UnitType.INFANTRY, UnitType.TANK], { "move-out": 2, "armor-assault": 1, "direct-from-hq": 2 }],
+    [[UnitType.INFANTRY, UnitType.TANK], { "move-out": 2, refuel: 1, "direct-from-hq": 2 }],
     [[UnitType.INFANTRY, UnitType.ARTILLERY], { "move-out": 2, "artillery-bombardment": 1, "direct-from-hq": 2 }],
     [
       [UnitType.INFANTRY, UnitType.TANK, UnitType.ARTILLERY],
-      { "move-out": 2, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 },
+      { "move-out": 2, refuel: 1, "artillery-bombardment": 1, "direct-from-hq": 1 },
     ],
     // Without infantry, the set still follows the armour and artillery
-    [[UnitType.TANK], { "move-out": 2, "armor-assault": 1, "direct-from-hq": 2 }],
+    [[UnitType.TANK], { "move-out": 2, refuel: 1, "direct-from-hq": 2 }],
     [[UnitType.ARTILLERY], { "move-out": 2, "artillery-bombardment": 1, "direct-from-hq": 2 }],
-    [[UnitType.TANK, UnitType.ARTILLERY], { "move-out": 2, "armor-assault": 1, "artillery-bombardment": 1, "direct-from-hq": 1 }],
+    [[UnitType.TANK, UnitType.ARTILLERY], { "move-out": 2, refuel: 1, "artillery-bombardment": 1, "direct-from-hq": 1 }],
   ])("adds the unit-type cards for %j", (types, expected) => {
     const counts = countsById(withAlliedUnits(types));
-    const unitCards = ["move-out", "armor-assault", "artillery-bombardment", "direct-from-hq"];
+    const unitCards = ["move-out", "refuel", "armor-assault", "artillery-bombardment", "direct-from-hq"];
 
     expect(Object.fromEntries(unitCards.filter((id) => counts[id]).map((id) => [id, counts[id]]))).toEqual(expected);
   });
@@ -75,7 +91,7 @@ describe("command card data", () => {
   it("counts a side's paradropped units", () => {
     const scenario = { ...withAlliedUnits([UnitType.INFANTRY]), paradrop: { faction: "Allies" as const, unitType: UnitType.TANK, units: 1 } };
 
-    expect(countsById(scenario)["armor-assault"]).toBe(1);
+    expect(countsById(scenario).refuel).toBe(1);
   });
 
   it("names section cards after their section", () => {

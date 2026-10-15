@@ -230,18 +230,37 @@ const moveOut: CommandCardProps & { id: string } = {
   orders: 4,
 };
 
+/** Kept out of the deck: only Refuel gives it */
 const armorAssault: CommandCardProps & { id: string } = {
   id: 'armor-assault',
   name: { es: 'Asalto de Blindados', en: 'Armor Assault' },
   summary: { es: '4 órdenes a tanques. +1 dado en asalto cercano.', en: '4 tank orders. +1 die in close assault.' },
   description: {
-    es: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más.',
-    en: 'Order 4 tanks. In close assault they roll 1 extra die.',
+    es: 'Da órdenes a 4 tanques. En asalto cercano tiran 1 dado más. Solo se consigue con Repostaje.',
+    en: 'Order 4 tanks. In close assault they roll 1 extra die. Only Refuel gives it.',
   },
   tactic: true,
   unitTypes: [UnitType.TANK],
   orders: 4,
   fireBonus: [{ dice: 1, closeAssault: true }],
+  reserve: true,
+};
+
+const refuel: CommandCardProps & { id: string } = {
+  id: 'refuel',
+  name: { es: 'Repostaje', en: 'Refuel' },
+  summary: {
+    es: '1 orden. Al final: 3 suministros, 1 de combate y Asalto de Blindados.',
+    en: '1 order. At the end: 3 supplies, 1 combat card and Armor Assault.',
+  },
+  description: {
+    es: 'Da una orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas, y en lugar de robar una carta de mando recibes Asalto de Blindados, que solo se consigue así. Si ya no te quedan blindados en el mapa, recibes Directo del Cuartel General.',
+    en: 'Order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing between them, and instead of drawing a command card you get Armor Assault, the only way to get it. If you have no armor left on the map, you get Direct from HQ.',
+  },
+  tactic: true,
+  orders: 1,
+  endOfTurnReward: { coins: 3, combatCard: true },
+  rewardCard: { card: 'armor-assault', needs: UnitType.TANK, otherwise: 'direct-from-hq' },
 };
 
 const artilleryBombardment: CommandCardProps & { id: string } = {
@@ -279,12 +298,12 @@ const unitTemplates = (tanks: boolean, artillery: boolean): CardTemplate[] => {
   if (tanks && artillery) {
     return [
       { count: 2, props: moveOut },
-      { count: 1, props: armorAssault },
+      { count: 1, props: refuel },
       { count: 1, props: artilleryBombardment },
       { count: 1, props: directFromHq },
     ];
   }
-  if (tanks) return [{ count: 2, props: moveOut }, { count: 1, props: armorAssault }, { count: 2, props: directFromHq }];
+  if (tanks) return [{ count: 2, props: moveOut }, { count: 1, props: refuel }, { count: 2, props: directFromHq }];
   if (artillery) {
     return [{ count: 2, props: moveOut }, { count: 1, props: artilleryBombardment }, { count: 2, props: directFromHq }];
   }
@@ -302,10 +321,23 @@ export const hasUnits = (scenario: Scenario, faction: Faction, type: UnitType): 
   (scenario.units[faction === 'Axis' ? 'axis' : 'allies'][type]?.length ?? 0) > 0 ||
   (scenario.paradrop?.faction === faction && scenario.paradrop.unitType === type);
 
-/** A side's 24-card command deck: the shared cards plus 5 for the unit types it has */
+/**
+ * The cards a side with armour keeps out of its deck, which only Refuel gives: Armor Assault, and
+ * a Direct from HQ for when no armour is left
+ */
+const reserveCards = (): CommandCard[] => [
+  new CommandCard({ ...armorAssault, id: 'armor-assault-1', templateId: armorAssault.id }),
+  new CommandCard({ ...directFromHq, id: 'direct-from-hq-reserve-1', templateId: directFromHq.id, reserve: true }),
+];
+
+/**
+ * A side's 24-card command deck: the shared cards plus 5 for the unit types it has. A side with
+ * armour also gets the cards kept out of the deck (`reserve`) that Refuel gives
+ */
 export function commandDeckFor(scenario: Scenario, faction: Faction): CommandCard[] {
-  return buildDeck([
-    ...sharedTemplates,
-    ...unitTemplates(hasUnits(scenario, faction, UnitType.TANK), hasUnits(scenario, faction, UnitType.ARTILLERY)),
-  ]);
+  const tanks = hasUnits(scenario, faction, UnitType.TANK);
+  return [
+    ...buildDeck([...sharedTemplates, ...unitTemplates(tanks, hasUnits(scenario, faction, UnitType.ARTILLERY))]),
+    ...(tanks ? reserveCards() : []),
+  ];
 }

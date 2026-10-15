@@ -12,8 +12,8 @@ import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
-/** Bump when the shape of `SavedMatch` changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 7;
+/** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
+export const MATCH_SAVE_VERSION = 8;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {

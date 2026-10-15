@@ -417,6 +417,17 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "A new tactic card: order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing, and you draw 2 command cards and keep 1.",
         },
       },
+      {
+        title: { es: "Repostaje y Asalto de Blindados", en: "Refuel and Armor Assault" },
+        official: {
+          es: "Asalto de Blindados está en el mazo como cualquier carta.",
+          en: "Armor Assault is in the deck like any other card.",
+        },
+        house: {
+          es: "Asalto de Blindados no está en el mazo: solo llega con Repostaje, una carta táctica nueva para los bandos con blindados. Repostaje da una orden a 1 unidad; en la fase final recibes 3 suministros y una carta de combate y, en lugar de robar, Asalto de Blindados (Directo del Cuartel General si ya no te quedan blindados). Al jugarla, Asalto de Blindados vuelve fuera del mazo.",
+          en: "Armor Assault isn't in the deck: only Refuel gives it, a new tactic card for sides with armor. Refuel orders 1 unit; in the final phase you get 3 supplies and a combat card and, instead of drawing, Armor Assault (Direct from HQ if you have no armor left). Once played, Armor Assault goes back out of the deck.",
+        },
+      },
     ],
   },
   {

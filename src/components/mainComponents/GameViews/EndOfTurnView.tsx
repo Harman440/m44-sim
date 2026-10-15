@@ -65,6 +65,8 @@ const TEXT = defineMessages({
     drawCards: (n: number) => `Robar ${n} cartas`,
     drawCard: "Robar carta",
     drew: (card: string) => `Has robado ${card}.`,
+    rewardCardInfo: (card: string) => `${card}: en lugar de robar una carta de tu mazo, recibes la que da la carta.`,
+    gotRewardCard: (played: string, card: string) => `${played} te da ${card}.`,
     drewAgain: (card: string) => `Has descartado la primera y robado ${card}: te la quedas.`,
     pickOne: "Elige la que te quedas; la otra va al descarte.",
     drawAgain: "Descartar y robar otra",
@@ -132,6 +134,8 @@ const TEXT = defineMessages({
     drawCards: (n: number) => `Draw ${n} cards`,
     drawCard: "Draw a card",
     drew: (card: string) => `You drew ${card}.`,
+    rewardCardInfo: (card: string) => `${card}: instead of drawing a card from your deck, you get the one the card gives.`,
+    gotRewardCard: (played: string, card: string) => `${played} gives you ${card}.`,
     drewAgain: (card: string) => `You discarded the first one and drew ${card}: you keep it.`,
     pickOne: "Choose the one you keep; the other goes to the discard pile.",
     drawAgain: "Discard and draw another",
@@ -311,7 +315,8 @@ function EndOfTurnView({
       const to = boxOf(slot);
       const from =
         origins.current.get(key) ??
-        (command ? boxOf(deckRef.current) : to && rewardBox(to));
+        // A card kept out of the deck (Refuel's Armor Assault) comes from the reward, not the deck
+      (command && !command.reserve ? boxOf(deckRef.current) : to && rewardBox(to));
       if (!to || !from) {
         land();
         return;
@@ -529,7 +534,11 @@ function EndOfTurnView({
             title={t.step2}
             info={
               <Typography variant="body1">
-                {drawChoice > 1 ? t.drawChoiceInfo(tr(chosenCard!.name), drawChoice) : t.drawInfo}{" "}
+                {chosenCard?.rewardCard
+                  ? t.rewardCardInfo(tr(chosenCard.name))
+                  : drawChoice > 1
+                    ? t.drawChoiceInfo(tr(chosenCard!.name), drawChoice)
+                    : t.drawInfo}{" "}
                 {game.drawsExtra && t.extraDrawInfo(session.scenario.extraDraws!.turns)}
                 {t.tapCard}
               </Typography>
@@ -568,7 +577,11 @@ function EndOfTurnView({
           ) : drawnCard ? (
             <Stack sx={{ gap: 1, alignItems: "flex-start" }}>
               <Typography variant="body1" data-testid="drawn-card">
-                {game.drewAgain ? t.drewAgain(tr(drawnCard.name)) : t.drew(tr(drawnCard.name))}
+                {drawnCard.reserve && chosenCard
+                  ? t.gotRewardCard(tr(chosenCard.name), tr(drawnCard.name))
+                  : game.drewAgain
+                    ? t.drewAgain(tr(drawnCard.name))
+                    : t.drew(tr(drawnCard.name))}
               </Typography>
               {game.canDrawAgain && (
                 <Button variant="outlined" onClick={drawAgain} disabled={busy} startIcon={<GameIcon name="cards" />}>

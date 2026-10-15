@@ -7,11 +7,14 @@ import CommandCardComponent from "./CommandCardComponent";
 import CombatCardComponent from "./CombatCardComponent";
 import CardDialog, { ShownCard } from "./CardDialog";
 import GameIcon from "./GameIcon";
-import { defineMessages, useMessages } from "../i18n/useI18n";
+import { defineMessages, useMessages, useTr } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
     copies: (count: number, chance: string) => `${count} ${count === 1 ? "copia" : "copias"}, ${chance} de robarla`,
+    reserveCopies: (count: number) => `${count} ${count === 1 ? "copia" : "copias"}, fuera del mazo`,
+    reserveCards: "Fuera del mazo",
+    reserveHint: (card: string) => `Nunca se roban: solo llegan con ${card}`,
     decks: "Mazos",
     intro: "Toca una carta para leerla. Debajo, cuántas copias tiene el mazo y la probabilidad de robarla.",
     sectionCards: "Cartas de sección",
@@ -25,6 +28,9 @@ const TEXT = defineMessages({
   },
   en: {
     copies: (count: number, chance: string) => `${count} ${count === 1 ? "copy" : "copies"}, ${chance} chance to draw it`,
+    reserveCopies: (count: number) => `${count} ${count === 1 ? "copy" : "copies"}, kept out of the deck`,
+    reserveCards: "Kept out of the deck",
+    reserveHint: (card: string) => `Never drawn: only ${card} gives them`,
     decks: "Decks",
     intro: "Tap a card to read it. Below it, how many copies the deck has and the chance of drawing it.",
     sectionCards: "Section cards",
@@ -71,8 +77,8 @@ interface CardGroupProps<T> {
   title: string;
   hint: string;
   groups: Copies<T>[];
-  /** Cards in the whole deck, for the chance of drawing each */
-  deckSize: number;
+  /** Cards in the whole deck, for the chance of drawing each; null for cards kept out of it */
+  deckSize: number | null;
   renderCard: (card: T) => ReactNode;
 }
 
@@ -102,11 +108,15 @@ function CardGroup<T>({ title, hint, groups, deckSize, renderCard }: CardGroupPr
         {groups.map(({ card, count }, i) => (
           <Stack key={i} sx={{ alignItems: "center", gap: 0.5 }}>
             {renderCard(card)}
-            <Chip
-              size="small"
-              label={`×${count} · ${percent(count, deckSize)}`}
-              aria-label={t.copies(count, percent(count, deckSize))}
-            />
+            {deckSize === null ? (
+              <Chip size="small" label={`×${count}`} aria-label={t.reserveCopies(count)} />
+            ) : (
+              <Chip
+                size="small"
+                label={`×${count} · ${percent(count, deckSize)}`}
+                aria-label={t.copies(count, percent(count, deckSize))}
+              />
+            )}
           </Stack>
         ))}
       </Box>
@@ -117,9 +127,14 @@ function CardGroup<T>({ title, hint, groups, deckSize, renderCard }: CardGroupPr
 /** The side's command and combat decks: every card with its art and copies; tapping one shows its text */
 function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCards }: DeckVisualizerDialogProps) {
   const t = useMessages(TEXT);
+  const tr = useTr();
   const [looking, setLooking] = useState<ShownCard | null>(null);
 
-  const commandGroups = groupCopies(commandCards);
+  // The cards kept out of the deck (Armor Assault) are never drawn: only a card's reward gives them
+  const deck = commandCards.filter((card) => !card.reserve);
+  const reserve = commandCards.filter((card) => card.reserve);
+  const giver = deck.find((card) => card.rewardCard);
+  const commandGroups = groupCopies(deck);
   const commandCard = (card: CommandCard) => (
     <CommandCardComponent faction={faction} cardData={card} onClick={() => setLooking({ command: card })} />
   );
@@ -140,14 +155,21 @@ function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCard
               title={t.sectionCards}
               hint={t.sectionCardsHint}
               groups={commandGroups.filter(({ card }) => !card.tactic)}
-              deckSize={commandCards.length}
+              deckSize={deck.length}
               renderCard={commandCard}
             />
             <CardGroup
               title={t.tacticCards}
               hint={t.tacticCardsHint}
               groups={commandGroups.filter(({ card }) => card.tactic)}
-              deckSize={commandCards.length}
+              deckSize={deck.length}
+              renderCard={commandCard}
+            />
+            <CardGroup
+              title={t.reserveCards}
+              hint={t.reserveHint(giver ? tr(giver.name) : "")}
+              groups={groupCopies(reserve)}
+              deckSize={null}
               renderCard={commandCard}
             />
             <CardGroup

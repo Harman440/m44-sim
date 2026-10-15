@@ -444,7 +444,8 @@ class GameSession {
     this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
     this.board = new BoardManager(scenario, faction);
     this.commandCards = commandCards;
-    this.deck = new Deck(commandCards);
+    // Cards kept out of the deck (Armor Assault) come only from another card's reward
+    this.deck = new Deck(commandCards.filter((card) => !card.reserve));
     this.hand = this.deck.draw(initialHandSize);
     this.combatCards = combatCards;
     this.combatDeck = new Deck(combatCards);
@@ -2012,21 +2013,27 @@ class GameSession {
 
   /**
    * A single card goes straight to the hand, and the player may swap it with
-   * `drawAgain`; a card that draws more (Probe: 2) leaves them in
-   * `drawOptions` and `keepCard` puts one in the hand.
+   * `drawAgain`; a card that draws more (Preparations: 2) leaves them in
+   * `drawOptions` and `keepCard` puts one in the hand. A card with a
+   * `rewardCard` (Refuel) gives that card instead, from out of the deck.
    */
   private draw() {
     if (!this.chosenCard) return;
     // Discard first so a reshuffle on an empty deck can bring the card back,
-    // so there is always a card to draw
+    // so there is always a card to draw. A card kept out of the deck goes back out
     const playedCard = this.chosenCard;
-    this.deck.discard(playedCard);
+    if (!playedCard.reserve) this.deck.discard(playedCard);
     this.hand = this.hand.filter((c) => c !== playedCard);
-    const drawn = this.deck.draw(playedCard.drawChoice);
-    if (drawn.length === 0) throw new Error("No command card to draw");
-    // A single card is kept unless the player swaps it (drawAgain)
-    if (playedCard.drawChoice === 1) this.keep(drawn[0]!);
-    else this.drawOptions = drawn;
+    const reward = this.rewardCardFor(playedCard);
+    if (reward) {
+      this.keep(reward);
+    } else {
+      const drawn = this.deck.draw(playedCard.drawChoice);
+      if (drawn.length === 0) throw new Error("No command card to draw");
+      // A single card is kept unless the player swaps it (drawAgain)
+      if (playedCard.drawChoice === 1) this.keep(drawn[0]!);
+      else this.drawOptions = drawn;
+    }
     // The scenario's extra card goes straight to the hand
     if (this.drawsExtra()) {
       const [extra] = this.deck.draw(1);
@@ -2035,6 +2042,24 @@ class GameSession {
         this.extraDrawn = extra;
       }
     }
+  }
+
+  /** The cards kept out of the deck that aren't in the hand, being played or drawn */
+  private reserve(): CommandCard[] {
+    const out = new Set([...this.hand, ...this.drawOptions, this.chosenCard, this.drawnCard]);
+    return this.commandCards.filter((card) => card.reserve && !out.has(card));
+  }
+
+  /**
+   * The card a played card gives instead of the draw (Refuel: Armor Assault, or Direct from HQ
+   * with no armour left on the board); null to draw as usual, also when it's already in the hand
+   */
+  private rewardCardFor(played: CommandCard): CommandCard | null {
+    const reward = played.rewardCard;
+    if (!reward) return null;
+    const has = this.board.getAllHexes().some((hex) => hex.unit?.getUnitType() === reward.needs);
+    const template = has ? reward.card : reward.otherwise;
+    return this.reserve().find((card) => card.templateId === template) ?? null;
   }
 
   /** This side's turns so far, counting this one: the defender's first turn is turn 2 */
@@ -2059,7 +2084,7 @@ class GameSession {
 
   /** The single card drawn can be swapped once (a save from before it was kept at once still has it in drawOptions) */
   private canDrawAgain(): boolean {
-    if (this.chosenCard?.drawChoice !== 1 || this.drewAgain) return false;
+    if (this.chosenCard?.drawChoice !== 1 || this.drewAgain || this.drawnCard?.reserve) return false;
     return this.drawOptions.length === 1 || this.drawnCard !== null;
   }
 

@@ -68,12 +68,29 @@ export interface CommandCardProps {
   drawChoice?: number;
   /** Taken in the final phase instead of choosing between coins and a combat card (Preparations) */
   endOfTurnReward?: EndOfTurnReward;
+  /** In the final phase, a card kept out of the deck instead of the one drawn (Refuel: Armor Assault) */
+  rewardCard?: RewardCard;
+  /**
+   * Kept out of the deck: only another card's `rewardCard` gives it, and once played it goes back
+   * out, never into the discard pile (Armor Assault)
+   */
+  reserve?: boolean;
 }
 
 /** What a card gives in the final phase, in place of the usual choice */
 export interface EndOfTurnReward {
   coins: number;
   combatCard: boolean;
+}
+
+/** A card given in the final phase from the ones kept out of the deck, in place of the draw */
+export interface RewardCard {
+  /** The template of the card given… */
+  card: string;
+  /** …while the side has a unit of this type on the board… */
+  needs: UnitType;
+  /** …or else this one's */
+  otherwise: string;
 }
 
 class CommandCard {
@@ -99,6 +116,8 @@ class CommandCard {
   readonly closeAssaultOnly: boolean;
   readonly drawChoice: number;
   readonly endOfTurnReward: EndOfTurnReward | null;
+  readonly rewardCard: RewardCard | null;
+  readonly reserve: boolean;
 
   constructor({
     id = `command-card-${CommandCard.counter++}`,
@@ -122,6 +141,8 @@ class CommandCard {
     closeAssaultOnly = false,
     drawChoice = 1,
     endOfTurnReward,
+    rewardCard,
+    reserve = false,
   }: CommandCardProps) {
     this.id = id;
     this.templateId = templateId ?? id;
@@ -144,6 +165,8 @@ class CommandCard {
     this.closeAssaultOnly = closeAssaultOnly;
     this.drawChoice = drawChoice;
     this.endOfTurnReward = endOfTurnReward ?? null;
+    this.rewardCard = rewardCard ?? null;
+    this.reserve = reserve;
   }
 
   /** Coins an order for this unit type costs (0 for most cards) */

@@ -150,7 +150,7 @@ describe("EndOfTurnView after a special card", () => {
   // Plays `card` (1 hold order on the left), with 3 plain cards left in the deck
   // and `combatInHand` combat cards in hand (4 in the combat deck).
   // Turn 1 is the attacker's extra turn; from turn 2 the final phase gives coins.
-  const finalAfter = (card: CommandCard, turn = 1, combatInHand = 0) => {
+  const finalAfter = (card: CommandCard, turn = 1, combatInHand = 0, reserve: CommandCard[] = []) => {
     const combatDeck: CombatCard[] = ["C1", "C2", "C3", "C4"].map((name) => ({
       id: name,
       name: same(name),
@@ -184,7 +184,7 @@ describe("EndOfTurnView after a special card", () => {
         combatDrawPile: combatIds.slice(combatInHand),
       },
       session.scenario,
-      [card, ...deck],
+      [card, ...deck, ...reserve],
       combatDeck
     );
     restored.pickCard(card);
@@ -270,6 +270,27 @@ describe("EndOfTurnView after a special card", () => {
 
     expect(session.getSnapshot().combatHand).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Empezar turno 3" })).toBeEnabled();
+  });
+
+  it("gives Refuel's card from out of the deck instead of a draw, with no swap", async () => {
+    const session = finalAfter(
+      new CommandCard({
+        id: "refuel",
+        name: same("Repostaje"),
+        orders: 1,
+        endOfTurnReward: { coins: 3, combatCard: true },
+        rewardCard: { card: "armor-assault", needs: UnitType.INFANTRY, otherwise: "hq" },
+      }),
+      2,
+      0,
+      [new CommandCard({ id: "armor-assault", name: same("Asalto de Blindados"), orders: 4, tactic: true, reserve: true })]
+    );
+
+    expect(screen.getByTestId("drawn-card")).toHaveTextContent("Repostaje te da Asalto de Blindados.");
+    expect(screen.queryByRole("button", { name: "Descartar y robar otra" })).not.toBeInTheDocument();
+    expect(session.getSnapshot()).toMatchObject({ coins: 3, drawPileCount: 3 });
+    await landed();
+    expect(hand().getByRole("button", { name: /Asalto de Blindados/ })).toBeInTheDocument();
   });
 
   it("switches between 2 supplies and a combat card freely, and takes the supplies with Confirmar", async () => {

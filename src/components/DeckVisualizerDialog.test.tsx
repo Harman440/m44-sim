@@ -30,6 +30,24 @@ describe("DeckVisualizerDialog", () => {
     expect(screen.getByLabelText("5 copias, 21 % de robarla")).toBeInTheDocument();
   });
 
+  it("shows the cards kept out of the deck apart, with no chance of drawing them", () => {
+    const scenario = scenarios.find((s) => s.id === "arracourt")!;
+    render(
+      <DeckVisualizerDialog
+        open
+        onClose={() => {}}
+        faction="Allies"
+        commandCards={commandDeckFor(scenario, "Allies")}
+        combatCards={combatDeckFor(scenario, "Allies")}
+      />
+    );
+
+    const reserve = within(screen.getByRole("heading", { name: "Fuera del mazo (2)" }).closest("section")!);
+    expect(reserve.getByText("Nunca se roban: solo llegan con Repostaje")).toBeInTheDocument();
+    expect(reserve.getAllByLabelText("1 copia, fuera del mazo")).toHaveLength(2);
+    expect(reserve.getByRole("button", { name: /Asalto de Blindados/ })).toBeInTheDocument();
+  });
+
   it("shows a card's full text when it is tapped", () => {
     renderDeck();
 

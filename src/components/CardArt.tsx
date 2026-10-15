@@ -475,7 +475,7 @@ export function SectionCardArt({ card, faction }: { card: CommandCard; faction: 
 
 // --- tactic cards (La Hora de la Verdad, Escaramuza, En marcha…)
 
-/** Each tactic card's painting, by the card's id without its copy number; the rest show the generals for now */
+/** Each tactic card's painting, by the card's template (its id without the copy number); the rest show the generals for now */
 const TACTIC_PAINTINGS: Record<string, string> = {
   "armor-assault": armourAssaultArt,
   "artillery-bombardment": artilleryBombardmentArt,
@@ -495,7 +495,7 @@ const TACTIC_PAINTINGS: Record<string, string> = {
 export function TacticCardArt({ card }: { card: CommandCard }) {
   const tr = useTr();
   const lang = useLang();
-  const painting = TACTIC_PAINTINGS[card.id.replace(/-\d+$/, "")] ?? generalsArt;
+  const painting = TACTIC_PAINTINGS[card.templateId.replace(/-\d+$/, "")] ?? generalsArt;
   return (
     <>
       <span className="tactic-art__painting-frame">

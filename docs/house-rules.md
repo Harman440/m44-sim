@@ -116,6 +116,7 @@ Armour was too easy to play, and no card is played as a reaction in the battle a
 - Probe: 1 per section, and no more "draw 2, keep 1".
 - Preparations: also draws 2 command cards in the final phase and keeps 1 (on top of its 3 coins and combat card).
 - One more Move Out and one more General Advance in every deck (24 cards).
+- Refuel (new tactic card, for sides with armour, in Armor Assault's place in the deck): order 1 unit; in the final phase 3 coins and a combat card and, instead of drawing, Armor Assault. Armor Assault is kept out of the deck: Refuel is the only way to get it, and once played it goes back out. With no armour left on the map, Refuel gives a Direct from HQ instead (also kept out of the deck); with Armor Assault still in the hand, a normal draw.
 - Motorized (was Frozen Ground) — 2: 3 infantry units move 1 extra hex.
 - An extra order costs 3 coins for infantry and 4 for armour or artillery.
 - Pass and play: infantry units have 6 figures.
@@ -186,9 +187,9 @@ Each player gets 24 cards:
 
 Plus 5 cards depending on the units the player has in the scenario:
 - Only infantry: Move Out 5
-- Infantry and armour: Move Out 2, Armour Overrun (Armor Assault) 1, Orders from HQ 2
+- Infantry and armour: Move Out 2, Refuel 1, Orders from HQ 2 (and Armor Assault and an Orders from HQ kept out of the deck, for Refuel)
 - Infantry and artillery: Move Out 2, Artillery Bombardment 1, Orders from HQ 2
-- All three: Move Out 2, Armour Overrun 1, Artillery Bombardment 1, Orders from HQ 1
+- All three: Move Out 2, Refuel 1, Artillery Bombardment 1, Orders from HQ 1 (and the two cards kept out of the deck)
 - A player without infantry gets the set for the armour, artillery or both that they have
 
 The Breakthrough-based deck below was used before.

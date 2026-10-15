@@ -4,7 +4,7 @@ import { shoot } from "../test/shots";
 import { DieFace } from "./dice";
 import { describe, expect, it, vi } from "vitest";
 import GameSession from "./gameSession";
-import { SavedGame } from "./saveGame";
+import { SAVE_VERSION, SavedGame } from "./saveGame";
 import CommandCard, { CommandCardProps } from "./commandCard";
 import { CombatCard } from "./combatCard";
 import { readRoll } from "./rollResult";
@@ -1350,7 +1350,7 @@ describe("GameSession saving and restoring", () => {
     const broken = (changes: Partial<SavedGame>) => () =>
       GameSession.restore({ ...saved, ...changes } as SavedGame, scenario, cards());
 
-    expect(broken({ version: 28 as 29 })).toThrow();
+    expect(broken({ version: (SAVE_VERSION - 1) as typeof SAVE_VERSION })).toThrow();
     expect(broken({ testMode: undefined as never })).toThrow();
     expect(broken({ artilleryCrew: undefined as never })).toThrow();
     expect(broken({ wire: [{ row: 99, col: 0 }] })).toThrow();
@@ -3394,5 +3394,114 @@ describe("pass and play figures", () => {
     expect(restored.figures).toBe(true);
     expect(restored.figuresAt(TANK)).toBe(2);
     expect(restored.isRetreating(TANK)).toBe(true);
+  });
+});
+
+describe("Refuel and the cards kept out of the deck", () => {
+  const reserveCards = () => [
+    new CommandCard({ id: "armor-assault-1", templateId: "armor-assault", unitTypes: [UnitType.TANK], orders: 4, reserve: true }),
+    new CommandCard({ id: "hq-reserve-1", templateId: "hq", orders: 4, reserve: true }),
+  ];
+  /** Refuel and 2 plain cards, all in the hand to start, and the reserve cards kept out of the deck */
+  const refuelSession = (units: Scenario["units"] = scenario.units) => {
+    const commandCards = [
+      new CommandCard({
+        id: "refuel-1",
+        templateId: "refuel",
+        orders: 1,
+        endOfTurnReward: { coins: 3, combatCard: true },
+        rewardCard: { card: "armor-assault", needs: UnitType.TANK, otherwise: "hq" },
+      }),
+      new CommandCard({ id: "plain-1", orders: 1 }),
+      new CommandCard({ id: "plain-2", orders: 1 }),
+      ...reserveCards(),
+    ];
+    const session = new GameSession({ scenario: { ...scenario, units }, faction: "Allies", initialHandSize: 3, commandCards });
+    const play = (id: string) => {
+      expect(session.pickCard(session.getSnapshot().hand.find((c) => c.id === id)!)).toBe(true);
+      orderAllAndFight(session);
+      expect(session.endBattle()).toBe(true);
+    };
+    const next = () => {
+      if (session.getSnapshot().needsRewardChoice) session.chooseReward("coins");
+      expect(session.endTurn()).toBe(true);
+    };
+    const hand = () => session.getSnapshot().hand.map((c) => c.id).sort();
+    return { session, commandCards, play, next, hand };
+  };
+
+  it("never deals the cards kept out of the deck", () => {
+    const { session, hand } = refuelSession();
+
+    expect(hand()).toEqual(["plain-1", "plain-2", "refuel-1"]);
+    expect(session.getSnapshot()).toMatchObject({ drawPileCount: 0, discardPileCount: 0 });
+  });
+
+  it("gives Armor Assault instead of a draw, which goes back out of the deck once played", () => {
+    const { session, play, next, hand } = refuelSession();
+
+    play("refuel-1");
+    expect(session.getSnapshot()).toMatchObject({ drawnCard: { id: "armor-assault-1" }, canDrawAgain: false, drawPileCount: 0, discardPileCount: 1 });
+    expect(session.drawAgain()).toBe(false);
+    next();
+
+    play("armor-assault-1");
+    // Drawn from the deck (Refuel reshuffled in); Armor Assault is neither in the hand nor in the piles
+    expect(session.getSnapshot().drawnCard!.id).toBe("refuel-1");
+    expect(hand()).toEqual(["plain-1", "plain-2", "refuel-1"]);
+    expect(session.getSnapshot()).toMatchObject({ drawPileCount: 0, discardPileCount: 0 });
+    next();
+
+    play("refuel-1");
+    expect(session.getSnapshot().drawnCard!.id).toBe("armor-assault-1");
+  });
+
+  it("gives its 3 supplies and combat card too", () => {
+    const { session, commandCards } = refuelSession();
+    const restored = GameSession.restore(
+      { ...session.save(), turn: 2, combatDrawPile: ["a", "b"] },
+      session.scenario,
+      commandCards,
+      ["a", "b"].map((id) => ({ id, name: same(id), description: same(""), cost: 1, phase: "order" as const }))
+    );
+    restored.pickCard(restored.getSnapshot().hand.find((c) => c.id === "refuel-1")!);
+    orderAllAndFight(restored);
+    restored.endBattle();
+
+    expect(restored.getSnapshot()).toMatchObject({ coins: 3, combatCardDue: true, needsRewardChoice: false, drawnCard: { id: "armor-assault-1" } });
+  });
+
+  it("gives the Direct from HQ kept out of the deck when no armour is left", () => {
+    const { session, play } = refuelSession({ allies: { infantry: [LEFT_INF] }, axis: {} });
+
+    play("refuel-1");
+
+    expect(session.getSnapshot().drawnCard!.id).toBe("hq-reserve-1");
+  });
+
+  it("draws as usual when Armor Assault is still in the hand", () => {
+    const { session, commandCards } = refuelSession();
+    // Refuel back in the hand (after a reshuffle) while Armor Assault is still there
+    const restored = GameSession.restore(
+      { ...session.save(), hand: ["armor-assault-1", "refuel-1", "plain-2"], drawPile: ["plain-1"], discardPile: [] },
+      session.scenario,
+      commandCards
+    );
+    restored.pickCard(restored.getSnapshot().hand.find((c) => c.id === "refuel-1")!);
+    orderAllAndFight(restored);
+    restored.endBattle();
+
+    expect(restored.getSnapshot()).toMatchObject({ drawnCard: { id: "plain-1" }, canDrawAgain: true });
+  });
+
+  it("keeps a card from out of the deck in the hand after a reload", () => {
+    const { session, commandCards, play, next } = refuelSession();
+    play("refuel-1");
+    next();
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), session.scenario, commandCards);
+
+    expect(restored.getSnapshot().hand.map((c) => c.id)).toContain("armor-assault-1");
+    expect(restored.getSnapshot()).toMatchObject({ drawPileCount: 0, discardPileCount: 1 });
   });
 });
