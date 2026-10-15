@@ -836,16 +836,13 @@ class GameSession {
     return this.publish();
   }
 
-  /** Pass and play: the unit can't retreat this hex (nowhere free behind it): it loses a figure instead */
+  /** Pass and play: the unit can't retreat this hex (nowhere free behind it): it takes a hit instead */
   retreatBlocked(position: Position): boolean {
     if (!this.isRetreating(position) || this.retreatOptions(position).length > 0) return false;
     const unit = this.board.getHex(position)!.unit!;
-    const type = unit.getUnitType();
-    const taken = this.hits.get(unit) ?? 0;
-    // Down to the next figure: an armour figure that took a hit loses its second
-    const toNextFigure = hitsToDestroy(type) - (figuresLeft(type, taken) - 1) * FIGURES[type].hitsPerFigure - taken;
     this.retreatFlags = this.countDown(this.retreatFlags, unit);
-    return this.sufferHits(position, toNextFigure, 0);
+    // One hit per hex it can't retreat: a figure of infantry, half an armour figure
+    return this.sufferHits(position, 1, 0);
   }
 
   private countDown(flags: ReadonlyMap<Unit, number>, unit: Unit): Map<Unit, number> {

@@ -496,8 +496,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Retiradas tras la batalla", en: "Retreats after the battle" },
         house: {
-          es: "Una bandera marca la unidad: ya no combate este turno, y al acabar la batalla se retira una casilla por bandera hacia su borde, eligiendo su jugador; si no hay casilla libre pierde una figura. Solo se retira en el acto si, tras un asalto cercano, el atacante toma terreno: los blindados entran y disparan otra vez; la infantería, si su asalto le hizo retirarse, puede echarlo y entrar en su casilla, sin volver a disparar.",
-          en: "A flag marks the unit: it doesn't battle any more this turn, and after the battle it retreats one hex per flag toward its edge, its player choosing; with no free hex it loses a figure. It only retreats at once if, after a close assault, the attacker takes ground: armour moves in and fires again; infantry whose assault made it retreat can push it out and move into its hex, without firing again.",
+          es: "Una bandera marca la unidad: ya no combate este turno, y al acabar la batalla se retira una casilla por bandera hacia su borde, eligiendo su jugador; cada casilla que no puede retirarse (no hay ninguna libre detrás) cuenta como un impacto. Solo se retira en el acto si, tras un asalto cercano, el atacante toma terreno: los blindados entran y disparan otra vez; la infantería, si su asalto le hizo retirarse, puede echarlo y entrar en su casilla, sin volver a disparar.",
+          en: "A flag marks the unit: it doesn't battle any more this turn, and after the battle it retreats one hex per flag toward its edge, its player choosing; each hex it can't retreat (no free hex behind it) counts as a hit. It only retreats at once if, after a close assault, the attacker takes ground: armour moves in and fires again; infantry whose assault made it retreat can push it out and move into its hex, without firing again.",
         },
       },
       {

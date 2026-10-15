@@ -3353,6 +3353,15 @@ describe("pass and play figures", () => {
     expect(session.retreatBlocked(edge)).toBe(false);
   });
 
+  it("counts each hex armour can't retreat as one hit", () => {
+    const session = figuresSession();
+    session.sufferHits(TANK, 0, 1);
+    for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
+    expect(session.retreatBlocked(TANK)).toBe(true);
+    // 1 hit of its figure's 2: still 3 figures, one marked
+    expect(session.getSnapshot().strength.find((s) => samePosition(s.position, TANK))).toMatchObject({ figures: 3, damaged: true });
+  });
+
   it("takes an armour figure that already lost a hit down to the next one when it can't retreat", () => {
     const session = figuresSession();
     // A hit on the tank, then both hexes behind it taken
