@@ -17,14 +17,16 @@ const TEXT = defineMessages({
     figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     damaged: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`}, una ya tocada: el próximo impacto la quita`,
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
-    retreats: (n: number) => (n === 1 ? "Se retira 1 casilla tras la batalla" : `Se retira ${n} casillas tras la batalla`),
+    pinned: "Inmovilizada: otra bandera la hace retirarse",
+    retreats: (n: number) => (n === 1 ? "Se retira 1 casilla ahora" : `Se retira ${n} casillas ahora`),
   },
   en: {
     elite: "Elite",
     figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     damaged: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`}, one already hit: the next hit removes it`,
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
-    retreats: (n: number) => (n === 1 ? "Retreats 1 hex after the battle" : `Retreats ${n} hexes after the battle`),
+    pinned: "Pinned: another flag makes it retreat",
+    retreats: (n: number) => (n === 1 ? "Retreats 1 hex now" : `Retreats ${n} hexes now`),
   },
 });
 
@@ -58,7 +60,9 @@ interface UnitProps {
   orderable?: boolean;
   /** Pass and play: its figures left, shown bottom right */
   figures?: number;
-  /** Pass and play: hexes it must retreat after the battle, shown bottom left */
+  /** Pass and play: it took a flag this turn (pinned), a flag bottom left */
+  pinned?: boolean;
+  /** Pass and play: hexes it must retreat now, on the flag */
   retreats?: number;
   /** Pass and play: a figure took one hit of two (armour): the figures badge is marked red */
   damaged?: boolean;
@@ -94,6 +98,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   fired = false,
   orderable = false,
   figures,
+  pinned = false,
   retreats = 0,
   damaged = false,
   hitThisTurn = 0,
@@ -210,10 +215,10 @@ const UnitComponent: React.FC<UnitProps> = ({
         </g>
       )}
 
-      {/* Marked to retreat after the battle: a flag with the hexes, bottom left */}
-      {retreats > 0 && (
+      {/* Pinned (a flag this turn): a flag bottom left, with the hexes it must retreat now */}
+      {(pinned || retreats > 0) && (
         <g className="unit__badge unit__badge--retreat" data-testid="retreat-badge">
-          <title>{t.retreats(retreats)}</title>
+          <title>{retreats > 0 ? t.retreats(retreats) : t.pinned}</title>
           <circle cx={x - TOKEN_RADIUS * 0.72} cy={y + TOKEN_RADIUS * 0.72} r={BADGE_RADIUS + 1} fill="#c9a227" stroke="#f1ead6" strokeWidth={2} />
           <path
             d={`M${x - TOKEN_RADIUS * 0.72 - 4} ${y + TOKEN_RADIUS * 0.72 + 6}v-12l8 3.5l-8 3.5`}
@@ -222,7 +227,7 @@ const UnitComponent: React.FC<UnitProps> = ({
             strokeWidth={1.6}
             strokeLinejoin="round"
           />
-          {retreats > 1 && (
+          {retreats > 0 && (
             <text x={x - TOKEN_RADIUS * 0.72 + 6} y={y + TOKEN_RADIUS * 0.72 + 5} fontSize={10} fontWeight={700} fill="#3b2a07">
               {retreats}
             </text>

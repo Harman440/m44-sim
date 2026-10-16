@@ -38,6 +38,10 @@ import camouflageArt from "../assets/cards/camouflage.webp";
 import airBombardmentArt from "../assets/cards/air-bombardment.webp";
 import barrageArt from "../assets/cards/barrage.webp";
 import airPowerArt from "../assets/cards/air-power.webp";
+import explosivesArt from "../assets/cards/explosives.webp";
+import repositionArt from "../assets/cards/reposition.webp";
+import fortifyArt from "../assets/cards/fortify.webp";
+import spotterArt from "../assets/cards/spotter.webp";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -856,6 +860,10 @@ const COMBAT_PAINTINGS: Record<string, string> = {
   "air-bombardment": airBombardmentArt,
   barrage: barrageArt,
   "air-power": airPowerArt,
+  explosives: explosivesArt,
+  reposition: repositionArt,
+  fortify: fortifyArt,
+  spotter: spotterArt,
 };
 
 export function CombatCardArt({ card, faction }: { card: CombatCard; faction: Faction }) {

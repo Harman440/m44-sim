@@ -36,3 +36,20 @@ export function isKeptList(kept: unknown, dice: number): kept is number[] {
     new Set(kept).size === kept.length
   );
 }
+
+/**
+ * Limited damage: the dice a roll applies when it may deal at most `maxHits` hits. Only hits are
+ * left out: flags and supplies always count. Grenades are kept first (Personal Armor doesn't
+ * stop them), then the other hits in the order rolled. Null when every die counts
+ */
+export function keptForHits(faces: readonly DieFace[], target: ShotTarget, maxHits: number): number[] | null {
+  const hitting = faces.map((face, i) => ({ face, i })).filter(({ face }) => faceHits(face, target));
+  if (hitting.length <= maxHits) return null;
+  const kept = new Set(
+    [...hitting]
+      .sort((a, b) => Number(b.face === DieFace.GRENADE) - Number(a.face === DieFace.GRENADE) || a.i - b.i)
+      .slice(0, Math.max(0, maxHits))
+      .map(({ i }) => i)
+  );
+  return faces.flatMap((face, i) => (!faceHits(face, target) || kept.has(i) ? [i] : []));
+}

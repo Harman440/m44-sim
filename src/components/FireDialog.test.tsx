@@ -273,12 +273,12 @@ describe("FireDialog", () => {
     expect(screen.getByText("Toca una casilla en el mapa.")).toBeInTheDocument();
   });
 
-  it("applies fewer results than were rolled: the dice not picked show as discarded", () => {
+  it("applies fewer hits than were rolled: the dice not picked show as discarded", () => {
     const session = open(UnitType.TANK);
     fireAt(ADJACENT, "Infantería", "3 dados");
 
     const dieBefore = grenades()[0];
-    choose("Aplicar menos resultados");
+    choose("Aplicar menos impactos");
     // The dice stay as they are (not remounted, which would roll them again)
     expect(grenades()[0]).toBe(dieBefore);
     choose("Dado 2: Granada");

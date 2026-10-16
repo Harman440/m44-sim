@@ -11,6 +11,7 @@ import GameIcon from "./GameIcon";
 import { TargetSprites } from "./TargetKindPicker";
 import { BarbedWireIcon } from "./BarbedWire";
 import DieFaceIcon from "./DieFaceIcon";
+import { DieFace } from "../game-core/dice";
 
 interface ShotStepsProps {
   shot: ShotRoll;
@@ -112,6 +113,12 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
         return <BarbedWireIcon size={34} />;
       case "fromTown":
         return <GameIcon name="town" size={26} />;
+      case "pinned":
+        return (
+          <Box component="span" sx={{ display: "inline-flex", "& .die": { width: 24, height: 24 } }} aria-label={tr(step.label)}>
+            <DieFaceIcon face={DieFace.FLAG} faction={faction} />
+          </Box>
+        );
       default:
         // A step with no kind
         return (

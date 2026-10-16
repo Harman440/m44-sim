@@ -89,6 +89,7 @@ interface PlacedToken {
   fired?: boolean;
   orderable?: boolean;
   figures?: number;
+  pinned?: boolean;
   retreats?: number;
   damaged?: boolean;
   hitThisTurn?: number;
@@ -327,6 +328,7 @@ function Board({
         fired: firedUnits?.has(unit) ?? false,
         orderable: includesPosition(orderablePositions, position),
         figures: stands?.figures,
+        pinned: stands?.pinned,
         retreats: stands?.retreats,
         damaged: stands?.damaged,
         hitThisTurn: stands?.hitThisTurn,
@@ -334,12 +336,13 @@ function Board({
     });
     if (!opponent) return own;
     const otherStarts = atStart ? startOf(opponent.orders) : null;
-    const other = opponent.units.map(({ position, unit, figures, retreats, damaged, hitThisTurn }): PlacedToken => ({
+    const other = opponent.units.map(({ position, unit, figures, pinned, retreats, damaged, hitThisTurn }): PlacedToken => ({
       unit,
       faction: opponent.faction,
       position: otherStarts?.get(unit) ?? position,
       other: true,
       figures,
+      pinned,
       retreats,
       damaged,
       hitThisTurn,
@@ -388,6 +391,7 @@ function Board({
                 fired={token.fired}
                 orderable={token.orderable}
                 figures={token.figures}
+                pinned={token.pinned}
                 retreats={token.retreats}
                 damaged={token.damaged}
                 hitThisTurn={token.hitThisTurn}

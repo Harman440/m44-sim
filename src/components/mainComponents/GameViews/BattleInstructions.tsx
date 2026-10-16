@@ -20,11 +20,12 @@ const TEXT = defineMessages({
     ],
     retreats: "Retiradas",
     retreatsRule:
-      "Márcalas en la mesa: se hacen en la fase final. Hasta entonces la unidad marcada puede disparar pero no tomar " +
-      "terreno.",
+      "La primera bandera de una unidad la inmoviliza: márcala en la mesa (la infantería inmovilizada dispara con 1 " +
+      "dado menos, «¿Inmovilizada?» al disparar). Cada bandera más la hace retirarse 1 casilla en el acto, y ya no " +
+      "combate más este turno.",
     takeGround: "Tomar terreno",
     takeGroundRule:
-      "Si un blindado gana un asalto cercano (el objetivo se retira o es eliminado), puede tomar terreno: se mueve " +
+      "Si un blindado gana un asalto cercano (el objetivo se retira o es eliminado; una sola bandera solo lo inmoviliza), puede tomar terreno: se mueve " +
       "a la casilla del objetivo y combate otra vez, solo en asalto cercano. Una vez por unidad y turno. La " +
       "infantería no toma terreno.",
     wire: "Alambradas",
@@ -56,11 +57,11 @@ const TEXT = defineMessages({
     ],
     retreats: "Retreats",
     retreatsRule:
-      "Mark them on the table: they're carried out in the final phase. Until then the marked unit can fire but can't " +
-      "take ground.",
+      "A unit's first flag pins it: mark it on the table (pinned infantry fires with 1 die less, \"Pinned?\" when " +
+      "firing). Each flag after that makes it retreat 1 hex at once, and it doesn't battle again this turn.",
     takeGround: "Take ground",
     takeGroundRule:
-      "If an armor unit wins a close assault (the target retreats or is eliminated), it can take ground: it moves " +
+      "If an armor unit wins a close assault (the target retreats or is eliminated; a single flag only pins it), it can take ground: it moves " +
       "to the target's hex and fights again, in close assault only. Once per unit per turn. Infantry " +
       "doesn't take ground.",
     wire: "Barbed wire",

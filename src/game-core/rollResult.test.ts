@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ATTACK_DIE_SIDES, DIE_SIDES, DieFace, DieKind, LONG_RANGE_DIE_SIDES } from "./dice";
-import { appliedFaces, readRoll } from "./rollResult";
+import { appliedFaces, keptForHits, readRoll } from "./rollResult";
 
 const { INFANTRY, TANK, GRENADE, SUPPLY, FLAG } = DieFace;
 const ALL = [INFANTRY, INFANTRY, TANK, GRENADE, SUPPLY, FLAG];
@@ -71,5 +71,20 @@ describe("the chances of each die (sides out of 6 or 8)", () => {
   it("attack cards' die: infantry 4/6, any other unit 3/6, no coins", () => {
     expect(chances(ATTACK_DIE_SIDES, true, false, "attack")).toEqual({ hits: 4, retreats: 1, coins: 0 });
     expect(chances(ATTACK_DIE_SIDES, false, false, "attack")).toEqual({ hits: 3, retreats: 1, coins: 0 });
+  });
+});
+
+describe("keptForHits (limited damage)", () => {
+  const atInfantry = { infantry: true, closeAssault: false, die: "battle" as DieKind };
+  const { INFANTRY, GRENADE, FLAG, SUPPLY, TANK } = DieFace;
+
+  it("keeps every die when the hits fit", () => {
+    expect(keptForHits([INFANTRY, FLAG], atInfantry, 1)).toBeNull();
+  });
+
+  it("leaves out only hits, grenades kept first; flags and supplies always count", () => {
+    const faces = [INFANTRY, FLAG, GRENADE, SUPPLY, INFANTRY, TANK];
+    expect(keptForHits(faces, atInfantry, 2)).toEqual([0, 1, 2, 3, 5]);
+    expect(keptForHits(faces, atInfantry, 0)).toEqual([1, 3, 5]);
   });
 });

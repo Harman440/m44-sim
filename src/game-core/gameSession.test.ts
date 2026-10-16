@@ -1400,14 +1400,15 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coins).toBe(0);
   });
 
-  it("only counts the supplies of the results applied", () => {
+  it("always counts the supplies: only hits can be left out", () => {
     const session = turnWithCoins(0, "left", () => 0.7);
     orderAllAndFight(session);
     shoot(session, 0, AT_INFANTRY);
+    const rolled = session.getSnapshot().shots[0]!.faces.length;
 
-    session.keepResults(0, 0, [1]);
+    expect(session.keepResults(0, 0, [1])).toBe(false);
 
-    expect(session.getSnapshot().coins).toBe(1);
+    expect(session.getSnapshot().coins).toBe(rolled);
   });
 
   it("earns a coin for every supply, in close assault on armour or artillery too", () => {
@@ -3239,19 +3240,33 @@ describe("pass and play figures", () => {
     expect(unitAt(session, ARTILLERY)).toBeNull();
   });
 
-  it("marks a unit to retreat, flags adding up, so it can't battle any more this turn", () => {
+  it("pins a unit with its first flag; each flag after it is a hex to retreat at once", () => {
     const session = figuresSession();
-    expect(session.isRetreating(LEFT_INF)).toBe(false);
+    expect(session.isPinned(LEFT_INF)).toBe(false);
     session.sufferHits(LEFT_INF, 0, 1);
-    session.sufferHits(LEFT_INF, 1, 1);
-    expect(session.isRetreating(LEFT_INF)).toBe(true);
+    expect(session.isPinned(LEFT_INF)).toBe(true);
+    expect(session.mustRetreat(LEFT_INF)).toBe(false);
+    expect(session.hasRetreated(LEFT_INF)).toBe(false);
+    expect(session.canRollCollision(LEFT_INF, null)).toBe(true);
+    session.sufferHits(LEFT_INF, 1, 2);
+    expect(session.mustRetreat(LEFT_INF)).toBe(true);
     expect(session.getSnapshot().strength.find((s) => samePosition(s.position, LEFT_INF))).toEqual({
       position: LEFT_INF,
       figures: 5,
+      pinned: true,
       retreats: 2,
       damaged: false,
       hitThisTurn: 1,
     });
+    // Two flags at once on a unit not pinned yet: it's pinned and retreats 1
+    session.sufferHits(TANK, 0, 2);
+    expect(session.getSnapshot().strength.find((s) => samePosition(s.position, TANK))).toMatchObject({ pinned: true, retreats: 1 });
+  });
+
+  it("takes a unit made to retreat out of the battle", () => {
+    const session = figuresSession();
+    session.sufferHits(LEFT_INF, 0, 2);
+    expect(session.hasRetreated(LEFT_INF)).toBe(true);
     expect(session.canRollCollision(LEFT_INF, null)).toBe(false);
 
     // Ordered to hold, it has no shot left in the battle
@@ -3271,6 +3286,8 @@ describe("pass and play figures", () => {
   it("retreats a hex toward its own edge for each flag, to a free hex", () => {
     const session = figuresSession();
     expect(session.retreatOptions(LEFT_INF)).toEqual([]); // not marked
+    session.sufferHits(LEFT_INF, 0, 1);
+    expect(session.retreatOptions(LEFT_INF)).toEqual([]); // only pinned
     session.sufferHits(LEFT_INF, 0, 2);
 
     const options = session.retreatOptions(LEFT_INF);
@@ -3287,19 +3304,20 @@ describe("pass and play figures", () => {
   it("loses a figure for each hex it can't retreat", () => {
     const session = figuresSession();
     const edge: Position = { row: 8, col: 11 }; // the right infantry, on its own edge
-    session.sufferHits(edge, 0, 2);
+    session.sufferHits(edge, 0, 3);
     expect(session.retreatOptions(edge)).toEqual([]);
     expect(session.retreatBlocked(edge)).toBe(true);
     expect(session.figuresAt(edge)).toBe(5);
     expect(session.retreatBlocked(edge)).toBe(true);
     expect(session.figuresAt(edge)).toBe(4);
-    expect(session.isRetreating(edge)).toBe(false);
+    expect(session.mustRetreat(edge)).toBe(false);
+    expect(session.isPinned(edge)).toBe(true);
     expect(session.retreatBlocked(edge)).toBe(false);
   });
 
   it("counts each hex armour can't retreat as one hit", () => {
     const session = figuresSession();
-    session.sufferHits(TANK, 0, 1);
+    session.sufferHits(TANK, 0, 2);
     for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
     expect(session.retreatBlocked(TANK)).toBe(true);
     // 1 hit of its figure's 2: still 3 figures, one marked
@@ -3309,7 +3327,7 @@ describe("pass and play figures", () => {
   it("takes an armour figure that already lost a hit down to the next one when it can't retreat", () => {
     const session = figuresSession();
     // A hit on the tank, then both hexes behind it taken
-    session.sufferHits(TANK, 1, 1);
+    session.sufferHits(TANK, 1, 2);
     for (const behind of session.retreatOptions(TANK)) session.board.placeUnitAt(behind, new Unit(UnitType.INFANTRY));
     expect(session.retreatBlocked(TANK)).toBe(true);
     expect(session.figuresAt(TANK)).toBe(2);
@@ -3330,11 +3348,12 @@ describe("pass and play figures", () => {
 
   it("keeps hits from turn to turn and saves them, the flags only for the turn", () => {
     const session = figuresSession();
-    session.sufferHits(TANK, 3, 1);
+    session.sufferHits(TANK, 3, 2);
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withArtillery, cards());
     expect(restored.figures).toBe(true);
     expect(restored.figuresAt(TANK)).toBe(2);
-    expect(restored.isRetreating(TANK)).toBe(true);
+    expect(restored.isPinned(TANK)).toBe(true);
+    expect(restored.mustRetreat(TANK)).toBe(true);
   });
 });
 
@@ -3507,8 +3526,8 @@ describe("GameSession defensive combat cards", () => {
     session.sufferHits(TANK, 0, 1);
 
     expect(session.figuresAt(LEFT_INF)).toBe(5);
-    expect(session.isRetreating(LEFT_INF)).toBe(false);
-    expect(session.isRetreating(TANK)).toBe(true);
+    expect(session.isPinned(LEFT_INF)).toBe(false);
+    expect(session.isPinned(TANK)).toBe(true);
   });
 
   it("Blindaje personal: its unit, ordered or not, ignores its first 2 infantry-symbol hits this turn; grenades still hit", () => {

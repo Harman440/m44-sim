@@ -165,8 +165,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Tap a unit's row, tap the target on the map and answer what it asks. The app rolls the dice and tells you the hits, retreats and supplies.",
       },
       {
-        es: "Quita las bajas en la mesa. Las retiradas se marcan y se hacen en la fase final.",
-        en: "Remove the casualties on the table. Retreats are marked and carried out in the final phase.",
+        es: "Quita las bajas en la mesa. La primera bandera de una unidad la inmoviliza (márcala); cada bandera más la hace retirarse 1 casilla en el acto.",
+        en: "Remove the casualties on the table. A unit's first flag pins it (mark it); each flag after that makes it retreat 1 hex at once.",
       },
       {
         es: "Las cartas de combate se jugaron con las órdenes: sus dados se suman solos al disparar.",
@@ -180,8 +180,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
     phase: TurnPhase.END_OF_TURN,
     points: [
       {
-        es: "Haz las retiradas en la mesa y refleja en «Actualizar mapa» las bajas y los movimientos de los dos bandos.",
-        en: "Carry out the retreats on the table, and mirror both sides' casualties and moves in \"Update map\".",
+        es: "Quita las marcas de inmovilizada y refleja en «Actualizar mapa» las bajas y las retiradas de los dos bandos.",
+        en: "Take off the pinned markers, and mirror both sides' casualties and retreats in \"Update map\".",
       },
       {
         es: "Robas una carta de mando. Puedes descartarla una vez y robar otra, pero te quedas la segunda.",
@@ -254,8 +254,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Choques", en: "Collisions" },
         house: {
-          es: "Si dos unidades enemigas pasan por la misma casilla o acaban en ella, combaten antes que nadie: cada una tira sus dados de asalto cercano menos 1, sin contar el terreno, y las retiradas no se pueden ignorar. La que no se retira ni es eliminada se queda y puede seguir su camino. Si nadie se retira, las dos vuelven 1 casilla por donde vinieron. El choque cuenta como el disparo de la unidad.",
-          en: "If two enemy units go through the same hex or end on it, they battle before anyone else: each rolls its close assault dice minus 1, terrain doesn't count, and retreats can't be ignored. The one that isn't pushed back or eliminated stays and may carry on. If neither retreats, both go back 1 hex the way they came. The collision counts as the unit's shot.",
+          es: "Si dos unidades enemigas pasan por la misma casilla o acaban en ella, combaten antes que nadie: cada una tira sus dados de asalto cercano menos 1, sin contar el terreno, y las banderas no se pueden ignorar (inmovilizan y hacen retirarse como en la batalla). Si nadie saca bandera, las dos vuelven 1 casilla por donde vinieron. El choque cuenta como el disparo de la unidad.",
+          en: "If two enemy units go through the same hex or end on it, they battle before anyone else: each rolls its close assault dice minus 1, terrain doesn't count, and flags can't be ignored (they pin and push back as in the battle). If neither rolls a flag, both go back 1 hex the way they came. The collision counts as the unit's shot.",
         },
       },
       {
@@ -270,14 +270,14 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
-        title: { es: "Retiradas", en: "Retreats" },
+        title: { es: "Retiradas: inmovilizada", en: "Retreats: pinned" },
         official: {
-          es: "La unidad se retira en cuanto se resuelven los impactos.",
-          en: "The unit retreats as soon as the hits are resolved.",
+          es: "La unidad se retira una casilla por bandera en cuanto se resuelven los impactos.",
+          en: "The unit retreats one hex per flag as soon as the hits are resolved.",
         },
         house: {
-          es: "Se marcan en la mesa y se hacen todas en la fase final. Hasta entonces la unidad marcada sigue en su casilla y puede disparar, pero no tomar terreno.",
-          en: "They're marked on the table and all carried out in the final phase. Until then the marked unit stays on its hex and can fire, but not take ground.",
+          es: "La primera bandera que recibe una unidad en el turno no la hace retirarse: queda inmovilizada hasta el final del turno. La infantería inmovilizada dispara con 1 dado menos; los blindados y la artillería no pierden dados. Cada bandera más (también en el mismo disparo, y también en asalto cercano) la hace retirarse 1 casilla en el acto, y ya no combate más este turno. Así, para echar a una unidad hacen falta dos banderas.",
+          en: "A unit's first flag in a turn doesn't make it retreat: it's pinned until the turn ends. Pinned infantry fires with 1 die less; armor and artillery lose no dice. Each flag after that (in the same shot too, and in close assault too) makes it retreat 1 hex at once, and it doesn't battle again this turn. So it takes two flags to push a unit back.",
         },
       },
       {
@@ -287,8 +287,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Infantry that wins a close assault may advance into the hex the enemy leaves. Armor may advance and battle again (overrun), at range too.",
         },
         house: {
-          es: "Solo los blindados toman terreno; la infantería nunca arrolla. Si el objetivo tiene que retirarse, lo hace en ese momento; el blindado ocupa su casilla y combate otra vez, solo en asalto cercano. Una vez por unidad y turno.",
-          en: "Only armor takes ground; infantry never overruns. If the target has to retreat, it does so right then; the armor moves into its hex and battles again, in close assault only. Once per unit per turn.",
+          es: "Solo los blindados toman terreno; la infantería nunca arrolla. Si el objetivo se retira o es eliminado (una sola bandera solo lo inmoviliza), el blindado ocupa su casilla y combate otra vez, solo en asalto cercano. Una vez por unidad y turno.",
+          en: "Only armor takes ground; infantry never overruns. If the target retreats or is eliminated (a single flag only pins it), the armor moves into its hex and battles again, in close assault only. Once per unit per turn.",
         },
       },
     ],
@@ -326,8 +326,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Every result of the roll applies.",
         },
         house: {
-          es: "Se tiran todos los dados, pero la unidad que dispara solo aplica tantos resultados como figuras le quedan: su jugador elige cuáles («Aplicar menos resultados»). Con una carta que da dados extra, puede aplicar uno más.",
-          en: "All the dice are rolled, but the firing unit only applies as many results as it has figures left: its player picks which (\"Apply fewer results\"). With a card that gives extra dice, it can apply one more.",
+          es: "Se tiran todos los dados, pero la unidad que dispara no aplica más impactos que figuras le quedan (uno más con una carta que da dados extra). Solo se descartan impactos: las banderas y los suministros cuentan siempre. En Pasar y jugar la app los descarta sola, guardando antes las granadas; en tablets propias, «Aplicar menos impactos».",
+          en: "All the dice are rolled, but the firing unit applies no more hits than it has figures left (one more with a card that gives extra dice). Only hits are discarded: flags and supplies always count. In pass and play the app discards them itself, keeping grenades first; on own tablets, \"Apply fewer hits\".",
         },
       },
       {
@@ -507,8 +507,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Infantry 4 figures, armor 3, artillery 2; each hit takes one.",
         },
         house: {
-          es: `Infantería ${infantry.figures} figuras; blindados ${armor.figures}, de ${armor.hitsPerFigure} impactos cada una (una figura tocada se marca en rojo y cae al siguiente impacto); los impactos de cada unidad en el turno se ven en el mapa hasta que acaba; artillería ${artillery.figures}, y al caer deja a sus artilleros: ${ARTILLERY_CREW_FIGURES} figura de infantería. Una unidad no aplica más resultados que figuras le quedan.`,
-          en: `Infantry ${infantry.figures} figures; armor ${armor.figures}, ${armor.hitsPerFigure} hits each (a figure hit once is marked red and falls to the next hit); each unit's hits this turn show on the map until the turn ends; artillery ${artillery.figures}, and when it falls its crew stays: ${ARTILLERY_CREW_FIGURES} infantry figure. A unit applies no more results than the figures it has left.`,
+          es: `Infantería ${infantry.figures} figuras; blindados ${armor.figures}, de ${armor.hitsPerFigure} impactos cada una (una figura tocada se marca en rojo y cae al siguiente impacto); los impactos de cada unidad en el turno se ven en el mapa hasta que acaba; artillería ${artillery.figures}, y al caer deja a sus artilleros: ${ARTILLERY_CREW_FIGURES} figura de infantería. Una unidad no aplica más impactos que figuras le quedan.`,
+          en: `Infantry ${infantry.figures} figures; armor ${armor.figures}, ${armor.hitsPerFigure} hits each (a figure hit once is marked red and falls to the next hit); each unit's hits this turn show on the map until the turn ends; artillery ${artillery.figures}, and when it falls its crew stays: ${ARTILLERY_CREW_FIGURES} infantry figure. A unit applies no more hits than the figures it has left.`,
         },
       },
       {
@@ -526,10 +526,10 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
-        title: { es: "Retiradas tras la batalla", en: "Retreats after the battle" },
+        title: { es: "Inmovilizada y retiradas", en: "Pinned and retreats" },
         house: {
-          es: "Una bandera marca la unidad: ya no combate este turno, y al acabar la batalla se retira una casilla por bandera hacia su borde, eligiendo su jugador; cada casilla que no puede retirarse (no hay ninguna libre detrás) cuenta como un impacto. Solo se retira en el acto si, tras un asalto cercano, el atacante toma terreno: los blindados entran y disparan otra vez; la infantería, si su asalto le hizo retirarse, puede echarlo y entrar en su casilla, sin volver a disparar.",
-          en: "A flag marks the unit: it doesn't battle any more this turn, and after the battle it retreats one hex per flag toward its edge, its player choosing; each hex it can't retreat (no free hex behind it) counts as a hit. It only retreats at once if, after a close assault, the attacker takes ground: armour moves in and fires again; infantry whose assault made it retreat can push it out and move into its hex, without firing again.",
+          es: "La primera bandera inmoviliza la unidad (una bandera en su ficha) hasta el final del turno. Cada bandera más la hace retirarse en el acto una casilla hacia su borde, eligiendo su jugador; cada casilla que no puede retirarse (no hay ninguna libre detrás) cuenta como un impacto, y ya no combate más este turno. Una retirada por un choque se hace al empezar la batalla. Si tras un asalto cercano el objetivo se retiró o fue eliminado, los blindados pueden entrar en su casilla y disparar otra vez; la infantería puede entrar, sin volver a disparar.",
+          en: "The first flag pins the unit (a flag on its token) until the turn ends. Each flag after that makes it retreat at once one hex toward its edge, its player choosing; each hex it can't retreat (no free hex behind it) counts as a hit, and it doesn't battle again this turn. A retreat from a collision is made as the battle starts. If after a close assault the target retreated or was eliminated, armor may move into its hex and fire again; infantry may move in, without firing again.",
         },
       },
       {

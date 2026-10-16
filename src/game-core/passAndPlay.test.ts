@@ -266,8 +266,16 @@ describe("PassAndPlayMatch", () => {
     expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
     // Without a flag the Axis unit goes back the hex it came from (bounceBack)
     const stays = retreats > 0 ? { row: 4, col: 3 } : { row: 4, col: 4 };
+    // Its first flag pins it; each flag after that is a hex it retreats as the battle starts
     expect(axis.getSnapshot().strength).toEqual([
-      { position: turnedRound(stays), figures: INFANTRY_FIGURES - hits, retreats, damaged: false, hitThisTurn: hits },
+      {
+        position: turnedRound(stays),
+        figures: INFANTRY_FIGURES - hits,
+        pinned: retreats > 0,
+        retreats: Math.max(0, retreats - 1),
+        damaged: false,
+        hitThisTurn: hits,
+      },
     ]);
     expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES);
     expect(match.finishReveal()).toBe(true);
@@ -309,7 +317,7 @@ describe("PassAndPlayMatch", () => {
     });
   });
 
-  it("lets a unit with fewer figures than results pick the ones it applies", () => {
+  it("deals no more hits than the unit has figures, at once", () => {
     const close: Scenario = {
       ...scenario,
       units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
@@ -328,15 +336,10 @@ describe("PassAndPlayMatch", () => {
     match.moveUnits();
     expect(match.rollCollision(0)).toBe(true);
 
-    // 2 hits rolled, 1 figure: nothing is dealt until the player picks
+    // 2 hits rolled, 1 figure: 1 hit dealt, the other die set aside
     const allied = match.getSnapshot().movement!.collisions[0]!.units[1];
-    expect(allied).toMatchObject({ limit: 1, mustChoose: true });
-    expect(match.applyCollision(0)).toBe(false);
-    expect(match.finishReveal()).toBe(false);
-
-    expect(match.keepCollisionResults(0, 1, [0])).toBe(true);
-    expect(match.getSnapshot().movement!.collisions[0]!.units[1].mustChoose).toBe(false);
-    expect(match.applyCollision(0)).toBe(true);
+    expect(allied.roll).toMatchObject({ dice: 2, kept: [0] });
+    expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
     // No flag: the Axis unit went back the hex it came from
     expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }))).toBe(INFANTRY_FIGURES - 1);
     expect(match.finishReveal()).toBe(true);
@@ -376,7 +379,7 @@ describe("PassAndPlayMatch", () => {
       const match = battleMatch();
       allHold(match); // the Axis' extra turn: only the Axis can fire
       const battle = match.getSnapshot().battle!;
-      expect(battle).toMatchObject({ side: "Axis", group: "unmoved", pending: null });
+      expect(battle).toMatchObject({ side: "Axis", group: "unmoved" });
       expect(battle.fireable).toHaveLength(2);
 
       // Its targets are the enemy units only
@@ -390,7 +393,7 @@ describe("PassAndPlayMatch", () => {
       expect(match.fire(infantry, axisView(4, 2))).toBe(true);
       // 2 dice at 2 hexes, both infantry: 2 hits on the Allied infantry
       expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES - 2);
-      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null, fireable: [1 - infantry] });
+      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", fireable: [1 - infantry] });
       expect(match.fire(infantry, axisView(4, 2))).toBe(false); // it has fired
 
       expect(match.holdFire(1 - infantry)).toBe(true);
@@ -465,7 +468,7 @@ describe("PassAndPlayMatch", () => {
       expect(order()).toBeNull();
     });
 
-    it("waits for the player of a unit with fewer figures than results to pick them", () => {
+    it("cuts a unit's hits down to its figures", () => {
       const match = battleMatch();
       match.sessions.Axis.sufferHits(axisView(4, 4), INFANTRY_FIGURES - 1, 0); // 1 figure left
       allHold(match);
@@ -473,45 +476,74 @@ describe("PassAndPlayMatch", () => {
       const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
 
       expect(match.fire(infantry, axisView(4, 2))).toBe(true);
-      expect(match.getSnapshot().battle!.pending).toMatchObject({ side: "Axis", limit: 1, mustChoose: true });
-      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES); // nothing dealt yet
-      expect(match.applyShot()).toBe(false);
-      expect(match.endBattle()).toBe(false);
-      expect(match.getSnapshot().battle).toMatchObject({ side: null, fireable: [] });
-
-      expect(match.keepShotResults([1])).toBe(true);
-      expect(match.applyShot()).toBe(true);
+      expect(axis.getSnapshot().shots.at(-1)!.kept).toEqual([0]);
       expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES - 1);
-      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", pending: null });
+      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", fireable: [1 - infantry] });
     });
 
-    it("carries out the retreats after the firing, each hex picked by the unit's player", () => {
+    it("rolls a pinned infantry unit's shots with a die less; armour ignores the pin", () => {
+      const match = battleMatch();
+      const axis = match.sessions.Axis;
+      axis.sufferHits(axisView(4, 4), 0, 1);
+      axis.sufferHits(axisView(2, 4), 0, 1);
+      allHold(match);
+      const order = (row: number, col: number) => axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(row, col)));
+      const aim = axis.aimAt(order(4, 4), axisView(4, 2))!;
+      expect(aim.dice).toBe(1);
+      expect(aim.steps.some((step) => step.kind === "pinned")).toBe(true);
+      expect(axis.aimAt(order(2, 4), axisView(3, 2))!.steps.some((step) => step.kind === "pinned")).toBe(false);
+    });
+
+    it("pins a unit with its first flag, and makes it retreat at once for each flag after it", () => {
       const match = battleMatch(5); // flags
       allHold(match);
       const axis = match.sessions.Axis;
       const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
-      expect(match.fire(infantry, axisView(4, 2))).toBe(true); // 2 flags on the Allied infantry
-      expect(match.getSnapshot().battle).toMatchObject({ ground: null, retreat: null, retreating: false });
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true); // 2 flags on the Allied infantry: pinned, and 1 hex
 
-      expect(match.endBattle()).toBe(true);
       const battle = match.getSnapshot().battle!;
-      expect(battle).toMatchObject({ retreating: true, side: null, retreat: { side: "Allies", position: { row: 4, col: 2 }, flags: 2 } });
+      expect(battle).toMatchObject({ side: null, retreat: { side: "Allies", position: { row: 4, col: 2 }, flags: 1 } });
       expect(match.endBattle()).toBe(false);
+      expect(match.holdFire(1 - infantry)).toBe(false); // nobody fires while it retreats
 
-      const first = battle.retreat!.options[0]!;
-      expect(first.row).toBe(5);
+      const to = battle.retreat!.options[0]!;
+      expect(to.row).toBe(5);
       expect(match.retreat({ row: 0, col: 0 })).toBe(false);
-      expect(match.retreat(first)).toBe(true);
-      const second = match.getSnapshot().battle!.retreat!;
-      expect(second).toMatchObject({ position: first, flags: 1 });
-      expect(match.retreat(second.options[0]!)).toBe(true);
+      expect(match.retreat(to)).toBe(true);
+      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", retreat: null });
+      const allies = match.sessions.Allies;
+      expect(allies.getSnapshot().strength.find((u) => samePosition(u.position, to))).toMatchObject({ pinned: true, retreats: 0 });
+      expect(allies.hasRetreated(to)).toBe(true);
 
-      // Nothing left to retreat: the final phase, behind the cover screen
+      expect(match.holdFire(1 - infantry)).toBe(true);
+      expect(match.endBattle()).toBe(true);
       expect(match.getSnapshot()).toMatchObject({ battle: null, covered: true, active: "Axis" });
-      expect(match.sessions.Allies.figuresAt({ row: 6, col: second.options[0]!.col })).toBe(INFANTRY_FIGURES);
     });
 
-    it("lets armour take ground after a close assault: the enemy retreats at once and it fires again", () => {
+    it("keeps a unit that retreated out of the rest of the battle: its old hex can't fire", () => {
+      const match = battleMatch(5); // flags
+      allHold(match);
+      match.endBattle();
+      finishTurn(match);
+      giveOrders(match); // the Axis' turn 2
+      giveOrders(match); // the Allies'
+      match.moveUnits();
+      match.finishReveal();
+
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true);
+      const retreat = match.getSnapshot().battle!.retreat!;
+      expect(match.retreat(retreat.options[0]!)).toBe(true);
+
+      // The Allied infantry's order still ends on (4,2), but it's out of the battle
+      const allies = match.sessions.Allies;
+      const own = allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, { row: 4, col: 2 }));
+      expect(allies.orderSummaries()[own]!.shotsLeft).toBe(0);
+      expect(match.getSnapshot().battle!.fireable).not.toContain(own);
+    });
+
+    it("lets armour take ground after a close assault: the enemy retreats at once, then it moves in and fires again", () => {
       const close: Scenario = {
         ...scenario,
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
@@ -521,18 +553,18 @@ describe("PassAndPlayMatch", () => {
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
 
-      // The Axis tank's close assault: 3 flags on the Allied infantry
+      // The Axis tank's close assault: 3 flags on the Allied infantry, pinned and 2 hexes back
       expect(match.fire(0, axisView(4, 2))).toBe(true);
-      expect(match.getSnapshot().battle).toMatchObject({ ground: { side: "Axis", order: 0 }, side: null });
-      expect(match.endBattle()).toBe(false);
-
-      expect(match.decideGround(true)).toBe(true);
-      // The Allied infantry retreats its 3 hexes now
-      for (let i = 0; i < 3; i++) {
+      expect(match.getSnapshot().battle).toMatchObject({ ground: null });
+      for (let i = 0; i < 2; i++) {
         const retreat = match.getSnapshot().battle!.retreat!;
         expect(retreat.side).toBe("Allies");
         expect(match.retreat(retreat.options[0]!)).toBe(true);
       }
+      expect(match.getSnapshot().battle).toMatchObject({ ground: { side: "Axis", order: 0 }, side: null });
+      expect(match.endBattle()).toBe(false);
+
+      expect(match.decideGround(true)).toBe(true);
       // The tank moved in and fires once more, in close assault
       expect(match.sessions.Axis.board.getHex(axisView(4, 2))?.unit?.getUnitType()).toBe(UnitType.TANK);
       expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", fireable: [0], retreat: null });
@@ -541,7 +573,7 @@ describe("PassAndPlayMatch", () => {
       expect(match.getSnapshot().battle).toBeNull();
     });
 
-    it("lets infantry that made the enemy retreat in close assault push it out now, without firing again", () => {
+    it("lets infantry move into the hex its close assault made the enemy leave, without firing again", () => {
       const close: Scenario = {
         ...scenario,
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
@@ -553,18 +585,35 @@ describe("PassAndPlayMatch", () => {
 
       // The Axis infantry's close assault: all flags on the Allied infantry
       expect(match.fire(0, axisView(4, 2))).toBe(true);
-      expect(match.getSnapshot().battle).toMatchObject({ ground: { side: "Axis", order: 0 } });
-      expect(match.sessions.Axis.groundRuleFor(0)).toBe("pushBack");
-
-      expect(match.decideGround(true)).toBe(true);
       for (let retreat = match.getSnapshot().battle!.retreat; retreat; retreat = match.getSnapshot().battle!.retreat) {
         expect(retreat.side).toBe("Allies");
         expect(match.retreat(retreat.options[0]!)).toBe(true);
       }
+      expect(match.getSnapshot().battle).toMatchObject({ ground: { side: "Axis", order: 0 } });
+      expect(match.sessions.Axis.groundRuleFor(0)).toBe("pushBack");
+
+      expect(match.decideGround(true)).toBe(true);
       // It moved in, and has no shot more
       expect(match.sessions.Axis.board.getHex(axisView(4, 2))?.unit?.getUnitType()).toBe(UnitType.INFANTRY);
       expect(match.sessions.Axis.orderSummaries()[0]).toMatchObject({ tookGround: true, shotsLeft: 0 });
       expect(match.getSnapshot().battle).toMatchObject({ side: null, fireable: [], retreat: null });
+    });
+
+    it("only pins the target of a close assault with a single flag: no ground to take", () => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
+      };
+      // Dealing shuffles with 0; then the Axis close assault rolls a flag and two infantry
+      let faces: number[] = [];
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => faces.shift() ?? 0 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+      faces = [5 / 6, 0, 0];
+      expect(match.fire(0, axisView(4, 2))).toBe(true);
+      expect(match.sessions.Allies.getSnapshot().strength[0]).toMatchObject({ figures: INFANTRY_FIGURES - 2, pinned: true, retreats: 0 });
+      expect(match.getSnapshot().battle).toMatchObject({ ground: null, retreat: null });
     });
 
     it("doesn't offer infantry ground when its close assault made nobody retreat", () => {
@@ -592,7 +641,7 @@ describe("PassAndPlayMatch", () => {
       expect(tank()).toMatchObject({ figures: 2, damaged: false });
     });
 
-    it("leaves the enemy marked when the unit doesn't take ground", () => {
+    it("leaves the hex empty when the unit doesn't take ground", () => {
       const close: Scenario = {
         ...scenario,
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
@@ -602,8 +651,11 @@ describe("PassAndPlayMatch", () => {
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
       match.fire(0, axisView(4, 2));
+      for (let retreat = match.getSnapshot().battle!.retreat; retreat; retreat = match.getSnapshot().battle!.retreat) {
+        expect(match.retreat(retreat.options[0]!)).toBe(true);
+      }
       expect(match.decideGround(false)).toBe(true);
-      expect(match.sessions.Allies.isRetreating({ row: 4, col: 2 })).toBe(true);
+      expect(match.sessions.Axis.board.getHex(axisView(4, 3))?.unit?.getUnitType()).toBe(UnitType.TANK);
       expect(match.getSnapshot().battle).toMatchObject({ ground: null, retreat: null });
     });
 
@@ -619,7 +671,8 @@ describe("PassAndPlayMatch", () => {
       expect(match.sessions.Allies.getSnapshot().strength.find((u) => samePosition(u.position, { row: 3, col: 2 }))).toEqual({
         position: { row: 3, col: 2 },
         figures: 3,
-        retreats: shot.dice - 1,
+        pinned: true,
+        retreats: shot.dice - 2,
         damaged: false,
         hitThisTurn: 0,
       });

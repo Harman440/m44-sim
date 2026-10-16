@@ -4,7 +4,7 @@ import CommandCard, { Section, isSection } from "./commandCard";
 import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
-import { ShotTarget, TargetKinds, enemyTargetKinds } from "../data/hitRules";
+import { ShotTarget, TargetKinds, enemyTargetKinds, faceHits } from "../data/hitRules";
 import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
@@ -13,6 +13,7 @@ import {
   COLLISION_NOTES,
   FIRE_QUESTIONS,
   collisionSteps,
+  PINNED_ANSWER,
   TAKE_GROUND_UNIT_TYPES,
   PUSH_BACK_UNIT_TYPES,
   TARGET_INFANTRY,
@@ -203,7 +204,9 @@ export interface ShotAim {
 export interface UnitStrength {
   position: Position;
   figures: number;
-  /** Flags to retreat after the battle; it can't battle any more this turn */
+  /** It took a flag this turn: pinned (infantry fires with a die less) */
+  pinned: boolean;
+  /** Hexes it must retreat now (a flag after its first); then it doesn't battle any more this turn */
   retreats: number;
   /** A figure took a hit but not all it takes (armour hit once): the next hit removes it */
   damaged: boolean;
@@ -250,6 +253,8 @@ export interface FireChoice {
   suppressive?: boolean;
   /** Concentrated Fire: the other orders whose units roll with this one at the same hex (`joinable`) */
   joined?: readonly number[];
+  /** Own tablets: the firing unit is pinned (it took a flag this turn); pass and play knows */
+  pinned?: boolean;
 }
 
 /** Concentrated Fire: a unit that can roll with another, and the dice it adds */
@@ -343,6 +348,10 @@ export interface AttackMark {
   card: CombatCard;
   dicePerHex: number;
 }
+
+/** `kept` names distinct dice of the roll and leaves out only hits: flags and supplies always count */
+const keepsAllButHits = (kept: readonly number[], roll: { faces: readonly DieFace[]; target: ShotTarget }): boolean =>
+  isKeptList(kept, roll.faces.length) && roll.faces.every((face, i) => faceHits(face, roll.target) || kept.includes(i));
 
 const asList = <T,>(value: T | readonly T[]): readonly T[] => (Array.isArray(value) ? (value as readonly T[]) : [value as T]);
 
@@ -457,8 +466,10 @@ class GameSession {
   private standingCollisions: StandingCollisionRoll[] = [];
   /** Pass and play: hits each unit has taken (kept from turn to turn) */
   private hits = new Map<Unit, number>();
-  /** Pass and play: flags each unit must retreat after this turn's battle */
+  /** Pass and play: flags each unit took this turn: one pins it, each more makes it retreat a hex at once */
   private retreatFlags = new Map<Unit, number>();
+  /** Pass and play: hexes each unit must still retreat now */
+  private retreatsDue = new Map<Unit, number>();
   /** Pass and play: hits each unit has taken this turn, shown on the map until the turn ends */
   private turnHits = new Map<Unit, number>();
   /** Pass and play: the infantry-symbol hits each unit has ignored this turn with Personal Armor */
@@ -864,17 +875,35 @@ class GameSession {
     return figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0);
   }
 
-  /** The unit on this hex must retreat after the battle, so it can't battle any more this turn */
-  isRetreating(position: Position): boolean {
+  /** Pass and play: the unit on this hex took a flag this turn: it's pinned (infantry fires with a die less) */
+  isPinned(position: Position): boolean {
     const unit = this.board.getHex(position)?.unit;
     return !!unit && (this.retreatFlags.get(unit) ?? 0) > 0;
   }
 
+  /** Pass and play: the unit on this hex was made to retreat this turn (a second flag), so it doesn't battle any more */
+  hasRetreated(position: Position): boolean {
+    const unit = this.board.getHex(position)?.unit;
+    return !!unit && this.retreated(unit);
+  }
+
+  private retreated(unit: Unit): boolean {
+    return (this.retreatFlags.get(unit) ?? 0) > 1;
+  }
+
+  /** Pass and play: the unit on this hex must retreat now, a hex per flag after its first */
+  mustRetreat(position: Position): boolean {
+    const unit = this.board.getHex(position)?.unit;
+    return !!unit && (this.retreatsDue.get(unit) ?? 0) > 0;
+  }
+
   /**
    * The enemy's roll hit the unit on this hex (pass and play): it takes `hits` (`hitFaces`, the
-   * faces that hit, say which Personal Armor ignores) and, if it survives, is marked to retreat
-   * `flags` hexes after the battle (none for Not One Step Back's infantry). A unit that loses its last
-   * figure is removed; artillery leaves its crew behind, `ARTILLERY_CREW_FIGURES` infantry figures
+   * faces that hit, say which Personal Armor ignores) and, if it survives, `flags` (none for Not
+   * One Step Back's infantry). Its first flag this turn pins it; each flag after that is a hex
+   * it must retreat at once (`retreatOptions`), and it doesn't battle any more this turn. A unit
+   * that loses its last figure is removed; artillery leaves its crew behind,
+   * `ARTILLERY_CREW_FIGURES` infantry figures
    */
   sufferHits(position: Position, hits: number, flags: number, hitFaces: readonly DieFace[] = []): boolean {
     const unit = this.board.getHex(position)?.unit;
@@ -897,7 +926,14 @@ class GameSession {
         this.hits = new Map(this.hits).set(unit, taken);
         this.turnHits = new Map(this.turnHits).set(unit, (this.turnHits.get(unit) ?? 0) + hits);
       }
-      if (flags > 0) this.retreatFlags = new Map(this.retreatFlags).set(unit, (this.retreatFlags.get(unit) ?? 0) + flags);
+      if (flags > 0) {
+        const before = this.retreatFlags.get(unit) ?? 0;
+        const after = before + flags;
+        this.retreatFlags = new Map(this.retreatFlags).set(unit, after);
+        // The first flag only pins it: the rest are hexes to retreat
+        const hexes = Math.max(0, after - 1) - Math.max(0, before - 1);
+        if (hexes > 0) this.retreatsDue = new Map(this.retreatsDue).set(unit, (this.retreatsDue.get(unit) ?? 0) + hexes);
+      }
       return this.publish();
     }
 
@@ -906,6 +942,8 @@ class GameSession {
     damage.delete(unit);
     const flagged = new Map(this.retreatFlags);
     flagged.delete(unit);
+    const due = new Map(this.retreatsDue);
+    due.delete(unit);
     const crew = unit.getUnitType() === UnitType.ARTILLERY ? new Unit(UnitType.INFANTRY) : undefined;
     if (crew) {
       this.board.placeUnitAt(position, crew);
@@ -913,6 +951,7 @@ class GameSession {
     }
     this.hits = damage;
     this.retreatFlags = flagged;
+    this.retreatsDue = due;
     const hitThisTurn = new Map(this.turnHits);
     hitThisTurn.delete(unit);
     this.turnHits = hitThisTurn;
@@ -929,7 +968,7 @@ class GameSession {
    * bottom of this side's view): the two hexes behind it that are free and passable
    */
   retreatOptions(position: Position): Position[] {
-    if (!this.isRetreating(position)) return [];
+    if (!this.mustRetreat(position)) return [];
     const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
     return this.board
       .getHex(position)!
@@ -938,28 +977,28 @@ class GameSession {
       .filter((next) => !!this.board.getHex(next)?.isPassable() && !enemies.has(positionKey(next)));
   }
 
-  /** Pass and play: the unit retreats one hex, one of `retreatOptions`; it has a flag less to go */
+  /** Pass and play: the unit retreats one hex, one of `retreatOptions`; it has a hex less to go */
   retreatTo(position: Position, to: Position): boolean {
     if (!includesPosition(this.retreatOptions(position), to)) return false;
     const unit = this.board.getHex(position)!.unit!;
     const sandbags = this.moveUnit(position, to);
     if (!sandbags) return false;
-    this.retreatFlags = this.countDown(this.retreatFlags, unit);
+    this.retreatsDue = this.countDown(this.retreatsDue, unit);
     this.addBattleEdit({ kind: "move", from: { ...position }, to: { ...to }, unit, ...(sandbags.length > 0 && { sandbags }) });
     return this.publish();
   }
 
   /** Pass and play: the unit can't retreat this hex (nowhere free behind it): it takes a hit instead */
   retreatBlocked(position: Position): boolean {
-    if (!this.isRetreating(position) || this.retreatOptions(position).length > 0) return false;
+    if (!this.mustRetreat(position) || this.retreatOptions(position).length > 0) return false;
     const unit = this.board.getHex(position)!.unit!;
-    this.retreatFlags = this.countDown(this.retreatFlags, unit);
+    this.retreatsDue = this.countDown(this.retreatsDue, unit);
     // One hit per hex it can't retreat: a figure of infantry, half an armour figure
     return this.sufferHits(position, 1, 0);
   }
 
-  private countDown(flags: ReadonlyMap<Unit, number>, unit: Unit): Map<Unit, number> {
-    const next = new Map(flags);
+  private countDown(counts: ReadonlyMap<Unit, number>, unit: Unit): Map<Unit, number> {
+    const next = new Map(counts);
     const left = (next.get(unit) ?? 0) - 1;
     if (left > 0) next.set(unit, left);
     else next.delete(unit);
@@ -975,7 +1014,9 @@ class GameSession {
       const figures = figuresLeft(unit.getUnitType(), hits);
       const damaged = figureDamaged(unit.getUnitType(), hits);
       const hitThisTurn = this.turnHits.get(unit) ?? 0;
-      return [{ position: hex.getPosition(), figures, retreats: this.retreatFlags.get(unit) ?? 0, damaged, hitThisTurn }];
+      const pinned = (this.retreatFlags.get(unit) ?? 0) > 0;
+      const retreats = this.retreatsDue.get(unit) ?? 0;
+      return [{ position: hex.getPosition(), figures, pinned, retreats, damaged, hitThisTurn }];
     });
   }
 
@@ -1018,11 +1059,11 @@ class GameSession {
 
   /**
    * Whether this side's unit can battle in a collision: not when its order doesn't let it fire
-   * (it moved too far, or into terrain it can't fire from), nor once it's marked to retreat
+   * (it moved too far, or into terrain it can't fire from), nor once it's been made to retreat
    */
   canRollCollision(position: Position, order: number | null): boolean {
     if (order !== null && !this.orders[order]?.canFire) return false;
-    return !this.isRetreating(position);
+    return !this.hasRetreated(position);
   }
 
   /**
@@ -1045,6 +1086,7 @@ class GameSession {
       unitType: unit.getUnitType(),
       card: ordered ? this.cardFor(ordered) : null,
       combatBonuses: ordered ? this.combatBonusesFor(order!) : [],
+      pinned: this.isPinned(position),
     };
     const steps = collisionSteps(context);
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
@@ -1114,7 +1156,7 @@ class GameSession {
       this.shots,
       this.unmovedFireSkipped,
       this.combatCardsPlayed,
-      new Set(this.retreatFlags.keys())
+      new Set([...this.retreatFlags.keys()].filter((unit) => this.retreated(unit)))
     );
   }
 
@@ -1232,6 +1274,8 @@ class GameSession {
       fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
       // Pass and play knows each enemy unit's badge, so it's always answered
       enemyCamouflage: this.enemyView !== null || this.enemyCamouflage,
+      // Pass and play knows whether the unit is pinned; on own tablets the player says
+      ...(this.figures && { pinned: this.isPinned(summary.firingFrom) }),
     };
   }
 
@@ -1295,7 +1339,8 @@ class GameSession {
     const options = this.joinable(orderIndex, choice).map((option) => option.order);
     if (new Set(joined).size !== joined.length || !joined.every((order) => options.includes(order))) return false;
     const parts = [orderIndex, ...joined].map((order) => {
-      const answers = this.aimAnswers(order, choice)?.answers;
+      // The player said whether the unit firing is pinned, not the others
+      const answers = this.aimAnswers(order, order === orderIndex ? choice : { ...choice, pinned: false })?.answers;
       return answers ? this.shotPart(order, answers, suppressive) : null;
     });
     if (parts.some((part) => !part)) return false;
@@ -1312,7 +1357,7 @@ class GameSession {
     if (!summaries[orderIndex]?.hold || !this.canFireNow(orderIndex)) return [];
     return this.orders.flatMap((_, order) => {
       if (order === orderIndex || !summaries[order]!.hold || !this.canFireNow(order)) return [];
-      const answers = this.aimAnswers(order, { ...choice, joined: [] })?.answers;
+      const answers = this.aimAnswers(order, { ...choice, joined: [], pinned: false })?.answers;
       const part = answers && this.shotPart(order, answers, choice.suppressive ?? false);
       return part && part.dice > 0 ? [{ order, dice: part.dice }] : [];
     });
@@ -1341,6 +1386,7 @@ class GameSession {
       targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
       sandbags: sandbags ? "yes" : "no",
       camouflage: camouflaged ? "yes" : "no",
+      [PINNED_ANSWER]: choice.pinned ? "yes" : "no",
     };
     return { answers, target, context };
   }
@@ -1765,14 +1811,15 @@ class GameSession {
   /**
    * Apply only some of the results of this unit's shot number `shotNumber`
    * (0 for its first shot this turn): `kept` are indexes into its faces, and
-   * null applies them all again. The roll itself stays as it was.
+   * null applies them all again. Only hits can be left out: flags and supplies
+   * always count. The roll itself stays as it was.
    */
   keepResults(orderIndex: number, shotNumber: number, kept: readonly number[] | null): boolean {
     const shot = this.shots.filter((s) => s.orderIndex === orderIndex)[shotNumber];
     if (!shot) return false;
     // A collision is rolled in the movement phase (pass and play)
     if (this.phase !== TurnPhase.BATTLE && !(shot.collision && this.phase === TurnPhase.MOVEMENT)) return false;
-    if (kept !== null && !isKeptList(kept, shot.faces.length)) return false;
+    if (kept !== null && !keepsAllButHits(kept, shot)) return false;
 
     const sorted = kept && kept.length < shot.faces.length ? [...kept].sort((a, b) => a - b) : null;
     this.shots = this.shots.map((s) => (s === shot ? { ...s, kept: sorted } : s));
@@ -1782,7 +1829,7 @@ class GameSession {
   /** Pass and play: apply only some results of a collision roll of a unit without an order, as `keepResults` */
   keepStandingResults(index: number, kept: readonly number[] | null): boolean {
     const roll = this.standingCollisions[index];
-    if (!roll || (kept !== null && !isKeptList(kept, roll.faces.length))) return false;
+    if (!roll || (kept !== null && !keepsAllButHits(kept, roll))) return false;
     const sorted = kept && kept.length < roll.faces.length ? [...kept].sort((a, b) => a - b) : null;
     this.standingCollisions = this.standingCollisions.map((r, i) => (i === index ? { ...r, kept: sorted } : r));
     return this.publish();
@@ -2381,6 +2428,7 @@ class GameSession {
     this.assignments = [];
     this.standingCollisions = [];
     this.retreatFlags = new Map();
+    this.retreatsDue = new Map();
     this.turnHits = new Map();
     this.armorHits = new Map();
     this.drawnCombatCard = null;
@@ -2437,6 +2485,7 @@ class GameSession {
       standingCollisions: this.standingCollisions,
       hits: this.hits,
       retreatFlags: this.retreatFlags,
+      retreatsDue: this.retreatsDue,
       turnHits: this.turnHits,
       armorHits: this.armorHits,
       camouflaged: this.camouflaged,
@@ -2495,6 +2544,7 @@ class GameSession {
     session.standingCollisions = [...state.standingCollisions];
     session.hits = new Map(state.hits);
     session.retreatFlags = new Map(state.retreatFlags);
+    session.retreatsDue = new Map(state.retreatsDue);
     session.turnHits = new Map(state.turnHits);
     session.armorHits = new Map(state.armorHits);
     session.camouflaged = new Set(state.camouflaged);

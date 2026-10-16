@@ -6,14 +6,14 @@ import { turnedRound } from "./BoardManager";
 import { includesPosition, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
 import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
-import { appliedFaces, readRoll } from "./rollResult";
+import { appliedFaces, keptForHits, readRoll } from "./rollResult";
 import { resultLimit } from "../data/figures";
 import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 13;
+export const MATCH_SAVE_VERSION = 14;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -38,16 +38,15 @@ export interface MatchBattle {
   turn: number;
   /** Each turn to fire so far, in order: a shot (its index in its side's shots) or a unit holding its fire (null) */
   fired: { side: Faction; group: FireGroup; order: number; shot: number | null }[];
-  /** A shot rolled but not dealt yet: its player still picks the results it applies */
-  pending: { side: Faction; shot: number } | null;
+  /**
+   * A close assault was dealt: once its target has retreated (its player picking the hexes), the
+   * unit may take ground if the hex is free (`ground`). `at` is the target's hex, in the shooter's view
+   */
+  assault: { side: Faction; order: number; at: Position } | null;
   /** The last close assault lets the unit take ground: its player decides */
   ground: { side: Faction; order: number } | null;
-  /** Taking ground: the enemy unit (on this hex, in its own view) retreats now, then the unit moves in */
-  overrun: { side: Faction; order: number; enemy: Position } | null;
   /** The unit took ground: it fires once more, now, in close assault */
   bonus: { side: Faction; order: number } | null;
-  /** The firing is over: the units marked to retreat retreat, the attacker's first */
-  retreating: boolean;
 }
 
 /** The battle for the screen */
@@ -58,13 +57,10 @@ export interface BattleState {
   group: FireGroup | null;
   /** The order indexes of that side's units that can fire now */
   fireable: readonly number[];
-  pending: { side: Faction; shot: number; limit: number; mustChoose: boolean } | null;
   /** The unit that may take ground after its close assault: its player decides */
   ground: { side: Faction; order: number } | null;
-  /** The unit retreating now (in its side's view) and the hexes it can retreat to */
+  /** The unit retreating now (in its side's view), the hexes it can retreat to and the hexes it has to go */
   retreat: { side: Faction; position: Position; options: readonly Position[]; flags: number } | null;
-  /** The firing is over and the retreats are being carried out */
-  retreating: boolean;
   /** Sides whose attack combat card (Barrage…) is still to be rolled, before anyone fires */
   attacks: readonly Faction[];
 }
@@ -83,7 +79,7 @@ export interface MatchMovement {
 
 /**
  * A collision of the turn's movement: `rolls` once rolled, each unit's (null for a unit that
- * couldn't battle: its order didn't let it fire, it was marked to retreat, or it was destroyed
+ * couldn't battle: its order didn't let it fire, it was made to retreat, or it was destroyed
  * in an earlier collision); `applied` once its hits and flags have been dealt
  */
 export interface MatchCollision extends Collision {
@@ -99,10 +95,6 @@ export interface CollidingUnitView {
   unitType: UnitType;
   /** Its roll, once the collision is rolled; null too for a unit that couldn't battle */
   roll: ShotRoll | null;
-  /** Results it may apply (limited damage: as many as its figures) */
-  limit: number;
-  /** Its roll has more results than it may apply: the player picks which dice count */
-  mustChoose: boolean;
 }
 
 export interface CollisionView extends Omit<Collision, "units"> {
@@ -136,8 +128,9 @@ export interface MatchSnapshot {
 export interface PlacedUnit {
   position: Position;
   unit: Unit;
-  /** Its figures left and the hexes it must retreat after the battle (`ArmyView`) */
+  /** Its figures left, whether it's pinned and the hexes it must retreat now (`ArmyView`) */
   figures?: number;
+  pinned?: boolean;
   retreats?: number;
   /** A figure was hit once (armour): marked */
   damaged?: boolean;
@@ -310,9 +303,8 @@ class PassAndPlayMatch {
 
   /**
    * Both units of the collision roll at once: close assault dice minus 1, terrain ignored. A unit
-   * that can't battle doesn't roll. The results are dealt at once, unless a unit rolled more
-   * results than it may apply: then its player picks them (`keepCollisionResults`) and
-   * `applyCollision` deals them
+   * that can't battle doesn't roll. The results are dealt at once, each roll's hits cut down to
+   * its unit's figures (limited damage)
    */
   rollCollision(index: number): boolean {
     const collision = this.movement?.collisions[index];
@@ -333,27 +325,38 @@ class PassAndPlayMatch {
     }) as [RollRef | null, RollRef | null];
 
     this.updateCollision(index, { rolls });
-    if (!this.mustChoose(index)) this.applyCollision(index);
+    rolls.forEach((ref, i) => {
+      const unit = units[i]!;
+      if (ref) this.limitDamage(unit.side, ref, this.limitOf(unit.side, unit.position));
+    });
+    this.applyCollision(index);
     return this.publish();
   }
 
-  /** The player of the collision's unit `unit` (0 or 1) applies only these dice, or all with null */
-  keepCollisionResults(index: number, unit: 0 | 1, kept: readonly number[] | null): boolean {
-    const collision = this.movement?.collisions[index];
-    const ref = collision?.rolls?.[unit];
-    if (!collision || collision.applied || !ref) return false;
-    const session = this.sessions[collision.units[unit].side];
-    if (ref.kind === "standing") return session.keepStandingResults(ref.index, kept);
+  /**
+   * Limited damage (house rule): a roll deals no more hits than its units have figures (one more
+   * with a card's dice); its flags and supplies always count. The hits left out are set aside
+   */
+  private limitDamage(side: Faction, ref: RollRef, limit: number) {
+    const session = this.sessions[side];
+    const roll = this.rollOf(side, ref);
+    if (!roll) return;
+    const kept = keptForHits(roll.faces, roll.target, limit);
+    if (!kept) return;
+    if (ref.kind === "standing") {
+      session.keepStandingResults(ref.index, kept);
+      return;
+    }
     const shots = session.getSnapshot().shots;
-    const shot = shots[ref.index]!;
-    const number = shots.filter((s, i) => s.orderIndex === shot.orderIndex && i < ref.index).length;
-    return session.keepResults(shot.orderIndex, number, kept);
+    const { orderIndex } = shots[ref.index]!;
+    const number = shots.filter((s, i) => s.orderIndex === orderIndex && i < ref.index).length;
+    session.keepResults(orderIndex, number, kept);
   }
 
   /** Deal both units' results at once: each the hits and flags of the other's roll */
-  applyCollision(index: number): boolean {
+  private applyCollision(index: number) {
     const collision = this.movement?.collisions[index];
-    if (!collision?.rolls || collision.applied || this.mustChoose(index)) return false;
+    if (!collision?.rolls || collision.applied) return;
     const results = collision.units.map((unit, i) => {
       const roll = this.rollOf(unit.side, collision.rolls![i]!);
       return roll ? readRoll(appliedFaces(roll.faces, roll.kept), roll.target) : null;
@@ -369,7 +372,6 @@ class PassAndPlayMatch {
     if (!results.some((result) => result && result.retreats > 0)) {
       collision.units.forEach((unit) => this.bounceBack(unit));
     }
-    return this.publish();
   }
 
   /**
@@ -412,19 +414,13 @@ class PassAndPlayMatch {
     this.revealedTurn = turn;
     this.movement = null;
     // The battle, on one screen for both players
-    this.battle = {
-      turn,
-      fired: [],
-      pending: null,
-      ground: null,
-      overrun: null,
-      bonus: null,
-      retreating: false,
-    };
+    this.battle = { turn, fired: [], assault: null, ground: null, bonus: null };
     for (const side of FACTIONS) {
       this.sessions[side].startBattle();
       this.markCloseAssaults(side);
     }
+    // A unit given a second flag in a collision retreats now, before anyone fires
+    this.settleRetreats();
     this.active = this.scenario.attacker;
     this.covered = false;
     return this.publish();
@@ -475,8 +471,8 @@ class PassAndPlayMatch {
 
   /**
    * The unit of the side whose turn it is fires at an enemy hex. The hits and flags are dealt at
-   * once, unless the unit rolled more results than it has figures: its player picks them first
-   * (`keepShotResults`, then `applyShot`)
+   * once (no more hits than the unit has figures, limited damage), and an enemy unit given a
+   * second flag retreats now (`retreat`)
    */
   fire(order: number, target: Position, { joined = [], suppressive = false }: { joined?: readonly number[]; suppressive?: boolean } = {}): boolean {
     const turn = this.battleTurn();
@@ -495,10 +491,10 @@ class PassAndPlayMatch {
     this.battle = {
       ...battle,
       fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot }],
-      pending: { side: turn.side, shot },
       bonus: null,
     };
-    if (!this.shotMustChoose()) this.applyShot();
+    this.limitDamage(turn.side, { kind: "shot", index: shot }, this.shotLimit(turn.side, shot));
+    this.applyShot(turn.side, shot);
     return this.publish();
   }
 
@@ -531,47 +527,24 @@ class PassAndPlayMatch {
     return this.publish();
   }
 
-  /** The player of the shot waiting to be dealt applies only these dice, or all with null */
-  keepShotResults(kept: readonly number[] | null): boolean {
-    const pending = this.battle?.pending;
-    if (!pending) return false;
-    const session = this.sessions[pending.side];
-    const shots = session.getSnapshot().shots;
-    const shot = shots[pending.shot]!;
-    const number = shots.filter((s, i) => s.orderIndex === shot.orderIndex && i < pending.shot).length;
-    return session.keepResults(shot.orderIndex, number, kept);
-  }
-
-  /** Deal the shot's hits and flags to the enemy unit; sandbags there ignore 1 flag */
-  applyShot(): boolean {
-    const pending = this.battle?.pending;
-    if (!pending || this.shotMustChoose()) return false;
-    const enemy = this.sessions[otherSide(pending.side)];
-    const rolled = this.pendingRoll()!;
-    const at = turnedRound(rolled.target);
-    const { hits, retreats, hitFaces } = readRoll(appliedFaces(rolled.roll.faces, rolled.roll.kept), rolled.roll.target);
+  /**
+   * Deal the shot's hits and flags to the enemy unit; sandbags there ignore 1 flag. After a close
+   * assault, the unit may take ground once its target has retreated or been destroyed
+   */
+  private applyShot(side: Faction, index: number) {
+    const shooter = this.sessions[side];
+    const enemy = this.sessions[otherSide(side)];
+    const shot = shooter.getSnapshot().shots[index]!;
+    const at = turnedRound(shot.targetPosition!);
+    const { hits, retreats, hitFaces } = readRoll(appliedFaces(shot.faces, shot.kept), shot.target);
     const sandbags = enemy.board.getHex(at)?.sandbags ? 1 : 0;
     enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags), hitFaces);
-    const shot = this.sessions[pending.side].getSnapshot().shots[pending.shot]!;
-
-    // After a close assault that destroyed the enemy unit or makes it retreat, the unit may take
-    // ground: armour overruns; infantry pushes back a unit it made retreat
-    const shooter = this.sessions[pending.side];
-    const from = shooter.orderSummaries()[shot.orderIndex]!.firingFrom;
-    const leaves = !enemy.board.getHex(at)?.unit || enemy.isRetreating(at);
-    const ground =
-      shot.target.closeAssault && leaves && shooter.canTakeGround(shot.orderIndex) && !shooter.isRetreating(from)
-        ? { side: pending.side, order: shot.orderIndex }
-        : null;
-    this.battle = { ...this.battle!, pending: null, ground };
-    return this.publish();
+    const assault = shot.target.closeAssault ? { side, order: shot.orderIndex, at: shot.targetPosition! } : null;
+    this.battle = { ...this.battle!, assault, ground: null };
+    this.settleRetreats();
   }
 
-  /**
-   * The unit takes ground after its close assault, or doesn't. Taking it, the enemy unit
-   * retreats at once (its player picks the hexes, `retreat`), then the unit moves in and fires
-   * once more; otherwise the enemy unit stays marked to retreat after the battle
-   */
+  /** The unit takes ground after its close assault (it moves in and, armour, fires once more), or doesn't */
   decideGround(take: boolean): boolean {
     const ground = this.battle?.ground;
     if (!ground) return false;
@@ -580,10 +553,10 @@ class PassAndPlayMatch {
       return this.publish();
     }
     const session = this.sessions[ground.side];
-    const shot = session.getSnapshot().shots.findLast((s) => s.orderIndex === ground.order)!;
-    const enemy = turnedRound(shot.targetPosition!);
-    this.battle = { ...this.battle!, ground: null, overrun: { ...ground, enemy } };
-    this.settleRetreats();
+    if (!session.takeGround(ground.order)) return false;
+    // Infantry that pushed the enemy back moves in without firing again
+    const pushedBack = session.getSnapshot().shots.findLast((s) => s.orderIndex === ground.order)?.pushedBack;
+    this.battle = { ...this.battle!, ground: null, bonus: pushedBack ? null : { ...ground } };
     return this.publish();
   }
 
@@ -591,20 +564,13 @@ class PassAndPlayMatch {
   retreat(to: Position): boolean {
     const next = this.nextRetreat();
     if (!next || !this.sessions[next.side].retreatTo(next.position, to)) return false;
-    if (this.battle?.overrun) this.battle = { ...this.battle, overrun: { ...this.battle.overrun, enemy: { ...to } } };
     this.settleRetreats();
     return this.publish();
   }
 
-  /** The unit that retreats next: the one being overrun, or after the battle the attacker's units first */
+  /** The unit that must retreat next: the attacker's units first */
   private nextRetreat(): { side: Faction; position: Position } | null {
-    const battle = this.battle;
-    if (!battle) return null;
-    if (battle.overrun) {
-      const side = otherSide(battle.overrun.side);
-      return this.sessions[side].isRetreating(battle.overrun.enemy) ? { side, position: battle.overrun.enemy } : null;
-    }
-    if (!battle.retreating) return null;
+    if (!this.battle) return null;
     for (const side of [this.scenario.attacker, otherSide(this.scenario.attacker)]) {
       const marked = this.sessions[side].getSnapshot().strength.find((unit) => unit.retreats > 0);
       if (marked) return { side, position: marked.position };
@@ -614,8 +580,8 @@ class PassAndPlayMatch {
 
   /**
    * Carry the retreats as far as they go without a choice: a unit with nowhere to go loses a
-   * figure for the hex. Then an overrun ends with the unit moving in, and the retreats after the
-   * battle with the final phase
+   * figure for the hex. Once nobody has to retreat, a close assault whose target left its hex
+   * (retreated or destroyed) lets the unit take ground
    */
   private settleRetreats() {
     for (let next = this.nextRetreat(); next; next = this.nextRetreat()) {
@@ -624,30 +590,22 @@ class PassAndPlayMatch {
       session.retreatBlocked(next.position);
     }
     const battle = this.battle!;
-    if (battle.overrun) {
-      const { side, order } = battle.overrun;
-      const session = this.sessions[side];
-      const shot = session.getSnapshot().shots.findLast((s) => s.orderIndex === order)!;
-      // The hex is free once the enemy unit has retreated or been destroyed
-      const free = !this.sessions[otherSide(side)].board.getHex(turnedRound(shot.targetPosition!))?.unit;
-      const took = free && session.takeGround(order);
-      // Infantry that pushed the enemy back moves in without firing again
-      const bonus = took && !session.getSnapshot().shots.findLast((s) => s.orderIndex === order)?.pushedBack;
-      this.battle = { ...battle, overrun: null, bonus: bonus ? { side, order } : null };
-    } else if (battle.retreating) {
-      this.finishBattle();
-    }
+    if (!battle.assault) return;
+    const { side, order, at } = battle.assault;
+    const shooter = this.sessions[side];
+    const free = !this.sessions[otherSide(side)].board.getHex(turnedRound(at))?.unit;
+    const from = shooter.orderSummaries()[order]?.firingFrom;
+    const can = free && !!from && !shooter.hasRetreated(from) && shooter.canTakeGround(order);
+    this.battle = { ...battle, assault: null, ground: can ? { side, order } : null };
   }
 
   /**
-   * The firing is over (units that haven't fired lose their shot): the units marked to retreat
-   * retreat, the attacker's first, then each side goes on to its final phase
+   * The firing is over (units that haven't fired lose their shot): each side goes on to its
+   * final phase. Retreats are made as the flags come, so none is left
    */
   endBattle(): boolean {
-    const battle = this.battle;
-    if (!battle || this.busy()) return false;
-    this.battle = { ...battle, bonus: null, retreating: true };
-    this.settleRetreats();
+    if (!this.battle || this.busy()) return false;
+    this.finishBattle();
     return this.publish();
   }
 
@@ -658,38 +616,19 @@ class PassAndPlayMatch {
     this.covered = true;
   }
 
-  /** The roll waiting to be dealt: its dice, where it was fired from and at (the shooter's view) */
-  private pendingRoll(): { roll: ShotRoll; from: Position; target: Position } | null {
-    const pending = this.battle?.pending;
-    if (!pending) return null;
-    const session = this.sessions[pending.side];
-    const game = session.getSnapshot();
-    const shot = game.shots[pending.shot]!;
-    return { roll: shot, from: session.orderSummaries()[shot.orderIndex]!.firingFrom, target: shot.targetPosition! };
-  }
-
   /**
-   * Results the pending shot may apply: as many as its unit's figures (all its units' with
-   * Concentrated Fire), one more with a card's dice
+   * Hits the shot may deal: as many as its unit's figures (all its units' with Concentrated
+   * Fire), one more with a card's dice
    */
-  private shotLimit(): number {
-    const pending = this.battle!.pending!;
-    const session = this.sessions[pending.side];
-    const { roll, from } = this.pendingRoll()!;
+  private shotLimit(side: Faction, index: number): number {
+    const session = this.sessions[side];
+    const shot = session.getSnapshot().shots[index]!;
     const summaries = session.orderSummaries();
-    const joined = session.getSnapshot().shots[pending.shot]!.joined ?? [];
-    const figures = [from, ...joined.map((order) => summaries[order]!.firingFrom)].reduce(
-      (sum, position) => sum + (session.figuresAt(position) ?? 0),
+    const figures = [shot.orderIndex, ...(shot.joined ?? [])].reduce(
+      (sum, order) => sum + (session.figuresAt(summaries[order]!.firingFrom) ?? 0),
       0
     );
-    return resultLimit(figures, roll.combatBonus);
-  }
-
-  private shotMustChoose(): boolean {
-    const rolled = this.pendingRoll();
-    if (!rolled) return false;
-    const { hits, retreats } = readRoll(appliedFaces(rolled.roll.faces, rolled.roll.kept), rolled.roll.target);
-    return hits + retreats > this.shotLimit();
+    return resultLimit(figures, shot.combatBonus);
   }
 
   /** Something must be settled before anyone fires or the battle ends */
@@ -697,10 +636,8 @@ class PassAndPlayMatch {
     const battle = this.battle;
     if (!battle) return false;
     return (
-      !!battle.pending ||
       !!battle.ground ||
-      !!battle.overrun ||
-      battle.retreating ||
+      this.nextRetreat() !== null ||
       FACTIONS.some((side) => this.sessions[side].getSnapshot().attacksPending)
     );
   }
@@ -735,6 +672,7 @@ class PassAndPlayMatch {
       const { hits, retreats, hitFaces } = readRoll(attack.faces, attack.target);
       enemy.sufferHits(turnedRound(marker), hits, retreats, hitFaces);
     });
+    this.settleRetreats();
     return this.publish();
   }
 
@@ -747,11 +685,9 @@ class PassAndPlayMatch {
       side: turn?.side ?? null,
       group: turn?.group ?? null,
       fireable: turn ? this.fireable(turn.side, turn.group) : [],
-      pending: battle.pending && { ...battle.pending, limit: this.shotLimit(), mustChoose: this.shotMustChoose() },
       attacks: FACTIONS.filter((side) => this.sessions[side].getSnapshot().attacksPending),
       ground: battle.ground,
       retreat: this.retreatView(),
-      retreating: battle.retreating,
     };
   }
 
@@ -793,21 +729,9 @@ class PassAndPlayMatch {
     return (ref.kind === "shot" ? game.shots[ref.index] : game.standingCollisions[ref.index]) ?? null;
   }
 
-  /** Results the collision's unit may apply: as many as its figures */
+  /** Hits the collision's unit may deal: as many as its figures */
   private limitOf(side: Faction, position: Position): number {
     return resultLimit(this.sessions[side].figuresAt(inAlliesView(side, position)) ?? 0, false);
-  }
-
-  /** A unit of the rolled collision has more results than it may apply, and its player hasn't picked */
-  private mustChoose(index: number): boolean {
-    const collision = this.movement!.collisions[index]!;
-    if (!collision.rolls || collision.applied) return false;
-    return collision.units.some((unit, i) => {
-      const roll = this.rollOf(unit.side, collision.rolls![i]!);
-      if (!roll) return false;
-      const { hits, retreats } = readRoll(appliedFaces(roll.faces, roll.kept), roll.target);
-      return hits + retreats > this.limitOf(unit.side, unit.position);
-    });
   }
 
   /**
@@ -827,6 +751,7 @@ class PassAndPlayMatch {
       const stands = game.strength.find((s) => samePosition(s.position, position));
       return {
         figures,
+        pinned: stands?.pinned ?? false,
         retreats: stands?.retreats ?? 0,
         damaged: stands?.damaged ?? false,
         hitThisTurn: stands?.hitThisTurn ?? 0,
@@ -898,22 +823,18 @@ class PassAndPlayMatch {
   private movementView(): MatchSnapshot["movement"] {
     const movement = this.movement;
     if (!movement) return null;
-    const collisions = movement.collisions.map(({ rolls, units, applied, ...collision }, index): CollisionView => ({
+    const collisions = movement.collisions.map(({ rolls, units, applied, ...collision }): CollisionView => ({
       ...collision,
       rolled: rolls !== null,
       applied,
       units: units.map((unit, i) => {
         const roll = rolls ? this.rollOf(unit.side, rolls[i]!) : null;
-        const limit = this.limitOf(unit.side, unit.position);
-        const results = roll ? readRoll(appliedFaces(roll.faces, roll.kept), roll.target) : null;
         return {
           ...unit,
           unitType:
             this.sessions[unit.side].board.getHex(inAlliesView(unit.side, unit.position))?.unit?.getUnitType() ??
             UnitType.INFANTRY,
           roll,
-          limit,
-          mustChoose: !applied && !!results && results.hits + results.retreats > limit && this.mustChoose(index),
         };
       }) as [CollidingUnitView, CollidingUnitView],
     }));

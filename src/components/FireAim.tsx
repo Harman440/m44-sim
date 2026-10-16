@@ -7,7 +7,7 @@ import CommandCard from "../game-core/commandCard";
 import { FireContext, calculateFireDice } from "../game-core/fireRules";
 import { FireTarget, mapAnswers } from "../game-core/fireTargets";
 import { samePosition } from "../game-core/position";
-import { FIRE_QUESTIONS, TARGET_INFANTRY, TARGET_OTHER, fireBonusSteps } from "../data/fireQuestions";
+import { FIRE_QUESTIONS, PINNED_ANSWER, PINNED_FIRE_DICE, TARGET_INFANTRY, TARGET_OTHER, fireBonusSteps } from "../data/fireQuestions";
 import { TargetKinds } from "../data/hitRules";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -33,6 +33,7 @@ const TEXT = defineMessages({
     isInfantry: "¿Es infantería?",
     sandbags: "¿Sacos terreros?",
     camouflaged: "¿Camuflada?",
+    pinned: "¿Tu unidad está inmovilizada? (recibió una bandera este turno)",
     suppressive: "Fuego de supresión: una cara de infantería es bandera",
     concentrated: "Fuego concentrado: suma unidades que no se movieron",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice} ${dice === 1 ? "dado" : "dados"}`,
@@ -55,6 +56,7 @@ const TEXT = defineMessages({
     isInfantry: "Is it infantry?",
     sandbags: "Sandbags?",
     camouflaged: "Camouflaged?",
+    pinned: "Is your unit pinned? (it took a flag this turn)",
     suppressive: "Suppressive Fire: an infantry side is a flag",
     concentrated: "Concentrated Fire: add units that didn't move",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice} ${dice === 1 ? "die" : "dice"}`,
@@ -78,6 +80,8 @@ export interface FireAimChoice {
   suppressive?: boolean;
   /** Concentrated Fire: the other orders whose units roll with this one */
   joined?: readonly number[];
+  /** The firing unit is pinned (own tablets: the player says) */
+  pinned?: boolean;
 }
 
 /** Concentrated Fire: a unit that can roll with the one firing, where it stands and the dice it adds */
@@ -143,6 +147,7 @@ function FireAim({
   const [chosenSandbags, setSandbags] = useState(false);
   const [camouflaged, setCamouflaged] = useState(false);
   const [suppressive, setSuppressive] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const [chosenJoined, setJoined] = useState<readonly number[]>([]);
   const [missed, setMissed] = useState(false);
 
@@ -160,14 +165,24 @@ function FireAim({
         targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY,
         sandbags: sandbags ? "yes" : "no",
         camouflage: camouflaged ? "yes" : "no",
+        [PINNED_ANSWER]: pinned ? "yes" : "no",
       }
     : {};
+  // A pinned unit (a flag this turn) may lose a die: on own tablets the player says, pass and play knows
+  const asksPinned = context.pinned === undefined && PINNED_FIRE_DICE[context.unitType] !== 0;
   // The enemy may have the Camouflage card: a target at range may be out of reach
   const asksCamouflage = !knownTarget && !!context.enemyCamouflage && !!target && target.distance > 1;
   // Concentrated Fire: the units that can join this shot as it stands, and the ones joined that still can
   const choiceSoFar: FireAimChoice | null =
     target && kind
-      ? { position: target.position, infantry: kind === "infantry", sandbags, camouflaged: asksCamouflage && camouflaged, suppressive }
+      ? {
+          position: target.position,
+          infantry: kind === "infantry",
+          sandbags,
+          camouflaged: asksCamouflage && camouflaged,
+          suppressive,
+          pinned: asksPinned && pinned,
+        }
       : null;
   const joinOptions = choiceSoFar && joinable ? joinable(choiceSoFar) : [];
   const joined = chosenJoined.filter((order) => joinOptions.some((option) => option.order === order));
@@ -295,6 +310,20 @@ function FireAim({
             </Stack>
           )}
         </Stack>
+
+        {asksPinned && (
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            <Box sx={{ display: "inline-flex", "& .die": { width: 28, height: 28 } }}>
+              <DieFaceIcon face={DieFace.FLAG} faction={faction} />
+            </Box>
+            <FormControlLabel
+              control={<Switch checked={pinned} onChange={(e) => setPinned(e.target.checked)} />}
+              label={t.pinned}
+              labelPlacement="start"
+              sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
+            />
+          </Stack>
+        )}
 
         {suppressiveFire && (
           <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>

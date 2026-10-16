@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 35;
+export const SAVE_VERSION = 36;
 
 interface SavedUnit {
   type: UnitType;
@@ -43,8 +43,10 @@ export interface SavedGame {
   figures: boolean;
   /** Hits each damaged unit has taken, by unit index */
   hits: { unit: number; hits: number }[];
-  /** Flags each unit must retreat after the battle, by unit index */
+  /** Flags each unit took this turn (one pins it, each more makes it retreat), by unit index */
   retreatFlags: { unit: number; flags: number }[];
+  /** Hexes each unit must still retreat now, by unit index */
+  retreatsDue: { unit: number; flags: number }[];
   /** Hits each unit took this turn, by unit index; missing in older saves */
   turnHits?: { unit: number; hits: number }[];
   /** Infantry-symbol hits each unit ignored this turn with Personal Armor, by unit index */
@@ -150,8 +152,10 @@ export interface SessionState {
   drawnCombatCard: CombatCard | null;
   /** Pass and play: hits taken, by unit (it keeps them from turn to turn) */
   hits: ReadonlyMap<Unit, number>;
-  /** Pass and play: flags the unit must retreat after this turn's battle */
+  /** Pass and play: flags the unit took this turn (one pins it) */
   retreatFlags: ReadonlyMap<Unit, number>;
+  /** Pass and play: hexes the unit must still retreat now */
+  retreatsDue: ReadonlyMap<Unit, number>;
   /** Pass and play: hits taken this turn, by unit */
   turnHits: ReadonlyMap<Unit, number>;
   /** Pass and play: infantry-symbol hits ignored this turn with Personal Armor, by unit */
@@ -336,6 +340,7 @@ export function writeSave(
     drops: state.drops.map((p) => ({ ...p })),
     hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
+    retreatsDue: [...state.retreatsDue].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     armorHits: [...state.armorHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     camouflaged: [...state.camouflaged].map(unitIndex),
@@ -516,6 +521,7 @@ export function readSave(
     standingCollisions: readStandingCollisions(saved.standingCollisions),
     hits: readUnitCounts(saved.hits, "hits", unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
+    retreatsDue: readUnitCounts(saved.retreatsDue, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
     armorHits: readUnitCounts(saved.armorHits, "hits", unit),
     camouflaged: readUnits(saved.camouflaged, "Camouflaged units", unit),

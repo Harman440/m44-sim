@@ -47,7 +47,9 @@ Each player will order a unit to fire after his opponent has fired, starting wit
 
 This means a player might fire twice with his units before the other player does. In other words, if there are units from both sides that will fire and haven't moved, the attacking player fires first and, by turns, both players finish firing all the units that haven't moved. Then do the same with the units that have moved.
 
-Retreats are marked with a black marker and are taken into account at the end of the battle phase. If in close assault and a retreat is rolled the defender must ask the attacker if he wants to take ground (armor overrun) and only in this case is the retreat done immediately. The attacking unit must take ground. The unit forced to retreat may still battle from the new location. If a unit is marked for a retreat the unit can't take ground (armor overrun).
+**Pinned (reworks retreats):** a unit's first flag in a turn doesn't make it retreat: it's pinned until the end of the turn (mark it). Pinned infantry fires with one die less; armour and artillery ignore the minus one. Each flag after the first, in the same roll or a later one, makes the unit retreat one hex immediately (accumulated flags − 1), and a unit that retreated doesn't battle again this turn. Close assault is no exception: it takes two flags to force a retreat. After a close assault whose target retreated or was eliminated, armour may take ground and battle again; in pass and play infantry may move in without battling again.
+
+**Limited damage:** a unit applies no more hits than it has figures (one more with a card's extra dice). Only hits are dropped: flags and supplies always count. Pass and play drops them automatically, keeping grenades first.
 
 Any player can use a reaction combat card in the battling phase. Only one of these cards can be used by each player in the battle phase.
 

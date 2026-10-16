@@ -260,6 +260,24 @@ const fromTownSteps = ({ unitType, fromTerrain }: FireContext): DiceStep[] =>
     ? [{ label: { es: "Desde un pueblo", en: "From a town" }, dice: FROM_TOWN_FIRE_DICE[unitType], kind: "fromTown" }]
     : [];
 
+/**
+ * Dice lost by a pinned unit (house rule: it took a flag this turn), by its type. Armour and
+ * artillery ignore the pin
+ */
+export const PINNED_FIRE_DICE: Record<UnitType, number> = {
+  [UnitType.INFANTRY]: -1,
+  [UnitType.TANK]: 0,
+  [UnitType.ARTILLERY]: 0,
+};
+
+/** The answer that says the firing unit is pinned, on own tablets (pass and play knows: `FireContext.pinned`) */
+export const PINNED_ANSWER = "pinned";
+
+const pinnedSteps = ({ unitType, pinned }: FireContext, answers: FireAnswers): DiceStep[] =>
+  (pinned ?? answers[PINNED_ANSWER] === "yes") && PINNED_FIRE_DICE[unitType] !== 0
+    ? [{ label: { es: "Inmovilizada", en: "Pinned" }, dice: PINNED_FIRE_DICE[unitType], kind: "pinned" }]
+    : [];
+
 /** Extra dice that don't need a question: the command card's bonuses, and the firing unit's own hex (barbed wire, a town) */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
   answers.distance
@@ -268,6 +286,7 @@ export const fireBonusSteps = (context: FireContext, answers: FireAnswers): Dice
         ...combatSteps(context, answers.distance === "1"),
         ...wireSteps(context),
         ...fromTownSteps(context),
+        ...pinnedSteps(context, answers),
       ]
     : [];
 
@@ -284,6 +303,7 @@ export const collisionSteps = (context: FireContext): DiceStep[] => [
   { label: { es: "Choque", en: "Collision" }, dice: -1, kind: "collision" },
   ...cardSteps(context, true),
   ...combatSteps(context, true),
+  ...pinnedSteps(context, {}),
 ];
 
 /** Reminders kept with every collision roll */

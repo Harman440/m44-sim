@@ -32,6 +32,11 @@ export interface FireContext {
   fromWire?: boolean;
   /** The enemy may have camouflaged units (the Camouflage card): a shot at range asks about its target */
   enemyCamouflage?: boolean;
+  /**
+   * Pass and play: the unit took a flag this turn and is pinned (infantry loses a die). Left out on
+   * own tablets, where the player says so: the answer `pinned` ("yes"/"no")
+   */
+  pinned?: boolean;
 }
 
 /** Answers so far, by question id -> option value */
@@ -43,7 +48,7 @@ export interface FireOption {
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
-export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown" | "joined";
+export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown" | "joined" | "pinned";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {

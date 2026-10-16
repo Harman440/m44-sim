@@ -3,6 +3,7 @@ import { Alert, Button, Stack } from "@mui/material";
 import { ShotRoll } from "../game-core/gameSession";
 import { appliedFaces } from "../game-core/rollResult";
 import { placedDice } from "../game-core/fireRules";
+import { faceHits } from "../data/hitRules";
 import { Faction } from "../types/faction";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
@@ -10,19 +11,19 @@ import { defineMessages, useMessages } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
-    pickHint: "Toca los dados cuyo resultado aplicas. Los demás se descartan.",
+    pickHint: "Toca los impactos que aplicas; los demás se descartan. Las banderas y los suministros cuentan siempre.",
     apply: (picked: number, rolled: number) => `Aplicar ${picked} de ${rolled}`,
     cancel: "Cancelar",
     changeApplied: "Cambiar resultados aplicados",
-    applyFewer: "Aplicar menos resultados",
+    applyFewer: "Aplicar menos impactos",
     applyAll: "Aplicar todos",
   },
   en: {
-    pickHint: "Tap the dice whose results you apply. The rest are discarded.",
+    pickHint: "Tap the hits you apply; the rest are discarded. Flags and supplies always count.",
     apply: (picked: number, rolled: number) => `Apply ${picked} of ${rolled}`,
     cancel: "Cancel",
     changeApplied: "Change applied results",
-    applyFewer: "Apply fewer results",
+    applyFewer: "Apply fewer hits",
     applyAll: "Apply all",
   },
 });
@@ -40,9 +41,9 @@ interface ShotDiceProps {
 
 /**
  * A shot's dice and what they mean on the table. The player can apply fewer
- * results than were rolled (a unit with few figures keeps at most as many
- * results as it has): they tap the dice to apply, and the rest stay on show,
- * greyed out as discarded.
+ * hits than were rolled (a unit with few figures deals at most as many hits
+ * as it has): they tap the hits to apply, and the rest stay on show, greyed
+ * out as discarded. Flags and supplies always count
  */
 function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: ShotDiceProps) {
   /** The dice picked so far while choosing; null when not choosing */
@@ -51,8 +52,11 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
   if (shot.dice === 0) return null;
 
   const allDice = shot.faces.map((_, i) => i);
-  const toggle = (index: number) =>
+  const hits = (index: number) => faceHits(shot.faces[index]!, shot.target);
+  const toggle = (index: number) => {
+    if (!hits(index)) return;
     setPicked((prev) => (prev?.includes(index) ? prev.filter((i) => i !== index) : [...(prev ?? []), index]));
+  };
   const apply = () => {
     if (picked && onKeepResults?.(picked)) setPicked(null);
   };
@@ -78,7 +82,7 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
           rolling={rolling}
           placed={placedDice(shot)}
         />
-        {onKeepResults && (
+        {onKeepResults && shot.faces.some((_, i) => hits(i)) && (
           <Stack sx={{ alignItems: "flex-start", gap: 0.5, mt: 1.5 }}>
             {picked ? (
               <>
