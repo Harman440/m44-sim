@@ -39,8 +39,13 @@ export interface OrderSummary {
   shotsLeft: number;
   /** It didn't move and lost its unfired shot when the player moved on to the moved units */
   skipped: boolean;
-  /** It fires before any other unit, whatever the firing order (Tras las líneas enemigas, ¡Fusiles arriba!) */
+  /** It fires before any other unit, whatever the firing order (Tras las líneas enemigas) */
   firesFirst: boolean;
+  /**
+   * It fires in the first group, with the units that didn't move: it didn't move, or it's
+   * infantry that moved under ¡Fusiles arriba!
+   */
+  unmovedGroup: boolean;
   /** It moved, so it must wait until every unit that didn't move has fired (or been skipped) */
   waiting: boolean;
 }
@@ -60,20 +65,18 @@ export function summarizeOrders(
   /** Pass and play: units marked to retreat, which can't battle any more this turn */
   retreating: ReadonlySet<Unit> = new Set()
 ): OrderSummary[] {
-  const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped, retreating);
-  const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
+  // ¡Fusiles arriba!: the moved units of its types fire with the units that didn't move
+  const withUnmoved = combatCards.flatMap((card) => (card.effect?.kind === "firesWithUnmoved" ? card.effect.unitTypes : []));
+  const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped, retreating, withUnmoved);
+  const unmovedLeft = summaries.some((s) => s.unmovedGroup && s.shotsLeft > 0);
   // The unit that used a combat card's movement, when the card makes it fire first (Behind Enemy Lines)
   const movedFiresFirst = (order: Order) => {
     const effect = combatCards.find((card) => card.id === order.boostCard)?.effect;
     return effect?.kind === "move" && !!effect.firesFirst;
   };
-  // ¡Fusiles arriba!: any unit may fire first; the first to fire (collisions aside) is the one
-  const anyFiresFirst = combatCards.some((card) => card.effect?.kind === "firesFirst");
-  const firstShot = anyFiresFirst ? shots.find((shot) => !shot.collision) : undefined;
-  const nobodyWaits = anyFiresFirst && !firstShot;
   return summaries.map((s, i) => {
-    const first = movedFiresFirst(orders[i]!) || firstShot?.orderIndex === i;
-    return { ...s, firesFirst: first, waiting: !first && !nobodyWaits && !s.hold && s.shotsLeft > 0 && unmovedLeft };
+    const first = movedFiresFirst(orders[i]!);
+    return { ...s, firesFirst: first, waiting: !first && !s.unmovedGroup && s.shotsLeft > 0 && unmovedLeft };
   });
 }
 
@@ -82,13 +85,15 @@ function summarizeEach(
   board: BoardManager,
   shots: readonly Shot[],
   unmovedFireSkipped: boolean,
-  retreating: ReadonlySet<Unit>
+  retreating: ReadonlySet<Unit>,
+  withUnmoved: readonly UnitType[]
 ): Omit<OrderSummary, "waiting" | "firesFirst">[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
 
   return orders.map((order, index) => {
     const destination = board.getHex(order.end)!;
     const hold = samePosition(order.start, order.end);
+    const unmovedGroup = hold || withUnmoved.includes(order.unit.getUnitType());
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
     // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)
@@ -99,7 +104,7 @@ function summarizeEach(
     const overrunPending = bonusShot && unitShots.at(-1) === groundShot;
     // It fought a collision (house rule), or it's marked to retreat: no more shots this turn
     const blocked = unitShots.some((shot) => shot.collision) || retreating.has(order.unit);
-    const skipped = hold && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;
+    const skipped = unmovedGroup && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;
     return {
       index,
       unitType: order.unit.getUnitType(),
@@ -107,6 +112,7 @@ function summarizeEach(
       position: order.end,
       section: destination.getSide(),
       hold,
+      unmovedGroup,
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),
       destinationTerrain: destination.getType(),
       canFire: order.canFire,

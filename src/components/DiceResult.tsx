@@ -131,6 +131,8 @@ interface DiceResultProps {
   target?: ShotTarget;
   /** The dice were just rolled: throw them in */
   rolling?: boolean;
+  /** How many of the last dice were added already showing their face (Heat of Battle's flag): never thrown */
+  placed?: number;
 }
 
 /** The faces of a roll; a die that hits glows */
@@ -142,12 +144,16 @@ function DiceResult({
   picking,
   target,
   rolling = false,
+  placed = 0,
 }: DiceResultProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
   const hitColor = useTheme().palette.error.main;
   const reduceMotion = useReducedMotion();
+  const thrown = roll.faces.length - placed;
+  /** This die is thrown in now (not one added already showing its face) */
+  const throws = (i: number) => rolling && i < thrown;
 
   /** The row of dice; each die is drawn by `drawDie`, and `over` is laid over the row */
   const dice = (
@@ -186,7 +192,7 @@ function DiceResult({
     </div>
   );
 
-  const flat = dice((face, i) => <RollingDie face={face} index={i} faction={faction} die={die} rolling={rolling} />);
+  const flat = dice((face, i) => <RollingDie face={face} index={i} faction={faction} die={die} rolling={throws(i)} />);
   if (!supports3D) return <Box sx={{ mt: 1.5 }}>{flat}</Box>;
 
   // In 3D each slot is an empty spot of the die's size, for the layout and the glow of a hit
@@ -203,7 +209,7 @@ function DiceResult({
                   role="img"
                   aria-label={labels.dieFaces[face]}
                   // A hit glows once its die has landed
-                  style={{ animationDelay: rolling && !reduceMotion ? `${ROLL_TIME + i * DIE_STAGGER}s` : "0s" }}
+                  style={{ animationDelay: throws(i) && !reduceMotion ? `${ROLL_TIME + i * DIE_STAGGER}s` : "0s" }}
                 />
               ),
               setRow,
@@ -217,6 +223,7 @@ function DiceResult({
                     faction={faction}
                     dimmed={roll.faces.map((_, i) => !applied(i))}
                     tumble={rolling && !reduceMotion}
+                    placed={roll.faces.map((_, i) => i >= thrown)}
                     thrownAt={shownAt}
                   />
                 </Suspense>

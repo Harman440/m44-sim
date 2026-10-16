@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Button, Stack } from "@mui/material";
 import { ShotRoll } from "../game-core/gameSession";
 import { appliedFaces } from "../game-core/rollResult";
+import { placedDice } from "../game-core/fireRules";
 import { Faction } from "../types/faction";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
@@ -74,6 +75,7 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
           picking={picked ? { selected: picked, onToggle: toggle } : undefined}
           target={shot.target}
           rolling={rolling}
+          placed={placedDice(shot)}
         />
         {onKeepResults && (
           <Stack sx={{ alignItems: "flex-start", gap: 0.5, mt: 1.5 }}>

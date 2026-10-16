@@ -1,6 +1,7 @@
 // game-core/combatCard.ts
 import type { UnitType } from "./unit";
 import type { HexType } from "../types/hex";
+import type { DieFace } from "./dice";
 import type { Localized } from "../i18n/lang";
 
 /** Why a card is in a side's deck: what the side (or the map, or the enemy) has */
@@ -57,14 +58,12 @@ export type CombatEffect =
   | AttackEffect
   | MoveEffect
   | { kind: "changeSection" }
-  /** Heat of Battle: units of these types can take ground after a close assault and fire again, like armour */
-  | { kind: "takeGround"; unitTypes: readonly UnitType[]; units: number }
   /** Reinforcements: a unit of this type arrives on the cross in the final phase */
   | { kind: "reinforcements"; unitType: UnitType }
   /** Fortify: after the battle, one of this side's infantry or artillery units gets sandbags on the map */
   | { kind: "fortify"; unitTypes: readonly UnitType[] }
-  /** Rifles Up: played before any unit fires, the first unit to fire can be any of them, whatever the firing order */
-  | { kind: "firesFirst" };
+  /** Rifles Up!: this side's units of these types that moved fire with the units that didn't move */
+  | { kind: "firesWithUnmoved"; unitTypes: readonly UnitType[] };
 
 /**
  * +dice on every shot this turn by a unit of these types (Spotter), or by the unit the card is
@@ -78,6 +77,8 @@ export interface DiceBonusEffect {
   closeAssault?: boolean;
   /** Only when it fires from one of these terrains or a hex next to one (Street Equipment: a town) */
   near?: readonly HexType[];
+  /** The extra dice aren't thrown: each is added to the roll showing this face (Heat of Battle: a flag) */
+  face?: DieFace;
 }
 
 /** An order card that attacks the marked hexes in the battle, with its own roll per hex (Barrage, Air Power…) */

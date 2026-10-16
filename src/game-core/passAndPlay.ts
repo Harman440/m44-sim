@@ -429,8 +429,8 @@ class PassAndPlayMatch {
   // --- The battle: the sides take turns to fire, one unit at a time
 
   /**
-   * The side whose turn it is to fire, and the group: the units that didn't move first, then
-   * the ones that moved. In each group the attacker fires first and the sides alternate; a side
+   * The side whose turn it is to fire, and the group: the units that didn't move first (with
+   * ¡Fusiles arriba!'s moved infantry), then the ones that moved. In each group the attacker fires first and the sides alternate; a side
    * with nothing left to fire lets the other go on. Null once nobody can fire
    */
   private battleTurn(): { side: Faction; group: FireGroup } | null {
@@ -438,7 +438,7 @@ class PassAndPlayMatch {
     if (!battle || this.busy()) return null;
     if (battle.bonus) {
       const summary = this.sessions[battle.bonus.side].orderSummaries()[battle.bonus.order];
-      return { side: battle.bonus.side, group: summary?.hold ? "unmoved" : "moved" };
+      return { side: battle.bonus.side, group: summary?.unmovedGroup ? "unmoved" : "moved" };
     }
     const group: FireGroup | null = FACTIONS.some((side) => this.fireable(side, "unmoved").length > 0)
       ? "unmoved"
@@ -465,7 +465,7 @@ class PassAndPlayMatch {
     return session
       .orderSummaries()
       .filter((summary) => summary.shotsLeft > 0 && !held.has(summary.index))
-      .filter((summary) => (group === "unmoved") === summary.hold)
+      .filter((summary) => (group === "unmoved") === summary.unmovedGroup)
       .map((summary) => summary.index);
   }
 
@@ -479,7 +479,7 @@ class PassAndPlayMatch {
     if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
     const session = this.sessions[turn.side];
     // The units that moved fire once every unit that didn't move has fired, on either side
-    if (turn.group === "moved" && session.orderSummaries().some((s) => s.hold && s.shotsLeft > 0)) {
+    if (turn.group === "moved" && session.orderSummaries().some((s) => s.unmovedGroup && s.shotsLeft > 0)) {
       session.skipUnmovedFire();
     }
     const shot = session.getSnapshot().shots.length;

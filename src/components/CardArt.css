@@ -186,6 +186,16 @@
   fill: var(--art-ink);
 }
 
+.card-art__flag-pole {
+  stroke: var(--art-ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.card-art__flag {
+  fill: #b3261e;
+}
+
 .card-art__crate {
   fill: #b98a4e;
   stroke: #6b4521;

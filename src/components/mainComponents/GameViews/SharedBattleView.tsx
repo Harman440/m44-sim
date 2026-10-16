@@ -26,6 +26,7 @@ import DiceResult, { rollDuration } from "../../DiceResult";
 import RollReading from "../../RollReading";
 import ShotSteps from "../../ShotSteps";
 import { appliedFaces } from "../../../game-core/rollResult";
+import { placedDice } from "../../../game-core/fireRules";
 import DicePool from "../../DicePool";
 import InfoButton from "../../InfoButton";
 import ShotDice from "../../ShotDice";
@@ -427,6 +428,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     }
                     target={shownShot.target}
                     rolling={rolled?.side === shown.side && rolled.shot === shown.shot}
+                    placed={placedDice(shownShot)}
                   />
                 </Box>
               )}

@@ -123,6 +123,9 @@ Armour was too easy to play, and no card is played as a reaction in the battle a
 - Street Equipment (was Street Fight) — 1: given to 1 ordered infantry unit; +1 die on each shot it fires from a town hex or a hex next to one.
 - Explosives — 1: given to 1 ordered infantry unit; +1 die on each of its close assaults this turn.
 - Spotter — 1: every ordered artillery unit fires with +1 die this turn, on each shot.
+- Rifles Up! — 2: this turn, your infantry that moved fires with the units that didn't move (its dice don't change).
+- Heat of Battle — 1: this turn, each close assault by your infantry (a collision too) gets 1 extra die that is always a flag; it isn't rolled.
+- Infantry never overruns any more: only armour takes ground and battles again. In pass and play, infantry whose close assault made the target retreat can still push it out and move into its hex, without firing again.
 - Reinforcements — 6: no roll; an infantry unit arrives on the cross as the final phase starts (another empty hex if the cross is taken). Scenarios no longer have a reinforcement table.
 - An extra order costs 3 coins for infantry and 4 for armour or artillery.
 - Pass and play: infantry units have 6 figures.

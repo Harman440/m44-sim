@@ -2196,7 +2196,7 @@ describe("GameSession combat card effects", () => {
     });
 
     describe("¡Fusiles arriba!", () => {
-      const riflesUp = card({ id: "rifles-up", effect: { kind: "firesFirst" } });
+      const riflesUp = card({ id: "rifles-up", effect: { kind: "firesWithUnmoved", unitTypes: [UnitType.INFANTRY] } });
 
       /** In the battle, the left infantry moved and the other held; ¡Fusiles arriba! played with the orders */
       const battle = (played = true) => {
@@ -2210,14 +2210,22 @@ describe("GameSession combat card effects", () => {
         return session;
       };
 
-      it("lets the moved unit fire first", () => {
+      it("lets the moved infantry fire with the units that didn't move", () => {
         expect(battle(false).fire(0, answersAt("2"))).toBe(false); // without it, it waits for the unit that held
         const session = battle();
+        const summaries = () => {
+          const game = session.getSnapshot();
+          return summarizeOrders(game.orders, session.board, game.shots, false, [riflesUp]);
+        };
+        expect(summaries()[0]).toMatchObject({ hold: false, unmovedGroup: true, waiting: false, firesFirst: false });
         expect(session.fire(0, answersAt("2"))).toBe(true);
-        const game = session.getSnapshot();
-        const summaries = summarizeOrders(game.orders, session.board, game.shots, false, [riflesUp]);
-        expect(summaries[0]!.firesFirst).toBe(true);
-        expect(summaries[1]!.firesFirst).toBe(false);
+        expect(session.fire(1, answersAt("2"))).toBe(true);
+      });
+
+      it("loses the moved infantry's shot with the others' when the player moves on", () => {
+        const session = battle();
+        expect(session.skipUnmovedFire()).toBe(true);
+        expect(session.shotsLeft(0)).toBe(0);
       });
     });
 
@@ -2620,33 +2628,68 @@ describe("GameSession taking ground", () => {
     expect(restored.getSnapshot().shots[0]).toMatchObject({ tookGround: true, targetPosition: FOREST });
   });
 
-  it("lets infantry take ground only with Fragor del combate, for one unit", () => {
+  describe("Fragor del combate", () => {
     const heat: CombatCard = {
       id: "heat-of-battle",
       name: same("Fragor del combate"),
       description: same(""),
       cost: 1,
-      effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 },
+      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true, face: DieFace.FLAG },
     };
-    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
-    const session = new GameSession({
-      scenario: { ...scenario, attacker: "Axis" },
-      faction: "Allies",
-      initialHandSize: 1,
-      commandCards,
-      combatCards: [heat, { ...heat, id: "other" }],
-      random: () => 0,
-    });
-    session.startFirstTurn();
-    session.adjustCoins(1);
-    session.pickCard(commandCards[0]!, undefined, heat);
-    orderAllAndFight(session);
-    // Orders 0 and 1: the infantry at (7,1) and (7,3)
-    session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true, sandbags: false });
-    session.fireAt(1, { position: { row: 6, col: 3 }, infantry: true, sandbags: false });
+    /** The defender at turn 2 with both left infantry ordered to hold (orders 0 and 1: (7,1) and (7,3)), in `phase` */
+    const heatSession = (played: boolean) => {
+      const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+      const session = new GameSession({
+        scenario: { ...scenario, attacker: "Axis" },
+        faction: "Allies",
+        initialHandSize: 1,
+        commandCards,
+        combatCards: [heat],
+        random: () => 0,
+      });
+      session.startFirstTurn();
+      session.adjustCoins(1);
+      session.pickCard(commandCards[0]!, undefined, played ? [heat] : []);
+      return session;
+    };
 
-    expect(session.takeGround(0)).toBe(true);
-    expect(session.canTakeGround(1)).toBe(false);
+    it("adds a die already showing a flag to infantry's close assaults, and none at range", () => {
+      const session = heatSession(true);
+      orderAllAndFight(session);
+      session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true, sandbags: false });
+      session.fireAt(1, { position: { row: 5, col: 3 }, infantry: true, sandbags: false });
+
+      const [assault, atRange] = session.getSnapshot().shots;
+      // random 0 throws infantry symbols: the flag is the card's, set rather than thrown
+      expect(assault).toMatchObject({ dice: 4, faces: [DieFace.INFANTRY, DieFace.INFANTRY, DieFace.INFANTRY, DieFace.FLAG], combatBonus: true });
+      expect(assault!.steps).toContainEqual(expect.objectContaining({ kind: "card", dice: 1, face: DieFace.FLAG }));
+      expect(atRange!.faces).not.toContain(DieFace.FLAG);
+      expect(atRange!.combatBonus).toBe(false);
+    });
+
+    it("adds its flag to an infantry collision too", () => {
+      const session = heatSession(true);
+      while (session.getSnapshot().ordersLeft > 0) {
+        const position = session.getSnapshot().orderable[0]!;
+        session.issueOrder(position, position);
+      }
+      session.commitOrders();
+
+      expect(session.rollCollision(LEFT_INF, true, 0)).toBe(true);
+      expect(session.getSnapshot().shots[0]!.faces.at(-1)).toBe(DieFace.FLAG);
+    });
+
+    it("never lets infantry take ground, with or without the card", () => {
+      for (const played of [false, true]) {
+        const session = heatSession(played);
+        orderAllAndFight(session);
+        session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true, sandbags: false });
+
+        expect(readRoll(session.getSnapshot().shots[0]!.faces, session.getSnapshot().shots[0]!.target).hits).toBeGreaterThan(0);
+        expect(session.canTakeGround(0)).toBe(false);
+        expect(session.takeGround(0)).toBe(false);
+      }
+    });
   });
 });
 

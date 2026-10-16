@@ -16,6 +16,7 @@ import { AssignRule, CombatCard, CombatEffect, DeckReason, MarkerRule } from "..
 
 export type { DeckReason };
 import { UnitType } from "../game-core/unit";
+import { DieFace } from "../game-core/dice";
 import { HexType } from "../types/hex";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
@@ -182,10 +183,10 @@ const TEMPLATES: CombatCardTemplate[] = [
   // Cards for the battle, given to a unit or for all of a kind (they used to be played in the battle)
   card("heat-of-battle", { es: "Fragor del combate", en: "Heat of Battle" }, 1, offensive,
     {
-      es: "1 infantería que gana un asalto cercano (retirada o eliminación) puede arrollar como los blindados: toma terreno y vuelve a combatir, aunque la casilla lo impida.",
-      en: "1 infantry unit that wins a close assault (retreat or elimination) can overrun like armor: it takes ground and battles again, even if the hex would prevent it.",
+      es: "Este turno, cada asalto cercano de tu infantería lleva 1 dado más, que siempre es una bandera (también en un choque).",
+      en: "This turn, each close assault by your infantry gets 1 extra die, which is always a flag (in a collision too).",
     },
-    { effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 } }),
+    { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true, face: DieFace.FLAG } }),
   card("street-equipment", { es: "Equipo urbano", en: "Street Equipment" }, 1, always,
     {
       es: "Dásela a 1 infantería con orden: este turno tira 1 dado más cuando dispara desde un edificio o junto a uno.",
@@ -251,9 +252,12 @@ const TEMPLATES: CombatCardTemplate[] = [
       assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
       effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true },
     }),
-  card("rifles-up", { es: "¡Fusiles arriba!", en: "Rifles Up!" }, 1, always,
-    { es: "Elige una unidad tuya: dispara antes que nadie.", en: "Pick one of your units: it fires before anyone else." },
-    { effect: { kind: "firesFirst" } }),
+  card("rifles-up", { es: "¡Fusiles arriba!", en: "Rifles Up!" }, 2, always,
+    {
+      es: "Este turno, tu infantería que se ha movido dispara junto con las unidades que no se movieron.",
+      en: "This turn, your infantry that moved fires with the units that didn't move.",
+    },
+    { effect: { kind: "firesWithUnmoved", unitTypes: [UnitType.INFANTRY] } }),
 ];
 
 /** One card per copy; copies get a numbered id so saves can tell them apart */

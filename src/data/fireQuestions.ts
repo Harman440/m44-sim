@@ -22,7 +22,7 @@ export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
 /**
  * Units that can take ground after a close assault that eliminates or pushes
  * back the target, and fire once more (house rule: in close assault only).
- * Infantry can too with Fragor del combate.
+ * Infantry never does (pass and play's push-back is `PUSH_BACK_UNIT_TYPES`).
  */
 export const TAKE_GROUND_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
 
@@ -200,7 +200,7 @@ const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): Dice
 const combatSteps = ({ combatBonuses = [] }: FireContext, closeAssault: boolean): DiceStep[] =>
   combatBonuses
     .filter((bonus) => bonus.closeAssault === undefined || bonus.closeAssault === closeAssault)
-    .map((bonus) => ({ label: cardLabel(bonus.name), dice: bonus.dice, kind: "card", card: bonus.name }));
+    .map((bonus) => ({ label: cardLabel(bonus.name), dice: bonus.dice, kind: "card", card: bonus.name, ...(bonus.face && { face: bonus.face }) }));
 
 /** Dice the combat cards played add to this shot: a card's extra dice let the unit keep one more result */
 export const combatBonusDice = (context: FireContext, closeAssault: boolean): number =>

@@ -18,6 +18,7 @@ import Stamp from "./Stamp";
 const TEXT = defineMessages({
   es: {
     extraOrder: "orden extra",
+    movedFiresNow: "movida, ¡Fusiles arriba!",
     tookGround: "tomó terreno",
     closeAssault: "asalto cercano",
     wire: "Alambrada",
@@ -67,6 +68,7 @@ const TEXT = defineMessages({
   },
   en: {
     extraOrder: "extra order",
+    movedFiresNow: "moved, Rifles Up!",
     tookGround: "took ground",
     closeAssault: "close assault",
     wire: "Barbed wire",
@@ -331,7 +333,13 @@ function FireOrderList({
     const unit = labels.unitKind(summary.unitType, summary.elite);
     const hasShots = summary.shots.length > 0;
     const canFireNow = summary.shotsLeft > 0 && !summary.waiting && onFire !== undefined;
-    const tags = [summary.extra && t.extraOrder, summary.tookGround && t.tookGround, summary.closeAssaultOnly && t.closeAssault]
+    const tags = [
+      summary.extra && t.extraOrder,
+      // ¡Fusiles arriba!: it moved, yet fires with the units that didn't
+      summary.unmovedGroup && !summary.hold && t.movedFiresNow,
+      summary.tookGround && t.tookGround,
+      summary.closeAssaultOnly && t.closeAssault,
+    ]
       .filter(Boolean)
       .join(" · ");
     let status: ReactNode;
@@ -406,8 +414,8 @@ function FireOrderList({
   };
 
   const first = summaries.filter((s) => s.firesFirst);
-  const unmoved = summaries.filter((s) => s.hold && !s.firesFirst);
-  const moved = summaries.filter((s) => !s.hold && !s.firesFirst);
+  const unmoved = summaries.filter((s) => s.unmovedGroup && !s.firesFirst);
+  const moved = summaries.filter((s) => !s.unmovedGroup && !s.firesFirst);
 
   return (
     <Box data-testid="fire-order-list">

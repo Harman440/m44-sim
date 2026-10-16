@@ -10,6 +10,7 @@ import SandbagsIcon from "./SandbagsIcon";
 import GameIcon from "./GameIcon";
 import { TargetSprites } from "./TargetKindPicker";
 import { BarbedWireIcon } from "./BarbedWire";
+import DieFaceIcon from "./DieFaceIcon";
 
 interface ShotStepsProps {
   shot: ShotRoll;
@@ -140,6 +141,12 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
           >
             {step.kind === "base" ? step.dice : signed(step.dice)}
           </Typography>
+          {/* A die added already showing its face (Heat of Battle's flag) */}
+          {step.face && (
+            <Box component="span" data-testid="step-face" sx={{ display: "inline-flex", width: 22, height: 22, "& .die": { width: 22, height: 22 } }}>
+              <DieFaceIcon face={step.face} faction={faction} />
+            </Box>
+          )}
         </Pill>
       ))}
       <Typography component="span" aria-hidden sx={{ color: "text.secondary", px: 0.25 }}>

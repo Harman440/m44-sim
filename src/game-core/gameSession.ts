@@ -7,7 +7,7 @@ import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds } from "../data/hitRules";
 import { ATTACK_DIE_SIDES, DieFace, SIDES_OF, rollDice } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
-import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
+import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
 import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
 import {
   COLLISION_NOTES,
@@ -984,7 +984,7 @@ class GameSession {
       unitType: unit.getUnitType(),
       steps,
       dice,
-      faces: rollDice(dice, this.random, SIDES_OF[target.die]),
+      faces: this.rollFaces(dice, steps, target),
       notes: [...COLLISION_NOTES],
       collision: true,
       target,
@@ -1044,9 +1044,9 @@ class GameSession {
     );
   }
 
-  /** No unit that didn't move has a shot left (or the player skipped them) */
+  /** No unit of the first group (the units that didn't move) has a shot left, or the player skipped them */
   private unmovedFireDone(): boolean {
-    return this.summaries().every((summary) => !summary.hold || summary.shotsLeft === 0);
+    return this.summaries().every((summary) => !summary.unmovedGroup || summary.shotsLeft === 0);
   }
 
   /** Shots the unit of this order may still fire this turn (0 if it can't fire at all) */
@@ -1075,7 +1075,14 @@ class GameSession {
       if (effect?.kind !== "diceBonus" || !effect.unitTypes.includes(unitType)) return [];
       if (card.assign && !this.assignments.some((a) => a.card === card && a.unit === order.unit)) return [];
       if (effect.near && !this.isNear(summary.firingFrom, effect.near)) return [];
-      return [{ name: card.name, dice: effect.dice, ...(effect.closeAssault !== undefined && { closeAssault: effect.closeAssault }) }];
+      return [
+        {
+          name: card.name,
+          dice: effect.dice,
+          ...(effect.closeAssault !== undefined && { closeAssault: effect.closeAssault }),
+          ...(effect.face && { face: effect.face }),
+        },
+      ];
     });
   }
 
@@ -1268,8 +1275,8 @@ class GameSession {
 
   /**
    * The unit's last shot was a close assault that pushed back or eliminated
-   * its target, so it can take ground and fire once more: armour always,
-   * infantry with Fragor del combate (for as many units as the card says).
+   * its target, so it can take ground and fire once more: armour only
+   * (infantry never overruns; pass and play's push-back is `groundRuleFor`).
    * Once per unit per turn; not after a collision.
    */
   canTakeGround(orderIndex: number): boolean {
@@ -1303,15 +1310,7 @@ class GameSession {
     // Only when the target could have retreated (a flag) or been eliminated (a hit)
     const { hits, retreats } = readRoll(appliedFaces(last.faces, last.kept), last.target);
     if (hits === 0 && retreats === 0) return false;
-    const unitType = order.unit.getUnitType();
-    if (TAKE_GROUND_UNIT_TYPES.includes(unitType)) return true;
-    const effect = this.playedEffect("takeGround");
-    if (!effect || !effect.unitTypes.includes(unitType)) return false;
-    // The card's units already used: units of its types (not armour) that took ground
-    const used = this.summaries().filter(
-      (s) => s.tookGround && effect.unitTypes.includes(s.unitType) && !TAKE_GROUND_UNIT_TYPES.includes(s.unitType)
-    ).length;
-    return used < effect.units;
+    return TAKE_GROUND_UNIT_TYPES.includes(order.unit.getUnitType());
   }
 
   /**
@@ -1518,11 +1517,16 @@ class GameSession {
     combatBonus = false,
     targetPosition?: Position
   ): true {
-    const faces = rollDice(dice, this.random, SIDES_OF[target.die]);
-    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null };
+    const shot: Shot = { orderIndex, steps, dice, faces: this.rollFaces(dice, steps, target), notes, collision, target, combatBonus, kept: null };
     if (targetPosition) shot.targetPosition = targetPosition;
     this.shots = [...this.shots, shot];
     return this.publish();
+  }
+
+  /** A roll's faces: the dice thrown, then the ones its steps add already showing a face (Heat of Battle's flag) */
+  private rollFaces(dice: number, steps: readonly DiceStep[], target: ShotTarget): DieFace[] {
+    const set = setFaces(steps).slice(0, dice);
+    return [...rollDice(dice - set.length, this.random, SIDES_OF[target.die]), ...set];
   }
 
   // --- coins: earned and spent through the turn; `turnCoins` works out the ledger

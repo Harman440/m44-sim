@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import { Box, ButtonBase, Stack, Typography } from "@mui/material";
 import { CombatCard } from "../../../game-core/combatCard";
 import { UnitType } from "../../../game-core/unit";
@@ -39,15 +39,13 @@ interface BattleReserveProps {
   played: readonly CombatCard[];
   /** The ones given to a unit, and the unit */
   assignments?: readonly { card: CombatCard; unitType: UnitType }[];
-  /** Shown under the cards: what they still let the player do (¡Fusiles arriba!: pick the unit that fires first) */
-  playedAction?: ReactNode;
 }
 
 /**
  * The battle's side panel: the coins, large, and the combat cards played with
  * the orders (none is played in the battle). Tapping a card shows it in full.
  */
-function BattleReserve({ faction, coins, onShowCoins, played, assignments = [], playedAction }: BattleReserveProps) {
+function BattleReserve({ faction, coins, onShowCoins, played, assignments = [] }: BattleReserveProps) {
   const [looking, setLooking] = useState<CombatCard | null>(null);
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -110,7 +108,6 @@ function BattleReserve({ faction, coins, onShowCoins, played, assignments = [], 
             })}
           </Box>
         )}
-        {playedAction}
       </Box>
 
       <CardDialog card={shown} faction={faction} onClose={() => setLooking(null)} label={t.combatCard} />

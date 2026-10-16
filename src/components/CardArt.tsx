@@ -6,6 +6,7 @@
 // Colours come from the look (--m44-* variables and --card-accent).
 import { ReactNode, useId } from "react";
 import CommandCard, { FireBonus, SECTIONS, Section } from "../game-core/commandCard";
+import { DieFace } from "../game-core/dice";
 import { CombatCard } from "../game-core/combatCard";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
@@ -159,7 +160,8 @@ type Glyph =
   | { kind: "token"; type: UnitType; ghost?: boolean; enemy?: boolean }
   | { kind: "move"; struck?: boolean }
   | { kind: "fire"; struck?: boolean }
-  | { kind: "die" }
+  /** A die; with `flag`, one showing a flag (a die added already showing it, Heat of Battle) */
+  | { kind: "die"; flag?: boolean }
   | { kind: "crate" }
   /** `count` cards fanned, with one picked */
   | { kind: "cards"; count: number }
@@ -224,13 +226,18 @@ function GlyphPiece({ glyph, x, y, faction }: { glyph: Glyph; x: number; y: numb
       return (
         <g>
           <rect x={x + 1} y={y - 9} width={18} height={18} rx={4} className="card-art__die" />
-          {[
-            [-4.5, -4.5],
-            [0, 0],
-            [4.5, 4.5],
-          ].map(([dx, dy]) => (
-            <circle key={`${dx}`} cx={x + 10 + dx!} cy={y + dy!} r={1.8} className="card-art__pip" />
-          ))}
+          {glyph.flag ? (
+            <>
+              <line x1={x + 6.5} y1={y - 5.5} x2={x + 6.5} y2={y + 6} className="card-art__flag-pole" />
+              <path d={`M${x + 7} ${y - 5.5} l8 3 l-8 3 z`} className="card-art__flag" />
+            </>
+          ) : (
+            [
+              [-4.5, -4.5],
+              [0, 0],
+              [4.5, 4.5],
+            ].map(([dx, dy]) => <circle key={`${dx}`} cx={x + 10 + dx!} cy={y + dy!} r={1.8} className="card-art__pip" />)
+          )}
         </g>
       );
     case "crate":
@@ -305,9 +312,9 @@ function RuleRow({ glyphs, y, faction }: { glyphs: Glyph[]; y: number; faction: 
 /** "+1", "−1" */
 const signed = (n: number) => (n < 0 ? `−${-n}` : `+${n}`);
 
-const fireBonusGlyphs = (bonus: FireBonus): Glyph[] => [
+const fireBonusGlyphs = (bonus: FireBonus, flag = false): Glyph[] => [
   ...(bonus.unitTypes ?? []).map((type): Glyph => ({ kind: "token", type })),
-  { kind: "die" },
+  { kind: "die", flag },
   { kind: "text", text: signed(bonus.dice) },
   ...(bonus.closeAssault === undefined ? [] : [{ kind: "reach", adjacent: bonus.closeAssault } as Glyph]),
 ];
@@ -535,7 +542,17 @@ function combatRules(card: CombatCard): Glyph[][] {
   }
   if (effect?.kind === "reinforcements") rules.push([{ kind: "cross" }, { kind: "text", text: "→" }, { kind: "token", type: effect.unitType }]);
   if (effect?.kind === "diceBonus") {
-    rules.push(fireBonusGlyphs({ dice: effect.dice, unitTypes: effect.unitTypes, closeAssault: effect.closeAssault }));
+    rules.push(
+      fireBonusGlyphs({ dice: effect.dice, unitTypes: effect.unitTypes, closeAssault: effect.closeAssault }, effect.face === DieFace.FLAG)
+    );
+  }
+  if (effect?.kind === "firesWithUnmoved") {
+    rules.push([
+      ...effect.unitTypes.map((type): Glyph => ({ kind: "token", type })),
+      { kind: "move" },
+      { kind: "fire" },
+      { kind: "text", text: "1º" },
+    ]);
   }
   if (effect?.kind === "move") {
     const type = effect.unitTypes?.[0];
@@ -547,14 +564,6 @@ function combatRules(card: CombatCard): Glyph[][] {
       ...(effect.maxMove ? [{ kind: "text", text: `${effect.maxMove}` } as Glyph] : []),
       ...(effect.fireInto || effect.ignoreTerrain ? [{ kind: "terrain" } as Glyph] : []),
       ...(effect.fireInto ? [{ kind: "fire" } as Glyph] : []),
-    ]);
-  }
-  if (effect?.kind === "takeGround") {
-    rules.push([
-      { kind: "text", text: `${effect.units}×` },
-      ...effect.unitTypes.map((type): Glyph => ({ kind: "token", type })),
-      { kind: "move" },
-      { kind: "fire" },
     ]);
   }
   return rules;
@@ -671,22 +680,6 @@ function CombatScene({ card, faction, hexes }: { card: CombatCard; faction: Fact
     );
   }
 
-  if (effect?.kind === "takeGround") {
-    // A unit winning a close assault: it takes the hex and fires again
-    const from = at(mid - 1);
-    const to = at(mid);
-    const next = at(mid + 1);
-    return (
-      <>
-        <polygon points={hexShape(to)} className="card-art__hex card-art__hex--on" />
-        <Token type={effect.unitTypes[0] ?? UnitType.INFANTRY} faction={faction} x={from.x} y={from.y} />
-        <path d={`M${from.x + 8} ${from.y - 10} Q${to.x} ${to.y - 22} ${to.x + 2} ${to.y - 8}`} className="card-art__path" />
-        <Token type={UnitType.INFANTRY} faction={enemy} x={next.x} y={next.y} r={9} />
-        <Reticle x={next.x} y={next.y} r={8} />
-      </>
-    );
-  }
-
   const glyph = tableGlyph(card, faction, row, mid);
   if (glyph) return glyph;
 
@@ -769,11 +762,14 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
   }
 
   if (id === "rifles-up") {
-    // Your unit fires before anyone else
+    // Your infantry that moved fires with the units that didn't: in the first group
+    const start = at(mid - 2);
     const own = at(mid - 1);
     const them = at(mid + 2);
     return (
       <>
+        <Token type={UnitType.INFANTRY} faction={faction} x={start.x} y={y} r={9} ghost />
+        <path d={`M${start.x + 10} ${y} L${own.x - 13} ${y}`} className="card-art__path" />
         <path d={`M${own.x + 12} ${y} L${them.x - 12} ${y}`} className="card-art__path card-art__path--solid" />
         <Token type={UnitType.INFANTRY} faction={faction} x={own.x} y={y} r={12} />
         <Token type={UnitType.INFANTRY} faction={enemy} x={them.x} y={y} r={10} />

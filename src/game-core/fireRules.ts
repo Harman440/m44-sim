@@ -5,6 +5,7 @@ import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { HexType } from "../types/hex";
 import type { Localized } from "../i18n/lang";
+import type { DieFace } from "./dice";
 
 /** What we know about the shot before asking anything */
 /** Extra dice a combat card played this turn gives a unit, every time it fires */
@@ -13,6 +14,8 @@ export interface CombatBonus {
   dice: number;
   /** true: only in close assault; omitted: at any distance */
   closeAssault?: boolean;
+  /** Its dice aren't thrown but added showing this face (Heat of Battle: a flag) */
+  face?: DieFace;
 }
 
 export interface FireContext {
@@ -48,7 +51,17 @@ export interface DiceStep {
   kind?: DiceStepKind;
   /** A "card" step's card name, drawn beside the cards icon */
   card?: Localized;
+  /** The step's dice aren't thrown: each is added to the roll showing this face (Heat of Battle) */
+  face?: DieFace;
 }
+
+/** The faces a roll's steps add without throwing them (Heat of Battle's flag), in step order */
+export const setFaces = (steps: readonly DiceStep[]): DieFace[] =>
+  steps.flatMap((step) => (step.face ? Array.from({ length: Math.max(0, step.dice) }, () => step.face!) : []));
+
+/** How many of a roll's dice, the last ones, were added already showing their face rather than thrown */
+export const placedDice = (roll: { steps: readonly DiceStep[]; faces: readonly DieFace[] }): number =>
+  Math.min(setFaces(roll.steps).length, roll.faces.length);
 
 export interface FireQuestion {
   id: string;

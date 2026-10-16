@@ -25,8 +25,8 @@ const TEXT = defineMessages({
     takeGround: "Tomar terreno",
     takeGroundRule:
       "Si un blindado gana un asalto cercano (el objetivo se retira o es eliminado), puede tomar terreno: se mueve " +
-      "a la casilla del objetivo y combate otra vez, solo en asalto cercano. La infantería también puede, pero solo " +
-      "con la carta Fragor del combate. Una vez por unidad y turno.",
+      "a la casilla del objetivo y combate otra vez, solo en asalto cercano. Una vez por unidad y turno. La " +
+      "infantería no toma terreno.",
     wire: "Alambradas",
     wireRule:
       "La infantería que está en una alambrada elige al disparar: la quita (y no dispara) o dispara con 1 dado " +
@@ -59,8 +59,8 @@ const TEXT = defineMessages({
     takeGround: "Take ground",
     takeGroundRule:
       "If an armor unit wins a close assault (the target retreats or is eliminated), it can take ground: it moves " +
-      "to the target's hex and fights again, in close assault only. Infantry can too, but only " +
-      "with the Heat of Battle card. Once per unit per turn.",
+      "to the target's hex and fights again, in close assault only. Once per unit per turn. Infantry " +
+      "doesn't take ground.",
     wire: "Barbed wire",
     wireRule:
       "Infantry on barbed wire chooses when firing: remove it (and not fire) or fire with 1 die " +

@@ -264,7 +264,7 @@ export function ShotResult({ shot, number, unitType, faction, board, image, roll
  * says what unit it is and whether it has sandbags, and the dice are worked
  * out. Once rolled, the shot stands: opening the unit again shows the result, and only
  * a deliberate "Anular disparo" takes it back. After a close assault, armour
- * (or infantry with Fragor del combate) can take ground and fire again.
+ * can take ground and fire again.
  */
 function FireDialog({
   summary,

@@ -37,7 +37,6 @@ const TEXT = defineMessages({
     endBattle: "Terminar batalla",
     emptyCloseAssault: "Marca las unidades en asalto cercano para que disparen.",
     emptyNoOrders: "No se dieron órdenes este turno.",
-    tapFiresFirst: "Toca en el orden de fuego la unidad que dispara primero.",
     skipTitle: "¿Pasar a las unidades movidas?",
     skipText: (n: number) =>
       `${
@@ -63,7 +62,6 @@ const TEXT = defineMessages({
     endBattle: "End battle",
     emptyCloseAssault: "Mark the units in close assault so they fire.",
     emptyNoOrders: "No orders were given this turn.",
-    tapFiresFirst: "In the firing order, tap the unit that fires first.",
     skipTitle: "On to the moved units?",
     skipText: (n: number) =>
       `${
@@ -108,9 +106,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  // ¡Fusiles arriba! goes before any unit fires (collisions aside)
-  const unitFired = game.shots.some((shot) => !shot.collision);
-  const anyFiresFirst = game.combatCardsPlayed.some((card) => card.effect?.kind === "firesFirst");
   const closeAssaultCard = game.activeCard?.closeAssaultOnly ?? false;
   const summaries = summarizeOrders(
     game.orders,
@@ -121,7 +116,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   );
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
-  const unmovedUnfired = summaries.filter((s) => s.hold && s.shotsLeft > 0).length;
+  const unmovedUnfired = summaries.filter((s) => s.unmovedGroup && s.shotsLeft > 0).length;
   // Only units that moved (and are still on the board) can have collided with an enemy unit
   const anyMoved = summaries.some((s) => !s.hold && !s.removed);
   const play = useSound();
@@ -214,14 +209,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               onShowCoins={onShowCoins}
               played={game.combatCardsPlayed}
               assignments={game.assignments}
-              playedAction={
-                anyFiresFirst &&
-                !unitFired && (
-                  <Typography variant="body2" sx={{ textAlign: "center" }}>
-                    {t.tapFiresFirst}
-                  </Typography>
-                )
-              }
             />
           </Box>
         </Box>

@@ -265,8 +265,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "The player whose turn it is battles with their units in any order.",
         },
         house: {
-          es: "Los dos bandos se alternan, una unidad cada uno, empezando por el atacante: primero los choques, después los ataques de cartas de combate, luego las unidades que no se movieron y, por último, las que se movieron.",
-          en: "The two sides take turns, one unit each, the attacker first: collisions, then combat card attacks, then units that didn't move and, last, units that moved.",
+          es: "Los dos bandos se alternan, una unidad cada uno, empezando por el atacante: primero los choques, después los ataques de cartas de combate, luego las unidades que no se movieron y, por último, las que se movieron. Con ¡Fusiles arriba!, la infantería que se movió dispara junto a las que no se movieron.",
+          en: "The two sides take turns, one unit each, the attacker first: collisions, then combat card attacks, then units that didn't move and, last, units that moved. With Rifles Up!, infantry that moved fires with the units that didn't move.",
         },
       },
       {
@@ -287,8 +287,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Infantry that wins a close assault may advance into the hex the enemy leaves. Armor may advance and battle again (overrun), at range too.",
         },
         house: {
-          es: "Solo los blindados toman terreno; la infantería, solo con la carta Fragor del combate. Si el objetivo tiene que retirarse, lo hace en ese momento; la unidad ocupa su casilla y combate otra vez, solo en asalto cercano. Una vez por unidad y turno.",
-          en: "Only armor takes ground; infantry only with the Heat of Battle card. If the target has to retreat, it does so right then; the unit moves into its hex and battles again, in close assault only. Once per unit per turn.",
+          es: "Solo los blindados toman terreno; la infantería nunca arrolla. Si el objetivo tiene que retirarse, lo hace en ese momento; el blindado ocupa su casilla y combate otra vez, solo en asalto cercano. Una vez por unidad y turno.",
+          en: "Only armor takes ground; infantry never overruns. If the target has to retreat, it does so right then; the armor moves into its hex and battles again, in close assault only. Once per unit per turn.",
         },
       },
     ],

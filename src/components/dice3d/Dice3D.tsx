@@ -38,6 +38,8 @@ export interface Dice3DProps {
   dimmed: readonly boolean[];
   /** Throw the dice in; otherwise they are simply there */
   tumble: boolean;
+  /** Per die: it was added already showing its face (Heat of Battle's flag), so it's there from the start */
+  placed?: readonly boolean[];
   /**
    * When the dice were thrown (`performance.now()`): they land on the same
    * clock as the rest of the roll (the reading, the glow of a hit), even if
@@ -142,7 +144,7 @@ function Die({ face, die, textures, at, index, dimmed, tumble, thrownAt }: DiePr
  * context per die would run out on a tablet). The row keeps the layout, the
  * glow of a hit and the buttons to pick dice; the canvas only draws.
  */
-function Dice3D({ container, faces, die, faction, dimmed, tumble, thrownAt }: Dice3DProps) {
+function Dice3D({ container, faces, die, faction, dimmed, tumble, placed = [], thrownAt }: Dice3DProps) {
   const [slots, setSlots] = useState<Point[]>(() => measureSlots(container));
   const [textures, setTextures] = useState<SideTextures[] | null>(null);
 
@@ -198,7 +200,7 @@ function Dice3D({ container, faces, die, faction, dimmed, tumble, thrownAt }: Di
               at={slots[i]}
               index={i}
               dimmed={dimmed[i] ?? false}
-              tumble={tumble}
+              tumble={tumble && !placed[i]}
               thrownAt={thrownAt}
             />
           ) : null

@@ -169,7 +169,7 @@ describe("BattleView firing order", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Cómo se juega la batalla");
-    expect(screen.getByTestId("take-ground-rule")).toHaveTextContent("solo con la carta Fragor del combate");
+    expect(screen.getByTestId("take-ground-rule")).toHaveTextContent("La infantería no toma terreno.");
   });
 
   it("groups the units that didn't move, which fire first, and the units that moved", () => {
@@ -396,7 +396,7 @@ describe("BattleView combat card effects", () => {
   };
 
   /** The defender at turn 2, with the combat cards given and `before` run before the battle */
-  const effectSetup = (combatCards: CombatCard[], played: CombatCard[] = []) => {
+  const effectSetup = (combatCards: CombatCard[], played: CombatCard[] = [], moveInfantry = false) => {
     const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 });
     const session = new GameSession({
       scenario: {
@@ -417,13 +417,29 @@ describe("BattleView combat card effects", () => {
     session.startFirstTurn();
     session.pickCard(card, undefined, played);
     if (played.some((c) => c.marker)) session.markHex({ row: 1, col: 10 });
-    session.issueOrder(INFANTRY, INFANTRY);
+    session.issueOrder(INFANTRY, moveInfantry ? session.getMoveOptions(INFANTRY)!.moveAndFire[0]! : INFANTRY);
     session.issueOrder(TANK, TANK);
     session.commitOrders();
     session.startBattle();
     render(<Harness session={session} onEndBattle={() => {}} />);
     return session;
   };
+
+  it("puts the infantry that moved with the units that didn't move under ¡Fusiles arriba!", () => {
+    const riflesUp: CombatCard = {
+      id: "rifles-up",
+      name: same("¡Fusiles arriba!"),
+      description: same(""),
+      cost: 0,
+      effect: { kind: "firesWithUnmoved", unitTypes: [UnitType.INFANTRY] },
+    };
+    effectSetup([riflesUp], [riflesUp], true);
+
+    const unmoved = screen.getByTestId("group-unmoved");
+    expect(within(unmoved).getAllByTestId("order-summary")).toHaveLength(2);
+    expect(unmoved).toHaveTextContent("movida, ¡Fusiles arriba!");
+    expect(screen.queryByTestId("group-moved")).not.toBeInTheDocument();
+  });
 
   it("rolls the attack card on each marked hex before the units can fire", () => {
     const session = effectSetup([barrage], [barrage]);

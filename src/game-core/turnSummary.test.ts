@@ -52,6 +52,7 @@ describe("summarizeOrders", () => {
       position: session.getSnapshot().orders[0]!.end,
       section: Side.CENTER,
       hold: false,
+      unmovedGroup: false,
       hexesMoved: 1,
       destinationTerrain: HexType.FOREST,
       canFire: false, // moved into forest
@@ -71,6 +72,7 @@ describe("summarizeOrders", () => {
       unitType: UnitType.INFANTRY,
       section: Side.LEFT,
       hold: true,
+      unmovedGroup: true,
       hexesMoved: 0,
       canFire: true,
       shotsLeft: 1,

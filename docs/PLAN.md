@@ -294,11 +294,11 @@ The player answered every **Decide** before Step 59 was built; each is marked **
 - [x] The turn log and History say which unit had which card. Test mode still has one of every card in hand. Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION`
 
 ### Step 63: Rifles Up! and Heat of Battle
-- [ ] Rifles Up! (¡Fusiles arriba!) costs 2: this turn, the side's infantry that moved fires with the units that didn't move (in `summarizeOrders`, and pass and play's groups in `battleTurn`). Its dice don't change: only when it fires does. The `firesFirst` effect kind goes; Behind Enemy Lines' `MoveEffect.firesFirst` stays
-- [ ] Heat of Battle (Fragor del combate): this turn, each close assault by the side's infantry rolls one more die, which is always a flag. It's a face added to the roll, not thrown: `DiceResult` shows that die already showing its flag, and `ShotSteps` shows the card's step. For limited damage it counts as a card's extra die (one more result kept). Cost 1, an attacker's card, as now
-- [ ] Infantry never overruns any more: the `takeGround` effect kind and the card branch of `canOverrun` go; armour still overruns. The rule book's taking ground and the battle's "Instrucciones" follow
-- [ ] **Decided:** pass and play's infantry push-back (`PUSH_BACK_UNIT_TYPES`: it moves into the hex its close assault made the enemy leave, but doesn't fire again) stays
-- [ ] **Decided:** Heat of Battle's flag goes on a collision roll by infantry too, since a collision counts as the unit's shot
+- [x] Rifles Up! (¡Fusiles arriba!) costs 2: this turn, the side's infantry that moved fires with the units that didn't move (in `summarizeOrders`, and pass and play's groups in `battleTurn`). Its dice don't change: only when it fires does. The `firesFirst` effect kind goes; Behind Enemy Lines' `MoveEffect.firesFirst` stays
+- [x] Heat of Battle (Fragor del combate): this turn, each close assault by the side's infantry rolls one more die, which is always a flag. It's a face added to the roll, not thrown: `DiceResult` shows that die already showing its flag, and `ShotSteps` shows the card's step. For limited damage it counts as a card's extra die (one more result kept). Cost 1, an attacker's card, as now
+- [x] Infantry never overruns any more: the `takeGround` effect kind and the card branch of `canOverrun` go; armour still overruns. The rule book's taking ground and the battle's "Instrucciones" follow
+- [x] **Decided:** pass and play's infantry push-back (`PUSH_BACK_UNIT_TYPES`: it moves into the hex its close assault made the enemy leave, but doesn't fire again) stays
+- [x] **Decided:** Heat of Battle's flag goes on a collision roll by infantry too, since a collision counts as the unit's shot
 
 ### Step 64: The defensive cards
 - [ ] Not One Step Back's painting is ready: `npm run card-art -- images/not-a-step-back.png`, into `COMBAT_PAINTINGS`

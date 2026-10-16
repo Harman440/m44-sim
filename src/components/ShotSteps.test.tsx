@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import ShotSteps from "./ShotSteps";
 import { ShotRoll } from "../game-core/gameSession";
 import { UnitType } from "../game-core/unit";
+import { DieFace } from "../game-core/dice";
 
 const shot: ShotRoll = {
   steps: [
@@ -24,5 +25,19 @@ describe("ShotSteps", () => {
 
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Desde un pueblo −2"));
     expect(container.querySelector('[data-icon="town"]')).not.toBeNull();
+  });
+
+  it("shows the die a card adds already showing its face (Fragor del combate's flag)", () => {
+    const heat: ShotRoll = {
+      ...shot,
+      steps: [
+        { label: { es: "Base", en: "Base" }, dice: 3, kind: "base" },
+        { label: { es: "Carta Fragor del combate", en: "Heat of Battle card" }, dice: 1, kind: "card", card: { es: "Fragor del combate", en: "Heat of Battle" }, face: DieFace.FLAG },
+      ],
+      target: { infantry: true, closeAssault: true, die: "battle" },
+    };
+    render(<ShotSteps shot={heat} unitType={UnitType.INFANTRY} faction="Allies" />);
+
+    expect(screen.getByTestId("step-face")).toContainElement(screen.getByRole("img", { name: "Bandera" }));
   });
 });
