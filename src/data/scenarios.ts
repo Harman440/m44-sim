@@ -34,8 +34,8 @@ const builtIns: Scenario[] = [
     image: foretDEcouvesImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
-    // August 1944: the French 2e DB attacks with Allied fighter-bombers overhead
-    airPower: { allies: 1, axis: 0 },
+    // Heavy guns and aircraft for both sides (the player's ruling)
+    airPower: { allies: 1, axis: 1 },
     tiles: foretDEcouvesTiles as Tiles,
     // The German infantry dug in at Carrouges, Sées and in the forest
     sandbags: [{ row: 3, col: 1 }, { row: 3, col: 10 }, { row: 4, col: 5 }],
@@ -114,7 +114,9 @@ const builtIns: Scenario[] = [
     image: sainteMereEgliseImage,
     initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
-    // The scenario says nothing about air superiority, so both sides keep their air cards
+    // The scenario says nothing about air superiority, so both sides keep their air cards; heavy
+    // guns only for the Axis (the player's ruling)
+    bigGuns: ['Axis'],
     paradrop: { faction: 'Allies', unitType: UnitType.INFANTRY, units: 4 },
     tiles: sainteMereEgliseTiles as Tiles,
     units: {
