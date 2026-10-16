@@ -32,6 +32,7 @@ import { TargetKinds } from "../data/hitRules";
 import HexThumbnail from "./HexThumbnail";
 import GameIcon from "./GameIcon";
 import { BarbedWireIcon } from "./BarbedWire";
+import SandbagsIcon from "./SandbagsIcon";
 import { DICE_TEXT } from "./DicePool";
 import { Localized } from "../i18n/lang";
 import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
@@ -62,6 +63,9 @@ const TEXT = defineMessages({
     wireQuestion: "¿La quita (y no dispara este turno) o dispara con 1 dado menos?",
     removeWire: "Quitar alambrada",
     fireFromWire: "Disparar (−1 dado)",
+    fortify: "Fortificar sin disparar",
+    fortified: (number: number | null) => (number !== null ? `Disparo ${number}: se fortificó, sin disparar` : "Se fortificó, sin disparar"),
+    fortifiedTable: "Pon sacos terreros en su casilla, en la mesa: cuentan desde ya.",
     back: "Volver",
     cancelShot: "Anular disparo",
     goBack: "Atrás",
@@ -94,6 +98,9 @@ const TEXT = defineMessages({
     wireQuestion: "Does it remove it (and not fire this turn) or fire with 1 die less?",
     removeWire: "Remove barbed wire",
     fireFromWire: "Fire (−1 die)",
+    fortify: "Fortify, no shot",
+    fortified: (number: number | null) => (number !== null ? `Shot ${number}: fortified, without firing` : "Fortified, without firing"),
+    fortifiedTable: "Put sandbags on its hex on the table: they count from now on.",
     back: "Back",
     cancelShot: "Cancel shot",
     goBack: "Back",
@@ -125,6 +132,11 @@ interface FireDialogProps {
   /** The unit stands on barbed wire and may remove it instead of firing (infantry) */
   canRemoveWire?: boolean;
   onRemoveWire?: () => boolean;
+  /** Fortify was played: the unit may put sandbags on its hex instead of firing */
+  canFortify?: boolean;
+  onFortify?: () => boolean;
+  /** The enemy may have camouflaged units: a target at range is asked about */
+  enemyCamouflage?: boolean;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
   longRangeDie?: boolean;
   /** What the enemy can have in the scenario */
@@ -201,7 +213,9 @@ function ExplainedAction({
 }
 
 interface ShotResultProps {
-  shot: ShotRoll & { removedWire?: Position };
+  /** Pass and play: no table to mirror */
+  shared?: boolean;
+  shot: ShotRoll & { removedWire?: Position; fortified?: Position };
   number: number | null;
   /** The firing unit's type */
   unitType: UnitType;
@@ -214,13 +228,24 @@ interface ShotResultProps {
   onKeepResults?: (kept: number[] | null) => boolean;
 }
 
-export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults }: ShotResultProps) {
+export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults, shared = false }: ShotResultProps) {
   const t = useMessages(TEXT);
   if (shot.removedWire) {
     return (
       <Stack direction="row" data-testid="shot-result" sx={{ alignItems: "center", gap: 1.5 }}>
         <BarbedWireIcon size={48} />
         <Typography variant="h6">{t.removedWire(number)}</Typography>
+      </Stack>
+    );
+  }
+  if (shot.fortified) {
+    return (
+      <Stack data-testid="shot-result" sx={{ gap: 1 }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+          <SandbagsIcon size={48} />
+          <Typography variant="h6">{t.fortified(number)}</Typography>
+        </Stack>
+        {!shared && <Typography variant="body1">{t.fortifiedTable}</Typography>}
       </Stack>
     );
   }
@@ -282,6 +307,9 @@ function FireDialog({
   targetKinds,
   canRemoveWire = false,
   onRemoveWire,
+  canFortify = false,
+  onFortify,
+  enemyCamouflage = false,
   onUndoShot,
   onKeepResults,
   onClose,
@@ -309,6 +337,7 @@ function FireDialog({
     combatBonuses,
     fromTerrain: board.getHex(summary.firingFrom)?.getType(),
     fromWire: board.getHex(summary.firingFrom)?.wire ?? false,
+    enemyCamouflage,
   };
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
   // After taking ground the unit fires again, from the hex it took
@@ -475,6 +504,19 @@ function FireDialog({
     const canGoBack = aiming && (firingAgain || (canRemoveWire && firingFromWire));
     return (
       <>
+        {aiming && canFortify && !confirmingUndo && (
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={<SandbagsIcon size={28} />}
+            onClick={() => {
+              if (onFortify?.()) setJustFired(true);
+            }}
+            sx={{ mr: "auto" }}
+          >
+            {t.fortify}
+          </Button>
+        )}
         {!aiming && summary.shots.length > 0 && onUndoShot && (
           <Button variant="text" color="error" size="small" onClick={() => setConfirmingUndo(true)} sx={{ mr: "auto" }}>
             {t.cancelShot}

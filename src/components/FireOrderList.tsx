@@ -31,6 +31,9 @@ const TEXT = defineMessages({
     cantFire: "No dispara",
     removedWireResult: "Quitó la alambrada",
     removedWire: "quitó la alambrada",
+    fortifiedStamp: "Fortificada",
+    fortifiedResult: "Se fortificó: sacos terreros en su casilla",
+    fortified: "se fortificó",
     collisionPrefix: "choque, ",
     firedResult: (results: string) => `Disparó: ${results}`,
     seeRoll: (unit: string) => `Ver tirada de ${unit}`,
@@ -81,6 +84,9 @@ const TEXT = defineMessages({
     cantFire: "Can't fire",
     removedWireResult: "Removed the barbed wire",
     removedWire: "removed the barbed wire",
+    fortifiedStamp: "Fortified",
+    fortifiedResult: "Fortified: sandbags on its hex",
+    fortified: "fortified",
     collisionPrefix: "collision, ",
     firedResult: (results: string) => `Fired: ${results}`,
     seeRoll: (unit: string) => `See ${unit}'s roll`,
@@ -344,7 +350,9 @@ function FireOrderList({
       .join(" · ");
     let status: ReactNode;
     const onlyWire = hasShots && summary.shots.every((shot) => shot.removedWire);
+    const onlyFortified = hasShots && summary.shots.every((shot) => shot.fortified);
     if (onlyWire) status = <Stamp angle={-7}>{t.wire}</Stamp>;
+    else if (onlyFortified) status = <Stamp angle={-7}>{t.fortifiedStamp}</Stamp>;
     else if (hasShots) status = <Stamp angle={-7}>{t.fired}</Stamp>;
     else if (summary.removed) status = <StatusText>{t.removed}</StatusText>;
     else if (summary.waiting) status = <StatusText>{t.waits}</StatusText>;
@@ -393,11 +401,15 @@ function FireOrderList({
           hasShots &&
           (onlyWire
             ? t.removedWireResult
+            : onlyFortified
+            ? t.fortifiedResult
             : t.firedResult(
                 summary.shots
                   .map((shot) =>
                     shot.removedWire
                       ? t.removedWire
+                      : shot.fortified
+                      ? t.fortified
                       : `${shot.collision ? t.collisionPrefix : ""}${labels.describeAppliedFaces(shot.faces, shot.kept)}${
                           shot.dice > 0 ? ` → ${labels.describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
                         }`

@@ -20,11 +20,10 @@ const TEXT = defineMessages({
     wireSelected: "Alambrada: quítala si ya no está en la mesa",
     unitSelected: "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala",
     placeReinforcement: (unit: string) => `Refuerzo (${unit.toLowerCase()}): toca la casilla libre donde lo pones`,
-    fortifying: "Fortificar: toca la infantería o artillería resaltada que recibe los sacos terreros",
+    repositioning: "Reposicionamiento: toca la casilla resaltada a la que va tu artillería, hasta 2 casillas",
     selected: (hex: string) => `Seleccionado: ${hex}`,
     removeLeavesCrew: "Eliminar: queda infantería",
     remove: "Eliminar unidad",
-    placeSandbags: "Fortificar: poner sacos terreros",
     removeSandbags: "Quitar sacos terreros",
     removeWire: "Quitar alambrada",
     cancel: "Cancelar",
@@ -37,11 +36,10 @@ const TEXT = defineMessages({
     wireSelected: "Barbed wire: remove it if it's no longer on the table",
     unitSelected: "Tap an empty hex to move the unit (retreat or advance), or remove it",
     placeReinforcement: (unit: string) => `Reinforcement (${unit.toLowerCase()}): tap the free hex where you put it`,
-    fortifying: "Fortify: tap the highlighted infantry or artillery that gets the sandbags",
+    repositioning: "Reposition: tap the highlighted hex your artillery moves to, up to 2 hexes away",
     selected: (hex: string) => `Selected: ${hex}`,
     removeLeavesCrew: "Remove: infantry stays",
     remove: "Remove unit",
-    placeSandbags: "Fortify: place sandbags",
     removeSandbags: "Remove sandbags",
     removeWire: "Remove barbed wire",
     cancel: "Cancel",
@@ -65,8 +63,9 @@ interface EndOfTurnMapProps {
  * Map of the final phase. The battle is fought and the retreats are made on
  * the physical table; this lets the player mirror the result: remove destroyed
  * units and move units that retreated or took ground (to any empty hex; the
- * table is the source of truth) and put Fortify's sandbags on a unit. Also
- * opened from Órdenes, before any order, when the map turns out not to match the table.
+ * table is the source of truth). In pass and play it places a reinforcement and
+ * moves the artillery given Reposition. Also opened from Órdenes, before any
+ * order, when the map turns out not to match the table.
  */
 function EndOfTurnMap({
   faction,
@@ -83,11 +82,18 @@ function EndOfTurnMap({
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
   const { flash, flashInvalid } = useHexFlash();
+  /** Pass and play: the artillery given Reposition still to move (a reinforcement goes first) */
+  const repositioning = game.reinforcementToPlace ? null : game.repositioning;
 
   const handleTileClick = (position: Position) => {
     const hex = boardManager.getHex(position);
     if (!hex) return;
 
+    // Pass and play's Reposition: the artillery's move, up to 2 hexes
+    if (repositioning) {
+      if (!session.reposition(position)) flashInvalid(position);
+      return;
+    }
     if (selected && samePosition(selected, position)) {
       setSelected(null);
       return;
@@ -113,11 +119,6 @@ function EndOfTurnMap({
     if (selected && session.removeWireAt(selected) && !boardManager.getHex(selected)?.hasUnit()) setSelected(null);
   };
 
-  /** Fortify's sandbags on the selected unit */
-  const handlePlaceSandbags = () => {
-    if (selected && session.placeSandbagsAt(selected)) setSelected(null);
-  };
-
   const handleRemoveSandbags = () => {
     if (selected) session.removeSandbagsAt(selected);
   };
@@ -131,24 +132,22 @@ function EndOfTurnMap({
   const leavesCrew = !!selected && session.leavesCrew(selected);
   /** The Reinforcements card's cross, until its unit is on the map */
   const reinforcements = game.reinforcementToPlace !== null;
-  const canPlaceSandbags = !!selected && session.canPlaceSandbags(selected);
-  const fortifying = game.fortifiable.length > 0;
 
   return (
     <div className="phase-layout">
       <div className="phase-layout__board">
         <Board
           onTileClick={handleTileClick}
-          unitHexPosition={selected}
-          possibleMovePositions={[]}
+          unitHexPosition={repositioning ? repositioning.from : selected}
+          possibleMovePositions={repositioning ? [...repositioning.options] : []}
           possibleMoveAndFirePositions={[]}
           boardManager={boardManager}
           orders={game.orders}
           backgroundImage={session.scenario.image}
+          camouflaged={game.camouflaged}
           invalidFlash={flash}
           markers={reinforcements ? game.markers.filter((_, i) => game.markerKinds[i] === "cross") : []}
           markerKind="cross"
-          orderablePositions={selected ? [] : game.fortifiable}
           faction={faction}
         />
       </div>
@@ -164,8 +163,8 @@ function EndOfTurnMap({
             ? t.unitSelected
             : game.reinforcementToPlace
               ? t.placeReinforcement(labels.units[game.reinforcementToPlace])
-              : fortifying
-                ? t.fortifying
+              : repositioning
+                ? t.repositioning
                 : (hint ?? (shared ? t.hintShared : t.hint))}
         </Typography>
 
@@ -178,11 +177,6 @@ function EndOfTurnMap({
               {selectedHex.hasUnit() && (
                 <Button color="error" onClick={handleRemove} startIcon={<GameIcon name="cancel" />}>
                   {leavesCrew ? t.removeLeavesCrew : t.remove}
-                </Button>
-              )}
-              {canPlaceSandbags && (
-                <Button color="warning" onClick={handlePlaceSandbags} startIcon={<SandbagsIcon size={28} />}>
-                  {t.placeSandbags}
                 </Button>
               )}
               {selectedHex.sandbags && (

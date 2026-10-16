@@ -135,13 +135,6 @@
 }
 
 /* A camouflage net over the unit */
-.card-art__net {
-  fill: color-mix(in srgb, #4f6b2c 45%, transparent);
-  stroke: #3f5523;
-  stroke-width: 2;
-  stroke-dasharray: 3 2;
-}
-
 /* A unit only on the move (Probe's extra unit), or where a unit was */
 .card-art__token--ghost {
   opacity: 0.6;

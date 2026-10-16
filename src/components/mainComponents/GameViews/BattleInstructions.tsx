@@ -33,7 +33,9 @@ const TEXT = defineMessages({
       "menos. Un tanque la quita al entrar y dispara como siempre; la artillería también dispara como siempre. Si " +
       "el rival quita una, quítala del mapa en la fase final.",
     combatCards: "Cartas de combate",
-    combatCardsRule: "Una por batalla, en cualquier momento; normalmente cuando dispara el rival. Se paga al jugarla.",
+    combatCardsRule:
+      "Se jugaron con las órdenes y ninguna se juega en la batalla: sus dados se suman solos al disparar. Lo que el rival debe tener en cuenta en la mesa:",
+    combatCardsNone: "Se jugaron con las órdenes y ninguna se juega en la batalla: sus dados se suman solos al disparar.",
     gotIt: "Entendido",
   },
   en: {
@@ -67,7 +69,9 @@ const TEXT = defineMessages({
       "less. A tank removes it as it enters and fires as usual; artillery fires as usual too. If the " +
       "opponent removes one, take it off the map in the final phase.",
     combatCards: "Combat cards",
-    combatCardsRule: "One per battle, at any moment; usually when the opponent fires. You pay when you play it.",
+    combatCardsRule:
+      "They were played with the orders, and none is played in the battle: their dice are added by themselves when firing. What the opponent must bear in mind at the table:",
+    combatCardsNone: "They were played with the orders, and none is played in the battle: their dice are added by themselves when firing.",
     gotIt: "Got it",
   },
 });
@@ -77,10 +81,12 @@ interface BattleInstructionsProps {
   onClose: () => void;
   /** This side attacks, so it fires first */
   attacking: boolean;
+  /** What the combat cards played change in the opponent's rolls (Not One Step Back, Personal Armor) */
+  reminders?: readonly string[];
 }
 
 /** How the battle is played, out of the way of the battle screen until asked for */
-function BattleInstructions({ open, onClose, attacking }: BattleInstructionsProps) {
+function BattleInstructions({ open, onClose, attacking, reminders = [] }: BattleInstructionsProps) {
   const t = useMessages(TEXT);
   const heading = (text: string) => (
     <Typography variant="overline" component="h3" color="text.secondary" sx={{ lineHeight: 1.5 }}>
@@ -128,7 +134,16 @@ function BattleInstructions({ open, onClose, attacking }: BattleInstructionsProp
 
           <Box>
             {heading(t.combatCards)}
-            <Typography variant="body1">{t.combatCardsRule}</Typography>
+            <Typography variant="body1">{reminders.length > 0 ? t.combatCardsRule : t.combatCardsNone}</Typography>
+            {reminders.length > 0 && (
+              <Box component="ul" sx={{ m: 0, mt: 1, pl: 3 }} data-testid="battle-reminders">
+                {reminders.map((reminder) => (
+                  <Typography key={reminder} component="li" variant="body1">
+                    {reminder}
+                  </Typography>
+                ))}
+              </Box>
+            )}
           </Box>
         </Stack>
       </DialogContent>

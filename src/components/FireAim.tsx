@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Button, FormControlLabel, Stack, Switch, Typography } from "@mui/material";
+import { Alert, Box, Button, FormControlLabel, Stack, Switch, Typography } from "@mui/material";
 import BoardManager from "../game-core/BoardManager";
 import CommandCard from "../game-core/commandCard";
 import { FireContext, calculateFireDice } from "../game-core/fireRules";
@@ -15,6 +15,7 @@ import DicePool, { DICE_TEXT } from "./DicePool";
 import HexThumbnail from "./HexThumbnail";
 import InfoButton from "./InfoButton";
 import SandbagsIcon from "./SandbagsIcon";
+import CamouflageIcon from "./CamouflageIcon";
 import TargetKindPicker, { TargetChoice, initialChoice } from "./TargetKindPicker";
 
 const TEXT = defineMessages({
@@ -29,6 +30,7 @@ const TEXT = defineMessages({
     tapHex: "Toca una casilla en el mapa.",
     isInfantry: "¿Es infantería?",
     sandbags: "¿Sacos terreros?",
+    camouflaged: "¿Camuflada?",
     knownInfantry: "Infantería",
     knownOther: "Blindados o artillería",
     knownSandbags: "con sacos terreros",
@@ -47,6 +49,7 @@ const TEXT = defineMessages({
     tapHex: "Tap a hex on the map.",
     isInfantry: "Is it infantry?",
     sandbags: "Sandbags?",
+    camouflaged: "Camouflaged?",
     knownInfantry: "Infantry",
     knownOther: "Armor or artillery",
     knownSandbags: "behind sandbags",
@@ -61,6 +64,8 @@ export interface FireAimChoice {
   /** The target is infantry (otherwise armour or artillery) */
   infantry: boolean;
   sandbags: boolean;
+  /** The target has the camouflage badge (only a close assault can hit it) */
+  camouflaged?: boolean;
 }
 
 interface FireAimProps {
@@ -99,6 +104,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const [picked, setPicked] = useState<Position | null>(null);
   const [chosenKind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const [chosenSandbags, setSandbags] = useState(false);
+  const [camouflaged, setCamouflaged] = useState(false);
   const [missed, setMissed] = useState(false);
 
   const firable = targets.filter((t) => t.lineOfSight && t.dice > 0);
@@ -110,8 +116,15 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const sandbags = known ? known.sandbags : chosenSandbags;
 
   const answers: Record<string, string> = target
-    ? { ...mapAnswers(target), targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY, sandbags: sandbags ? "yes" : "no" }
+    ? {
+        ...mapAnswers(target),
+        targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY,
+        sandbags: sandbags ? "yes" : "no",
+        camouflage: camouflaged ? "yes" : "no",
+      }
     : {};
+  // The enemy may have the Camouflage card: a target at range may be out of reach
+  const asksCamouflage = !knownTarget && !!context.enemyCamouflage && !!target && target.distance > 1;
   const result = target ? calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps) : null;
   const eightSided = longRangeDie && !!target && target.distance > 1;
 
@@ -220,9 +233,26 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
               />
             </Stack>
           )}
+          {asksCamouflage && (
+            <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+              {step(4, "")}
+              <CamouflageIcon />
+              <FormControlLabel
+                control={<Switch checked={camouflaged} onChange={(e) => setCamouflaged(e.target.checked)} />}
+                label={t.camouflaged}
+                labelPlacement="start"
+                sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
+              />
+            </Stack>
+          )}
         </Stack>
 
-        {result && (
+        {result?.blocked && (
+          <Alert severity="warning" data-testid="fire-blocked">
+            {tr(result.blocked)}
+          </Alert>
+        )}
+        {result && !result.blocked && (
           <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
             <DicePool dice={result.dice} eightSided={eightSided} faction={faction}>
               <InfoButton title={t.whereDiceComeFrom}>
@@ -245,9 +275,11 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         <Button
           size="large"
           fullWidth
-          disabled={!target || !kind}
+          disabled={!target || !kind || !!result?.blocked}
           onClick={() =>
-            target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags })
+            target &&
+            kind &&
+            onFire({ position: target.position, infantry: kind === "infantry", sandbags, camouflaged: asksCamouflage && camouflaged })
           }
         >
           {t.fire}

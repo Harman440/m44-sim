@@ -509,6 +509,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           markerKind={game.markerKinds}
           markablePositions={marking ? game.markable : giving ? game.assigning!.positions : []}
           cardBadges={game.assignments}
+          camouflaged={game.camouflaged}
           faction={faction}
         />
       </div>

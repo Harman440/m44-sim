@@ -125,4 +125,20 @@ describe("combat cards in the shared battle", () => {
     expect(axis.fireTargetsFor(0).map((t) => t.position)).toEqual([axisView(4, 2)]);
   });
 
+  it("lets Fortify's infantry put sandbags on its hex instead of firing, which count against the enemy's next shots", () => {
+    const match = newMatch();
+    toTurn2Battle(match, {}, { combat: "fortify" });
+    const allies = match.sessions.Allies;
+    const infantry = allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, { row: 4, col: 2 }));
+
+    // The Axis, the attacker, goes first in the group
+    expect(match.fortify(infantry)).toBe(false);
+    match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    expect(match.getSnapshot().battle).toMatchObject({ side: "Allies" });
+
+    expect(match.fortify(infantry)).toBe(true);
+    expect(allies.board.getHex({ row: 4, col: 2 })!.sandbags).toBe(true);
+    expect(match.sessions.Axis.enemyAt(axisView(4, 2))?.sandbags).toBe(true);
+    expect(match.getSnapshot().battle).toMatchObject({ side: "Axis" });
+  });
 });

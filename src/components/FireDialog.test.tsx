@@ -73,6 +73,9 @@ function Harness({ session }: { session: GameSession }) {
         targetKinds={session.targetKinds}
         canRemoveWire={game.canRemoveWire[0]}
         onRemoveWire={() => session.removeWire(0)}
+        canFortify={game.canFortify[0]}
+        onFortify={() => session.fortify(0)}
+        enemyCamouflage={session.enemyCamouflage}
         onUndoShot={() => session.undoShot(0)}
         onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}
         onClose={() => setOpen(false)}
@@ -213,6 +216,20 @@ describe("FireDialog", () => {
 
     expect(session.getSnapshot().shots[0]!.faces).toEqual(["infantry", "infantry"]);
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · a distancia · dado de 8 caras"));
+  });
+
+  it("asks whether a target at range is camouflaged, and won't fire at it if it is", () => {
+    open(UnitType.INFANTRY);
+    tapHex(ADJACENT);
+    choose("Infantería");
+    // A close assault can always hit it
+    expect(screen.queryByRole("switch", { name: "¿Camuflada?" })).not.toBeInTheDocument();
+
+    tapHex(TWO_AWAY);
+    fireEvent.click(screen.getByRole("switch", { name: "¿Camuflada?" }));
+
+    expect(screen.getByTestId("fire-blocked")).toHaveTextContent("A una unidad camuflada solo se le dispara en asalto cercano.");
+    expect(screen.getByRole("button", { name: "Disparar" })).toBeDisabled();
   });
 
   it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", async () => {
@@ -413,5 +430,47 @@ describe("FireDialog on barbed wire", () => {
   it("doesn't ask armour", () => {
     openOnWire(UnitType.TANK);
     expect(screen.queryByTestId("wire-choice")).not.toBeInTheDocument();
+  });
+});
+
+describe("FireDialog with Fortify", () => {
+  it("lets ordered infantry fortify instead of firing, and reminds the player to put the sandbags on the table", () => {
+    const fortify: CombatCard = {
+      id: "fortify",
+      name: same("Fortificar"),
+      description: same(""),
+      cost: 0,
+      effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
+    };
+    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: { es: "Test", en: "Test" },
+        description: same(""),
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Axis",
+        tiles: {},
+        units: { allies: { infantry: [UNIT] }, axis: {} },
+      },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards: [card],
+      combatCards: [fortify],
+    });
+    session.startFirstTurn();
+    session.pickCard(card, undefined, fortify);
+    session.issueOrder(UNIT, UNIT);
+    session.commitOrders();
+    session.startBattle();
+    render(<Harness session={session} />);
+    fireEvent.click(screen.getByText("abrir"));
+
+    choose("Fortificar sin disparar");
+
+    expect(session.board.getHex(UNIT)!.sandbags).toBe(true);
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("Se fortificó, sin disparar");
+    expect(screen.getByTestId("shot-result")).toHaveTextContent("Pon sacos terreros en su casilla, en la mesa");
+    expect(screen.queryByRole("button", { name: "Fortificar sin disparar" })).not.toBeInTheDocument();
   });
 });

@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 33;
+export const SAVE_VERSION = 34;
 
 interface SavedUnit {
   type: UnitType;
@@ -47,6 +47,10 @@ export interface SavedGame {
   retreatFlags: { unit: number; flags: number }[];
   /** Hits each unit took this turn, by unit index; missing in older saves */
   turnHits?: { unit: number; hits: number }[];
+  /** Infantry-symbol hits each unit ignored this turn with Personal Armor, by unit index */
+  armorHits: { unit: number; hits: number }[];
+  /** Units with the camouflage badge, by unit index */
+  camouflaged: number[];
   turn: number;
   phase: TurnPhase;
   drawPile: string[];
@@ -83,7 +87,7 @@ export interface SavedGame {
   unmovedFireSkipped: boolean;
   battleEdits: ((
     | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
-    | { kind: "move"; from: Position; to: Position; unit: number; sandbags?: Position[]; clearedWire?: boolean }
+    | { kind: "move"; from: Position; to: Position; unit: number; sandbags?: Position[]; clearedWire?: boolean; reposition?: boolean }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
     | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
@@ -150,6 +154,10 @@ export interface SessionState {
   retreatFlags: ReadonlyMap<Unit, number>;
   /** Pass and play: hits taken this turn, by unit */
   turnHits: ReadonlyMap<Unit, number>;
+  /** Pass and play: infantry-symbol hits ignored this turn with Personal Armor, by unit */
+  armorHits: ReadonlyMap<Unit, number>;
+  /** Units with the camouflage badge, kept from turn to turn */
+  camouflaged: ReadonlySet<Unit>;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
 }
@@ -187,6 +195,11 @@ function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
 }
 
 /** A count per unit (hits taken, flags to retreat) */
+function readUnits(indexes: unknown, what: string, unit: (index: number) => Unit): Set<Unit> {
+  if (!Array.isArray(indexes) || !indexes.every(Number.isInteger)) throw new Error(`${what} are not a list of units`);
+  return new Set(indexes.map(unit));
+}
+
 function readUnitCounts<K extends "hits" | "flags">(
   entries: unknown,
   key: K,
@@ -324,6 +337,8 @@ export function writeSave(
     hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    armorHits: [...state.armorHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    camouflaged: [...state.camouflaged].map(unitIndex),
     units: savedUnits,
     wire: board.wirePositions(),
     sandbags: board.sandbagPositions(),
@@ -429,6 +444,7 @@ export function readSave(
     if (!isShotTarget(shot.target)) throw new Error("Unknown shot target");
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
+    if (shot.fortified !== undefined && !isPosition(shot.fortified)) throw new Error("Unknown hex fortified");
     if (shot.pushedBack !== undefined && typeof shot.pushedBack !== "boolean") throw new Error("Unknown push back");
     return shot;
   });
@@ -493,6 +509,8 @@ export function readSave(
     hits: readUnitCounts(saved.hits, "hits", unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
+    armorHits: readUnitCounts(saved.armorHits, "hits", unit),
+    camouflaged: readUnits(saved.camouflaged, "Camouflaged units", unit),
     drawnCombatCard: combatCardOrNull(saved.drawnCombatCard),
     drops: readPositions(saved.drops, "Paradrops"),
   };

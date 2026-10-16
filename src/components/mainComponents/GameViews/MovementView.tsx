@@ -82,6 +82,7 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           markers={game.markers}
           markerKind={game.markerKinds}
           cardBadges={game.assignments}
+          camouflaged={game.camouflaged}
           backgroundImage={session.scenario.image}
           faction={faction}
         />

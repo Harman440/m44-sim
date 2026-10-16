@@ -218,6 +218,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         open={showInstructions}
         onClose={() => setShowInstructions(false)}
         attacking={session.attacking}
+        reminders={game.combatCardsPlayed.flatMap((card) => (card.battleReminder ? [tr(card.battleReminder)] : []))}
       />
 
       {/* Keyed by unit so every unit starts a fresh questionnaire */}
@@ -239,6 +240,9 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         targetKinds={session.targetKinds}
         canRemoveWire={firingIndex !== null && (game.canRemoveWire[firingIndex] ?? false)}
         onRemoveWire={() => withSound(firingIndex !== null && session.removeWire(firingIndex))}
+        canFortify={firingIndex !== null && (game.canFortify[firingIndex] ?? false)}
+        onFortify={() => withSound(firingIndex !== null && session.fortify(firingIndex))}
+        enemyCamouflage={session.enemyCamouflage}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}

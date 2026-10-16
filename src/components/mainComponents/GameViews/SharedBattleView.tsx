@@ -22,6 +22,7 @@ import { BASE_DICE_BY_DISTANCE } from "../../../data/fireQuestions";
 import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
+import SandbagsIcon from "../../SandbagsIcon";
 import DiceResult, { rollDuration } from "../../DiceResult";
 import RollReading from "../../RollReading";
 import ShotSteps from "../../ShotSteps";
@@ -68,6 +69,7 @@ const TEXT = defineMessages({
     figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     hold: "No disparar",
     holdLabel: (unit: string) => `${unit}: no disparar`,
+    fortify: "Fortificar sin disparar",
     nobody: "Ninguna unidad puede disparar ya.",
     choose: (n: number) => `Sacó más resultados que figuras: aplica solo ${n}.`,
     apply: "Aplicar los resultados",
@@ -122,6 +124,7 @@ const TEXT = defineMessages({
     figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     hold: "Hold fire",
     holdLabel: (unit: string) => `${unit}: hold fire`,
+    fortify: "Fortify, no shot",
     nobody: "No unit can fire any more.",
     choose: (n: number) => `It rolled more results than it has figures: it applies only ${n}.`,
     apply: "Apply the results",
@@ -167,12 +170,14 @@ interface FiringUnitProps {
   aim: ShotAim | null;
   onFire: () => void;
   onHold: () => void;
+  /** Fortify was played: the unit puts sandbags on its hex instead of firing */
+  onFortify: () => void;
 }
 
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 
 /** The unit picked on the map to fire: where it stands, its target and the dice it rolls */
-function FiringUnit({ side, session, order, aims, aim, onFire, onHold }: FiringUnitProps) {
+function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify }: FiringUnitProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -232,6 +237,11 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold }: FiringU
         </Typography>
       )}
 
+      {session.getSnapshot().canFortify[order] && (
+        <Button variant="outlined" color="warning" startIcon={<SandbagsIcon size={28} />} onClick={onFortify}>
+          {t.fortify}
+        </Button>
+      )}
       <Button variant="outlined" aria-label={t.holdLabel(unit)} onClick={onHold}>
         {t.hold}
       </Button>
@@ -384,6 +394,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 markers={marks.positions}
                 markerKind={marks.kind}
                 cardBadges={cardBadges}
+                camouflaged={boardGame.camouflaged}
                 possibleMoveAndFirePositions={[]}
                 boardManager={boardSession.board}
                 orders={boardGame.orders}
@@ -588,6 +599,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                       onFire={fire}
                       onHold={() => {
                         if (match.holdFire(picked.order)) setAiming(null);
+                      }}
+                      onFortify={() => {
+                        if (match.fortify(picked.order)) setAiming(null);
                       }}
                     />
                   ) : (

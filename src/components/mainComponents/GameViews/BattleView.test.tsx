@@ -425,6 +425,21 @@ describe("BattleView combat card effects", () => {
     return session;
   };
 
+  it("reminds the player in the instructions what the opponent's rolls must leave out (Ni un paso atrás)", () => {
+    const notOneStepBack: CombatCard = {
+      id: "not-a-step-back",
+      name: same("Ni un paso atrás"),
+      description: same(""),
+      cost: 0,
+      effect: { kind: "ignoreFlags", unitTypes: [UnitType.INFANTRY] },
+      battleReminder: same("Ni un paso atrás: tu infantería ignora las banderas."),
+    };
+    effectSetup([notOneStepBack], [notOneStepBack]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Instrucciones" }));
+    expect(screen.getByTestId("battle-reminders")).toHaveTextContent("Ni un paso atrás: tu infantería ignora las banderas.");
+  });
+
   it("puts the infantry that moved with the units that didn't move under ¡Fusiles arriba!", () => {
     const riflesUp: CombatCard = {
       id: "rifles-up",

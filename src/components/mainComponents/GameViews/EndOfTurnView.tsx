@@ -43,6 +43,7 @@ const TEXT = defineMessages({
     reinforcementToPlaceShared: (unit: string) =>
       `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en una casilla libre.`,
     placeReinforcement: "Colocar el refuerzo",
+    reposition: "Reposicionar la artillería",
     reinforcementPlacedShared: (unit: string) => `llega ${unit.toLowerCase()}, en la casilla de la cruz.`,
     mapEdits: (n: number) => (n === 1 ? "1 cambio" : `${n} cambios`),
     updateMap: "Actualizar mapa",
@@ -108,6 +109,7 @@ const TEXT = defineMessages({
     reinforcementToPlaceShared: (unit: string) =>
       `${unit.toLowerCase()} arrives. The cross hex is taken: place it on a free hex.`,
     placeReinforcement: "Place the reinforcement",
+    reposition: "Reposition the artillery",
     reinforcementPlacedShared: (unit: string) => `${unit.toLowerCase()} arrives, on the cross hex.`,
     mapEdits: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
     updateMap: "Update map",
@@ -411,8 +413,8 @@ function EndOfTurnView({
     session.discardCombatCard(card);
   };
 
-  /** Tokens the combat cards played put on the physical board (sandbags, camouflage) */
-  const tableReminders = game.combatCardsPlayed.flatMap((card) => (card.tableReminder ? [tr(card.tableReminder)] : []));
+  /** Tokens the combat cards played put on the physical board (camouflage…); pass and play has no table */
+  const tableReminders = shared ? [] : game.combatCardsPlayed.flatMap((card) => (card.tableReminder ? [tr(card.tableReminder)] : []));
   /** What's still needed before the next turn */
   const pendingStep = !drawnCard
     ? drawOptions.length > 0
@@ -458,6 +460,11 @@ function EndOfTurnView({
               {game.reinforcementToPlace && (
                 <Button onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
                   {t.placeReinforcement}
+                </Button>
+              )}
+              {!game.reinforcementToPlace && game.repositioning && (
+                <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="artillery" />}>
+                  {t.reposition}
                 </Button>
               )}
               <MapPreview session={session} faction={faction} height={110} />

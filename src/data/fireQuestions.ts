@@ -181,6 +181,22 @@ const sandbagsQuestion: FireQuestion = {
   note: (_, answer) => (answer === "yes" ? SANDBAGS_NOTE : null),
 };
 
+/** A unit with the camouflage badge (the Camouflage card) can only be fired at in close assault */
+const camouflageQuestion: FireQuestion = {
+  id: "camouflage",
+  text: { es: "¿El objetivo está camuflado?", en: "Is the target camouflaged?" },
+  options: () => YES_NO,
+  appliesTo: ({ enemyCamouflage }, answers) => !!enemyCamouflage && Number(answers.distance) > 1,
+  effect: () => null,
+  blocks: (_, answer) =>
+    answer === "yes"
+      ? {
+          es: "A una unidad camuflada solo se le dispara en asalto cercano.",
+          en: "A camouflaged unit can only be fired at in close assault.",
+        }
+      : null,
+};
+
 /** Asked in this order; add new situations here */
 export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   distanceQuestion,
@@ -188,6 +204,7 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   targetTypeQuestion,
   targetTerrainQuestion,
   sandbagsQuestion,
+  camouflageQuestion,
 ];
 
 /** The command card's dice, when it changes them in this situation */

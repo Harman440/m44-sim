@@ -44,6 +44,7 @@ const TEXT = defineMessages({
     shots: "Disparos",
     noShots: "Nadie disparó.",
     removedWire: (unit: string, place: string) => `${unit}: quitó la alambrada (${place})`,
+    fortifiedShot: (unit: string, place: string) => `${unit}: se fortificó con sacos terreros (${place})`,
     dice: (n: number) => (n === 1 ? "1 dado" : `${n} dados`),
     inCollision: " en un choque",
     mapChanges: "Cambios en el mapa",
@@ -84,6 +85,7 @@ const TEXT = defineMessages({
     shots: "Shots",
     noShots: "Nobody fired.",
     removedWire: (unit: string, place: string) => `${unit}: removed the barbed wire (${place})`,
+    fortifiedShot: (unit: string, place: string) => `${unit}: fortified with sandbags (${place})`,
     dice: (n: number) => (n === 1 ? "1 die" : `${n} dice`),
     inCollision: " in a collision",
     mapChanges: "Map changes",
@@ -202,6 +204,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     >
                       {shot.removedWire ? (
                         t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
+                      ) : shot.fortified ? (
+                        t.fortifiedShot(labels.unitKind(shot.unit, shot.elite), placeOf(shot.fortified))
                       ) : (
                         <>
                           {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}

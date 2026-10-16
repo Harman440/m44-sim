@@ -129,6 +129,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 markers={game.markers}
                 markerKind={game.markerKinds}
                 cardBadges={cardBadges}
+                camouflaged={game.camouflaged}
                 backgroundImage={session.scenario.image}
                 faction={viewer}
                 opponent={match.opponentOf(viewer)}

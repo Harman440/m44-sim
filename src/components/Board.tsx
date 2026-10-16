@@ -17,6 +17,7 @@ import { createBoardGeometry } from './boardGeometry';
 import Unit from '../game-core/unit';
 import type { MarkerRule } from '../game-core/combatCard';
 import { SandbagsArt } from './SandbagsIcon';
+import { CamouflageBadge } from './CamouflageIcon';
 
 /** Hexes to flash red; a new `id` restarts the animation on the same hexes */
 export interface HexFlash {
@@ -46,6 +47,8 @@ interface BoardProps {
   markablePositions?: readonly Position[];
   /** The combat cards given to units this turn (Explosives…): a small card badge on each unit */
   cardBadges?: readonly { position: Position | null }[];
+  /** Units with the camouflage badge (the Camouflage card): only a close assault can hit them */
+  camouflaged?: readonly Position[];
   /** Hexes a unit can fire at, each with its dice; tapping one picks it */
   fireTargets?: readonly { position: Position; dice: number }[];
   /** The target hex picked */
@@ -118,6 +121,7 @@ function Board({
   markerKind = 'target',
   markablePositions = [],
   cardBadges = [],
+  camouflaged = [],
   fireTargets = [],
   selectedTarget = null,
   focus = [],
@@ -187,6 +191,14 @@ function Board({
             color={FACTION_COLORS[opponent.faction]}
           />
         ))}
+        {(opponent.camouflaged ?? []).map((position) => {
+          const { x, y } = center(position);
+          return (
+            <g key={positionKey(position)} data-camouflage={`opponent-${positionKey(position)}`}>
+              <CamouflageBadge x={x + hexSize * 0.64} y={y} r={hexSize * 0.2} />
+            </g>
+          );
+        })}
       </g>
     );
   };
@@ -401,6 +413,17 @@ function Board({
       });
 
   /** A small card on the units a combat card was given to, at the token's left */
+  /** The camouflage token, right of the token, halfway down */
+  const renderCamouflage = () =>
+    camouflaged.map((position) => {
+      const { x, y } = geometry.hexCenter(position);
+      return (
+        <g key={positionKey(position)} data-camouflage={positionKey(position)} pointerEvents="none">
+          <CamouflageBadge x={x + hexSize * 0.64} y={y} r={hexSize * 0.2} />
+        </g>
+      );
+    });
+
   const renderCardBadges = () =>
     cardBadges.flatMap(({ position }, i) => {
       if (!position) return [];
@@ -477,6 +500,7 @@ function Board({
         {renderUnits()}
         {renderSandbags()}
         {renderCardBadges()}
+        {renderCamouflage()}
 
         {/* Layer 3: Orders, and the other army on a shared map */}
         {renderOrders()}

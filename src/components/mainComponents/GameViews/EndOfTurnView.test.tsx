@@ -400,14 +400,15 @@ describe("EndOfTurnView cards", () => {
 });
 
 describe("EndOfTurnView table reminders", () => {
-  it("reminds the player to put the sandbags of Fortify on the table, and puts them on the map", () => {
-    const fortify: CombatCard = {
-      id: "fortify",
-      name: same("Fortificar"),
+  it("reminds the player of the token a card puts on the table (Camouflage)", () => {
+    const camouflage: CombatCard = {
+      id: "camouflage",
+      name: same("Camuflaje"),
       description: same(""),
       cost: 0,
-      tableReminder: same("Fortificar: pon sacos terreros en la mesa, en una infantería o artillería."),
-      effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
+      tableReminder: same("Camuflaje: pon la ficha de camuflaje en la mesa."),
+      assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
+      effect: { kind: "camouflage" },
     };
     const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
     const session = new GameSession({
@@ -423,25 +424,20 @@ describe("EndOfTurnView table reminders", () => {
       faction: "Allies",
       initialHandSize: 1,
       commandCards: [card],
-      combatCards: [fortify],
+      combatCards: [camouflage],
     });
     session.startFirstTurn();
-    session.pickCard(card, undefined, fortify);
+    session.pickCard(card, undefined, camouflage);
     session.issueOrder(INFANTRY, INFANTRY);
+    session.assignCard(INFANTRY);
     session.commitOrders();
     session.startBattle();
     session.endBattle();
     const { container } = render(<Harness session={session} />);
 
-    expect(screen.getByTestId("table-reminder")).toHaveTextContent("Fortificar: pon sacos terreros en la mesa");
-
+    expect(screen.getByTestId("table-reminder")).toHaveTextContent("Camuflaje: pon la ficha de camuflaje en la mesa.");
     fireEvent.click(screen.getByRole("button", { name: "Actualizar mapa" }));
-    expect(screen.getByText(/Fortificar: toca la infantería o artillería resaltada/)).toBeInTheDocument();
-    fireEvent.click(container.querySelector(`[data-position="${INFANTRY.row}-${INFANTRY.col}"]`)!);
-    fireEvent.click(screen.getByRole("button", { name: "Fortificar: poner sacos terreros" }));
-
-    expect(session.board.getHex(INFANTRY)!.sandbags).toBe(true);
-    expect(container.querySelector(`[data-sandbags-at="${INFANTRY.row}-${INFANTRY.col}"] [data-testid="sandbags"]`)).not.toBeNull();
+    expect(container.querySelector(`[data-camouflage="${INFANTRY.row}-${INFANTRY.col}"]`)).not.toBeNull();
   });
 });
 

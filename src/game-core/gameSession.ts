@@ -53,6 +53,7 @@ import { CombatCard, CombatEffect, MarkerRule, MoveEffect, templateOf } from "./
 import { MAX_COMBAT_CARDS_PER_TURN, MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
+import { combatDeckFor } from "../data/combatCards";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
 import type { Localized } from "../i18n/lang";
@@ -155,8 +156,12 @@ export interface GameSnapshot {
   mustDiscardCombatCard: boolean;
   /** The unit of each order fires from a hex with barbed wire and may remove it instead (infantry), by order index */
   canRemoveWire: readonly boolean[];
-  /** Fortify was played and its sandbags aren't on the map yet: the player puts them on one of these units */
-  fortifiable: readonly Position[];
+  /** The unit of each order may fortify instead of firing now (Fortify: sandbags on its hex), by order index */
+  canFortify: readonly boolean[];
+  /** This side's units with the camouflage badge: only a close assault can hit them */
+  camouflaged: readonly Position[];
+  /** Pass and play, final phase: the artillery given Reposition and the hexes it can move to, until it has moved */
+  repositioning: { from: Position; options: readonly Position[] } | null;
   /** Paratroopers placed so far, in order (PARADROP) */
   drops: readonly Position[];
   /** Paratroopers that can still be placed (PARADROP) */
@@ -173,6 +178,8 @@ export interface EnemyUnit {
   position: Position;
   unitType: UnitType;
   sandbags: boolean;
+  /** It has the camouflage badge: only a close assault can hit it */
+  camouflaged: boolean;
 }
 
 /** Pass and play: a shot aimed at an enemy unit, before it's rolled (`GameSession.aimAt`) */
@@ -223,6 +230,15 @@ export interface ShotRoll {
   targetPosition?: Position;
 }
 
+/** What the player says about the hex fired at (pass and play knows it from the enemy unit there) */
+export interface FireChoice {
+  position: Position;
+  infantry: boolean;
+  sandbags: boolean;
+  /** The target has the camouflage badge: only a close assault can hit it */
+  camouflaged?: boolean;
+}
+
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
 export interface Shot extends ShotRoll {
   /** Index of the firing unit's order in this turn's orders */
@@ -233,6 +249,8 @@ export interface Shot extends ShotRoll {
   pushedBack?: boolean;
   /** Instead of firing, the unit removed the barbed wire on this hex (no dice) */
   removedWire?: Position;
+  /** Instead of firing, the unit fortified: sandbags on this hex (the Fortify card, no dice) */
+  fortified?: Position;
 }
 
 /**
@@ -334,12 +352,12 @@ export type BattleEdit = (
    * `unit`: the unit moved, kept so the turn log names it (orders after a fix in Órdenes move units too);
    * `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to`
    */
-  | { kind: "move"; from: Position; to: Position; unit: Unit; sandbags?: Position[]; clearedWire?: boolean }
+  | { kind: "move"; from: Position; to: Position; unit: Unit; sandbags?: Position[]; clearedWire?: boolean; reposition?: boolean }
   /** A unit that arrived: the Reinforcements card */
   | { kind: "add"; position: Position; unit: Unit }
   /** Barbed wire removed at the table (by the other side, or missed here) */
   | { kind: "wire"; position: Position }
-  /** Sandbags put on this side's unit for this turn's Fortify card, or taken away to fix the map */
+  /** Sandbags taken away to fix the map (`fortify`: put on for Fortify, in older turns) */
   | { kind: "sandbags"; position: Position; placed: boolean; fortify?: boolean }
 ) & { beforeOrders?: boolean };
 
@@ -363,6 +381,8 @@ class GameSession {
   readonly longRangeDie: boolean;
   /** What the enemy starts with (from the scenario), so a shot only asks whether its target is infantry when it has both */
   readonly targetKinds: TargetKinds;
+  /** The enemy's combat deck has Camouflage: a shot at range asks whether the target is camouflaged */
+  readonly enemyCamouflage: boolean;
   /** Test mode: every combat card in hand, played cards come back, plenty of coins */
   readonly testMode: boolean;
   /** Experimental rule: artillery destroyed in the battle turns into an infantry unit */
@@ -407,6 +427,10 @@ class GameSession {
   private retreatFlags = new Map<Unit, number>();
   /** Pass and play: hits each unit has taken this turn, shown on the map until the turn ends */
   private turnHits = new Map<Unit, number>();
+  /** Pass and play: the infantry-symbol hits each unit has ignored this turn with Personal Armor */
+  private armorHits = new Map<Unit, number>();
+  /** Units with the camouflage badge, kept from turn to turn until they move or battle (`camouflagedUnits`) */
+  private camouflaged = new Set<Unit>();
   /** Pass and play: where the enemy units are, from the match; null in the one-side game */
   private enemyView: (() => readonly EnemyUnit[]) | null = null;
   private drawnCombatCard: CombatCard | null = null;
@@ -437,6 +461,9 @@ class GameSession {
     this.faction = faction;
     this.attacking = scenario.attacker === faction;
     this.targetKinds = enemyTargetKinds(scenario, faction);
+    this.enemyCamouflage = combatDeckFor(scenario, faction === "Allies" ? "Axis" : "Allies").some(
+      (card) => card.effect?.kind === "camouflage"
+    );
     this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
     this.board = new BoardManager(scenario, faction);
     this.commandCards = commandCards;
@@ -810,13 +837,26 @@ class GameSession {
   }
 
   /**
-   * The enemy's roll hit the unit on this hex (pass and play): it takes `hits` and, if it
-   * survives, is marked to retreat `flags` hexes after the battle. A unit that loses its last
+   * The enemy's roll hit the unit on this hex (pass and play): it takes `hits` (`hitFaces`, the
+   * faces that hit, say which Personal Armor ignores) and, if it survives, is marked to retreat
+   * `flags` hexes after the battle (none for Not One Step Back's infantry). A unit that loses its last
    * figure is removed; artillery leaves its crew behind, `ARTILLERY_CREW_FIGURES` infantry figures
    */
-  sufferHits(position: Position, hits: number, flags: number): boolean {
+  sufferHits(position: Position, hits: number, flags: number, hitFaces: readonly DieFace[] = []): boolean {
     const unit = this.board.getHex(position)?.unit;
     if (!this.figures || !unit || hits < 0 || flags < 0) return false;
+    // Not One Step Back: this side's infantry ignores every flag this turn
+    if (this.playedEffect("ignoreFlags")?.unitTypes.includes(unit.getUnitType())) flags = 0;
+    // Personal Armor: the unit it was given to ignores its first hits of one symbol this turn
+    const armor = this.assignments.find((a) => a.unit === unit && a.card.effect?.kind === "ignoreHits")?.card.effect;
+    if (armor?.kind === "ignoreHits") {
+      const used = this.armorHits.get(unit) ?? 0;
+      const ignored = Math.min(hits, armor.hits - used, hitFaces.filter((face) => face === armor.face).length);
+      if (ignored > 0) {
+        hits -= ignored;
+        this.armorHits = new Map(this.armorHits).set(unit, used + ignored);
+      }
+    }
     const taken = (this.hits.get(unit) ?? 0) + hits;
     if (taken < hitsToDestroy(unit.getUnitType())) {
       if (hits > 0) {
@@ -1156,6 +1196,8 @@ class GameSession {
       combatBonuses: this.combatBonusesFor(orderIndex),
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
       fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
+      // Pass and play knows each enemy unit's badge, so it's always answered
+      enemyCamouflage: this.enemyView !== null || this.enemyCamouflage,
     };
   }
 
@@ -1207,7 +1249,7 @@ class GameSession {
    * questions. Only a hex in range and in sight, where the shot gets dice.
    * Sandbags are the player's answer: the enemy's aren't known here.
    */
-  fireAt(orderIndex: number, choice: { position: Position; infantry: boolean; sandbags: boolean }): boolean {
+  fireAt(orderIndex: number, choice: FireChoice): boolean {
     const aim = this.aimAnswers(orderIndex, choice);
     return !!aim && this.fireWith(orderIndex, aim.answers, choice.position);
   }
@@ -1215,10 +1257,11 @@ class GameSession {
   /** The fire answers for a shot at a hex picked on the map; null when the hex can't be fired at */
   private aimAnswers(
     orderIndex: number,
-    choice: { position: Position; infantry: boolean; sandbags: boolean }
+    choice: FireChoice
   ): { answers: Record<string, string>; target: FireTarget; context: FireContext } | null {
     const { position } = choice;
     let { infantry, sandbags } = choice;
+    let camouflaged = choice.camouflaged ?? false;
     const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
     if (!target || !target.lineOfSight || target.dice <= 0) return null;
     const context = this.fireContextFor(orderIndex)!;
@@ -1227,11 +1270,13 @@ class GameSession {
     if (enemy) {
       infantry = enemy.unitType === UnitType.INFANTRY;
       sandbags = enemy.sandbags;
+      camouflaged = enemy.camouflaged;
     }
     const answers: Record<string, string> = {
       ...mapAnswers(target),
       targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
       sandbags: sandbags ? "yes" : "no",
+      camouflage: camouflaged ? "yes" : "no",
     };
     return { answers, target, context };
   }
@@ -1379,15 +1424,104 @@ class GameSession {
     return this.publish();
   }
 
-  /** Pass and play: a card moves this side's unit to an empty hex (Reposition), as a map edit */
-  moveUnitTo(from: Position, to: Position): boolean {
-    if (!this.figures || samePosition(from, to)) return false;
+  // Fortify: in the battle, the side's ordered infantry may put sandbags on its hex instead of firing
+
+  /** The unit of this order may fortify now, instead of its next shot (not on a hex that has sandbags) */
+  private canFortify(orderIndex: number): boolean {
+    const effect = this.playedEffect("fortify");
+    const order = this.orders[orderIndex];
+    const summary = this.summaries()[orderIndex];
+    if (!effect || !order || !summary || !this.canFireNow(orderIndex)) return false;
+    if (!effect.unitTypes.includes(order.unit.getUnitType())) return false;
+    return !this.board.getHex(summary.firingFrom)?.sandbags;
+  }
+
+  /** Fortify instead of firing: sandbags on the unit's hex at once, against the enemy's later shots; it counts as the unit's shot */
+  fortify(orderIndex: number): boolean {
+    if (!this.canFortify(orderIndex)) return false;
+    const position = { ...this.summaries()[orderIndex]!.firingFrom };
+    this.board.getHex(position)!.setSandbags(true);
+    const target: ShotTarget = { infantry: true, closeAssault: false, die: "battle" };
+    const shot: Shot = { orderIndex, steps: [], dice: 0, faces: [], notes: [], collision: false, target, combatBonus: false, kept: null, fortified: position };
+    this.shots = [...this.shots, shot];
+    return this.publish();
+  }
+
+  // Camouflage: the badge lets only a close assault hit the unit, until it moves or battles
+
+  /**
+   * This side's units with the camouflage badge now: those that had it and haven't moved or
+   * battled this turn, and, from the final phase on, the unit given this turn's Camouflage card
+   */
+  private camouflagedUnits(): Unit[] {
+    const onBoard = new Set(this.board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
+    const kept = [...this.camouflaged].filter((unit) => !this.movedOrBattled(unit));
+    const given =
+      this.phase === TurnPhase.END_OF_TURN
+        ? this.assignments.filter((a) => a.card.effect?.kind === "camouflage").map((a) => a.unit)
+        : [];
+    return [...new Set([...kept, ...given])].filter((unit) => onBoard.has(unit));
+  }
+
+  /** The unit moved this turn (its order, or on the map) or battled (a roll of its own) */
+  private movedOrBattled(unit: Unit): boolean {
+    const moved =
+      this.orders.some((order) => order.unit === unit && !samePosition(order.start, order.end)) ||
+      this.battleEdits.some((edit) => edit.kind === "move" && edit.unit === unit);
+    const fired = this.shots.some((shot) => shot.dice > 0 && this.orders[shot.orderIndex]?.unit === unit);
+    const position = this.positionOf(unit);
+    const collided = !!position && this.standingCollisions.some((roll) => samePosition(roll.from, position));
+    return moved || fired || collided;
+  }
+
+  /** Pass and play: where the units that had the camouflage badge as the turn began stood then, for the enemy's eyes while the orders are secret */
+  camouflagedAtStart(): Position[] {
+    return [...this.camouflaged].flatMap((unit) => {
+      const start = this.orders.find((order) => order.unit === unit)?.start;
+      return start ? [start] : (this.positionOf(unit) ?? []);
+    });
+  }
+
+  /** The unit on this hex has the camouflage badge: only a close assault can hit it */
+  isCamouflaged(position: Position): boolean {
+    const unit = this.board.getHex(position)?.unit;
+    return !!unit && this.camouflagedUnits().includes(unit);
+  }
+
+  // Reposition: after the battle, the artillery given the card moves up to 2 hexes. On their
+  // own tablets the player mirrors the table's move with "Actualizar mapa"; pass and play moves it here
+
+  /** Pass and play, final phase: the unit given Reposition and the hexes it can move to, until it has moved */
+  private repositioning(): { from: Position; options: Position[] } | null {
+    if (!this.figures || this.phase !== TurnPhase.END_OF_TURN) return null;
+    if (this.battleEdits.some((edit) => edit.kind === "move" && edit.reposition)) return null;
+    const given = this.assignments.find((a) => a.card.effect?.kind === "reposition");
+    const effect = given?.card.effect;
+    const from = given && this.positionOf(given.unit);
+    if (!from || effect?.kind !== "reposition") return null;
     const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
-    if (!this.board.getHex(to)?.isPassable() || enemies.has(positionKey(to))) return false;
-    const unit = this.board.getHex(from)?.unit;
-    const sandbags = this.moveUnit(from, to);
-    if (!unit || !sandbags) return false;
-    this.addBattleEdit({ kind: "move", from: { ...from }, to: { ...to }, unit, ...(sandbags.length > 0 && { sandbags }) });
+    const options = this.board
+      .calculatePossibleMovesWithPaths(this.board.getHex(from)!, effect.hexes)
+      .filter(({ position, path }) => !samePosition(position, from) && path.every((p) => !enemies.has(positionKey(p))))
+      .map(({ position }) => position);
+    return { from, options };
+  }
+
+  /** Pass and play: the unit given Reposition moves to one of its hexes, as a map edit */
+  reposition(to: Position): boolean {
+    const due = this.repositioning();
+    if (!due || !includesPosition(due.options, to)) return false;
+    const unit = this.board.getHex(due.from)!.unit!;
+    const sandbags = this.moveUnit(due.from, to);
+    if (!sandbags) return false;
+    this.addBattleEdit({
+      kind: "move",
+      from: { ...due.from },
+      to: { ...to },
+      unit,
+      reposition: true,
+      ...(sandbags.length > 0 && { sandbags }),
+    });
     return this.publish();
   }
 
@@ -1475,8 +1609,9 @@ class GameSession {
     const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
     if (index === -1) return false;
 
-    const wire = this.shots[index]!.removedWire;
+    const { removedWire: wire, fortified } = this.shots[index]!;
     if (wire) this.board.getHex(wire)?.setWire(true);
+    if (fortified) this.board.getHex(fortified)?.setSandbags(false);
     this.shots = this.shots.filter((_, i) => i !== index);
     return this.publish();
   }
@@ -1862,38 +1997,6 @@ class GameSession {
   // Sandbags: only this side's (the enemy's can't be known here). They go by themselves
   // when the unit moves off them (`moveUnit`); these mirror the rest
 
-  /** Fortify was played this turn and its sandbags aren't on the map yet */
-  private fortifyDue(): boolean {
-    return (
-      this.phase === TurnPhase.END_OF_TURN &&
-      !!this.playedEffect("fortify") &&
-      !this.battleEdits.some((edit) => edit.kind === "sandbags" && edit.fortify)
-    );
-  }
-
-  /** This side's units that can get Fortify's sandbags now */
-  private fortifiable(): Position[] {
-    const effect = this.playedEffect("fortify");
-    if (!this.fortifyDue() || !effect) return [];
-    return this.board
-      .getAllHexes()
-      .filter((hex) => hex.hasUnit() && !hex.sandbags && effect.unitTypes.includes(hex.unit.getUnitType()))
-      .map((hex) => hex.getPosition());
-  }
-
-  /** Whether Fortify's sandbags can be put on the unit on this hex now (`fortifiable`) */
-  canPlaceSandbags(position: Position): boolean {
-    return this.canEditMap() && includesPosition(this.fortifiable(), position);
-  }
-
-  /** Put Fortify's sandbags on one of this side's units */
-  placeSandbagsAt(position: Position): boolean {
-    if (!this.canPlaceSandbags(position)) return false;
-    this.board.getHex(position)!.setSandbags(true);
-    this.addBattleEdit({ kind: "sandbags", position: { ...position }, placed: true, fortify: true });
-    return this.publish();
-  }
-
   /** Take away sandbags that aren't on the table any more (to fix the map) */
   removeSandbagsAt(position: Position): boolean {
     if (!this.canEditMap()) return false;
@@ -2118,6 +2221,7 @@ class GameSession {
       cardAttacks: this.cardAttacks,
     });
     this.log = [...this.log, record];
+    this.camouflaged = new Set(this.camouflagedUnits());
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
     this.coinAdjustments = [];
     this.rewardChoice = null;
@@ -2132,6 +2236,7 @@ class GameSession {
     this.standingCollisions = [];
     this.retreatFlags = new Map();
     this.turnHits = new Map();
+    this.armorHits = new Map();
     this.drawnCombatCard = null;
 
     this.chosenCard = null;
@@ -2187,6 +2292,8 @@ class GameSession {
       hits: this.hits,
       retreatFlags: this.retreatFlags,
       turnHits: this.turnHits,
+      armorHits: this.armorHits,
+      camouflaged: this.camouflaged,
       drawnCombatCard: this.drawnCombatCard,
       drops: this.drops,
     });
@@ -2243,6 +2350,8 @@ class GameSession {
     session.hits = new Map(state.hits);
     session.retreatFlags = new Map(state.retreatFlags);
     session.turnHits = new Map(state.turnHits);
+    session.armorHits = new Map(state.armorHits);
+    session.camouflaged = new Set(state.camouflaged);
     session.drawnCombatCard = state.drawnCombatCard;
     session.drops = state.drops;
     session.snapshot = session.createSnapshot();
@@ -2305,7 +2414,9 @@ class GameSession {
       combatCardDue: this.combatCardDue(),
       mustDiscardCombatCard: this.mustDiscardCombatCard(),
       canRemoveWire: this.orders.map((_, i) => this.canRemoveWire(i)),
-      fortifiable: this.fortifiable(),
+      canFortify: this.orders.map((_, i) => this.canFortify(i)),
+      camouflaged: this.camouflagedUnits().flatMap((unit) => this.positionOf(unit) ?? []),
+      repositioning: this.repositioning(),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
       canUnpickCard: this.canUnpickCard(),

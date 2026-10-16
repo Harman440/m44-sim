@@ -33,6 +33,8 @@ import motorizedArt from "../assets/cards/motorized.webp";
 import reinforcementsArt from "../assets/cards/reinforcements.webp";
 import streetEquipmentArt from "../assets/cards/street-equipment.webp";
 import heatOfBattleArt from "../assets/cards/heat-of-battle.webp";
+import notOneStepBackArt from "../assets/cards/not-a-step-back.webp";
+import camouflageArt from "../assets/cards/camouflage.webp";
 import airBombardmentArt from "../assets/cards/air-bombardment.webp";
 import barrageArt from "../assets/cards/barrage.webp";
 import airPowerArt from "../assets/cards/air-power.webp";
@@ -750,17 +752,6 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
     );
   }
 
-  if (id === "camouflage") {
-    // A unit half hidden under a net
-    const cx = at(mid).x;
-    return (
-      <>
-        <Token type={UnitType.INFANTRY} faction={faction} x={cx} y={y} r={15} />
-        <circle cx={cx} cy={y} r={20} className="card-art__net" />
-      </>
-    );
-  }
-
   if (id === "rifles-up") {
     // Your infantry that moved fires with the units that didn't: in the first group
     const start = at(mid - 2);
@@ -777,19 +768,6 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
         <text x={own.x} y={y - 18} className="card-art__bonus">
           1º
         </text>
-      </>
-    );
-  }
-
-  if (id === "not-a-step-back") {
-    // A unit holding its hex: the retreat arrow struck out
-    const own = at(mid);
-    return (
-      <>
-        <Token type={UnitType.INFANTRY} faction={faction} x={own.x} y={y} r={13} />
-        <path d={`M${own.x - 16} ${y} L${own.x - 40} ${y}`} className="card-art__path" />
-        <path d={`M${own.x - 36} ${y - 6} L${own.x - 44} ${y} L${own.x - 36} ${y + 6} z`} className="card-art__arrow" />
-        <line x1={own.x - 40} y1={y + 10} x2={own.x - 20} y2={y - 10} className="card-art__strike" />
       </>
     );
   }
@@ -826,6 +804,8 @@ const COMBAT_PAINTINGS: Record<string, string> = {
   reinforcements: reinforcementsArt,
   "street-equipment": streetEquipmentArt,
   "heat-of-battle": heatOfBattleArt,
+  "not-a-step-back": notOneStepBackArt,
+  camouflage: camouflageArt,
   "air-bombardment": airBombardmentArt,
   barrage: barrageArt,
   "air-power": airPowerArt,

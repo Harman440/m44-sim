@@ -13,7 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 11;
+export const MATCH_SAVE_VERSION = 12;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -151,6 +151,8 @@ export interface ArmyView {
   units: readonly PlacedUnit[];
   /** Its orders this turn, once they've been revealed; none while they're secret */
   orders: readonly Order[];
+  /** Its units with the camouflage badge, as they stood at the start of the turn while its orders are secret */
+  camouflaged: readonly Position[];
 }
 
 /** A side's position in the Allies' view of the board, or back: the Axis sees it turned round */
@@ -358,7 +360,9 @@ class PassAndPlayMatch {
     });
     collision.units.forEach((unit, i) => {
       const result = results[1 - i];
-      if (result) this.sessions[unit.side].sufferHits(inAlliesView(unit.side, unit.position), result.hits, result.retreats);
+      if (result) {
+        this.sessions[unit.side].sufferHits(inAlliesView(unit.side, unit.position), result.hits, result.retreats, result.hitFaces);
+      }
     });
     this.updateCollision(index, { applied: true });
     // No flag on either side: neither unit holds the ground, and the units that moved go back
@@ -496,6 +500,22 @@ class PassAndPlayMatch {
     return this.publish();
   }
 
+  /** Fortify: the unit whose turn it is puts sandbags on its hex instead of firing; they count at once */
+  fortify(order: number): boolean {
+    const turn = this.battleTurn();
+    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
+    const session = this.sessions[turn.side];
+    const shot = session.getSnapshot().shots.length;
+    if (!session.fortify(order)) return false;
+    const battle = this.battle!;
+    this.battle = {
+      ...battle,
+      fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot }],
+      bonus: null,
+    };
+    return this.publish();
+  }
+
   /** The unit whose turn it is holds its fire: it gives up its shot */
   holdFire(order: number): boolean {
     const turn = this.battleTurn();
@@ -527,9 +547,9 @@ class PassAndPlayMatch {
     const enemy = this.sessions[otherSide(pending.side)];
     const rolled = this.pendingRoll()!;
     const at = turnedRound(rolled.target);
-    const { hits, retreats } = readRoll(appliedFaces(rolled.roll.faces, rolled.roll.kept), rolled.roll.target);
+    const { hits, retreats, hitFaces } = readRoll(appliedFaces(rolled.roll.faces, rolled.roll.kept), rolled.roll.target);
     const sandbags = enemy.board.getHex(at)?.sandbags ? 1 : 0;
-    enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags));
+    enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags), hitFaces);
     const shot = this.sessions[pending.side].getSnapshot().shots[pending.shot]!;
 
     // After a close assault that destroyed the enemy unit or makes it retreat, the unit may take
@@ -700,8 +720,8 @@ class PassAndPlayMatch {
       session.attackHex(index, target ? target.unitType === UnitType.INFANTRY : null);
       const attack = session.getSnapshot().cardAttacks.find((a) => a.marker === index);
       if (!target || !attack?.target) return;
-      const { hits, retreats } = readRoll(attack.faces, attack.target);
-      enemy.sufferHits(turnedRound(marker), hits, retreats);
+      const { hits, retreats, hitFaces } = readRoll(attack.faces, attack.target);
+      enemy.sufferHits(turnedRound(marker), hits, retreats, hitFaces);
     });
     return this.publish();
   }
@@ -736,7 +756,14 @@ class PassAndPlayMatch {
     const enemy = this.sessions[otherSide(viewer)];
     return enemy.board.getAllHexes().flatMap((hex) =>
       hex.unit
-        ? [{ position: turnedRound(hex.getPosition()), unitType: hex.unit.getUnitType(), sandbags: hex.sandbags }]
+        ? [
+            {
+              position: turnedRound(hex.getPosition()),
+              unitType: hex.unit.getUnitType(),
+              sandbags: hex.sandbags,
+              camouflaged: enemy.isCamouflaged(hex.getPosition()),
+            },
+          ]
         : []
     );
   }
@@ -794,11 +821,11 @@ class PassAndPlayMatch {
       };
     };
     const army = armyOf(session).map((placed) => ({ ...placed, ...strength(placed.position) }));
-    if (revealed) return { faction, units: army, orders: game.orders };
+    if (revealed) return { faction, units: army, orders: game.orders, camouflaged: game.camouflaged };
 
     const startOf = new Map(game.orders.map((order) => [order.unit, order.start]));
     const units = army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position }));
-    return { faction, units, orders: [] };
+    return { faction, units, orders: [], camouflaged: session.camouflagedAtStart() };
   }
 
   save(): SavedMatch {

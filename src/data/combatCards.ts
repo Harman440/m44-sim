@@ -44,6 +44,7 @@ interface CombatCardTemplate {
   rule: DeckRule;
   marker?: MarkerRule;
   tableReminder?: Localized;
+  battleReminder?: Localized;
   effect?: CombatEffect;
   assign?: AssignRule;
   needsOrdered?: readonly UnitType[];
@@ -76,7 +77,7 @@ const ifSide = (reason: DeckReason, has: (side: SideContext) => boolean): DeckRu
 });
 const airCards: DeckRule = { reason: "air", copies: (side) => side.air };
 
-type Extra = Pick<CombatCardTemplate, "marker" | "tableReminder" | "effect" | "assign" | "needsOrdered">;
+type Extra = Pick<CombatCardTemplate, "marker" | "tableReminder" | "battleReminder" | "effect" | "assign" | "needsOrdered">;
 
 /** Every combat card is played with the command card */
 const card = (
@@ -196,53 +197,73 @@ const TEMPLATES: CombatCardTemplate[] = [
       assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
       effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], near: [HexType.TOWN] },
     }),
-  card("not-a-step-back", { es: "Ni un paso atrás", en: "Not One Step Back" }, 1, defensive,
-    { es: "1 unidad ignora todas las retiradas.", en: "1 unit ignores all retreats." }),
-  card("camouflage", { es: "Camuflaje", en: "Camouflage" }, 2, defensive,
+  card("not-a-step-back", { es: "Ni un paso atrás", en: "Not One Step Back" }, 2, defensive,
     {
-      es: "Después de la batalla, pon 1 ficha de camuflaje en una unidad con orden.",
-      en: "After the battle, put 1 camouflage token on an ordered unit.",
+      es: "Este turno, toda tu infantería ignora todas las banderas (disparos, cartas de ataque y choques).",
+      en: "This turn, all your infantry ignores every flag (shots, attack cards and collisions).",
     },
     {
+      effect: { kind: "ignoreFlags", unitTypes: [UnitType.INFANTRY] },
+      battleReminder: {
+        es: "Ni un paso atrás: este turno tu infantería no se retira; ignora todas las banderas que saque el rival.",
+        en: "Not One Step Back: this turn your infantry doesn't retreat; it ignores every flag the opponent rolls.",
+      },
       tableReminder: {
-        es: "Camuflaje: pon la ficha de camuflaje en la mesa, en una unidad con orden.",
-        en: "Camouflage: put the camouflage token on an ordered unit on the table.",
+        es: "Ni un paso atrás: tu infantería no se retira por las banderas de este turno.",
+        en: "Not One Step Back: your infantry doesn't retreat for this turn's flags.",
+      },
+    }),
+  card("camouflage", { es: "Camuflaje", en: "Camouflage" }, 2, defensive,
+    {
+      es: "Dásela a 1 infantería con orden: tras la batalla recibe la ficha de camuflaje. Solo se le puede disparar en asalto cercano, y la pierde cuando se mueve o combate.",
+      en: "Give it to 1 ordered infantry unit: after the battle it gets the camouflage token. It can only be fired at in close assault, and loses it when it moves or battles.",
+    },
+    {
+      assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
+      effect: { kind: "camouflage" },
+      tableReminder: {
+        es: "Camuflaje: pon la ficha de camuflaje en la mesa, en tu infantería con la carta.",
+        en: "Camouflage: put the camouflage token on the table, on your infantry with the card.",
       },
     }),
   card("reposition", { es: "Reposicionamiento", en: "Reposition" }, 2, ifSide("artillery", (side) => side.artillery),
     {
-      es: "Después de la batalla, toda la artillería con orden se mueve 2 casillas.",
-      en: "After the battle, all ordered artillery moves 2 hexes.",
+      es: "Dásela a 1 artillería con orden: después de la batalla se mueve hasta 2 casillas.",
+      en: "Give it to 1 ordered artillery unit: after the battle it moves up to 2 hexes.",
     },
     {
+      assign: { unitTypes: [UnitType.ARTILLERY], ordered: true },
+      effect: { kind: "reposition", hexes: 2 },
       tableReminder: {
-        es: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con orden y refléjalo en «Actualizar mapa».",
-        en: "Reposition: move your ordered artillery up to 2 hexes on the table and mirror it in “Update map”.",
+        es: "Reposicionamiento: mueve en la mesa hasta 2 casillas tu artillería con la carta y refléjalo en «Actualizar mapa».",
+        en: "Reposition: move your artillery with the card up to 2 hexes on the table and mirror it in “Update map”.",
       },
-      needsOrdered: [UnitType.ARTILLERY],
     }),
   card("fortify", { es: "Fortificar", en: "Fortify" }, 1, defensive,
     {
-      es: "Después de la batalla, pon sacos terreros en una infantería o artillería.",
-      en: "After the battle, put sandbags on an infantry or artillery unit.",
+      es: "En la batalla, cada infantería tuya con orden que aún pueda disparar puede fortificarse en su lugar: pone sacos terreros en su casilla, que cuentan desde ya.",
+      en: "In the battle, each of your ordered infantry units that could still fire may fortify instead: it puts sandbags on its hex, which count from then on.",
     },
-    {
-      tableReminder: {
-        es: "Fortificar: pon los sacos terreros en la mesa y, en «Actualizar mapa», en esa infantería o artillería.",
-        en: "Fortify: put the sandbags on the table and, in “Update map”, on that infantry or artillery unit.",
-      },
-      effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
-    }),
+    { effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] } }),
   card("spotter", { es: "Observador", en: "Spotter" }, 1, ifSide("artillery", (side) => side.artillery),
     {
       es: "Este turno, toda tu artillería con orden tira 1 dado más en cada disparo.",
       en: "This turn, all your ordered artillery rolls 1 extra die on every shot.",
     },
     { effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] }, needsOrdered: [UnitType.ARTILLERY] }),
-  card("personal-armor", { es: "Blindaje personal", en: "Personal Armor" }, 1, always, {
-    es: "Después de que el rival tire, ignora 1 resultado de infantería.",
-    en: "After your opponent rolls, ignore 1 infantry result.",
-  }),
+  card("personal-armor", { es: "Blindaje personal", en: "Personal Armor" }, 1, always,
+    {
+      es: "Dásela a 1 infantería, con orden o sin ella: este turno ignora los 2 primeros impactos de símbolo de infantería. Las granadas sí la impactan.",
+      en: "Give it to 1 infantry unit, ordered or not: this turn it ignores the first 2 infantry-symbol hits. Grenades still hit it.",
+    },
+    {
+      assign: { unitTypes: [UnitType.INFANTRY], ordered: false },
+      effect: { kind: "ignoreHits", face: DieFace.INFANTRY, hits: 2 },
+      battleReminder: {
+        es: "Blindaje personal: tu infantería con la carta ignora los 2 primeros impactos de símbolo de infantería del rival este turno; las granadas sí cuentan.",
+        en: "Personal Armor: your infantry with the card ignores the opponent's first 2 infantry-symbol hits this turn; grenades still count.",
+      },
+    }),
   card("explosives", { es: "Explosivos", en: "Explosives" }, 1, always,
     {
       es: "Dásela a 1 infantería con orden: este turno tira 1 dado más en asalto cercano.",

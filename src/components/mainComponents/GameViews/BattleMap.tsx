@@ -67,6 +67,7 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           markers={game.markers}
           markerKind={game.markerKinds}
           cardBadges={game.assignments}
+          camouflaged={game.camouflaged}
           backgroundImage={session.scenario.image}
           firedUnits={firedUnits}
           faction={faction}

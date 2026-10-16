@@ -52,6 +52,7 @@ function MapPreview({ session, faction, height = 140 }: MapPreviewProps) {
       faction={faction}
       opponent={opponent}
       strength={game.strength}
+      camouflaged={game.camouflaged}
     />
   );
 

@@ -67,7 +67,7 @@ describe("GameSession target kinds", () => {
     session.startBattle();
     expect(session.getSnapshot().phase).toBe(TurnPhase.BATTLE);
 
-    const answers = { distance: "2", lineOfSight: "yes", targetTerrain: "plains", sandbags: "no" };
+    const answers = { distance: "2", lineOfSight: "yes", targetTerrain: "plains", sandbags: "no", camouflage: "no" };
     expect(session.fire(0, { ...answers, targetType: "tank" })).toBe(false);
     expect(session.fire(0, { ...answers, targetType: "other" })).toBe(true);
     expect(session.getSnapshot().shots[0]!.target.infantry).toBe(false);

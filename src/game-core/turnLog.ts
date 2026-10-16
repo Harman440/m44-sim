@@ -47,6 +47,8 @@ export interface TurnRecord {
     target: ShotTarget;
     /** Instead of firing, the unit removed the barbed wire on this hex */
     removedWire?: Position;
+    /** Instead of firing, the unit fortified: sandbags on this hex (Fortify) */
+    fortified?: Position;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -131,6 +133,7 @@ export function recordTurn({
       collision: shot.collision,
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
+      ...(shot.fortified && { fortified: { ...shot.fortified } }),
     })),
     battleEdits: battleEdits.map((edit): TurnRecord["battleEdits"][number] => {
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };

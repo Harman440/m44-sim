@@ -463,6 +463,17 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Camuflaje", en: "Camouflage" },
+        official: {
+          es: "Una unidad con la ficha de camuflaje solo puede ser atacada en asalto cercano. La ficha se quita si la unidad se mueve o combate.",
+          en: "A unit with a camouflage badge can only be battled in close assault. The badge is removed if the unit moves or battles.",
+        },
+        house: {
+          es: "La carta Camuflaje se da a una infantería con orden, que recibe la ficha tras la batalla. La app la muestra en el mapa y, si el rival puede tenerla, pregunta al disparar a distancia si el objetivo está camuflado.",
+          en: "The Camouflage card goes to an ordered infantry unit, which gets the badge after the battle. The app shows it on the map and, when the opponent may have it, asks when firing at range whether the target is camouflaged.",
+        },
+      },
+      {
         title: { es: "Refuerzos", en: "Reinforcements" },
         house: {
           es: "La carta marca una cruz en el mapa. Al empezar la fase final llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre.",

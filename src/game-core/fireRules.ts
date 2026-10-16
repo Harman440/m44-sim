@@ -30,6 +30,8 @@ export interface FireContext {
   fromTerrain?: HexType;
   /** The unit fires from a hex with barbed wire (infantry loses a die) */
   fromWire?: boolean;
+  /** The enemy may have camouflaged units (the Camouflage card): a shot at range asks about its target */
+  enemyCamouflage?: boolean;
 }
 
 /** Answers so far, by question id -> option value */

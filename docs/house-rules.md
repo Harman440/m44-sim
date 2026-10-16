@@ -125,6 +125,11 @@ Armour was too easy to play, and no card is played as a reaction in the battle a
 - Spotter — 1: every ordered artillery unit fires with +1 die this turn, on each shot.
 - Rifles Up! — 2: this turn, your infantry that moved fires with the units that didn't move (its dice don't change).
 - Heat of Battle — 1: this turn, each close assault by your infantry (a collision too) gets 1 extra die that is always a flag; it isn't rolled.
+- Not One Step Back — 2: this turn, all your infantry ignores every flag (shots, attack cards and collisions).
+- Personal Armor — 1: given to 1 infantry unit, ordered or not: this turn it ignores the first 2 infantry-symbol hits; grenades still hit it.
+- Camouflage — 2: given to 1 ordered infantry unit, which gets the official camouflage badge after the battle: it can only be fired at in close assault, and loses it when it moves or battles.
+- Fortify — 1: in the battle, each of your ordered infantry units that could still fire may fortify instead, putting sandbags on its hex; they count straight away. Infantry only.
+- Reposition — 2: given to 1 ordered artillery unit, which moves up to 2 hexes after the battle.
 - Infantry never overruns any more: only armour takes ground and battles again. In pass and play, infantry whose close assault made the target retreat can still push it out and move into its hex, without firing again.
 - Reinforcements — 6: no roll; an infantry unit arrives on the cross as the final phase starts (another empty hex if the cross is taken). Scenarios no longer have a reinforcement table.
 - An extra order costs 3 coins for infantry and 4 for armour or artillery.

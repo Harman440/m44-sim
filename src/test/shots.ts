@@ -15,4 +15,5 @@ export const shoot = (
     targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
     targetTerrain: "plains",
     sandbags: "no",
+    camouflage: "no",
   });

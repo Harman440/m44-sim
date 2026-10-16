@@ -34,6 +34,8 @@ export interface CombatCard {
   readonly marker?: MarkerRule;
   /** A reminder for the final phase: something to do on the table (sandbags, a camouflage badge, a move to mirror on the map) */
   readonly tableReminder?: Localized;
+  /** Shown in the battle's "Instrucciones": what the opponent's rolls must leave out at the table (Not One Step Back…) */
+  readonly battleReminder?: Localized;
   /** What the app applies for it; without one, the card is resolved at the table */
   readonly effect?: CombatEffect;
   /** Given to one of this side's units while ordering (Explosives, Personal Armor…) */
@@ -60,8 +62,16 @@ export type CombatEffect =
   | { kind: "changeSection" }
   /** Reinforcements: a unit of this type arrives on the cross in the final phase */
   | { kind: "reinforcements"; unitType: UnitType }
-  /** Fortify: after the battle, one of this side's infantry or artillery units gets sandbags on the map */
+  /** Fortify: in the battle, this side's ordered units of these types may put sandbags on their hex instead of firing */
   | { kind: "fortify"; unitTypes: readonly UnitType[] }
+  /** Not One Step Back: this side's units of these types ignore every flag this turn */
+  | { kind: "ignoreFlags"; unitTypes: readonly UnitType[] }
+  /** Personal Armor: the unit it's given to ignores its first `hits` hits of this symbol this turn */
+  | { kind: "ignoreHits"; face: DieFace; hits: number }
+  /** Camouflage: the unit it's given to gets the camouflage badge after the battle */
+  | { kind: "camouflage" }
+  /** Reposition: after the battle, the unit it's given to moves up to this many hexes */
+  | { kind: "reposition"; hexes: number }
   /** Rifles Up!: this side's units of these types that moved fire with the units that didn't move */
   | { kind: "firesWithUnmoved"; unitTypes: readonly UnitType[] };
 

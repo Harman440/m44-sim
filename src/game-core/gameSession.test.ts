@@ -403,7 +403,7 @@ describe("GameSession Close Assault card", () => {
     expect(session.getSnapshot().orders[0]).toMatchObject({ closeAssaultOnly: true, shots: 1 });
     expect(session.getSnapshot().closeAssaultMarkable).toHaveLength(3);
 
-    const at = (distance: string) => ({ distance, targetType: "infantry", targetTerrain: "plains", sandbags: "no" });
+    const at = (distance: string) => ({ distance, targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no" });
     expect(session.fire(0, { ...at("2"), lineOfSight: "yes" })).toBe(false);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
     expect(session.fire(0, at("1"))).toBe(true);
@@ -749,13 +749,13 @@ describe("GameSession firing", () => {
   it("works out the dice from the answers, rolls them once and keeps the result", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no" })).toBe(true);
+    expect(session.fire(0, { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no" })).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
     expect(shot).toMatchObject({ orderIndex: 0, dice: 2, faces: ["infantry", "infantry"] });
     expect(shot!.steps.map((s) => s.dice)).toEqual([2]);
     expect(session.shotsLeft(0)).toBe(0);
-    expect(session.fire(0, { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "no" })).toBe(false);
+    expect(session.fire(0, { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no" })).toBe(false);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(1);
   });
@@ -789,7 +789,7 @@ describe("GameSession firing", () => {
   it("records a 0-dice shot without rolling: the unit has used its fire", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "3", lineOfSight: "yes", targetType: "infantry", targetTerrain: "town", sandbags: "no" })).toBe(true);
+    expect(session.fire(0, { distance: "3", lineOfSight: "yes", targetType: "infantry", targetTerrain: "town", sandbags: "no", camouflage: "no" })).toBe(true);
 
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [] });
     expect(session.shotsLeft(0)).toBe(0);
@@ -809,8 +809,8 @@ describe("GameSession firing", () => {
   it("keeps the target with the shot: close assault when the target is adjacent", () => {
     const session = battle();
 
-    session.fire(0, { distance: "1", targetType: "other", targetTerrain: "plains", sandbags: "no" });
-    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "other", targetTerrain: "plains", sandbags: "no" });
+    session.fire(0, { distance: "1", targetType: "other", targetTerrain: "plains", sandbags: "no", camouflage: "no" });
+    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "other", targetTerrain: "plains", sandbags: "no", camouflage: "no" });
 
     expect(session.getSnapshot().shots.map((s) => s.target)).toEqual([
       { infantry: false, closeAssault: true, die: "battle" },
@@ -821,8 +821,8 @@ describe("GameSession firing", () => {
   it("won't fire without a known target type", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "1", targetType: "horse", targetTerrain: "plains", sandbags: "no" })).toBe(false);
-    expect(session.fire(0, { distance: "1", targetType: "tank", targetTerrain: "plains", sandbags: "no" })).toBe(false);
+    expect(session.fire(0, { distance: "1", targetType: "horse", targetTerrain: "plains", sandbags: "no", camouflage: "no" })).toBe(false);
+    expect(session.fire(0, { distance: "1", targetType: "tank", targetTerrain: "plains", sandbags: "no", camouflage: "no" })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
   });
 
@@ -914,7 +914,7 @@ describe("GameSession long-range die", () => {
     const session = battle(true); // the last side: a supply
 
     shoot(session, 0, AT_INFANTRY);
-    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "other", targetTerrain: "plains", sandbags: "no" });
+    session.fire(1, { distance: "2", lineOfSight: "yes", targetType: "other", targetTerrain: "plains", sandbags: "no", camouflage: "no" });
 
     const shots = session.getSnapshot().shots;
     expect(shots.map((s) => s.faces)).toEqual([["supply", "supply"], ["supply", "supply"]]);
@@ -1093,7 +1093,7 @@ describe("GameSession firing order", () => {
 
     expect(session.shotsLeft(1)).toBe(1);
     expect(shoot(session, 1, AT_INFANTRY)).toBe(false);
-    expect(session.fire(1, { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "no" })).toBe(false);
+    expect(session.fire(1, { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no" })).toBe(false);
 
     expect(shoot(session, 0, AT_INFANTRY)).toBe(true);
     expect(shoot(session, 1, AT_INFANTRY)).toBe(true);
@@ -1478,7 +1478,7 @@ describe("GameSession coins", () => {
     expect(options.limits).toEqual({ maxMove: 2, moveAndFire: 1, holdShots: 1 });
     session.issueOrder(RIGHT_INF, RIGHT_INF, EXTRA);
     orderAllAndFight(session);
-    const answers = { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no" };
+    const answers = { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no" };
 
     session.fire(0, answers); // the extra order
     session.fire(1, answers); // a card order
@@ -1907,7 +1907,7 @@ describe("GameSession combat card effects", () => {
     ...(distance === "1" ? {} : { lineOfSight: "yes" }),
     targetType: "infantry",
     targetTerrain: "plains",
-    sandbags: "no",
+    sandbags: "no", camouflage: "no",
     ...extra,
   });
 
@@ -2983,7 +2983,7 @@ describe("GameSession sandbags", () => {
     name: same("Fortificar"),
     description: same(""),
     cost: 1,
-    effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
+    effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
   };
   // Sandbags on the left infantry, and on an empty hex (an enemy unit's, not known here)
   const ENEMY_BAGS: Position = { row: 2, col: 2 };
@@ -3046,38 +3046,38 @@ describe("GameSession sandbags", () => {
     expect(bagsAt(session, LEFT_INF)).toBe(true);
   });
 
-  it("puts Fortify's sandbags on one infantry or artillery after the battle", () => {
+  it("lets Fortify's ordered infantry put sandbags on its hex instead of firing; undoing the shot takes them off", () => {
     const session = leftTurn(true);
-    holdAllAndEndBattle(session);
+    orderAllAndFight(session);
     const OTHER_INF: Position = { row: 7, col: 3 };
+    const other = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, OTHER_INF));
+    const left = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
 
-    expect(session.getSnapshot().fortifiable).not.toContainEqual(TANK);
-    expect(session.getSnapshot().fortifiable).not.toContainEqual(LEFT_INF); // already has them
-    expect(session.placeSandbagsAt(TANK)).toBe(false);
-    expect(session.placeSandbagsAt(OTHER_INF)).toBe(true);
+    expect(session.getSnapshot().canFortify[left]).toBe(false); // already has them
+    expect(session.getSnapshot().canFortify[other]).toBe(true);
+    expect(session.fortify(other)).toBe(true);
     expect(bagsAt(session, OTHER_INF)).toBe(true);
-    // Only one unit
-    expect(session.getSnapshot().fortifiable).toEqual([]);
-    expect(session.placeSandbagsAt({ row: 8, col: 11 })).toBe(false);
+    expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [], fortified: OTHER_INF });
+    expect(session.shotsLeft(other)).toBe(0);
+    expect(session.fortify(other)).toBe(false);
 
-    expect(session.undoBattleEdit()).toBe(true);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), withSandbags, [
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
+    ], [fortify, { ...fortify, id: "other" }]);
+    expect(restored.getSnapshot().shots[0]!.fortified).toEqual(OTHER_INF);
+    expect(restored.board.getHex(OTHER_INF)!.sandbags).toBe(true);
+
+    expect(session.undoShot(other)).toBe(true);
     expect(bagsAt(session, OTHER_INF)).toBe(false);
-    expect(session.getSnapshot().fortifiable).toContainEqual(OTHER_INF);
+    expect(session.shotsLeft(other)).toBe(1);
   });
 
-  it("puts sandbags on no unit of this side without Fortify", () => {
+  it("doesn't fortify without the card", () => {
     const session = leftTurn();
-    holdAllAndEndBattle(session);
+    orderAllAndFight(session);
 
-    expect(session.getSnapshot().fortifiable).toEqual([]);
-    expect(session.placeSandbagsAt({ row: 7, col: 3 })).toBe(false);
-  });
-
-  it("puts no sandbags on an empty hex: the enemy's aren't known", () => {
-    const session = leftTurn(true);
-    holdAllAndEndBattle(session);
-
-    expect(session.placeSandbagsAt({ row: 3, col: 3 })).toBe(false);
+    expect(session.getSnapshot().canFortify.every((can) => !can)).toBe(true);
+    expect(session.fortify(1)).toBe(false);
   });
 
   it("saves the sandbags, and the ones an order took away", () => {
@@ -3444,5 +3444,159 @@ describe("Refuel and the cards kept out of the deck", () => {
 
     expect(restored.getSnapshot().hand.map((c) => c.id)).toContain("armor-assault-1");
     expect(restored.getSnapshot()).toMatchObject({ drawPileCount: 0, discardPileCount: 1 });
+  });
+});
+
+describe("GameSession defensive combat cards", () => {
+  const defensive = (id: string, effect: CombatCard["effect"], assign?: CombatCard["assign"]): CombatCard => ({
+    id,
+    name: same(id),
+    description: same(""),
+    cost: 0,
+    effect,
+    ...(assign && { assign }),
+  });
+  const notOneStepBack = defensive("not-a-step-back", { kind: "ignoreFlags", unitTypes: [UnitType.INFANTRY] });
+  const personalArmor = defensive("personal-armor", { kind: "ignoreHits", face: DieFace.INFANTRY, hits: 2 }, { unitTypes: [UnitType.INFANTRY], ordered: false });
+  const camouflage = defensive("camouflage", { kind: "camouflage" }, { unitTypes: [UnitType.INFANTRY], ordered: true });
+  const reposition = defensive("reposition", { kind: "reposition", hexes: 2 }, { unitTypes: [UnitType.ARTILLERY], ordered: true });
+  const ARTILLERY: Position = { row: 8, col: 6 };
+  const OTHER_INF: Position = { row: 7, col: 3 };
+  const defender: Scenario = {
+    ...scenario,
+    attacker: "Axis",
+    units: { ...scenario.units, allies: { ...scenario.units.allies, artillery: [ARTILLERY] } },
+  };
+  const allCards = [notOneStepBack, personalArmor, camouflage, reposition];
+  /** The defender's turn 2 in test mode, the "all" card played with `played` */
+  const turnWith = (played: CombatCard[], figures = false) => {
+    const commandCards = cards();
+    const session = new GameSession({
+      scenario: defender,
+      faction: "Allies",
+      initialHandSize: commandCards.length,
+      commandCards,
+      combatCards: allCards,
+      testMode: true,
+      figures,
+      random: () => 0,
+    });
+    session.startFirstTurn();
+    expect(session.pickCard(commandCards.find((c) => c.id === "all")!, undefined, played)).toBe(true);
+    return session;
+  };
+  /** Hold orders for every unit not ordered yet, then the battle */
+  const holdAndFight = (session: GameSession) => {
+    while (session.getSnapshot().ordersLeft > 0 && session.getSnapshot().orderable.length > 0) {
+      const position = session.getSnapshot().orderable[0]!;
+      expect(session.issueOrder(position, position)).toBe(true);
+    }
+    expect(session.commitOrders()).toBe(true);
+    expect(session.startBattle()).toBe(true);
+  };
+  const nextTurn = (session: GameSession) => {
+    if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
+    if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("coins")).toBe(true);
+    expect(session.endTurn()).toBe(true);
+  };
+
+  it("Ni un paso atrás: in pass and play the side's infantry ignores every flag; its armour doesn't", () => {
+    const session = turnWith([notOneStepBack], true);
+
+    session.sufferHits(LEFT_INF, 1, 2);
+    session.sufferHits(TANK, 0, 1);
+
+    expect(session.figuresAt(LEFT_INF)).toBe(5);
+    expect(session.isRetreating(LEFT_INF)).toBe(false);
+    expect(session.isRetreating(TANK)).toBe(true);
+  });
+
+  it("Blindaje personal: its unit, ordered or not, ignores its first 2 infantry-symbol hits this turn; grenades still hit", () => {
+    const session = turnWith([personalArmor], true);
+    expect(session.getSnapshot().assigning?.positions).toContainEqual(LEFT_INF); // no order needed
+    expect(session.assignCard(LEFT_INF)).toBe(true);
+
+    session.sufferHits(LEFT_INF, 2, 0, [DieFace.INFANTRY, DieFace.GRENADE]);
+    expect(session.figuresAt(LEFT_INF)).toBe(5); // the grenade hit
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, cards(), allCards);
+    restored.sufferHits(LEFT_INF, 2, 0, [DieFace.INFANTRY, DieFace.INFANTRY]);
+    expect(restored.figuresAt(LEFT_INF)).toBe(4); // one more ignored, then it's used up
+    // Only its unit
+    restored.sufferHits(OTHER_INF, 1, 0, [DieFace.INFANTRY]);
+    expect(restored.figuresAt(OTHER_INF)).toBe(5);
+  });
+
+  it("Camuflaje: the unit given it gets the badge after the battle and keeps it until it moves", () => {
+    const session = turnWith([camouflage]);
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+    expect(session.assignCard(LEFT_INF)).toBe(true);
+    holdAndFight(session);
+    expect(session.getSnapshot().camouflaged).toEqual([]);
+
+    expect(session.endBattle()).toBe(true);
+    expect(session.getSnapshot().camouflaged).toEqual([LEFT_INF]);
+    nextTurn(session);
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, cards(), allCards);
+    expect(restored.isCamouflaged(LEFT_INF)).toBe(true);
+
+    expect(restored.pickCard(restored.getSnapshot().hand.find((c) => c.id === "all")!)).toBe(true);
+    expect(restored.issueOrder(LEFT_INF, { row: 6, col: 1 })).toBe(true);
+    expect(restored.getSnapshot().camouflaged).toEqual([]);
+    // While its orders are secret, the enemy still sees the badge where it stood
+    expect(restored.camouflagedAtStart()).toEqual([LEFT_INF]);
+    expect(restored.undoLastOrder()).toBe(true);
+    expect(restored.getSnapshot().camouflaged).toEqual([LEFT_INF]);
+  });
+
+  it("Camuflaje: in pass and play an enemy with the badge can only be fired at in close assault", () => {
+    const session = turnWith([]);
+    session.setEnemyView(() => [
+      { position: { row: 6, col: 1 }, unitType: UnitType.INFANTRY, sandbags: false, camouflaged: true },
+      { position: { row: 5, col: 1 }, unitType: UnitType.INFANTRY, sandbags: false, camouflaged: true },
+    ]);
+    holdAndFight(session);
+    const left = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
+
+    expect(session.aimAt(left, { row: 5, col: 1 })).toBeNull();
+    expect(session.aimAt(left, { row: 6, col: 1 })).not.toBeNull();
+  });
+
+  it("asks whether the target is camouflaged only when the enemy's deck has Camouflage (the defender's)", () => {
+    const attacker = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards: cards() });
+    const defenderSide = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 1, commandCards: cards() });
+
+    expect(attacker.enemyCamouflage).toBe(true);
+    expect(defenderSide.enemyCamouflage).toBe(false);
+  });
+
+  it("Reposicionamiento: in pass and play's final phase its artillery moves up to 2 hexes, once", () => {
+    const session = turnWith([reposition], true);
+    expect(session.issueOrder(ARTILLERY, ARTILLERY)).toBe(true);
+    expect(session.assignCard(ARTILLERY)).toBe(true);
+    holdAndFight(session);
+    expect(session.getSnapshot().repositioning).toBeNull();
+    expect(session.endBattle()).toBe(true);
+
+    const due = session.getSnapshot().repositioning!;
+    expect(due.from).toEqual(ARTILLERY);
+    expect(due.options.every((p) => hexDistance(p, ARTILLERY) <= 2)).toBe(true);
+    const to = due.options.find((p) => hexDistance(p, ARTILLERY) === 2)!;
+    expect(session.reposition({ row: 2, col: 2 })).toBe(false);
+    expect(session.reposition(to)).toBe(true);
+    expect(unitAt(session, to)?.getUnitType()).toBe(UnitType.ARTILLERY);
+    expect(session.getSnapshot().repositioning).toBeNull();
+
+    expect(session.undoBattleEdit()).toBe(true);
+    expect(session.getSnapshot().repositioning?.from).toEqual(ARTILLERY);
+  });
+
+  it("Reposicionamiento: on their own tablets the player mirrors the move with the map", () => {
+    const session = turnWith([reposition]);
+    session.issueOrder(ARTILLERY, ARTILLERY);
+    session.assignCard(ARTILLERY);
+    holdAndFight(session);
+    session.endBattle();
+
+    expect(session.getSnapshot().repositioning).toBeNull();
   });
 });
