@@ -28,9 +28,6 @@
 
 
 - collision are very buggy.  Find bugs there
-- One bug is that units from the same faction bump into each other if they move to the same hex and only one gets to pass. Find a solution for this
-
-- new rule you must fire close assualt if possible
 
 - concentrated fire roll different dice depending on if it is close assault or not: bug
 
