@@ -2544,6 +2544,14 @@ describe("GameSession firing at a hex on the map", () => {
     expect(session.fireAt(0, { position: LEFT_INF, infantry: true, sandbags: false })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
   });
+
+  it("won't fire at range when the player says an enemy is next to the unit", () => {
+    const session = tankBattle();
+
+    expect(session.fireAt(0, { position: { row: 4, col: 3 }, infantry: true, sandbags: false, adjacentEnemy: true })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 7 }, infantry: true, sandbags: false, adjacentEnemy: true })).toBe(true);
+    expect(session.getSnapshot().shots[0]).toMatchObject({ targetPosition: { row: 4, col: 7 } });
+  });
 });
 
 describe("GameSession taking ground", () => {

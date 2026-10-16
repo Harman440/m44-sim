@@ -7,7 +7,8 @@ const TEXT = defineMessages({
     intro:
       "La batalla se resuelve en el tablero: la app te dice cuántos dados tirar y lee la tirada. Toca una fila para " +
       "disparar o para ver su tirada. Al disparar, toca en el mapa la casilla del objetivo: solo se marcan las que " +
-      "están a su alcance, a la vista y con algún dado. El número de cada casilla son los dados.",
+      "están a su alcance, a la vista y con algún dado. El número de cada casilla son los dados. Una unidad con " +
+      "una unidad enemiga al lado solo dispara en asalto cercano, a una adyacente: dilo al disparar y solo quedan esas casillas.",
     fireOrder: "Orden de fuego",
     fireOrderRule: (attacking: boolean) =>
       `${attacking ? "Eres el bando atacante: disparas primero." : "Dispara primero el rival: es el bando atacante."} ` +
@@ -44,7 +45,8 @@ const TEXT = defineMessages({
     intro:
       "The battle is fought on the board: the app tells you how many dice to roll and reads the roll. Tap a row to " +
       "fire or to see its roll. When firing, tap the target's hex on the map: only the hexes in range, in sight " +
-      "and with at least one die are marked. The number on each hex is its dice.",
+      "and with at least one die are marked. The number on each hex is its dice. A unit with an enemy unit " +
+      "next to it only fires in close assault, at an adjacent one: say so when firing and only those hexes are left.",
     fireOrder: "Firing order",
     fireOrderRule: (attacking: boolean) =>
       `${attacking ? "You're the attacking side: you fire first." : "The opponent fires first: they're the attacking side."} ` +

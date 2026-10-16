@@ -281,6 +281,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Enemigo al lado", en: "Enemy next to it" },
+        house: {
+          es: "Una unidad que tiene una unidad enemiga en una casilla adyacente solo puede disparar en asalto cercano, a una unidad adyacente: no puede disparar a distancia.",
+          en: "A unit with an enemy unit in an adjacent hex can only fire in close assault, at an adjacent unit: it can't fire at range.",
+        },
+      },
+      {
         title: { es: "Tomar terreno", en: "Taking ground" },
         official: {
           es: "La infantería que gana un asalto cercano puede avanzar a la casilla que deja el enemigo. Un blindado puede avanzar y combatir otra vez (arrollamiento), también a distancia.",
@@ -514,8 +521,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Movimiento a la vez", en: "Moving at once" },
         house: {
-          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar no tira. Si ninguna saca bandera, ninguna se gana la casilla: la que se movió vuelve una casilla atrás por donde vino; la que no se movió se queda. Una unidad que ha combatido en un choque ya no dispara en la batalla.",
-          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire doesn't roll. If neither rolls a flag, neither earns the hex: the one that moved goes one hex back the way it came; one that didn't move stays. A unit that fought in a collision doesn't fire in the battle.",
+          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar no tira. Si ninguna saca bandera, ninguna se gana la casilla: la que se movió vuelve una casilla atrás por donde vino; la que no se movió se queda. Una unidad que ha combatido en un choque ya no dispara en la batalla. Las unidades de un mismo bando no se estorban al moverse: solo cuenta la casilla en la que acaba cada una.",
+          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire doesn't roll. If neither rolls a flag, neither earns the hex: the one that moved goes one hex back the way it came; one that didn't move stays. A unit that fought in a collision doesn't fire in the battle. Units of the same side don't get in each other's way as they move: only the hex each one ends on counts.",
         },
       },
       {

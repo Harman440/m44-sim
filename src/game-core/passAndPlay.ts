@@ -265,7 +265,7 @@ class PassAndPlayMatch {
 
   /**
    * Carry out the revealed orders, both sides at once and one hex at a time: units that meet an
-   * enemy stop and collide, units held up by their own stop behind them
+   * enemy stop and collide; units of one side don't hold each other up
    */
   moveUnits(): boolean {
     const turn = this.revealTurn();

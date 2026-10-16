@@ -402,6 +402,23 @@ describe("PassAndPlayMatch", () => {
       expect(match.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
     });
 
+    it("lets a unit with an enemy next to it fire in close assault only", () => {
+      // In the Allies' view: Allied infantry (4,3) next to the Axis infantry (4,4), the Allied tank 2 hexes away
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 3 }], tank: [{ row: 2, col: 4 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
+      };
+      const side = (faction: Faction) =>
+        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+
+      const axis = match.sessions.Axis;
+      expect(axis.fireTargetsFor(0).map((t) => t.position)).toEqual([axisView(4, 3)]);
+      expect(axis.aimAt(0, axisView(2, 4))).toBeNull();
+      expect(axis.aimAt(0, axisView(4, 3))).toMatchObject({ distance: 1 });
+    });
+
     it("shows a shot's dice before it's rolled, as the shot rolls them", () => {
       const match = battleMatch();
       allHold(match);

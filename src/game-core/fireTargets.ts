@@ -116,8 +116,8 @@ export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): Fi
  * and could hold one (not water),
  * with the dice a shot at it would roll and whether it's in sight (always, for
  * a unit that doesn't need line of sight, like artillery). A unit that
- * may only fire in close assault (Close Assault card, taking ground) reaches
- * adjacent hexes only.
+ * may only fire in close assault (Close Assault card, taking ground, an enemy
+ * unit next to it) reaches adjacent hexes only.
  */
 export function fireTargets(
   board: BoardManager,
@@ -128,7 +128,7 @@ export function fireTargets(
 ): FireTarget[] {
   const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
   const needsSight = checksLineOfSight(context.unitType);
-  const range = context.closeAssaultOnly ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
+  const range = context.closeAssaultOnly || context.adjacentEnemy ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
   const enemyKeys = new Set((enemies ?? []).map(positionKey));
   return board
     .getAllHexes()

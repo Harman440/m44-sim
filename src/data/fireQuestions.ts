@@ -197,9 +197,33 @@ const camouflageQuestion: FireQuestion = {
       : null,
 };
 
+/** The answer that says an enemy unit is next to the firing unit, on own tablets (pass and play knows) */
+export const ADJACENT_ENEMY_ANSWER = "adjacentEnemy";
+
+/**
+ * A unit with an enemy unit next to it fires in close assault only (house rule): it can't fire
+ * at range. Pass and play knows where the enemy is (`FireContext.adjacentEnemy`) and offers
+ * only the adjacent hexes; on own tablets the player says
+ */
+const adjacentEnemyQuestion: FireQuestion = {
+  id: ADJACENT_ENEMY_ANSWER,
+  text: { es: "¿Hay una unidad enemiga junto a tu unidad?", en: "Is there an enemy unit next to your unit?" },
+  options: () => YES_NO,
+  appliesTo: ({ adjacentEnemy }, answers) => adjacentEnemy === undefined && Number(answers.distance) > 1,
+  effect: () => null,
+  blocks: (_, answer) =>
+    answer === "yes"
+      ? {
+          es: "Con un enemigo al lado, la unidad solo puede disparar en asalto cercano. Elige una casilla adyacente.",
+          en: "With an enemy next to it, the unit can only fire in close assault. Pick an adjacent hex.",
+        }
+      : null,
+};
+
 /** Asked in this order; add new situations here */
 export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   distanceQuestion,
+  adjacentEnemyQuestion,
   lineOfSightQuestion,
   targetTypeQuestion,
   targetTerrainQuestion,

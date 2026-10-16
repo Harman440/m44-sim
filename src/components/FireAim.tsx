@@ -7,7 +7,7 @@ import CommandCard from "../game-core/commandCard";
 import { FireContext, calculateFireDice } from "../game-core/fireRules";
 import { FireTarget, mapAnswers } from "../game-core/fireTargets";
 import { samePosition } from "../game-core/position";
-import { FIRE_QUESTIONS, PINNED_ANSWER, PINNED_FIRE_DICE, TARGET_INFANTRY, TARGET_OTHER, fireBonusSteps } from "../data/fireQuestions";
+import { ADJACENT_ENEMY_ANSWER, FIRE_QUESTIONS, PINNED_ANSWER, PINNED_FIRE_DICE, TARGET_INFANTRY, TARGET_OTHER, fireBonusSteps } from "../data/fireQuestions";
 import { TargetKinds } from "../data/hitRules";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -34,6 +34,7 @@ const TEXT = defineMessages({
     sandbags: "¿Sacos terreros?",
     camouflaged: "¿Camuflada?",
     pinned: "¿Tu unidad está inmovilizada? (recibió una bandera este turno)",
+    adjacentEnemy: "¿Hay una unidad enemiga junto a la tuya? Solo puede disparar en asalto cercano",
     suppressive: "Fuego de supresión: una cara de infantería es bandera",
     concentrated: "Fuego concentrado: suma unidades que no se movieron",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice} ${dice === 1 ? "dado" : "dados"}`,
@@ -57,6 +58,7 @@ const TEXT = defineMessages({
     sandbags: "Sandbags?",
     camouflaged: "Camouflaged?",
     pinned: "Is your unit pinned? (it took a flag this turn)",
+    adjacentEnemy: "Is an enemy unit next to yours? It can only fire in close assault",
     suppressive: "Suppressive Fire: an infantry side is a flag",
     concentrated: "Concentrated Fire: add units that didn't move",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice} ${dice === 1 ? "die" : "dice"}`,
@@ -82,6 +84,8 @@ export interface FireAimChoice {
   joined?: readonly number[];
   /** The firing unit is pinned (own tablets: the player says) */
   pinned?: boolean;
+  /** An enemy unit is next to the firing unit, which fires in close assault only (own tablets: the player says) */
+  adjacentEnemy?: boolean;
 }
 
 /** Concentrated Fire: a unit that can roll with the one firing, where it stands and the dice it adds */
@@ -148,10 +152,15 @@ function FireAim({
   const [camouflaged, setCamouflaged] = useState(false);
   const [suppressive, setSuppressive] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [adjacentEnemy, setAdjacentEnemy] = useState(false);
   const [chosenJoined, setJoined] = useState<readonly number[]>([]);
   const [missed, setMissed] = useState(false);
 
-  const firable = targets.filter((t) => t.lineOfSight && t.dice > 0);
+  const inReach = targets.filter((t) => t.lineOfSight && t.dice > 0);
+  // With an enemy next to it, the unit fires in close assault only: on own tablets the player says, pass and play knows
+  const asksAdjacent = !knownTarget && context.adjacentEnemy === undefined && inReach.some((t) => t.distance > 1);
+  const closeOnly = asksAdjacent && adjacentEnemy;
+  const firable = closeOnly ? inReach.filter((t) => t.distance === 1) : inReach;
   const target = picked ? (firable.find((t) => samePosition(t.position, picked)) ?? null) : null;
   const enemy: Faction = faction === "Allies" ? "Axis" : "Allies";
   // Pass and play knows the target: nothing to ask
@@ -166,6 +175,7 @@ function FireAim({
         sandbags: sandbags ? "yes" : "no",
         camouflage: camouflaged ? "yes" : "no",
         [PINNED_ANSWER]: pinned ? "yes" : "no",
+        [ADJACENT_ENEMY_ANSWER]: closeOnly ? "yes" : "no",
       }
     : {};
   // A pinned unit (a flag this turn) may lose a die: on own tablets the player says, pass and play knows
@@ -182,6 +192,7 @@ function FireAim({
           camouflaged: asksCamouflage && camouflaged,
           suppressive,
           pinned: asksPinned && pinned,
+          adjacentEnemy: closeOnly,
         }
       : null;
   const joinOptions = choiceSoFar && joinable ? joinable(choiceSoFar) : [];
@@ -253,6 +264,15 @@ function FireAim({
       </Stack>
 
       <Stack className="fire-aim__questions" sx={{ gap: 2 }}>
+        {asksAdjacent && (
+          <FormControlLabel
+            control={<Switch checked={adjacentEnemy} onChange={(e) => setAdjacentEnemy(e.target.checked)} />}
+            label={t.adjacentEnemy}
+            labelPlacement="start"
+            sx={{ minHeight: 48, m: 0, justifyContent: "space-between", gap: 1 }}
+            data-testid="adjacent-enemy"
+          />
+        )}
         <Stack sx={{ gap: 1 }}>
           {step(1, t.target)}
           {target ? (

@@ -8,12 +8,13 @@ import { ShotTarget, TargetKinds, enemyTargetKinds, faceHits } from "../data/hit
 import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
-import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
+import { FireTarget, fireTargets, hexDistance, mapAnswers } from "./fireTargets";
 import {
   COLLISION_NOTES,
   FIRE_QUESTIONS,
   collisionSteps,
   PINNED_ANSWER,
+  ADJACENT_ENEMY_ANSWER,
   TAKE_GROUND_UNIT_TYPES,
   PUSH_BACK_UNIT_TYPES,
   TARGET_INFANTRY,
@@ -255,6 +256,8 @@ export interface FireChoice {
   joined?: readonly number[];
   /** Own tablets: the firing unit is pinned (it took a flag this turn); pass and play knows */
   pinned?: boolean;
+  /** Own tablets: an enemy unit is next to the firing unit, so it can't fire at range; pass and play knows */
+  adjacentEnemy?: boolean;
 }
 
 /** Concentrated Fire: a unit that can roll with another, and the dice it adds */
@@ -1034,8 +1037,8 @@ class GameSession {
   // --- Pass and play: the app carries out both sides' moves at once (PassAndPlayMatch)
 
   /**
-   * Cut orders short where their units stopped: a collision, or one of their own units in the
-   * way. Each stop is a hex of the order's path before its end. Only in the movement phase
+   * Cut orders short where their units stopped: a collision, or one of their own units on the
+   * hex it was to end on. Each stop is a hex of the order's path before its end. Only in the movement phase
    */
   haltOrders(stops: readonly { order: number; at: Position }[]): boolean {
     if (this.phase !== TurnPhase.MOVEMENT) return false;
@@ -1287,6 +1290,10 @@ class GameSession {
       enemyCamouflage: this.enemyView !== null || this.enemyCamouflage,
       // Pass and play knows whether the unit is pinned; on own tablets the player says
       ...(this.figures && { pinned: this.isPinned(summary.firingFrom) }),
+      // Pass and play knows whether an enemy is next to the unit; on own tablets the player says
+      ...(this.enemyView && {
+        adjacentEnemy: this.enemyView().some((enemy) => hexDistance(enemy.position, summary.firingFrom) === 1),
+      }),
     };
   }
 
@@ -1328,9 +1335,12 @@ class GameSession {
     return this.summaries();
   }
 
-  /** Fire answering the questionnaire by hand (the answers include the distance and the target's terrain) */
+  /**
+   * Fire answering the questionnaire by hand (the answers include the distance and the target's
+   * terrain). Left out, the answer about an enemy next to the unit is no
+   */
   fire(orderIndex: number, answers: FireAnswers): boolean {
-    return this.fireWith(orderIndex, answers);
+    return this.fireWith(orderIndex, { [ADJACENT_ENEMY_ANSWER]: "no", ...answers });
   }
 
   /**
@@ -1351,7 +1361,7 @@ class GameSession {
     if (new Set(joined).size !== joined.length || !joined.every((order) => options.includes(order))) return false;
     const parts = [orderIndex, ...joined].map((order) => {
       // The player said whether the unit firing is pinned, not the others
-      const answers = this.aimAnswers(order, order === orderIndex ? choice : { ...choice, pinned: false })?.answers;
+      const answers = this.aimAnswers(order, order === orderIndex ? choice : { ...choice, pinned: false, adjacentEnemy: false })?.answers;
       return answers ? this.shotPart(order, answers, suppressive) : null;
     });
     if (parts.some((part) => !part)) return false;
@@ -1368,7 +1378,7 @@ class GameSession {
     if (!summaries[orderIndex]?.hold || !this.canFireNow(orderIndex)) return [];
     return this.orders.flatMap((_, order) => {
       if (order === orderIndex || !summaries[order]!.hold || !this.canFireNow(order)) return [];
-      const answers = this.aimAnswers(order, { ...choice, joined: [], pinned: false })?.answers;
+      const answers = this.aimAnswers(order, { ...choice, joined: [], pinned: false, adjacentEnemy: false })?.answers;
       const part = answers && this.shotPart(order, answers, choice.suppressive ?? false);
       return part && part.dice > 0 ? [{ order, dice: part.dice }] : [];
     });
@@ -1398,6 +1408,7 @@ class GameSession {
       sandbags: sandbags ? "yes" : "no",
       camouflage: camouflaged ? "yes" : "no",
       [PINNED_ANSWER]: choice.pinned ? "yes" : "no",
+      [ADJACENT_ENEMY_ANSWER]: choice.adjacentEnemy ? "yes" : "no",
     };
     return { answers, target, context };
   }

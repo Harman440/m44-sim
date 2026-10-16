@@ -9,6 +9,7 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 - When using the card Dig-in 4 units can move 1 hex and place a sandbag.
 - Gamble Command card: When picking up a card from the deck you can either keep it or decide to throw it away and pick a new card. This new card you must keep. If a probe card was used, you pick two cards up and choose between them instead (there are no recon cards in the smaller deck).
 - Cards that have 'on the move' in standard map have 1 less on the move unit.
+- A unit with an enemy unit in an adjacent hex must fire in close assault, at an adjacent unit: it can't fire at range.
 - *Experimental (a switch in the app's "Ajustes"):* when an artillery unit is destroyed, its crew stays on the hex as an infantry unit.
 
 ## Changed units
@@ -38,7 +39,7 @@ If using a combat card record which unit or hex/s you are using it on, if necess
 ### Movement phase
 Show your opponent your map and he shows his. Move all units marked with arrows to the corresponding hex and place a battle marker on units that have been ordered to battle. Pay the shown amount of coins if you want to use a combat card.
 
-On the off chance that two units move through the same hex (even though they would end up on different hexes) or land on the same hex, they battle immediately. If the unit is capable of battling, roll your close assault dice minus 1 (normally 3-1 = 2) ignoring terrain battle restrictions and die reductions of the terrain. Retreats can't be ignored. A unit stays in the hex if the other is forced to retreat or gets eliminated and if he wants to keep moving up to the corresponding hex he may do so. If no retreats are rolled and no units retreat, then both units are forced to move one hex back following the path they just made. (The possibility of this hex being blocked does exist!)
+On the off chance that two units move through the same hex (even though they would end up on different hexes) or land on the same hex, they battle immediately. If the unit is capable of battling, roll your close assault dice minus 1 (normally 3-1 = 2) ignoring terrain battle restrictions and die reductions of the terrain. Retreats can't be ignored. A unit stays in the hex if the other is forced to retreat or gets eliminated and if he wants to keep moving up to the corresponding hex he may do so. If no retreats are rolled and no units retreat, then both units are forced to move one hex back following the path they just made. (The possibility of this hex being blocked does exist!) Units of the same side never get in each other's way while moving: only the hex each one lands on counts.
 
 ### Battle phase
 Each player will order a unit to fire after his opponent has fired, starting with the attacking player and following some specific rules.

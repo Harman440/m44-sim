@@ -90,21 +90,32 @@ describe("fire questions (house rules)", () => {
     expect(dice(unitType, { distance, targetTerrain })).toBe(expected);
   });
 
-  it("asks distance, target type, terrain and sandbags; line of sight only beyond adjacent hexes", () => {
+  it("asks distance, target type, terrain and sandbags; an enemy alongside and line of sight only beyond adjacent hexes", () => {
     const ctx = context(UnitType.TANK);
     const next = (answers: Record<string, string>) => nextFireQuestion(FIRE_QUESTIONS, ctx, answers)?.id ?? null;
+    const far = { distance: "2", adjacentEnemy: "no" };
 
     expect(next({})).toBe("distance");
     expect(next({ distance: "1" })).toBe("targetType");
-    expect(next({ distance: "2" })).toBe("lineOfSight");
+    expect(next({ distance: "2" })).toBe("adjacentEnemy");
+    expect(next(far)).toBe("lineOfSight");
     // Artillery doesn't need line of sight
-    expect(nextFireQuestion(FIRE_QUESTIONS, context(UnitType.ARTILLERY), { distance: "2" })?.id).toBe("targetType");
-    expect(next({ distance: "2", lineOfSight: "yes" })).toBe("targetType");
-    expect(next({ distance: "2", lineOfSight: "yes", targetType: "tank" })).toBe("targetTerrain");
-    expect(next({ distance: "2", lineOfSight: "yes", targetType: "tank", targetTerrain: "plains" })).toBe("sandbags");
+    expect(nextFireQuestion(FIRE_QUESTIONS, context(UnitType.ARTILLERY), far)?.id).toBe("targetType");
+    // Pass and play knows whether an enemy is alongside
+    expect(nextFireQuestion(FIRE_QUESTIONS, { ...ctx, adjacentEnemy: false }, { distance: "2" })?.id).toBe("lineOfSight");
+    expect(next({ ...far, lineOfSight: "yes" })).toBe("targetType");
+    expect(next({ ...far, lineOfSight: "yes", targetType: "tank" })).toBe("targetTerrain");
+    expect(next({ ...far, lineOfSight: "yes", targetType: "tank", targetTerrain: "plains" })).toBe("sandbags");
     expect(
-      next({ distance: "2", lineOfSight: "yes", targetType: "tank", targetTerrain: "plains", sandbags: "no" })
+      next({ ...far, lineOfSight: "yes", targetType: "tank", targetTerrain: "plains", sandbags: "no" })
     ).toBeNull();
+  });
+
+  it("rules out a shot at range by a unit with an enemy next to it: close assault only", () => {
+    const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.ARTILLERY), { distance: "3", adjacentEnemy: "yes" });
+
+    expect(result.blocked?.en).toMatch(/only fire in close assault/);
+    expect(calculateFireDice(FIRE_QUESTIONS, context(UnitType.ARTILLERY), { distance: "1", adjacentEnemy: "yes" }).blocked).toBeNull();
   });
 
   it("rules out a target out of sight, so the unit keeps its fire", () => {

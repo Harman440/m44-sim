@@ -60,9 +60,11 @@ interface Moving {
 
 /**
  * Carry out both sides' moves at once, one hex at a time (house rule): every unit takes its
- * first step, then its second, and so on. A unit stops when it meets an enemy (a collision) or
- * when its next hex holds one of its own units that stays there. All positions are in one
- * side's view of the board (the Allies', unturned), for both sides.
+ * first step, then its second, and so on. A unit stops when it meets an enemy (a collision).
+ * Units of one side never hold each other up on the way: only the hex a unit ends on counts.
+ * When two of them end on one hex (one stopped short there by a collision), the one that got
+ * there last goes back along its path to the nearest free hex. All positions are in one side's
+ * view of the board (the Allies', unturned), for both sides.
  */
 export function moveSimultaneously(movers: readonly Mover[], standers: readonly Stander[]): MovementResult {
   const units: Moving[] = movers.map((mover) => ({
@@ -98,39 +100,32 @@ export function moveSimultaneously(movers: readonly Mover[], standers: readonly 
       }
     }
 
-    // Units stepping into the same hex: enemies collide; of two friends, the later order waits
+    // Enemies stepping into the same hex
     for (const a of stepping) {
       for (const b of stepping) {
-        if (a === b || !a.moving || !b.moving || !samePosition(next.get(a)!, next.get(b)!)) continue;
-        if (a.side !== b.side) {
-          if (a.side < b.side) {
-            collisions.push({ step, kind: "same-hex", hex: next.get(a)!, units: [colliding(a), colliding(b)] });
-            halt(a);
-            halt(b);
-          }
-        } else if (a.order > b.order) {
-          halt(a);
-        }
+        if (a.side >= b.side || !a.moving || !b.moving || !samePosition(next.get(a)!, next.get(b)!)) continue;
+        collisions.push({ step, kind: "same-hex", hex: next.get(a)!, units: [colliding(a), colliding(b)] });
+        halt(a);
+        halt(b);
       }
     }
 
-    // A hex held by a unit that stays there: a friend waits, an enemy is a collision. A unit
-    // stopping here may in turn hold up another, so go round until nothing changes
+    // A hex held by an enemy that stays there is a collision. A unit stopping here may in turn
+    // be in an enemy's way, so go round until nothing changes
     for (let changed = true; changed; ) {
       changed = false;
       for (const unit of stepping) {
         if (!unit.moving) continue;
         const target = next.get(unit)!;
-        const stayingMover = units.find((other) => other !== unit && !other.moving && samePosition(here(other), target));
-        const stander = standers.find((other) => samePosition(other.position, target));
-        const holder = stayingMover ?? stander;
-        if (!holder) continue;
-        if (holder.side !== unit.side) {
-          const held: CollidingUnit = stayingMover
-            ? colliding(stayingMover)
-            : { side: stander!.side, order: stander!.order, position: stander!.position };
-          collisions.push({ step, kind: "standing", hex: target, units: [colliding(unit), held] });
-        }
+        const stayingMover = units.find(
+          (other) => other.side !== unit.side && !other.moving && samePosition(here(other), target)
+        );
+        const stander = standers.find((other) => other.side !== unit.side && samePosition(other.position, target));
+        if (!stayingMover && !stander) continue;
+        const held: CollidingUnit = stayingMover
+          ? colliding(stayingMover)
+          : { side: stander!.side, order: stander!.order, position: stander!.position };
+        collisions.push({ step, kind: "standing", hex: target, units: [colliding(unit), held] });
         halt(unit);
         changed = true;
       }
@@ -144,8 +139,49 @@ export function moveSimultaneously(movers: readonly Mover[], standers: readonly 
     }
   }
 
+  settleSharedHexes(units, standers, collisions);
   return {
     ends: units.map((unit) => ({ side: unit.side, order: unit.order, end: here(unit), stopped: unit.stopped })),
     collisions,
   };
+}
+
+/**
+ * Two units that end on one hex: the one that got there last (a step per hex, so the furthest
+ * along its path; on a tie, one stopped short, then the later order) goes back along its path
+ * to the nearest hex nobody ends on, or one hex back to sort out from there. Its collisions
+ * follow it. Units only share a hex when one was stopped short by a collision, so this is rare.
+ */
+function settleSharedHexes(units: Moving[], standers: readonly Stander[], collisions: Collision[]) {
+  const ends = () => [
+    ...units.map((unit) => ({ unit, position: unit.path[unit.at]! })),
+    ...standers.map((stander) => ({ unit: null, position: stander.position })),
+  ];
+  const latest = (a: Moving, b: Moving) =>
+    b.at - a.at || Number(b.stopped) - Number(a.stopped) || b.order - a.order;
+
+  for (;;) {
+    const all = ends();
+    const shared = all.find(({ position }, i) => all.some((other, j) => j !== i && samePosition(other.position, position)));
+    if (!shared) return;
+    const back = all
+      .filter(({ unit, position }) => unit && unit.at > 0 && samePosition(position, shared.position))
+      .map(({ unit }) => unit!)
+      .sort(latest)[0]!;
+    const taken = (position: Position) => all.some((end) => end.unit !== back && samePosition(end.position, position));
+    let to = back.at - 1;
+    while (to > 0 && taken(back.path[to]!)) to--;
+    if (taken(back.path[to]!)) to = back.at - 1;
+
+    const from = back.path[back.at]!;
+    back.at = to;
+    back.stopped = true;
+    for (const collision of collisions) {
+      collision.units = collision.units.map((unit) =>
+        unit.side === back.side && unit.order === back.order && samePosition(unit.position, from)
+          ? { ...unit, position: back.path[to]! }
+          : unit
+      ) as Collision["units"];
+    }
+  }
 }

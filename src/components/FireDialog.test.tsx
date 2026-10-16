@@ -232,6 +232,24 @@ describe("FireDialog", () => {
     expect(screen.getByRole("button", { name: "Disparar" })).toBeDisabled();
   });
 
+  it("fires in close assault only when the player says an enemy is next to the unit", () => {
+    const session = open(UnitType.INFANTRY);
+    tapHex(TWO_AWAY);
+    expect(screen.getByTestId("fire-target")).toHaveTextContent("a 2 casillas");
+
+    fireEvent.click(screen.getByRole("switch", { name: /¿Hay una unidad enemiga junto a la tuya\?/ }));
+
+    // The target at range is dropped, and only the adjacent hexes are left
+    expect(screen.queryByTestId("fire-target")).not.toBeInTheDocument();
+    expect(hasBadge(TWO_AWAY)).toBe(false);
+    expect(hasBadge(ADJACENT)).toBe(true);
+    tapHex(TWO_AWAY);
+    expect(screen.getByText(/Esa casilla no/)).toBeInTheDocument();
+
+    fireAt(ADJACENT, "Infantería", "3 dados");
+    expect(session.getSnapshot().shots[0]!.targetPosition).toEqual(ADJACENT);
+  });
+
   it("asks about sandbags in one line: in the open they take a die, and the flag reminder stays with the roll", async () => {
     open(UnitType.INFANTRY);
     tapHex(ADJACENT);

@@ -37,6 +37,11 @@ export interface FireContext {
    * own tablets, where the player says so: the answer `pinned` ("yes"/"no")
    */
   pinned?: boolean;
+  /**
+   * Pass and play: an enemy unit is next to the firing unit, which then fires in close assault
+   * only (house rule). Left out on own tablets, where the player says so: the answer `adjacentEnemy`
+   */
+  adjacentEnemy?: boolean;
 }
 
 /** Answers so far, by question id -> option value */
