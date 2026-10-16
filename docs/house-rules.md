@@ -130,6 +130,8 @@ Armour was too easy to play, and no card is played as a reaction in the battle a
 - Camouflage — 2: given to 1 ordered infantry unit, which gets the official camouflage badge after the battle: it can only be fired at in close assault, and loses it when it moves or battles.
 - Fortify — 1: in the battle, each of your ordered infantry units that could still fire may fortify instead, putting sandbags on its hex; they count straight away. Infantry only.
 - Reposition — 2: given to 1 ordered artillery unit, which moves up to 2 hexes after the battle.
+- Concentrated Fire (new) — 1, in every deck: this turn, your units that didn't move and fire at the same enemy unit may roll together, one roll with all their dice (each unit its own die). Sandbags ignore 1 flag of the whole roll; in pass and play the units' figures add up for limited damage.
+- Suppressive Fire (new) — 1, in every deck: this turn, on each ordered shot you may roll the suppressive die, with one infantry side turned into a flag (battle die: 1 infantry, tank, grenade, supply, 2 flags; long-range die: 2 infantry, 2 tanks, 2 flags, 2 supplies). Not for collisions or attack cards.
 - Infantry never overruns any more: only armour takes ground and battles again. In pass and play, infantry whose close assault made the target retreat can still push it out and move into its hex, without firing again.
 - Reinforcements — 6: no roll; an infantry unit arrives on the cross as the final phase starts (another empty hex if the cross is taken). Scenarios no longer have a reinforcement table.
 - An extra order costs 3 coins for infantry and 4 for armour or artillery.

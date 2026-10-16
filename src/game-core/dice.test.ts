@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { ATTACK_DIE_SIDES, DieFace, DIE_SIDES, LONG_RANGE_DIE_SIDES, SIDES_OF, countFaces, rollDice } from "./dice";
+import {
+  ATTACK_DIE_SIDES,
+  DieFace,
+  DIE_SIDES,
+  LONG_RANGE_DIE_SIDES,
+  LONG_RANGE_SUPPRESSIVE_DIE_SIDES,
+  SIDES_OF,
+  SUPPRESSIVE_DIE_SIDES,
+  countFaces,
+  isEightSided,
+  rollDice,
+  suppressed,
+} from "./dice";
 
 describe("battle dice", () => {
   it("has the Memoir '44 faces: 2 infantry, 1 tank, 1 grenade, 1 supply, 1 flag", () => {
@@ -58,6 +70,35 @@ describe("the attack cards' die", () => {
   });
 
   it("is listed by kind", () => {
-    expect(SIDES_OF).toEqual({ battle: DIE_SIDES, longRange: LONG_RANGE_DIE_SIDES, attack: ATTACK_DIE_SIDES });
+    expect(SIDES_OF).toEqual({
+      battle: DIE_SIDES,
+      longRange: LONG_RANGE_DIE_SIDES,
+      attack: ATTACK_DIE_SIDES,
+      suppressive: SUPPRESSIVE_DIE_SIDES,
+      longRangeSuppressive: LONG_RANGE_SUPPRESSIVE_DIE_SIDES,
+    });
+  });
+});
+
+describe("Suppressive Fire's dice", () => {
+  it("turn one infantry side of each die into a flag, keeping its shape", () => {
+    expect(countFaces(SUPPRESSIVE_DIE_SIDES)).toEqual({
+      [DieFace.INFANTRY]: 1,
+      [DieFace.TANK]: 1,
+      [DieFace.GRENADE]: 1,
+      [DieFace.SUPPLY]: 1,
+      [DieFace.FLAG]: 2,
+    });
+    expect(countFaces(LONG_RANGE_SUPPRESSIVE_DIE_SIDES)).toEqual({
+      [DieFace.INFANTRY]: 2,
+      [DieFace.TANK]: 2,
+      [DieFace.GRENADE]: 0,
+      [DieFace.SUPPLY]: 2,
+      [DieFace.FLAG]: 2,
+    });
+    expect(suppressed("battle")).toBe("suppressive");
+    expect(suppressed("longRange")).toBe("longRangeSuppressive");
+    expect(isEightSided("longRangeSuppressive")).toBe(true);
+    expect(isEightSided("suppressive")).toBe(false);
   });
 });

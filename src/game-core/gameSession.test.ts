@@ -3600,3 +3600,103 @@ describe("GameSession defensive combat cards", () => {
     expect(session.getSnapshot().repositioning).toBeNull();
   });
 });
+
+describe("GameSession firing combat cards", () => {
+  const concentrated: CombatCard = { id: "concentrated-fire", name: same("Fuego concentrado"), description: same(""), cost: 0, effect: { kind: "concentratedFire" } };
+  const suppressive: CombatCard = { id: "suppressive-fire", name: same("Fuego de supresión"), description: same(""), cost: 0, effect: { kind: "suppressiveFire" } };
+  const OTHER_INF: Position = { row: 7, col: 3 };
+  /** The defender's turn 2 in test mode, both left infantry holding (or the first moving), in the battle */
+  const battleWith = (played: CombatCard[], { longRangeDie = false, moveLeft = false } = {}) => {
+    const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+    const session = new GameSession({
+      scenario: { ...scenario, attacker: "Axis" },
+      faction: "Allies",
+      initialHandSize: 1,
+      commandCards,
+      combatCards: [concentrated, suppressive],
+      testMode: true,
+      longRangeDie,
+      random: () => 0,
+    });
+    session.startFirstTurn();
+    expect(session.pickCard(commandCards[0]!, undefined, played)).toBe(true);
+    expect(session.issueOrder(LEFT_INF, moveLeft ? { row: 6, col: 1 } : LEFT_INF)).toBe(true);
+    expect(session.issueOrder(OTHER_INF, OTHER_INF)).toBe(true);
+    session.commitOrders();
+    session.startBattle();
+    const left = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
+    return { session, left, other: 1 - left };
+  };
+  /** A hex both units can fire at, `distance` hexes from the first */
+  const sharedTarget = (session: GameSession, left: number, other: number, distance: number) =>
+    session
+      .fireTargetsFor(left)
+      .find(
+        (t) =>
+          t.distance === distance &&
+          t.lineOfSight &&
+          t.dice > 0 &&
+          session.fireTargetsFor(other).some((o) => samePosition(o.position, t.position) && o.lineOfSight && o.dice > 0)
+      )!.position;
+
+  it("Fuego de supresión: an ordered shot may roll the suppressive die, at range the 8-sided one when the game uses it", () => {
+    const plain = battleWith([]);
+    const target = sharedTarget(plain.session, plain.left, plain.other, 2);
+    expect(plain.session.fireAt(plain.left, { position: target, infantry: true, sandbags: false, suppressive: true })).toBe(false);
+
+    const { session, left, other } = battleWith([suppressive], { longRangeDie: true });
+    expect(session.getSnapshot().suppressiveFire).toBe(true);
+    expect(session.fireAt(left, { position: target, infantry: true, sandbags: false, suppressive: true })).toBe(true);
+    expect(session.getSnapshot().shots[0]!.target.die).toBe("longRangeSuppressive");
+    expect(session.fireAt(other, { position: target, infantry: true, sandbags: false })).toBe(true);
+    expect(session.getSnapshot().shots[1]!.target.die).toBe("longRange");
+  });
+
+  it("Fuego concentrado: units that didn't move roll together at one enemy; each has used its shot, and the roll is taken back whole", () => {
+    expect(battleWith([]).session.joinable(0, { position: { row: 6, col: 2 }, infantry: true, sandbags: false })).toEqual([]);
+    const { session, left, other } = battleWith([concentrated]);
+    const target = sharedTarget(session, left, other, 2);
+    const choice = { position: target, infantry: true, sandbags: false };
+    const [option] = session.joinable(left, choice);
+    expect(option).toMatchObject({ order: other });
+
+    expect(session.fireAt(left, { ...choice, joined: [other] })).toBe(true);
+    const [lead, joined] = session.getSnapshot().shots;
+    expect(lead).toMatchObject({ orderIndex: left, joined: [other] });
+    expect(lead!.dice).toBe(lead!.steps.filter((s) => s.kind !== "joined").reduce((sum, s) => sum + s.dice, 0) + option!.dice);
+    expect(lead!.faces).toHaveLength(lead!.dice);
+    expect(lead!.steps.at(-1)).toMatchObject({ kind: "joined", unit: UnitType.INFANTRY, dice: option!.dice });
+    expect(joined).toMatchObject({ orderIndex: other, dice: 0, faces: [], joinedTo: left, group: lead!.group });
+    expect(session.shotsLeft(other)).toBe(0);
+
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), { ...scenario, attacker: "Axis" }, [
+      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
+    ], [concentrated, suppressive]);
+    expect(restored.getSnapshot().shots).toHaveLength(2);
+
+    expect(session.undoShot(other)).toBe(true);
+    expect(session.getSnapshot().shots).toEqual([]);
+    expect(session.shotsLeft(left)).toBe(1);
+  });
+
+  it("Fuego concentrado: a unit that moved can't roll with the others", () => {
+    const { session, left, other } = battleWith([concentrated], { moveLeft: true });
+    const target = session.fireTargetsFor(other).find((t) => t.distance === 2 && t.lineOfSight)!.position;
+
+    expect(session.joinable(other, { position: target, infantry: true, sandbags: false })).toEqual([]);
+    expect(session.fireAt(other, { position: target, infantry: true, sandbags: false, joined: [left] })).toBe(false);
+  });
+
+  it("Fuego concentrado: each unit throws its own die, the battle die adjacent and the 8-sided one further away", () => {
+    const { session, left, other } = battleWith([concentrated], { longRangeDie: true });
+    const target = session
+      .fireTargetsFor(left)
+      .find((t) => t.distance === 1 && session.fireTargetsFor(other).some((o) => samePosition(o.position, t.position) && o.distance === 2 && o.lineOfSight))!.position;
+
+    expect(session.fireAt(left, { position: target, infantry: true, sandbags: false, joined: [other] })).toBe(true);
+    const kinds = session.getSnapshot().shots[0]!.kinds!;
+    expect(kinds).toContain("battle");
+    expect(kinds).toContain("longRange");
+    expect(kinds.indexOf("longRange")).toBeGreaterThan(kinds.lastIndexOf("battle"));
+  });
+});

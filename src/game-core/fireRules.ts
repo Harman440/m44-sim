@@ -43,7 +43,7 @@ export interface FireOption {
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
-export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown";
+export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown" | "joined";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {
@@ -55,6 +55,8 @@ export interface DiceStep {
   card?: Localized;
   /** The step's dice aren't thrown: each is added to the roll showing this face (Heat of Battle) */
   face?: DieFace;
+  /** A "joined" step's unit: it rolled its dice with the shot's unit (Concentrated Fire) */
+  unit?: UnitType;
 }
 
 /** The faces a roll's steps add without throwing them (Heat of Battle's flag), in step order */
@@ -62,8 +64,8 @@ export const setFaces = (steps: readonly DiceStep[]): DieFace[] =>
   steps.flatMap((step) => (step.face ? Array.from({ length: Math.max(0, step.dice) }, () => step.face!) : []));
 
 /** How many of a roll's dice, the last ones, were added already showing their face rather than thrown */
-export const placedDice = (roll: { steps: readonly DiceStep[]; faces: readonly DieFace[] }): number =>
-  Math.min(setFaces(roll.steps).length, roll.faces.length);
+export const placedDice = (roll: { steps: readonly DiceStep[]; faces: readonly DieFace[]; placed?: number }): number =>
+  Math.min(roll.placed ?? setFaces(roll.steps).length, roll.faces.length);
 
 export interface FireQuestion {
   id: string;

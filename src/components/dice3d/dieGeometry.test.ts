@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
-import { DIE_KINDS, SIDES_OF } from "../../game-core/dice";
+import { DIE_KINDS, SIDES_OF, isEightSided } from "../../game-core/dice";
 import { dieShape, restingQuaternion } from "./dieGeometry";
 
 describe("dieShape", () => {
@@ -48,7 +48,7 @@ describe("rounded edges", () => {
     const position = geometry.getAttribute("position");
     const normal = geometry.getAttribute("normal");
     // The sharp die's sides are planes normal·p = distance of the middle of a side
-    const reach = die === "longRange" ? 37 / Math.sqrt(3) : 21;
+    const reach = isEightSided(die) ? 37 / Math.sqrt(3) : 21;
     for (let i = 0; i < position.count; i++) {
       const p = new Vector3().fromBufferAttribute(position, i);
       for (const side of sides) expect(p.dot(side.normal)).toBeLessThanOrEqual(reach + 1e-6);

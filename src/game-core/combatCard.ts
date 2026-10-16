@@ -72,6 +72,10 @@ export type CombatEffect =
   | { kind: "camouflage" }
   /** Reposition: after the battle, the unit it's given to moves up to this many hexes */
   | { kind: "reposition"; hexes: number }
+  /** Concentrated Fire: this side's units that didn't move may fire at the same enemy unit together, in one roll */
+  | { kind: "concentratedFire" }
+  /** Suppressive Fire: this side's ordered shots may roll the suppressive die (an infantry side is a flag), shot by shot */
+  | { kind: "suppressiveFire" }
   /** Rifles Up!: this side's units of these types that moved fire with the units that didn't move */
   | { kind: "firesWithUnmoved"; unitTypes: readonly UnitType[] };
 

@@ -43,6 +43,8 @@ const DIE_NOTES: Record<DieKind, string> = {
   battle: "",
   longRange: " · dado de 8 caras",
   attack: " · dado de ataque",
+  suppressive: " · dado de supresión",
+  longRangeSuppressive: " · dado de 8 caras de supresión",
 };
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

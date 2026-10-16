@@ -27,7 +27,7 @@ import { BASE_DICE_BY_DISTANCE } from "../data/fireQuestions";
 import ShotDice from "./ShotDice";
 import ShotSteps from "./ShotSteps";
 import { UnitType } from "../game-core/unit";
-import FireAim, { FireAimChoice } from "./FireAim";
+import FireAim, { FireAimChoice, JoinableUnit } from "./FireAim";
 import { TargetKinds } from "../data/hitRules";
 import HexThumbnail from "./HexThumbnail";
 import GameIcon from "./GameIcon";
@@ -64,6 +64,8 @@ const TEXT = defineMessages({
     removeWire: "Quitar alambrada",
     fireFromWire: "Disparar (−1 dado)",
     fortify: "Fortificar sin disparar",
+    joinedTo: (number: number | null, unit: string) =>
+      `${number !== null ? `Disparo ${number}: d` : "D"}isparó con ${unit.toLowerCase()} (fuego concentrado): sus dados van en esa tirada`,
     fortified: (number: number | null) => (number !== null ? `Disparo ${number}: se fortificó, sin disparar` : "Se fortificó, sin disparar"),
     fortifiedTable: "Pon sacos terreros en su casilla, en la mesa: cuentan desde ya.",
     back: "Volver",
@@ -99,6 +101,8 @@ const TEXT = defineMessages({
     removeWire: "Remove barbed wire",
     fireFromWire: "Fire (−1 die)",
     fortify: "Fortify, no shot",
+    joinedTo: (number: number | null, unit: string) =>
+      `${number !== null ? `Shot ${number}: f` : "F"}ired with the ${unit.toLowerCase()} (Concentrated Fire): its dice are in that roll`,
     fortified: (number: number | null) => (number !== null ? `Shot ${number}: fortified, without firing` : "Fortified, without firing"),
     fortifiedTable: "Put sandbags on its hex on the table: they count from now on.",
     back: "Back",
@@ -137,6 +141,12 @@ interface FireDialogProps {
   onFortify?: () => boolean;
   /** The enemy may have camouflaged units: a target at range is asked about */
   enemyCamouflage?: boolean;
+  /** Suppressive Fire was played: a switch for each shot */
+  suppressiveFire?: boolean;
+  /** Concentrated Fire: the units that could roll with this one, as the shot is aimed */
+  joinable?: (choice: FireAimChoice) => readonly JoinableUnit[];
+  /** The unit of another order, for a shot rolled with it (Concentrated Fire) */
+  orderUnit?: (orderIndex: number) => string;
   /** The game rolls the 8-sided long-range die at targets that aren't adjacent */
   longRangeDie?: boolean;
   /** What the enemy can have in the scenario */
@@ -215,7 +225,9 @@ function ExplainedAction({
 interface ShotResultProps {
   /** Pass and play: no table to mirror */
   shared?: boolean;
-  shot: ShotRoll & { removedWire?: Position; fortified?: Position };
+  /** Concentrated Fire: the unit whose roll this unit's dice went into */
+  leadUnit?: string;
+  shot: ShotRoll & { removedWire?: Position; fortified?: Position; joinedTo?: number };
   number: number | null;
   /** The firing unit's type */
   unitType: UnitType;
@@ -228,8 +240,15 @@ interface ShotResultProps {
   onKeepResults?: (kept: number[] | null) => boolean;
 }
 
-export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults, shared = false }: ShotResultProps) {
+export function ShotResult({ shot, number, unitType, faction, board, image, rolling, onKeepResults, shared = false, leadUnit }: ShotResultProps) {
   const t = useMessages(TEXT);
+  if (shot.joinedTo !== undefined) {
+    return (
+      <Typography variant="h6" data-testid="shot-result">
+        {t.joinedTo(number, leadUnit ?? "")}
+      </Typography>
+    );
+  }
   if (shot.removedWire) {
     return (
       <Stack direction="row" data-testid="shot-result" sx={{ alignItems: "center", gap: 1.5 }}>
@@ -310,6 +329,9 @@ function FireDialog({
   canFortify = false,
   onFortify,
   enemyCamouflage = false,
+  suppressiveFire = false,
+  joinable,
+  orderUnit,
   onUndoShot,
   onKeepResults,
   onClose,
@@ -397,6 +419,7 @@ function FireDialog({
               image={image}
               rolling={justFired && i === summary.shots.length - 1}
               onKeepResults={(kept) => onKeepResults(i, kept)}
+              leadUnit={shot.joinedTo !== undefined ? orderUnit?.(shot.joinedTo) : undefined}
             />
           ))}
           {canTakeGround && (
@@ -483,6 +506,8 @@ function FireDialog({
         card={card}
         longRangeDie={longRangeDie}
         targetKinds={targetKinds}
+        suppressiveFire={suppressiveFire}
+        joinable={joinable}
         onFire={handleFire}
       />
     );

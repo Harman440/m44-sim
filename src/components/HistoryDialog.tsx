@@ -45,6 +45,8 @@ const TEXT = defineMessages({
     noShots: "Nadie disparó.",
     removedWire: (unit: string, place: string) => `${unit}: quitó la alambrada (${place})`,
     fortifiedShot: (unit: string, place: string) => `${unit}: se fortificó con sacos terreros (${place})`,
+    joinedTo: (unit: string, lead: string) => `${unit}: disparó con ${lead.toLowerCase()} (fuego concentrado)`,
+    concentrated: " · fuego concentrado",
     dice: (n: number) => (n === 1 ? "1 dado" : `${n} dados`),
     inCollision: " en un choque",
     mapChanges: "Cambios en el mapa",
@@ -86,6 +88,8 @@ const TEXT = defineMessages({
     noShots: "Nobody fired.",
     removedWire: (unit: string, place: string) => `${unit}: removed the barbed wire (${place})`,
     fortifiedShot: (unit: string, place: string) => `${unit}: fortified with sandbags (${place})`,
+    joinedTo: (unit: string, lead: string) => `${unit}: fired with the ${lead.toLowerCase()} (Concentrated Fire)`,
+    concentrated: " · Concentrated Fire",
     dice: (n: number) => (n === 1 ? "1 die" : `${n} dice`),
     inCollision: " in a collision",
     mapChanges: "Map changes",
@@ -206,6 +210,11 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
                       ) : shot.fortified ? (
                         t.fortifiedShot(labels.unitKind(shot.unit, shot.elite), placeOf(shot.fortified))
+                      ) : shot.joinedTo !== undefined ? (
+                        t.joinedTo(
+                          labels.unitKind(shot.unit, shot.elite),
+                          record.orders[shot.joinedTo] ? labels.units[record.orders[shot.joinedTo]!.unit] : ""
+                        )
                       ) : (
                         <>
                           {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}
@@ -216,6 +225,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                             ` (${labels.describeTarget(shot.target).toLowerCase()}: ${labels.describeRoll(
                               readRoll(appliedFaces(shot.faces, shot.kept), shot.target)
                             )})`}
+                          {shot.joined && t.concentrated}
                           {shot.notes.map((note) => ` · ${tr(note)}`).join("")}
                         </>
                       )}

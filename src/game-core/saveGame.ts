@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 34;
+export const SAVE_VERSION = 35;
 
 interface SavedUnit {
   type: UnitType;
@@ -445,6 +445,14 @@ export function readSave(
     if (shot.kept !== null && !isKeptList(shot.kept, shot.faces.length)) throw new Error("Unknown kept dice");
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
     if (shot.fortified !== undefined && !isPosition(shot.fortified)) throw new Error("Unknown hex fortified");
+    const isOrder = (order: unknown) => Number.isInteger(order) && !!orders[order as number];
+    if (shot.joined !== undefined && !(Array.isArray(shot.joined) && shot.joined.every(isOrder))) throw new Error("Unknown joined units");
+    if (shot.joinedTo !== undefined && !isOrder(shot.joinedTo)) throw new Error("Unknown lead unit");
+    if (shot.group !== undefined && !Number.isInteger(shot.group)) throw new Error("Unknown shot group");
+    if (shot.kinds !== undefined && !(Array.isArray(shot.kinds) && shot.kinds.length === shot.faces.length && shot.kinds.every((kind) => DIE_KINDS.includes(kind)))) {
+      throw new Error("Unknown dice kinds");
+    }
+    if (shot.placed !== undefined && !Number.isInteger(shot.placed)) throw new Error("Unknown dice placed");
     if (shot.pushedBack !== undefined && typeof shot.pushedBack !== "boolean") throw new Error("Unknown push back");
     return shot;
   });

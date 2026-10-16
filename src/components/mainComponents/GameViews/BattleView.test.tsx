@@ -9,6 +9,7 @@ import CommandCard from "../../../game-core/commandCard";
 import { CombatCard } from "../../../game-core/combatCard";
 import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
+import { samePosition } from "../../../game-core/position";
 import { same } from "../../../i18n/lang";
 
 /** Tap a hex on the fire dialog's map */
@@ -424,6 +425,31 @@ describe("BattleView combat card effects", () => {
     render(<Harness session={session} onEndBattle={() => {}} />);
     return session;
   };
+
+  it("adds the units that didn't move to a Fuego concentrado roll, and rolls the suppressive die with Fuego de supresión", () => {
+    const concentrated: CombatCard = { id: "concentrated-fire", name: same("Fuego concentrado"), description: same(""), cost: 0, effect: { kind: "concentratedFire" } };
+    const suppressive: CombatCard = { id: "suppressive-fire", name: same("Fuego de supresión"), description: same(""), cost: 0, effect: { kind: "suppressiveFire" } };
+    const session = effectSetup([concentrated, suppressive], [concentrated, suppressive]);
+    const orders = session.getSnapshot().orders;
+    const infantry = orders.findIndex((o) => o.unit.getUnitType() === UnitType.INFANTRY);
+    const tank = 1 - infantry;
+    // A hex both can fire at
+    const target = session
+      .fireTargetsFor(infantry)
+      .find((t) => t.lineOfSight && t.dice > 0 && session.fireTargetsFor(tank).some((o) => samePosition(o.position, t.position) && o.lineOfSight && o.dice > 0))!;
+
+    fireEvent.click(screen.getByRole("button", { name: "Disparar con Infantería" }));
+    fireEvent.click(document.querySelector(`[data-testid="fire-map"] [data-position="${target.position.row}-${target.position.col}"]`)!);
+    fireEvent.click(screen.getByRole("button", { name: "Infantería" }));
+    fireEvent.click(screen.getByRole("switch", { name: /Fuego de supresión/ }));
+    fireEvent.click(within(screen.getByTestId("concentrated-fire")).getByRole("button", { name: /^Tanque/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
+
+    const [lead, joined] = session.getSnapshot().shots;
+    expect(lead).toMatchObject({ orderIndex: infantry, joined: [tank] });
+    expect(lead!.target.die).toBe("suppressive");
+    expect(joined).toMatchObject({ orderIndex: tank, joinedTo: infantry });
+  });
 
   it("reminds the player in the instructions what the opponent's rolls must leave out (Ni un paso atrás)", () => {
     const notOneStepBack: CombatCard = {

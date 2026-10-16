@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Alert, Box, Button, FormControlLabel, Stack, Switch, Typography } from "@mui/material";
+import { Alert, Box, Button, FormControlLabel, Stack, Switch, ToggleButton, Typography } from "@mui/material";
+import { DieFace } from "../game-core/dice";
+import DieFaceIcon from "./DieFaceIcon";
 import BoardManager from "../game-core/BoardManager";
 import CommandCard from "../game-core/commandCard";
 import { FireContext, calculateFireDice } from "../game-core/fireRules";
@@ -31,6 +33,9 @@ const TEXT = defineMessages({
     isInfantry: "¿Es infantería?",
     sandbags: "¿Sacos terreros?",
     camouflaged: "¿Camuflada?",
+    suppressive: "Fuego de supresión: una cara de infantería es bandera",
+    concentrated: "Fuego concentrado: suma unidades que no se movieron",
+    joinUnit: (unit: string, dice: number) => `${unit} · +${dice} ${dice === 1 ? "dado" : "dados"}`,
     knownInfantry: "Infantería",
     knownOther: "Blindados o artillería",
     knownSandbags: "con sacos terreros",
@@ -50,6 +55,9 @@ const TEXT = defineMessages({
     isInfantry: "Is it infantry?",
     sandbags: "Sandbags?",
     camouflaged: "Camouflaged?",
+    suppressive: "Suppressive Fire: an infantry side is a flag",
+    concentrated: "Concentrated Fire: add units that didn't move",
+    joinUnit: (unit: string, dice: number) => `${unit} · +${dice} ${dice === 1 ? "die" : "dice"}`,
     knownInfantry: "Infantry",
     knownOther: "Armor or artillery",
     knownSandbags: "behind sandbags",
@@ -66,6 +74,18 @@ export interface FireAimChoice {
   sandbags: boolean;
   /** The target has the camouflage badge (only a close assault can hit it) */
   camouflaged?: boolean;
+  /** Suppressive Fire: roll the die with a flag in place of one infantry side */
+  suppressive?: boolean;
+  /** Concentrated Fire: the other orders whose units roll with this one */
+  joined?: readonly number[];
+}
+
+/** Concentrated Fire: a unit that can roll with the one firing, where it stands and the dice it adds */
+export interface JoinableUnit {
+  order: number;
+  dice: number;
+  label: string;
+  position: Position;
 }
 
 interface FireAimProps {
@@ -84,6 +104,10 @@ interface FireAimProps {
   targetKinds: TargetKinds;
   /** Pass and play: what's on each target hex is known, so the unit type and sandbags aren't asked */
   knownTarget?: (position: Position) => { infantry: boolean; sandbags: boolean } | null;
+  /** Suppressive Fire was played: a switch for this shot */
+  suppressiveFire?: boolean;
+  /** Concentrated Fire: the units that could roll with this one at the target as chosen so far */
+  joinable?: (choice: FireAimChoice) => readonly JoinableUnit[];
   onFire: (choice: FireAimChoice) => void;
 }
 
@@ -96,7 +120,20 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
  * The player taps the target's hex, then says what unit is there and whether
  * it has sandbags; the dice are worked out as they go.
  */
-function FireAim({ board, image, faction, from, targets, context, longRangeDie, targetKinds, knownTarget, onFire }: FireAimProps) {
+function FireAim({
+  board,
+  image,
+  faction,
+  from,
+  targets,
+  context,
+  longRangeDie,
+  targetKinds,
+  knownTarget,
+  suppressiveFire = false,
+  joinable,
+  onFire,
+}: FireAimProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -105,6 +142,8 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const [chosenKind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const [chosenSandbags, setSandbags] = useState(false);
   const [camouflaged, setCamouflaged] = useState(false);
+  const [suppressive, setSuppressive] = useState(false);
+  const [chosenJoined, setJoined] = useState<readonly number[]>([]);
   const [missed, setMissed] = useState(false);
 
   const firable = targets.filter((t) => t.lineOfSight && t.dice > 0);
@@ -125,6 +164,16 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
     : {};
   // The enemy may have the Camouflage card: a target at range may be out of reach
   const asksCamouflage = !knownTarget && !!context.enemyCamouflage && !!target && target.distance > 1;
+  // Concentrated Fire: the units that can join this shot as it stands, and the ones joined that still can
+  const choiceSoFar: FireAimChoice | null =
+    target && kind
+      ? { position: target.position, infantry: kind === "infantry", sandbags, camouflaged: asksCamouflage && camouflaged, suppressive }
+      : null;
+  const joinOptions = choiceSoFar && joinable ? joinable(choiceSoFar) : [];
+  const joined = chosenJoined.filter((order) => joinOptions.some((option) => option.order === order));
+  const joinedDice = joinOptions.filter((option) => joined.includes(option.order)).reduce((sum, option) => sum + option.dice, 0);
+  const toggleJoined = (order: number) =>
+    setJoined(joined.includes(order) ? joined.filter((o) => o !== order) : [...joined, order]);
   const result = target ? calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps) : null;
   const eightSided = longRangeDie && !!target && target.distance > 1;
 
@@ -247,6 +296,42 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           )}
         </Stack>
 
+        {suppressiveFire && (
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+            <Box sx={{ display: "inline-flex", "& .die": { width: 28, height: 28 } }}>
+              <DieFaceIcon face={DieFace.FLAG} faction={faction} />
+            </Box>
+            <FormControlLabel
+              control={<Switch checked={suppressive} onChange={(e) => setSuppressive(e.target.checked)} />}
+              label={t.suppressive}
+              labelPlacement="start"
+              sx={{ minHeight: 48, m: 0, flex: 1, justifyContent: "space-between" }}
+            />
+          </Stack>
+        )}
+
+        {joinOptions.length > 0 && (
+          <Stack sx={{ gap: 1 }} data-testid="concentrated-fire">
+            <Typography variant="body2" color="text.secondary">
+              {t.concentrated}
+            </Typography>
+            <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+              {joinOptions.map((option) => (
+                <ToggleButton
+                  key={option.order}
+                  value={option.order}
+                  selected={joined.includes(option.order)}
+                  onChange={() => toggleJoined(option.order)}
+                  sx={{ gap: 1, textTransform: "none", minHeight: 48 }}
+                >
+                  <HexThumbnail board={board} position={option.position} image={image} faction={faction} size={28} />
+                  {t.joinUnit(option.label, option.dice)}
+                </ToggleButton>
+              ))}
+            </Stack>
+          </Stack>
+        )}
+
         {result?.blocked && (
           <Alert severity="warning" data-testid="fire-blocked">
             {tr(result.blocked)}
@@ -254,7 +339,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
         )}
         {result && !result.blocked && (
           <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-            <DicePool dice={result.dice} eightSided={eightSided} faction={faction}>
+            <DicePool dice={result.dice + joinedDice} eightSided={eightSided} faction={faction}>
               <InfoButton title={t.whereDiceComeFrom}>
                 <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
                   {result.steps.map((s) => (
@@ -263,8 +348,16 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
                       <Typography variant="body1">{formatDice(s.dice)}</Typography>
                     </Stack>
                   ))}
+                  {joinOptions
+                    .filter((option) => joined.includes(option.order))
+                    .map((option) => (
+                      <Stack key={option.order} direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
+                        <Typography variant="body1">{option.label}</Typography>
+                        <Typography variant="body1">{formatDice(option.dice)}</Typography>
+                      </Stack>
+                    ))}
                   <Typography variant="h6" sx={{ mt: 1 }}>
-                    {t.total(diceText(result.dice, eightSided))}
+                    {t.total(diceText(result.dice + joinedDice, eightSided))}
                   </Typography>
                 </Stack>
               </InfoButton>
@@ -279,7 +372,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           onClick={() =>
             target &&
             kind &&
-            onFire({ position: target.position, infantry: kind === "infantry", sandbags, camouflaged: asksCamouflage && camouflaged })
+            onFire({ ...choiceSoFar!, joined })
           }
         >
           {t.fire}

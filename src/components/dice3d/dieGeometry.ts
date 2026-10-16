@@ -1,5 +1,5 @@
 import { BufferGeometry, Float32BufferAttribute, MathUtils, Matrix4, Quaternion, Vector3 } from "three";
-import { DieKind } from "../../game-core/dice";
+import { DieKind, isEightSided } from "../../game-core/dice";
 
 /** Where one side of a die is and how its picture is laid on it */
 export interface DieSideLayout {
@@ -192,7 +192,7 @@ export function dieShape(die: DieKind): DieShape {
   let shape = shapes.get(die);
   if (!shape) {
     shape =
-      die === "longRange"
+      isEightSided(die)
         ? buildShape(
             octahedronFaces(),
             OCTAHEDRON_RADIUS,

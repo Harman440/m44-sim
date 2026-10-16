@@ -273,6 +273,18 @@ const TEMPLATES: CombatCardTemplate[] = [
       assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
       effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true },
     }),
+  card("concentrated-fire", { es: "Fuego concentrado", en: "Concentrated Fire" }, 1, always,
+    {
+      es: "Este turno, tus unidades que no se movieron y disparan a la misma unidad enemiga pueden tirar juntas: una sola tirada con todos sus dados.",
+      en: "This turn, your units that didn't move and fire at the same enemy unit may roll together: one roll with all their dice.",
+    },
+    { effect: { kind: "concentratedFire" } }),
+  card("suppressive-fire", { es: "Fuego de supresión", en: "Suppressive Fire" }, 1, always,
+    {
+      es: "Este turno, en cada disparo de tus unidades con orden puedes tirar el dado de supresión: una de sus caras de infantería es una bandera.",
+      en: "This turn, on each shot of your ordered units you may roll the suppressive die: one of its infantry sides is a flag.",
+    },
+    { effect: { kind: "suppressiveFire" } }),
   card("rifles-up", { es: "¡Fusiles arriba!", en: "Rifles Up!" }, 2, always,
     {
       es: "Este turno, tu infantería que se ha movido dispara junto con las unidades que no se movieron.",

@@ -12,11 +12,13 @@ interface Wood {
   dark: [number, number, number];
 }
 
-/** Beech for the battle and attack dice, a paler ash for the long-range die */
+/** Beech for the battle and attack dice, a paler ash for the long-range die (with Suppressive Fire too) */
 const WOODS: Record<DieKind, Wood> = {
   battle: { light: [226, 196, 150], dark: [176, 128, 78] },
   attack: { light: [226, 196, 150], dark: [176, 128, 78] },
   longRange: { light: [240, 226, 196], dark: [198, 172, 128] },
+  suppressive: { light: [226, 196, 150], dark: [176, 128, 78] },
+  longRangeSuppressive: { light: [240, 226, 196], dark: [198, 172, 128] },
 };
 
 const TEXTURE_SIZE = 256;

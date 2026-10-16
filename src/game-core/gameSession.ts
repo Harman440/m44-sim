@@ -5,7 +5,7 @@ import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds } from "../data/hitRules";
-import { ATTACK_DIE_SIDES, DieFace, SIDES_OF, rollDice } from "./dice";
+import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
 import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
@@ -56,7 +56,8 @@ import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { combatDeckFor } from "../data/combatCards";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
-import type { Localized } from "../i18n/lang";
+import { Localized, byLang } from "../i18n/lang";
+import { LABELS } from "../labels";
 
 export interface GameSnapshot {
   turn: number;
@@ -160,6 +161,10 @@ export interface GameSnapshot {
   canFortify: readonly boolean[];
   /** This side's units with the camouflage badge: only a close assault can hit them */
   camouflaged: readonly Position[];
+  /** Concentrated Fire was played: units that didn't move may roll together at one enemy (`joinable`) */
+  concentratedFire: boolean;
+  /** Suppressive Fire was played: each ordered shot may roll the suppressive die */
+  suppressiveFire: boolean;
   /** Pass and play, final phase: the artillery given Reposition and the hexes it can move to, until it has moved */
   repositioning: { from: Position; options: readonly Position[] } | null;
   /** Paratroopers placed so far, in order (PARADROP) */
@@ -228,6 +233,10 @@ export interface ShotRoll {
   kept: readonly number[] | null;
   /** The hex fired at, when it was picked on the map */
   targetPosition?: Position;
+  /** Each die's kind, when the roll mixes them (Concentrated Fire: each unit throws its own); otherwise all are `target.die` */
+  kinds?: DieKind[];
+  /** How many of the last dice were added already showing their face, when the steps don't say (Concentrated Fire) */
+  placed?: number;
 }
 
 /** What the player says about the hex fired at (pass and play knows it from the enemy unit there) */
@@ -237,6 +246,25 @@ export interface FireChoice {
   sandbags: boolean;
   /** The target has the camouflage badge: only a close assault can hit it */
   camouflaged?: boolean;
+  /** Suppressive Fire: roll the die with a flag in place of one infantry side */
+  suppressive?: boolean;
+  /** Concentrated Fire: the other orders whose units roll with this one at the same hex (`joinable`) */
+  joined?: readonly number[];
+}
+
+/** Concentrated Fire: a unit that can roll with another, and the dice it adds */
+export interface JoinOption {
+  order: number;
+  dice: number;
+}
+
+/** One unit's part of a shot: its dice, how they add up and the die it throws */
+interface ShotPart {
+  dice: number;
+  steps: DiceStep[];
+  notes: Localized[];
+  target: ShotTarget;
+  usedBonus: boolean;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
@@ -251,6 +279,12 @@ export interface Shot extends ShotRoll {
   removedWire?: Position;
   /** Instead of firing, the unit fortified: sandbags on this hex (the Fortify card, no dice) */
   fortified?: Position;
+  /** Concentrated Fire: the other orders whose units rolled with this one; their dice are in this roll */
+  joined?: number[];
+  /** Concentrated Fire: this unit rolled with that order's unit; its dice are in that shot */
+  joinedTo?: number;
+  /** Concentrated Fire: the shots of one roll share it, so "Anular disparo" takes them all back */
+  group?: number;
 }
 
 /**
@@ -1250,8 +1284,38 @@ class GameSession {
    * Sandbags are the player's answer: the enemy's aren't known here.
    */
   fireAt(orderIndex: number, choice: FireChoice): boolean {
+    const suppressive = choice.suppressive ?? false;
+    if (suppressive && !this.playedEffect("suppressiveFire")) return false;
+    const joined = choice.joined ?? [];
     const aim = this.aimAnswers(orderIndex, choice);
-    return !!aim && this.fireWith(orderIndex, aim.answers, choice.position);
+    if (!aim) return false;
+    if (joined.length === 0) return this.fireWith(orderIndex, aim.answers, choice.position, suppressive);
+
+    // Concentrated Fire: the units roll together, each with its own dice and die
+    const options = this.joinable(orderIndex, choice).map((option) => option.order);
+    if (new Set(joined).size !== joined.length || !joined.every((order) => options.includes(order))) return false;
+    const parts = [orderIndex, ...joined].map((order) => {
+      const answers = this.aimAnswers(order, choice)?.answers;
+      return answers ? this.shotPart(order, answers, suppressive) : null;
+    });
+    if (parts.some((part) => !part)) return false;
+    return this.recordConcentratedShot(orderIndex, joined, parts as ShotPart[], choice.position);
+  }
+
+  /**
+   * Concentrated Fire: the other units that can roll with this one at the enemy on this hex,
+   * with the dice each adds. Only units that didn't move and can fire now, at a hex they reach
+   */
+  joinable(orderIndex: number, choice: FireChoice): JoinOption[] {
+    if (!this.playedEffect("concentratedFire") || this.phase !== TurnPhase.BATTLE) return [];
+    const summaries = this.summaries();
+    if (!summaries[orderIndex]?.hold || !this.canFireNow(orderIndex)) return [];
+    return this.orders.flatMap((_, order) => {
+      if (order === orderIndex || !summaries[order]!.hold || !this.canFireNow(order)) return [];
+      const answers = this.aimAnswers(order, { ...choice, joined: [] })?.answers;
+      const part = answers && this.shotPart(order, answers, choice.suppressive ?? false);
+      return part && part.dice > 0 ? [{ order, dice: part.dice }] : [];
+    });
   }
 
   /** The fire answers for a shot at a hex picked on the map; null when the hex can't be fired at */
@@ -1303,19 +1367,90 @@ class GameSession {
     };
   }
 
-  private fireWith(orderIndex: number, answers: FireAnswers, targetPosition?: Position): boolean {
-    if (!this.canFireNow(orderIndex)) return false;
+  private fireWith(orderIndex: number, answers: FireAnswers, targetPosition?: Position, suppressive = false): boolean {
+    const part = this.shotPart(orderIndex, answers, suppressive);
+    if (!part) return false;
+    return this.recordShot(orderIndex, part.dice, part.steps, part.notes, part.target, false, part.usedBonus, targetPosition);
+  }
+
+  /** The unit's part of a shot with these answers, or null when it can't fire so now */
+  private shotPart(orderIndex: number, answers: FireAnswers, suppressive: boolean): ShotPart | null {
+    if (!this.canFireNow(orderIndex)) return null;
     const context = this.fireContextFor(orderIndex)!;
-    if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return false;
-    if (context.closeAssaultOnly && answers.distance !== "1") return false;
+    if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return null;
+    if (context.closeAssaultOnly && answers.distance !== "1") return null;
 
     const { dice, steps, notes, blocked } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-    if (blocked) return false;
+    if (blocked) return null;
     const infantry = targetAnswer(answers.targetType);
-    if (infantry === null || !this.canBeTarget(infantry)) return false;
-    const target = this.targetFor(infantry, answers.distance === "1");
+    if (infantry === null || !this.canBeTarget(infantry)) return null;
+    const target = this.targetFor(infantry, answers.distance === "1", suppressive);
     const usedBonus = combatBonusDice(context, answers.distance === "1") > 0;
-    return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus, targetPosition);
+    return { dice, steps, notes, target, usedBonus };
+  }
+
+  /**
+   * Concentrated Fire: one roll with every unit's dice, each thrown on its own die, the dice a
+   * card sets last. The lead shot holds the roll; the others point to it and have used their shot
+   */
+  private recordConcentratedShot(orderIndex: number, joined: readonly number[], parts: ShotPart[], targetPosition: Position): true {
+    const [lead] = parts as [ShotPart, ...ShotPart[]];
+    const thrown = parts.flatMap((part) => {
+      const count = part.dice - setFaces(part.steps).slice(0, part.dice).length;
+      return rollDice(count, this.random, SIDES_OF[part.target.die]).map((face) => ({ face, kind: part.target.die }));
+    });
+    const set = parts.flatMap((part) => setFaces(part.steps).slice(0, part.dice).map((face) => ({ face, kind: part.target.die })));
+    const dice = [...thrown, ...set];
+    const kinds = dice.map((die) => die.kind);
+    const steps = [
+      ...lead.steps,
+      ...joined.map((order, i): DiceStep => {
+        const unit = this.orders[order]!.unit.getUnitType();
+        return {
+          label: byLang((lang) => `${lang === "es" ? "Con" : "With"} ${LABELS[lang].units[unit].toLowerCase()}`),
+          dice: parts[i + 1]!.dice,
+          kind: "joined",
+          unit,
+        };
+      }),
+    ];
+    const notes = parts.flatMap((part) => part.notes).filter((note, i, all) => all.findIndex((n) => n.es === note.es) === i);
+    const group = Math.max(0, ...this.shots.map((shot) => shot.group ?? 0)) + 1;
+    const target = lead.target;
+    const shot: Shot = {
+      orderIndex,
+      steps,
+      dice: dice.length,
+      faces: dice.map((die) => die.face),
+      notes,
+      collision: false,
+      target,
+      combatBonus: parts.some((part) => part.usedBonus),
+      kept: null,
+      targetPosition: { ...targetPosition },
+      joined: [...joined],
+      group,
+      ...(kinds.some((kind) => kind !== target.die) && { kinds }),
+      ...(set.length > 0 && { placed: set.length }),
+    };
+    const others = joined.map(
+      (order, i): Shot => ({
+        orderIndex: order,
+        steps: [],
+        dice: 0,
+        faces: [],
+        notes: [],
+        collision: false,
+        target: parts[i + 1]!.target,
+        combatBonus: false,
+        kept: null,
+        targetPosition: { ...targetPosition },
+        joinedTo: orderIndex,
+        group,
+      })
+    );
+    this.shots = [...this.shots, shot, ...others];
+    return this.publish();
   }
 
   /**
@@ -1468,7 +1603,9 @@ class GameSession {
     const moved =
       this.orders.some((order) => order.unit === unit && !samePosition(order.start, order.end)) ||
       this.battleEdits.some((edit) => edit.kind === "move" && edit.unit === unit);
-    const fired = this.shots.some((shot) => shot.dice > 0 && this.orders[shot.orderIndex]?.unit === unit);
+    const fired = this.shots.some(
+      (shot) => (shot.dice > 0 || shot.joinedTo !== undefined) && this.orders[shot.orderIndex]?.unit === unit
+    );
     const position = this.positionOf(unit);
     const collided = !!position && this.standingCollisions.some((roll) => samePosition(roll.from, position));
     return moved || fired || collided;
@@ -1526,8 +1663,9 @@ class GameSession {
   }
 
   /** The target of a shot: rolled on the long-range die when the game uses it and the target isn't adjacent */
-  private targetFor(infantry: boolean, closeAssault: boolean): ShotTarget {
-    return { infantry, closeAssault, die: this.longRangeDie && !closeAssault ? "longRange" : "battle" };
+  private targetFor(infantry: boolean, closeAssault: boolean, suppressive = false): ShotTarget {
+    const die: DieKind = this.longRangeDie && !closeAssault ? "longRange" : "battle";
+    return { infantry, closeAssault, die: suppressive ? suppressed(die) : die };
   }
 
   /**
@@ -1609,7 +1747,15 @@ class GameSession {
     const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
     if (index === -1) return false;
 
-    const { removedWire: wire, fortified } = this.shots[index]!;
+    const { removedWire: wire, fortified, group } = this.shots[index]!;
+    // Concentrated Fire: the whole roll goes, while it is still each of its units' last shot
+    if (group !== undefined) {
+      const members = this.shots.filter((shot) => shot.group === group);
+      const last = (shot: Shot) => this.shots.findLastIndex((s) => s.orderIndex === shot.orderIndex) === this.shots.indexOf(shot);
+      if (!members.every(last)) return false;
+      this.shots = this.shots.filter((shot) => shot.group !== group);
+      return this.publish();
+    }
     if (wire) this.board.getHex(wire)?.setWire(true);
     if (fortified) this.board.getHex(fortified)?.setSandbags(false);
     this.shots = this.shots.filter((_, i) => i !== index);
@@ -2416,6 +2562,8 @@ class GameSession {
       canRemoveWire: this.orders.map((_, i) => this.canRemoveWire(i)),
       canFortify: this.orders.map((_, i) => this.canFortify(i)),
       camouflaged: this.camouflagedUnits().flatMap((unit) => this.positionOf(unit) ?? []),
+      concentratedFire: !!this.playedEffect("concentratedFire"),
+      suppressiveFire: !!this.playedEffect("suppressiveFire"),
       repositioning: this.repositioning(),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),

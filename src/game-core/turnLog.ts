@@ -49,6 +49,10 @@ export interface TurnRecord {
     removedWire?: Position;
     /** Instead of firing, the unit fortified: sandbags on this hex (Fortify) */
     fortified?: Position;
+    /** Concentrated Fire: the order whose roll this unit's dice went into */
+    joinedTo?: number;
+    /** Concentrated Fire: the orders whose units rolled with this one */
+    joined?: number[];
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -134,6 +138,8 @@ export function recordTurn({
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
       ...(shot.fortified && { fortified: { ...shot.fortified } }),
+      ...(shot.joinedTo !== undefined && { joinedTo: shot.joinedTo }),
+      ...(shot.joined && { joined: [...shot.joined] }),
     })),
     battleEdits: battleEdits.map((edit): TurnRecord["battleEdits"][number] => {
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };

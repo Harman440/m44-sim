@@ -58,15 +58,46 @@ export const ATTACK_DIE_SIDES: readonly DieFace[] = [
   DieFace.FLAG,
 ];
 
+/** The battle die with Suppressive Fire: one infantry side is a flag */
+export const SUPPRESSIVE_DIE_SIDES: readonly DieFace[] = [
+  DieFace.INFANTRY,
+  DieFace.FLAG,
+  DieFace.TANK,
+  DieFace.GRENADE,
+  DieFace.SUPPLY,
+  DieFace.FLAG,
+];
+
+/** The long-range die with Suppressive Fire: one infantry side is a flag */
+export const LONG_RANGE_SUPPRESSIVE_DIE_SIDES: readonly DieFace[] = [
+  DieFace.TANK,
+  DieFace.TANK,
+  DieFace.INFANTRY,
+  DieFace.INFANTRY,
+  DieFace.FLAG,
+  DieFace.FLAG,
+  DieFace.SUPPLY,
+  DieFace.SUPPLY,
+];
+
 /** Which die a roll uses */
-export type DieKind = "battle" | "longRange" | "attack";
-export const DIE_KINDS: readonly DieKind[] = ["battle", "longRange", "attack"];
+export type DieKind = "battle" | "longRange" | "attack" | "suppressive" | "longRangeSuppressive";
+export const DIE_KINDS: readonly DieKind[] = ["battle", "longRange", "attack", "suppressive", "longRangeSuppressive"];
 
 export const SIDES_OF: Record<DieKind, readonly DieFace[]> = {
   battle: DIE_SIDES,
   longRange: LONG_RANGE_DIE_SIDES,
   attack: ATTACK_DIE_SIDES,
+  suppressive: SUPPRESSIVE_DIE_SIDES,
+  longRangeSuppressive: LONG_RANGE_SUPPRESSIVE_DIE_SIDES,
 };
+
+/** The 8-sided dice (an octahedron in 3D) */
+export const isEightSided = (die: DieKind): boolean => SIDES_OF[die].length === 8;
+
+/** The die a shot rolls with Suppressive Fire on: the same shape, one infantry side turned into a flag */
+export const suppressed = (die: DieKind): DieKind =>
+  die === "battle" ? "suppressive" : die === "longRange" ? "longRangeSuppressive" : die;
 
 /** Roll `count` dice with these sides (the normal battle die by default); `random` returns [0, 1) like Math.random */
 export function rollDice(

@@ -141,4 +141,25 @@ describe("combat cards in the shared battle", () => {
     expect(match.sessions.Axis.enemyAt(axisView(4, 2))?.sandbags).toBe(true);
     expect(match.getSnapshot().battle).toMatchObject({ side: "Axis" });
   });
+
+  it("rolls Concentrated Fire's units together at one enemy, in one go before the enemy answers", () => {
+    const match = newMatch(); // every die shows infantry: hits on infantry
+    toTurn2Battle(match, {}, { combat: "concentrated-fire" });
+    match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    const allies = match.sessions.Allies;
+    const orderAt = (p: Position) => allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, p));
+    const infantry = orderAt({ row: 4, col: 2 });
+    const tank = orderAt({ row: 6, col: 2 });
+    const target = { row: 4, col: 3 };
+    const options = allies.joinable(infantry, { position: target, infantry: true, sandbags: false });
+    expect(options.map((o) => o.order)).toEqual([tank]);
+
+    expect(match.fire(infantry, target, { joined: [tank] })).toBe(true);
+    const shot = allies.getSnapshot().shots.at(-2)!;
+    expect(shot.joined).toEqual([tank]);
+    // All the dice hit the Axis infantry at once, which loses that many figures (or is destroyed)
+    expect(match.sessions.Axis.figuresAt(axisView(4, 3)) ?? 0).toBe(Math.max(0, INFANTRY_FIGURES - shot.dice));
+    expect(allies.shotsLeft(tank)).toBe(0);
+    expect(match.getSnapshot().battle).toMatchObject({ side: "Axis" });
+  });
 });

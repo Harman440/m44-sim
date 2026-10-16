@@ -548,6 +548,18 @@ function combatRules(card: CombatCard): Glyph[][] {
       fireBonusGlyphs({ dice: effect.dice, unitTypes: effect.unitTypes, closeAssault: effect.closeAssault }, effect.face === DieFace.FLAG)
     );
   }
+  if (effect?.kind === "concentratedFire") {
+    // Two units, one roll
+    rules.push([
+      { kind: "token", type: UnitType.INFANTRY },
+      { kind: "text", text: "+" },
+      { kind: "token", type: UnitType.ARTILLERY },
+      { kind: "text", text: "=" },
+      { kind: "die" },
+      { kind: "reticle" },
+    ]);
+  }
+  if (effect?.kind === "suppressiveFire") rules.push([{ kind: "die", flag: true }, { kind: "text", text: "+1" }]);
   if (effect?.kind === "firesWithUnmoved") {
     rules.push([
       ...effect.unitTypes.map((type): Glyph => ({ kind: "token", type })),
@@ -748,6 +760,41 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
         <path d={`M${end.x + 11} ${y - 7} L${end.x + 2} ${y} L${end.x + 12} ${y + 3} z`} className="card-art__arrow" />
         <Token type={type} faction={faction} x={start.x} y={y} />
         <Token type={type} faction={faction} x={end.x} y={y} ghost />
+      </>
+    );
+  }
+
+  if (id === "concentrated-fire") {
+    // Two units firing together at one enemy
+    const a = at(mid - 2);
+    const b = at(mid - 1);
+    const them = at(mid + 2);
+    return (
+      <>
+        <path d={`M${a.x + 10} ${y - 12} Q${(a.x + them.x) / 2} ${y - 30} ${them.x - 10} ${y - 4}`} className="card-art__path card-art__path--solid" />
+        <path d={`M${b.x + 10} ${y + 10} Q${(b.x + them.x) / 2} ${y + 24} ${them.x - 10} ${y + 4}`} className="card-art__path card-art__path--solid" />
+        <Token type={UnitType.INFANTRY} faction={faction} x={a.x} y={y - 12} r={10} />
+        <Token type={UnitType.ARTILLERY} faction={faction} x={b.x} y={y + 10} r={10} />
+        <Token type={UnitType.INFANTRY} faction={enemy} x={them.x} y={y} r={10} />
+        <Reticle x={them.x} y={y} r={8} />
+      </>
+    );
+  }
+
+  if (id === "suppressive-fire") {
+    // A shot whose die shows a flag, and the enemy pushed back
+    const own = at(mid - 2);
+    const them = at(mid + 1);
+    return (
+      <>
+        <path d={`M${own.x + 12} ${y} L${them.x - 12} ${y}`} className="card-art__path card-art__path--solid" />
+        <Token type={UnitType.INFANTRY} faction={faction} x={own.x} y={y} r={12} />
+        <Token type={UnitType.INFANTRY} faction={enemy} x={them.x} y={y} r={10} />
+        <path d={`M${them.x + 12} ${y} L${them.x + 30} ${y}`} className="card-art__path" />
+        <path d={`M${them.x + 26} ${y - 6} L${them.x + 34} ${y} L${them.x + 26} ${y + 6} z`} className="card-art__arrow" />
+        <rect x={(own.x + them.x) / 2 - 10} y={y - 30} width={20} height={20} rx={4} className="card-art__die" />
+        <line x1={(own.x + them.x) / 2 - 4} y1={y - 26} x2={(own.x + them.x) / 2 - 4} y2={y - 14} className="card-art__flag-pole" />
+        <path d={`M${(own.x + them.x) / 2 - 3.5} ${y - 26} l9 3.5 l-9 3.5 z`} className="card-art__flag" />
       </>
     );
   }

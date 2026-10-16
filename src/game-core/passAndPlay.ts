@@ -13,7 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 12;
+export const MATCH_SAVE_VERSION = 13;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -478,16 +478,18 @@ class PassAndPlayMatch {
    * once, unless the unit rolled more results than it has figures: its player picks them first
    * (`keepShotResults`, then `applyShot`)
    */
-  fire(order: number, target: Position): boolean {
+  fire(order: number, target: Position, { joined = [], suppressive = false }: { joined?: readonly number[]; suppressive?: boolean } = {}): boolean {
     const turn = this.battleTurn();
-    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
+    const fireable = turn ? this.fireable(turn.side, turn.group) : [];
+    // Concentrated Fire: the units that roll with it fire in the same go, before the enemy answers
+    if (!turn || ![order, ...joined].every((unit) => fireable.includes(unit))) return false;
     const session = this.sessions[turn.side];
     // The units that moved fire once every unit that didn't move has fired, on either side
     if (turn.group === "moved" && session.orderSummaries().some((s) => s.unmovedGroup && s.shotsLeft > 0)) {
       session.skipUnmovedFire();
     }
     const shot = session.getSnapshot().shots.length;
-    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false })) return false;
+    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false, joined, suppressive })) return false;
 
     const battle = this.battle!;
     this.battle = {
@@ -666,11 +668,21 @@ class PassAndPlayMatch {
     return { roll: shot, from: session.orderSummaries()[shot.orderIndex]!.firingFrom, target: shot.targetPosition! };
   }
 
-  /** Results the pending shot's unit may apply: as many as its figures, one more with a card's dice */
+  /**
+   * Results the pending shot may apply: as many as its unit's figures (all its units' with
+   * Concentrated Fire), one more with a card's dice
+   */
   private shotLimit(): number {
     const pending = this.battle!.pending!;
+    const session = this.sessions[pending.side];
     const { roll, from } = this.pendingRoll()!;
-    return resultLimit(this.sessions[pending.side].figuresAt(from) ?? 0, roll.combatBonus);
+    const summaries = session.orderSummaries();
+    const joined = session.getSnapshot().shots[pending.shot]!.joined ?? [];
+    const figures = [from, ...joined.map((order) => summaries[order]!.firingFrom)].reduce(
+      (sum, position) => sum + (session.figuresAt(position) ?? 0),
+      0
+    );
+    return resultLimit(figures, roll.combatBonus);
   }
 
   private shotMustChoose(): boolean {

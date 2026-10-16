@@ -474,6 +474,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Fuego concentrado y de supresión", en: "Concentrated and Suppressive Fire" },
+        house: {
+          es: "Con Fuego concentrado, tus unidades que no se movieron y disparan a la misma unidad enemiga tiran juntas: una sola tirada, cada una con su dado, y los sacos terreros ignoran 1 bandera de toda la tirada. Con Fuego de supresión eliges en cada disparo con orden si tiras el dado de supresión: el de batalla con 1 infantería, tanque, granada, suministro y 2 banderas, o el de 8 caras con 2 infantería, 2 tanques, 2 banderas y 2 suministros.",
+          en: "With Concentrated Fire, your units that didn't move and fire at the same enemy unit roll together: one roll, each with its own die, and sandbags ignore 1 flag of the whole roll. With Suppressive Fire you choose on each ordered shot whether to roll the suppressive die: the battle die with 1 infantry, tank, grenade, supply and 2 flags, or the 8-sided one with 2 infantry, 2 tanks, 2 flags and 2 supplies.",
+        },
+      },
+      {
         title: { es: "Refuerzos", en: "Reinforcements" },
         house: {
           es: "La carta marca una cruz en el mapa. Al empezar la fase final llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre.",

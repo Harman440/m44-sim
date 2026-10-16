@@ -21,6 +21,8 @@ const LEAN: Record<DieKind, Quaternion> = {
   battle: new Quaternion().setFromEuler(new Euler(-0.2, 0.22, 0)),
   attack: new Quaternion().setFromEuler(new Euler(-0.2, 0.22, 0)),
   longRange: new Quaternion().setFromEuler(new Euler(-0.06, 0.07, 0)),
+  suppressive: new Quaternion().setFromEuler(new Euler(-0.2, 0.22, 0)),
+  longRangeSuppressive: new Quaternion().setFromEuler(new Euler(-0.06, 0.07, 0)),
 };
 
 export interface Point {
@@ -32,7 +34,8 @@ export interface Dice3DProps {
   /** The row of dice: the canvas covers it, and each die rests on its `[data-die-slot]` */
   container: HTMLElement;
   faces: readonly DieFace[];
-  die: DieKind;
+  /** Each die's kind (a Concentrated Fire roll can mix the battle die and the 8-sided one) */
+  kinds: readonly DieKind[];
   faction: Faction;
   /** Per die: its result isn't applied, so it's drawn faded */
   dimmed: readonly boolean[];
@@ -144,9 +147,11 @@ function Die({ face, die, textures, at, index, dimmed, tumble, thrownAt }: DiePr
  * context per die would run out on a tablet). The row keeps the layout, the
  * glow of a hit and the buttons to pick dice; the canvas only draws.
  */
-function Dice3D({ container, faces, die, faction, dimmed, tumble, placed = [], thrownAt }: Dice3DProps) {
+function Dice3D({ container, faces, kinds, faction, dimmed, tumble, placed = [], thrownAt }: Dice3DProps) {
   const [slots, setSlots] = useState<Point[]>(() => measureSlots(container));
-  const [textures, setTextures] = useState<SideTextures[] | null>(null);
+  const [textures, setTextures] = useState<Partial<Record<DieKind, SideTextures[]>>>({});
+  /** The kinds in the roll, as one key so the textures load again only when they change */
+  const kindsKey = [...new Set(kinds)].sort().join(",");
 
   useLayoutEffect(() => {
     const measure = () => setSlots(measureSlots(container));
@@ -158,14 +163,16 @@ function Dice3D({ container, faces, die, faction, dimmed, tumble, placed = [], t
 
   useEffect(() => {
     let current = true;
-    sideTextures(die, faction).then(
-      (loaded) => current && setTextures(loaded),
-      () => {}
-    );
+    for (const kind of kindsKey.split(",") as DieKind[]) {
+      sideTextures(kind, faction).then(
+        (loaded) => current && setTextures((prev) => ({ ...prev, [kind]: loaded })),
+        () => {}
+      );
+    }
     return () => {
       current = false;
     };
-  }, [die, faction]);
+  }, [kindsKey, faction]);
 
   return (
     <Canvas
@@ -189,22 +196,23 @@ function Dice3D({ container, faces, die, faction, dimmed, tumble, placed = [], t
     >
       <ambientLight intensity={1.5} />
       <directionalLight position={[-1, 2, 3]} intensity={1.8} />
-      {textures &&
-        faces.map((face, i) =>
-          slots[i] ? (
+      {faces.map((face, i) => {
+        const kind = kinds[i] ?? "battle";
+        const sides = textures[kind];
+        return slots[i] && sides ? (
             <Die
               key={i}
               face={face}
-              die={die}
-              textures={textures}
+              die={kind}
+              textures={sides}
               at={slots[i]}
               index={i}
               dimmed={dimmed[i] ?? false}
               tumble={tumble && !placed[i]}
               thrownAt={thrownAt}
             />
-          ) : null
-        )}
+          ) : null;
+      })}
     </Canvas>
   );
 }

@@ -34,6 +34,7 @@ const TEXT = defineMessages({
     fortifiedStamp: "Fortificada",
     fortifiedResult: "Se fortificó: sacos terreros en su casilla",
     fortified: "se fortificó",
+    joinedTo: "en fuego concentrado",
     collisionPrefix: "choque, ",
     firedResult: (results: string) => `Disparó: ${results}`,
     seeRoll: (unit: string) => `Ver tirada de ${unit}`,
@@ -87,6 +88,7 @@ const TEXT = defineMessages({
     fortifiedStamp: "Fortified",
     fortifiedResult: "Fortified: sandbags on its hex",
     fortified: "fortified",
+    joinedTo: "in Concentrated Fire",
     collisionPrefix: "collision, ",
     firedResult: (results: string) => `Fired: ${results}`,
     seeRoll: (unit: string) => `See ${unit}'s roll`,
@@ -410,6 +412,8 @@ function FireOrderList({
                       ? t.removedWire
                       : shot.fortified
                       ? t.fortified
+                      : shot.joinedTo !== undefined
+                      ? t.joinedTo
                       : `${shot.collision ? t.collisionPrefix : ""}${labels.describeAppliedFaces(shot.faces, shot.kept)}${
                           shot.dice > 0 ? ` → ${labels.describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
                         }`

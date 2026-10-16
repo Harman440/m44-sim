@@ -243,6 +243,18 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         canFortify={firingIndex !== null && (game.canFortify[firingIndex] ?? false)}
         onFortify={() => withSound(firingIndex !== null && session.fortify(firingIndex))}
         enemyCamouflage={session.enemyCamouflage}
+        suppressiveFire={game.suppressiveFire}
+        joinable={(choice) =>
+          firingIndex === null
+            ? []
+            : session.joinable(firingIndex, choice).map(({ order, dice }) => ({
+                order,
+                dice,
+                label: labels.unitKind(summaries[order]!.unitType, summaries[order]!.elite),
+                position: summaries[order]!.firingFrom,
+              }))
+        }
+        orderUnit={(order) => (summaries[order] ? labels.unitKind(summaries[order]!.unitType, summaries[order]!.elite) : "")}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}

@@ -310,17 +310,18 @@ The player answered every **Decide** before Step 59 was built; each is marked **
 - [x] Bump `SAVE_VERSION` and `MATCH_SAVE_VERSION` if the shape changes (Personal Armor's hits, Fortify's shot)
 
 ### Step 65: Two new combat cards
-- [ ] **Decided** names: Fuego concentrado / Concentrated Fire, and Fuego de supresión / Suppressive Fire. Both cost 1, in every side's deck (`always`), each with its own glyph in `CardArt`
-- [ ] **Concentrated Fire:** this turn, units that didn't move and fire at the same enemy unit may roll together, one roll with all their dice
+- [x] **Decided** names: Fuego concentrado / Concentrated Fire, and Fuego de supresión / Suppressive Fire. Both cost 1, in every side's deck (`always`), each with its own glyph in `CardArt`
+- [x] **Concentrated Fire:** this turn, units that didn't move and fire at the same enemy unit may roll together, one roll with all their dice
   - In the Fire dialog (and the shared battle's side column), after the target, "Sumar unidad" adds another ordered unit that didn't move, has a shot left and can fire at that hex. Each unit adds the dice it would roll there (its own distance, terrain and cards), the dice are rolled once, and each unit has used its shot (the lead shot lists the others, whose shots point to it). "Anular disparo" takes back the whole roll
   - The roll is read once against the target, so sandbags ignore 1 flag for the whole roll. In pass and play, limited damage adds up the units' limits, and the units fire in one go before the enemy answers
   - Each unit rolls its own die (the battle die adjacent, the long-range die further away when it's on), all in the same roll
   - **Decided:** any number of groups this turn
-- [ ] **Suppressive Fire:** this turn the side's dice have one infantry side changed to a flag. The battle die becomes 1 infantry, tank, grenade, supply, 2 flags; the long-range die becomes 2 infantry, 2 tanks, 2 flags, 2 supplies
+- [x] **Suppressive Fire:** this turn the side's dice have one infantry side changed to a flag. The battle die becomes 1 infantry, tank, grenade, supply, 2 flags; the long-range die becomes 2 infantry, 2 tanks, 2 flags, 2 supplies
   - New die kinds in `dice.ts` (`SIDES_OF`, `ShotTarget.die`), drawn in 3D and 2D: the faces already exist, only how many of each changes. `DicePool` and `DiceResult` show them
   - **Decided:** the player picks per shot, with a switch in the Fire dialog (and the shared battle's side column), for the side's ordered shots this turn; not collisions or attack cards
 
 ### Step 66: Check and tidy
+**Skipped** (the player's call, 2026-10-16): the rest of Part J is built; these stay open for later.
 - [ ] With "Modo prueba": a whole game on own tablets and a pass and play match using every changed card, at 1280×800 and 800×1280 with touch, in Spanish and English
 - [ ] Read through the rule book, `docs/house-rules.md` (no "battle combat cards" lists left, the new deck counts) and CLAUDE.md (no Ambush, blocking cards or battle cards; the cards given to a unit). Tick off the note on reaction cards in `docs/myNextPlan.md`
 - [ ] Card art: Refuel's painting (the player's image, through `npm run card-art`), and the pictograms of the reworked cards (Spotter on all artillery, Personal Armor's 2, Not One Step Back on all infantry). Street Equipment already has its painting from Step 62

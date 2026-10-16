@@ -105,6 +105,9 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
         );
       case "collision":
         return <CloseAssaultIcon />;
+      case "joined":
+        // Concentrated Fire: another unit's dice in the same roll
+        return <Box component="img" src={unitSprite(faction, step.unit ?? unitType)} alt={tr(step.label)} sx={{ width: 28, height: 28 }} />;
       case "wire":
         return <BarbedWireIcon size={34} />;
       case "fromTown":

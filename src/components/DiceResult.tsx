@@ -1,7 +1,7 @@
 import { Component, CSSProperties, ReactNode, Suspense, lazy, useEffect, useState } from "react";
 import { Box, useTheme } from "@mui/material";
 import { motion, useReducedMotion } from "motion/react";
-import { DieFace, DieKind, SIDES_OF } from "../game-core/dice";
+import { DieFace, DieKind, SIDES_OF, isEightSided } from "../game-core/dice";
 import { ShotTarget, faceHits } from "../data/hitRules";
 import { Faction } from "../types/faction";
 import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
@@ -102,7 +102,7 @@ function RollingDie({ face, index, faction, die, rolling }: RollingDieProps) {
       animate={{ x: 0, y: [null, 0, -12, 0], rotate: 0, scale: [null, 1.08, 0.97, 1], opacity: 1 }}
       transition={{ duration: ROLL_TIME, delay: index * DIE_STAGGER, times: [0, 0.6, 0.8, 1], ease: "easeOut" }}
     >
-      <DieFaceIcon face={shown ?? face} faction={faction} eightSided={die === "longRange"} />
+      <DieFaceIcon face={shown ?? face} faction={faction} eightSided={isEightSided(die)} />
     </motion.div>
   );
 }
@@ -125,6 +125,8 @@ interface DiceResultProps {
   kept?: readonly number[] | null;
   /** The die rolled (the battle die by default) */
   die?: DieKind;
+  /** Each die's kind, when the roll mixes them (Concentrated Fire: each unit throws its own); otherwise all are `die` */
+  kinds?: readonly DieKind[];
   /** Picking the dice to apply: every die is a toggle button */
   picking?: { selected: readonly number[]; onToggle: (index: number) => void };
   /** What the dice were rolled at: a die that hits it glows */
@@ -141,6 +143,7 @@ function DiceResult({
   faction,
   kept = null,
   die = "battle",
+  kinds,
   picking,
   target,
   rolling = false,
@@ -152,6 +155,7 @@ function DiceResult({
   const hitColor = useTheme().palette.error.main;
   const reduceMotion = useReducedMotion();
   const thrown = roll.faces.length - placed;
+  const kindOf = (i: number): DieKind => kinds?.[i] ?? die;
   /** This die is thrown in now (not one added already showing its face) */
   const throws = (i: number) => rolling && i < thrown;
 
@@ -192,7 +196,7 @@ function DiceResult({
     </div>
   );
 
-  const flat = dice((face, i) => <RollingDie face={face} index={i} faction={faction} die={die} rolling={throws(i)} />);
+  const flat = dice((face, i) => <RollingDie face={face} index={i} faction={faction} die={kindOf(i)} rolling={throws(i)} />);
   if (!supports3D) return <Box sx={{ mt: 1.5 }}>{flat}</Box>;
 
   // In 3D each slot is an empty spot of the die's size, for the layout and the glow of a hit
@@ -219,7 +223,7 @@ function DiceResult({
                   <Dice3D
                     container={row}
                     faces={roll.faces}
-                    die={die}
+                    kinds={roll.faces.map((_, i) => kindOf(i))}
                     faction={faction}
                     dimmed={roll.faces.map((_, i) => !applied(i))}
                     tumble={rolling && !reduceMotion}
