@@ -4,7 +4,8 @@
 // grey-and-white checkerboard: light neutral greys reached from the edges, and larger
 // enclosed patches with both checker tones (between an arm and a body), become see-through.
 // An image whose border is all white has a white background instead: the light pixels reached from the edges
-// fade out as they near white, so its soft edges (grass, shadows) blend into the card.
+// fade out as they near white, so its soft edges (grass, shadows) blend into the card. A border of one other flat
+// colour (a mid grey) is taken out the same way, fading out as pixels near that colour.
 // Usage: npm run card-art -- <file.png|file.jpg> [maxWidth]
 // Example: npm run card-art -- images/infantry-assault.png 480
 import sharp from "sharp";
@@ -25,6 +26,16 @@ const FRAME = 2;
 const WHITE_FADE = 64;
 /** …and these, nearly white, go altogether */
 const WHITE_CLEAR = 6;
+/** On a background of another flat colour, nearer the painting's own colours: a narrower fade… */
+const FLAT_FADE = 40;
+/** …and wider for the JPEG noise in it */
+const FLAT_CLEAR = 10;
+/** How far a border pixel can be from the background colour and still count as background */
+const FLAT_NOISE = 10;
+/** A flat background other than white is darker than this: a lighter grey border is the checkerboard's */
+const FLAT_MAX = 200;
+/** On a flat colour other than white, the fade reaches only this many pixels into the painting from the background */
+const FLAT_BAND = 3;
 
 /** The lightest a checker pixel can be: below the darker checker tone, for the JPEG noise round it */
 let checkerFloor = 218;
@@ -108,19 +119,25 @@ function checkerboard(data, w, h) {
   return bg;
 }
 
-/** How far a pixel is from white: how much its darkest channel is below 255 */
-const fromWhite = (data, i) => 255 - Math.min(data[i * 3], data[i * 3 + 1], data[i * 3 + 2]);
+const WHITE = [255, 255, 255];
 
-/** The image's border is (nearly) all white: a painting on a white background, not on the checkerboard (half white) */
-function hasWhiteBorder(data, w, h) {
-  let white = 0, total = 0;
-  const count = (x, y) => {
-    total++;
-    if (fromWhite(data, y * w + x) < 10) white++;
-  };
-  for (let x = 0; x < w; x++) count(x, 0), count(x, h - 1);
-  for (let y = 0; y < h; y++) count(0, y), count(w - 1, y);
-  return white >= total * 0.9;
+/** How far a pixel is from the background colour: its largest difference in any channel */
+const fromColour = (data, i, bg) =>
+  Math.max(Math.abs(data[i * 3] - bg[0]), Math.abs(data[i * 3 + 1] - bg[1]), Math.abs(data[i * 3 + 2] - bg[2]));
+
+/**
+ * The image's background colour when its border is (nearly) all one flat colour: white, or a darker grey;
+ * null for the checkerboard (half white, half grey, or a light grey)
+ */
+function flatBackground(data, w, h) {
+  const border = [];
+  for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+  for (let y = 0; y < h; y++) border.push(y * w, y * w + w - 1);
+  const median = (c) => border.map((i) => data[i * 3 + c]).sort((a, b) => a - b)[border.length >> 1];
+  const near = (bg) => border.filter((i) => fromColour(data, i, bg) < FLAT_NOISE).length >= border.length * 0.9;
+  if (near(WHITE)) return WHITE;
+  const bg = [median(0), median(1), median(2)];
+  return Math.max(...bg) < FLAT_MAX && near(bg) ? bg : null;
 }
 
 /** The pixels next to pixel i, left, right, up and down */
@@ -135,17 +152,24 @@ function neighboursOf(i, w, h) {
 }
 
 /**
- * The image's white background see-through: the light pixels reached from the edges, or
- * from a larger enclosed patch of white (seen under a truck, between the wheels), are made
- * partly see-through by how near white they are (as GIMP's colour to alpha), with the colour
- * that, laid over white, gives the pixel. The painting's outline stops the spread.
+ * The image's flat background see-through: the pixels near its colour reached from the edges, or
+ * from a larger enclosed patch of it (seen under a truck, between the wheels), are made
+ * partly see-through by how near the background they are (as GIMP's colour to alpha), with the colour
+ * that, laid over the background, gives the pixel. The painting's outline stops the spread.
+ * A grey is nearer the painting's own colours (olive cloth running off the image's edge has no outline),
+ * so there only the background itself is reached, and the fade softens a thin band round it.
  */
-function whiteToAlpha(data, w, h) {
+function backgroundToAlpha(data, w, h, bg) {
+  const white = bg === WHITE;
+  const fade = white ? WHITE_FADE : FLAT_FADE;
+  const clear = white ? WHITE_CLEAR : FLAT_CLEAR;
+  const distance = (i) => fromColour(data, i, bg);
+  const reach = white ? fade : FLAT_NOISE - 1;
   const reached = new Uint8Array(w * h);
   const spread = (stack) => {
     while (stack.length) {
       const i = stack.pop();
-      if (reached[i] || fromWhite(data, i) > WHITE_FADE) continue;
+      if (reached[i] || distance(i) > reach) continue;
       reached[i] = 1;
       stack.push(...neighboursOf(i, w, h));
     }
@@ -154,16 +178,16 @@ function whiteToAlpha(data, w, h) {
   for (let x = 0; x < w; x++) edges.push(x, (h - 1) * w + x);
   for (let y = 0; y < h; y++) edges.push(y * w, y * w + w - 1);
   spread(edges);
-  // Enclosed patches of white, not just a highlight
+  // Enclosed patches of the background, not just a highlight
   const seen = new Uint8Array(w * h);
-  const isWhite = (i) => fromWhite(data, i) < 10;
+  const isBackground = (i) => distance(i) < FLAT_NOISE;
   for (let start = 0; start < w * h; start++) {
-    if (reached[start] || seen[start] || !isWhite(start)) continue;
+    if (reached[start] || seen[start] || !isBackground(start)) continue;
     const patch = [start];
     seen[start] = 1;
     for (let k = 0; k < patch.length; k++) {
       for (const n of neighboursOf(patch[k], w, h)) {
-        if (!seen[n] && !reached[n] && isWhite(n)) {
+        if (!seen[n] && !reached[n] && isBackground(n)) {
           seen[n] = 1;
           patch.push(n);
         }
@@ -171,12 +195,28 @@ function whiteToAlpha(data, w, h) {
     }
     if (patch.length > MIN_HOLE) spread(patch);
   }
+  if (!white) {
+    let band = [];
+    for (let i = 0; i < w * h; i++) if (reached[i]) band.push(i);
+    for (let step = 0; step < FLAT_BAND; step++) {
+      const next = [];
+      for (const i of band) {
+        for (const n of neighboursOf(i, w, h)) {
+          if (!reached[n] && distance(n) <= fade) {
+            reached[n] = 1;
+            next.push(n);
+          }
+        }
+      }
+      band = next;
+    }
+  }
   const rgba = Buffer.alloc(w * h * 4);
   for (let i = 0; i < w * h; i++) {
-    const alpha = reached[i] ? Math.min(1, Math.max(0, (fromWhite(data, i) - WHITE_CLEAR) / (WHITE_FADE - WHITE_CLEAR))) : 1;
+    const alpha = reached[i] ? Math.min(1, Math.max(0, (distance(i) - clear) / (fade - clear))) : 1;
     for (let c = 0; c < 3; c++) {
       const v = data[i * 3 + c];
-      rgba[i * 4 + c] = alpha > 0 ? Math.max(0, Math.round(255 - (255 - v) / alpha)) : v;
+      rgba[i * 4 + c] = alpha > 0 ? Math.min(255, Math.max(0, Math.round(bg[c] + (v - bg[c]) / alpha))) : v;
     }
     rgba[i * 4 + 3] = Math.round(alpha * 255);
   }
@@ -209,13 +249,14 @@ function checkerToAlpha(data, w, h) {
   return rgba;
 }
 
-/** The image with its background see-through, white or checkerboard */
+/** The image with its background see-through: a flat colour (white, grey) or the checkerboard */
 async function cutOut(input) {
   const { data, info } = await sharp(input).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
-  const white = hasWhiteBorder(data, w, h);
-  const rgba = white ? whiteToAlpha(data, w, h) : checkerToAlpha(data, w, h);
-  return { image: sharp(rgba, { raw: { width: w, height: h, channels: 4 } }), removed: white ? "white background" : "checkerboard" };
+  const bg = flatBackground(data, w, h);
+  const rgba = bg ? backgroundToAlpha(data, w, h, bg) : checkerToAlpha(data, w, h);
+  const removed = !bg ? "checkerboard" : bg === WHITE ? "white background" : `rgb(${bg.join(", ")}) background`;
+  return { image: sharp(rgba, { raw: { width: w, height: h, channels: 4 } }), removed };
 }
 
 const { width, height, hasAlpha } = await sharp(file).metadata();
