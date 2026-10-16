@@ -326,8 +326,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Every result of the roll applies.",
         },
         house: {
-          es: "Se tiran todos los dados, pero la unidad que dispara no aplica más impactos que figuras le quedan (uno más con una carta que da dados extra). Solo se descartan impactos: las banderas y los suministros cuentan siempre. En Pasar y jugar la app los descarta sola, guardando antes las granadas; en tablets propias, «Aplicar menos impactos».",
-          en: "All the dice are rolled, but the firing unit applies no more hits than it has figures left (one more with a card that gives extra dice). Only hits are discarded: flags and supplies always count. In pass and play the app discards them itself, keeping grenades first; on own tablets, \"Apply fewer hits\".",
+          es: "Se tiran todos los dados, pero la unidad que dispara no aplica más impactos que figuras le quedan (uno más con una carta que da dados extra). Solo se descartan impactos: las banderas y los suministros cuentan siempre. La app los descarta sola, guardando antes las granadas: en Pasar y jugar sabe las figuras; en tablets propias se le dicen con «Aplicar menos impactos».",
+          en: "All the dice are rolled, but the firing unit applies no more hits than it has figures left (one more with a card that gives extra dice). Only hits are discarded: flags and supplies always count. The app discards them itself, keeping grenades first: in pass and play it knows the figures; on own tablets you tell it with \"Apply fewer hits\".",
         },
       },
       {

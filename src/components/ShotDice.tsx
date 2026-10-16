@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Alert, Button, Stack } from "@mui/material";
+import { Alert, Button, Stack, Typography } from "@mui/material";
 import { ShotRoll } from "../game-core/gameSession";
-import { appliedFaces } from "../game-core/rollResult";
+import { appliedFaces, keptForFigures, limitingFigures } from "../game-core/rollResult";
 import { placedDice } from "../game-core/fireRules";
-import { faceHits } from "../data/hitRules";
 import { Faction } from "../types/faction";
 import DiceResult, { rollDuration } from "./DiceResult";
 import RollReading from "./RollReading";
@@ -11,18 +10,22 @@ import { defineMessages, useMessages } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
-    pickHint: "Toca los impactos que aplicas; los demás se descartan. Las banderas y los suministros cuentan siempre.",
-    apply: (picked: number, rolled: number) => `Aplicar ${picked} de ${rolled}`,
+    figuresQuestion: "¿Cuántas figuras disparan?",
+    figuresHint: (bonus: boolean) =>
+      `No se aplican más impactos que figuras${bonus ? " (uno más por la carta)" : ""}: la app descarta los de más, guardando antes las granadas. Las banderas y los suministros cuentan siempre.`,
+    figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     cancel: "Cancelar",
-    changeApplied: "Cambiar resultados aplicados",
+    changeFigures: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`} · Cambiar`,
     applyFewer: "Aplicar menos impactos",
     applyAll: "Aplicar todos",
   },
   en: {
-    pickHint: "Tap the hits you apply; the rest are discarded. Flags and supplies always count.",
-    apply: (picked: number, rolled: number) => `Apply ${picked} of ${rolled}`,
+    figuresQuestion: "How many figures are firing?",
+    figuresHint: (bonus: boolean) =>
+      `No more hits apply than there are figures${bonus ? " (one more for the card)" : ""}: the app drops the extra ones, keeping grenades first. Flags and supplies always count.`,
+    figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     cancel: "Cancel",
-    changeApplied: "Change applied results",
+    changeFigures: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`} · Change`,
     applyFewer: "Apply fewer hits",
     applyAll: "Apply all",
   },
@@ -40,35 +43,27 @@ interface ShotDiceProps {
 }
 
 /**
- * A shot's dice and what they mean on the table. The player can apply fewer
- * hits than were rolled (a unit with few figures deals at most as many hits
- * as it has): they tap the hits to apply, and the rest stay on show, greyed
- * out as discarded. Flags and supplies always count
+ * A shot's dice and what they mean on the table. A unit with few figures deals at most as many
+ * hits as it has (limited damage): the player says how many figures fired and the app leaves out
+ * the extra hits, which stay on show greyed out as discarded. Flags and supplies always count
  */
 function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: ShotDiceProps) {
-  /** The dice picked so far while choosing; null when not choosing */
   const t = useMessages(TEXT);
-  const [picked, setPicked] = useState<number[] | null>(null);
+  /** Asking how many figures fired */
+  const [asking, setAsking] = useState(false);
   if (shot.dice === 0) return null;
 
-  const allDice = shot.faces.map((_, i) => i);
-  const hits = (index: number) => faceHits(shot.faces[index]!, shot.target);
-  const toggle = (index: number) => {
-    if (!hits(index)) return;
-    setPicked((prev) => (prev?.includes(index) ? prev.filter((i) => i !== index) : [...(prev ?? []), index]));
+  const options = limitingFigures(shot);
+  const sameKept = (a: readonly number[] | null, b: readonly number[] | null) =>
+    a === b || (!!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]));
+  /** The figures the results applied now were worked out from */
+  const figures = shot.kept ? options.find((n) => sameKept(keptForFigures(shot, n), shot.kept)) : undefined;
+  const pick = (n: number) => {
+    if (onKeepResults?.(keptForFigures(shot, n))) setAsking(false);
   };
-  const apply = () => {
-    if (picked && onKeepResults?.(picked)) setPicked(null);
-  };
-  const faces = picked ? appliedFaces(shot.faces, picked) : appliedFaces(shot.faces, shot.kept);
 
   return (
     <>
-      {picked && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          {t.pickHint}
-        </Alert>
-      )}
       {/* The dice, with changing which results apply on their right */}
       <Stack direction="row" sx={{ flexWrap: "wrap", alignItems: "center", columnGap: 3 }}>
         <DiceResult
@@ -77,39 +72,45 @@ function ShotDice({ shot, rollId, faction, rolling = false, onKeepResults }: Sho
           kept={shot.kept}
           die={shot.target.die}
           kinds={shot.kinds}
-          picking={picked ? { selected: picked, onToggle: toggle } : undefined}
           target={shot.target}
           rolling={rolling}
           placed={placedDice(shot)}
         />
-        {onKeepResults && shot.faces.some((_, i) => hits(i)) && (
+        {onKeepResults && !asking && (options.length > 0 || shot.kept) && (
           <Stack sx={{ alignItems: "flex-start", gap: 0.5, mt: 1.5 }}>
-            {picked ? (
-              <>
-                <Button onClick={apply}>
-                  {t.apply(picked.length, shot.faces.length)}
-                </Button>
-                <Button variant="outlined" onClick={() => setPicked(null)}>
-                  {t.cancel}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="text" size="small" onClick={() => setPicked(shot.kept ? [...shot.kept] : allDice)}>
-                  {shot.kept ? t.changeApplied : t.applyFewer}
-                </Button>
-                {shot.kept && (
-                  <Button variant="text" size="small" onClick={() => onKeepResults(null)}>
-                    {t.applyAll}
-                  </Button>
-                )}
-              </>
+            {options.length > 0 && (
+              <Button variant="text" size="small" onClick={() => setAsking(true)}>
+                {figures !== undefined ? t.changeFigures(figures) : t.applyFewer}
+              </Button>
+            )}
+            {shot.kept && (
+              <Button variant="text" size="small" onClick={() => onKeepResults(null)}>
+                {t.applyAll}
+              </Button>
             )}
           </Stack>
         )}
       </Stack>
+      {onKeepResults && asking && (
+        <Alert severity="info" icon={false} sx={{ mt: 2 }} data-testid="figures-question">
+          <Typography variant="subtitle2">{t.figuresQuestion}</Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {t.figuresHint(shot.combatBonus)}
+          </Typography>
+          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+            {options.map((n) => (
+              <Button key={n} variant={n === figures ? "contained" : "outlined"} onClick={() => pick(n)}>
+                {t.figures(n)}
+              </Button>
+            ))}
+            <Button variant="text" onClick={() => setAsking(false)}>
+              {t.cancel}
+            </Button>
+          </Stack>
+        </Alert>
+      )}
       <RollReading
-        faces={faces}
+        faces={appliedFaces(shot.faces, shot.kept)}
         target={shot.target}
         withCoins
         delay={rolling ? rollDuration(shot.faces.length) : 0}

@@ -13,11 +13,9 @@ export { rollDuration } from "./diceTiming";
 
 const TEXT = defineMessages({
   es: {
-    pickDie: (n: number, face: string) => `Dado ${n}: ${face}`,
     discarded: "(descartado)",
   },
   en: {
-    pickDie: (n: number, face: string) => `Die ${n}: ${face}`,
     discarded: "(discarded)",
   },
 });
@@ -127,8 +125,6 @@ interface DiceResultProps {
   die?: DieKind;
   /** Each die's kind, when the roll mixes them (Concentrated Fire: each unit throws its own); otherwise all are `die` */
   kinds?: readonly DieKind[];
-  /** Picking the dice to apply: every die is a toggle button */
-  picking?: { selected: readonly number[]; onToggle: (index: number) => void };
   /** What the dice were rolled at: a die that hits it glows */
   target?: ShotTarget;
   /** The dice were just rolled: throw them in */
@@ -144,14 +140,13 @@ function DiceResult({
   kept = null,
   die = "battle",
   kinds,
-  picking,
   target,
   rolling = false,
   placed = 0,
 }: DiceResultProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
-  const applied = (i: number) => (picking ? picking.selected.includes(i) : kept === null || kept.includes(i));
+  const applied = (i: number) => kept === null || kept.includes(i);
   const hitColor = useTheme().palette.error.main;
   const reduceMotion = useReducedMotion();
   const thrown = roll.faces.length - placed;
@@ -175,19 +170,7 @@ function DiceResult({
             className={`dice-result__die${applied(i) ? "" : " dice-result__die--discarded"}${hit ? " dice-result__die--hit" : ""}`}
             style={hit ? ({ "--die-effect-color": hitColor } as CSSProperties) : undefined}
           >
-            {/* The die stays mounted whether or not the dice are being picked, so it doesn't roll again */}
-            <div className="dice-result__slot">
-              {drawDie(face, i)}
-              {picking && (
-                <button
-                  type="button"
-                  className="dice-result__pick"
-                  aria-pressed={applied(i)}
-                  aria-label={t.pickDie(i + 1, labels.dieFaces[face])}
-                  onClick={() => picking.onToggle(i)}
-                />
-              )}
-            </div>
+            <div className="dice-result__slot">{drawDie(face, i)}</div>
             {!applied(i) && <span className="dice-result__discarded">{t.discarded}</span>}
           </div>
         );

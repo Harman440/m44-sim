@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ATTACK_DIE_SIDES, DIE_SIDES, DieFace, DieKind, LONG_RANGE_DIE_SIDES } from "./dice";
-import { appliedFaces, keptForHits, readRoll } from "./rollResult";
+import { appliedFaces, keptForFigures, keptForHits, limitingFigures, readRoll } from "./rollResult";
 
 const { INFANTRY, TANK, GRENADE, SUPPLY, FLAG } = DieFace;
 const ALL = [INFANTRY, INFANTRY, TANK, GRENADE, SUPPLY, FLAG];
@@ -86,5 +86,22 @@ describe("keptForHits (limited damage)", () => {
     const faces = [INFANTRY, FLAG, GRENADE, SUPPLY, INFANTRY, TANK];
     expect(keptForHits(faces, atInfantry, 2)).toEqual([0, 1, 2, 3, 5]);
     expect(keptForHits(faces, atInfantry, 0)).toEqual([1, 3, 5]);
+  });
+});
+
+describe("keptForFigures (limited damage on own tablets)", () => {
+  const target = { infantry: true, closeAssault: true, die: "battle" as DieKind };
+  const { INFANTRY, GRENADE, FLAG, SUPPLY } = DieFace;
+  const faces = [INFANTRY, FLAG, GRENADE, SUPPLY, INFANTRY];
+
+  it("offers the figure counts that would leave out a hit", () => {
+    expect(limitingFigures({ faces, target, combatBonus: false })).toEqual([1, 2]);
+    expect(limitingFigures({ faces, target, combatBonus: true })).toEqual([1]);
+    expect(limitingFigures({ faces: [GRENADE, FLAG], target, combatBonus: false })).toEqual([]);
+  });
+
+  it("keeps one hit per figure, one more with a card's dice, grenades first", () => {
+    expect(keptForFigures({ faces, target, combatBonus: false }, 1)).toEqual([1, 2, 3]);
+    expect(keptForFigures({ faces, target, combatBonus: true }, 1)).toEqual([0, 1, 2, 3]);
   });
 });

@@ -273,22 +273,27 @@ describe("FireDialog", () => {
     expect(screen.getByText("Toca una casilla en el mapa.")).toBeInTheDocument();
   });
 
-  it("applies fewer hits than were rolled: the dice not picked show as discarded", () => {
+  it("applies fewer hits than were rolled, from the figures that fired: the extra hits show as discarded", () => {
     const session = open(UnitType.TANK);
     fireAt(ADJACENT, "Infantería", "3 dados");
 
     const dieBefore = grenades()[0];
     choose("Aplicar menos impactos");
+    // A unit firing 3 hits can be told it had 1 or 2 figures
+    expect(screen.getByRole("button", { name: "1 figura" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "3 figuras" })).not.toBeInTheDocument();
+    choose("2 figuras");
+
     // The dice stay as they are (not remounted, which would roll them again)
     expect(grenades()[0]).toBe(dieBefore);
-    choose("Dado 2: Granada");
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("2impactos");
-    choose("Aplicar 2 de 3");
-
-    expect(session.getSnapshot().shots[0]!.kept).toEqual([0, 2]);
+    expect(session.getSnapshot().shots[0]!.kept).toEqual([0, 1]);
     expect(grenades()).toHaveLength(3); // the full roll stays on show
     expect(screen.getByText("(descartado)", { exact: false })).toBeInTheDocument();
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("2impactos");
+
+    choose("2 figuras · Cambiar");
+    choose("1 figura");
+    expect(session.getSnapshot().shots[0]!.kept).toEqual([0]);
 
     choose("Aplicar todos");
     expect(session.getSnapshot().shots[0]!.kept).toBeNull();

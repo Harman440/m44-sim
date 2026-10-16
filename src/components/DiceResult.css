@@ -26,25 +26,9 @@
   filter: grayscale(1);
 }
 
-/* Picking the dice to apply: a toggle laid over each die */
+/* A die's place in the row */
 .dice-result__slot {
   position: relative;
-}
-
-.dice-result__pick {
-  position: absolute;
-  inset: -6px;
-  padding: 0;
-  border: 3px dashed var(--m44-border, #9ca3af);
-  border-radius: 14px;
-  background: none;
-  cursor: pointer;
-  min-width: 48px;
-  min-height: 48px;
-}
-
-.dice-result__pick[aria-pressed="true"] {
-  border: 3px solid var(--m44-accent, #1976d2);
 }
 
 /* Read out to screen readers only (a discarded die) */

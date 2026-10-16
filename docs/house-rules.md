@@ -49,7 +49,7 @@ This means a player might fire twice with his units before the other player does
 
 **Pinned (reworks retreats):** a unit's first flag in a turn doesn't make it retreat: it's pinned until the end of the turn (mark it). Pinned infantry fires with one die less; armour and artillery ignore the minus one. Each flag after the first, in the same roll or a later one, makes the unit retreat one hex immediately (accumulated flags − 1), and a unit that retreated doesn't battle again this turn. Close assault is no exception: it takes two flags to force a retreat. After a close assault whose target retreated or was eliminated, armour may take ground and battle again; in pass and play infantry may move in without battling again.
 
-**Limited damage:** a unit applies no more hits than it has figures (one more with a card's extra dice). Only hits are dropped: flags and supplies always count. Pass and play drops them automatically, keeping grenades first.
+**Limited damage:** a unit applies no more hits than it has figures (one more with a card's extra dice). Only hits are dropped: flags and supplies always count. The app drops them automatically, keeping grenades first (on own tablets the player says how many figures fired).
 
 Any player can use a reaction combat card in the battling phase. Only one of these cards can be used by each player in the battle phase.
 

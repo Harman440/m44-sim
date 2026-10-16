@@ -1,6 +1,7 @@
 // game-core/rollResult.ts
 import { DieFace } from "./dice";
 import { ShotTarget, faceEarnsCoin, faceHits, faceRetreats } from "../data/hitRules";
+import { resultLimit } from "../data/figures";
 
 /** What a roll means on the table */
 export interface RollResult {
@@ -52,4 +53,21 @@ export function keptForHits(faces: readonly DieFace[], target: ShotTarget, maxHi
       .map(({ i }) => i)
   );
   return faces.flatMap((face, i) => (!faceHits(face, target) || kept.has(i) ? [i] : []));
+}
+
+/**
+ * Limited damage on own tablets, where the app doesn't know the figures: the dice a roll applies
+ * when fired by `figures` figures (one more hit with a card's extra dice), as `keptForHits`
+ */
+export function keptForFigures(
+  roll: { faces: readonly DieFace[]; target: ShotTarget; combatBonus: boolean },
+  figures: number
+): number[] | null {
+  return keptForHits(roll.faces, roll.target, resultLimit(figures, roll.combatBonus));
+}
+
+/** The figure counts that would leave out some of a roll's hits (limited damage): 1 up to one short of its hits */
+export function limitingFigures(roll: { faces: readonly DieFace[]; target: ShotTarget; combatBonus: boolean }): number[] {
+  const hits = readRoll(roll.faces, roll.target).hits;
+  return Array.from({ length: Math.max(0, hits - resultLimit(1, roll.combatBonus)) }, (_, i) => i + 1);
 }
