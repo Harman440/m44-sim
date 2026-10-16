@@ -5,7 +5,7 @@
 // from the data files; when a rule changes, change its text here too.
 import { TurnPhase } from "../types/gameManager";
 import { END_OF_TURN_COINS, EXTRA_ORDER_COST } from "./coinRules";
-import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "./combatCards";
+import { MAX_COMBAT_CARDS_PER_TURN, MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "./combatCards";
 import { Localized } from "../i18n/lang";
 import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
 import { UnitType } from "../game-core/unit";
@@ -100,8 +100,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Pick a command card in secret: tapping it moves it to \"Your play\", where you can tap it to read it or remove it.",
       },
       {
-        es: "Si quieres, añade una carta de combate de órdenes. Cuesta suministros, que se pagan al jugarla.",
-        en: "If you like, add an order combat card. It costs supplies, paid when you play it.",
+        es: `Si quieres, añade hasta ${MAX_COMBAT_CARDS_PER_TURN} cartas de combate distintas. Cuestan suministros, que se pagan al jugarlas.`,
+        en: `If you like, add up to ${MAX_COMBAT_CARDS_PER_TURN} different combat cards. They cost supplies, paid when you play them.`,
       },
       {
         es: "Pulsa «Jugar». Mientras no des ninguna orden, «Cambiar carta» te devuelve aquí.",
@@ -123,8 +123,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: `An extra order costs ${EXTRA_INFANTRY} supplies for infantry and ${EXTRA_ARMOUR} for a tank or artillery: any unit, without the card's benefits.`,
       },
       {
-        es: "Si la carta de combate marca casillas (Cortina de Fuego, Refuerzos…), márcalas en el mapa.",
-        en: "If the combat card marks hexes (Barrage, Reinforcements…), mark them on the map.",
+        es: "Si una carta de combate marca casillas (Cortina de Fuego, Refuerzos…), márcalas en el mapa; si se da a una unidad (Explosivos…), tócala en el mapa.",
+        en: "If a combat card marks hexes (Barrage, Reinforcements…), mark them on the map; if it's given to a unit (Explosives…), tap the unit on the map.",
       },
       {
         es: "«Confirmar órdenes» las fija: ya no se pueden cambiar. Dalas sin mirar la pantalla del rival.",
@@ -169,8 +169,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Remove the casualties on the table. Retreats are marked and carried out in the final phase.",
       },
       {
-        es: "Puedes jugar una carta de combate de batalla en cualquier momento, normalmente cuando dispara el rival.",
-        en: "You can play a battle combat card at any time, usually when the opponent fires.",
+        es: "Las cartas de combate se jugaron con las órdenes: sus dados se suman solos al disparar.",
+        en: "The combat cards were played with the orders: their dice are added by themselves when firing.",
       },
     ],
   },
@@ -458,8 +458,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Cuándo se juegan", en: "When they're played" },
         house: {
-          es: "Las de órdenes, una por turno, junto con la carta de mando. Las de batalla, una por batalla, en cualquier momento de la batalla.",
-          en: "Order cards: one per turn, with the command card. Battle cards: one per battle, at any time in the battle.",
+          es: `Todas con la carta de mando, hasta ${MAX_COMBAT_CARDS_PER_TURN} por turno y nunca dos copias de la misma. Ninguna se juega en la batalla como reacción. Las que se dan a una unidad (Equipo urbano, Explosivos…) se le dan al dar las órdenes.`,
+          en: `All with the command card, up to ${MAX_COMBAT_CARDS_PER_TURN} a turn and never two copies of one. None is played in the battle as a reaction. The ones given to a unit (Street Equipment, Explosives…) are given while ordering.`,
         },
       },
       {

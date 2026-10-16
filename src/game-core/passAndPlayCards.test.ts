@@ -94,11 +94,6 @@ const toTurn2Battle = (match: PassAndPlayMatch, axis: Parameters<typeof play>[1]
   expect(match.finishReveal()).toBe(true);
 };
 
-const battleCard = (match: PassAndPlayMatch, side: Faction, id: string) => {
-  const session = match.sessions[side];
-  return session.playBattleCombatCard(session.getSnapshot().combatHand.find((c) => c.templateId === id)!);
-};
-
 describe("combat cards in the shared battle", () => {
   it("rolls an attack card on its marked hexes before anyone fires, dealing the hits there", () => {
     const match = newMatch(); // the attack die shows infantry: hits on infantry

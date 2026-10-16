@@ -38,11 +38,14 @@ interface BoardProps {
   firedUnits?: ReadonlySet<Unit>;
   /** Units that can still be ordered, ringed */
   orderablePositions?: readonly Position[];
-  /** Hexes marked for a combat card, drawn as targets or crosses */
+  /** Hexes marked for the combat cards, drawn as targets or crosses */
   markers?: readonly Position[];
-  markerKind?: MarkerRule['kind'];
+  /** How the marks are drawn: one kind for all, or each mark's kind (two cards can mark hexes) */
+  markerKind?: MarkerRule['kind'] | readonly MarkerRule['kind'][];
   /** Hexes that can be marked next, highlighted */
   markablePositions?: readonly Position[];
+  /** The combat cards given to units this turn (Explosives…): a small card badge on each unit */
+  cardBadges?: readonly { position: Position | null }[];
   /** Hexes a unit can fire at, each with its dice; tapping one picks it */
   fireTargets?: readonly { position: Position; dice: number }[];
   /** The target hex picked */
@@ -114,6 +117,7 @@ function Board({
   markers = [],
   markerKind = 'target',
   markablePositions = [],
+  cardBadges = [],
   fireTargets = [],
   selectedTarget = null,
   focus = [],
@@ -212,15 +216,16 @@ function Board({
     markers.map((position, i) => {
       const { x, y } = geometry.hexCenter(position);
       const r = hexSize * 0.55;
+      const kind = typeof markerKind === 'string' ? markerKind : (markerKind[i] ?? 'target');
       return (
         <g
-          key={positionKey(position)}
-          className={`board__marker board__marker--${markerKind}`}
+          key={`${i}-${positionKey(position)}`}
+          className={`board__marker board__marker--${kind}`}
           data-marker={positionKey(position)}
           pointerEvents="none"
           filter="url(#board-pencil)"
         >
-          {markerKind === 'cross' ? (
+          {kind === 'cross' ? (
             <path d={`M ${x - r} ${y - r} L ${x + r} ${y + r} M ${x + r} ${y - r} L ${x - r} ${y + r}`} />
           ) : (
             <>
@@ -395,6 +400,23 @@ function Board({
         );
       });
 
+  /** A small card on the units a combat card was given to, at the token's left */
+  const renderCardBadges = () =>
+    cardBadges.flatMap(({ position }, i) => {
+      if (!position) return [];
+      const { x, y } = geometry.hexCenter(position);
+      const w = hexSize * 0.3;
+      const h = w * 1.4;
+      // Left of the token, halfway down: its corners hold the order, elite, figures and retreat badges
+      const cx = x - hexSize * 0.68;
+      const cy = y;
+      return (
+        <g key={`${i}-${positionKey(position)}`} className="board__card-badge" data-card-badge={positionKey(position)} pointerEvents="none">
+          <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={w * 0.15} transform={`rotate(12 ${cx} ${cy})`} />
+        </g>
+      );
+    });
+
   const { width, height, imageMargin } = geometry;
   // Crop the view to the board image: the hexes all lie inside it, so the
   // dark margin around it would only waste screen space on tablets. With
@@ -454,6 +476,7 @@ function Board({
         {renderBoard()}
         {renderUnits()}
         {renderSandbags()}
+        {renderCardBadges()}
 
         {/* Layer 3: Orders, and the other army on a shared map */}
         {renderOrders()}

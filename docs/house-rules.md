@@ -119,6 +119,10 @@ Armour was too easy to play, and no card is played as a reaction in the battle a
 - Refuel (new tactic card, for sides with armour, in Armor Assault's place in the deck): order 1 unit; in the final phase 3 coins and a combat card and, instead of drawing, Armor Assault. Armor Assault is kept out of the deck: Refuel is the only way to get it, and once played it goes back out. With no armour left on the map, Refuel gives a Direct from HQ instead (also kept out of the deck); with Armor Assault still in the hand, a normal draw.
 - Motorized (was Frozen Ground) — 2: 3 infantry units move 1 extra hex.
 - No reaction cards: Out of Ammo, Ambush, Pull Back, Out of Fuel and Shell Shortage are out of the game.
+- Every combat card is played with the command card, in the orders phase: up to 2 per turn, any two different cards (never two copies of one). None is played in the battle. A card given to a unit (Street Equipment, Explosives) is recorded on the map next to that unit.
+- Street Equipment (was Street Fight) — 1: given to 1 ordered infantry unit; +1 die on each shot it fires from a town hex or a hex next to one.
+- Explosives — 1: given to 1 ordered infantry unit; +1 die on each of its close assaults this turn.
+- Spotter — 1: every ordered artillery unit fires with +1 die this turn, on each shot.
 - Reinforcements — 6: no roll; an infantry unit arrives on the cross as the final phase starts (another empty hex if the cross is taken). Scenarios no longer have a reinforcement table.
 - An extra order costs 3 coins for infantry and 4 for armour or artillery.
 - Pass and play: infantry units have 6 figures.

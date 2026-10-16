@@ -7,7 +7,7 @@ import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds } from "../data/hitRules";
 import { ATTACK_DIE_SIDES, DieFace, SIDES_OF, rollDice } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
-import { DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
+import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FireTarget, fireTargets, mapAnswers } from "./fireTargets";
 import {
   COLLISION_NOTES,
@@ -17,7 +17,7 @@ import {
   PUSH_BACK_UNIT_TYPES,
   TARGET_INFANTRY,
   TARGET_OTHER,
-  combatBonusQuestion,
+  combatBonusDice,
   fireBonusSteps,
   targetAnswer,
   wireChoiceFor,
@@ -49,8 +49,8 @@ import {
 import { CoinEntry, RewardChoice, isRewardChoice, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
 import { ARTILLERY_CREW_FIGURES, FIGURES, figureDamaged, figuresLeft, hitsToDestroy } from "../data/figures";
-import { CombatCard, DiceBonusEffect, MoveEffect } from "./combatCard";
-import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
+import { CombatCard, CombatEffect, MarkerRule, MoveEffect, templateOf } from "./combatCard";
+import { MAX_COMBAT_CARDS_PER_TURN, MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "../data/combatCards";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
@@ -123,18 +123,26 @@ export interface GameSnapshot {
   combatDrawPileCount: number;
   /** Combat cards can be played this turn (not in the attacker's extra turn) */
   canPlayCombatCards: boolean;
-  /** The order combat card played with the command card this turn */
-  orderCombatCard: CombatCard | null;
-  /** Hexes marked on the map for the order combat card (Barrage, Air Power…), in the order marked */
+  /** The combat cards played with the command card this turn, in order (two at most, never two copies of one) */
+  combatCardsPlayed: readonly CombatCard[];
+  /** Hexes marked on the map for the combat cards played (Barrage, Air Power…), each card's in turn, in the order marked */
   markers: readonly Position[];
+  /** What each marked hex is for: a target or a cross */
+  markerKinds: readonly MarkerRule["kind"][];
+  /** The card whose hexes are marked next, its rule and how many are marked; null once all are */
+  marking: { card: CombatCard; rule: MarkerRule; marked: number } | null;
   /** Hexes that can be marked next (empty outside giving orders, or when all are marked) */
   markable: readonly Position[];
-  /** The attack combat card's rolls, one per marked hex (Barrage, Air Power…) */
+  /** The marked hexes an attack card rolls on, with the card (Barrage, Air Power…) */
+  attackMarks: readonly AttackMark[];
+  /** The attack combat cards' rolls, one per marked hex (Barrage, Air Power…) */
   cardAttacks: readonly CardAttack[];
-  /** The attack combat card still has hexes to roll: no unit fires until they're done */
+  /** An attack combat card still has hexes to roll: no unit fires until they're done */
   attacksPending: boolean;
-  /** The battle combat card played in this turn's battle (one per battle) */
-  battleCombatCard: CombatCard | null;
+  /** The cards played that were given to one of this side's units, and where the unit stands */
+  assignments: readonly { card: CombatCard; unitType: UnitType; position: Position | null }[];
+  /** The next card to give to a unit, and the units it can go to now; null when none is waiting */
+  assigning: { card: CombatCard; positions: readonly Position[] } | null;
   /** Pass and play: collision rolls of units without an order */
   standingCollisions: readonly StandingCollisionRoll[];
   /** Pass and play: each unit's figures left and the flags it must retreat, by hex (none in the one-side game) */
@@ -177,8 +185,6 @@ export interface ShotAim {
   steps: DiceStep[];
   /** It throws the 8-sided long-range die */
   eightSided: boolean;
-  /** The battle card's extra dice it may add, or null when no card applies */
-  bonus: number | null;
 }
 
 /** Pass and play: how a unit stands */
@@ -265,9 +271,28 @@ export interface MoveOptions {
    * when it can take one; with more than one, the player picks the section.
    */
   slots: OrderSlot[];
-  /** It can use the order combat card's movement (Frozen Ground…) */
+  /** It can use a combat card's movement (Motorized…) */
   canBoost: boolean;
+  /** The combat cards whose movement it can use */
+  boosts: readonly CombatCard[];
 }
+
+/** A combat card played this turn given to one of this side's units (Explosives, Personal Armor…) */
+export interface Assignment {
+  card: CombatCard;
+  unit: Unit;
+}
+
+/** A hex marked for an attack combat card, which rolls there before anyone fires */
+export interface AttackMark {
+  /** Its index in the turn's markers */
+  marker: number;
+  position: Position;
+  card: CombatCard;
+  dicePerHex: number;
+}
+
+const asList = <T,>(value: T | readonly T[]): readonly T[] => (Array.isArray(value) ? (value as readonly T[]) : [value as T]);
 
 interface GameSessionOptions {
   scenario: Scenario;
@@ -371,10 +396,10 @@ class GameSession {
   readonly combatCards: readonly CombatCard[];
   private readonly combatDeck: Deck<CombatCard>;
   private combatHand: CombatCard[];
-  private orderCombatCard: CombatCard | null = null;
+  private combatCardsPlayed: CombatCard[] = [];
   private markers: Position[] = [];
   private cardAttacks: CardAttack[] = [];
-  private battleCombatCard: CombatCard | null = null;
+  private assignments: Assignment[] = [];
   private standingCollisions: StandingCollisionRoll[] = [];
   /** Pass and play: hits each unit has taken (kept from turn to turn) */
   private hits = new Map<Unit, number>();
@@ -505,8 +530,9 @@ class GameSession {
    * doesn't fall back to 1 unit), or Tactician changes the section of a card
    * for one section
    */
-  cardNeedsSection(card: CommandCard, combatCard?: CombatCard): boolean {
-    if (combatCard?.effect?.kind === "changeSection") return this.combatCardFits(card, combatCard);
+  cardNeedsSection(card: CommandCard, combatCards: CombatCard | readonly CombatCard[] = []): boolean {
+    const tactician = asList(combatCards).find((combatCard) => combatCard.effect?.kind === "changeSection");
+    if (tactician) return this.combatCardFits(card, tactician);
     return card.choosesSection && !fallbackCard(card, this.board);
   }
 
@@ -521,17 +547,33 @@ class GameSession {
   }
 
   /**
-   * Play a card from the hand; see `cardNeedsSection` for when it takes a
-   * section. An order combat card from the hand can be played with it, paid now.
+   * These combat cards can be played together this turn: at most
+   * `MAX_COMBAT_CARDS_PER_TURN`, from the hand, never two copies of one card,
+   * and the coins to pay for all of them (none in the attacker's extra turn)
    */
-  pickCard(card: CommandCard, section?: Section, combatCard?: CombatCard): boolean {
+  canPlayTogether(combatCards: readonly CombatCard[]): boolean {
+    if (combatCards.length === 0) return true;
+    if (this.extraTurn() || combatCards.length > MAX_COMBAT_CARDS_PER_TURN) return false;
+    if (combatCards.some((card, i) => !this.combatHand.includes(card) || combatCards.indexOf(card) !== i)) return false;
+    if (new Set(combatCards.map(templateOf)).size < combatCards.length) return false;
+    return combatCards.reduce((sum, card) => sum + card.cost, 0) <= this.coins();
+  }
+
+  /**
+   * Play a card from the hand; see `cardNeedsSection` for when it takes a
+   * section. Up to two combat cards from the hand can be played with it
+   * (`canPlayTogether`), paid now.
+   */
+  pickCard(card: CommandCard, section?: Section, combatCards: CombatCard | readonly CombatCard[] = []): boolean {
     if (this.phase !== TurnPhase.PICK_CARDS) return false;
     if (!this.hand.includes(card)) return false;
-    if (combatCard && !this.canPlayCombatCard(combatCard, "order")) return false;
-    if (combatCard && !this.combatCardFits(card, combatCard)) return false;
-    if (this.cardNeedsSection(card, combatCard) ? !isSection(section) : section !== undefined) return false;
+    const played = asList(combatCards);
+    if (!this.canPlayTogether(played)) return false;
+    if (played.some((combatCard) => !this.combatCardFits(card, combatCard))) return false;
+    if (this.cardNeedsSection(card, played) ? !isSection(section) : section !== undefined) return false;
 
-    if (combatCard) this.playCombatCard(combatCard);
+    this.combatHand = this.combatHand.filter((c) => !played.includes(c));
+    this.combatCardsPlayed = [...played];
     this.chosenCard = card;
     this.chosenSection = section ?? null;
     this.phase = TurnPhase.ORDER_UNITS;
@@ -544,15 +586,16 @@ class GameSession {
   }
 
   /**
-   * Go back to choosing a card, before any order is given. An order combat
-   * card played with it goes back to the hand, and its coins come back.
+   * Go back to choosing a card, before any order is given. The combat cards
+   * played with it go back to the hand, and their coins come back.
    */
   unpickCard(): boolean {
     if (!this.canUnpickCard()) return false;
 
-    if (this.orderCombatCard) this.combatHand = [...this.combatHand, this.orderCombatCard];
-    this.orderCombatCard = null;
+    this.combatHand = [...this.combatHand, ...this.combatCardsPlayed];
+    this.combatCardsPlayed = [];
     this.markers = [];
+    this.assignments = [];
     this.chosenCard = null;
     this.chosenSection = null;
     this.phase = TurnPhase.PICK_CARDS;
@@ -590,7 +633,7 @@ class GameSession {
    * Where the unit at `position` can move, or null if it can't be ordered.
    * `slot` gets the moves for one way of ordering it (e.g. on the move).
    */
-  getMoveOptions(position: Position, slot?: OrderSlot, boost = false): MoveOptions | null {
+  getMoveOptions(position: Position, slot?: OrderSlot, boost: boolean | string = false): MoveOptions | null {
     const context = this.orderContext();
     const hex = this.board.getHex(position);
     const unit = hex?.unit;
@@ -598,51 +641,55 @@ class GameSession {
     const slots = this.slotsFor(context, unit, hex.getSide(), slot);
     const moveSlot = slot ? this.slotFor(slots, slot) : (slots.find((s) => !s.onTheMove) ?? slots[0]);
     if (!moveSlot) return null;
-    const canBoost = this.canBoost(hex, moveSlot);
-    if (boost && !canBoost) return null;
+    const boosts = this.boostsFor(hex, moveSlot);
+    const used = this.boostFor(hex, moveSlot, boost);
+    if (boost !== false && !used) return null;
 
-    const plan = this.movePlan(hex, moveLimits(context.card, unit, moveSlot), boost);
+    const plan = this.movePlan(hex, moveLimits(context.card, unit, moveSlot), used?.effect ?? null);
     return {
       moves: [...plan.paths(plan.limits.maxMove).keys()].map(fromKey),
       moveAndFire: [...plan.paths(plan.limits.moveAndFire, true).keys()].map(fromKey),
       limits: plan.limits,
       slots,
-      canBoost,
+      canBoost: boosts.length > 0,
+      boosts: boosts.map(({ card }) => card),
     };
   }
 
-  // Order combat cards that change how some units move (Frozen Ground, Armor Forward, Rattenkrieg…)
+  // Combat cards that change how some ordered units move (Motorized, Armor Forward, Rattenkrieg…)
 
-  private moveEffect(): MoveEffect | null {
-    const effect = this.orderCombatCard?.effect;
-    return effect?.kind === "move" ? effect : null;
+  private moveCards(): { card: CombatCard; effect: MoveEffect }[] {
+    return this.combatCardsPlayed.flatMap((card) => (card.effect?.kind === "move" ? [{ card, effect: card.effect }] : []));
   }
 
-  /** How many more ordered units can use the order combat card's movement */
-  private boostsLeft(): number {
-    const effect = this.moveEffect();
-    return effect ? effect.units - this.orders.filter((order) => order.boosted).length : 0;
-  }
-
-  /** The unit on this hex, in this order slot, can use the order combat card's movement */
-  private canBoost(hex: Hex, slot: OrderSlot): boolean {
-    const effect = this.moveEffect();
+  /** The move cards the unit on this hex, in this order slot, can still use */
+  private boostsFor(hex: Hex, slot: OrderSlot): { card: CombatCard; effect: MoveEffect }[] {
     const unit = hex.unit;
-    if (!effect || !unit || this.boostsLeft() <= 0) return false;
-    if (effect.notOnTheMove && slot.onTheMove) return false;
-    if (effect.unitTypes && !effect.unitTypes.includes(unit.getUnitType())) return false;
-    if (effect.startNear) {
-      const near = [hex.getPosition(), ...hex.getNeighbors()].some((p) =>
-        effect.startNear!.includes(this.board.getHex(p)?.getType() as HexType)
-      );
-      if (!near) return false;
-    }
-    return true;
+    if (!unit) return [];
+    return this.moveCards().filter(({ card, effect }) => {
+      if (effect.units - this.orders.filter((order) => order.boostCard === card.id).length <= 0) return false;
+      if (effect.notOnTheMove && slot.onTheMove) return false;
+      if (effect.unitTypes && !effect.unitTypes.includes(unit.getUnitType())) return false;
+      return !effect.startNear || this.isNear(hex.getPosition(), effect.startNear);
+    });
   }
 
-  /** The unit's move limits and paths, with the order combat card's movement when `boost` */
-  private movePlan(hex: Hex, limits: MoveLimits, boost: boolean) {
-    const effect = boost ? this.moveEffect() : null;
+  /** The move card a unit uses: the one with this id, or with `true` the first one it can use */
+  private boostFor(hex: Hex, slot: OrderSlot, boost: boolean | string): { card: CombatCard; effect: MoveEffect } | null {
+    if (boost === false) return null;
+    const boosts = this.boostsFor(hex, slot);
+    return (boost === true ? boosts[0] : boosts.find(({ card }) => card.id === boost)) ?? null;
+  }
+
+  /** The hex, or one next to it, is one of these terrains */
+  private isNear(position: Position, terrains: readonly HexType[]): boolean {
+    const hex = this.board.getHex(position);
+    if (!hex) return false;
+    return [position, ...hex.getNeighbors()].some((p) => terrains.includes(this.board.getHex(p)?.getType() as HexType));
+  }
+
+  /** The unit's move limits and paths, with a combat card's movement */
+  private movePlan(hex: Hex, limits: MoveLimits, effect: MoveEffect | null) {
     const rules = effect ? { ignoreTerrain: effect.ignoreTerrain, fireInto: effect.fireInto } : {};
     const endsOk = (key: string) =>
       (!effect?.endOn || effect.endOn.includes(this.board.getHex(fromKey(key))!.getType())) && !this.breaksMark(fromKey(key));
@@ -656,19 +703,20 @@ class GameSession {
   /**
    * Order the unit at `from` to move to `to`, or to hold when `to` equals `from`.
    * `slot` is needed when the unit can fill more than one section's orders.
-   * `boost` uses the order combat card's movement; a unit that holds doesn't
-   * move, so it doesn't use up the card.
+   * `boost` uses a combat card's movement (its id, or `true` for the first one
+   * the unit can use); a unit that holds doesn't move, so it doesn't use it up.
    */
-  issueOrder(from: Position, to: Position, slot?: OrderSlot, boostMove = false): boolean {
-    const boost = boostMove && !samePosition(from, to);
+  issueOrder(from: Position, to: Position, slot?: OrderSlot, boostMove: boolean | string = false): boolean {
+    const boost = samePosition(from, to) ? false : boostMove;
     const context = this.orderContext();
     const hex = this.board.getHex(from);
     const unit = hex?.unit;
     if (!context || !hex || !unit) return false;
     const chosen = this.slotFor(this.slotsFor(context, unit, hex.getSide(), slot), slot);
     if (!chosen) return false;
-    if (boost && !this.canBoost(hex, chosen)) return false;
-    const plan = this.movePlan(hex, moveLimits(context.card, unit, chosen), boost);
+    const used = this.boostFor(hex, chosen, boost);
+    if (boost !== false && !used) return false;
+    const plan = this.movePlan(hex, moveLimits(context.card, unit, chosen), used?.effect ?? null);
     const limits = plan.limits;
     const cost = slotCost(context.card, unit, chosen);
     if (cost > context.coins) return false;
@@ -682,7 +730,7 @@ class GameSession {
       onTheMove: chosen.onTheMove,
       extra: chosen.extra ?? false,
       cost,
-      boosted: boost,
+      boostCard: used?.card.id ?? null,
     };
     if (samePosition(from, to)) {
       order = new Order({ ...props, path: [from], shots: limits.holdShots });
@@ -717,11 +765,19 @@ class GameSession {
       this.restoreSandbags(lastOrder.lostSandbags);
       if (lastOrder.clearedWire) this.board.getHex(lastOrder.end)?.setWire(true);
       // Back on (or next to) a hex marked meanwhile: those marks, and the ones after them, are erased
-      const rule = this.markerRule();
-      const broken = rule ? firstConflictingMark(rule, this.board, this.markers, lastOrder.start) : -1;
-      if (broken !== -1) this.markers = this.markers.slice(0, broken);
+      for (const span of this.markerSpans()) {
+        const broken = firstConflictingMark(span.rule, this.board, this.marksOf(span), lastOrder.start);
+        if (broken !== -1) {
+          this.markers = this.markers.slice(0, span.start + broken);
+          break;
+        }
+      }
     }
     this.orders = this.orders.slice(0, -1);
+    // A card given to an ordered unit goes back when the unit's order is undone
+    this.assignments = this.assignments.filter(
+      ({ card, unit }) => !card.assign?.ordered || this.orders.some((order) => order.unit === unit)
+    );
     return this.publish();
   }
 
@@ -732,6 +788,7 @@ class GameSession {
     if (this.phase !== TurnPhase.ORDER_UNITS) return false;
     if (this.remainingOrders() > 0) return false;
     if (this.markersLeft() > 0) return false;
+    if (this.assignmentDue()) return false;
 
     this.phase = TurnPhase.MOVEMENT;
     return this.publish();
@@ -910,10 +967,17 @@ class GameSession {
     if (!ordered && this.orders.some((o) => o.unit === unit)) return false;
     if (!this.canRollCollision(position, order)) return false;
 
-    const steps = collisionSteps({ unitType: unit.getUnitType(), card: ordered ? this.cardFor(ordered) : null });
+    const context: FireContext = {
+      unitType: unit.getUnitType(),
+      card: ordered ? this.cardFor(ordered) : null,
+      combatBonuses: ordered ? this.combatBonusesFor(order!) : [],
+    };
+    const steps = collisionSteps(context);
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     const target: ShotTarget = { infantry, closeAssault: true, die: "battle" };
-    if (ordered) return this.recordShot(order!, dice, steps, [...COLLISION_NOTES], target, true);
+    if (ordered) {
+      return this.recordShot(order!, dice, steps, [...COLLISION_NOTES], target, true, combatBonusDice(context, true) > 0);
+    }
 
     const roll: StandingCollisionRoll = {
       from: { ...position },
@@ -950,7 +1014,8 @@ class GameSession {
 
     this.phase = TurnPhase.END_OF_TURN;
     if (this.chosenCard) this.draw();
-    const cross = this.reinforcementUnit() && this.markers[0];
+    const crossSpan = this.markerSpans().find((span) => span.card.effect?.kind === "reinforcements");
+    const cross = this.reinforcementUnit() && crossSpan && this.markers[crossSpan.start];
     if (cross) this.addReinforcement(cross);
     return this.publish();
   }
@@ -974,7 +1039,7 @@ class GameSession {
       this.board,
       this.shots,
       this.unmovedFireSkipped,
-      { orderCombatCard: this.orderCombatCard, battleCombatCard: this.battleCombatCard },
+      this.combatCardsPlayed,
       new Set(this.retreatFlags.keys())
     );
   }
@@ -996,25 +1061,43 @@ class GameSession {
     return !this.summaries()[orderIndex]!.waiting;
   }
 
-  /** The battle combat card's extra dice, if this unit can still use them (Spotter, Street Fight, Explosives) */
-  combatBonusFor(orderIndex: number): (DiceBonusEffect & { name: Localized }) | undefined {
-    const card = this.battleCombatCard;
+  /**
+   * The extra dice the combat cards played give this order's unit on a shot from where it stands
+   * now: all of a kind (Spotter), or the unit a card was given to (Explosives, Street Equipment)
+   */
+  combatBonusesFor(orderIndex: number): CombatBonus[] {
     const order = this.orders[orderIndex];
-    if (this.phase !== TurnPhase.BATTLE || card?.effect?.kind !== "diceBonus" || !order) return undefined;
-    if (this.shots.some((shot) => shot.combatBonus)) return undefined;
-    if (!card.effect.unitTypes.includes(order.unit.getUnitType())) return undefined;
-    return { ...card.effect, name: card.name };
+    const summary = this.summaries()[orderIndex];
+    if (!order || !summary) return [];
+    const unitType = order.unit.getUnitType();
+    return this.combatCardsPlayed.flatMap((card) => {
+      const effect = card.effect;
+      if (effect?.kind !== "diceBonus" || !effect.unitTypes.includes(unitType)) return [];
+      if (card.assign && !this.assignments.some((a) => a.card === card && a.unit === order.unit)) return [];
+      if (effect.near && !this.isNear(summary.firingFrom, effect.near)) return [];
+      return [{ name: card.name, dice: effect.dice, ...(effect.closeAssault !== undefined && { closeAssault: effect.closeAssault }) }];
+    });
   }
 
   // Attack combat cards: one roll per marked hex, before any other shot
 
-  private attackEffect() {
-    const effect = this.orderCombatCard?.effect;
-    return effect?.kind === "attack" ? effect : null;
+  /** The marked hexes the attack cards played roll on, each with its card */
+  private attackMarks(): AttackMark[] {
+    return this.markerSpans().flatMap((span) => {
+      const effect = span.card.effect;
+      if (effect?.kind !== "attack") return [];
+      return this.marksOf(span).map((position, i) => ({
+        marker: span.start + i,
+        position,
+        card: span.card,
+        dicePerHex: effect.dicePerHex,
+      }));
+    });
   }
 
   private attacksPending(): boolean {
-    return this.phase === TurnPhase.BATTLE && !!this.attackEffect() && this.cardAttacks.length < this.markers.length;
+    if (this.phase !== TurnPhase.BATTLE) return false;
+    return this.attackMarks().some((mark) => !this.cardAttacks.some((attack) => attack.marker === mark.marker));
   }
 
   /**
@@ -1023,8 +1106,8 @@ class GameSession {
    * empty (nothing to roll).
    */
   attackHex(marker: number, infantry: boolean | null): boolean {
-    const effect = this.attackEffect();
-    if (this.phase !== TurnPhase.BATTLE || !effect || !this.markers[marker]) return false;
+    const mark = this.attackMarks().find((m) => m.marker === marker);
+    if (this.phase !== TurnPhase.BATTLE || !mark) return false;
     if (this.cardAttacks.some((attack) => attack.marker === marker)) return false;
     if (infantry !== null && !this.canBeTarget(infantry)) return false;
 
@@ -1034,8 +1117,8 @@ class GameSession {
         : {
             marker,
             target: { infantry, closeAssault: false, die: "attack" },
-            dice: effect.dicePerHex,
-            faces: rollDice(effect.dicePerHex, this.random, ATTACK_DIE_SIDES),
+            dice: mark.dicePerHex,
+            faces: rollDice(mark.dicePerHex, this.random, ATTACK_DIE_SIDES),
           };
     this.cardAttacks = [...this.cardAttacks, attack];
     return this.publish();
@@ -1063,7 +1146,7 @@ class GameSession {
       unitType: order.unit.getUnitType(),
       card: this.cardFor(order),
       closeAssaultOnly: summary.closeAssaultOnly,
-      combatBonus: this.combatBonusFor(orderIndex),
+      combatBonuses: this.combatBonusesFor(orderIndex),
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
       fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
     };
@@ -1117,10 +1200,7 @@ class GameSession {
    * questions. Only a hex in range and in sight, where the shot gets dice.
    * Sandbags are the player's answer: the enemy's aren't known here.
    */
-  fireAt(
-    orderIndex: number,
-    choice: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
-  ): boolean {
+  fireAt(orderIndex: number, choice: { position: Position; infantry: boolean; sandbags: boolean }): boolean {
     const aim = this.aimAnswers(orderIndex, choice);
     return !!aim && this.fireWith(orderIndex, aim.answers, choice.position);
   }
@@ -1128,9 +1208,9 @@ class GameSession {
   /** The fire answers for a shot at a hex picked on the map; null when the hex can't be fired at */
   private aimAnswers(
     orderIndex: number,
-    choice: { position: Position; infantry: boolean; sandbags: boolean; useCombatBonus?: boolean }
-  ): { answers: Record<string, string>; target: FireTarget; context: FireContext; asksBonus: boolean } | null {
-    const { position, useCombatBonus = false } = choice;
+    choice: { position: Position; infantry: boolean; sandbags: boolean }
+  ): { answers: Record<string, string>; target: FireTarget; context: FireContext } | null {
+    const { position } = choice;
     let { infantry, sandbags } = choice;
     const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
     if (!target || !target.lineOfSight || target.dice <= 0) return null;
@@ -1146,20 +1226,17 @@ class GameSession {
       targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER,
       sandbags: sandbags ? "yes" : "no",
     };
-    const asksBonus = combatBonusQuestion.appliesTo?.(context, answers) ?? false;
-    if (asksBonus) answers.combatCard = useCombatBonus ? "yes" : "no";
-    return { answers, target, context, asksBonus };
+    return { answers, target, context };
   }
 
   /**
    * Pass and play: the shot this unit would fire at the enemy unit on this hex, before it's
-   * rolled: its dice and where they come from, the die thrown, and the battle card's extra dice
-   * it may add (`bonus`, already counted when `useCombatBonus`). Null when it can't fire there.
+   * rolled: its dice and where they come from, and the die thrown. Null when it can't fire there.
    */
-  aimAt(orderIndex: number, position: Position, useCombatBonus = false): ShotAim | null {
+  aimAt(orderIndex: number, position: Position): ShotAim | null {
     const enemy = this.enemyAt(position);
     if (!enemy || this.shotsLeft(orderIndex) <= 0) return null;
-    const aim = this.aimAnswers(orderIndex, { position, infantry: true, sandbags: false, useCombatBonus });
+    const aim = this.aimAnswers(orderIndex, { position, infantry: true, sandbags: false });
     if (!aim) return null;
     const { dice, steps, blocked } = calculateFireDice(FIRE_QUESTIONS, aim.context, aim.answers, fireBonusSteps);
     if (blocked || (aim.context.closeAssaultOnly && aim.target.distance !== 1)) return null;
@@ -1171,7 +1248,6 @@ class GameSession {
       dice,
       steps,
       eightSided: this.longRangeDie && aim.target.distance > 1,
-      bonus: aim.asksBonus ? (aim.context.combatBonus?.dice ?? 0) : null,
     };
   }
 
@@ -1186,8 +1262,7 @@ class GameSession {
     const infantry = targetAnswer(answers.targetType);
     if (infantry === null || !this.canBeTarget(infantry)) return false;
     const target = this.targetFor(infantry, answers.distance === "1");
-    const usedBonus =
-      !!context.combatBonus && answers.combatCard === "yes" && (combatBonusQuestion.appliesTo?.(context, answers) ?? true);
+    const usedBonus = combatBonusDice(context, answers.distance === "1") > 0;
     return this.recordShot(orderIndex, dice, steps, notes, target, false, usedBonus, targetPosition);
   }
 
@@ -1230,8 +1305,8 @@ class GameSession {
     if (hits === 0 && retreats === 0) return false;
     const unitType = order.unit.getUnitType();
     if (TAKE_GROUND_UNIT_TYPES.includes(unitType)) return true;
-    const effect = this.battleCombatCard?.effect;
-    if (effect?.kind !== "takeGround" || !effect.unitTypes.includes(unitType)) return false;
+    const effect = this.playedEffect("takeGround");
+    if (!effect || !effect.unitTypes.includes(unitType)) return false;
     // The card's units already used: units of its types (not armour) that took ground
     const used = this.summaries().filter(
       (s) => s.tookGround && effect.unitTypes.includes(s.unitType) && !TAKE_GROUND_UNIT_TYPES.includes(s.unitType)
@@ -1343,10 +1418,15 @@ class GameSession {
     if (samePosition(order.start, order.end)) return false;
     if (this.shots.some((shot) => shot.orderIndex === orderIndex)) return false;
 
-    const steps = collisionSteps({ unitType: order.unit.getUnitType(), card: this.cardFor(order) });
+    const context: FireContext = {
+      unitType: order.unit.getUnitType(),
+      card: this.cardFor(order),
+      combatBonuses: this.combatBonusesFor(orderIndex),
+    };
+    const steps = collisionSteps(context);
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     const target: ShotTarget = { infantry, closeAssault: true, die: "battle" };
-    return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true);
+    return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true, combatBonusDice(context, true) > 0);
   }
 
   /** The card whose bonuses the order gets: none for an extra order bought with coins */
@@ -1455,7 +1535,7 @@ class GameSession {
     const endOfTurn = this.phase === TurnPhase.END_OF_TURN;
     return turnCoins({
       orders: this.orders,
-      combatCards: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
+      combatCards: this.combatCardsPlayed,
       shots: this.shots,
       standingCollisions: this.standingCollisions,
       adjustments: this.coinAdjustments,
@@ -1518,94 +1598,151 @@ class GameSession {
     return this.combatDeck.getDrawPileCount() + this.combatDeck.getDiscardPileCount() > 0;
   }
 
-  private canPlayCombatCard(card: CombatCard, phase: CombatCard["phase"]): boolean {
-    return (
-      !this.extraTurn() && card.phase === phase && this.combatHand.includes(card) && card.cost <= this.coins()
-    );
+  /** The effect of a combat card played this turn, of this kind */
+  private playedEffect<K extends CombatEffect["kind"]>(kind: K): Extract<CombatEffect, { kind: K }> | null {
+    const card = this.combatCardsPlayed.find((c) => c.effect?.kind === kind);
+    return (card?.effect as Extract<CombatEffect, { kind: K }> | undefined) ?? null;
   }
 
-  private playCombatCard(card: CombatCard) {
-    this.combatHand = this.combatHand.filter((c) => c !== card);
-    if (card.phase === "order") this.orderCombatCard = card;
-    else this.battleCombatCard = card;
-  }
+  /**
+   * Take back a combat card while giving orders, before they're confirmed; its coins come back.
+   * Not one whose movement an order used: undo that order first
+   */
+  cancelCombatCard(card: CombatCard): boolean {
+    if (this.phase !== TurnPhase.ORDER_UNITS || !this.combatCardsPlayed.includes(card)) return false;
+    if (this.orders.some((order) => order.boostCard === card.id)) return false;
 
-  /** Take back the order combat card while giving orders, before they're confirmed; its coins come back */
-  cancelOrderCombatCard(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS || !this.orderCombatCard) return false;
-
-    this.combatHand = [...this.combatHand, this.orderCombatCard];
-    this.orderCombatCard = null;
-    this.markers = [];
+    // Its marks go, and the marks of the cards after it (each card's are marked in turn)
+    const span = this.markerSpans().find((s) => s.card === card);
+    if (span) this.markers = this.markers.slice(0, span.start);
+    this.combatCardsPlayed = this.combatCardsPlayed.filter((c) => c !== card);
+    this.assignments = this.assignments.filter((a) => a.card !== card);
+    this.combatHand = [...this.combatHand, card];
     return this.publish();
   }
 
-  // Map markers: the hexes the order combat card targets, or where its unit appears
+  // Map markers: the hexes the combat cards played target, or where their unit appears.
+  // Each card's are marked in turn, so the markers are one list and each card owns a span of it
 
-  private markerRule() {
+  /** Each played card that marks hexes, and where its marks start in `markers` */
+  private markerSpans(): { card: CombatCard; rule: MarkerRule; start: number }[] {
+    let start = 0;
+    return this.combatCardsPlayed.flatMap((card) => {
+      if (!card.marker) return [];
+      const span = { card, rule: card.marker, start };
+      start += card.marker.count;
+      return [span];
+    });
+  }
+
+  private marksOf(span: { rule: MarkerRule; start: number }): Position[] {
+    return this.markers.slice(span.start, span.start + span.rule.count);
+  }
+
+  /** The card whose hexes are marked next: the first one not fully marked, while giving orders */
+  private markingSpan() {
     if (this.phase !== TurnPhase.ORDER_UNITS) return null;
-    return this.orderCombatCard?.marker ?? null;
+    return this.markerSpans().find((span) => this.markers.length < span.start + span.rule.count) ?? null;
   }
 
   /** A unit ending its move here would stand on a marked hex (or next to one, for Air Bombardment) */
   private breaksMark(position: Position): boolean {
-    const rule = this.markerRule();
-    return !!rule && firstConflictingMark(rule, this.board, this.markers, position) !== -1;
+    if (this.phase !== TurnPhase.ORDER_UNITS) return false;
+    return this.markerSpans().some((span) => firstConflictingMark(span.rule, this.board, this.marksOf(span), position) !== -1);
   }
 
   private markersLeft(): number {
-    const rule = this.orderCombatCard?.marker;
-    return rule ? rule.count - this.markers.length : 0;
+    return this.markerSpans().reduce((sum, span) => sum + span.rule.count, 0) - this.markers.length;
   }
 
-  /** Mark a hex for the order combat card; see markerRules.ts for where */
+  /** Mark a hex for the card being marked; see markerRules.ts for where */
   markHex(position: Position): boolean {
-    const rule = this.markerRule();
-    if (!rule || !canMark(rule, this.board, this.markers, position)) return false;
+    const span = this.markingSpan();
+    if (!span || !canMark(span.rule, this.board, this.marksOf(span), position)) return false;
 
     this.markers = [...this.markers, { row: position.row, col: position.col }];
     return this.publish();
   }
 
   private markableNow(): Position[] {
-    const rule = this.markerRule();
-    return rule ? markablePositions(rule, this.board, this.markers) : [];
+    const span = this.markingSpan();
+    return span ? markablePositions(span.rule, this.board, this.marksOf(span)) : [];
   }
 
   undoMarker(): boolean {
-    if (!this.markerRule() || this.markers.length === 0) return false;
+    if (this.phase !== TurnPhase.ORDER_UNITS || this.markers.length === 0) return false;
 
     this.markers = this.markers.slice(0, -1);
     return this.publish();
   }
 
-  /** False for a card that needs an ordered unit of some type (Spotter: artillery) when none has an order */
+  private markingSnapshot(): GameSnapshot["marking"] {
+    const span = this.markingSpan();
+    return span && { card: span.card, rule: span.rule, marked: this.markers.length - span.start };
+  }
+
+  /** What each marked hex is for: its card's kind of mark */
+  private markerKinds(): MarkerRule["kind"][] {
+    return this.markers.map((_, i) => this.markerSpans().find((span) => i >= span.start && i < span.start + span.rule.count)?.rule.kind ?? "target");
+  }
+
+  // Cards given to a unit while ordering (Explosives, Personal Armor…)
+
+  /** This side's units the card can go to now: of its types, with an order if it needs one */
+  private assignableFor(card: CombatCard): Position[] {
+    const rule = card.assign;
+    if (!rule || this.phase !== TurnPhase.ORDER_UNITS) return [];
+    return this.board
+      .getAllHexes()
+      .filter((hex) => {
+        const unit = hex.unit;
+        if (!unit || !rule.unitTypes.includes(unit.getUnitType())) return false;
+        return !rule.ordered || this.orders.some((order) => order.unit === unit);
+      })
+      .map((hex) => hex.getPosition());
+  }
+
+  /** The next played card to give to a unit, and the units it can go to */
+  private assigning(): { card: CombatCard; positions: Position[] } | null {
+    if (this.phase !== TurnPhase.ORDER_UNITS) return null;
+    const card = this.combatCardsPlayed.find((c) => c.assign && !this.assignments.some((a) => a.card === c));
+    return card ? { card, positions: this.assignableFor(card) } : null;
+  }
+
+  /** A card still waits for its unit, and some unit can take it: the orders can't be confirmed yet */
+  private assignmentDue(): boolean {
+    return this.combatCardsPlayed.some(
+      (card) => card.assign && !this.assignments.some((a) => a.card === card) && this.assignableFor(card).length > 0
+    );
+  }
+
+  /** Give the next card waiting for a unit to the unit on this hex */
+  assignCard(position: Position): boolean {
+    const next = this.assigning();
+    const unit = this.board.getHex(position)?.unit;
+    if (!next || !unit || !includesPosition(next.positions, position)) return false;
+
+    this.assignments = [...this.assignments, { card: next.card, unit }];
+    return this.publish();
+  }
+
+  /** Take a card back from its unit while giving orders, to give it to another */
+  unassignCard(card: CombatCard): boolean {
+    if (this.phase !== TurnPhase.ORDER_UNITS || !this.assignments.some((a) => a.card === card)) return false;
+
+    this.assignments = this.assignments.filter((a) => a.card !== card);
+    return this.publish();
+  }
+
+  /** Where the unit stands now, or null if it was removed */
+  private positionOf(unit: Unit): Position | null {
+    return this.board.getAllHexes().find((hex) => hex.unit === unit)?.getPosition() ?? null;
+  }
+
+  /** False for a card that needs an ordered unit of some type (Spotter: artillery) when none has an order: confirming warns */
   hasOrderedUnitFor(card: CombatCard): boolean {
     const types = card.needsOrdered;
     return !types || this.orders.some((order) => types.includes(order.unit.getUnitType()));
-  }
-
-  /** Play a battle combat card from the hand (one per battle), paid now */
-  playBattleCombatCard(card: CombatCard): boolean {
-    if (this.phase !== TurnPhase.BATTLE || this.battleCombatCard) return false;
-    if (!this.canPlayCombatCard(card, "battle")) return false;
-    // ¡Fusiles arriba! is played before any unit fires (collisions aside)
-    if (card.effect?.kind === "firesFirst" && this.shots.some((shot) => !shot.collision)) return false;
-    if (!this.hasOrderedUnitFor(card)) return false;
-
-    this.playCombatCard(card);
-    return this.publish();
-  }
-
-  /** Take back the battle combat card played by mistake; its coins come back */
-  undoBattleCombatCard(): boolean {
-    if (this.phase !== TurnPhase.BATTLE || !this.battleCombatCard) return false;
-    // A shot already used its dice: undo that shot first
-    if (this.shots.some((shot) => shot.combatBonus)) return false;
-
-    this.combatHand = [...this.combatHand, this.battleCombatCard];
-    this.battleCombatCard = null;
-    return this.publish();
   }
 
   /** The final phase owes a combat card (the choice, or Preparations) that hasn't been drawn */
@@ -1725,15 +1862,15 @@ class GameSession {
   private fortifyDue(): boolean {
     return (
       this.phase === TurnPhase.END_OF_TURN &&
-      this.battleCombatCard?.effect?.kind === "fortify" &&
+      !!this.playedEffect("fortify") &&
       !this.battleEdits.some((edit) => edit.kind === "sandbags" && edit.fortify)
     );
   }
 
   /** This side's units that can get Fortify's sandbags now */
   private fortifiable(): Position[] {
-    const effect = this.battleCombatCard?.effect;
-    if (!this.fortifyDue() || effect?.kind !== "fortify") return [];
+    const effect = this.playedEffect("fortify");
+    if (!this.fortifyDue() || !effect) return [];
     return this.board
       .getAllHexes()
       .filter((hex) => hex.hasUnit() && !hex.sandbags && effect.unitTypes.includes(hex.unit.getUnitType()))
@@ -1820,8 +1957,7 @@ class GameSession {
 
   /** The unit the Reinforcements card played this turn brings */
   private reinforcementUnit(): UnitType | null {
-    const effect = this.orderCombatCard?.effect;
-    return effect?.kind === "reinforcements" ? effect.unitType : null;
+    return this.playedEffect("reinforcements")?.unitType ?? null;
   }
 
   private reinforcementToPlace(): UnitType | null {
@@ -1971,7 +2107,8 @@ class GameSession {
       coins: this.turnCoinEntries(),
       coinsAfter: coins,
       reward: this.rewardChoice,
-      combatCardsPlayed: [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null),
+      combatCardsPlayed: this.combatCardsPlayed,
+      assignments: this.assignments.map(({ card, unit }) => ({ card: card.name, unit: unit.getUnitType(), position: this.positionOf(unit) })),
       combatCardDrawn: this.drawnCombatCard,
       markers: this.markers,
       cardAttacks: this.cardAttacks,
@@ -1980,14 +2117,14 @@ class GameSession {
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
     this.coinAdjustments = [];
     this.rewardChoice = null;
-    const played = [this.orderCombatCard, this.battleCombatCard].filter((card) => card !== null);
+    const played = this.combatCardsPlayed;
     // Test mode: played cards come back to the hand so they can be tried again
     if (this.testMode) this.combatHand = [...this.combatHand, ...played];
     else played.forEach((card) => this.combatDeck.discard(card));
-    this.orderCombatCard = null;
+    this.combatCardsPlayed = [];
     this.markers = [];
     this.cardAttacks = [];
-    this.battleCombatCard = null;
+    this.assignments = [];
     this.standingCollisions = [];
     this.retreatFlags = new Map();
     this.turnHits = new Map();
@@ -2038,10 +2175,10 @@ class GameSession {
       combatDrawPile: this.combatDeck.drawPile,
       combatDiscardPile: this.combatDeck.discardPile,
       combatHand: this.combatHand,
-      orderCombatCard: this.orderCombatCard,
+      combatCardsPlayed: this.combatCardsPlayed,
       markers: this.markers,
       cardAttacks: this.cardAttacks,
-      battleCombatCard: this.battleCombatCard,
+      assignments: this.assignments,
       standingCollisions: this.standingCollisions,
       hits: this.hits,
       retreatFlags: this.retreatFlags,
@@ -2094,10 +2231,10 @@ class GameSession {
     session.rewardChoice = state.rewardChoice;
     session.combatDeck.restorePiles([...state.combatDrawPile], [...state.combatDiscardPile]);
     session.combatHand = state.combatHand;
-    session.orderCombatCard = state.orderCombatCard;
+    session.combatCardsPlayed = state.combatCardsPlayed;
     session.markers = state.markers;
     session.cardAttacks = state.cardAttacks;
-    session.battleCombatCard = state.battleCombatCard;
+    session.assignments = state.assignments;
     session.standingCollisions = [...state.standingCollisions];
     session.hits = new Map(state.hits);
     session.retreatFlags = new Map(state.retreatFlags);
@@ -2148,12 +2285,16 @@ class GameSession {
       combatHand: [...this.combatHand],
       combatDrawPileCount: this.combatDeck.getDrawPileCount(),
       canPlayCombatCards: !this.extraTurn() && this.phase !== TurnPhase.AWAIT_ATTACKER,
-      orderCombatCard: this.orderCombatCard,
+      combatCardsPlayed: [...this.combatCardsPlayed],
       markers: this.markers,
+      markerKinds: this.markerKinds(),
+      marking: this.markingSnapshot(),
       markable: this.markableNow(),
+      attackMarks: this.attackMarks(),
       cardAttacks: this.cardAttacks,
       attacksPending: this.attacksPending(),
-      battleCombatCard: this.battleCombatCard,
+      assignments: this.assignments.map(({ card, unit }) => ({ card, unitType: unit.getUnitType(), position: this.positionOf(unit) })),
+      assigning: this.assigning(),
       standingCollisions: this.standingCollisions,
       strength: this.strength(),
       drawnCombatCard: this.drawnCombatCard,

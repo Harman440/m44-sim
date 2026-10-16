@@ -100,6 +100,12 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
   const session = match.sessions[viewer];
   const game = session.getSnapshot();
   const moved = movement?.turn === turn ? movement : null;
+  // The units each side gave a combat card to, seen from the viewer
+  const cardBadges = [viewer, otherSide(viewer)].flatMap((faction) =>
+    match.sessions[faction]
+      .getSnapshot()
+      .assignments.map((a) => ({ position: a.position && (faction === viewer ? a.position : turnedRound(a.position)) }))
+  );
 
   const roll = (index: number) => {
     if (!match.rollCollision(index)) return;
@@ -121,7 +127,8 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 boardManager={session.board}
                 orders={game.orders}
                 markers={game.markers}
-                markerKind={game.orderCombatCard?.marker?.kind}
+                markerKind={game.markerKinds}
+                cardBadges={cardBadges}
                 backgroundImage={session.scenario.image}
                 faction={viewer}
                 opponent={match.opponentOf(viewer)}
@@ -214,7 +221,8 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                           faction={faction}
                           command={side.chosenCard}
                           section={side.chosenSection}
-                          combat={side.orderCombatCard}
+                          combat={side.combatCardsPlayed}
+                          assignments={side.assignments}
                         />
                       </Stack>
                     );

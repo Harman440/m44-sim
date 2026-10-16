@@ -29,6 +29,7 @@ import { UnitType } from "../../../game-core/unit";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { useSound } from "../../../sound";
+import { CombatCard } from "../../../game-core/combatCard";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
 import SandbagsIcon from "../../SandbagsIcon";
@@ -70,6 +71,20 @@ const TEXT = defineMessages({
     changeCard: "Cambiar carta",
     combatCardTitle: (card: string) => `Carta de combate: ${card}`,
     notePaper: "Si hace falta, anota en papel sobre qué unidades la usas.",
+    promptGive: (card: string) => `Toca la unidad que recibe ${card}`,
+    promptGiveCard: (card: string) => `Da ${card} a una unidad`,
+    helpGive: (card: string, units: string) => `${card}: toca en el mapa la unidad que la recibe (${units}).`,
+    helpGiveCard: (card: string) => `Da ${card} a una unidad para poder confirmar.`,
+    giveTo: (units: string) => `Se da a: ${units}`,
+    givenTo: (unit: string) => `Para: ${unit}`,
+    giveToUnit: "Dar a una unidad",
+    stopGiving: "Dejar de elegir",
+    changeUnit: "Cambiar unidad",
+    orderUnitFirst: (units: string) => `Primero da una orden a ${units}.`,
+    noUnitFor: (units: string) => `No tienes ${units} para ella.`,
+    needsOrderedWarning: (units: string) => `No hace nada si no das una orden a ${units}.`,
+    withOrder: (units: string) => `${units} con orden`,
+    or: " o ",
     stopMarking: "Dejar de marcar",
     markOnMap: "Marcar en el mapa",
     eraseLastMark: "Borrar última marca",
@@ -139,6 +154,20 @@ const TEXT = defineMessages({
     changeCard: "Change card",
     combatCardTitle: (card: string) => `Combat card: ${card}`,
     notePaper: "If needed, note on paper which units you use it on.",
+    promptGive: (card: string) => `Tap the unit that gets ${card}`,
+    promptGiveCard: (card: string) => `Give ${card} to a unit`,
+    helpGive: (card: string, units: string) => `${card}: tap the unit that gets it on the map (${units}).`,
+    helpGiveCard: (card: string) => `Give ${card} to a unit to be able to confirm.`,
+    giveTo: (units: string) => `Given to: ${units}`,
+    givenTo: (unit: string) => `To: ${unit}`,
+    giveToUnit: "Give to a unit",
+    stopGiving: "Stop choosing",
+    changeUnit: "Change unit",
+    orderUnitFirst: (units: string) => `First give an order to ${units}.`,
+    noUnitFor: (units: string) => `You have no ${units} for it.`,
+    needsOrderedWarning: (units: string) => `It does nothing unless you give an order to ${units}.`,
+    withOrder: (units: string) => `${units} with an order`,
+    or: " or ",
     stopMarking: "Stop marking",
     markOnMap: "Mark on the map",
     eraseLastMark: "Erase last mark",
@@ -248,18 +277,26 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   /** Which of the card's orders the selected unit takes, when it could take more than one */
   const [slot, setSlot] = useState<OrderSlot | null>(null);
   const [slotHint, setSlotHint] = useState(false);
-  /** The selected unit uses the order combat card's movement (Frozen Ground…) */
-  const [boost, setBoost] = useState(false);
-  const moveEffect = game.orderCombatCard?.effect?.kind === "move" ? game.orderCombatCard.effect : null;
-  const boostsLeft = moveEffect ? moveEffect.units - orders.filter((o) => o.boosted).length : 0;
+  /** The selected unit uses a combat card's movement (Motorized…): the card's id */
+  const [boost, setBoost] = useState<string | false>(false);
+  const boostsLeft = (card: CombatCard) =>
+    card.effect?.kind === "move" ? card.effect.units - orders.filter((o) => o.boostCard === card.id).length : 0;
   /** The next unit tapped takes an extra order bought with coins */
   const [extraMode, setExtraMode] = useState(false);
   const canBuyExtra = game.extraOrderable.length > 0;
-  const markerRule = game.orderCombatCard?.marker ?? null;
-  const markersLeft = markerRule ? markerRule.count - game.markers.length : 0;
+  /** The card whose hexes are marked next, and how many of all the cards' marks are left */
+  const markerRule = game.marking?.rule ?? null;
+  const markingLeft = game.marking ? game.marking.rule.count - game.marking.marked : 0;
+  const markersLeft = game.combatCardsPlayed.reduce((sum, card) => sum + (card.marker?.count ?? 0), 0) - game.markers.length;
   /** Taps mark hexes for the combat card instead of ordering units */
   const [markMode, setMarkMode] = useState(false);
-  const marking = markMode && markersLeft > 0;
+  const marking = markMode && game.marking !== null;
+  /** Taps give the next card to a unit instead of ordering units */
+  const [giveMode, setGiveMode] = useState(false);
+  const giving = giveMode && game.assigning !== null && game.assigning.positions.length > 0;
+  /** A card still waits for a unit that can take it: the orders can't be confirmed yet */
+  const assignDue = !!game.assigning && game.assigning.positions.length > 0;
+  const unitList = (types: readonly UnitType[]) => types.map((type) => labels.units[type].toLowerCase()).join(t.or);
 
   const { flash: invalidFlash, flashInvalid } = useHexFlash();
   const play = useSound();
@@ -279,9 +316,9 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     setBoost(false);
   };
 
-  const toggleBoost = () => {
+  const toggleBoost = (card: string) => {
     if (!unitHexPosition) return;
-    const next = !boost;
+    const next = boost === card ? false : card;
     const options = session.getMoveOptions(unitHexPosition, slot ?? undefined, next);
     if (!options) return;
     setBoost(next);
@@ -308,13 +345,22 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   const toggleExtraMode = () => {
     clearSelection();
     setMarkMode(false);
+    setGiveMode(false);
     setExtraMode((on) => !on);
   };
 
   const toggleMarkMode = () => {
     clearSelection();
     setExtraMode(false);
+    setGiveMode(false);
     setMarkMode((on) => !on);
+  };
+
+  const toggleGiveMode = () => {
+    clearSelection();
+    setExtraMode(false);
+    setMarkMode(false);
+    setGiveMode((on) => !on);
   };
 
   const pickSlot = (key: string | null) => {
@@ -323,7 +369,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     setSlot(picked);
     setSlotHint(false);
     // The card's movement may not apply to this slot (Rattenkrieg on the move): drop it
-    const boosted = boost ? session.getMoveOptions(unitHexPosition, picked, true) : null;
+    const boosted = boost ? session.getMoveOptions(unitHexPosition, picked, boost) : null;
     if (boost && !boosted) setBoost(false);
     setMoveOptions(boosted ?? session.getMoveOptions(unitHexPosition, picked, false));
   };
@@ -331,7 +377,19 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   // One tap per action so it works the same with a mouse or on a tablet
   const handleTileClick = (position: Position) => {
     if (marking) {
-      if (!session.markHex(position)) flashInvalid(position);
+      const card = game.marking?.card;
+      if (!session.markHex(position)) {
+        flashInvalid(position);
+        return;
+      }
+      // A card's hexes all marked: the next card's are marked from its own button
+      const next = session.getSnapshot().marking?.card;
+      if (next && next !== card) setMarkMode(false);
+      return;
+    }
+    if (giving) {
+      if (session.assignCard(position)) setGiveMode(false);
+      else flashInvalid(position);
       return;
     }
 
@@ -373,13 +431,15 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
 
   /** What to do now, in a few words: always in sight */
   const prompt = () => {
-    if (marking && markerRule) return t.promptMark(markersLeft);
+    if (marking && markerRule) return t.promptMark(markingLeft);
+    if (giving) return t.promptGive(tr(game.assigning!.card.name));
     if (extraMode) return selectedHex ? t.tapHighlightedHex : t.promptExtra;
     if (paidCard && game.cardOrdersLeft > 0 && ordersLeft <= 0 && !selectedHex) {
       return game.orderable.length > 0 ? t.promptPaid : t.promptCantAfford;
     }
     if (game.activeCard?.closeAssaultOnly) return t.promptNoOrders;
-    if (ordersLeft <= 0 && markersLeft > 0) return t.promptMarkCard(tr(game.orderCombatCard!.name));
+    if (ordersLeft <= 0 && markersLeft > 0 && game.marking) return t.promptMarkCard(tr(game.marking.card.name));
+    if (ordersLeft <= 0 && assignDue) return t.promptGiveCard(tr(game.assigning!.card.name));
     if (ordersLeft <= 0) return t.promptConfirm;
     if (selectedHex) return t.tapHighlightedHex;
     return t.promptTapUnit;
@@ -388,7 +448,12 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
   /** The same, explained: behind "Instrucciones" */
   const instructions = () => {
     if (marking && markerRule) {
-      return t.helpMark(labels.describeMarkerRule(markerRule), markersLeft);
+      return t.helpMark(labels.describeMarkerRule(markerRule), markingLeft);
+    }
+    if (giving) {
+      const rule = game.assigning!.card.assign!;
+      const units = unitList(rule.unitTypes);
+      return t.helpGive(tr(game.assigning!.card.name), rule.ordered ? t.withOrder(units) : units);
     }
     if (extraMode) {
       return selectedHex ? t.helpExtraSelected : t.helpExtra(describeExtraCosts(labels));
@@ -399,8 +464,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     if (game.activeCard?.closeAssaultOnly) {
       return t.helpNoOrders;
     }
-    if (ordersLeft <= 0 && markersLeft > 0) {
-      return t.helpMarkCard(tr(game.orderCombatCard!.name));
+    if (ordersLeft <= 0 && markersLeft > 0 && game.marking) {
+      return t.helpMarkCard(tr(game.marking.card.name));
+    }
+    if (ordersLeft <= 0 && assignDue) {
+      return t.helpGiveCard(tr(game.assigning!.card.name));
     }
     if (ordersLeft <= 0) {
       return t.helpConfirm;
@@ -436,10 +504,11 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           orders={orders}
           backgroundImage={session.scenario.image}
           invalidFlash={invalidFlash}
-          orderablePositions={marking ? [] : extraMode ? game.extraOrderable : game.orderable}
+          orderablePositions={marking || giving ? [] : extraMode ? game.extraOrderable : game.orderable}
           markers={game.markers}
-          markerKind={markerRule?.kind}
-          markablePositions={marking ? game.markable : []}
+          markerKind={game.markerKinds}
+          markablePositions={marking ? game.markable : giving ? game.assigning!.positions : []}
+          cardBadges={game.assignments}
           faction={faction}
         />
       </div>
@@ -460,50 +529,94 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
             {t.changeCard}
           </Button>
         )}
-        {game.orderCombatCard && (
-          <Paper variant="outlined" sx={{ p: 1.5, width: "100%" }} data-testid="order-combat-card">
-            <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
-              <GameIcon name="cards" />
-              <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
-                {tr(game.orderCombatCard.name)}
-              </Typography>
-              <InfoButton title={t.combatCardTitle(tr(game.orderCombatCard.name))}>
-                <Typography variant="body1">{tr(game.orderCombatCard.description)}</Typography>
-                {!markerRule && (
-                  <Typography variant="body1" sx={{ mt: 1 }}>
-                    {t.notePaper}
-                  </Typography>
+        {game.combatCardsPlayed.map((card) => {
+          // Each card's marks come after the marks of the cards before it
+          const start = game.combatCardsPlayed
+            .slice(0, game.combatCardsPlayed.indexOf(card))
+            .reduce((sum, c) => sum + (c.marker?.count ?? 0), 0);
+          const marked = card.marker ? Math.max(0, Math.min(card.marker.count, game.markers.length - start)) : 0;
+          const ownsLastMark = !!card.marker && game.markers.length > start && game.markers.length <= start + card.marker.count;
+          const isMarking = game.marking?.card === card;
+          const given = game.assignments.find((a) => a.card === card);
+          const isGiving = game.assigning?.card === card;
+          const assignUnits = card.assign ? unitList(card.assign.unitTypes) : "";
+          return (
+            <Paper key={card.id} variant="outlined" sx={{ p: 1.5, width: "100%" }} data-testid="order-combat-card">
+              <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                <GameIcon name="cards" />
+                <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
+                  {tr(card.name)}
+                </Typography>
+                <InfoButton title={t.combatCardTitle(tr(card.name))}>
+                  <Typography variant="body1">{tr(card.description)}</Typography>
+                  {!card.marker && !card.assign && !card.effect && (
+                    <Typography variant="body1" sx={{ mt: 1 }}>
+                      {t.notePaper}
+                    </Typography>
+                  )}
+                </InfoButton>
+              </Stack>
+              {card.marker && (
+                <Typography variant="body2" color="text.secondary">
+                  {labels.describeMarkerRule(card.marker)} ({marked}/{card.marker.count})
+                </Typography>
+              )}
+              {card.assign && (
+                <Typography variant="body2" color={given ? "text.primary" : "text.secondary"} data-testid="card-assignment">
+                  {given
+                    ? t.givenTo(labels.units[given.unitType])
+                    : isGiving && game.assigning!.positions.length === 0
+                      ? card.assign.ordered
+                        ? t.orderUnitFirst(assignUnits)
+                        : t.noUnitFor(assignUnits)
+                      : t.giveTo(card.assign.ordered ? t.withOrder(assignUnits) : assignUnits)}
+                </Typography>
+              )}
+              {card.needsOrdered && !session.hasOrderedUnitFor(card) && (
+                <Typography variant="body2" color="warning.main">
+                  {t.needsOrderedWarning(unitList(card.needsOrdered))}
+                </Typography>
+              )}
+              <Stack sx={{ gap: 1, mt: 1 }}>
+                {isMarking && (
+                  <Button
+                    variant={marking ? "contained" : "outlined"}
+                    color="warning"
+                    onClick={toggleMarkMode}
+                    startIcon={<GameIcon name={marking ? "cancel" : "fire"} />}
+                    aria-pressed={marking}
+                  >
+                    {marking ? t.stopMarking : t.markOnMap}
+                  </Button>
                 )}
-              </InfoButton>
-            </Stack>
-            {markerRule && (
-              <Typography variant="body2" color="text.secondary">
-                {labels.describeMarkerRule(markerRule)} ({game.markers.length}/{markerRule.count})
-              </Typography>
-            )}
-            <Stack sx={{ gap: 1, mt: 1 }}>
-              {markerRule && (markersLeft > 0 || marking) && (
-                <Button
-                  variant={marking ? "contained" : "outlined"}
-                  color="warning"
-                  onClick={toggleMarkMode}
-                  startIcon={<GameIcon name={marking ? "cancel" : "fire"} />}
-                  aria-pressed={marking}
-                >
-                  {marking ? t.stopMarking : t.markOnMap}
+                {ownsLastMark && (
+                  <Button variant="text" color="inherit" onClick={() => session.undoMarker()} startIcon={<GameIcon name="undo" />}>
+                    {t.eraseLastMark}
+                  </Button>
+                )}
+                {isGiving && game.assigning!.positions.length > 0 && (
+                  <Button
+                    variant={giving ? "contained" : "outlined"}
+                    color="warning"
+                    onClick={toggleGiveMode}
+                    startIcon={<GameIcon name={giving ? "cancel" : "cards"} />}
+                    aria-pressed={giving}
+                  >
+                    {giving ? t.stopGiving : t.giveToUnit}
+                  </Button>
+                )}
+                {given && (
+                  <Button variant="text" color="inherit" onClick={() => session.unassignCard(card)} startIcon={<GameIcon name="undo" />}>
+                    {t.changeUnit}
+                  </Button>
+                )}
+                <Button variant="text" color="inherit" onClick={() => session.cancelCombatCard(card)} startIcon={<GameIcon name="cancel" />}>
+                  {t.remove}
                 </Button>
-              )}
-              {markerRule && game.markers.length > 0 && (
-                <Button variant="text" color="inherit" onClick={() => session.undoMarker()} startIcon={<GameIcon name="undo" />}>
-                  {t.eraseLastMark}
-                </Button>
-              )}
-              <Button variant="text" color="inherit" onClick={() => session.cancelOrderCombatCard()} startIcon={<GameIcon name="cancel" />}>
-                {t.remove}
-              </Button>
-            </Stack>
-          </Paper>
-        )}
+              </Stack>
+            </Paper>
+          );
+        })}
         <Box sx={{ textAlign: "center" }}>
           <Typography variant="body1" color="primary">
             {prompt()}
@@ -560,18 +673,19 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               )}
               <LegendItem color="var(--m44-move-only)" label={t.moveOnly} />
             </Stack>
-            {game.orderCombatCard && moveEffect && (moveOptions?.canBoost || boost) && (
+            {moveOptions?.boosts.map((card) => (
               <ToggleButton
-                value="boost"
-                selected={boost}
-                onChange={toggleBoost}
+                key={card.id}
+                value={card.id}
+                selected={boost === card.id}
+                onChange={() => toggleBoost(card.id)}
                 color="warning"
                 fullWidth
                 sx={{ minHeight: 48, gap: 1, mb: 1 }}
               >
-                <GameIcon name="cards" /> {t.useCard(tr(game.orderCombatCard.name), boostsLeft)}
+                <GameIcon name="cards" /> {t.useCard(tr(card.name), boostsLeft(card))}
               </ToggleButton>
-            )}
+            ))}
             {choosingSlot && moveOptions && (
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2" color={slotHint ? "error" : "text.primary"} sx={{ mb: 0.5 }}>
@@ -621,7 +735,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
               {t.back}
             </Button>
           )}
-          {ordersLeft <= 0 && markersLeft <= 0 && (
+          {ordersLeft <= 0 && markersLeft <= 0 && !assignDue && (
             <Button
               onClick={() => session.commitOrders() && play("stamp")}
               startIcon={<GameIcon name="confirm" />}

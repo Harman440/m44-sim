@@ -30,6 +30,7 @@ import mechanicArt from "../assets/cards/mechanic.webp";
 import behindEnemyLinesArt from "../assets/cards/behind-enemy-lines.webp";
 import motorizedArt from "../assets/cards/motorized.webp";
 import reinforcementsArt from "../assets/cards/reinforcements.webp";
+import streetEquipmentArt from "../assets/cards/street-equipment.webp";
 import heatOfBattleArt from "../assets/cards/heat-of-battle.webp";
 import airBombardmentArt from "../assets/cards/air-bombardment.webp";
 import barrageArt from "../assets/cards/barrage.webp";
@@ -689,7 +690,7 @@ function CombatScene({ card, faction, hexes }: { card: CombatCard; faction: Fact
   const glyph = tableGlyph(card, faction, row, mid);
   if (glyph) return glyph;
 
-  // Resolved at the table: the emblem of when it's played, stamped on a disc
+  // Resolved at the table: the combat cards' emblem, stamped on a disc
   const size = 34;
   const cx = ART_WIDTH / 2;
   const cy = COMBAT_BOARD_HEIGHT / 2;
@@ -698,7 +699,7 @@ function CombatScene({ card, faction, hexes }: { card: CombatCard; faction: Fact
       <circle cx={cx} cy={cy} r={31} className="card-art__seal-ring" />
       <circle cx={cx} cy={cy} r={26} className="card-art__seal" />
       <Icon
-        name={card.phase === "order" ? "battle" : "fire"}
+        name="battle"
         x={cx - size / 2}
         y={cy - size / 2}
         size={size}
@@ -827,6 +828,7 @@ const COMBAT_PAINTINGS: Record<string, string> = {
   infiltrators: behindEnemyLinesArt,
   motorized: motorizedArt,
   reinforcements: reinforcementsArt,
+  "street-equipment": streetEquipmentArt,
   "heat-of-battle": heatOfBattleArt,
   "air-bombardment": airBombardmentArt,
   barrage: barrageArt,

@@ -33,6 +33,13 @@
   dominant-baseline: middle;
 }
 
+/* A combat card given to a unit this turn (Explosives…): a small card by the token */
+.board__card-badge rect {
+  fill: var(--m44-primary, #1565c0);
+  stroke: var(--m44-paper, #fff);
+  stroke-width: 3;
+}
+
 /* A collision in the movement (pass and play): a numbered burst */
 .board__collision polygon {
   fill: var(--m44-accent, #e53935);

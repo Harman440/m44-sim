@@ -13,7 +13,7 @@ interface OrderProps {
   onTheMove?: boolean;
   extra?: boolean;
   cost?: number;
-  boosted?: boolean;
+  boostCard?: string | null;
   closeAssaultOnly?: boolean;
   lostSandbags?: Position[];
   clearedWire?: boolean;
@@ -38,8 +38,8 @@ class Order {
   onTheMove: boolean;
   /** An extra order bought with coins: a normal order with none of the card's benefits */
   extra: boolean;
-  /** It uses the order combat card's movement (Frozen Ground, Armor Forward…) */
-  boosted: boolean;
+  /** The id of the combat card whose movement it uses (Motorized, Armor Forward…), or null */
+  boostCard: string | null;
   /** Coins paid for the order (an extra order, or a card that charges per unit like Finest Hour) */
   cost: number;
   /** Marked in the battle for a Close Assault card: it holds and fires only at an adjacent enemy */
@@ -58,7 +58,7 @@ class Order {
     onTheMove = false,
     extra = false,
     cost = 0,
-    boosted = false,
+    boostCard = null,
     closeAssaultOnly = false,
     lostSandbags = [],
     clearedWire = false,
@@ -72,10 +72,15 @@ class Order {
     this.onTheMove = onTheMove;
     this.extra = extra;
     this.cost = cost;
-    this.boosted = boosted;
+    this.boostCard = boostCard;
     this.closeAssaultOnly = closeAssaultOnly;
     this.lostSandbags = lostSandbags;
     this.clearedWire = clearedWire;
+  }
+
+  /** It uses a combat card's movement */
+  get boosted(): boolean {
+    return this.boostCard !== null;
   }
 
   /** Whether the unit may fire this turn after carrying out the order */

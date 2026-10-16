@@ -2,8 +2,9 @@ import { ReactNode } from "react";
 import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
 import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
-import { CombatCard } from "../game-core/combatCard";
-import type { CardAttack } from "../game-core/gameSession";
+import type { AttackMark, CardAttack } from "../game-core/gameSession";
+import type { CombatCard } from "../game-core/combatCard";
+import { samePosition } from "../game-core/position";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -113,10 +114,9 @@ const TEXT = defineMessages({
   },
 });
 
-/** An attack combat card (Cortina de Fuego…): rolled on each marked hex before any unit fires */
+/** The attack combat cards (Cortina de Fuego…): rolled on each hex they marked before any unit fires */
 export interface CardAttackStep {
-  card: CombatCard;
-  markers: readonly Position[];
+  marks: readonly AttackMark[];
   attackOn: (marker: number) => CardAttack | null;
   pending: boolean;
   onOpen: (marker: number) => void;
@@ -137,6 +137,8 @@ interface FireOrderListProps {
   onFire?: (summary: OrderSummary) => void;
   /** Give up the unfired shots of the units that didn't move, so the moved units can fire */
   onSkipUnmoved?: () => void;
+  /** The combat cards given to units this turn, shown on the unit's row */
+  assignments?: readonly { card: CombatCard; position: Position | null }[];
   /** Shown when no unit has an order */
   emptyText: string;
 }
@@ -255,6 +257,7 @@ function FireOrderList({
   onMarkCloseAssault,
   onFire,
   onSkipUnmoved,
+  assignments = [],
   emptyText,
 }: FireOrderListProps) {
   const t = useMessages(TEXT);
@@ -360,7 +363,24 @@ function FireOrderList({
           </>
         }
         // Where it is now: after taking ground, the hex it took
-        detail={where(summary.firingFrom)}
+        detail={
+          <>
+            {where(summary.firingFrom)}
+            {assignments
+              .filter((given) => given.position && samePosition(given.position, summary.firingFrom))
+              .map(({ card }) => (
+                <Box
+                  component="span"
+                  key={card.id}
+                  data-testid="row-card"
+                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, color: "var(--m44-primary)" }}
+                >
+                  <GameIcon name="cards" size={18} />
+                  {tr(card.name)}
+                </Box>
+              ))}
+          </>
+        }
         result={
           hasShots &&
           (onlyWire
@@ -419,10 +439,11 @@ function FireOrderList({
         )}
 
       {attack &&
+        attack.marks.length > 0 &&
         group(
-          tr(attack.card.name),
+          [...new Set(attack.marks.map((mark) => tr(mark.card.name)))].join(" · "),
           attack.pending ? t.attackPending : t.attackDone,
-          attack.markers.map((position, i) => {
+          attack.marks.map(({ marker: i, position, dicePerHex }) => {
             const done = attack.attackOn(i);
             const result = done?.target
               ? t.attackResult(labels.target(done.target.infantry), done.faces.length)
@@ -441,7 +462,7 @@ function FireOrderList({
                     <Action color="var(--m44-primary)">{t.see}</Action>
                   ) : (
                     <Action color="var(--m44-move-fire)">
-                      {attack.card.effect?.kind === "attack" ? t.dicePerHex(attack.card.effect.dicePerHex) : ""}
+                      {t.dicePerHex(dicePerHex)}
                       {t.roll}
                     </Action>
                   )

@@ -135,32 +135,12 @@ function CombatCardComponent({ card, onClick, selected = false, disabled = false
           </Box>
         )}
       </Box>
-      <Box
-        sx={{
-          flex: "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "0.4em",
-          py: "0.35em",
-          bgcolor: "var(--card-accent)",
-          color: "var(--m44-paper)",
-        }}
-      >
-        <GameIcon name={card.phase === "order" ? "battle" : "fire"} size="1em" />
-        <Typography
-          component="span"
-          sx={{ fontSize: "0.68em", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}
-        >
-          {labels.combatPhases[card.phase]}
-        </Typography>
-      </Box>
     </>
   );
 
   // The face is laid out at 180px and scaled (.game-card in CommandCard.css); its look is set here
   const faceStyle = {
-    "--card-accent": card.phase === "order" ? "var(--m44-primary)" : "var(--m44-accent)",
+    "--card-accent": "var(--m44-primary)",
     textAlign: "left",
     fontFamily: "var(--m44-font-body)",
     ...(selected && { border: "3px solid var(--m44-primary)" }),

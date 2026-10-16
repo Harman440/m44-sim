@@ -1577,12 +1577,11 @@ describe("GameSession coins", () => {
 
 describe("GameSession combat cards", () => {
   const defender = { ...scenario, attacker: "Axis" as const };
-  const combat = (id: string, phase: CombatCard["phase"], cost: number): CombatCard => ({
+  const combat = (id: string, cost: number): CombatCard => ({
     id,
     name: same(id),
     description: same(""),
     cost,
-    phase,
   });
 
   /** The defender at turn 2 with `coins`, the "left" card in hand, and the combat deck given */
@@ -1602,64 +1601,75 @@ describe("GameSession combat cards", () => {
   };
 
   it("deals 2 combat cards at the start", () => {
-    const deck = ["a", "b", "c"].map((id) => combat(id, "order", 1));
+    const deck = ["a", "b", "c"].map((id) => combat(id, 1));
     const { session } = turnTwo(deck);
 
     expect(session.getSnapshot().combatHand).toHaveLength(2);
     expect(session.getSnapshot().combatDrawPileCount).toBe(1);
   });
 
-  it("plays an order card with the command card, paying for it", () => {
-    const barrage = combat("barrage", "order", 4);
-    const { session, left } = turnTwo([barrage, combat("spotter", "battle", 1)], 5);
+  it("plays a combat card with the command card, paying for it", () => {
+    const barrage = combat("barrage", 4);
+    const { session, left } = turnTwo([barrage, combat("spotter", 1)], 5);
 
     expect(session.pickCard(left, undefined, barrage)).toBe(true);
 
-    expect(session.getSnapshot()).toMatchObject({ orderCombatCard: barrage, coins: 1 });
+    expect(session.getSnapshot()).toMatchObject({ combatCardsPlayed: [barrage], coins: 1 });
     expect(session.getSnapshot().combatHand.map((c) => c.id)).toEqual(["spotter"]);
     expect(session.getSnapshot().coinEntries).toContainEqual({ kind: "combatCard", amount: -4, card: same("barrage") });
   });
 
-  it("won't play a combat card the player can't pay for, or a battle card with the orders", () => {
-    const barrage = combat("barrage", "order", 4);
-    const spotter = combat("spotter", "battle", 1);
+  it("won't play a combat card the player can't pay for", () => {
+    const barrage = combat("barrage", 4);
+    const spotter = combat("spotter", 1);
     const { session, left } = turnTwo([barrage, spotter], 3);
 
     expect(session.pickCard(left, undefined, barrage)).toBe(false);
-    expect(session.pickCard(left, undefined, spotter)).toBe(false);
     expect(session.getSnapshot().phase).toBe(TurnPhase.PICK_CARDS);
+    expect(session.pickCard(left, undefined, spotter)).toBe(true);
+  });
+
+  it("plays two different combat cards together, paid together", () => {
+    const spotter = combat("spotter", 1);
+    const explosives = combat("explosives", 2);
+    const { session, left } = turnTwo([spotter, explosives], 2);
+    expect(session.canPlayTogether([spotter, explosives])).toBe(false); // 2 coins: not enough for both
+    session.adjustCoins(1);
+
+    expect(session.pickCard(left, undefined, [spotter, explosives])).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ combatCardsPlayed: [spotter, explosives], coins: 0, combatHand: [] });
+    expect(session.getSnapshot().coinEntries.filter((entry) => entry.kind === "combatCard")).toHaveLength(2);
+  });
+
+  it("won't play two copies of one card, nor more than two cards", () => {
+    const spotter: CombatCard = { ...combat("spotter-1", 0), templateId: "spotter" };
+    const copy: CombatCard = { ...combat("spotter-2", 0), templateId: "spotter" };
+    const { session, left } = turnTwo([spotter, copy]);
+    expect(session.canPlayTogether([spotter, copy])).toBe(false);
+    expect(session.pickCard(left, undefined, [spotter, copy])).toBe(false);
+
+    const three = ["a", "b", "c"].map((id) => combat(id, 0));
+    const tested = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 1, commandCards: cards(), combatCards: three, testMode: true });
+    tested.startFirstTurn();
+    expect(tested.getSnapshot().combatHand).toHaveLength(3);
+    expect(tested.canPlayTogether(three)).toBe(false);
+    expect(tested.canPlayTogether(three.slice(0, 2))).toBe(true);
   });
 
   it("takes the order card back while giving orders, with its coins", () => {
-    const barrage = combat("barrage", "order", 4);
-    const { session, left } = turnTwo([barrage, combat("spotter", "battle", 1)], 4);
+    const barrage = combat("barrage", 4);
+    const { session, left } = turnTwo([barrage, combat("spotter", 1)], 4);
     session.pickCard(left, undefined, barrage);
 
-    expect(session.cancelOrderCombatCard()).toBe(true);
+    expect(session.cancelCombatCard(barrage)).toBe(true);
 
-    expect(session.getSnapshot()).toMatchObject({ orderCombatCard: null, coins: 4 });
+    expect(session.getSnapshot()).toMatchObject({ combatCardsPlayed: [], coins: 4 });
     expect(session.getSnapshot().combatHand).toContain(barrage);
   });
 
-  it("plays one battle card per battle, and undoes it", () => {
-    const spotter = combat("spotter", "battle", 1);
-    const ambush = combat("ambush", "battle", 1);
-    const { session, left } = turnTwo([spotter, ambush], 2);
-    session.pickCard(left);
-    expect(session.playBattleCombatCard(spotter)).toBe(false); // not in the orders phase
-    orderAllAndFight(session);
-
-    expect(session.playBattleCombatCard(spotter)).toBe(true);
-    expect(session.playBattleCombatCard(ambush)).toBe(false);
-    expect(session.getSnapshot()).toMatchObject({ battleCombatCard: spotter, coins: 1 });
-
-    expect(session.undoBattleCombatCard()).toBe(true);
-    expect(session.getSnapshot()).toMatchObject({ battleCombatCard: null, coins: 2 });
-    expect(session.playBattleCombatCard(ambush)).toBe(true);
-  });
-
-  it("plays a card that needs an ordered unit type only when one of them has an order", () => {
-    const spotter: CombatCard = { ...combat("spotter", "battle", 0), needsOrdered: [UnitType.ARTILLERY] };
+  it("says whether a card that needs an ordered unit type has one", () => {
+    const spotter: CombatCard = { ...combat("spotter", 0), needsOrdered: [UnitType.ARTILLERY] };
     const { session, left } = turnTwo([spotter]);
     session.pickCard(left);
     orderAllAndFight(session);
@@ -1667,14 +1677,13 @@ describe("GameSession combat cards", () => {
     expect(ordered).not.toContain(UnitType.ARTILLERY);
 
     expect(session.hasOrderedUnitFor(spotter)).toBe(false);
-    expect(session.playBattleCombatCard(spotter)).toBe(false);
 
     const forOrdered: CombatCard = { ...spotter, needsOrdered: [UnitType.ARTILLERY, ordered[0]!] };
     expect(session.hasOrderedUnitFor(forOrdered)).toBe(true);
   });
 
   it("plays no combat cards in the attacker's extra turn", () => {
-    const barrage = combat("barrage", "order", 0);
+    const barrage = combat("barrage", 0);
     const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
     const session = new GameSession({ scenario, faction: "Allies", initialHandSize: 1, commandCards, combatCards: [barrage] });
 
@@ -1683,8 +1692,8 @@ describe("GameSession combat cards", () => {
   });
 
   it("discards the played cards at the end of the turn", () => {
-    const barrage = combat("barrage", "order", 1);
-    const { session, left } = turnTwo([barrage, combat("spotter", "battle", 1)], 1);
+    const barrage = combat("barrage", 1);
+    const { session, left } = turnTwo([barrage, combat("spotter", 1)], 1);
     session.pickCard(left, undefined, barrage);
     toFinalPhase(session);
     session.chooseReward("coins");
@@ -1696,7 +1705,7 @@ describe("GameSession combat cards", () => {
   });
 
   it("test mode: every combat card in hand, no limit, played cards come back, plenty of coins", () => {
-    const deck = ["a", "b", "c", "d", "e"].map((id) => combat(id, "order", 5));
+    const deck = ["a", "b", "c", "d", "e"].map((id) => combat(id, 5));
     const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }), ...cards().slice(1)];
     const session = new GameSession({
       scenario: defender, faction: "Allies", initialHandSize: 4, commandCards, combatCards: deck, testMode: true,
@@ -1720,7 +1729,7 @@ describe("GameSession combat cards", () => {
   });
 
   it("draws the combat card chosen in the final phase, and then the choice stays", () => {
-    const { session, left } = turnTwo(["a", "b", "c"].map((id) => combat(id, "order", 1)));
+    const { session, left } = turnTwo(["a", "b", "c"].map((id) => combat(id, 1)));
     session.pickCard(left);
     toFinalPhase(session);
 
@@ -1736,7 +1745,7 @@ describe("GameSession combat cards", () => {
   });
 
   it("makes the player discard one when the hand goes over 3", () => {
-    const deck = ["a", "b", "c", "d", "e"].map((id) => combat(id, "order", 1));
+    const deck = ["a", "b", "c", "d", "e"].map((id) => combat(id, 1));
     const { session, left } = turnTwo(deck);
     session.pickCard(left);
     toFinalPhase(session);
@@ -1760,7 +1769,7 @@ describe("GameSession combat cards", () => {
     const commandCards = [
       new CommandCard({ id: "prep", sections: [Side.LEFT], orders: 1, endOfTurnReward: { coins: 3, combatCard: true } }),
     ];
-    const combatCards = ["a", "b", "c"].map((id) => combat(id, "order", 1));
+    const combatCards = ["a", "b", "c"].map((id) => combat(id, 1));
     const session = new GameSession({ scenario: defender, faction: "Allies", initialHandSize: 1, commandCards, combatCards });
     session.startFirstTurn();
     session.pickCard(commandCards[0]!);
@@ -1775,15 +1784,15 @@ describe("GameSession combat cards", () => {
   });
 
   it("keeps the combat cards after a reload", () => {
-    const deck = [combat("barrage", "order", 1), combat("spotter", "battle", 1), combat("x", "order", 1)];
+    const deck = [combat("barrage", 1), combat("spotter", 1), combat("x", 1)];
     const { session, left } = turnTwo(deck, 2);
-    const orderCard = session.getSnapshot().combatHand.find((c) => c.phase === "order")!;
+    const orderCard = session.getSnapshot().combatHand[0]!;
     session.pickCard(left, undefined, orderCard);
 
     const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, cards(), deck);
 
     expect(restored.getSnapshot()).toMatchObject({
-      orderCombatCard: orderCard,
+      combatCardsPlayed: [orderCard],
       combatHand: session.getSnapshot().combatHand,
       combatDrawPileCount: 1,
       coins: 1,
@@ -1801,7 +1810,6 @@ describe("GameSession map markers", () => {
     name: same("Cortina de Fuego"),
     description: same(""),
     cost: 0,
-    phase: "order",
     marker: { kind: "target", count: 1 },
   };
   const FAR: Position = { row: 1, col: 10 };
@@ -1846,7 +1854,7 @@ describe("GameSession map markers", () => {
     expect(session.undoMarker()).toBe(true);
     expect(session.getSnapshot().markers).toEqual([]);
     session.markHex(FAR);
-    session.cancelOrderCombatCard();
+    session.cancelCombatCard(barrage);
     expect(session.getSnapshot().markers).toEqual([]);
     expect(session.commitOrders()).toBe(true);
   });
@@ -1873,7 +1881,7 @@ describe("GameSession combat card effects", () => {
   const defender = { ...scenario, attacker: "Axis" as const };
   const FAR: Position = { row: 1, col: 10 };
   const FOREST: Position = { row: 4, col: 7 };
-  const card = (props: Partial<CombatCard> & Pick<CombatCard, "id" | "phase">): CombatCard => ({
+  const card = (props: Partial<CombatCard> & Pick<CombatCard, "id">): CombatCard => ({
     name: same(props.id),
     description: same(""),
     cost: 0,
@@ -1904,75 +1912,113 @@ describe("GameSession combat card effects", () => {
   });
 
   describe("dice cards", () => {
-    const streetFight = card({
-      id: "street-fight",
-      phase: "battle",
-      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], condition: same("¿En un edificio?") },
+    const LEFT_CENTER: Position = { row: 7, col: 3 };
+    const explosives = card({
+      id: "explosives",
+      assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
+      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true },
     });
 
     const inBattle = (bonus: CombatCard) => {
       const { session, commandCards } = turnTwo([bonus]);
-      session.pickCard(commandCards[0]!);
+      session.pickCard(commandCards[0]!, undefined, bonus);
       orderAllAndFight(session);
-      session.playBattleCombatCard(bonus);
       return session;
     };
 
-    it("offers the card to a unit that fits, and adds its dice to one shot", () => {
-      const session = inBattle(streetFight);
-      expect(session.combatBonusFor(0)).toMatchObject({ name: same("street-fight"), dice: 1 });
-      expect(session.fire(0, answersAt("2"))).toBe(false); // the card's question is still to answer
-
-      expect(session.fire(0, answersAt("2", { combatCard: "yes" }))).toBe(true);
-
-      expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
-      expect(session.combatBonusFor(1)).toBeUndefined(); // used up
-      expect(session.undoBattleCombatCard()).toBe(false);
-    });
-
-    it("stays available when the player doesn't use it, or undoes the shot", () => {
-      const session = inBattle(streetFight);
-      session.fire(0, answersAt("2", { combatCard: "no" }));
-      expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 2, combatBonus: false });
-      expect(session.combatBonusFor(1)).toBeDefined();
-
-      session.fire(1, answersAt("2", { combatCard: "yes" }));
-      session.undoShot(1);
-      expect(session.combatBonusFor(1)).toBeDefined();
-    });
-
-    it("only asks in close assault for a close-assault card (Explosives)", () => {
-      const explosives = card({
-        id: "explosives",
-        phase: "battle",
-        effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true },
-      });
-      const session = inBattle(explosives);
+    it("adds a card's dice to every shot of its unit type, with nothing to answer (Spotter)", () => {
+      const drill = card({ id: "drill", effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY] } });
+      const session = inBattle(drill);
+      expect(session.combatBonusesFor(0)).toEqual([{ name: same("drill"), dice: 1 }]);
 
       expect(session.fire(0, answersAt("2"))).toBe(true);
-      expect(session.fire(1, answersAt("1", { combatCard: "yes" }))).toBe(true);
-      expect(session.getSnapshot().shots.map((s) => s.combatBonus)).toEqual([false, true]);
+      expect(session.fire(1, answersAt("2"))).toBe(true);
+
+      expect(session.getSnapshot().shots.map((shot) => [shot.dice, shot.combatBonus])).toEqual([
+        [3, true],
+        [3, true],
+      ]);
+      expect(session.getSnapshot().shots[0]!.steps).toContainEqual(expect.objectContaining({ kind: "card", dice: 1, card: same("drill") }));
     });
 
-    it("adds its dice to a shot at a hex on the map when the player uses it", () => {
-      const session = inBattle(streetFight);
-
-      expect(session.fireAt(0, { position: { row: 5, col: 1 }, infantry: true, sandbags: false, useCombatBonus: true })).toBe(true);
-
-      expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
-      expect(session.combatBonusFor(1)).toBeUndefined(); // used up
+    it("isn't for other unit types (Spotter is for artillery)", () => {
+      const spotter = card({ id: "spotter", effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } });
+      expect(inBattle(spotter).combatBonusesFor(0)).toEqual([]);
     });
 
-    it("isn't offered to other unit types (Spotter is for artillery)", () => {
-      const spotter = card({ id: "spotter", phase: "battle", effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } });
-      expect(inBattle(spotter).combatBonusFor(0)).toBeUndefined();
+    it("gives a card to one ordered unit, which alone gets its dice, in close assault only (Explosives)", () => {
+      const { session, commandCards } = turnTwo([explosives]);
+      session.pickCard(commandCards[0]!, undefined, explosives);
+      // No unit has an order yet
+      expect(session.getSnapshot().assigning).toEqual({ card: explosives, positions: [] });
+      expect(session.assignCard(LEFT_INF)).toBe(false);
+      session.issueOrder(LEFT_INF, LEFT_INF);
+      session.issueOrder(LEFT_CENTER, LEFT_CENTER);
+      expect(session.getSnapshot().assigning!.positions).toHaveLength(2);
+      expect(session.commitOrders()).toBe(false); // the card still waits for its unit
+
+      expect(session.assignCard(LEFT_INF)).toBe(true);
+
+      expect(session.getSnapshot().assignments).toEqual([{ card: explosives, unitType: UnitType.INFANTRY, position: LEFT_INF }]);
+      expect(session.getSnapshot().assigning).toBeNull();
+      expect(session.commitOrders()).toBe(true);
+      session.startBattle();
+      expect(session.fire(0, answersAt("1"))).toBe(true);
+      expect(session.fire(1, answersAt("1"))).toBe(true);
+      expect(session.getSnapshot().shots.map((shot) => shot.combatBonus)).toEqual([true, false]);
+      expect(session.combatBonusesFor(0)).toEqual([{ name: same("explosives"), dice: 1, closeAssault: true }]);
+    });
+
+    it("takes a card back from a unit whose order is undone, lets it change units, and keeps it through a save", () => {
+      const { session, commandCards } = turnTwo([explosives]);
+      session.pickCard(commandCards[0]!, undefined, explosives);
+      session.issueOrder(LEFT_INF, LEFT_INF);
+      session.assignCard(LEFT_INF);
+
+      session.undoLastOrder();
+      expect(session.getSnapshot().assignments).toEqual([]);
+
+      session.issueOrder(LEFT_INF, LEFT_INF);
+      session.issueOrder(LEFT_CENTER, LEFT_CENTER);
+      session.assignCard(LEFT_INF);
+      expect(session.unassignCard(explosives)).toBe(true);
+      expect(session.assignCard(LEFT_CENTER)).toBe(true);
+
+      const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, commandCards, [explosives]);
+      expect(restored.getSnapshot().assignments).toEqual([{ card: explosives, unitType: UnitType.INFANTRY, position: LEFT_CENTER }]);
+      restored.commitOrders();
+      restored.startBattle();
+      expect(restored.combatBonusesFor(1)).toHaveLength(1);
+      expect(restored.combatBonusesFor(0)).toEqual([]);
+      finishTurn(restored);
+      expect(restored.getSnapshot().log.at(-1)!.assignments).toEqual([
+        { card: same("explosives"), unit: UnitType.INFANTRY, position: LEFT_CENTER },
+      ]);
+      expect(restored.getSnapshot().assignments).toEqual([]);
+    });
+
+    it("gives Street Equipment's die only on a town hex or next to one", () => {
+      const street = card({ id: "street", effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], near: [HexType.TOWN] } });
+      const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
+      const session = new GameSession({
+        scenario: { ...defender, tiles: { town: [LEFT_INF] } },
+        faction: "Allies",
+        initialHandSize: 1,
+        commandCards,
+        combatCards: [street],
+      });
+      session.startFirstTurn();
+      session.pickCard(commandCards[0]!, undefined, street);
+      orderAllAndFight(session);
+
+      expect(session.combatBonusesFor(0)).toHaveLength(1);
+      expect(session.combatBonusesFor(1)).toEqual([]);
     });
   });
 
   describe("attack cards", () => {
     const barrage = card({
       id: "barrage",
-      phase: "order",
       marker: { kind: "target", count: 1 },
       effect: { kind: "attack", dicePerHex: 4 },
     });
@@ -1988,7 +2034,6 @@ describe("GameSession combat card effects", () => {
     it("keeps your units off the marked hexes, and next to them for Air Bombardment", () => {
       const bombardment = card({
         id: "air-bombardment",
-        phase: "order",
         marker: { kind: "target", count: 2, awayFromOwnUnits: true },
         effect: { kind: "attack", dicePerHex: 2 },
       });
@@ -1999,7 +2044,7 @@ describe("GameSession combat card effects", () => {
       expect(session.getMoveOptions(LEFT_INF)!.moves).not.toContainEqual(target);
       expect(session.issueOrder(LEFT_INF, target)).toBe(false);
 
-      session.cancelOrderCombatCard();
+      session.cancelCombatCard(barrage);
       session.unpickCard();
       session.pickCard(commandCards[0]!, undefined, bombardment);
       const mark = { row: 4, col: 2 };
@@ -2062,7 +2107,7 @@ describe("GameSession combat card effects", () => {
     const tankCard = [new CommandCard({ id: "tank", unitTypes: [UnitType.TANK], orders: 1 })];
 
     it("lets a unit move into the card's terrain and still fire (Forest)", () => {
-      const forest = card({ id: "forest", phase: "order", effect: { kind: "move", units: 1, fireInto: [HexType.FOREST] } });
+      const forest = card({ id: "forest", effect: { kind: "move", units: 1, fireInto: [HexType.FOREST] } });
       const { session, commandCards } = turnTwo([forest], tankCard);
       session.pickCard(commandCards[0]!, undefined, forest);
 
@@ -2079,7 +2124,6 @@ describe("GameSession combat card effects", () => {
     it("lets terrain not stop the move (Armor Forward)", () => {
       const armorForward = card({
         id: "armor-forward",
-        phase: "order",
         effect: { kind: "move", units: 1, unitTypes: [UnitType.TANK], ignoreTerrain: true },
       });
       // The tank is ringed by forest, which stops any move at the first hex
@@ -2096,7 +2140,6 @@ describe("GameSession combat card effects", () => {
     it("moves up to 3 through any terrain to end on a town, from next to one (Rattenkrieg)", () => {
       const rattenkrieg = card({
         id: "rattenkrieg",
-        phase: "order",
         effect: {
           kind: "move",
           units: 1,
@@ -2124,7 +2167,6 @@ describe("GameSession combat card effects", () => {
     it("moves 3 through any terrain, still fires, and fires first (Tras las líneas enemigas)", () => {
       const infiltrators = card({
         id: "infiltrators",
-        phase: "order",
         effect: { kind: "move", units: 1, unitTypes: [UnitType.INFANTRY], maxMove: 3, ignoreTerrain: true, moveAndFire: true, firesFirst: true },
       });
       // The infantry is ringed by forest, which stops any move at the first hex and doesn't let it fire
@@ -2154,12 +2196,12 @@ describe("GameSession combat card effects", () => {
     });
 
     describe("¡Fusiles arriba!", () => {
-      const riflesUp = card({ id: "rifles-up", phase: "battle", effect: { kind: "firesFirst" } });
+      const riflesUp = card({ id: "rifles-up", effect: { kind: "firesFirst" } });
 
-      /** In the battle, the left infantry moved and the other held */
-      const battle = () => {
+      /** In the battle, the left infantry moved and the other held; ¡Fusiles arriba! played with the orders */
+      const battle = (played = true) => {
         const { session, commandCards } = turnTwo([riflesUp]);
-        session.pickCard(commandCards[0]!);
+        session.pickCard(commandCards[0]!, undefined, played ? riflesUp : []);
         const to = session.getMoveOptions(LEFT_INF)!.moveAndFire[0]!;
         session.issueOrder(LEFT_INF, to);
         session.issueOrder({ row: 7, col: 3 }, { row: 7, col: 3 });
@@ -2168,28 +2210,20 @@ describe("GameSession combat card effects", () => {
         return session;
       };
 
-      it("lets the moved unit fire first once played", () => {
+      it("lets the moved unit fire first", () => {
+        expect(battle(false).fire(0, answersAt("2"))).toBe(false); // without it, it waits for the unit that held
         const session = battle();
-        expect(session.fire(0, answersAt("2"))).toBe(false); // it waits for the unit that held
-        expect(session.playBattleCombatCard(riflesUp)).toBe(true);
         expect(session.fire(0, answersAt("2"))).toBe(true);
         const game = session.getSnapshot();
-        const summaries = summarizeOrders(game.orders, session.board, game.shots, false, { battleCombatCard: riflesUp });
+        const summaries = summarizeOrders(game.orders, session.board, game.shots, false, [riflesUp]);
         expect(summaries[0]!.firesFirst).toBe(true);
         expect(summaries[1]!.firesFirst).toBe(false);
-      });
-
-      it("can't be played once a unit has fired", () => {
-        const session = battle();
-        expect(session.fire(1, answersAt("2"))).toBe(true);
-        expect(session.playBattleCombatCard(riflesUp)).toBe(false);
       });
     });
 
     it("isn't for a unit on the move (Rattenkrieg)", () => {
       const rattenkrieg = card({
         id: "rattenkrieg",
-        phase: "order",
         effect: { kind: "move", units: 1, maxMove: 3, fireInto: [HexType.TOWN], endOn: [HexType.TOWN], notOnTheMove: true },
       });
       const towns: Position[] = [{ row: 6, col: 1 }, { row: 4, col: 2 }];
@@ -2207,7 +2241,7 @@ describe("GameSession combat card effects", () => {
     });
 
     it("adds hexes to the move (Frozen Ground) and not to units of other types", () => {
-      const frozen = card({ id: "frozen", phase: "order", effect: { kind: "move", units: 1, moveBonus: 1, unitTypes: [UnitType.INFANTRY] } });
+      const frozen = card({ id: "frozen", effect: { kind: "move", units: 1, moveBonus: 1, unitTypes: [UnitType.INFANTRY] } });
       const { session, commandCards } = turnTwo([frozen]);
       session.pickCard(commandCards[0]!, undefined, frozen);
 
@@ -2224,7 +2258,7 @@ describe("GameSession combat card effects", () => {
   });
 
   describe("Tactician", () => {
-    const tactician = card({ id: "tactician", phase: "order", effect: { kind: "changeSection" } });
+    const tactician = card({ id: "tactician", effect: { kind: "changeSection" } });
 
     it("asks for a section for a one-section card, and orders units there instead", () => {
       const { session, commandCards } = turnTwo([tactician]);
@@ -2333,7 +2367,6 @@ describe("GameSession Reinforcements", () => {
     name: same("Refuerzos"),
     description: same(""),
     cost: 0,
-    phase: "order",
     marker: { kind: "cross", count: 1 },
     effect: { kind: "reinforcements", unitType: UnitType.INFANTRY },
   };
@@ -2409,7 +2442,6 @@ describe("GameSession taking back the card picked", () => {
     name: same("Cortina de Fuego"),
     description: same(""),
     cost: 4,
-    phase: "order",
     marker: { kind: "target", count: 1 },
     effect: { kind: "attack", dicePerHex: 4 },
   };
@@ -2441,7 +2473,7 @@ describe("GameSession taking back the card picked", () => {
     expect(session.getSnapshot()).toMatchObject({
       phase: TurnPhase.PICK_CARDS,
       chosenCard: null,
-      orderCombatCard: null,
+      combatCardsPlayed: [],
       markers: [],
       coins: 5,
       canUnpickCard: false,
@@ -2594,7 +2626,6 @@ describe("GameSession taking ground", () => {
       name: same("Fragor del combate"),
       description: same(""),
       cost: 1,
-      phase: "battle",
       effect: { kind: "takeGround", unitTypes: [UnitType.INFANTRY], units: 1 },
     };
     const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
@@ -2608,14 +2639,11 @@ describe("GameSession taking ground", () => {
     });
     session.startFirstTurn();
     session.adjustCoins(1);
-    session.pickCard(commandCards[0]!);
+    session.pickCard(commandCards[0]!, undefined, heat);
     orderAllAndFight(session);
     // Orders 0 and 1: the infantry at (7,1) and (7,3)
     session.fireAt(0, { position: { row: 6, col: 1 }, infantry: true, sandbags: false });
     session.fireAt(1, { position: { row: 6, col: 3 }, infantry: true, sandbags: false });
-    expect(session.canTakeGround(0)).toBe(false);
-
-    expect(session.playBattleCombatCard(heat)).toBe(true);
 
     expect(session.takeGround(0)).toBe(true);
     expect(session.canTakeGround(1)).toBe(false);
@@ -2912,7 +2940,6 @@ describe("GameSession sandbags", () => {
     name: same("Fortificar"),
     description: same(""),
     cost: 1,
-    phase: "battle",
     effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY, UnitType.ARTILLERY] },
   };
   // Sandbags on the left infantry, and on an empty hex (an enemy unit's, not known here)
@@ -2920,17 +2947,16 @@ describe("GameSession sandbags", () => {
   const withSandbags: Scenario = { ...scenario, attacker: "Axis", sandbags: [LEFT_INF, ENEMY_BAGS] };
   const bagsAt = (session: GameSession, p: Position) => session.board.getHex(p)!.sandbags;
   /** Turn 2 with the left card (it orders the infantry at (7,1) and (7,3)) and Fortify in hand */
-  const leftTurn = () => {
+  const leftTurn = (playFortify = false) => {
     const commandCards = [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })];
     const session = new GameSession({ scenario: withSandbags, faction: "Allies", initialHandSize: 1, commandCards, combatCards: [fortify, { ...fortify, id: "other" }] });
     session.startFirstTurn();
     session.adjustCoins(1);
-    session.pickCard(commandCards[0]!);
+    expect(session.pickCard(commandCards[0]!, undefined, playFortify ? fortify : [])).toBe(true);
     return session;
   };
-  const holdAllAndEndBattle = (session: GameSession, playFortify = false) => {
+  const holdAllAndEndBattle = (session: GameSession) => {
     orderAllAndFight(session);
-    if (playFortify) expect(session.playBattleCombatCard(fortify)).toBe(true);
     expect(session.endBattle()).toBe(true);
   };
 
@@ -2978,8 +3004,8 @@ describe("GameSession sandbags", () => {
   });
 
   it("puts Fortify's sandbags on one infantry or artillery after the battle", () => {
-    const session = leftTurn();
-    holdAllAndEndBattle(session, true);
+    const session = leftTurn(true);
+    holdAllAndEndBattle(session);
     const OTHER_INF: Position = { row: 7, col: 3 };
 
     expect(session.getSnapshot().fortifiable).not.toContainEqual(TANK);
@@ -3005,8 +3031,8 @@ describe("GameSession sandbags", () => {
   });
 
   it("puts no sandbags on an empty hex: the enemy's aren't known", () => {
-    const session = leftTurn();
-    holdAllAndEndBattle(session, true);
+    const session = leftTurn(true);
+    holdAllAndEndBattle(session);
 
     expect(session.placeSandbagsAt({ row: 3, col: 3 })).toBe(false);
   });
@@ -3334,7 +3360,7 @@ describe("Refuel and the cards kept out of the deck", () => {
       { ...session.save(), turn: 2, combatDrawPile: ["a", "b"] },
       session.scenario,
       commandCards,
-      ["a", "b"].map((id) => ({ id, name: same(id), description: same(""), cost: 1, phase: "order" as const }))
+      ["a", "b"].map((id) => ({ id, name: same(id), description: same(""), cost: 1 as const }))
     );
     restored.pickCard(restored.getSnapshot().hand.find((c) => c.id === "refuel-1")!);
     orderAllAndFight(restored);

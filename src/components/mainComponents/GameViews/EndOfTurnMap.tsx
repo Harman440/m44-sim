@@ -146,7 +146,7 @@ function EndOfTurnMap({
           orders={game.orders}
           backgroundImage={session.scenario.image}
           invalidFlash={flash}
-          markers={reinforcements ? game.markers : []}
+          markers={reinforcements ? game.markers.filter((_, i) => game.markerKinds[i] === "cross") : []}
           markerKind="cross"
           orderablePositions={selected ? [] : game.fortifiable}
           faction={faction}

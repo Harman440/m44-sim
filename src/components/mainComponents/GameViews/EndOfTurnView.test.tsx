@@ -156,7 +156,6 @@ describe("EndOfTurnView after a special card", () => {
       name: same(name),
       description: same(""),
       cost: 1,
-      phase: "battle",
     }));
     const combatIds = combatDeck.map((c) => c.id);
     const deck = ["X", "Y", "Z"].map((name) => new CommandCard({ id: name, name: same(name), orders: 1 }));
@@ -407,7 +406,6 @@ describe("EndOfTurnView table reminders", () => {
       name: same("Fortificar"),
       description: same(""),
       cost: 0,
-      phase: "battle",
       tableReminder: same("Fortificar: pon sacos terreros en la mesa, en una infantería o artillería."),
       effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
     };
@@ -428,11 +426,10 @@ describe("EndOfTurnView table reminders", () => {
       combatCards: [fortify],
     });
     session.startFirstTurn();
-    session.pickCard(card);
+    session.pickCard(card, undefined, fortify);
     session.issueOrder(INFANTRY, INFANTRY);
     session.commitOrders();
     session.startBattle();
-    session.playBattleCombatCard(fortify);
     session.endBattle();
     const { container } = render(<Harness session={session} />);
 
@@ -455,7 +452,6 @@ describe("EndOfTurnView Reinforcements", () => {
       name: same("Refuerzos"),
       description: same(""),
       cost: 0,
-      phase: "order",
       marker: { kind: "cross", count: 1 },
       effect: { kind: "reinforcements", unitType: UnitType.INFANTRY },
     };

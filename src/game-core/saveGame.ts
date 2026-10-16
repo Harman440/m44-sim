@@ -13,13 +13,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
+import type { Assignment, BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
 import { TurnRecord } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 32;
+export const SAVE_VERSION = 33;
 
 interface SavedUnit {
   type: UnitType;
@@ -73,7 +73,8 @@ export interface SavedGame {
     onTheMove: boolean;
     extra: boolean;
     cost: number;
-    boosted: boolean;
+    /** The combat card whose movement it used, by id */
+    boostCard: string | null;
     closeAssaultOnly: boolean;
     lostSandbags: Position[];
     /** Left out when false, and in saves from before tanks cleared wire */
@@ -95,10 +96,12 @@ export interface SavedGame {
   combatDrawPile: string[];
   combatDiscardPile: string[];
   combatHand: string[];
-  orderCombatCard: string | null;
+  /** The combat cards played with the command card, in order */
+  combatCardsPlayed: string[];
   markers: Position[];
   cardAttacks: CardAttack[];
-  battleCombatCard: string | null;
+  /** Cards given to a unit: the card's id and the unit's index */
+  assignments: { card: string; unit: number }[];
   standingCollisions: StandingCollisionRoll[];
   drawnCombatCard: string | null;
   drops: Position[];
@@ -130,11 +133,13 @@ export interface SessionState {
   combatDrawPile: readonly CombatCard[];
   combatDiscardPile: readonly CombatCard[];
   combatHand: CombatCard[];
-  orderCombatCard: CombatCard | null;
-  /** Hexes marked for the order combat card */
+  /** The combat cards played with the command card, in order */
+  combatCardsPlayed: CombatCard[];
+  /** Hexes marked for the combat cards played, each card's in turn */
   markers: Position[];
   cardAttacks: CardAttack[];
-  battleCombatCard: CombatCard | null;
+  /** The cards played that were given to a unit */
+  assignments: Assignment[];
   /** Pass and play: collision rolls of units without an order */
   standingCollisions: readonly StandingCollisionRoll[];
   /** Drawn in the final phase (it is already in the hand, unless discarded) */
@@ -162,6 +167,11 @@ function readPositions(positions: unknown, what: string): Position[] {
 
 const isShotTarget = (target: ShotTarget | undefined): boolean =>
   typeof target?.infantry === "boolean" && typeof target.closeAssault === "boolean" && DIE_KINDS.includes(target.die);
+
+function readBoostCard(card: unknown): string | null {
+  if (card !== null && typeof card !== "string") throw new Error("Unknown boost card");
+  return card;
+}
 
 function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
   if (!Array.isArray(rolls)) throw new Error("Collision rolls are not a list");
@@ -256,7 +266,7 @@ export function writeSave(
       onTheMove: order.onTheMove,
       extra: order.extra,
       cost: order.cost,
-      boosted: order.boosted,
+      boostCard: order.boostCard,
       closeAssaultOnly: order.closeAssaultOnly,
       lostSandbags: order.lostSandbags,
       ...(order.clearedWire && { clearedWire: true }),
@@ -292,14 +302,14 @@ export function writeSave(
     combatDrawPile: ids(state.combatDrawPile),
     combatDiscardPile: ids(state.combatDiscardPile),
     combatHand: ids(state.combatHand),
-    orderCombatCard: state.orderCombatCard?.id ?? null,
+    combatCardsPlayed: ids(state.combatCardsPlayed),
     markers: state.markers.map((p) => ({ ...p })),
     cardAttacks: state.cardAttacks.map((attack) => ({
       ...attack,
       target: attack.target && { ...attack.target },
       faces: [...attack.faces],
     })),
-    battleCombatCard: state.battleCombatCard?.id ?? null,
+    assignments: state.assignments.map(({ card, unit }) => ({ card: card.id, unit: unitIndex(unit) })),
     standingCollisions: state.standingCollisions.map((roll) => ({
       ...roll,
       from: { ...roll.from },
@@ -405,7 +415,7 @@ export function readSave(
         onTheMove: order.onTheMove,
         extra: order.extra,
         cost: order.cost,
-        boosted: order.boosted,
+        boostCard: readBoostCard(order.boostCard),
         closeAssaultOnly: order.closeAssaultOnly,
         lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
         clearedWire: order.clearedWire === true,
@@ -475,10 +485,10 @@ export function readSave(
     combatDrawPile: saved.combatDrawPile.map(combatCard),
     combatDiscardPile: saved.combatDiscardPile.map(combatCard),
     combatHand: saved.combatHand.map(combatCard),
-    orderCombatCard: combatCardOrNull(saved.orderCombatCard),
+    combatCardsPlayed: saved.combatCardsPlayed.map(combatCard),
     markers: readPositions(saved.markers, "Markers"),
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
-    battleCombatCard: combatCardOrNull(saved.battleCombatCard),
+    assignments: saved.assignments.map((assignment) => ({ card: combatCard(assignment.card), unit: unit(assignment.unit) })),
     standingCollisions: readStandingCollisions(saved.standingCollisions),
     hits: readUnitCounts(saved.hits, "hits", unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),

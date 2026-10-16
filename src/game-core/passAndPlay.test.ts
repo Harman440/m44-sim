@@ -407,7 +407,7 @@ describe("PassAndPlayMatch", () => {
 
       expect(axis.aimAt(infantry, axisView(4, 3))).toBeNull(); // no enemy there
       const aim = axis.aimAt(infantry, axisView(4, 2))!;
-      expect(aim).toMatchObject({ distance: 2, dice: 2, eightSided: false, bonus: null });
+      expect(aim).toMatchObject({ distance: 2, dice: 2, eightSided: false });
       expect(aim.enemy.unitType).toBe(UnitType.INFANTRY);
 
       expect(match.fire(infantry, axisView(4, 2))).toBe(true);

@@ -1,51 +1,32 @@
 import { ReactNode, useState } from "react";
-import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
+import { Box, ButtonBase, Stack, Typography } from "@mui/material";
 import { CombatCard } from "../../../game-core/combatCard";
+import { UnitType } from "../../../game-core/unit";
 import { Faction } from "../../../types/faction";
 import CombatCardComponent from "../../CombatCardComponent";
 import CardDialog, { ShownCard } from "../../CardDialog";
 import GameIcon from "../../GameIcon";
 import CoinCount from "../../CoinCount";
-import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
     coinsLabel: (coins: string) => `Suministros: ${coins}`,
     coinsUnit: (n: number) => `${n === 1 ? "suministro" : "suministros"} · ver cuentas`,
-    noCardsExtraTurn: "En el turno extra no se juegan cartas de combate.",
-    combatCards: "Cartas de combate",
-    alreadyPlayed: "ya has jugado la de esta batalla",
-    onePerBattle: "1 por batalla · toca una para verla y jugarla",
-    played: (cost: string): ReactNode => (
-      <>
-        <strong>Jugada</strong> · pagada: {cost}
-      </>
-    ),
-    undo: "Deshacer",
-    noBattleCards: "No tienes cartas de combate para la batalla.",
-    missing: (n: number, coins: string) => `Te ${n === 1 ? "falta" : "faltan"} ${coins}`,
+    combatCards: "Cartas de combate jugadas",
+    playedWithOrders: "Se jugaron con las órdenes · toca una para verla",
+    noCardsPlayed: "No jugaste cartas de combate este turno.",
+    givenTo: (unit: string) => `A: ${unit}`,
     combatCard: "Carta de combate",
-    playLabel: (card: string) => `Jugar ${card}`,
-    play: (cost: string) => `Jugar (${cost})`,
   },
   en: {
     coinsLabel: (coins: string) => `Supplies: ${coins}`,
     coinsUnit: (n: number) => `${n === 1 ? "supply" : "supplies"} · see ledger`,
-    noCardsExtraTurn: "Combat cards aren't played in the extra turn.",
-    combatCards: "Combat cards",
-    alreadyPlayed: "you've already played this battle's card",
-    onePerBattle: "1 per battle · tap one to see it and play it",
-    played: (cost: string): ReactNode => (
-      <>
-        <strong>Played</strong> · paid: {cost}
-      </>
-    ),
-    undo: "Undo",
-    noBattleCards: "You have no combat cards for the battle.",
-    missing: (_n: number, coins: string) => `You're ${coins} short`,
+    combatCards: "Combat cards played",
+    playedWithOrders: "Played with the orders · tap one to see it",
+    noCardsPlayed: "You played no combat cards this turn.",
+    givenTo: (unit: string) => `To: ${unit}`,
     combatCard: "Combat card",
-    playLabel: (card: string) => `Play ${card}`,
-    play: (cost: string) => `Play (${cost})`,
   },
 });
 
@@ -54,46 +35,23 @@ interface BattleReserveProps {
   coins: number;
   /** Open the coin ledger */
   onShowCoins: () => void;
-  /** False in the attacker's extra first turn */
-  canPlayCombatCards: boolean;
-  /** The battle combat cards in hand */
-  battleCards: readonly CombatCard[];
-  /** The battle combat card played this battle */
-  played: CombatCard | null;
-  /** The played card can still be taken back (its bonus isn't used yet) */
-  canUndo: boolean;
-  /** Shown under the played card: what it still lets the player do (Ambush's shot) */
+  /** The combat cards played with the orders this turn */
+  played: readonly CombatCard[];
+  /** The ones given to a unit, and the unit */
+  assignments?: readonly { card: CombatCard; unitType: UnitType }[];
+  /** Shown under the cards: what they still let the player do (¡Fusiles arriba!: pick the unit that fires first) */
   playedAction?: ReactNode;
-  /** Why a card can't be played now, e.g. ¡Fusiles arriba! once a unit has fired; null when it can */
-  blockedReason?: (card: CombatCard) => string | null;
-  onPlay: (card: CombatCard) => boolean;
-  onUndo: () => void;
 }
 
 /**
- * What the player can spend in the battle: the coins, large, and the battle
- * combat cards. Tapping a card shows it in full, where it is played.
+ * The battle's side panel: the coins, large, and the combat cards played with
+ * the orders (none is played in the battle). Tapping a card shows it in full.
  */
-function BattleReserve({
-  faction,
-  coins,
-  onShowCoins,
-  canPlayCombatCards,
-  battleCards,
-  played,
-  canUndo,
-  playedAction,
-  blockedReason = () => null,
-  onPlay,
-  onUndo,
-}: BattleReserveProps) {
+function BattleReserve({ faction, coins, onShowCoins, played, assignments = [], playedAction }: BattleReserveProps) {
   const [looking, setLooking] = useState<CombatCard | null>(null);
   const t = useMessages(TEXT);
   const labels = useLabels();
-  const tr = useTr();
   const shown: ShownCard | null = looking && { combat: looking };
-  const missing = (card: CombatCard) => card.cost - coins;
-  const blocked = looking ? blockedReason(looking) : null;
 
   return (
     <Box className="battle-reserve">
@@ -123,80 +81,39 @@ function BattleReserve({
         </Stack>
       </ButtonBase>
 
-      {!canPlayCombatCards ? (
-        <Typography variant="body2" color="text.secondary">
-          {t.noCardsExtraTurn}
-        </Typography>
-      ) : (
-        <Box component="section" aria-labelledby="battle-combat-title" data-testid="battle-combat-cards" className="battle-reserve__cards">
-          <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "center", gap: 1, flexWrap: "wrap" }}>
-            <Typography variant="h6" component="h3" id="battle-combat-title">
-              {t.combatCards}
-            </Typography>
+      <Box component="section" aria-labelledby="battle-combat-title" data-testid="battle-combat-cards" className="battle-reserve__cards">
+        <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "center", gap: 1, flexWrap: "wrap" }}>
+          <Typography variant="h6" component="h3" id="battle-combat-title">
+            {t.combatCards}
+          </Typography>
+          {played.length > 0 && (
             <Typography variant="body2" color="text.secondary">
-              {played ? t.alreadyPlayed : t.onePerBattle}
+              {t.playedWithOrders}
             </Typography>
-          </Stack>
-
-          {played ? (
-            <Stack sx={{ alignItems: "center", gap: 1 }}>
-              <CombatCardComponent faction={faction} card={played} onClick={setLooking} selected />
-              <Typography variant="body2">
-                {t.played(labels.coins(played.cost))}
-              </Typography>
-              {playedAction}
-              {canUndo && (
-                <Button variant="outlined" onClick={onUndo} startIcon={<GameIcon name="undo" />}>
-                  {t.undo}
-                </Button>
-              )}
-            </Stack>
-          ) : battleCards.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-              {t.noBattleCards}
-            </Typography>
-          ) : (
-            <Box className="battle-reserve__hand">
-              {battleCards.map((card) => (
-                <Stack key={card.id} sx={{ alignItems: "center", gap: 0.5 }}>
-                  <CombatCardComponent faction={faction} card={card} onClick={setLooking} disabled={missing(card) > 0} />
-                  {missing(card) > 0 && (
-                    <Typography variant="caption" color="text.secondary">
-                      {t.missing(missing(card), labels.coins(missing(card)))}
-                    </Typography>
-                  )}
-                </Stack>
-              ))}
-            </Box>
           )}
-        </Box>
-      )}
+        </Stack>
 
-      <CardDialog card={shown} faction={faction} onClose={() => setLooking(null)} label={t.combatCard}>
-        {looking && !played && (
-          <>
-            {missing(looking) > 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>
-                {t.missing(missing(looking), labels.coins(missing(looking)))}
-              </Typography>
-            ) : (
-              blocked && (
-                <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>
-                  {blocked}
-                </Typography>
-              )
-            )}
-            <Button
-              onClick={() => onPlay(looking) && setLooking(null)}
-              disabled={missing(looking) > 0 || !!blocked}
-              aria-label={t.playLabel(tr(looking.name))}
-              startIcon={<GameIcon name="cards" />}
-            >
-              {t.play(labels.coins(looking.cost))}
-            </Button>
-          </>
+        {played.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            {t.noCardsPlayed}
+          </Typography>
+        ) : (
+          <Box className="battle-reserve__hand">
+            {played.map((card) => {
+              const given = assignments.find((a) => a.card === card);
+              return (
+                <Stack key={card.id} sx={{ alignItems: "center", gap: 0.5 }}>
+                  <CombatCardComponent faction={faction} card={card} onClick={setLooking} />
+                  {given && <Typography variant="caption">{t.givenTo(labels.units[given.unitType])}</Typography>}
+                </Stack>
+              );
+            })}
+          </Box>
         )}
-      </CardDialog>
+        {playedAction}
+      </Box>
+
+      <CardDialog card={shown} faction={faction} onClose={() => setLooking(null)} label={t.combatCard} />
     </Box>
   );
 }

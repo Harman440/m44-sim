@@ -108,8 +108,8 @@ interface FireDialogProps {
   /** The firing unit's order; the dialog is closed when null */
   summary: OrderSummary | null;
   card: CommandCard | null;
-  /** A battle combat card this unit could use on this shot (Spotter…) */
-  combatBonus?: FireContext["combatBonus"];
+  /** The combat cards' extra dice for this unit (Spotter, Explosives…) */
+  combatBonuses?: FireContext["combatBonuses"];
   faction: Faction;
   board: BoardManager;
   /** The scenario's board art, for the map */
@@ -269,7 +269,7 @@ export function ShotResult({ shot, number, unitType, faction, board, image, roll
 function FireDialog({
   summary,
   card,
-  combatBonus,
+  combatBonuses,
   faction,
   board,
   image,
@@ -306,7 +306,7 @@ function FireDialog({
     unitType: summary.unitType,
     card,
     closeAssaultOnly: summary.closeAssaultOnly,
-    combatBonus,
+    combatBonuses,
     fromTerrain: board.getHex(summary.firingFrom)?.getType(),
     fromWire: board.getHex(summary.firingFrom)?.wire ?? false,
   };

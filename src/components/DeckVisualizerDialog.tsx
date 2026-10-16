@@ -8,6 +8,7 @@ import CombatCardComponent from "./CombatCardComponent";
 import CardDialog, { ShownCard } from "./CardDialog";
 import GameIcon from "./GameIcon";
 import { defineMessages, useMessages, useTr } from "../i18n/useI18n";
+import { MAX_COMBAT_CARDS_PER_TURN } from "../data/combatCards";
 
 const TEXT = defineMessages({
   es: {
@@ -22,7 +23,7 @@ const TEXT = defineMessages({
     tacticCards: "Cartas tácticas",
     tacticCardsHint: "Dan órdenes con reglas especiales",
     combatCards: "Cartas de combate",
-    combatCardsHint: "Se pagan con suministros, con las órdenes o en la batalla",
+    combatCardsHint: (max: number) => `Se pagan con suministros y se juegan con las órdenes, hasta ${max} por turno`,
     close: "Cerrar",
     deckCard: "Carta del mazo",
   },
@@ -38,7 +39,7 @@ const TEXT = defineMessages({
     tacticCards: "Tactic cards",
     tacticCardsHint: "Order units with special rules",
     combatCards: "Combat cards",
-    combatCardsHint: "Paid for with supplies, with the orders or in the battle",
+    combatCardsHint: (max: number) => `Paid for with supplies and played with the orders, up to ${max} a turn`,
     close: "Close",
     deckCard: "Card in the deck",
   },
@@ -174,7 +175,7 @@ function DeckVisualizerDialog({ open, onClose, faction, commandCards, combatCard
             />
             <CardGroup
               title={t.combatCards}
-              hint={t.combatCardsHint}
+              hint={t.combatCardsHint(MAX_COMBAT_CARDS_PER_TURN)}
               groups={groupCopies(combatCards)}
               deckSize={combatCards.length}
               renderCard={combatCard}

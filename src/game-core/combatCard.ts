@@ -3,12 +3,6 @@ import type { UnitType } from "./unit";
 import type { HexType } from "../types/hex";
 import type { Localized } from "../i18n/lang";
 
-/**
- * When a combat card is played: with the command card, for this turn's orders
- * ("order"), or during the battle, as a reaction ("battle")
- */
-export type CombatPhase = "order" | "battle";
-
 /** Why a card is in a side's deck: what the side (or the map, or the enemy) has */
 export type DeckReason =
   | "shared"
@@ -20,7 +14,11 @@ export type DeckReason =
   | "bigGuns"
   | "air";
 
-/** A combat card: paid in coins when played. Its effect is resolved at the table (the app applies some in Step 26). */
+/**
+ * A combat card: played with the command card (up to `MAX_COMBAT_CARDS_PER_TURN`, never two
+ * copies of one card) and paid in coins then. Its effect is resolved at the table, or applied
+ * by the app (`effect`).
+ */
 export interface CombatCard {
   readonly id: string;
   /** The card's template, shared by its copies in a deck; omitted in tests' hand-made cards */
@@ -29,7 +27,6 @@ export interface CombatCard {
   readonly description: Localized;
   /** Coins to play it */
   readonly cost: number;
-  readonly phase: CombatPhase;
   /** Why the deck has it, shown as an icon on the card; omitted in tests' hand-made cards */
   readonly reason?: DeckReason;
   /** Hexes to mark on the map while giving orders (Barrage, Air Power, Reinforcements…) */
@@ -38,8 +35,20 @@ export interface CombatCard {
   readonly tableReminder?: Localized;
   /** What the app applies for it; without one, the card is resolved at the table */
   readonly effect?: CombatEffect;
-  /** Only played when a unit of one of these types has an order this turn (Spotter, Reposition: artillery) */
+  /** Given to one of this side's units while ordering (Explosives, Personal Armor…) */
+  readonly assign?: AssignRule;
+  /** Does nothing unless a unit of one of these types has an order this turn (Spotter: artillery); confirming warns */
   readonly needsOrdered?: readonly UnitType[];
+}
+
+/** The card's template: two copies of one card share it (and can't be played together) */
+export const templateOf = (card: CombatCard): string => card.templateId ?? card.id;
+
+/** Which unit a card can be given to */
+export interface AssignRule {
+  unitTypes: readonly UnitType[];
+  /** Only a unit with an order this turn */
+  ordered: boolean;
 }
 
 /** The effects the app applies; the rest is resolved at the table */
@@ -57,15 +66,18 @@ export type CombatEffect =
   /** Rifles Up: played before any unit fires, the first unit to fire can be any of them, whatever the firing order */
   | { kind: "firesFirst" };
 
-/** A battle card: +dice on one shot by a unit of these types (Spotter, Street Fight, Explosives) */
+/**
+ * +dice on every shot this turn by a unit of these types (Spotter), or by the unit the card is
+ * given to (`CombatCard.assign`: Street Equipment, Explosives)
+ */
 export interface DiceBonusEffect {
   kind: "diceBonus";
   dice: number;
   unitTypes: readonly UnitType[];
   /** Only in close assault (Explosives) */
   closeAssault?: boolean;
-  /** Asked when a unit that fits fires, e.g. "¿La unidad está en un edificio o junto a uno?" */
-  condition?: Localized;
+  /** Only when it fires from one of these terrains or a hex next to one (Street Equipment: a town) */
+  near?: readonly HexType[];
 }
 
 /** An order card that attacks the marked hexes in the battle, with its own roll per hex (Barrage, Air Power…) */

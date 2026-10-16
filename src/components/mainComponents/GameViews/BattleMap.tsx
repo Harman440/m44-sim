@@ -65,7 +65,8 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           boardManager={session.board}
           orders={game.orders}
           markers={game.markers}
-          markerKind={game.orderCombatCard?.marker?.kind}
+          markerKind={game.markerKinds}
+          cardBadges={game.assignments}
           backgroundImage={session.scenario.image}
           firedUnits={firedUnits}
           faction={faction}
@@ -80,7 +81,8 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           faction={faction}
           command={game.chosenCard}
           section={game.chosenSection}
-          combat={game.orderCombatCard}
+          combat={game.combatCardsPlayed}
+          assignments={game.assignments}
         />
 
         <Stack sx={{ gap: 1, width: "100%" }}>

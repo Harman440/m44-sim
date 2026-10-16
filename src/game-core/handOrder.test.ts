@@ -32,11 +32,11 @@ describe("sortCommandHand", () => {
 });
 
 describe("sortCombatHand", () => {
-  const combat = (id: string, phase: CombatCard["phase"], cost: number): CombatCard => ({ id, name: same(id), description: same(""), cost, phase });
+  const combat = (id: string, cost: number): CombatCard => ({ id, name: same(id), description: same(""), cost });
 
-  it("puts the order cards that can be played first, then those that can't, then the battle cards", () => {
-    const hand = [combat("ambush", "battle", 1), combat("pricey", "order", 6), combat("barrage", "order", 4), combat("medic", "order", 2)];
+  it("puts the cards that can be played first, then those that can't, cheaper first in each", () => {
+    const hand = [combat("pricey", 6), combat("barrage", 4), combat("medic", 2), combat("costly", 7)];
 
-    expect(sortCombatHand(hand, (card) => card.cost <= 5).map((card) => card.id)).toEqual(["medic", "barrage", "pricey", "ambush"]);
+    expect(sortCombatHand(hand, (card) => card.cost <= 5).map((card) => card.id)).toEqual(["medic", "barrage", "pricey", "costly"]);
   });
 });

@@ -5,7 +5,7 @@ import CommandCard from "../game-core/commandCard";
 import { FireContext, calculateFireDice } from "../game-core/fireRules";
 import { FireTarget, mapAnswers } from "../game-core/fireTargets";
 import { samePosition } from "../game-core/position";
-import { FIRE_QUESTIONS, TARGET_INFANTRY, TARGET_OTHER, combatBonusQuestion, fireBonusSteps } from "../data/fireQuestions";
+import { FIRE_QUESTIONS, TARGET_INFANTRY, TARGET_OTHER, fireBonusSteps } from "../data/fireQuestions";
 import { TargetKinds } from "../data/hitRules";
 import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
@@ -61,7 +61,6 @@ export interface FireAimChoice {
   /** The target is infantry (otherwise armour or artillery) */
   infantry: boolean;
   sandbags: boolean;
-  useCombatBonus: boolean;
 }
 
 interface FireAimProps {
@@ -100,7 +99,6 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const [picked, setPicked] = useState<Position | null>(null);
   const [chosenKind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const [chosenSandbags, setSandbags] = useState(false);
-  const [useBonus, setUseBonus] = useState(true);
   const [missed, setMissed] = useState(false);
 
   const firable = targets.filter((t) => t.lineOfSight && t.dice > 0);
@@ -114,8 +112,6 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
   const answers: Record<string, string> = target
     ? { ...mapAnswers(target), targetType: kind === "other" ? TARGET_OTHER : TARGET_INFANTRY, sandbags: sandbags ? "yes" : "no" }
     : {};
-  const asksBonus = !!target && (combatBonusQuestion.appliesTo?.(context, answers) ?? false);
-  if (asksBonus) answers.combatCard = useBonus ? "yes" : "no";
   const result = target ? calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps) : null;
   const eightSided = longRangeDie && !!target && target.distance > 1;
 
@@ -224,13 +220,6 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
               />
             </Stack>
           )}
-          {asksBonus && (
-            <FormControlLabel
-              control={<Switch checked={useBonus} onChange={(e) => setUseBonus(e.target.checked)} />}
-              label={`${tr(combatBonusQuestion.textFor!(context))} (+${context.combatBonus!.dice})`}
-              sx={{ minHeight: 48 }}
-            />
-          )}
         </Stack>
 
         {result && (
@@ -258,7 +247,7 @@ function FireAim({ board, image, faction, from, targets, context, longRangeDie, 
           fullWidth
           disabled={!target || !kind}
           onClick={() =>
-            target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags, useCombatBonus: asksBonus && useBonus })
+            target && kind && onFire({ position: target.position, infantry: kind === "infantry", sandbags })
           }
         >
           {t.fire}

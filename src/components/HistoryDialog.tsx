@@ -60,6 +60,7 @@ const TEXT = defineMessages({
     coinsAfter: (coins: string) => `Al terminar el turno: ${coins}`,
     combatCards: "Cartas de combate",
     played: (name: string) => `Jugada: ${name}`,
+    givenTo: (name: string, unit: string) => `${name}, dada a: ${unit}`,
     markers: (places: string) => `Marcas en el mapa: ${places}`,
     attack: (n: number) => `Ataque en la casilla ${n}:`,
     empty: "vacía",
@@ -99,6 +100,7 @@ const TEXT = defineMessages({
     coinsAfter: (coins: string) => `At the end of the turn: ${coins}`,
     combatCards: "Combat cards",
     played: (name: string) => `Played: ${name}`,
+    givenTo: (name: string, unit: string) => `${name}, given to: ${unit}`,
     markers: (places: string) => `Marks on the map: ${places}`,
     attack: (n: number) => `Attack on hex ${n}:`,
     empty: "empty",
@@ -268,6 +270,16 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     {record.combatCardsPlayed.map((card) => (
                       <Typography component="li" variant="body2" key={card.id}>
                         {t.played(tr(card.name))}
+                      </Typography>
+                    ))}
+                    {(record.assignments ?? []).map((given, i) => (
+                      <Typography component="li" variant="body2" key={`given-${i}`}>
+                        {t.givenTo(
+                          tr(given.card),
+                          given.position
+                            ? `${labels.units[given.unit].toLowerCase()} (${placeOf(given.position)})`
+                            : labels.units[given.unit].toLowerCase()
+                        )}
                       </Typography>
                     ))}
                     {record.markers.length > 0 && (

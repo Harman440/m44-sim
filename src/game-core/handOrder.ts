@@ -24,12 +24,11 @@ export function sortCommandHand(cards: readonly CommandCard[]): CommandCard[] {
 }
 
 /**
- * The combat cards as the hand holds them: the ones that can be played with
- * the orders now first, then the order cards that can't (not enough
- * supplies), then the battle cards; cheaper first in each group.
+ * The combat cards as the hand holds them: the ones that can be played now
+ * first, then the ones that can't (not enough supplies); cheaper first in each.
  */
 export function sortCombatHand(cards: readonly CombatCard[], playable: (card: CombatCard) => boolean): CombatCard[] {
-  const group = (card: CombatCard) => (card.phase === "battle" ? 2 : playable(card) ? 0 : 1);
+  const group = (card: CombatCard) => (playable(card) ? 0 : 1);
   return cards
     .map((card, i) => ({ card, i, group: group(card) }))
     .sort((a, b) => a.group - b.group || a.card.cost - b.card.cost || a.i - b.i)

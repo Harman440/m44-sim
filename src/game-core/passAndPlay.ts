@@ -13,7 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 10;
+export const MATCH_SAVE_VERSION = 11;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -474,7 +474,7 @@ class PassAndPlayMatch {
    * once, unless the unit rolled more results than it has figures: its player picks them first
    * (`keepShotResults`, then `applyShot`)
    */
-  fire(order: number, target: Position, useCombatBonus = false): boolean {
+  fire(order: number, target: Position): boolean {
     const turn = this.battleTurn();
     if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
     const session = this.sessions[turn.side];
@@ -483,7 +483,7 @@ class PassAndPlayMatch {
       session.skipUnmovedFire();
     }
     const shot = session.getSnapshot().shots.length;
-    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false, useCombatBonus })) return false;
+    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false })) return false;
 
     const battle = this.battle!;
     this.battle = {
@@ -686,7 +686,7 @@ class PassAndPlayMatch {
   }
 
   /**
-   * The side's attack combat card (Barrage, Air Power…): every marked hex is rolled, and the
+   * The side's attack combat cards (Barrage, Air Power…): every hex they marked is rolled, and the
    * hits and flags dealt to the enemy unit standing there now (retreats can't be ignored)
    */
   rollAttacks(side: Faction): boolean {
@@ -694,7 +694,7 @@ class PassAndPlayMatch {
     const game = session.getSnapshot();
     if (!this.battle || !game.attacksPending) return false;
     const enemy = this.sessions[otherSide(side)];
-    game.markers.forEach((marker, index) => {
+    game.attackMarks.forEach(({ marker: index, position: marker }) => {
       if (session.getSnapshot().cardAttacks.some((attack) => attack.marker === index)) return;
       const target = session.enemyAt(marker);
       session.attackHex(index, target ? target.unitType === UnitType.INFANTRY : null);

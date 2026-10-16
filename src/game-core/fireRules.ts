@@ -2,20 +2,27 @@
 // Engine for the "how many dice?" questionnaire shown when a unit fires.
 // The questions themselves (and their dice effects) live in data/fireQuestions.ts.
 import CommandCard from "./commandCard";
-import type { DiceBonusEffect } from "./combatCard";
 import { UnitType } from "./unit";
 import { HexType } from "../types/hex";
 import type { Localized } from "../i18n/lang";
 
 /** What we know about the shot before asking anything */
+/** Extra dice a combat card played this turn gives a unit, every time it fires */
+export interface CombatBonus {
+  name: Localized;
+  dice: number;
+  /** true: only in close assault; omitted: at any distance */
+  closeAssault?: boolean;
+}
+
 export interface FireContext {
   unitType: UnitType;
   /** The command card played this turn (may add dice) */
   card: CommandCard | null;
   /** The unit may only fire at an adjacent enemy (Close Assault card) */
   closeAssaultOnly?: boolean;
-  /** A battle combat card played this turn that this unit could use on this shot (Spotter…) */
-  combatBonus?: DiceBonusEffect & { name: Localized };
+  /** Extra dice from the combat cards played this turn, for this unit where it fires from (Spotter, Explosives…) */
+  combatBonuses?: readonly CombatBonus[];
   /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground; armour in a town loses dice) */
   fromTerrain?: HexType;
   /** The unit fires from a hex with barbed wire (infantry loses a die) */

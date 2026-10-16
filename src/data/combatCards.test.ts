@@ -10,7 +10,7 @@ const copies = (s: Scenario, faction: Faction, name: string) => names(s, faction
 
 const ALWAYS = [
   "Tras las líneas enemigas", "Médico", "Refuerzos",
-  "Lucha callejera", "Táctico", "Blindaje personal", "Explosivos", "¡Fusiles arriba!",
+  "Equipo urbano", "Táctico", "Blindaje personal", "Explosivos", "¡Fusiles arriba!",
 ];
 const DEFENSIVE = ["Fortificar", "Ni un paso atrás", "Camuflaje"];
 /** Taken out with the reaction cards (Step 61) */

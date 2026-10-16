@@ -63,7 +63,7 @@ function CardDialog({ card, faction, onClose, label, children }: CardDialogProps
             card={<CombatCardComponent faction={faction} card={shown.combat} />}
             cardWidth={220}
             name={tr(shown.combat.name)}
-            tags={[labels.combatPhases[shown.combat.phase], t.costs(labels.coins(shown.combat.cost))]}
+            tags={[t.costs(labels.coins(shown.combat.cost))]}
             text={tr(shown.combat.description)}
           />
         )}

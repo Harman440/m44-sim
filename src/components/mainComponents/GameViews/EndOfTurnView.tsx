@@ -412,9 +412,7 @@ function EndOfTurnView({
   };
 
   /** Tokens the combat cards played put on the physical board (sandbags, camouflage) */
-  const tableReminders = [game.orderCombatCard, game.battleCombatCard].flatMap((card) =>
-    card?.tableReminder ? [tr(card.tableReminder)] : []
-  );
+  const tableReminders = game.combatCardsPlayed.flatMap((card) => (card.tableReminder ? [tr(card.tableReminder)] : []));
   /** What's still needed before the next turn */
   const pendingStep = !drawnCard
     ? drawOptions.length > 0
@@ -430,7 +428,7 @@ function EndOfTurnView({
             ? t.pendingDiscard
             : null;
   /** The Reinforcements card played this turn, and the unit it brings */
-  const reinforcements = [game.orderCombatCard].find((card) => card?.effect?.kind === "reinforcements");
+  const reinforcements = game.combatCardsPlayed.find((card) => card.effect?.kind === "reinforcements");
   const reinforcementUnit = reinforcements?.effect?.kind === "reinforcements" ? reinforcements.effect.unitType : null;
 
   if (showMap) {

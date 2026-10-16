@@ -45,8 +45,8 @@
 .cards-tray__stack {
   position: relative;
   flex: none;
-  width: calc(var(--card-width) + 28px);
-  height: calc(var(--card-width) * 7 / 5 + 6px);
+  width: calc(var(--card-width) + 52px);
+  height: calc(var(--card-width) * 7 / 5 + 12px);
 }
 
 .cards-tray__card {
@@ -61,6 +61,12 @@
   left: 26px;
   top: 6px;
   transform: rotate(7deg);
+}
+
+.cards-tray__card--combat-2 {
+  left: 50px;
+  top: 12px;
+  transform: rotate(14deg);
 }
 
 .cards-tray__card--empty {
@@ -167,7 +173,7 @@
   }
 }
 
-/* A combat card that can't be played now (a battle card, short of supplies, the extra turn) is greyed out */
+/* A combat card that can't be played now (short of supplies, two picked already, the extra turn) is greyed out */
 .hand-card--combat:not(.hand-card--playable) .game-card {
   filter: grayscale(1);
 }

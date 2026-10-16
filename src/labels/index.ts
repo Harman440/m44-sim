@@ -13,7 +13,7 @@ import type { ShotTarget } from "../data/hitRules";
 import type { RollResult } from "../game-core/rollResult";
 import type { MoveLimits } from "../game-core/orderRules";
 import type { CoinEntry } from "../game-core/coins";
-import type { CombatPhase, DeckReason, MarkerRule } from "../game-core/combatCard";
+import type { DeckReason, MarkerRule } from "../game-core/combatCard";
 import type { Lang } from "../i18n/lang";
 import es from "./es";
 import en from "./en";
@@ -26,8 +26,6 @@ export interface Labels {
   /** Section names short enough for a row of the fire order */
   sectionsShort: Record<Side, string>;
   dieFaces: Record<DieFace, string>;
-  /** When a combat card is played */
-  combatPhases: Record<CombatPhase, string>;
   /** Why a side gets a combat card: a short name for the group */
   deckReasons: Record<DeckReason, string>;
   /** What a shot's target is: infantry, or any other unit (the tank face hits both armour and artillery) */

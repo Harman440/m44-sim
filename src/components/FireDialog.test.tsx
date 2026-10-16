@@ -68,7 +68,7 @@ function Harness({ session }: { session: GameSession }) {
         canTakeGround={session.canTakeGround(0)}
         onTakeGround={() => session.takeGround(0)}
         onUndoTakeGround={() => session.undoTakeGround(0)}
-        combatBonus={session.combatBonusFor(0)}
+        combatBonuses={session.combatBonusesFor(0)}
         longRangeDie={session.longRangeDie}
         targetKinds={session.targetKinds}
         canRemoveWire={game.canRemoveWire[0]}
@@ -278,13 +278,12 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("3impactos");
   });
 
-  it("uses a dice combat card when its switch is on", async () => {
+  it("adds a dice combat card played with the orders, with no switch", async () => {
     const spotter: CombatCard = {
       id: "spotter",
       name: same("Observador"),
       description: same(""),
       cost: 0,
-      phase: "battle",
       effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] },
     };
     const session = new GameSession({
@@ -304,17 +303,16 @@ describe("FireDialog", () => {
       random: () => 0.5,
     });
     session.startFirstTurn();
-    session.pickCard(session.getSnapshot().hand[0]!);
+    session.pickCard(session.getSnapshot().hand[0]!, undefined, spotter);
     session.issueOrder(UNIT, UNIT);
     session.commitOrders();
     session.startBattle();
-    session.playBattleCombatCard(spotter);
     render(<Harness session={session} />);
     fireEvent.click(screen.getByText("abrir"));
 
     tapHex(TWO_AWAY);
     choose("Infantería");
-    expect(screen.getByRole("switch", { name: /Observador/ })).toBeChecked();
+    expect(screen.queryByRole("switch", { name: /Observador/ })).not.toBeInTheDocument();
     expect(await readBreakdown()).toContain("Carta Observador+1");
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName("4 dados");
     choose("Disparar");

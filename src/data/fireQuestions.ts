@@ -181,27 +181,6 @@ const sandbagsQuestion: FireQuestion = {
   note: (_, answer) => (answer === "yes" ? SANDBAGS_NOTE : null),
 };
 
-/** A battle combat card that adds dice to one shot (Spotter, Street Fight, Explosives) */
-export const combatBonusQuestion: FireQuestion = {
-  id: "combatCard",
-  text: { es: "", en: "" },
-  textFor: ({ combatBonus }) => ({
-    es: combatBonus?.condition
-      ? `${combatBonus.name.es}: ${combatBonus.condition.es} Si es así, ¿la usas en este disparo?`
-      : `${combatBonus?.name.es}: ¿la usas en este disparo?`,
-    en: combatBonus?.condition
-      ? `${combatBonus.name.en}: ${combatBonus.condition.en} If so, do you use it on this shot?`
-      : `${combatBonus?.name.en}: do you use it on this shot?`,
-  }),
-  options: () => YES_NO,
-  appliesTo: ({ combatBonus }, answers) =>
-    !!combatBonus &&
-    !!answers.distance &&
-    (combatBonus.closeAssault === undefined || combatBonus.closeAssault === (answers.distance === "1")),
-  effect: ({ combatBonus }, answer) =>
-    combatBonus && answer === "yes" ? { label: cardLabel(combatBonus.name), dice: combatBonus.dice, kind: "card", card: combatBonus.name } : null,
-};
-
 /** Asked in this order; add new situations here */
 export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   distanceQuestion,
@@ -209,7 +188,6 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   targetTypeQuestion,
   targetTerrainQuestion,
   sandbagsQuestion,
-  combatBonusQuestion,
 ];
 
 /** The command card's dice, when it changes them in this situation */
@@ -217,6 +195,16 @@ const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): Dice
   const dice = card?.fireBonusFor(unitType, closeAssault) ?? 0;
   return card && dice !== 0 ? [{ label: cardLabel(card.name), dice, kind: "card", card: card.name }] : [];
 };
+
+/** The combat cards' extra dice for the unit, in close assault or at range (Spotter, Explosives…) */
+const combatSteps = ({ combatBonuses = [] }: FireContext, closeAssault: boolean): DiceStep[] =>
+  combatBonuses
+    .filter((bonus) => bonus.closeAssault === undefined || bonus.closeAssault === closeAssault)
+    .map((bonus) => ({ label: cardLabel(bonus.name), dice: bonus.dice, kind: "card", card: bonus.name }));
+
+/** Dice the combat cards played add to this shot: a card's extra dice let the unit keep one more result */
+export const combatBonusDice = (context: FireContext, closeAssault: boolean): number =>
+  combatSteps(context, closeAssault).reduce((sum, step) => sum + step.dice, 0);
 
 /**
  * Dice lost by a unit firing from a hex with barbed wire, by its type. Infantry
@@ -257,7 +245,14 @@ const fromTownSteps = ({ unitType, fromTerrain }: FireContext): DiceStep[] =>
 
 /** Extra dice that don't need a question: the command card's bonuses, and the firing unit's own hex (barbed wire, a town) */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
-  answers.distance ? [...cardSteps(context, answers.distance === "1"), ...wireSteps(context), ...fromTownSteps(context)] : [];
+  answers.distance
+    ? [
+        ...cardSteps(context, answers.distance === "1"),
+        ...combatSteps(context, answers.distance === "1"),
+        ...wireSteps(context),
+        ...fromTownSteps(context),
+      ]
+    : [];
 
 /**
  * A collision in the movement phase (two units cross or land on the same hex):
@@ -271,6 +266,7 @@ export const collisionSteps = (context: FireContext): DiceStep[] => [
   },
   { label: { es: "Choque", en: "Collision" }, dice: -1, kind: "collision" },
   ...cardSteps(context, true),
+  ...combatSteps(context, true),
 ];
 
 /** Reminders kept with every collision roll */

@@ -45,12 +45,6 @@ export interface OrderSummary {
   waiting: boolean;
 }
 
-/** The combat cards played this turn that change the firing order */
-export interface PlayedCombatCards {
-  orderCombatCard?: CombatCard | null;
-  battleCombatCard?: CombatCard | null;
-}
-
 /**
  * Battle order: the units that didn't move fire first, then the units that
  * moved. At the table the two sides alternate one unit at a time within each
@@ -61,21 +55,24 @@ export function summarizeOrders(
   board: BoardManager,
   shots: readonly Shot[] = [],
   unmovedFireSkipped = false,
-  { orderCombatCard = null, battleCombatCard = null }: PlayedCombatCards = {},
+  /** The combat cards played this turn, some of which change the firing order */
+  combatCards: readonly CombatCard[] = [],
   /** Pass and play: units marked to retreat, which can't battle any more this turn */
   retreating: ReadonlySet<Unit> = new Set()
 ): OrderSummary[] {
   const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped, retreating);
   const unmovedLeft = summaries.some((s) => s.hold && s.shotsLeft > 0);
-  // The unit that used the order combat card's movement, when the card makes it fire first
-  const effect = orderCombatCard?.effect;
-  const movedFiresFirst = effect?.kind === "move" && !!effect.firesFirst;
+  // The unit that used a combat card's movement, when the card makes it fire first (Behind Enemy Lines)
+  const movedFiresFirst = (order: Order) => {
+    const effect = combatCards.find((card) => card.id === order.boostCard)?.effect;
+    return effect?.kind === "move" && !!effect.firesFirst;
+  };
   // ¡Fusiles arriba!: any unit may fire first; the first to fire (collisions aside) is the one
-  const anyFiresFirst = battleCombatCard?.effect?.kind === "firesFirst";
+  const anyFiresFirst = combatCards.some((card) => card.effect?.kind === "firesFirst");
   const firstShot = anyFiresFirst ? shots.find((shot) => !shot.collision) : undefined;
   const nobodyWaits = anyFiresFirst && !firstShot;
   return summaries.map((s, i) => {
-    const first = (movedFiresFirst && orders[i]!.boosted) || firstShot?.orderIndex === i;
+    const first = movedFiresFirst(orders[i]!) || firstShot?.orderIndex === i;
     return { ...s, firesFirst: first, waiting: !first && !nobodyWaits && !s.hold && s.shotsLeft > 0 && unmovedLeft };
   });
 }

@@ -80,7 +80,8 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           boardManager={session.board}
           orders={game.orders}
           markers={game.markers}
-          markerKind={game.orderCombatCard?.marker?.kind}
+          markerKind={game.markerKinds}
+          cardBadges={game.assignments}
           backgroundImage={session.scenario.image}
           faction={faction}
         />
@@ -94,7 +95,8 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           faction={faction}
           command={game.chosenCard}
           section={game.chosenSection}
-          combat={game.orderCombatCard}
+          combat={game.combatCardsPlayed}
+          assignments={game.assignments}
         />
         {clearedWire > 0 && (
           // Something to do on the table, so it isn't tucked away in the instructions
@@ -112,15 +114,11 @@ function MovementView({ faction, session, game }: MovementViewProps) {
               <Typography component="li" variant="body1">
                 {t.show}
               </Typography>
-              {game.orderCombatCard && (
-                <Typography component="li" variant="body1" data-testid="order-combat-card">
-                  {t.playing(
-                    tr(game.orderCombatCard.name),
-                    labels.coins(game.orderCombatCard.cost),
-                    tr(game.orderCombatCard.description),
-                  )}
+              {game.combatCardsPlayed.map((card) => (
+                <Typography key={card.id} component="li" variant="body1" data-testid="order-combat-card">
+                  {t.playing(tr(card.name), labels.coins(card.cost), tr(card.description))}
                 </Typography>
-              )}
+              ))}
               <Typography component="li" variant="body1">
                 {t.move}
               </Typography>

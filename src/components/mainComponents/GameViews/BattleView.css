@@ -23,7 +23,7 @@
   order: 3;
 }
 
-/* The reserve: the coins large above the battle combat cards, centred */
+/* The reserve: the coins large above the combat cards played, centred */
 .battle-reserve {
   display: flex;
   flex-direction: column;

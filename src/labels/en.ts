@@ -75,10 +75,6 @@ const en: Labels = {
     [Side.RIGHT]: "Right",
   },
   dieFaces: DIE_FACES,
-  combatPhases: {
-    order: "With the orders",
-    battle: "In the battle",
-  },
   deckReasons: {
     shared: "For everyone",
     attacker: "Attacks",

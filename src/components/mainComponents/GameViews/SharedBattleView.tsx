@@ -3,8 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  FormControlLabel,
-  Switch,
   Dialog,
   DialogActions,
   DialogContent,
@@ -54,7 +52,6 @@ const TEXT = defineMessages({
     target: (unit: string, terrain: string, distance: number) =>
       `${unit} · ${terrain} · a ${distance} ${distance === 1 ? "casilla (asalto cercano)" : "casillas"}`,
     sandbags: "con sacos terreros",
-    useBonus: (card: string, dice: number) => `Usar ${card} (+${dice})`,
     whereDiceComeFrom: "De dónde salen los dados",
     total: (dice: number) => `Total: ${dice}`,
     fire: "Disparar",
@@ -109,7 +106,6 @@ const TEXT = defineMessages({
     target: (unit: string, terrain: string, distance: number) =>
       `${unit} · ${terrain} · ${distance} ${distance === 1 ? "hex away (close assault)" : "hexes away"}`,
     sandbags: "behind sandbags",
-    useBonus: (card: string, dice: number) => `Use ${card} (+${dice})`,
     whereDiceComeFrom: "Where the dice come from",
     total: (dice: number) => `Total: ${dice}`,
     fire: "Fire",
@@ -168,8 +164,6 @@ interface FiringUnitProps {
   aims: readonly ShotAim[];
   /** The target picked on the map */
   aim: ShotAim | null;
-  useBonus: boolean;
-  onUseBonus: (use: boolean) => void;
   onFire: () => void;
   onHold: () => void;
 }
@@ -177,7 +171,7 @@ interface FiringUnitProps {
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 
 /** The unit picked on the map to fire: where it stands, its target and the dice it rolls */
-function FiringUnit({ side, session, order, aims, aim, useBonus, onUseBonus, onFire, onHold }: FiringUnitProps) {
+function FiringUnit({ side, session, order, aims, aim, onFire, onHold }: FiringUnitProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -185,7 +179,6 @@ function FiringUnit({ side, session, order, aims, aim, useBonus, onUseBonus, onF
   const unit = labels.unitKind(summary.unitType, summary.elite);
   const figures = session.figuresAt(summary.firingFrom);
   const range = BASE_DICE_BY_DISTANCE[summary.unitType];
-  const bonusCard = session.combatBonusFor(order);
 
   return (
     <Stack spacing={1} data-testid="firing-unit">
@@ -213,13 +206,6 @@ function FiringUnit({ side, session, order, aims, aim, useBonus, onUseBonus, onF
               {aim.enemy.sandbags && ` · ${t.sandbags}`}
             </Typography>
           </Stack>
-          {aim.bonus !== null && bonusCard && (
-            <FormControlLabel
-              control={<Switch checked={useBonus} onChange={(e) => onUseBonus(e.target.checked)} />}
-              label={t.useBonus(tr(bonusCard.name), aim.bonus)}
-              sx={{ minHeight: 48, m: 0 }}
-            />
-          )}
           <DicePool dice={aim.dice} eightSided={aim.eightSided} faction={side}>
             <InfoButton title={t.whereDiceComeFrom}>
               <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
@@ -265,7 +251,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const { battle } = useSyncExternalStore(match.subscribe, match.getSnapshot);
   /** The unit picked to fire (an order of the side whose turn it is) and its target, on the map */
   const [aiming, setAiming] = useState<{ side: Faction; order: number; target: Position | null } | null>(null);
-  const [useBonus, setUseBonus] = useState(true);
   /** The shot rolled on this screen, whose dice are thrown in: its side and index in that side's shots */
   const [rolled, setRolled] = useState<{ side: Faction; shot: number } | null>(null);
   /** Picking the dice of the shot shown whose results apply; null when not picking */
@@ -310,7 +295,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
       ? fireTurn.session
           .fireTargetsFor(picked.order)
           .filter((target) => target.lineOfSight && target.dice > 0)
-          .flatMap((target) => fireTurn.session.aimAt(picked.order, target.position, useBonus) ?? [])
+          .flatMap((target) => fireTurn.session.aimAt(picked.order, target.position) ?? [])
       : [];
   const aim = picked?.target ? (aims.find((a) => samePosition(a.position, picked.target!)) ?? null) : null;
   const fireablePositions = fireTurn ? battle.fireable.map((order) => summaries[order]!.firingFrom) : [];
@@ -321,17 +306,17 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const boardGame = boardSession.getSnapshot();
   const inBoardView = (faction: Faction, position: Position) => (faction === boardSide ? position : turnedRound(position));
 
-  // The order combat cards' marks: the attacker's, or else the defender's
-  const attackerGame = match.sessions[match.scenario.attacker].getSnapshot();
+  // The combat cards' marks, both sides', the attacker's first
   const defender = otherSide(match.scenario.attacker);
-  const defenderGame = match.sessions[defender].getSnapshot();
-  const marks =
-    attackerGame.markers.length > 0 || defenderGame.markers.length === 0
-      ? {
-          positions: attackerGame.markers.map((m) => inBoardView(match.scenario.attacker, m)),
-          kind: attackerGame.orderCombatCard?.marker?.kind,
-        }
-      : { positions: defenderGame.markers.map((m) => inBoardView(defender, m)), kind: defenderGame.orderCombatCard?.marker?.kind };
+  const markSides = [match.scenario.attacker, defender].map((faction) => ({ faction, game: match.sessions[faction].getSnapshot() }));
+  const marks = {
+    positions: markSides.flatMap(({ faction, game }) => game.markers.map((m) => inBoardView(faction, m))),
+    kind: markSides.flatMap(({ game }) => game.markerKinds),
+  };
+  // The units each side gave a combat card to
+  const cardBadges = markSides.flatMap(({ faction, game }) =>
+    game.assignments.map((a) => ({ position: a.position && inBoardView(faction, a.position) }))
+  );
 
   const tapMap = (position: Position) => {
     if (pick) {
@@ -342,7 +327,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     const order = battle.fireable.find((o) => samePosition(summaries[o]!.firingFrom, position));
     if (order !== undefined) {
       setAiming(picked?.order === order ? null : { side: fireTurn.side, order, target: null });
-      setUseBonus(true);
     } else if (picked && aims.some((a) => samePosition(a.position, position))) {
       setAiming({ ...picked, target: position });
     }
@@ -351,7 +335,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const fire = () => {
     if (!picked || !aim || !fireTurn) return;
     const shot = fireTurn.session.getSnapshot().shots.length;
-    if (!match.fire(picked.order, aim.position, aim.bonus !== null && useBonus)) return;
+    if (!match.fire(picked.order, aim.position)) return;
     play("dice");
     setRolled({ side: fireTurn.side, shot });
   };
@@ -363,10 +347,13 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     setPickedDice(null);
   };
 
-  const attackCard = (faction: Faction) => {
-    const played = match.sessions[faction].getSnapshot().orderCombatCard;
-    return played ? tr(played.name) : "";
-  };
+  /** The attack combat cards a side played (Barrage, Air Power…) */
+  const attackCard = (faction: Faction) =>
+    match.sessions[faction]
+      .getSnapshot()
+      .combatCardsPlayed.filter((card) => card.effect?.kind === "attack")
+      .map((card) => tr(card.name))
+      .join(" · ");
   const retreatingUnit = retreat
     ? match.sessions[retreat.side].board.getHex(retreat.position)?.unit?.getUnitType()
     : undefined;
@@ -395,6 +382,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 selectedTarget={shownShot ? shotTarget : (picked?.target ?? null)}
                 markers={marks.positions}
                 markerKind={marks.kind}
+                cardBadges={cardBadges}
                 possibleMoveAndFirePositions={[]}
                 boardManager={boardSession.board}
                 orders={boardGame.orders}
@@ -595,8 +583,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                       order={picked.order}
                       aims={aims}
                       aim={aim}
-                      useBonus={useBonus}
-                      onUseBonus={setUseBonus}
                       onFire={fire}
                       onHold={() => {
                         if (match.holdFire(picked.order)) setAiming(null);
@@ -683,16 +669,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     faction={cardsOf}
                     coins={game.coins}
                     onShowCoins={() => setCoinsOf(cardsOf)}
-                    canPlayCombatCards={game.canPlayCombatCards}
-                    battleCards={game.combatHand.filter((card) => card.phase === "battle")}
-                    played={game.battleCombatCard}
-                    canUndo={!game.shots.some((shot) => shot.combatBonus)}
-                    onPlay={(card) => {
-                      const done = owner.playBattleCombatCard(card);
-                      if (done) play("cardPlay");
-                      return done;
-                    }}
-                    onUndo={() => owner.undoBattleCombatCard()}
+                    played={game.combatCardsPlayed}
+                    assignments={game.assignments}
                   />
                 );
               })()}

@@ -354,7 +354,6 @@ describe("OrdersView combat card markers", () => {
       name: same("Cortina de Fuego"),
       description: same("4 dados."),
       cost: 0,
-      phase: "order",
       marker: { kind: "target", count: 1 },
     };
     const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders: 1 });
@@ -406,7 +405,6 @@ describe("OrdersView movement combat cards", () => {
       name: same("Terreno helado"),
       description: same(""),
       cost: 0,
-      phase: "order",
       effect: { kind: "move", units: 1, moveBonus: 1 },
     };
     const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders: 2 });
@@ -447,6 +445,103 @@ describe("OrdersView movement combat cards", () => {
     expect(session.getSnapshot().orders[0]!.boosted).toBe(true);
     tap(LEFT_B);
     expect(screen.queryByRole("button", { name: /Usar Terreno helado/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("OrdersView two combat cards", () => {
+  const threeInfantry = {
+    id: "test",
+    name: { es: "Test", en: "Test" },
+    description: same(""),
+    initialHandSize: { allies: 1, axis: 1 },
+    attacker: "Axis" as const,
+    tiles: {},
+    units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
+  };
+  const sessionWith = (played: CombatCard[], orders = 1) => {
+    const card = new CommandCard({ id: "card", name: same("Carta"), sections: [Side.LEFT], orders });
+    const session = new GameSession({ scenario: threeInfantry, faction: "Allies", initialHandSize: 1, commandCards: [card], combatCards: played });
+    session.startFirstTurn();
+    expect(session.pickCard(card, undefined, played)).toBe(true);
+    const { container } = render(<Harness session={session} />);
+    const tap = (p: Position) => fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`)!);
+    return { session, container, tap };
+  };
+
+  it("marks each card's hexes in turn, each drawn its own way", () => {
+    const barrage: CombatCard = { id: "barrage", name: same("Cortina de Fuego"), description: same(""), cost: 0, marker: { kind: "target", count: 1 } };
+    const reinforcements: CombatCard = {
+      id: "reinforcements",
+      name: same("Refuerzos"),
+      description: same(""),
+      cost: 0,
+      marker: { kind: "cross", count: 1 },
+      effect: { kind: "reinforcements", unitType: UnitType.INFANTRY },
+    };
+    const { session, container, tap } = sessionWith([barrage, reinforcements]);
+    act(() => {
+      session.issueOrder(LEFT_A, LEFT_A);
+    });
+    expect(screen.getAllByTestId("order-combat-card")).toHaveLength(2);
+    // Only the first card's hexes are marked first
+    expect(screen.getAllByRole("button", { name: "Marcar en el mapa" })).toHaveLength(1);
+    expect(screen.getByText("Marca las casillas de Cortina de Fuego")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Marcar en el mapa" }));
+    tap({ row: 1, col: 10 });
+    fireEvent.click(screen.getByRole("button", { name: "Marcar en el mapa" }));
+    tap({ row: 2, col: 4 });
+
+    expect(session.getSnapshot().markerKinds).toEqual(["target", "cross"]);
+    expect(container.querySelector('[data-marker="1-10"]')).toHaveClass("board__marker--target");
+    expect(container.querySelector('[data-marker="2-4"]')).toHaveClass("board__marker--cross");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
+    expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
+  });
+
+  it("gives a card to an ordered unit on the map before the orders can be confirmed", () => {
+    const explosives: CombatCard = {
+      id: "explosives",
+      name: same("Explosivos"),
+      description: same(""),
+      cost: 0,
+      assign: { unitTypes: [UnitType.INFANTRY], ordered: true },
+      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.INFANTRY], closeAssault: true },
+    };
+    const { session, container, tap } = sessionWith([explosives]);
+    const panel = screen.getByTestId("order-combat-card");
+    expect(panel).toHaveTextContent("Primero da una orden a infantería.");
+
+    tap(LEFT_A);
+    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    expect(screen.queryByRole("button", { name: "Confirmar Órdenes" })).not.toBeInTheDocument();
+    expect(screen.getByText("Da Explosivos a una unidad")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dar a una unidad" }));
+    tap(LEFT_A);
+
+    expect(session.getSnapshot().assignments).toEqual([{ card: explosives, unitType: UnitType.INFANTRY, position: LEFT_A }]);
+    expect(panel).toHaveTextContent("Para: Infantería");
+    expect(container.querySelector('[data-card-badge="7-1"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
+    expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
+  });
+
+  it("offers each move card's movement to a unit that can use it", () => {
+    const motorized: CombatCard = { id: "motorized", name: same("Motorizado"), description: same(""), cost: 0, effect: { kind: "move", units: 1, moveBonus: 1 } };
+    const forest: CombatCard = { id: "no-respite", name: same("Sin tregua"), description: same(""), cost: 0, effect: { kind: "move", units: 1, fireInto: [] } };
+    const { session, tap } = sessionWith([motorized, forest], 2);
+
+    tap(LEFT_A);
+    expect(screen.getByRole("button", { name: /Usar Motorizado/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Usar Sin tregua/ }));
+    const move = document.querySelector(".hexagon__tile--move, .hexagon__tile--move-and-fire")!.closest("[data-position]")!;
+    fireEvent.click(move);
+
+    expect(session.getSnapshot().orders[0]!.boostCard).toBe("no-respite");
+    tap(LEFT_B);
+    expect(screen.getByRole("button", { name: /Usar Motorizado/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Usar Sin tregua/ })).not.toBeInTheDocument();
   });
 });
 

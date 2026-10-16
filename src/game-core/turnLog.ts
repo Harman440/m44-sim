@@ -64,13 +64,15 @@ export interface TurnRecord {
   coinsAfter: number;
   /** Final phase: 2 coins or a combat card; null in the extra turn or after a card with its own reward */
   reward: RewardChoice | null;
-  /** Combat cards played this turn (with the orders, then in the battle) */
+  /** Combat cards played this turn, with the command card */
   combatCardsPlayed: { id: string; name: Localized }[];
+  /** The cards played that were given to a unit, and the unit (where it stood at the end of the turn) */
+  assignments?: { card: Localized; unit: UnitType; position: Position | null }[];
   /** The combat card drawn in the final phase */
   combatCardDrawn: { id: string; name: Localized } | null;
-  /** Hexes marked for the order combat card */
+  /** Hexes marked for the combat cards played */
   markers: Position[];
-  /** The attack combat card's rolls on the marked hexes */
+  /** The attack combat cards' rolls on the marked hexes */
   cardAttacks: CardAttack[];
 }
 
@@ -84,6 +86,7 @@ interface TurnState {
   coinsAfter: number;
   reward: RewardChoice | null;
   combatCardsPlayed: readonly CombatCard[];
+  assignments: readonly { card: Localized; unit: UnitType; position: Position | null }[];
   combatCardDrawn: CombatCard | null;
   markers: readonly Position[];
   cardAttacks: readonly CardAttack[];
@@ -100,6 +103,7 @@ export function recordTurn({
   coinsAfter,
   reward,
   combatCardsPlayed,
+  assignments,
   combatCardDrawn,
   markers,
   cardAttacks,
@@ -149,6 +153,7 @@ export function recordTurn({
     coinsAfter,
     reward,
     combatCardsPlayed: combatCardsPlayed.map(({ id, name }) => ({ id, name })),
+    assignments: assignments.map(({ card, unit, position }) => ({ card, unit, position: position && { ...position } })),
     combatCardDrawn: combatCardDrawn && { id: combatCardDrawn.id, name: combatCardDrawn.name },
     markers: markers.map((p) => ({ ...p })),
     cardAttacks: cardAttacks.map((attack) => ({

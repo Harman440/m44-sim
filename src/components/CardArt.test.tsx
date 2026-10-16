@@ -13,7 +13,6 @@ const combat = (extra: Partial<CombatCard>): CombatCard => ({
   name: same("Carta"),
   description: same(""),
   cost: 1,
-  phase: "order",
   ...extra,
 });
 
@@ -42,15 +41,15 @@ describe("CombatCardArt", () => {
   });
 
   it("draws the extra die of a dice card", () => {
-    const card = combat({ phase: "battle", effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } });
+    const card = combat({ effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] } });
     const { container } = render(<CombatCardArt card={card} faction="Allies" />);
 
     expect(container.querySelector(".card-art__bonus")).toHaveTextContent("+1");
   });
 
   it("draws a glyph for some cards resolved at the table, and stamps the phase on cards without art of their own", () => {
-    const camouflage = render(<CombatCardArt card={combat({ id: "camouflage-1", phase: "battle" })} faction="Allies" />);
-    const plain = render(<CombatCardArt card={combat({ id: "personal-armor-1", phase: "battle" })} faction="Allies" />);
+    const camouflage = render(<CombatCardArt card={combat({ id: "camouflage-1" })} faction="Allies" />);
+    const plain = render(<CombatCardArt card={combat({ id: "personal-armor-1" })} faction="Allies" />);
 
     expect(camouflage.container.querySelector(".card-art__net")).not.toBeNull();
     expect(plain.container.querySelector(".card-art__seal")).not.toBeNull();

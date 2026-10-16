@@ -38,9 +38,6 @@ const TEXT = defineMessages({
     emptyCloseAssault: "Marca las unidades en asalto cercano para que disparen.",
     emptyNoOrders: "No se dieron órdenes este turno.",
     tapFiresFirst: "Toca en el orden de fuego la unidad que dispara primero.",
-    onlyBeforeFiring: "Solo antes de que dispare ninguna unidad.",
-    needsOrdered: (units: string) => `Necesita una unidad de ${units} con orden.`,
-    or: " o ",
     skipTitle: "¿Pasar a las unidades movidas?",
     skipText: (n: number) =>
       `${
@@ -67,9 +64,6 @@ const TEXT = defineMessages({
     emptyCloseAssault: "Mark the units in close assault so they fire.",
     emptyNoOrders: "No orders were given this turn.",
     tapFiresFirst: "In the firing order, tap the unit that fires first.",
-    onlyBeforeFiring: "Only before any unit fires.",
-    needsOrdered: (units: string) => `Needs an ordered ${units} unit.`,
-    or: " or ",
     skipTitle: "On to the moved units?",
     skipText: (n: number) =>
       `${
@@ -116,14 +110,14 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const tr = useTr();
   // ¡Fusiles arriba! goes before any unit fires (collisions aside)
   const unitFired = game.shots.some((shot) => !shot.collision);
-  const anyFiresFirst = game.battleCombatCard?.effect?.kind === "firesFirst";
+  const anyFiresFirst = game.combatCardsPlayed.some((card) => card.effect?.kind === "firesFirst");
   const closeAssaultCard = game.activeCard?.closeAssaultOnly ?? false;
   const summaries = summarizeOrders(
     game.orders,
     session.board,
     game.shots,
     game.unmovedFireSkipped,
-    { orderCombatCard: game.orderCombatCard, battleCombatCard: game.battleCombatCard }
+    game.combatCardsPlayed
   );
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
@@ -131,11 +125,9 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   // Only units that moved (and are still on the board) can have collided with an enemy unit
   const anyMoved = summaries.some((s) => !s.hold && !s.removed);
   const play = useSound();
-  const battleCards = game.combatHand.filter((card) => card.phase === "battle");
   const [attackingHex, setAttackingHex] = useState<number | null>(null);
-  const attackCard = game.orderCombatCard?.effect?.kind === "attack" ? game.orderCombatCard : null;
+  const attackMark = attackingHex === null ? null : (game.attackMarks.find((mark) => mark.marker === attackingHex) ?? null);
   const attackOn = (marker: number) => game.cardAttacks.find((attack) => attack.marker === marker) ?? null;
-  const bonusUsed = game.shots.some((shot) => shot.combatBonus);
 
   /** After a shot: the dice sound, or the stamp for a shot with no dice */
   const withSound = (fired: boolean) => {
@@ -200,16 +192,14 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               image={session.scenario.image}
               faction={faction}
               onCollision={anyMoved ? () => setCollisionOpen(true) : undefined}
-              attack={
-                attackCard && {
-                  card: attackCard,
-                  markers: game.markers,
-                  attackOn,
-                  pending: game.attacksPending,
-                  onOpen: setAttackingHex,
-                }
-              }
+              attack={{
+                marks: game.attackMarks,
+                attackOn,
+                pending: game.attacksPending,
+                onOpen: setAttackingHex,
+              }}
               onMarkCloseAssault={closeAssaultCard ? () => setMarkingCloseAssault(true) : undefined}
+              assignments={game.assignments}
               // Units wait for the attack combat card's rolls
               onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
               onSkipUnmoved={() => setConfirmingSkip(true)}
@@ -222,10 +212,8 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
               faction={faction}
               coins={game.coins}
               onShowCoins={onShowCoins}
-              canPlayCombatCards={game.canPlayCombatCards}
-              battleCards={battleCards}
-              played={game.battleCombatCard}
-              canUndo={!bonusUsed}
+              played={game.combatCardsPlayed}
+              assignments={game.assignments}
               playedAction={
                 anyFiresFirst &&
                 !unitFired && (
@@ -234,18 +222,6 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
                   </Typography>
                 )
               }
-              blockedReason={(card) => {
-                if (card.effect?.kind === "firesFirst" && unitFired) return t.onlyBeforeFiring;
-                if (card.needsOrdered && !session.hasOrderedUnitFor(card))
-                  return t.needsOrdered(card.needsOrdered.map((type) => labels.units[type].toLowerCase()).join(t.or));
-                return null;
-              }}
-              onPlay={(card) => {
-                const done = session.playBattleCombatCard(card);
-                if (done) play("cardPlay");
-                return done;
-              }}
-              onUndo={() => session.undoBattleCombatCard()}
             />
           </Box>
         </Box>
@@ -263,7 +239,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         summary={firing}
         // An extra order bought with coins gets none of the card's bonuses
         card={firing?.extra ? null : game.activeCard}
-        combatBonus={firingIndex === null ? undefined : session.combatBonusFor(firingIndex)}
+        combatBonuses={firingIndex === null ? undefined : session.combatBonusesFor(firingIndex)}
         faction={faction}
         board={session.board}
         image={session.scenario.image}
@@ -281,16 +257,16 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         onClose={() => setFiringIndex(null)}
       />
 
-      {attackCard && attackCard.effect?.kind === "attack" && (
+      {game.attackMarks.length > 0 && (
         <CardAttackDialog
           key={`attack-${attackingHex ?? "closed"}`}
           hex={
-            attackingHex === null
+            attackMark === null
               ? null
-              : { index: attackingHex, place: labels.describePlace(session.board.getHex(game.markers[attackingHex]!)) }
+              : { index: attackMark.marker, place: labels.describePlace(session.board.getHex(attackMark.position)) }
           }
-          cardName={tr(attackCard.name)}
-          dicePerHex={attackCard.effect.dicePerHex}
+          cardName={attackMark ? tr(attackMark.card.name) : ""}
+          dicePerHex={attackMark?.dicePerHex ?? 0}
           attack={attackingHex === null ? null : attackOn(attackingHex)}
           faction={faction}
           targetKinds={session.targetKinds}
