@@ -48,10 +48,10 @@ describe("CombatCardArt", () => {
   });
 
   it("draws a glyph for some cards resolved at the table, and stamps the phase on cards without art of their own", () => {
-    const fortify = render(<CombatCardArt card={combat({ id: "fortify-1" })} faction="Allies" />);
+    const concentrated = render(<CombatCardArt card={combat({ id: "concentrated-fire-1" })} faction="Allies" />);
     const plain = render(<CombatCardArt card={combat({ id: "personal-armor-1" })} faction="Allies" />);
 
-    expect(fortify.container.querySelector(".card-art__sandbag")).not.toBeNull();
+    expect(concentrated.container.querySelector(".card-art__path--solid")).not.toBeNull();
     expect(plain.container.querySelector(".card-art__seal")).not.toBeNull();
   });
 });

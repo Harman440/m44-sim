@@ -418,7 +418,7 @@ describe("PassAndPlayMatch", () => {
       expect(axis.aimAt(infantry, axisView(4, 2))).toBeNull(); // it has fired
     });
 
-    it("records the hits a unit took this turn until its side's turn ends", () => {
+    it("records the hits a unit took this turn until the turn ends", () => {
       const match = battleMatch();
       allHold(match);
       const axis = match.sessions.Axis;
@@ -429,17 +429,30 @@ describe("PassAndPlayMatch", () => {
       expect(match.opponentOf("Axis").units.find((u) => u.unit.getUnitType() === UnitType.INFANTRY)).toMatchObject({ hitThisTurn: 2 });
 
       match.endBattle();
-      finishTurn(match); // the Axis' extra turn ends; the Allies' turn 2 is still to come
-      expect(hit().hitThisTurn).toBe(2);
-      giveOrders(match);
-      giveOrders(match);
-      carryOut(match);
-      finishTurn(match); // the Axis
-      expect(hit().hitThisTurn).toBe(2);
-      expect(match.pass()).toBe(true);
-      finishTurn(match); // the Allies' turn 2 ends
+      finishTurn(match); // the Axis' extra turn ends, and with it the Allies' share of it
       expect(hit().hitThisTurn).toBe(0);
       expect(hit().figures).toBe(INFANTRY_FIGURES - 2);
+    });
+
+    it("doesn't carry the extra turn's flags into the defender's turn 2", () => {
+      const match = battleMatch(5); // flags
+      allHold(match);
+      const axis = match.sessions.Axis;
+      const infantry = axis.getSnapshot().orders.findIndex((o) => samePosition(o.end, axisView(4, 4)));
+      expect(match.fire(infantry, axisView(4, 2))).toBe(true); // 2 flags: pinned, then 1 hex back
+      const allies = match.sessions.Allies;
+      const flagged = () => allies.getSnapshot().strength.find((u) => u.pinned);
+      expect(flagged()).toBeDefined();
+
+      while (match.getSnapshot().battle!.retreat) {
+        expect(match.retreat(match.getSnapshot().battle!.retreat!.options[0]!)).toBe(true);
+      }
+      match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+      expect(match.endBattle()).toBe(true);
+      finishTurn(match);
+      expect(allies.getSnapshot()).toMatchObject({ turn: 2, phase: TurnPhase.PICK_CARDS });
+      expect(flagged()).toBeUndefined();
+      expect(allies.getSnapshot().strength.every((u) => u.retreats === 0 && u.hitThisTurn === 0)).toBe(true);
     });
 
     it("alternates the sides, the attacker first", () => {

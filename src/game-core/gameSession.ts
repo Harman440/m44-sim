@@ -590,9 +590,20 @@ class GameSession {
   startFirstTurn(): boolean {
     if (this.phase !== TurnPhase.AWAIT_ATTACKER) return false;
 
+    // The attacker's extra turn may have hit this side's units (pass and play): that turn is over
+    this.clearTurnDamage();
     this.turn = 2;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
+  }
+
+  /** What the units suffered and rolled in this turn's battle, which lasts until the turn ends */
+  private clearTurnDamage() {
+    this.standingCollisions = [];
+    this.retreatFlags = new Map();
+    this.retreatsDue = new Map();
+    this.turnHits = new Map();
+    this.armorHits = new Map();
   }
 
   // --- PICK_CARDS
@@ -2426,11 +2437,7 @@ class GameSession {
     this.markers = [];
     this.cardAttacks = [];
     this.assignments = [];
-    this.standingCollisions = [];
-    this.retreatFlags = new Map();
-    this.retreatsDue = new Map();
-    this.turnHits = new Map();
-    this.armorHits = new Map();
+    this.clearTurnDamage();
     this.drawnCombatCard = null;
 
     this.chosenCard = null;
