@@ -51,6 +51,8 @@ Saved games belong to the address they were played on: a game saved on one addre
 - `src/components/`: React + MUI UI; the board is an SVG
 - `src/i18n/` and `src/labels/`: the two languages: the language setting and hooks, and the names of game things (units, terrain, sections…) in each language
 - `docs/PLAN.md`: roadmap and known issues
+- `docs/PASS_AND_PLAY_NEXT.md`: what's left of pass and play
+- `docs/oldPlans/`: the finished plans
 - `CLAUDE.md`: conventions for working on the code
 
 ## Tech

@@ -115,7 +115,7 @@ At the end of each turn (in the last phase) when battling has finished and after
 - Preparations (×4): 1 unit, receive 3 coins and combat card instead of choosing
 
 ## Card rebalance (October 2026)
-Armour was too easy to play, and no card is played as a reaction in the battle any more. Built in the app's Part J (docs/PLAN.md, Steps 58–66); where this section and the lists below disagree, this section is the rule.
+Armour was too easy to play, and no card is played as a reaction in the battle any more. Built in the app's Part J (docs/oldPlans/PLAN-part2.md, Steps 58–66); where this section and the lists below disagree, this section is the rule.
 - Probe: 1 per section, and no more "draw 2, keep 1".
 - Preparations: also draws 2 command cards in the final phase and keeps 1 (on top of its 3 coins and combat card).
 - One more Move Out and one more General Advance in every deck (24 cards).

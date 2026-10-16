@@ -1,12 +1,14 @@
 # Pass and play: plan
 
+**Finished** (PP1–PP7 are built). What's still open is in [../PASS_AND_PLAY_NEXT.md](../PASS_AND_PLAY_NEXT.md). Later changes to pass and play (the card rebalance, pinned units, limited damage dropped automatically, units of one side passing through each other) are in [PLAN-part2.md](PLAN-part2.md) and the commits after it.
+
 A second way to play: both players on **one device**, passing it between them, with **everything played in the app**: no physical board. It lives beside the current mode (one tablet per side, next to the table), which stays as it is.
 
-Work through it one step at a time, as in [PLAN.md](PLAN.md), and tick items off when they're done. Items marked **Decide** need an answer from the player first. The turn follows the simultaneous rules in [house-rules.md](house-rules.md).
+Work through it one step at a time, as in [PLAN.md](../PLAN.md), and tick items off when they're done. Items marked **Decide** need an answer from the player first. The turn follows the simultaneous rules in [house-rules.md](../house-rules.md).
 
 ## What changes from the companion mode
 
-The companion mode rests on two decisions (see PLAN.md) that this mode reverses:
+The companion mode rests on two decisions (see [PLAN.md](../PLAN.md), "Where we are") that this mode reverses:
 - **One shared map with both armies.** The app knows every unit, so it works out line of sight, the enemy's sandbags, targets and terrain itself, and applies casualties and retreats. No "Actualizar mapa", no questions about the table.
 - **Figures per unit.** The app has to apply hits, so units have figures again. **Decided** (not the official counts): infantry 7 figures (7 hits); armour 3 figures, each taking 2 hits (6 hits); artillery 3 pieces (3 hits), then its crew stays as an infantry unit of 1 figure, destroyed by one more hit. The limited-damage rule is applied by the app: a unit keeps at most as many results as it has figures (armour at most 3, infantry down to 2 figures at most 2); cards with bonus dice keep one more.
 
@@ -46,19 +48,19 @@ The attacker's extra first turn is played by the attacker alone (no cover screen
 - [x] `PassAndPlayMatch.moveUnits` and `rollCollision`, saved in `SavedMatch.movement` (`MATCH_SAVE_VERSION` 3). The extra first turn is revealed and carried out too, the attacker's orders alone, as its moves can run into the defender's units
 - [x] The reveal screen: "Mover las unidades", then the map as it stands with each collision numbered on it, and per collision "Tirar los dados" for both units (`ShotDice`); "Seguir" once all are rolled
 - [x] The collision's hits and flags are applied by the app (PP4a)
-- [ ] The one-side screens after the reveal still speak of the table (Movimiento's instructions, the battle's "¿Ha habido un choque?")
+- [x] The one-side screens after the reveal still speak of the table (Movimiento's instructions, the battle's "¿Ha habido un choque?"): done in PP7
 
 ### PP4: Battle
 - [x] **Decided:** a retreat is carried out at once only after a close assault where the attacker takes ground (the attacker asks, the owner picks the hexes); otherwise the unit is marked and retreats after all the battles. Flags add up, and a unit marked to retreat can't battle any more this turn. A unit whose order doesn't let it fire (infantry moving 2, into a forest…) doesn't roll in a collision either, wherever it stopped. The battle is one shared screen, each side's combat cards behind its own button. A retreat is 1 hex per flag toward the unit's own edge, picked by its owner, and a figure is lost for each hex it can't retreat
 - [x] PP4a: figures per unit (`data/figures.ts`: infantry 7, armour 3 of 2 hits each, artillery 3 then a 1-figure infantry crew), kept by each side's session in pass and play (`GameSession.figures`, `sufferHits`, `figuresAt`, `isRetreating`; hits kept from turn to turn, flags for the turn, saved), shown on the tokens with a flag badge for a unit marked to retreat. A marked unit has no shot left (`summarizeOrders`' `retreating`). Collisions are dealt by the app (`PassAndPlayMatch.applyCollision`): both units' results at once, after the player picks the dice when a unit rolled more results than its figures (`keepCollisionResults`, limited damage, `resultLimit`)
 - [x] PP4b: the shared battle (`SharedBattleView`, after the movement): `PassAndPlayMatch.fire`, `holdFire`, `keepShotResults`, `applyShot`, `endBattle`, saved in `SavedMatch.battle` (`MATCH_SAVE_VERSION` 4). The units that didn't move fire first, then the moved ones; in each group the attacker first and the sides alternate, a side with nothing left letting the other go on. Each side's session sees the enemy army (`GameSession.setEnemyView`): only enemy hexes are targets, enemy units block the view (`fireTargets`' `enemies`), and the target's type and sandbags are known (`FireDialog`'s `knownTarget`, no questions; no "Anular disparo", as the hits are dealt at once). Sandbags ignore 1 flag. Each side's combat cards are behind its own button ("Cartas de los Aliados"), with its coins
 - [x] PP4c: retreats and taking ground. "Terminar la batalla" carries out the retreats: the attacker's marked units first, then the defender's, each hex tapped on the map by the unit's player among the two behind it toward its own edge that are free (`GameSession.retreatOptions`, `retreatTo`); with none, the unit loses a figure for that hex (`retreatBlocked`, done by the app). After a close assault that destroyed the enemy unit or marked it to retreat, armour (or infantry with Fragor del combate) is asked "¿Tomar terreno?" (`decideGround`): yes, the enemy unit retreats at once, its player picking the hexes, then the unit moves in and fires once more in close assault (`MatchBattle.bonus`); no, the enemy unit stays marked. A unit marked to retreat can't take ground
-- [ ] **Later:** the attack combat cards (Barrage, Air Power…), Ambush, Close Assault's marking and the cards that stop an enemy unit firing (Out of Ammo, Shell Shortage, Out of Fuel) aren't wired into the shared battle yet: they should be applied by the app instead of "Bloqueado por el rival"
+- [x] **Later** (done in PP6): the attack combat cards (Barrage, Air Power…), Ambush, Close Assault's marking and the cards that stop an enemy unit firing (Out of Ammo, Shell Shortage, Out of Fuel) aren't wired into the shared battle yet: they should be applied by the app instead of "Bloqueado por el rival"
 - [ ] **Decide:** the order of the retreats after the battle (now: the attacker's units first, top of its view first), and whether a retreat may go through or onto a hex the units can't fire from (now: any free, passable hex behind)
 
 ### PP5: Winning
 - [x] **Decided:** no winning for now: the game goes on until the players stop. Winning conditions depend on the scenario and come later
-- [ ] **Later:** medals and objective hexes per scenario, and the end of the game with a summary (from myNextPlan.md)
+- [ ] **Later:** medals and objective hexes per scenario, and the end of the game with a summary (from [myNextPlan.md](../myNextPlan.md))
 
 ## Next steps
 In order; the first ones finish what PP1–PP4 started.
