@@ -107,7 +107,7 @@ export interface SavedGame {
   markers: Position[];
   cardAttacks: CardAttack[];
   /** Cards given to a unit: the card's id and the unit's index */
-  assignments: { card: string; unit: number }[];
+  assignments: { card: string; unit: number; healed?: number }[];
   standingCollisions: StandingCollisionRoll[];
   drawnCombatCard: string | null;
   drops: Position[];
@@ -326,7 +326,7 @@ export function writeSave(
       target: attack.target && { ...attack.target },
       faces: [...attack.faces],
     })),
-    assignments: state.assignments.map(({ card, unit }) => ({ card: card.id, unit: unitIndex(unit) })),
+    assignments: state.assignments.map(({ card, unit, healed }) => ({ card: card.id, unit: unitIndex(unit), ...(healed !== undefined && { healed }) })),
     standingCollisions: state.standingCollisions.map((roll) => ({
       ...roll,
       from: { ...roll.from },
@@ -517,7 +517,11 @@ export function readSave(
     combatCardsPlayed: saved.combatCardsPlayed.map(combatCard),
     markers: readPositions(saved.markers, "Markers"),
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
-    assignments: saved.assignments.map((assignment) => ({ card: combatCard(assignment.card), unit: unit(assignment.unit) })),
+    assignments: saved.assignments.map((assignment) => ({
+      card: combatCard(assignment.card),
+      unit: unit(assignment.unit),
+      ...(assignment.healed !== undefined && { healed: assignment.healed }),
+    })),
     standingCollisions: readStandingCollisions(saved.standingCollisions),
     hits: readUnitCounts(saved.hits, "hits", unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),

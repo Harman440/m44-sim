@@ -402,19 +402,37 @@ function Board({
       });
   };
 
-  /** This side's sandbags, in front of the tokens like a wall */
-  const renderSandbags = () =>
-    boardManager
-      .getAllHexes()
-      .filter((hex) => hex.sandbags)
-      .map((hex) => {
-        const { x, y } = geometry.hexCenter(hex.getPosition());
-        return (
-          <g key={positionKey(hex.getPosition())} data-sandbags-at={positionKey(hex.getPosition())}>
-            <SandbagsArt x={x} y={y} hexSize={hexSize} />
-          </g>
-        );
-      });
+  /**
+   * The sandbags, this side's and the other army's, in front of the tokens like a wall. Each side's
+   * face its enemy: the top of the map for the side it's seen from, the bottom for the other
+   */
+  const renderSandbags = () => {
+    // At the start of the movement the units ordered off their sandbags still stand behind them
+    const left = (list: readonly Order[]) => (atStart ? list.flatMap((order) => order.lostSandbags) : []);
+    const own = [
+      ...boardManager.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : [])),
+      ...left(orders),
+    ].map((position) => ({
+      position,
+      center: geometry.hexCenter(position),
+      side: unitFactionAt?.(position) ?? faction,
+    }));
+    const other = opponent
+      ? [...opponent.sandbags, ...left(opponent.orders)].map((position) => ({
+          position,
+          center: geometry.hexCenter(turnedRound(position, boardWidth, boardHeight)),
+          side: opponent.faction,
+        }))
+      : [];
+    return [...own, ...other].map(({ position, center, side }) => {
+      const key = `${side}-${positionKey(position)}`;
+      return (
+        <g key={key} data-sandbags-at={positionKey(position)} data-sandbags-side={side}>
+          <SandbagsArt x={center.x} y={center.y} hexSize={hexSize} turned={side !== viewSide} />
+        </g>
+      );
+    });
+  };
 
   /** A small card on the units a combat card was given to, at the token's left */
   /** The camouflage token, right of the token, halfway down */

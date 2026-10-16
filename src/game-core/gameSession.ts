@@ -341,6 +341,8 @@ export interface MoveOptions {
 export interface Assignment {
   card: CombatCard;
   unit: Unit;
+  /** Medic, Mechanic: the hits taken off the unit once the orders were carried out (pass and play) */
+  healed?: number;
 }
 
 /** A hex marked for an attack combat card, which rolls there before anyone fires */
@@ -974,6 +976,30 @@ class GameSession {
     const sandbags = hex.sandbags && !crew;
     if (sandbags) hex.setSandbags(false);
     this.addBattleEdit({ kind: "remove", position, unit, ...(crew && { replacement: crew }), ...(sandbags && { sandbags }) });
+    return this.publish();
+  }
+
+  /**
+   * Pass and play, as the orders are carried out (before the battle): the units given Medic or
+   * Mechanic get back their figures, a figure's hits each (an armour figure hit once is mended
+   * whole). Once a turn; the hits taken off are kept on the assignment
+   */
+  heal(): boolean {
+    if (!this.figures || this.phase !== TurnPhase.MOVEMENT) return false;
+    const due = this.assignments.filter((a) => a.card.effect?.kind === "heal" && a.healed === undefined);
+    if (due.length === 0) return false;
+    const hits = new Map(this.hits);
+    this.assignments = this.assignments.map((assignment) => {
+      const effect = assignment.card.effect;
+      if (!due.includes(assignment) || effect?.kind !== "heal") return assignment;
+      const { unit } = assignment;
+      const healed = Math.min(hits.get(unit) ?? 0, effect.figures * FIGURES[unit.getUnitType()].hitsPerFigure);
+      const left = (hits.get(unit) ?? 0) - healed;
+      if (left > 0) hits.set(unit, left);
+      else hits.delete(unit);
+      return { ...assignment, healed };
+    });
+    this.hits = hits;
     return this.publish();
   }
 
@@ -1627,6 +1653,14 @@ class GameSession {
     return this.publish();
   }
 
+  /** Pass and play: the other side took the wire off this hex (a tank went through it, infantry removed it) */
+  wireRemovedByEnemy(position: Position): boolean {
+    const hex = this.board.getHex(position);
+    if (!this.figures || !hex?.wire) return false;
+    hex.setWire(false);
+    return this.publish();
+  }
+
   // Fortify: in the battle, the side's ordered infantry may put sandbags on its hex instead of firing
 
   /** The unit of this order may fortify now, instead of its next shot (not on a hex that has sandbags) */
@@ -2051,6 +2085,8 @@ class GameSession {
       .filter((hex) => {
         const unit = hex.unit;
         if (!unit || !rule.unitTypes.includes(unit.getUnitType())) return false;
+        // Medic, Mechanic: pass and play knows which units are weakened; own tablets don't
+        if (rule.weakened && this.figures && !this.hits.get(unit)) return false;
         return !rule.ordered || this.orders.some((order) => order.unit === unit);
       })
       .map((hex) => hex.getPosition());

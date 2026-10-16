@@ -24,8 +24,10 @@ function SandbagsIcon({ size = 36 }: { size?: number }) {
  * Sandbags on a hex of the SVG board: the sandbags piece, along the two top
  * edges of the hex, facing the enemy (each side sees it at the top of its map),
  * drawn over the token. Its image is the hex's box, with the piece where it sits.
+ * `turned`: the sandbags of the side the map isn't seen from, whose enemy is at
+ * the bottom, along the two bottom edges.
  */
-export function SandbagsArt({ x, y, hexSize }: { x: number; y: number; hexSize: number }) {
+export function SandbagsArt({ x, y, hexSize, turned = false }: { x: number; y: number; hexSize: number; turned?: boolean }) {
   const width = hexSize * Math.sqrt(3);
   const height = hexSize * 2;
   return (
@@ -37,6 +39,7 @@ export function SandbagsArt({ x, y, hexSize }: { x: number; y: number; hexSize: 
       width={width}
       height={height}
       preserveAspectRatio="none"
+      transform={turned ? `rotate(180 ${x} ${y})` : undefined}
       pointerEvents="none"
       data-testid="sandbags"
     />

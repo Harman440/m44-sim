@@ -36,10 +36,10 @@ const cards = () => [
 ];
 
 /** Test mode: every combat card in hand and plenty of supplies. Every die shows `face` (0: infantry, 5: flag) */
-const newMatch = (face = 0) => {
+const newMatch = (face = 0, map: Scenario = scenario) => {
   const side = (faction: Faction) =>
     new GameSession({
-      scenario,
+      scenario: map,
       faction,
       initialHandSize: 9,
       commandCards: cards(),
@@ -48,7 +48,7 @@ const newMatch = (face = 0) => {
       figures: true,
       random: () => face / 6,
     });
-  return new PassAndPlayMatch(scenario, { Allies: side("Allies"), Axis: side("Axis") });
+  return new PassAndPlayMatch(map, { Allies: side("Allies"), Axis: side("Axis") });
 };
 
 const axisView = (row: number, col: number) => turnedRound({ row, col });
@@ -59,7 +59,13 @@ const axisView = (row: number, col: number) => turnedRound({ row, col });
  */
 const play = (
   match: PassAndPlayMatch,
-  { card = "all", combat, marks = [], moves = [] }: { card?: string; combat?: string; marks?: Position[]; moves?: [Position, Position][] } = {}
+  {
+    card = "all",
+    combat,
+    marks = [],
+    moves = [],
+    assign,
+  }: { card?: string; combat?: string; marks?: Position[]; moves?: [Position, Position][]; assign?: Position } = {}
 ) => {
   match.uncover();
   const session = match.activeSession();
@@ -73,6 +79,7 @@ const play = (
     const position = session.getSnapshot().orderable[0]!;
     expect(session.issueOrder(position, position)).toBe(true);
   }
+  if (assign) expect(session.assignCard(assign)).toBe(true);
   expect(session.commitOrders()).toBe(true);
 };
 
@@ -140,6 +147,54 @@ describe("combat cards in the shared battle", () => {
     expect(allies.board.getHex({ row: 4, col: 2 })!.sandbags).toBe(true);
     expect(match.sessions.Axis.enemyAt(axisView(4, 2))?.sandbags).toBe(true);
     expect(match.getSnapshot().battle).toMatchObject({ side: "Axis" });
+  });
+
+  it("gives Medic's weakened infantry its figures back as the orders are carried out, before the battle", () => {
+    const match = newMatch();
+    const allies = match.sessions.Allies;
+    allies.sufferHits({ row: 4, col: 2 }, 3, 0);
+    toTurn2Battle(match, {}, { combat: "medic", assign: { row: 4, col: 2 } });
+
+    expect(allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES - 1);
+    expect(match.opponentOf("Axis").units.find((u) => samePosition(u.position, { row: 4, col: 2 }))?.figures).toBe(INFANTRY_FIGURES - 1);
+  });
+
+  it("lets infantry on barbed wire remove it instead of firing, from both sides' boards", () => {
+    const wired: Scenario = { ...scenario, wire: [{ row: 4, col: 2 }] };
+    const match = newMatch(0, wired);
+    toTurn2Battle(match);
+    const allies = match.sessions.Allies;
+    const infantry = allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, { row: 4, col: 2 }));
+
+    expect(match.removeWire(infantry)).toBe(false); // the Axis goes first
+    match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    expect(match.removeWire(infantry)).toBe(true);
+    expect(allies.board.getHex({ row: 4, col: 2 })!.wire).toBe(false);
+    expect(match.sessions.Axis.board.getHex(axisView(4, 2))!.wire).toBe(false);
+    expect(allies.shotsLeft(infantry)).toBe(0);
+    expect(match.getSnapshot().battle).toMatchObject({ side: "Axis" });
+  });
+
+  it("takes the wire a tank went through off the other side's board once the orders are carried out", () => {
+    const wired: Scenario = { ...scenario, wire: [{ row: 5, col: 2 }] };
+    const match = newMatch(0, wired);
+    play(match);
+    match.moveUnits();
+    match.finishReveal();
+    while (match.getSnapshot().battle?.side) match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    match.endBattle();
+    match.uncover();
+    const axis = match.sessions.Axis;
+    if (axis.getSnapshot().needsRewardChoice) axis.chooseReward("coins");
+    axis.endTurn();
+    play(match);
+    play(match, { moves: [[{ row: 6, col: 2 }, { row: 5, col: 2 }]] });
+    // Hidden from the Axis until the orders are carried out
+    expect(axis.board.getHex(axisView(5, 2))!.wire).toBe(true);
+
+    expect(match.moveUnits()).toBe(true);
+    expect(match.sessions.Allies.board.getHex({ row: 5, col: 2 })!.wire).toBe(false);
+    expect(axis.board.getHex(axisView(5, 2))!.wire).toBe(false);
   });
 
   it("rolls Concentrated Fire's units together at one enemy, in one go before the enemy answers", () => {

@@ -1,9 +1,5 @@
 - Art work for cards
- Cards that need background removed:
-    - esplosives
-    - reposition
-    - fortify
-    - spotter
+
  Cards using default art: refuel
 
 - Think about special unit that hit with star
@@ -30,11 +26,5 @@
 - collision are very buggy.  Find bugs there
 
 - concentrated fire roll different dice depending on if it is close assault or not: bug
-
-- sandbags sometimes dissapear and are not oriented correctly: bug
-
-- Barbed wire should still be removable by infantry instead of battling
-
-- medic and mechanic dont heal
 
 - Tell AI to create a rule book for the game and a tutorial. a ver que tal

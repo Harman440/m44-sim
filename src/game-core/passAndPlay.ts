@@ -146,6 +146,8 @@ export interface ArmyView {
   orders: readonly Order[];
   /** Its units with the camouflage badge, as they stood at the start of the turn while its orders are secret */
   camouflaged: readonly Position[];
+  /** Its sandbags, as they stood at the start of the turn while its orders are secret */
+  sandbags: readonly Position[];
 }
 
 /** A side's position in the Allies' view of the board, or back: the Axis sees it turned round */
@@ -271,6 +273,9 @@ class PassAndPlayMatch {
     const turn = this.revealTurn();
     if (turn === null || this.movement?.turn === turn) return false;
 
+    // Medic, Mechanic: the units given them get their figures back before anything moves
+    for (const side of FACTIONS) this.sessions[side].heal();
+
     const movers: Mover[] = [];
     const standers: Stander[] = [];
     for (const side of FACTIONS) {
@@ -294,6 +299,8 @@ class PassAndPlayMatch {
         .map((end) => ({ order: end.order, at: inAlliesView(side, end.end) }));
       if (halts.length > 0 && !this.sessions[side].haltOrders(halts)) return false;
     }
+    // The tanks that went through barbed wire took it off the other side's board too
+    this.settleWire();
     this.movement = {
       turn,
       collisions: result.collisions.map((collision) => ({ ...collision, rolls: null, applied: false })),
@@ -514,6 +521,38 @@ class PassAndPlayMatch {
     return this.publish();
   }
 
+  /** Infantry whose turn it is on barbed wire removes it instead of firing, from both sides' boards */
+  removeWire(order: number): boolean {
+    const turn = this.battleTurn();
+    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
+    const session = this.sessions[turn.side];
+    const shot = session.getSnapshot().shots.length;
+    if (!session.removeWire(order)) return false;
+    this.settleWire();
+    const battle = this.battle!;
+    this.battle = {
+      ...battle,
+      fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot }],
+      bonus: null,
+    };
+    return this.publish();
+  }
+
+  /**
+   * Each side's board has the scenario's wire; a side takes it off its own (a tank going
+   * through it, infantry removing it). Once that's in the open, it goes from the other's too
+   */
+  private settleWire() {
+    const allies = this.sessions.Allies;
+    const axis = this.sessions.Axis;
+    for (const hex of allies.board.getAllHexes()) {
+      const position = hex.getPosition();
+      const other = axis.board.getHex(turnedRound(position));
+      if (hex.wire && !other?.wire) allies.wireRemovedByEnemy(position);
+      else if (!hex.wire && other?.wire) axis.wireRemovedByEnemy(turnedRound(position));
+    }
+  }
+
   /** The unit whose turn it is holds its fire: it gives up its shot */
   holdFire(order: number): boolean {
     const turn = this.battleTurn();
@@ -554,6 +593,7 @@ class PassAndPlayMatch {
     }
     const session = this.sessions[ground.side];
     if (!session.takeGround(ground.order)) return false;
+    this.settleWire();
     // Infantry that pushed the enemy back moves in without firing again
     const pushedBack = session.getSnapshot().shots.findLast((s) => s.orderIndex === ground.order)?.pushedBack;
     this.battle = { ...this.battle!, ground: null, bonus: pushedBack ? null : { ...ground } };
@@ -758,11 +798,14 @@ class PassAndPlayMatch {
       };
     };
     const army = armyOf(session).map((placed) => ({ ...placed, ...strength(placed.position) }));
-    if (revealed) return { faction, units: army, orders: game.orders, camouflaged: game.camouflaged };
+    const sandbags = session.board.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : []));
+    if (revealed) return { faction, units: army, orders: game.orders, camouflaged: game.camouflaged, sandbags };
 
     const startOf = new Map(game.orders.map((order) => [order.unit, order.start]));
     const units = army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position }));
-    return { faction, units, orders: [], camouflaged: session.camouflagedAtStart() };
+    // A unit ordered off its sandbags left them, but the enemy can't see that yet
+    const left = game.orders.flatMap((order) => order.lostSandbags);
+    return { faction, units, orders: [], camouflaged: session.camouflagedAtStart(), sandbags: [...sandbags, ...left] };
   }
 
   save(): SavedMatch {

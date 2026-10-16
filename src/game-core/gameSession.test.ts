@@ -3494,7 +3494,9 @@ describe("GameSession defensive combat cards", () => {
     attacker: "Axis",
     units: { ...scenario.units, allies: { ...scenario.units.allies, artillery: [ARTILLERY] } },
   };
-  const allCards = [notOneStepBack, personalArmor, camouflage, reposition];
+  const medic = defensive("medic", { kind: "heal", figures: 2 }, { unitTypes: [UnitType.INFANTRY], ordered: true, weakened: true });
+  const mechanic = defensive("mechanic", { kind: "heal", figures: 1 }, { unitTypes: [UnitType.TANK, UnitType.ARTILLERY], ordered: true, weakened: true });
+  const allCards = [notOneStepBack, personalArmor, camouflage, reposition, medic, mechanic];
   /** The defender's turn 2 in test mode, the "all" card played with `played` */
   const turnWith = (played: CombatCard[], figures = false) => {
     const commandCards = cards();
@@ -3520,6 +3522,14 @@ describe("GameSession defensive combat cards", () => {
     }
     expect(session.commitOrders()).toBe(true);
     expect(session.startBattle()).toBe(true);
+  };
+  /** Hold orders for every unit not ordered yet and confirm them: the movement phase */
+  const confirmOrders = (session: GameSession) => {
+    while (session.getSnapshot().ordersLeft > 0 && session.getSnapshot().orderable.length > 0) {
+      const position = session.getSnapshot().orderable[0]!;
+      expect(session.issueOrder(position, position)).toBe(true);
+    }
+    expect(session.commitOrders()).toBe(true);
   };
   const nextTurn = (session: GameSession) => {
     if (session.getSnapshot().phase === TurnPhase.BATTLE) expect(session.endBattle()).toBe(true);
@@ -3551,6 +3561,50 @@ describe("GameSession defensive combat cards", () => {
     // Only its unit
     restored.sufferHits(OTHER_INF, 1, 0, [DieFace.INFANTRY]);
     expect(restored.figuresAt(OTHER_INF)).toBe(5);
+  });
+
+  it("Médico: only goes to a weakened ordered infantry unit, which gets up to 2 figures back as the orders are carried out", () => {
+    const session = turnWith([medic], true);
+    session.sufferHits(LEFT_INF, 3, 0);
+    expect(session.issueOrder(OTHER_INF, OTHER_INF)).toBe(true);
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+    expect(session.getSnapshot().assigning?.positions).toEqual([LEFT_INF]); // not the unit that wasn't hit
+    expect(session.assignCard(LEFT_INF)).toBe(true);
+    expect(session.heal()).toBe(false); // not while ordering
+    confirmOrders(session);
+
+    expect(session.heal()).toBe(true);
+    expect(session.figuresAt(LEFT_INF)).toBe(5);
+    expect(session.heal()).toBe(false); // once a turn
+    const restored = GameSession.restore(JSON.parse(JSON.stringify(session.save())), defender, cards(), allCards);
+    expect(restored.heal()).toBe(false);
+    expect(restored.figuresAt(LEFT_INF)).toBe(5);
+  });
+
+  it("Mecánico: mends one figure's hits, and an armour figure hit once whole", () => {
+    const lost = turnWith([mechanic], true);
+    lost.sufferHits(TANK, 3, 0); // a figure lost and the next one hit once
+    expect(lost.issueOrder(TANK, TANK)).toBe(true);
+    expect(lost.assignCard(TANK)).toBe(true);
+    confirmOrders(lost);
+    lost.heal();
+    expect(lost.getSnapshot().strength.find((unit) => samePosition(unit.position, TANK))).toMatchObject({ figures: 3, damaged: true });
+
+    const scratched = turnWith([mechanic], true);
+    scratched.sufferHits(TANK, 1, 0);
+    expect(scratched.issueOrder(TANK, TANK)).toBe(true);
+    expect(scratched.assignCard(TANK)).toBe(true);
+    confirmOrders(scratched);
+    scratched.heal();
+    expect(scratched.getSnapshot().strength.find((unit) => samePosition(unit.position, TANK))).toMatchObject({ figures: 3, damaged: false });
+  });
+
+  it("Médico on own tablets: any ordered infantry can take it, and the app heals nothing", () => {
+    const session = turnWith([medic]);
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+    expect(session.assignCard(LEFT_INF)).toBe(true);
+    confirmOrders(session);
+    expect(session.heal()).toBe(false);
   });
 
   it("Camuflaje: the unit given it gets the badge after the battle and keeps it until it moves", () => {

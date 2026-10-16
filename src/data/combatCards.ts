@@ -121,14 +121,32 @@ const TEMPLATES: CombatCardTemplate[] = [
       en: "3 armor units ignore terrain when moving (battle restrictions still apply).",
     },
     { effect: { kind: "move", units: 3, unitTypes: [UnitType.TANK], ignoreTerrain: true } }),
-  card("medic", { es: "Médico", en: "Medic" }, 2, always, {
-    es: "1 infantería debilitada con orden recupera hasta 2 figuras.",
-    en: "1 weakened ordered infantry unit recovers up to 2 figures.",
-  }),
-  card("mechanic", { es: "Mecánico", en: "Mechanic" }, 2, ifSide("tanks", (side) => side.tanks), {
-    es: "1 unidad de blindados o artillería debilitada con orden recupera 1 figura.",
-    en: "1 weakened ordered armor or artillery unit recovers 1 figure.",
-  }),
+  card("medic", { es: "Médico", en: "Medic" }, 2, always,
+    {
+      es: "Dásela a 1 infantería debilitada con orden: antes de la batalla recupera hasta 2 figuras. Se mueve y combate como siempre.",
+      en: "Give it to 1 weakened ordered infantry unit: before the battle it recovers up to 2 figures. It moves and battles as usual.",
+    },
+    {
+      assign: { unitTypes: [UnitType.INFANTRY], ordered: true, weakened: true },
+      effect: { kind: "heal", figures: 2 },
+      battleReminder: {
+        es: "Médico: devuelve en la mesa hasta 2 figuras perdidas a tu infantería con la carta.",
+        en: "Medic: put back up to 2 lost figures on the table on your infantry with the card.",
+      },
+    }),
+  card("mechanic", { es: "Mecánico", en: "Mechanic" }, 2, ifSide("tanks", (side) => side.tanks),
+    {
+      es: "Dásela a 1 unidad de blindados o artillería debilitada con orden: antes de la batalla recupera 1 figura. Se mueve y combate como siempre.",
+      en: "Give it to 1 weakened ordered armor or artillery unit: before the battle it recovers 1 figure. It moves and battles as usual.",
+    },
+    {
+      assign: { unitTypes: [UnitType.TANK, UnitType.ARTILLERY], ordered: true, weakened: true },
+      effect: { kind: "heal", figures: 1 },
+      battleReminder: {
+        es: "Mecánico: devuelve en la mesa 1 figura perdida a tu unidad con la carta.",
+        en: "Mechanic: put back 1 lost figure on the table on your unit with the card.",
+      },
+    }),
   card("infiltrators", { es: "Tras las líneas enemigas", en: "Behind Enemy Lines" }, 4, always,
     {
       es: "1 infantería con orden se mueve hasta 3 casillas sin que el terreno la detenga y aun así combate, antes que cualquier otra unidad (las restricciones de combate se mantienen). En la fase final se mueve otras 3 casillas.",

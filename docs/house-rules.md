@@ -156,8 +156,8 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Reinforcements — 6: roll a die (depending on the map add the unit rolled; flag = no reinforcements)
 
 ### New order combat cards (cost)
-- Medic — 2: 1 weak ordered infantry unit receives up to 2 figures
-- Mechanic — 2: 1 weak ordered armor/artillery unit receives 1 figure
+- Medic — 2: 1 weak ordered infantry unit receives up to 2 figures. Given to the unit while ordering; the figures come back as the orders are carried out, before the battle, and the unit moves and battles as usual
+- Mechanic — 2: 1 weak ordered armor/artillery unit receives 1 figure, the same way. For armour a figure is 2 hits, so a tank hit only once counts as weak and is mended whole
 - Lost Message — 5: opponent loses 2 orders of his choice
 - Tactician — 2: change the section of a section card
 - Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; supplies count and retreats can't be ignored

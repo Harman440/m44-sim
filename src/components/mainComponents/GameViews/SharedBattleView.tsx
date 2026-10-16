@@ -26,6 +26,7 @@ import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
 import SandbagsIcon from "../../SandbagsIcon";
+import { BarbedWireIcon } from "../../BarbedWire";
 import DiceResult, { rollDuration } from "../../DiceResult";
 import RollReading from "../../RollReading";
 import ShotSteps from "../../ShotSteps";
@@ -69,6 +70,7 @@ const TEXT = defineMessages({
     hold: "No disparar",
     holdLabel: (unit: string) => `${unit}: no disparar`,
     fortify: "Fortificar sin disparar",
+    removeWire: "Quitar la alambrada sin disparar",
     suppressive: "Fuego de supresión",
     concentrated: "Fuego concentrado: suma unidades",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice}`,
@@ -120,6 +122,7 @@ const TEXT = defineMessages({
     hold: "Hold fire",
     holdLabel: (unit: string) => `${unit}: hold fire`,
     fortify: "Fortify, no shot",
+    removeWire: "Remove the wire, no shot",
     suppressive: "Suppressive Fire",
     concentrated: "Concentrated Fire: add units",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice}`,
@@ -168,12 +171,14 @@ interface FiringUnitProps {
   onHold: () => void;
   /** Fortify was played: the unit puts sandbags on its hex instead of firing */
   onFortify: () => void;
+  /** Infantry on barbed wire removes it instead of firing */
+  onRemoveWire: () => void;
 }
 
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 
 /** The unit picked on the map to fire: where it stands, its target and the dice it rolls */
-function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify }: FiringUnitProps) {
+function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify, onRemoveWire }: FiringUnitProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -274,6 +279,11 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
         </Typography>
       )}
 
+      {game.canRemoveWire[order] && (
+        <Button variant="outlined" color="warning" startIcon={<BarbedWireIcon size={28} />} onClick={onRemoveWire}>
+          {t.removeWire}
+        </Button>
+      )}
       {session.getSnapshot().canFortify[order] && (
         <Button variant="outlined" color="warning" startIcon={<SandbagsIcon size={28} />} onClick={onFortify}>
           {t.fortify}
@@ -592,6 +602,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                       }}
                       onFortify={() => {
                         if (match.fortify(picked.order)) setAiming(null);
+                      }}
+                      onRemoveWire={() => {
+                        if (match.removeWire(picked.order)) setAiming(null);
                       }}
                     />
                   ) : (

@@ -52,6 +52,8 @@ export interface AssignRule {
   unitTypes: readonly UnitType[];
   /** Only a unit with an order this turn */
   ordered: boolean;
+  /** Pass and play: only a unit that has lost a figure or taken a hit (Medic, Mechanic); on own tablets any unit */
+  weakened?: boolean;
 }
 
 /** The effects the app applies; the rest is resolved at the table */
@@ -70,6 +72,8 @@ export type CombatEffect =
   | { kind: "ignoreHits"; face: DieFace; hits: number }
   /** Camouflage: the unit it's given to gets the camouflage badge after the battle */
   | { kind: "camouflage" }
+  /** Medic, Mechanic: as the orders are carried out (before the battle), the unit it's given to gets back up to this many figures */
+  | { kind: "heal"; figures: number }
   /** Reposition: after the battle, the unit it's given to moves up to this many hexes */
   | { kind: "reposition"; hexes: number }
   /** Concentrated Fire: this side's units that didn't move may fire at the same enemy unit together, in one roll */
