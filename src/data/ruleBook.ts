@@ -547,6 +547,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Contra el ordenador", en: "Against the computer" },
+        house: {
+          es: "Con «Contra el ordenador» juegas un bando y el ordenador el otro, en tu dispositivo y sin pantalla que tape el juego. Solo ve lo que vería un jugador: tus órdenes no, hasta que se muestran. Elige su carta y da sus órdenes a la vez que tú; en la batalla dispara tras una pausa, y sus dados quedan sobre el mapa hasta que tocas «Seguir». Por ahora es muy sencillo: acerca sus unidades al enemigo más cercano, dispara con la que más dados tira y no juega cartas de combate.",
+          en: "With \"Against the computer\" you play one side and the computer the other, on your device and with no screen covering the game. It sees only what a player would: not your orders, until they're shown. It picks its card and gives its orders as you give yours; in the battle it fires after a pause, and its dice stay on the map until you tap \"Continue\". For now it's very simple: it moves its units toward the nearest enemy, fires with the unit that rolls the most dice and plays no combat cards.",
+        },
+      },
+      {
         title: { es: "Sin victoria por ahora", en: "No victory for now" },
         house: {
           es: "La partida sigue hasta que los jugadores paren; las medallas llegarán más adelante.",

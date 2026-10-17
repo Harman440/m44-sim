@@ -46,6 +46,9 @@ const TEXT = defineMessages({
       `Los dos jugadores en este dispositivo, pasándolo en cada turno. ${
         side ? `El mapa se ve siempre desde el lado de: ${side}.` : "Elige antes el bando desde cuyo lado se ve el mapa."
       }`,
+    computer: "Contra el ordenador",
+    computerHelp: (side: string | null) =>
+      side ? `Juegas con ${side}; el ordenador, con el otro bando.` : "Elige antes tu bando: el ordenador juega con el otro.",
     tapScenario: "Toca un escenario para ver su mapa y sus bandos.",
     nextGame: "Para la próxima partida.",
     longRangeDie: "Dado de 8 caras a distancia",
@@ -94,6 +97,9 @@ const TEXT = defineMessages({
       `Both players on this device, passing it every turn. ${
         side ? `The map is always seen from this side: ${side}.` : "First pick the side the map is seen from."
       }`,
+    computer: "Against the computer",
+    computerHelp: (side: string | null) =>
+      side ? `You play the ${side}; the computer plays the other side.` : "First pick your side: the computer plays the other.",
     tapScenario: "Tap a scenario to see its map and its sides.",
     nextGame: "For the next game.",
     longRangeDie: "8-sided die at range",
@@ -351,6 +357,21 @@ function Menu({
                   </Button>
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
                     {t.passAndPlayHelp(faction ? labels.factions[faction] : null)}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    disabled={!faction || problems.length > 0}
+                    onClick={() =>
+                      faction &&
+                      onPassAndPlay({ scenarioId: scenario.id, mainSide: faction, longRangeDie, artilleryCrew, testMode, computer: true })
+                    }
+                    startIcon={<GameIcon name="offensive" />}
+                  >
+                    {t.computer}
+                  </Button>
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                    {t.computerHelp(faction ? labels.factions[faction] : null)}
                   </Typography>
                 </Stack>
               )}

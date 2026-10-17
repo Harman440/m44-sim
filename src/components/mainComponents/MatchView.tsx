@@ -7,6 +7,7 @@ import { OpponentContext, ViewSideContext } from "../OpponentContext";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import { defineMessages, useMessages } from "../../i18n/useI18n";
+import { useComputerPlayer } from "./useComputerPlayer";
 
 const TEXT = defineMessages({
   es: {
@@ -54,7 +55,10 @@ function MatchView(props: MatchViewProps) {
 }
 
 function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
-  const { active, covered, revealTurn, canPass, battle } = useSyncExternalStore(match.subscribe, match.getSnapshot);
+  const snapshot = useSyncExternalStore(match.subscribe, match.getSnapshot);
+  const { active, covered, revealTurn, canPass, battle } = snapshot;
+  // Against the computer: it plays its side whenever it has something to do
+  useComputerPlayer(match, snapshot, !!battle);
   // The sides whose hand has been dealt on screen: it isn't dealt again each time the device comes back
   const dealt = useRef(new Set<Faction>(resumed ? ["Allies", "Axis"] : []));
   const onOwnScreen = revealTurn === null && !battle && !covered;

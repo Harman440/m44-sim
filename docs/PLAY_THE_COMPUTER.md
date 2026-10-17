@@ -46,13 +46,14 @@ PassAndPlayMatch (ai: "Axis")
 - [x] The soak test is a check on the rules engine too: anything it turns up goes in [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md) section 1. Its first run, 3 seeds on each built-in scenario, turned up nothing: every game played its 20 turns (Pegasus Bridge once ended at turn 19 with the Axis wiped out)
 
 ### AI3: Playing it
-- [ ] Menu: "Contra el ordenador" / "Against the computer" beside "Pasar y jugar": the person picks a scenario and their side; the computer gets the other
-- [ ] `useComputerPlayer(match)` in `MatchView`: drives the computer's side; a quiet "El ordenador está pensando…" / "The computer is thinking…" while it has something left to do (it usually finishes its orders before the person picks a card)
-- [ ] Shared battle: the computer's shots land on the map with their dice and the side column says which unit fired at what; **Decide:** after each of its shots the person taps "Seguir", or it goes on by itself after a pause
-- [ ] Its retreats and taking ground show as moves (the tokens already glide)
-- [ ] Reload mid-turn: the match resumes and the computer carries on where it was
-- [ ] The rule book (`data/ruleBook.ts`), README and CLAUDE.md describe it
+- [x] Menu: "Contra el ordenador" / "Against the computer" beside "Pasar y jugar": the person picks a scenario and their side; the computer gets the other
+- [x] `useComputerPlayer(match)` in `MatchView`: drives the computer's side outside the battle, at once (its paradrop, cards, orders and final phase are done before the person sees the screen); in the battle, "El ordenador está pensando…" / "The computer is thinking…" while it waits to act
+- [x] Shared battle: the computer's shots land on the map with their dice and the side column says which unit fired at what; **Decided:** after each of its shots the person taps "Seguir" (it fires after a short pause, `COMPUTER_PAUSE_MS`)
+- [x] Its retreats and taking ground show as moves (the tokens already glide)
+- [x] Reload mid-turn: the match resumes and the computer carries on where it was
+- [x] The rule book (`data/ruleBook.ts`), README and CLAUDE.md describe it
 - [ ] Checked at 1280×800 and 800×1280 with touch, in Spanish and English: a whole match against the computer, as each side, on a scenario with an extra first turn and one with a paradrop
+  - Checked so far (2026-10-17, headless Chromium with touch): Arracourt as the Allies through turn 3 at 1280×800 (the computer's extra turn, both battles, the final phase, reloads in the Command Zone, Órdenes and the battle); the menu in Spanish and the battle at 800×1280, no sideways scroll; the first screen as the Axis in Arracourt and as each side in Sainte-Mère-Église (the person's paradrop, and the computer's). Left: a whole match on the tablet
 
 ### AI4: A better computer (later, once the basic one is played)
 Ideas to try, each one a brain change with a test, measured by playing the new brain against the old one in the soak test:
@@ -68,4 +69,4 @@ Ideas to try, each one a brain change with a test, measured by playing the new b
 - **Decided** (2026-10-17): the computer sees only its own side and the other army as a person would: no peeking at the person's orders, even though they're in the app
 - **Decided:** no combat cards for the very basic computer: it takes supplies every turn and doesn't spend them (in the soak test it ends 20 turns with about 50)
 - **Decided:** collisions and the reveal stay the person's taps, as both sides' units roll there at once
-- [ ] **Decide:** its shots in the battle: "Seguir" after each one, or a pause (see AI3)
+- **Decided:** after each of the computer's shots in the battle, the person taps "Seguir" (a pause before it, so its turn can be followed)

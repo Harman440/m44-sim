@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Box,
@@ -41,6 +41,7 @@ import BattleReserve from "./BattleReserve";
 import CoinsDialog from "../../CoinsDialog";
 import { OpponentContext } from "../../OpponentContext";
 import { useSound } from "../../../sound";
+import { computerStep } from "../useComputerPlayer";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 import "../GameView.css";
 import "./PhaseLayout.css";
@@ -75,6 +76,7 @@ const TEXT = defineMessages({
     concentrated: "Fuego concentrado: suma unidades",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice}`,
     nobody: "Ninguna unidad puede disparar ya.",
+    thinking: "El ordenador está pensando…",
     cards: { Allies: "Cartas de los Aliados", Axis: "Cartas del Eje" },
     cardsPrivate: "Solo su jugador mira estas cartas.",
     close: "Cerrar",
@@ -127,6 +129,7 @@ const TEXT = defineMessages({
     concentrated: "Concentrated Fire: add units",
     joinUnit: (unit: string, dice: number) => `${unit} · +${dice}`,
     nobody: "No unit can fire any more.",
+    thinking: "The computer is thinking…",
     cards: { Allies: "Allied cards", Axis: "Axis cards" },
     cardsPrivate: "Only their player looks at these cards.",
     close: "Close",
@@ -157,6 +160,20 @@ interface SharedBattleViewProps {
 }
 
 const noop = () => {};
+
+/** How long the computer waits before each thing it does in the battle, so the person can follow */
+const COMPUTER_PAUSE_MS = 900;
+
+/** What the computer's side has to do in the battle now, if anything */
+function computerTurn(match: PassAndPlayMatch, battle: NonNullable<ReturnType<PassAndPlayMatch["getSnapshot"]>["battle"]>) {
+  const computer = match.computer;
+  if (!computer) return null;
+  if (battle.attacks.includes(computer)) return "attack";
+  if (battle.attacks.length > 0) return null;
+  if (battle.retreat) return battle.retreat.side === computer ? "retreat" : null;
+  if (battle.ground) return battle.ground.side === computer ? "ground" : null;
+  return battle.side === computer && battle.fireable.length > 0 ? "fire" : null;
+}
 
 interface FiringUnitProps {
   side: Faction;
@@ -316,6 +333,27 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [attackShown, setAttackShown] = useState<Faction | null>(null);
   const tr = useTr();
+  const computer = match.computer;
+  const computerActs = battle ? computerTurn(match, battle) : null;
+  const computerWaits = !!computerActs && !rolled && !attackShown;
+
+  // The computer plays its turn after a pause; its shot stays up until the person taps "Seguir"
+  useEffect(() => {
+    if (!computerWaits || !computer) return;
+    const timer = setTimeout(() => {
+      const shots = match.sessions[computer].getSnapshot().shots.length;
+      if (!computerStep(match)) return;
+      if (computerActs === "attack") {
+        play("dice");
+        setAttackShown(computer);
+      } else if (match.sessions[computer].getSnapshot().shots.length > shots) {
+        play("dice");
+        setRolled({ side: computer, shot: shots });
+      }
+    }, COMPUTER_PAUSE_MS);
+    return () => clearTimeout(timer);
+  }, [computerWaits, computerActs, computer, match, battle, play]);
+
   if (!battle) return null;
 
   const mainSide = match.mainSide;
@@ -330,7 +368,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   // The map picks a hex for a unit of one side: a retreat. The board drawn is that side's, so its
   // positions need no turning: the map is still seen from the main side (ViewSideContext)
   const retreat = battle.retreat;
-  const pick = retreat
+  const pick = retreat && retreat.side !== computer
     ? { side: retreat.side, from: retreat.position as Position | null, options: retreat.options, act: (p: Position) => match.retreat(p) }
     : null;
 
@@ -341,7 +379,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const shownUnit = shownShot ? shownSession!.orderSummaries()[shownShot.orderIndex] : undefined;
 
   // Firing: the side whose turn it is taps one of its units, then a target
-  const fireTurn = !pick && !shownShot && !battle.ground && side && session ? { side, session } : null;
+  const fireTurn =
+    !pick && !retreat && !shownShot && !battle.ground && side && side !== computer && session ? { side, session } : null;
   const picked = fireTurn && aiming?.side === fireTurn.side && battle.fireable.includes(aiming.order) ? aiming : null;
   const pickedSummary = picked ? summaries[picked.order] : undefined;
   const aims: ShotAim[] =
@@ -535,7 +574,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
               )}
 
               {/* An attack card goes before anyone fires */}
-              {battle.attacks.map((faction) => (
+              {battle.attacks.filter((faction) => faction !== computer).map((faction) => (
                 <Stack key={faction} spacing={1} data-testid="card-attack">
                   <Typography variant="body2">{t.attack(attackCard(faction), labels.factions[faction])}</Typography>
                   <Button
@@ -564,7 +603,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     {t.retreatText(retreatingUnit ? labels.units[retreatingUnit] : "", retreat.flags)}
                   </Typography>
                 </Stack>
-              ) : battle.ground && groundUnit ? (
+              ) : battle.ground && groundUnit && battle.ground.side !== computer ? (
                 <Stack spacing={1} data-testid="take-ground">
                   <Typography variant="subtitle1" component="h2">
                     {t.groundTitle}
@@ -611,6 +650,15 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     <Typography variant="body2">{t.tapUnit}</Typography>
                   )}
                 </Stack>
+              ) : computerActs ? (
+                !shownShot && (
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }} data-testid="computer-thinking">
+                    {computer && <FactionInsignia faction={computer} size={28} decorative />}
+                    <Typography variant="body2" color="text.secondary">
+                      {t.thinking}
+                    </Typography>
+                  </Stack>
+                )
               ) : (
                 battle.attacks.length === 0 &&
                 !shownShot && (

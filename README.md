@@ -11,6 +11,8 @@ Each turn:
 
 "Ajustes" (Settings) on the start menu picks the language, one of three looks (field map, board-game box or command tent) and turns sound effects on or off.
 
+Two other ways to play, with no physical board: **Pasar y jugar** (pass and play), both sides on one device, and **Contra el ordenador** (against the computer), pass and play with the computer as the other side; for now a very basic one.
+
 The UI is in Spanish and English. It starts in the browser's language (Spanish for any Spanish locale, English otherwise), and the choice in Settings is remembered per device. Each player picks their own, so two players can play in different languages.
 
 ## Getting started
@@ -52,6 +54,7 @@ Saved games belong to the address they were played on: a game saved on one addre
 - `src/i18n/` and `src/labels/`: the two languages: the language setting and hooks, and the names of game things (units, terrain, sections…) in each language
 - `docs/PLAN.md`: roadmap and known issues
 - `docs/PASS_AND_PLAY_NEXT.md`: what's left of pass and play
+- `docs/PLAY_THE_COMPUTER.md`: playing against the computer
 - `docs/oldPlans/`: the finished plans
 - `CLAUDE.md`: conventions for working on the code
 

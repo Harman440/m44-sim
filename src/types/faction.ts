@@ -12,6 +12,8 @@ export const isFaction = (value: unknown): value is Faction =>
 export type MatchSetup = Omit<GameSetup, "faction"> & {
   /** The side whose end of the table the device sits at: the map is always seen from it */
   mainSide: Faction;
+  /** The computer plays the other side */
+  computer?: boolean;
 };
 
 /** What the menu starts a game with */

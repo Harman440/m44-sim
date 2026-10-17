@@ -7,7 +7,7 @@ import { scenarios } from './data/scenarios';
 import { commandDeckFor } from './data/commandCards';
 import { allCombatCards, combatDeckFor } from './data/combatCards';
 import GameSession from './game-core/gameSession';
-import PassAndPlayMatch from './game-core/passAndPlay';
+import PassAndPlayMatch, { otherSide } from './game-core/passAndPlay';
 import GameView from './components/mainComponents/LazyGameView';
 import MatchView from './components/mainComponents/MatchView';
 import MapEditor from './components/mapEditor/LazyMapEditor';
@@ -198,7 +198,7 @@ const App = () => {
         // Both armies are in the app: units have figures and take the hits
         Allies: newSession(drawn, 'Allies', setup, true),
         Axis: newSession(drawn, 'Axis', setup, true),
-      }, { mainSide: setup.mainSide });
+      }, { mainSide: setup.mainSide, computer: setup.computer ? otherSide(setup.mainSide) : null });
       setGame((prev) => ({ play: { match }, resumed: false, number: (prev?.number ?? 0) + 1 }));
     });
   };
