@@ -9,6 +9,7 @@ Earlier plans are finished and kept in [oldPlans/](oldPlans/): [part 1](oldPlans
 Two ways to play:
 - **Own tablets:** one device per side, next to the physical board. The full turn loop works and survives reloads: Menu → Carta → Órdenes → Movimiento → Batalla → Final → next turn, with the attacker's extra first turn, the house command and combat decks (rebalanced in part 2's Part J), supplies, combat card effects, the long-range die, a rule book, and Spanish and English. Two decisions still hold here: **each device knows only its own side** (anything about the opponent is done at the table), and **no figure counts** (the app tracks whole units).
 - **Pass and play:** both sides on one device, with everything played in the app, figures per unit and the hits dealt by the app. What's left of it is in [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md).
+- **Against the computer** (planned, not built): pass and play with the computer as one side, in [PLAY_THE_COMPUTER.md](PLAY_THE_COMPUTER.md).
 
 Four built-in scenarios, all settled: Forêt d'Écouves, Arracourt, Sainte-Mère-Église and Pegasus Bridge. A map editor whose maps go into "Mis mapas" on the device; a new map's settings (big guns, air sorties, hands…) are decided as it's made, in the editor or from the scenario's PDF (Step 67).
 

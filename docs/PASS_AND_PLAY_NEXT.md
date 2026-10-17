@@ -25,4 +25,4 @@ The risky parts, to watch in a match with "Modo prueba" (every combat card in th
 
 ## Later
 - Fog of war
-- Playing against the computer ([myNextPlan.md](myNextPlan.md))
+- Playing against the computer: planned in [PLAY_THE_COMPUTER.md](PLAY_THE_COMPUTER.md)
