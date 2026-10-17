@@ -748,6 +748,72 @@ describe("PassAndPlayMatch", () => {
   });
 });
 
+describe("a match against the computer", () => {
+  // The person plays the Allies, the defender; the computer the Axis
+  const newComputerMatch = () =>
+    new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { computer: "Axis" });
+
+  /** A side's card and hold orders, given straight on its session */
+  const holdAll = (session: GameSession) => {
+    expect(session.pickCard(session.getSnapshot().hand[0]!)).toBe(true);
+    while (session.getSnapshot().ordersLeft > 0) {
+      const position = session.getSnapshot().orderable[0]!;
+      expect(session.issueOrder(position, position)).toBe(true);
+    }
+    expect(session.commitOrders()).toBe(true);
+  };
+
+  const endTurn = (session: GameSession) => {
+    if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("coins")).toBe(true);
+    expect(session.endTurn()).toBe(true);
+  };
+
+  it("keeps the device with the person, with no cover screen, seen from their side", () => {
+    const match = newComputerMatch();
+    expect(match.computer).toBe("Axis");
+    expect(match.mainSide).toBe("Allies");
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, canPass: false });
+    expect(match.uncover()).toBe(false);
+    expect(match.pass()).toBe(false);
+  });
+
+  it("plays the computer's extra turn, then reveals once both sides have locked their orders", () => {
+    const match = newComputerMatch();
+    const { Allies: person, Axis: computer } = match.sessions;
+
+    holdAll(computer); // the extra first turn, the computer's alone
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, revealTurn: 1 });
+    carryOut(match);
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, battle: null });
+    endTurn(computer);
+    expect(person.getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
+
+    holdAll(person);
+    // Locking the person's orders hands nothing over: the computer hasn't given its own yet
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, revealTurn: null });
+    holdAll(computer);
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, revealTurn: 2 });
+
+    expect(match.moveUnits()).toBe(true);
+    expect(match.finishReveal()).toBe(true);
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, battle: { turn: 2 } });
+    expect(match.endBattle()).toBe(true);
+    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, battle: null });
+  });
+
+  it("saves and restores the computer's side, without the cover screen", () => {
+    const match = newComputerMatch();
+    holdAll(match.sessions.Axis);
+
+    const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), scenario, restoreSide);
+
+    expect(restored.computer).toBe("Axis");
+    expect(restored.mainSide).toBe("Allies");
+    expect(restored.getSnapshot()).toMatchObject({ active: "Allies", covered: false, revealTurn: 1 });
+    expect(PassAndPlayMatch.restore(JSON.parse(JSON.stringify(newMatch().save())), scenario, restoreSide).computer).toBeNull();
+  });
+});
+
 describe("sections in pass and play", () => {
   it("follow the main side's left and right for both sides", () => {
     // Allies at the device: a hex on the Allies' left is the left for the Axis too

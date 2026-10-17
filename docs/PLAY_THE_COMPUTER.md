@@ -35,15 +35,15 @@ PassAndPlayMatch (ai: "Axis")
 ## Steps
 
 ### AI1: A match with a computer side (game-core)
-- [ ] `PassAndPlayMatch` takes `computer?: Faction` (the other side is the person's; `mainSide` is the person's side). With one: no cover screen, `active` is always the person's side, locking orders never hands the device over, `canPass` is false, and `finishBattle` leaves the person's final phase uncovered
-- [ ] Saved in `SavedMatch` (`computer`), `MATCH_SAVE_VERSION` bumped
-- [ ] Tests in `passAndPlay.test.ts`: a turn where the computer's session is driven by hand calls — no cover screen, no hand over, the reveal comes once both have locked; save and restore keep the computer side
+- [x] `PassAndPlayMatch` takes `computer?: Faction` (the other side is the person's; `mainSide` is the person's side). With one: no cover screen, `active` is always the person's side, locking orders never hands the device over, `canPass` is false, and `finishBattle` leaves the person's final phase uncovered
+- [x] Saved in `SavedMatch` (`computer`), `MATCH_SAVE_VERSION` bumped
+- [x] Tests in `passAndPlay.test.ts`: a turn where the computer's session is driven by hand calls — no cover screen, no hand over, the reveal comes once both have locked; save and restore keep the computer side
 
 ### AI2: The very basic computer
-- [ ] `src/game-core/ai/aiStep.ts`: the driver (what the side must do now, one action) and `Brain`, the interface it asks
-- [ ] `src/game-core/ai/basicBrain.ts`: the very basic brain in the table above. It must never stall: when no option it likes is allowed, it takes any allowed one (the first card, standing still, holding fire)
-- [ ] Tests: each decision on a small board (`basicBrain.test.ts`); and a soak test, computer against computer, on every built-in scenario with seeded dice, for 20 turns or until one side has no units: no exception, every turn ends, `aiStep` never loops without changing the snapshot
-- [ ] The soak test is a check on the rules engine too: anything it turns up goes in [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md) section 1
+- [x] `src/game-core/ai/aiStep.ts`: the driver (what the side must do now, one action) and `Brain`, the interface it asks
+- [x] `src/game-core/ai/basicBrain.ts`: the very basic brain in the table above. It must never stall: when no option it likes is allowed, it takes any allowed one (the first card, standing still, holding fire)
+- [x] Tests: each decision on a small board (`basicBrain.test.ts`); and a soak test, computer against computer, on every built-in scenario with seeded dice, for 20 turns or until one side has no units: no exception, every turn ends, `aiStep` never loops without changing the snapshot
+- [x] The soak test is a check on the rules engine too: anything it turns up goes in [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md) section 1. Its first run, 3 seeds on each built-in scenario, turned up nothing: every game played its 20 turns (Pegasus Bridge once ended at turn 19 with the Axis wiped out)
 
 ### AI3: Playing it
 - [ ] Menu: "Contra el ordenador" / "Against the computer" beside "Pasar y jugar": the person picks a scenario and their side; the computer gets the other
@@ -64,8 +64,8 @@ Ideas to try, each one a brain change with a test, measured by playing the new b
 - [ ] Objectives once there are medals and objective hexes (PP5, [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md) section 3)
 - [ ] **Decide:** levels to pick in the menu (Fácil, Normal…)
 
-## Decide before building
-- [ ] **The computer sees only its own side** and the other army as a person would (proposed above): no peeking at the person's orders, even though they're in the app
-- [ ] **No combat cards** for the very basic computer (proposed): it takes supplies every turn and doesn't spend them. The alternative is to let it play the cards the app applies by itself from the start
-- [ ] **Its shots in the battle**: "Seguir" after each one, or a pause (see AI3)
-- [ ] **Collisions and the reveal** stay the person's taps (proposed), as both sides' units roll there at once
+## Decisions
+- **Decided** (2026-10-17): the computer sees only its own side and the other army as a person would: no peeking at the person's orders, even though they're in the app
+- **Decided:** no combat cards for the very basic computer: it takes supplies every turn and doesn't spend them (in the soak test it ends 20 turns with about 50)
+- **Decided:** collisions and the reveal stay the person's taps, as both sides' units roll there at once
+- [ ] **Decide:** its shots in the battle: "Seguir" after each one, or a pause (see AI3)

@@ -13,7 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 14;
+export const MATCH_SAVE_VERSION = 15;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -22,6 +22,8 @@ export interface SavedMatch {
   active: Faction;
   /** The side the map is seen from on every screen; older saves without it take the attacker */
   mainSide?: Faction;
+  /** The side the computer plays, if any */
+  computer?: Faction | null;
   revealedTurn: number;
   movement: MatchMovement | null;
   battle: MatchBattle | null;
@@ -183,6 +185,11 @@ class PassAndPlayMatch {
   readonly sessions: Readonly<Record<Faction, GameSession>>;
   /** The side whose end of the table the device sits at: every map is seen from it, for both players */
   readonly mainSide: Faction;
+  /**
+   * The side the computer plays, if any: the device stays with the person's side, so there's no
+   * cover screen and nothing is handed over. The computer gives its side's actions like a player would
+   */
+  readonly computer: Faction | null;
   private active: Faction;
   private covered: boolean;
   /** The last turn whose orders were shown to both players and carried out */
@@ -197,13 +204,15 @@ class PassAndPlayMatch {
     scenario: Scenario,
     sessions: Record<Faction, GameSession>,
     {
-      active = scenario.attacker,
-      mainSide = scenario.attacker,
+      computer = null,
+      active = computer ? otherSide(computer) : scenario.attacker,
+      mainSide = computer ? otherSide(computer) : scenario.attacker,
       covered = true,
       revealedTurn = 0,
       movement = null,
       battle = null,
     }: {
+      computer?: Faction | null;
       active?: Faction;
       mainSide?: Faction;
       covered?: boolean;
@@ -220,9 +229,10 @@ class PassAndPlayMatch {
     }
     this.scenario = scenario;
     this.sessions = sessions;
-    this.active = active;
+    this.computer = computer;
+    this.active = computer ? otherSide(computer) : active;
     this.mainSide = mainSide;
-    this.covered = covered;
+    this.covered = computer ? false : covered;
     this.revealedTurn = revealedTurn;
     this.movement = movement;
     this.battle = battle;
@@ -428,7 +438,7 @@ class PassAndPlayMatch {
     }
     // A unit given a second flag in a collision retreats now, before anyone fires
     this.settleRetreats();
-    this.active = this.scenario.attacker;
+    this.active = this.person() ?? this.scenario.attacker;
     this.covered = false;
     return this.publish();
   }
@@ -652,8 +662,13 @@ class PassAndPlayMatch {
   private finishBattle() {
     for (const side of FACTIONS) this.sessions[side].endBattle();
     this.battle = null;
-    this.active = this.scenario.attacker;
-    this.covered = true;
+    this.active = this.person() ?? this.scenario.attacker;
+    this.covered = !this.computer;
+  }
+
+  /** The person's side, playing against the computer */
+  private person(): Faction | null {
+    return this.computer ? otherSide(this.computer) : null;
   }
 
   /**
@@ -814,6 +829,7 @@ class PassAndPlayMatch {
       sides: { allies: this.sessions.Allies.save(), axis: this.sessions.Axis.save() },
       active: this.active,
       mainSide: this.mainSide,
+      computer: this.computer,
       revealedTurn: this.revealedTurn,
       movement: this.movement && JSON.parse(JSON.stringify(this.movement)),
       battle: this.battle && JSON.parse(JSON.stringify(this.battle)),
@@ -831,6 +847,8 @@ class PassAndPlayMatch {
     if (saved.mainSide !== undefined && saved.mainSide !== "Allies" && saved.mainSide !== "Axis") {
       throw new Error(`Invalid side ${saved.mainSide}`);
     }
+    const computer = saved.computer ?? null;
+    if (computer !== null && computer !== "Allies" && computer !== "Axis") throw new Error(`Invalid side ${computer}`);
     if (!Number.isInteger(saved.revealedTurn)) throw new Error("Invalid revealed turn");
     const sessions = { Allies: restoreSide(saved.sides.allies), Axis: restoreSide(saved.sides.axis) };
     const movement = saved.movement;
@@ -842,6 +860,7 @@ class PassAndPlayMatch {
       throw new Error("Invalid battle");
     }
     return new PassAndPlayMatch(scenario, sessions, {
+      computer,
       active: saved.active,
       mainSide: saved.mainSide,
       revealedTurn: saved.revealedTurn,
@@ -885,11 +904,13 @@ class PassAndPlayMatch {
   }
 
   private canPass(): boolean {
-    if (this.covered || this.revealTurn() !== null || this.battle) return false;
+    if (this.computer || this.covered || this.revealTurn() !== null || this.battle) return false;
     return this.sessions[otherSide(this.active)].getSnapshot().phase !== TurnPhase.AWAIT_ATTACKER;
   }
 
   private handOver() {
+    // Against the computer the device never changes hands
+    if (this.computer) return;
     this.active = otherSide(this.active);
     this.covered = true;
   }
