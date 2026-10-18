@@ -36,7 +36,7 @@ const cards = () => [
 ];
 
 /** Test mode: every combat card in hand and plenty of supplies. Every die shows `face` (0: infantry, 5: flag) */
-const newMatch = (face = 0, map: Scenario = scenario) => {
+const newMatch = (face = 0, map: Scenario = scenario, longRangeDie = false) => {
   const side = (faction: Faction) =>
     new GameSession({
       scenario: map,
@@ -46,6 +46,7 @@ const newMatch = (face = 0, map: Scenario = scenario) => {
       combatCards: allCombatCards(),
       testMode: true,
       figures: true,
+      longRangeDie,
       random: () => face / 6,
     });
   return new PassAndPlayMatch(map, { Allies: side("Allies"), Axis: side("Axis") });
@@ -216,5 +217,44 @@ describe("combat cards in the shared battle", () => {
     expect(match.sessions.Axis.figuresAt(axisView(4, 3)) ?? 0).toBe(Math.max(0, INFANTRY_FIGURES - shot.dice));
     expect(allies.shotsLeft(tank)).toBe(0);
     expect(match.getSnapshot().battle).toMatchObject({ side: "Axis" });
+  });
+
+  it("rolls Concentrated Fire's unit in close assault with the battle die, and one joining from range with the 8-sided die", () => {
+    const match = newMatch(0, scenario, true);
+    toTurn2Battle(match, {}, { combat: "concentrated-fire" });
+    match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    const allies = match.sessions.Allies;
+    const orderAt = (p: Position) => allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, p));
+    const infantry = orderAt({ row: 4, col: 2 }); // next to the target
+    const tank = orderAt({ row: 6, col: 2 }); // 2 hexes away
+    const target = { row: 4, col: 3 };
+    const [option] = allies.joinable(infantry, { position: target, infantry: true, sandbags: false });
+    expect(option).toMatchObject({ order: tank, eightSided: true });
+
+    expect(match.fire(infantry, target, { joined: [tank] })).toBe(true);
+    const shot = allies.getSnapshot().shots.at(-2)!;
+    expect(shot.target).toMatchObject({ closeAssault: true, die: "battle" });
+    const kinds = shot.kinds!;
+    expect(kinds.filter((kind) => kind === "battle")).toHaveLength(shot.dice - option!.dice);
+    expect(kinds.filter((kind) => kind === "longRange")).toHaveLength(option!.dice);
+  });
+
+  it("rolls Concentrated Fire's unit at range with the 8-sided die, and one joining in close assault with the battle die", () => {
+    const match = newMatch(0, scenario, true);
+    toTurn2Battle(match, {}, { combat: "concentrated-fire" });
+    match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    const allies = match.sessions.Allies;
+    const orderAt = (p: Position) => allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, p));
+    const infantry = orderAt({ row: 4, col: 2 });
+    const tank = orderAt({ row: 6, col: 2 });
+    const target = { row: 4, col: 3 };
+    const [option] = allies.joinable(tank, { position: target, infantry: true, sandbags: false });
+    expect(option).toMatchObject({ order: infantry, eightSided: false });
+
+    expect(match.fire(tank, target, { joined: [infantry] })).toBe(true);
+    const shot = allies.getSnapshot().shots.at(-2)!;
+    const kinds = shot.kinds!;
+    expect(kinds.filter((kind) => kind === "longRange")).toHaveLength(shot.dice - option!.dice);
+    expect(kinds.filter((kind) => kind === "battle")).toHaveLength(option!.dice);
   });
 });

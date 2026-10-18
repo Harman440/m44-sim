@@ -209,7 +209,8 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
   // Concentrated Fire: the units that can roll with this one at the target, and the ones joined that still can
   const options = aim ? session.joinable(order, { position: aim.position, infantry: true, sandbags: false, suppressive }) : [];
   const joined = chosen.filter((o) => options.some((option) => option.order === o));
-  const joinedDice = options.filter((option) => joined.includes(option.order)).reduce((sum, option) => sum + option.dice, 0);
+  const joinedOptions = options.filter((option) => joined.includes(option.order));
+  const joinedDice = joinedOptions.reduce((sum, option) => sum + option.dice, 0);
   const summaries = session.orderSummaries();
 
   return (
@@ -271,7 +272,7 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
               ))}
             </Stack>
           )}
-          <DicePool dice={aim.dice + joinedDice} eightSided={aim.eightSided} faction={side}>
+          <DicePool dice={aim.dice} eightSided={aim.eightSided} joined={joinedOptions} faction={side}>
             <InfoButton title={t.whereDiceComeFrom}>
               <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
                 {aim.steps.map((step) => (

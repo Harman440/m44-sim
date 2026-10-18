@@ -13,7 +13,7 @@ import { Position } from "../types/scenario";
 import { Faction } from "../types/faction";
 import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import Board from "./Board";
-import DicePool, { DICE_TEXT } from "./DicePool";
+import DicePool, { useDiceText } from "./DicePool";
 import HexThumbnail from "./HexThumbnail";
 import InfoButton from "./InfoButton";
 import SandbagsIcon from "./SandbagsIcon";
@@ -92,6 +92,8 @@ export interface FireAimChoice {
 export interface JoinableUnit {
   order: number;
   dice: number;
+  /** It throws the 8-sided long-range die (from range, with the long-range die) */
+  eightSided: boolean;
   label: string;
   position: Position;
 }
@@ -145,7 +147,7 @@ function FireAim({
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const diceText = useMessages(DICE_TEXT).dice;
+  const diceText = useDiceText();
   const [picked, setPicked] = useState<Position | null>(null);
   const [chosenKind, setKind] = useState<TargetChoice | null>(initialChoice(targetKinds));
   const [chosenSandbags, setSandbags] = useState(false);
@@ -197,7 +199,7 @@ function FireAim({
       : null;
   const joinOptions = choiceSoFar && joinable ? joinable(choiceSoFar) : [];
   const joined = chosenJoined.filter((order) => joinOptions.some((option) => option.order === order));
-  const joinedDice = joinOptions.filter((option) => joined.includes(option.order)).reduce((sum, option) => sum + option.dice, 0);
+  const joinedOptions = joinOptions.filter((option) => joined.includes(option.order));
   const toggleJoined = (order: number) =>
     setJoined(joined.includes(order) ? joined.filter((o) => o !== order) : [...joined, order]);
   const result = target ? calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps) : null;
@@ -388,7 +390,7 @@ function FireAim({
         )}
         {result && !result.blocked && (
           <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
-            <DicePool dice={result.dice + joinedDice} eightSided={eightSided} faction={faction}>
+            <DicePool dice={result.dice} eightSided={eightSided} joined={joinedOptions} faction={faction}>
               <InfoButton title={t.whereDiceComeFrom}>
                 <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
                   {result.steps.map((s) => (
@@ -397,16 +399,14 @@ function FireAim({
                       <Typography variant="body1">{formatDice(s.dice)}</Typography>
                     </Stack>
                   ))}
-                  {joinOptions
-                    .filter((option) => joined.includes(option.order))
-                    .map((option) => (
+                  {joinedOptions.map((option) => (
                       <Stack key={option.order} direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
                         <Typography variant="body1">{option.label}</Typography>
                         <Typography variant="body1">{formatDice(option.dice)}</Typography>
                       </Stack>
                     ))}
                   <Typography variant="h6" sx={{ mt: 1 }}>
-                    {t.total(diceText(result.dice + joinedDice, eightSided))}
+                    {t.total(diceText([{ dice: result.dice, eightSided }, ...joinedOptions]))}
                   </Typography>
                 </Stack>
               </InfoButton>

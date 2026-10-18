@@ -7,7 +7,7 @@ What's left of [PASS_AND_PLAY.md](oldPlans/PASS_AND_PLAY.md) (PP1–PP7 are buil
 ## 1. Fixes from the playtest
 The player played a match after the latest changes: everything else worked. The bugs from [myNextPlan.md](myNextPlan.md) are still there:
 - [ ] Collisions: reaching a hex first must give no priority. Today the order units arrive in decides things (of two units of one side ending on one hex, the later arrival goes back along its path; check where else the step or order counts). **Decide** with the player what happens instead, then cover it with tests in `simultaneousMove.test.ts` and `passAndPlay.test.ts` and fix it
-- [ ] Concentrated Fire's dice: **Decided:** a unit in close assault rolls the battle die, and a unit firing at range that joins it adds its dice as 8-sided long-range dice (when the long-range die is on), all in the one roll. Check what the app rolls now for a mixed group, test it and fix it
+- [x] Concentrated Fire's dice: **Decided:** a unit in close assault rolls the battle die, and a unit firing at range that joins it adds its dice as 8-sided long-range dice (when the long-range die is on), all in the one roll. The roll already did so (tested both ways in `passAndPlayCards.test.ts`); the bug was the dice shown before the roll, all of the leading unit's kind. `DicePool` now draws each joined unit's dice on its own die (`JoinOption.eightSided`), in 2D and 3D, with a mixed total ("3 dados y 2 dados de 8 caras")
 - [ ] (Add what the next games turn up)
 
 ## 2. Checks for the next game

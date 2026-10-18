@@ -86,8 +86,8 @@ function Die({ pool, textures, at }: DieProps) {
 export interface DicePool3DProps {
   /** The row of dice: the canvas covers it, and each die sits on its `[data-die-slot]` */
   container: HTMLElement;
-  dice: number;
-  die: DieKind;
+  /** Each die's kind, in its slot (a mixed roll for Concentrated Fire) */
+  dies: readonly DieKind[];
   faction: Faction;
   /** Pop the dice in and out; otherwise (reduced motion) they simply appear and go */
   animate: boolean;
@@ -98,7 +98,9 @@ export interface DicePool3DProps {
  * canvas over the row. A die added pops in, a die taken away drops out, and
  * when the die changes the old dice go and the new ones come in.
  */
-function DicePool3D({ container, dice, die, faction, animate }: DicePool3DProps) {
+function DicePool3D({ container, dies, faction, animate }: DicePool3DProps) {
+  // The dice as one value, so the pool only changes when they do
+  const signature = dies.join(",");
   const [slots, setSlots] = useState<Point[]>(() => measureSlots(container));
   const [pool, setPool] = useState<PoolDie[]>([]);
   // The latest pool and slots, read when the dice change (kept in refs so the change is worked out once)
@@ -108,18 +110,23 @@ function DicePool3D({ container, dice, die, faction, animate }: DicePool3DProps)
   const [textures, setTextures] = useState<Partial<Record<DieKind, SideTextures[]>>>({});
 
   useLayoutEffect(() => {
+    const kinds = (signature ? signature.split(",") : []) as DieKind[];
     const now = performance.now();
     const live = poolRef.current.filter((d) => d.leftAt === null);
     const leave = (d: PoolDie): PoolDie => ({ ...d, leftAt: now, at: slotsRef.current[d.index] ?? d.at });
-    const switching = live.some((d) => d.die !== die);
-    const kept = switching ? [] : live.filter((d) => d.index < dice);
-    const gone = switching ? live : live.filter((d) => d.index >= dice);
+    // A die stays while its slot still holds its kind; a slot whose kind changed swaps its die
+    const fits = (d: PoolDie) => d.index < kinds.length && kinds[d.index] === d.die;
+    const kept = live.filter(fits);
+    const gone = live.filter((d) => !fits(d));
+    const switching = gone.some((d) => d.index < kinds.length);
     // New dice wait for the old ones to go when the die changes
     const start = !animate ? -Infinity : now + (switching ? EXIT_TIME * 1000 : 0);
+    const held = new Set(kept.map((d) => d.index));
     const added: PoolDie[] = [];
-    for (let i = kept.length; i < dice; i++) {
-      added.push({ id: nextId.current++, die, index: i, bornAt: start + (i - kept.length) * STAGGER * 1000, leftAt: null, at: null });
-    }
+    kinds.forEach((die, i) => {
+      if (held.has(i)) return;
+      added.push({ id: nextId.current++, die, index: i, bornAt: start + added.length * STAGGER * 1000, leftAt: null, at: null });
+    });
     const leaving = animate ? [...poolRef.current.filter((d) => d.leftAt !== null), ...gone.map(leave)] : [];
     const next = [...leaving, ...kept, ...added];
     poolRef.current = next;
@@ -128,7 +135,7 @@ function DicePool3D({ container, dice, die, faction, animate }: DicePool3DProps)
     const measured = measureSlots(container);
     slotsRef.current = measured;
     setSlots(measured);
-  }, [container, dice, die, animate]);
+  }, [container, signature, animate]);
 
   // Forget the dice that have dropped out
   useEffect(() => {

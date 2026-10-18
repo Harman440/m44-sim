@@ -247,9 +247,10 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         joinable={(choice) =>
           firingIndex === null
             ? []
-            : session.joinable(firingIndex, choice).map(({ order, dice }) => ({
+            : session.joinable(firingIndex, choice).map(({ order, dice, eightSided }) => ({
                 order,
                 dice,
+                eightSided,
                 label: labels.unitKind(summaries[order]!.unitType, summaries[order]!.elite),
                 position: summaries[order]!.firingFrom,
               }))

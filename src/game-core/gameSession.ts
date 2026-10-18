@@ -5,7 +5,7 @@ import Deck from "./deck";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds, faceHits } from "../data/hitRules";
-import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
+import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, isEightSided, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
 import { FireTarget, fireTargets, hexDistance, mapAnswers } from "./fireTargets";
@@ -264,6 +264,8 @@ export interface FireChoice {
 export interface JoinOption {
   order: number;
   dice: number;
+  /** It throws the 8-sided long-range die (at range, with the long-range die), not the battle die */
+  eightSided: boolean;
 }
 
 /** One unit's part of a shot: its dice, how they add up and the die it throws */
@@ -1406,7 +1408,7 @@ class GameSession {
       if (order === orderIndex || !summaries[order]!.hold || !this.canFireNow(order)) return [];
       const answers = this.aimAnswers(order, { ...choice, joined: [], pinned: false, adjacentEnemy: false })?.answers;
       const part = answers && this.shotPart(order, answers, choice.suppressive ?? false);
-      return part && part.dice > 0 ? [{ order, dice: part.dice }] : [];
+      return part && part.dice > 0 ? [{ order, dice: part.dice, eightSided: isEightSided(part.target.die) }] : [];
     });
   }
 
