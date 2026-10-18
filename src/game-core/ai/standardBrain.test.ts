@@ -86,18 +86,21 @@ describe("standardBrain", () => {
   });
 
   it("plays better than the basic brain, on every built-in scenario and from both sides", () => {
+    // Three games each way: the dice make a single game a poor judge (the full measure is duel.test.ts)
     let total = 0;
     for (const scenario of scenarios) {
       for (const side of FACTIONS) {
-        const random = seeded(side === "Allies" ? 21 : 22);
-        vi.spyOn(Math, "random").mockImplementation(random);
-        const other: Faction = side === "Allies" ? "Axis" : "Allies";
-        const brains = { [side]: standardBrain, [other]: basicBrain } as Record<Faction, typeof basicBrain>;
-        const start = figuresLeft(playOut(scenario, brains, seeded(0), 0));
-        const left = figuresLeft(playOut(scenario, brains, random, 12));
-        vi.restoreAllMocks();
-        // The share of its figures it kept, less the share the basic brain kept
-        total += left[side] / start[side] - left[other] / start[other];
+        for (const seed of [31, 32, 33]) {
+          const random = seeded(seed);
+          vi.spyOn(Math, "random").mockImplementation(random);
+          const other: Faction = side === "Allies" ? "Axis" : "Allies";
+          const brains = { [side]: standardBrain, [other]: basicBrain } as Record<Faction, typeof basicBrain>;
+          const start = figuresLeft(playOut(scenario, brains, seeded(0), 0));
+          const left = figuresLeft(playOut(scenario, brains, random, 12));
+          vi.restoreAllMocks();
+          // The share of its figures it kept, less the share the basic brain kept
+          total += left[side] / start[side] - left[other] / start[other];
+        }
       }
     }
     expect(total).toBeGreaterThan(0);

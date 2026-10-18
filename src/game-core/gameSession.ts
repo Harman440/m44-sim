@@ -2094,11 +2094,17 @@ class GameSession {
       .map((hex) => hex.getPosition());
   }
 
-  /** The next played card to give to a unit, and the units it can go to */
+  /**
+   * The next played card to give to a unit, and the units it can go to: one that some unit can
+   * take comes first, so a card no unit can take (Mechanic with nothing weakened) doesn't hold up
+   * the one after it
+   */
   private assigning(): { card: CombatCard; positions: Position[] } | null {
     if (this.phase !== TurnPhase.ORDER_UNITS) return null;
-    const card = this.combatCardsPlayed.find((c) => c.assign && !this.assignments.some((a) => a.card === c));
-    return card ? { card, positions: this.assignableFor(card) } : null;
+    const waiting = this.combatCardsPlayed
+      .filter((c) => c.assign && !this.assignments.some((a) => a.card === c))
+      .map((card) => ({ card, positions: this.assignableFor(card) }));
+    return waiting.find((w) => w.positions.length > 0) ?? waiting[0] ?? null;
   }
 
   /** A card still waits for its unit, and some unit can take it: the orders can't be confirmed yet */

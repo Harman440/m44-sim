@@ -1970,6 +1970,24 @@ describe("GameSession combat card effects", () => {
       expect(session.combatBonusesFor(0)).toEqual([{ name: same("explosives"), dice: 1, closeAssault: true }]);
     });
 
+    it("offers first a card some unit can take, so one no unit can take doesn't hold up the next", () => {
+      // Played first, but there's no artillery to give it to
+      const gunner = card({
+        id: "gunner",
+        assign: { unitTypes: [UnitType.ARTILLERY], ordered: true },
+        effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] },
+      });
+      const { session, commandCards } = turnTwo([gunner, explosives]);
+      expect(session.pickCard(commandCards[0]!, undefined, [gunner, explosives])).toBe(true);
+      session.issueOrder(LEFT_INF, LEFT_INF);
+      session.issueOrder(LEFT_CENTER, LEFT_CENTER);
+
+      expect(session.getSnapshot().assigning).toMatchObject({ card: explosives });
+      expect(session.assignCard(LEFT_INF)).toBe(true);
+      expect(session.getSnapshot().assigning).toEqual({ card: gunner, positions: [] });
+      expect(session.commitOrders()).toBe(true);
+    });
+
     it("takes a card back from a unit whose order is undone, lets it change units, and keeps it through a save", () => {
       const { session, commandCards } = turnTwo([explosives]);
       session.pickCard(commandCards[0]!, undefined, explosives);

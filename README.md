@@ -11,7 +11,7 @@ Each turn:
 
 "Ajustes" (Settings) on the start menu picks the language, one of three looks (field map, board-game box or command tent) and turns sound effects on or off.
 
-Two other ways to play, with no physical board: **Pasar y jugar** (pass and play), both sides on one device, and **Contra el ordenador** (against the computer), pass and play with the computer as the other side (it plays no combat cards yet).
+Two other ways to play, with no physical board: **Pasar y jugar** (pass and play), both sides on one device, and **Contra el ordenador** (against the computer), pass and play with the computer as the other side (it plays most combat cards, not yet the movement ones).
 
 The UI is in Spanish and English. It starts in the browser's language (Spanish for any Spanish locale, English otherwise), and the choice in Settings is remembered per device. Each player picks their own, so two players can play in different languages.
 

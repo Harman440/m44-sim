@@ -72,7 +72,18 @@ export function playOut(
     if (unitsLeft(match).includes(0)) break;
     const moved = FACTIONS.some((side) => aiStep(match, side, brains[side], random)) || sharedStep(match);
     if (!moved) {
-      const phases = FACTIONS.map((side) => `${side}: ${match.sessions[side].getSnapshot().phase}`).join(", ");
+      const phases = FACTIONS.map((side) => {
+        const game = match.sessions[side].getSnapshot();
+        const detail = {
+          ordersLeft: game.ordersLeft,
+          orderable: game.orderable.length,
+          marking: game.marking?.card.id ?? null,
+          markable: game.markable.length,
+          assigning: game.assigning && { card: game.assigning.card.id, positions: game.assigning.positions.length },
+          played: game.combatCardsPlayed.map((card) => card.id),
+        };
+        return `${side}: phase ${game.phase} ${JSON.stringify(detail)}`;
+      }).join(", ");
       throw new Error(`Stuck in ${scenario.id} after ${steps} steps: ${phases}`);
     }
     if (++steps > 20_000) throw new Error(`No end in ${scenario.id}`);
