@@ -55,13 +55,17 @@ PassAndPlayMatch (ai: "Axis")
 - [ ] Checked at 1280×800 and 800×1280 with touch, in Spanish and English: a whole match against the computer, as each side, on a scenario with an extra first turn and one with a paradrop
   - Checked so far (2026-10-17, headless Chromium with touch): Arracourt as the Allies through turn 3 at 1280×800 (the computer's extra turn, both battles, the final phase, reloads in the Command Zone, Órdenes and the battle); the menu in Spanish and the battle at 800×1280, no sideways scroll; the first screen as the Axis in Arracourt and as each side in Sainte-Mère-Église (the person's paradrop, and the computer's). Left: a whole match on the tablet
 
-### AI4: A better computer (later, once the basic one is played)
-Ideas to try, each one a brain change with a test, measured by playing the new brain against the old one in the soak test:
-- [ ] Cover: prefer to end a move in a forest, town, hedgerow or on a hill, and not in the open next to several enemies
-- [ ] Focus fire: shoot the units already hit (fewest figures) and the ones that can hit back hardest
-- [ ] Cards: score a card by what its orders would achieve, not just how many units it orders; keep the right cards for later
+### AI4: A better computer
+Each idea is a brain change with a test, measured by playing the new brain against the old one: `AI_DUEL=1 npx vitest run src/game-core/ai/duel` (`duel.test.ts`, skipped otherwise: 48 games of 15 turns, each scenario from both sides, beside the basic brain against itself on the same side, as the scenarios aren't even). The score is the share of its figures a side kept less the share the other kept.
+
+`standardBrain.ts` (2026-10-18) is the one the app plays; `basicBrain` stays to measure against. Against it, the standard brain won 37 of 48 duel games (mean +0.19), and did better than the basic brain on the same side in 7 of the 8 scenario-and-side pairs (a little worse on Pegasus Bridge as the Allies: 0.33 against 0.40, within the noise). Weighing threat 2:1 against shots, on the same scale, did best of the weights tried (0.4 to 5).
+- [x] Cover: each hex is scored by the best shot it gives (if the unit can still fire there), less the fire it draws (`threatAt`: the enemies' dice at it, less its terrain's cover), less a little for each hex from the nearest enemy, so units with nothing to fire at still close in
+- [x] Focus fire: a shot's worth is the share of the target it would destroy (`shotValue`: expected hits, at most its figures left, over its figures), by how much its type matters (armour and artillery over infantry)
+- [x] Cards, a first go: a card is worth the units it orders, the most worthwhile first, as many as its orders (a unit with an enemy within its move and range counts double)
+- [ ] Cards: keep the right cards for later
 - [ ] Combat cards: start with the ones the app applies by itself (dice bonuses, Fuego concentrado, Fuego de supresión), then the marker cards (Barrage, Air Power: mark the hex with the most enemies)
-- [ ] Supplies: buy extra orders (`extraOrderable`), pick a combat card instead of supplies when it has a use for one
+- [x] Supplies: buy extra orders (`Brain.extraOrder`, after the card's orders) for the units whose best move fires (in the duel it ends with a supply or two where the basic brain has 30 or more)
+- [ ] Supplies: pick a combat card instead of 2 supplies when it has a use for one (with the combat cards)
 - [ ] Objectives once there are medals and objective hexes (PP5, [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md) section 3)
 - [ ] **Decide:** levels to pick in the menu (Fácil, Normal…)
 

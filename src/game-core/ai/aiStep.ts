@@ -6,7 +6,7 @@ import GameSession from "../gameSession";
 import PassAndPlayMatch from "../passAndPlay";
 import CommandCard, { Section } from "../commandCard";
 import { CombatCard } from "../combatCard";
-import { OrderSlot } from "../orderRules";
+import { EXTRA_SLOT, OrderSlot } from "../orderRules";
 import { turnedRound } from "../BoardManager";
 import { positionKey } from "../position";
 import { RewardChoice } from "../coins";
@@ -44,8 +44,10 @@ export interface Brain {
   pickCard(view: AiView): { card: CommandCard; section?: Section };
   /** The unit to order next, among those the card can still order */
   nextToOrder(view: AiView, orderable: readonly Position[]): Position | null;
-  /** Where the unit goes; `moves` excludes holding, which is always allowed */
-  moveFor(view: AiView, from: Position): MoveChoice;
+  /** Where the unit goes (with an extra order bought with supplies when `slot` is `EXTRA_SLOT`) */
+  moveFor(view: AiView, from: Position, slot?: OrderSlot): MoveChoice;
+  /** Once the card's orders are given: a unit to buy an extra order for, or null to lock the orders */
+  extraOrder?(view: AiView, extraOrderable: readonly Position[]): Position | null;
   /** The unit that fires now and its target, or the unit that holds its fire */
   shotFor(view: AiView, fireable: readonly number[]): { order: number; targets: readonly Position[] };
   retreatTo(view: AiView, from: Position, options: readonly Position[]): Position;
@@ -118,7 +120,14 @@ const sectionFor = (session: GameSession, card: CommandCard): Section | undefine
 function orderStep(view: AiView, brain: Brain): boolean {
   const { session } = view;
   const game = session.getSnapshot();
-  if (game.ordersLeft === 0 || game.orderable.length === 0) return session.commitOrders();
+  if (game.ordersLeft === 0 || game.orderable.length === 0) {
+    const extra = brain.extraOrder?.(view, game.extraOrderable) ?? null;
+    if (extra) {
+      const { to } = brain.moveFor(view, extra, EXTRA_SLOT);
+      if (session.issueOrder(extra, to, EXTRA_SLOT) || session.issueOrder(extra, extra, EXTRA_SLOT)) return true;
+    }
+    return session.commitOrders();
+  }
 
   const from = brain.nextToOrder(view, game.orderable) ?? game.orderable[0]!;
   const choice = brain.moveFor(view, from);
