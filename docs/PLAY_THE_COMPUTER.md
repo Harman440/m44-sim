@@ -68,7 +68,8 @@ Each idea is a brain change with a test, measured by playing the new brain again
 - Measured: with its cards against itself without them, 96 duel games: −0.01, won 47 (no difference the dice let us see). The cards do take effect (in 16 games, 31 attack-card hexes rolled, 20 on a unit; 14 cards given to units), but Fuego concentrado never joined two units, as the computer seldom holds two units on one target. Kept for now: the computer plays a fuller game, and the cards it doesn't know are cycled out of its hand
 - [x] Supplies: buy extra orders (`Brain.extraOrder`, after the card's orders) for the units whose best move fires (in the duel it ends with a supply or two where the basic brain has 30 or more)
 - [x] Supplies: a combat card instead of 2 supplies while the hand has fewer than two cards it knows how to play; with a full hand it discards a card it doesn't know first (before this, its hand filled with cards it never played)
-- [ ] Objectives once there are medals and objective hexes (PP5, [PASS_AND_PLAY_NEXT.md](PASS_AND_PLAY_NEXT.md) section 3)
+- [x] Objectives, a first go: a move ending on one of its side's objective hexes is worth more (`OWN_OBJECTIVE`), and on one of the enemy's a little (`ENEMY_OBJECTIVE`: the enemy can't hold it)
+- [ ] Play to win: the brain was tuned to keep its own figures (the duel's score), which makes it cautious; with medals the duel should count wins, and the brain may need to press harder (few computer-against-computer games reach a winner in 30 turns)
 - [ ] **Decide:** levels to pick in the menu (Fácil, Normal…)
 
 ## Decisions

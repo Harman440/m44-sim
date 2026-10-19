@@ -52,8 +52,8 @@ export const figuresLeft = (match: PassAndPlayMatch): Record<Faction, number> =>
 };
 
 /**
- * Play a match with a brain on each side, until `turns` turns are over or a side has no units
- * left. `random` drives the dice and the brains; the decks shuffle with Math.random, so a test
+ * Play a match with a brain on each side, until `turns` turns are over, a side has won or a side
+ * has no units left. `random` drives the dice and the brains; the decks shuffle with Math.random, so a test
  * that wants the same game twice mocks it with the same seed
  */
 export function playOut(
@@ -69,7 +69,7 @@ export function playOut(
   );
   let steps = 0;
   while (Math.min(...FACTIONS.map((side) => match.sessions[side].getSnapshot().turn)) <= turns) {
-    if (unitsLeft(match).includes(0)) break;
+    if (unitsLeft(match).includes(0) || match.getSnapshot().result) break;
     const moved = FACTIONS.some((side) => aiStep(match, side, brains[side], random)) || sharedStep(match);
     if (!moved) {
       const phases = FACTIONS.map((side) => {

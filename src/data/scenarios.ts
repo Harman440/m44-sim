@@ -19,8 +19,7 @@ const builtIns: Scenario[] = [
     // Official scenario 7045 by jdrommel (Days of Wonder archives, 12 August 1944): Leclerc's
     // French 2e DB attacks the Germans dug into the Écouves forest. The map, units, sandbags,
     // elite badges and hands are the official ones (in the .m44 file a column is twice ours).
-    // Écouché, the Allies' temporary medal objective, and the medals stay on the table; air
-    // is ours
+    // Air is ours
     id: 'foret-decouves',
     name: same("Forêt d'Écouves"),
     description: {
@@ -36,6 +35,12 @@ const builtIns: Scenario[] = [
     attacker: 'Allies',
     // Heavy guns and aircraft for both sides (the player's ruling)
     airPower: { allies: 1, axis: 1 },
+    // The house victory (the player's ruling, 2026-10-19): 5 medals; Écouché, the town at the
+    // forest's far side, a medal for the Allies while they hold it
+    victory: {
+      medals: 5,
+      objectives: [{ faction: 'Allies', name: same('Écouché'), hexes: [{ row: 0, col: 5 }] }],
+    },
     tiles: foretDEcouvesTiles as Tiles,
     // The German infantry dug in at Carrouges, Sées and in the forest
     sandbags: [{ row: 3, col: 1 }, { row: 3, col: 10 }, { row: 4, col: 5 }],
@@ -64,7 +69,7 @@ const builtIns: Scenario[] = [
   {
     // Memoir '44 scenario 23 (19 September 1944): the 111th Panzer Brigade drives on Arracourt,
     // where the US 4th Armored Division waits in the fog. The map, units, sandbags and hands are
-    // the official ones; the medals stay on the table
+    // the official ones
     id: 'arracourt',
     name: same('Arracourt'),
     description: {
@@ -81,6 +86,15 @@ const builtIns: Scenario[] = [
     // Air rules: one air sortie to the Axis; the other is shuffled into the deck, which gives
     // the Allies none
     airPower: { allies: 0, axis: 1 },
+    // The house victory (the player's ruling, 2026-10-19): 5 medals; Lezey and Arracourt a medal
+    // each for the Axis while it holds them
+    victory: {
+      medals: 5,
+      objectives: [
+        { faction: 'Axis', name: same('Lezey'), hexes: [{ row: 2, col: 6 }] },
+        { faction: 'Axis', name: same('Arracourt'), hexes: [{ row: 8, col: 6 }] },
+      ],
+    },
     tiles: arracourtTiles as Tiles,
     // The artillery dug in west of Arracourt
     sandbags: [{ row: 7, col: 4 }],
@@ -118,6 +132,14 @@ const builtIns: Scenario[] = [
     // guns only for the Axis (the player's ruling)
     bigGuns: ['Axis'],
     paradrop: { faction: 'Allies', unitType: UnitType.INFANTRY, units: 4 },
+    // The house victory (the player's ruling, 2026-10-19): 4 medals; each of the town's 3 hexes a
+    // medal for the Allies while they hold it
+    victory: {
+      medals: 4,
+      objectives: [
+        { faction: 'Allies', name: same('Sainte-Mère-Église'), hexes: [{ row: 3, col: 6 }, { row: 4, col: 6 }, { row: 4, col: 7 }] },
+      ],
+    },
     tiles: sainteMereEgliseTiles as Tiles,
     units: {
       allies: {
@@ -140,7 +162,7 @@ const builtIns: Scenario[] = [
     // Memoir '44 base game, scenario 1 (6 June 1944): British gliders land by the bridges over
     // the Caen canal and the Orne at night. The map, units, barbed wire, the sandbags of the two
     // German units guarding the canal bridge and the Axis' surprise (2 cards, and 2 drawn after
-    // each of its first two turns) are the official ones; the medals are only on the table
+    // each of its first two turns) are the official ones
     id: 'pegasus-bridge',
     name: same('Pegasus Bridge'),
     description: {
@@ -154,6 +176,15 @@ const builtIns: Scenario[] = [
     // A night glider raid on two bridges: no heavy guns (the player's ruling) or aircraft on either side
     bigGuns: [],
     airPower: { allies: 0, axis: 0 },
+    // The house victory (the player's ruling, 2026-10-19): 4 medals; each bridge a medal for the
+    // Allies while they hold it
+    victory: {
+      medals: 4,
+      objectives: [
+        { faction: 'Allies', name: { es: 'Puente de Pegasus', en: 'Pegasus Bridge' }, hexes: [{ row: 2, col: 3 }] },
+        { faction: 'Allies', name: { es: 'Puente del Orne', en: 'Orne bridge' }, hexes: [{ row: 5, col: 10 }] },
+      ],
+    },
     tiles: pegasusBridgeTiles as Tiles,
     wire: [{ row: 2, col: 5 }, { row: 3, col: 4 }, { row: 4, col: 3 }, { row: 4, col: 4 }],
     sandbags: [{ row: 2, col: 4 }, { row: 3, col: 3 }],

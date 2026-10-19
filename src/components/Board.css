@@ -109,3 +109,26 @@
     animation: none;
   }
 }
+
+/* Pass and play: an objective hex's medal, in the colour of the side it counts for; faint until that side holds it */
+.board__objective {
+  opacity: 0.8;
+}
+
+.board__objective circle {
+  stroke: var(--m44-paper);
+  stroke-width: 3;
+  stroke-dasharray: 4 3;
+}
+
+.board__objective--held {
+  opacity: 1;
+}
+
+.board__objective--held circle {
+  stroke-dasharray: none;
+}
+
+.board__objective-medal {
+  fill: var(--m44-paper);
+}

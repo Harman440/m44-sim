@@ -41,6 +41,7 @@ import HistoryDialog from "../HistoryDialog";
 import CoinsDialog from "../CoinsDialog";
 import DeckVisualizerDialog from "../DeckVisualizerDialog";
 import "./GameView.css";
+import MedalTally from "../MedalTally";
 
 const RuleBookDialog = lazy(() => import("../RuleBookDialog"));
 
@@ -188,6 +189,8 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             ))}
           </Stack>
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+            {/* Pass and play: each side's medals */}
+            <MedalTally />
             {/* The battle shows the coins large in its own screen */}
             {game.phase !== TurnPhase.BATTLE && (
               <Button

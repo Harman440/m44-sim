@@ -144,6 +144,24 @@ describe("validateScenario", () => {
     ]);
   });
 
+  it("checks the victory: at least a medal, and objectives on dry land, each hex once", () => {
+    const name = { es: "Puente", en: "Bridge" };
+    const problems = problemsWith({
+      victory: {
+        medals: 0,
+        objectives: [
+          { faction: "Allies", name, hexes: [{ row: 4, col: 6 }, { row: 2, col: 2 }] },
+          { faction: "Axis", name, hexes: [{ row: 2, col: 2 }] },
+        ],
+      },
+    });
+    expect(messages(problems)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/objective can't be on water/), expect.stringMatching(/objective twice/), "Victory needs 1 medal or more"])
+    );
+    expect(problems.find((p) => /water/.test(p.message.en))!.positions).toEqual([{ row: 4, col: 6 }]);
+    expect(() => parseScenario(json({ victory: { medals: 4, objectives: [{ faction: "Allies", hexes: [] }] } }))).toThrow();
+  });
+
   it("knows odd rows have one hex less", () => {
     const problems = problemsWith({ wire: [{ row: 0, col: 12 }, { row: 1, col: 12 }, { row: 9, col: 0 }, { row: 2, col: -1 }] });
 

@@ -64,4 +64,24 @@ export interface Scenario {
    * scenario gives the side, 0 for a side whose enemy has air superiority. 1 each when omitted
    */
   airPower?: { allies: number; axis: number };
+  /**
+   * How the scenario is won (pass and play, where the app knows both armies): the first side to
+   * `medals` medals at the end of a turn. Each enemy unit destroyed is a medal; each objective
+   * hex is a medal for its side while one of the side's units stands on it at the end of a turn.
+   * Without it, the game goes on until the players stop
+   */
+  victory?: Victory;
+}
+
+/** A scenario's victory conditions */
+export interface Victory {
+  medals: number;
+  objectives?: Objective[];
+}
+
+/** Hexes worth a medal each to one side while it holds them (a town, a bridge), in the Allies' view */
+export interface Objective {
+  faction: Faction;
+  name: Localized;
+  hexes: Position[];
 }

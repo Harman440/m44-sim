@@ -20,8 +20,12 @@ The risky parts, to watch in a match with "Modo prueba" (every combat card in th
 - [ ] Reload or close the tab mid-turn (orders, reveal, battle, retreats): the match resumes behind the cover screen, in the same state
 
 ## 3. Winning (PP5)
-- [ ] Medals and objective hexes per scenario
-- [ ] The end of the game, with a summary (from [myNextPlan.md](myNextPlan.md))
+**Decided** (2026-10-19): each enemy unit destroyed is a medal; an objective hex is a medal for its side while one of its units stands on it at the end of a turn (the official "temporary" objective); at the end of each turn's battle a side that has reached the scenario's medals wins, the one with more if both have, and with as many each the game goes on; a side with no units left loses. Only in pass and play and against the computer, where the app knows both armies; on own tablets the medals are counted at the table (the menu's scenario panel shows the conditions).
+- [x] Medals and objective hexes per scenario: `Scenario.victory` (`medals`, `objectives`, each a side, a name and its hexes), in the scenario file and its schema, checked by `validateScenario`. The built-ins (the player's choice of the proposed set): Pegasus Bridge 4 (Allies: each bridge), Sainte-Mère-Église 4 (Allies: the town's 3 hexes), Arracourt 5 (Axis: Lezey and Arracourt), Forêt d'Écouves 5 (Allies: Écouché)
+- [x] The end of the game, with a summary: `MatchResultView` (the winner, the medals, each side's losses); the medals in the header, the reveal and the battle (`MedalTally`), the objectives on every map (a medal in their side's colour, solid while held)
+- [ ] **Check:** which town hexes are Lezey and Écouché. They were picked from the map without the scenario sheets: Lezey (2,6), Arracourt (8,6), Écouché (0,5)
+- [ ] **Decide:** the medals to win. In computer-against-computer games few units fall (infantry has 6 figures in pass and play, the official 4): in 30 turns most games of Forêt d'Écouves, Arracourt and Pegasus Bridge ended with 1 to 4 medals a side and no winner; Sainte-Mère-Église was won by the Allies holding the town in 5 of 6 games. Lower targets, or more objectives, may be needed
+- [ ] The map editor: the medals and objective hexes of a new map (a file can already have them)
 
 ## Later
 - Fog of war

@@ -10,12 +10,29 @@ import { assignTo, chooseCombatCards, leastWorthCard, markFor, rewardFor } from 
 import { FIGURES } from "../../data/figures";
 import CommandCard, { SECTIONS, Section } from "../commandCard";
 import { EXTRA_SLOT, OrderSlot } from "../orderRules";
-import { positionKey, samePosition } from "../position";
+import { includesPosition, positionKey, samePosition } from "../position";
+import { turnedRound } from "../BoardManager";
 import { UnitType } from "../unit";
 import { EXTRA_ORDER_COST } from "../../data/coinRules";
 import { Position } from "../../types/scenario";
 
 export { shotValue, threatAt };
+
+/** Standing on one of its side's objective hexes: a medal while it holds it */
+const OWN_OBJECTIVE = 0.6;
+/** Standing on one of the enemy's: the enemy can't hold it */
+const ENEMY_OBJECTIVE = 0.3;
+
+/** What ending a move on this hex is worth for the scenario's objectives */
+function objectiveWorth(view: AiView, position: Position): number {
+  const objectives = view.session.scenario.victory?.objectives ?? [];
+  // Objectives are in the Allies' view
+  const hex = view.side === "Axis" ? turnedRound(position) : position;
+  return objectives.reduce((sum, objective) => {
+    if (!includesPosition(objective.hexes, hex)) return sum;
+    return sum + (objective.faction === view.side ? OWN_OBJECTIVE : ENEMY_OBJECTIVE);
+  }, 0);
+}
 
 /**
  * Concentrated Fire: the units that roll with this one at the target, as long as the dice so far
@@ -82,7 +99,12 @@ export const standardBrain: Brain = {
       const holds = samePosition(position, from);
       const fires = holds ? holdFires : canFire.has(positionKey(position));
       const offence = fires ? bestShotFrom(view, unitType, position) : 0;
-      return offence - THREAT_WEIGHT * threatAt(view, unitType, position, figures) - APPROACH_WEIGHT * nearestEnemy(enemies, position);
+      return (
+        offence -
+        THREAT_WEIGHT * threatAt(view, unitType, position, figures) -
+        APPROACH_WEIGHT * nearestEnemy(enemies, position) +
+        objectiveWorth(view, position)
+      );
     };
     const candidates = [from, ...options.moves.filter((position) => !taken.has(positionKey(position)))];
     return { to: top(candidates, score, random) ?? from, slots };

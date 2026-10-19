@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useRef, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import PassAndPlayMatch from "../../game-core/passAndPlay";
 import { Faction } from "../../types/faction";
 import GameView from "./LazyGameView";
 import { OpponentContext, ViewSideContext } from "../OpponentContext";
+import { VictoryContext } from "../VictoryContext";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import { defineMessages, useMessages } from "../../i18n/useI18n";
@@ -33,6 +34,7 @@ const TEXT = defineMessages({
 // The board comes with it, so it loads with the game screen's code
 const RevealView = lazy(() => import("./GameViews/RevealView"));
 const SharedBattleView = lazy(() => import("./GameViews/SharedBattleView"));
+const MatchResultView = lazy(() => import("./GameViews/MatchResultView"));
 
 interface MatchViewProps {
   match: PassAndPlayMatch;
@@ -46,19 +48,24 @@ interface MatchViewProps {
  * device changes hands, so neither player sees the other's cards and orders
  */
 function MatchView(props: MatchViewProps) {
-  // Every map is seen from the main side, whoever holds the device
+  const { victory } = useSyncExternalStore(props.match.subscribe, props.match.getSnapshot);
+  const objectives = props.match.scenario.victory?.objectives ?? [];
+  const victoryInfo = useMemo(() => victory && { ...victory, objectives }, [victory, objectives]);
+  // Every map is seen from the main side, whoever holds the device; every screen shows the medals
   return (
     <ViewSideContext.Provider value={props.match.mainSide}>
-      <MatchScreen {...props} />
+      <VictoryContext.Provider value={victoryInfo}>
+        <MatchScreen {...props} />
+      </VictoryContext.Provider>
     </ViewSideContext.Provider>
   );
 }
 
 function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
   const snapshot = useSyncExternalStore(match.subscribe, match.getSnapshot);
-  const { active, covered, revealTurn, canPass, battle } = snapshot;
+  const { active, covered, revealTurn, canPass, battle, result } = snapshot;
   // Against the computer: it plays its side whenever it has something to do
-  useComputerPlayer(match, snapshot, !!battle);
+  useComputerPlayer(match, snapshot, !!battle || !!result);
   // The sides whose hand has been dealt on screen: it isn't dealt again each time the device comes back
   const dealt = useRef(new Set<Faction>(resumed ? ["Allies", "Axis"] : []));
   const onOwnScreen = revealTurn === null && !battle && !covered;
@@ -67,6 +74,15 @@ function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
   }, [onOwnScreen, active]);
   const t = useMessages(TEXT);
   const loading = <CircularProgress aria-label={t.loading} sx={{ m: "auto" }} />;
+
+  // A side has won: the match is over
+  if (result) {
+    return (
+      <Suspense fallback={loading}>
+        <MatchResultView match={match} result={result} onExit={onExit} />
+      </Suspense>
+    );
+  }
 
   // Both sides' orders are given: both players look
   if (revealTurn !== null) {

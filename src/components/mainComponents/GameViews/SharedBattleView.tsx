@@ -45,6 +45,7 @@ import { computerStep } from "../useComputerPlayer";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 import "../GameView.css";
 import "./PhaseLayout.css";
+import MedalTally from "../../MedalTally";
 
 const TEXT = defineMessages({
   es: {
@@ -523,6 +524,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
               <Typography variant="h6" component="h1" sx={{ textAlign: "center" }}>
                 {t.title(battle.turn)}
               </Typography>
+              <MedalTally />
 
               {/* The shot rolled: how its dice add up and what they do */}
               {shown && shownShot && shownUnit && shownSession && (

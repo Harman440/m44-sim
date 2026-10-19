@@ -15,6 +15,7 @@ import FactionInsignia from "../../FactionInsignia";
 import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
 import "../GameView.css";
 import "./PhaseLayout.css";
+import MedalTally from "../../MedalTally";
 
 const TEXT = defineMessages({
   es: {
@@ -195,6 +196,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                   <Typography variant="h6" component="h1" sx={{ textAlign: "center" }}>
                     {t.title(turn)}
                   </Typography>
+                  <MedalTally />
                   <Typography variant="body2" color="text.secondary">
                     {t.help}
                   </Typography>

@@ -814,6 +814,51 @@ describe("a match against the computer", () => {
   });
 });
 
+describe("winning a match", () => {
+  // The Allies' infantry starts on its own objective; the Axis infantry on the Axis'
+  const withVictory = (victory: Scenario["victory"]): Scenario => ({ ...scenario, victory });
+  const matchOn = (map: Scenario) => {
+    const side = (faction: Faction) =>
+      new GameSession({ scenario: map, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+    return new PassAndPlayMatch(map, { Allies: side("Allies"), Axis: side("Axis") });
+  };
+  const allied = { faction: "Allies" as const, name: same("Hill"), hexes: [{ row: 7, col: 1 }] };
+  const german = { faction: "Axis" as const, name: same("Wood"), hexes: [{ row: 1, col: 3 }] };
+
+  it("has no victory without the scenario's conditions", () => {
+    const match = newMatch();
+    giveOrders(match);
+    carryOut(match);
+    expect(match.getSnapshot()).toMatchObject({ victory: null, result: null });
+  });
+
+  it("is won at the end of a turn by the side that holds enough objectives", () => {
+    const map = withVictory({ medals: 1, objectives: [allied] });
+    const match = matchOn(map);
+    expect(match.getSnapshot().victory).toMatchObject({ medals: 1, held: { Allies: [], Axis: [] } });
+    giveOrders(match); // the Axis' extra turn
+    carryOut(match);
+
+    const { result, victory } = match.getSnapshot();
+    expect(victory!.held.Allies).toEqual([{ row: 7, col: 1 }]);
+    expect(result).toMatchObject({ winner: "Allies", turn: 1, wipedOut: false });
+    expect(result!.medals.Allies).toEqual({ destroyed: 0, objectives: 1, total: 1 });
+
+    const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), map, (saved) =>
+      GameSession.restore(saved, map, cards())
+    );
+    expect(restored.getSnapshot().result).toEqual(result);
+  });
+
+  it("goes on while both sides have as many medals", () => {
+    const match = matchOn(withVictory({ medals: 1, objectives: [allied, german] }));
+    giveOrders(match);
+    carryOut(match);
+    expect(match.getSnapshot().result).toBeNull();
+    expect(match.getSnapshot().victory!.standing.Axis.total).toBe(1);
+  });
+});
+
 describe("sections in pass and play", () => {
   it("follow the main side's left and right for both sides", () => {
     // Allies at the device: a hex on the Allies' left is the left for the Axis too

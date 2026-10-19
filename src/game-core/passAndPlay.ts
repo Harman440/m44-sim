@@ -7,13 +7,14 @@ import { includesPosition, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
 import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
 import { appliedFaces, keptForHits, readRoll } from "./rollResult";
+import { MatchResult, Medals, countMedals, heldObjectives, winnerOf } from "./victory";
 import { resultLimit } from "../data/figures";
 import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 15;
+export const MATCH_SAVE_VERSION = 16;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -27,6 +28,10 @@ export interface SavedMatch {
   revealedTurn: number;
   movement: MatchMovement | null;
   battle: MatchBattle | null;
+  /** The objective hexes each side held at the end of the last turn (Allies' view) */
+  held?: Record<Faction, Position[]>;
+  /** How the match ended, once it has */
+  result?: MatchResult | null;
 }
 
 /** The units that didn't move fire first, then the ones that moved */
@@ -124,6 +129,14 @@ export interface MatchSnapshot {
   movement: { turn: number; collisions: readonly CollisionView[]; done: boolean } | null;
   /** The shared battle, once the movement is over; null otherwise */
   battle: BattleState | null;
+  /**
+   * The scenario's victory conditions and where each side stands: medals for the enemy units
+   * destroyed so far and the objectives held at the end of the last turn. Null for a scenario
+   * without them
+   */
+  victory: { medals: number; standing: Medals; held: Record<Faction, readonly Position[]> } | null;
+  /** How the match ended, once a side has won */
+  result: MatchResult | null;
 }
 
 /** A unit and where it stands, as seen from its own side of the table */
@@ -196,6 +209,8 @@ class PassAndPlayMatch {
   private revealedTurn: number;
   private movement: MatchMovement | null;
   private battle: MatchBattle | null;
+  private held: Record<Faction, Position[]>;
+  private result: MatchResult | null;
 
   private readonly listeners = new Set<() => void>();
   private snapshot: MatchSnapshot;
@@ -211,6 +226,8 @@ class PassAndPlayMatch {
       revealedTurn = 0,
       movement = null,
       battle = null,
+      held = { Allies: [], Axis: [] },
+      result = null,
     }: {
       computer?: Faction | null;
       active?: Faction;
@@ -219,6 +236,8 @@ class PassAndPlayMatch {
       revealedTurn?: number;
       movement?: MatchMovement | null;
       battle?: MatchBattle | null;
+      held?: Record<Faction, Position[]>;
+      result?: MatchResult | null;
     } = {}
   ) {
     if (sessions.Allies.faction !== "Allies" || sessions.Axis.faction !== "Axis") {
@@ -236,6 +255,8 @@ class PassAndPlayMatch {
     this.revealedTurn = revealedTurn;
     this.movement = movement;
     this.battle = battle;
+    this.held = held;
+    this.result = result;
     for (const side of FACTIONS) {
       sessions[side].setEnemyView(() => this.enemiesOf(side));
       sessions[side].sectionsSeenFrom(mainSide);
@@ -662,8 +683,40 @@ class PassAndPlayMatch {
   private finishBattle() {
     for (const side of FACTIONS) this.sessions[side].endBattle();
     this.battle = null;
+    this.scoreTurn();
     this.active = this.person() ?? this.scenario.attacker;
     this.covered = !this.computer;
+  }
+
+  /**
+   * The end of a turn's battle: the objectives each side holds now count, and a side that has
+   * won ends the match
+   */
+  private scoreTurn() {
+    const victory = this.scenario.victory;
+    if (!victory || this.result) return;
+    const units = {
+      Allies: armyOf(this.sessions.Allies).map(({ position }) => position),
+      Axis: armyOf(this.sessions.Axis).map(({ position }) => turnedRound(position)),
+    };
+    this.held = heldObjectives(victory.objectives ?? [], units);
+    const lost = this.unitsLost();
+    const medals = countMedals(lost, this.held);
+    const won = winnerOf(victory, medals, { Allies: units.Allies.length, Axis: units.Axis.length });
+    if (won) {
+      const turn = this.sessions[this.scenario.attacker].getSnapshot().turn;
+      this.result = { ...won, turn, medals, lost };
+    }
+  }
+
+  private unitsLost(): Record<Faction, UnitType[]> {
+    return { Allies: this.sessions.Allies.unitsLost(), Axis: this.sessions.Axis.unitsLost() };
+  }
+
+  private victoryView(): MatchSnapshot["victory"] {
+    const victory = this.scenario.victory;
+    if (!victory) return null;
+    return { medals: victory.medals, standing: countMedals(this.unitsLost(), this.held), held: this.held };
   }
 
   /** The person's side, playing against the computer */
@@ -833,6 +886,8 @@ class PassAndPlayMatch {
       revealedTurn: this.revealedTurn,
       movement: this.movement && JSON.parse(JSON.stringify(this.movement)),
       battle: this.battle && JSON.parse(JSON.stringify(this.battle)),
+      held: JSON.parse(JSON.stringify(this.held)),
+      result: this.result && JSON.parse(JSON.stringify(this.result)),
     };
   }
 
@@ -866,6 +921,8 @@ class PassAndPlayMatch {
       revealedTurn: saved.revealedTurn,
       movement,
       battle,
+      held: saved.held ?? { Allies: [], Axis: [] },
+      result: saved.result ?? null,
     });
   }
 
@@ -956,6 +1013,8 @@ class PassAndPlayMatch {
       canPass: this.canPass(),
       movement: this.movementView(),
       battle: this.battleView(),
+      victory: this.victoryView(),
+      result: this.result,
     };
   }
 

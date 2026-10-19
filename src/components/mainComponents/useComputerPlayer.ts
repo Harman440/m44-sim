@@ -12,11 +12,12 @@ export const computerStep = (match: PassAndPlayMatch): boolean =>
 
 /**
  * Plays the computer's side outside the battle (its paradrop, cards, orders and final phase), at
- * once: the person sees none of it. The shared battle drives it itself, one shot at a time
+ * once: the person sees none of it. `paused` in the battle, which drives it itself one shot at a
+ * time, and once the match is over
  */
-export function useComputerPlayer(match: PassAndPlayMatch, snapshot: unknown, inBattle: boolean) {
+export function useComputerPlayer(match: PassAndPlayMatch, snapshot: unknown, paused: boolean) {
   useEffect(() => {
-    if (match.computer === null || inBattle) return;
+    if (match.computer === null || paused) return;
     for (let steps = 0; steps < MAX_STEPS && computerStep(match); steps++);
-  }, [match, snapshot, inBattle]);
+  }, [match, snapshot, paused]);
 }

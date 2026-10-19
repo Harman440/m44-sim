@@ -3,6 +3,8 @@ import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
 import type { UnitStrength } from '../game-core/gameSession';
 import { OpponentContext, ViewSideContext } from './OpponentContext';
+import { VictoryContext } from './VictoryContext';
+import { iconUrl } from './GameIcon';
 import Hexagon, { HexHighlight } from './Hexagon';
 import './Board.css';
 import { Position } from '../types/scenario';
@@ -135,6 +137,7 @@ function Board({
   atStart = false
 }: BoardProps) {
   const shared = useContext(OpponentContext);
+  const victory = useContext(VictoryContext);
   /** Each unit's hits this turn when this map last drew it, and the count it last shook at (renderUnits) */
   const seenHits = useRef(new WeakMap<Unit, number>());
   const shookAt = useRef(new WeakMap<Unit, number>());
@@ -225,6 +228,39 @@ function Board({
     });
 
   /** A target (attack) or a cross (a unit appears), like pencil on the paper map */
+  /**
+   * Pass and play: the objective hexes, a medal in the colour of the side that scores each, solid
+   * while that side holds it (at the end of the last turn). Their positions are in the Allies' view
+   */
+  const renderObjectives = () =>
+    (victory?.objectives ?? []).flatMap((objective) =>
+      objective.hexes.map((hex) => {
+        const position = faction === 'Axis' ? turnedRound(hex, boardWidth, boardHeight) : hex;
+        const { x, y } = geometry.hexCenter(position);
+        // At the top of the hex, over the edge of a unit's token
+        const r = hexSize * 0.3;
+        const cx = x;
+        const cy = y - hexSize * 0.66;
+        const held = includesPosition(victory!.held[objective.faction], hex);
+        const id = `objective-${objective.faction}-${positionKey(hex)}`;
+        return (
+          <g
+            key={id}
+            className={`board__objective${held ? ' board__objective--held' : ''}`}
+            data-objective={positionKey(position)}
+            data-objective-side={objective.faction}
+            pointerEvents="none"
+          >
+            <circle cx={cx} cy={cy} r={r} fill={FACTION_COLORS[objective.faction]} />
+            <mask id={id} style={{ maskType: 'alpha' }}>
+              <image href={iconUrl('medal')} x={cx - r * 0.75} y={cy - r * 0.75} width={r * 1.5} height={r * 1.5} />
+            </mask>
+            <rect x={cx - r} y={cy - r} width={r * 2} height={r * 2} mask={`url(#${id})`} className="board__objective-medal" />
+          </g>
+        );
+      })
+    );
+
   const renderMarkers = () =>
     markers.map((position, i) => {
       const { x, y } = geometry.hexCenter(position);
@@ -521,6 +557,7 @@ function Board({
         {renderBoard()}
         {renderUnits()}
         {renderSandbags()}
+        {renderObjectives()}
         {renderCardBadges()}
         {renderCamouflage()}
 

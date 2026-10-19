@@ -27,6 +27,7 @@ import mortar from "../assets/icons/mortar.svg";
 import village from "../assets/icons/village.svg";
 import openBook from "../assets/icons/open-book.svg";
 import backForth from "../assets/icons/back-forth.svg";
+import medal from "../assets/icons/medal.svg";
 import type { DeckReason } from "../game-core/combatCard";
 
 const ICONS = {
@@ -63,6 +64,8 @@ const ICONS = {
   ruleBook: openBook,
   /** Pass and play: hand the device to the other player */
   pass: backForth,
+  /** Victory medals, and the objective hexes worth one */
+  medal,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;

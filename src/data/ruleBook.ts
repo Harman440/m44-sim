@@ -554,10 +554,14 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
-        title: { es: "Sin victoria por ahora", en: "No victory for now" },
+        title: { es: "Medallas y victoria", en: "Medals and victory" },
+        official: {
+          es: "Gana el primero en conseguir las medallas del escenario (normalmente de 4 a 6): una por cada unidad enemiga eliminada y, en algunos escenarios, por tomar y mantener ciertas casillas.",
+          en: "The first side to win the scenario's medals (usually 4 to 6) wins: one for each enemy unit eliminated and, in some scenarios, for taking and holding certain hexes.",
+        },
         house: {
-          es: "La partida sigue hasta que los jugadores paren; las medallas llegarán más adelante.",
-          en: "The game goes on until the players stop; medals will come later.",
+          es: "Cada unidad enemiga destruida es una medalla (una artillería cuyos artilleros quedan también cuenta). Cada casilla objetivo de un bando (un puente, un pueblo) es una medalla para él mientras una de sus unidades esté en ella al final del turno; si la deja o la pierde, deja de contar. Al final de cada turno, tras la batalla, gana el bando que haya llegado a las medallas del escenario; si llegan los dos, el que tenga más, y con las mismas se sigue jugando. Un bando sin unidades pierde. Los objetivos se ven en el mapa como una medalla del color de su bando, llena mientras la ocupa; las medallas de cada bando, en la cabecera.",
+          en: "Each enemy unit destroyed is a medal (an artillery unit whose crew stays counts too). Each of a side's objective hexes (a bridge, a town) is a medal for it while one of its units stands there at the end of the turn; once it leaves or loses it, it stops counting. At the end of each turn, after the battle, the side that has reached the scenario's medals wins; if both have, the one with more, and with as many each the game goes on. A side with no units left loses. The objectives show on the map as a medal in their side's colour, solid while it holds them; each side's medals are in the header.",
         },
       },
     ],

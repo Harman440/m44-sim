@@ -1358,6 +1358,16 @@ class GameSession {
     return this.enemyView?.().find((enemy) => samePosition(enemy.position, position)) ?? null;
   }
 
+  /**
+   * Pass and play: this side's units destroyed so far, by type (an artillery whose crew stayed
+   * counts), from the finished turns' logs and this turn's map changes
+   */
+  unitsLost(): UnitType[] {
+    const logged = this.log.flatMap((turn) => turn.battleEdits.flatMap((edit) => (edit.kind === "remove" ? [edit.unit] : [])));
+    const now = this.battleEdits.flatMap((edit) => (edit.kind === "remove" ? [edit.unit.getUnitType()] : []));
+    return [...logged, ...now];
+  }
+
   /** The battle's order summaries, as the snapshot's (for the pass and play match) */
   orderSummaries() {
     return this.summaries();

@@ -52,6 +52,7 @@ const FILE_FIELDS = {
   extraDraws: true,
   bigGuns: true,
   airPower: true,
+  victory: true,
 } as const satisfies Record<keyof ScenarioFile, true>;
 export const SCENARIO_FILE_FIELDS = Object.keys(FILE_FIELDS) as (keyof ScenarioFile)[];
 
@@ -114,6 +115,9 @@ const MESSAGES = {
   paradropUnits: { es: "El lanzamiento en paracaídas necesita 1 unidad o más", en: "The paradrop needs 1 unit or more" },
   extraDrawTurns: { es: "Los robos extra necesitan 1 turno o más", en: "The extra draws need 1 turn or more" },
   airPower: { es: "Las salidas aéreas deben ser 0 o más", en: "Air sorties must be 0 or more" },
+  victoryMedals: { es: "La victoria necesita 1 medalla o más", en: "Victory needs 1 medal or more" },
+  objectiveOnWater: { es: "Un objetivo no puede estar en el agua", en: "An objective can't be on water" },
+  objectiveTwice: { es: "Una casilla es objetivo dos veces", en: "A hex is an objective twice" },
 } satisfies Record<string, Localized | ((...args: never[]) => Localized) | Record<Faction, Localized>>;
 
 const isOnBoard = ({ row, col }: Position, { rows, cols } = BOARD_SIZES.standard): boolean =>
@@ -161,7 +165,15 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   const wire = scenario.wire ?? [];
   const sandbags = scenario.sandbags ?? [];
   const elite = scenario.elite ?? [];
-  const everyPosition = [...Object.values(scenario.tiles).flatMap((positions) => positions ?? []), ...units, ...wire, ...sandbags, ...elite];
+  const objectives = (scenario.victory?.objectives ?? []).flatMap((objective) => objective.hexes);
+  const everyPosition = [
+    ...Object.values(scenario.tiles).flatMap((positions) => positions ?? []),
+    ...units,
+    ...wire,
+    ...sandbags,
+    ...elite,
+    ...objectives,
+  ];
 
   atHexes(MESSAGES.offBoard, everyPosition.filter((position) => !isOnBoard(position)));
   atHexes(MESSAGES.twoTerrains, twoTerrains);
@@ -170,6 +182,11 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   atHexes(MESSAGES.wireOnWater, wire.filter((position) => isWater(terrainAt(position))));
   atHexes(MESSAGES.sandbagsWithoutUnit, sandbags.filter((position) => !hasUnit(position)));
   atHexes(MESSAGES.eliteWithoutUnit, elite.filter((position) => !hasUnit(position)));
+  atHexes(MESSAGES.objectiveOnWater, objectives.filter((position) => isWater(terrainAt(position))));
+  atHexes(
+    MESSAGES.objectiveTwice,
+    objectives.filter((position, i) => objectives.findIndex((other) => positionKey(other) === positionKey(position)) !== i)
+  );
 
   for (const [side, faction] of SIDES) {
     const onTheBoard = Object.values(scenario.units[side]).some((positions) => positions?.length);
@@ -180,6 +197,7 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   if (scenario.extraDraws && !isWholeNumber(scenario.extraDraws.turns, 1)) problem(MESSAGES.extraDrawTurns);
   const airPower = scenario.airPower;
   if (airPower && SIDES.some(([side]) => !isWholeNumber(airPower[side], 0))) problem(MESSAGES.airPower);
+  if (scenario.victory && !isWholeNumber(scenario.victory.medals, 1)) problem(MESSAGES.victoryMedals);
 
   return problems;
 }
@@ -200,6 +218,7 @@ const EXPECTED = {
   unitType: { es: "no es un tipo de unidad", en: "isn't a unit type" },
   version: { es: `debe ser ${SCENARIO_FILE_VERSION}`, en: `must be ${SCENARIO_FILE_VERSION}` },
   board: { es: 'debe ser "standard"', en: 'must be "standard"' },
+  objectives: { es: "debe ser una lista de objetivos", en: "must be a list of objectives" },
 } satisfies Record<string, Localized>;
 
 const NOT_A_SCENARIO: Localized = { es: "El archivo no es un escenario", en: "The file isn't a scenario" };
@@ -277,6 +296,24 @@ class FileReader {
     return drop;
   }
 
+  victory(value: unknown, path: string) {
+    const victory = this.object(value, path, ["medals", "objectives"]);
+    if (!victory) return undefined;
+    this.number(victory.medals, join(path, "medals"));
+    if (victory.objectives !== undefined) {
+      const list = this.check(victory.objectives, join(path, "objectives"), Array.isArray, EXPECTED.objectives);
+      list?.forEach((item, i) => {
+        const at = join(path, `objectives.${i}`);
+        const objective = this.object(item, at, ["faction", "name", "hexes"]);
+        if (!objective) return;
+        this.faction(objective.faction, join(at, "faction"));
+        this.check(objective.name, join(at, "name"), isLocalized, EXPECTED.localized);
+        this.positions(objective.hexes, join(at, "hexes"));
+      });
+    }
+    return victory;
+  }
+
   extraDraws(value: unknown, path: string) {
     const draws = this.object(value, path, ["faction", "turns"]);
     if (!draws) return undefined;
@@ -319,6 +356,7 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     extraDraws: optional("extraDraws", (value, path) => reader.extraDraws(value, path)),
     bigGuns: optional("bigGuns", (value, path) => reader.check(value, path, isFactionList, EXPECTED.factions)),
     airPower: optional("airPower", (value, path) => reader.sides(value, path, reader.number)),
+    victory: optional("victory", (value, path) => reader.victory(value, path)),
   };
   if (reader.problems.length) throw new ScenarioFileError(reader.problems);
 

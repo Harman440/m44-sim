@@ -4,6 +4,7 @@ import FactionInsignia from "../FactionInsignia";
 import GameIcon, { GameIconName } from "../GameIcon";
 import InfoButton from "../InfoButton";
 import { Scenario } from "../../types/scenario";
+import type { Localized } from "../../i18n/lang";
 import { FACTIONS, Faction } from "../../types/faction";
 import { STARTING_COMBAT_CARDS, combatDeckEntries } from "../../data/combatCards";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
@@ -40,6 +41,13 @@ const TEXT = defineMessages({
     seeDeck: (count: number, faction: string, extras: string) =>
       `Ver las ${count} cartas de combate de ${faction}${extras && `, con ${extras}`}`,
     sides: (scenario: string) => (scenario ? `Bandos de ${scenario}` : "Bandos"),
+    victory: (medals: number) => `Victoria: ${medals} medallas`,
+    victoryInfo: (medals: number) =>
+      `En Pasar y jugar y contra el ordenador gana el primero que llegue a ${medals} medallas al final de un turno ` +
+      "(con las mismas, se sigue jugando). Cada unidad enemiga destruida es una medalla, y cada casilla objetivo de un " +
+      "bando, una medalla para él mientras una de sus unidades esté en ella al final del turno. Un bando sin unidades pierde. " +
+      "En tablets propias las medallas se cuentan en la mesa.",
+    destroyedOnly: "Unidades destruidas",
   },
   en: {
     role: "Role",
@@ -70,6 +78,13 @@ const TEXT = defineMessages({
     seeDeck: (count: number, faction: string, extras: string) =>
       `See the ${count} combat cards of the ${faction}${extras && `, with ${extras}`}`,
     sides: (scenario: string) => (scenario ? `Sides in ${scenario}` : "Sides"),
+    victory: (medals: number) => `Victory: ${medals} medals`,
+    victoryInfo: (medals: number) =>
+      `In pass and play and against the computer, the first side to ${medals} medals at the end of a turn wins ` +
+      "(with as many each, the game goes on). Each enemy unit destroyed is a medal, and each of a side's objective " +
+      "hexes a medal for it while one of its units stands there at the end of the turn. A side with no units left loses. " +
+      "On own tablets the medals are counted at the table.",
+    destroyedOnly: "Units destroyed",
   },
 });
 
@@ -107,7 +122,42 @@ interface DetailRow {
   value: (faction: Faction) => ReactNode;
 }
 
-function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void, t: Text, labels: Labels): DetailRow[] {
+function detailRows(
+  scenario: Scenario,
+  onShowDeck: (faction: Faction) => void,
+  t: Text,
+  labels: Labels,
+  tr: (text: Localized) => string
+): DetailRow[] {
+  const victory = scenario.victory;
+  // The medals to win, and each side's objectives besides the enemy units it destroys
+  const victoryRow: DetailRow[] = victory
+    ? [
+        {
+          label: t.victory(victory.medals),
+          info: <Typography variant="body1">{t.victoryInfo(victory.medals)}</Typography>,
+          value: (faction) => {
+            const objectives = (victory.objectives ?? []).filter((objective) => objective.faction === faction);
+            return (
+              <Stack spacing={0.25} sx={{ alignItems: "center" }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t.destroyedOnly}
+                </Typography>
+                {objectives.map((objective) => (
+                  <Stack key={objective.name.es} direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                    <GameIcon name="medal" size={20} />
+                    <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
+                      {tr(objective.name)}
+                      {objective.hexes.length > 1 && ` ×${objective.hexes.length}`}
+                    </Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            );
+          },
+        },
+      ]
+    : [];
   return [
     {
       label: t.role,
@@ -178,6 +228,7 @@ function detailRows(scenario: Scenario, onShowDeck: (faction: Faction) => void, 
         );
       },
     },
+    ...victoryRow,
   ];
 }
 
@@ -222,7 +273,7 @@ function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsPr
           </TableRow>
         </TableHead>
         <TableBody>
-          {detailRows(scenario, setDeckShown, t, labels).map((row) => (
+          {detailRows(scenario, setDeckShown, t, labels, tr).map((row) => (
             <TableRow key={row.label}>
               <TableCell component="th" scope="row">
                 <Stack direction="row" sx={{ alignItems: "center" }}>
