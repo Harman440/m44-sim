@@ -6,8 +6,9 @@
 // and `separateHills`: each hill on its own tile instead of joined into ridges.
 //
 // The art is the empty board cropped to the edges of its hex grid, which is the box the app lays
-// the image in (components/boardGeometry.ts), at the empty board's resolution. The same crop,
-// smaller, is written for the app to draw maps on (src/assets/board-art/empty-board.webp).
+// the image in (components/boardGeometry.ts), built at the empty board's resolution and saved at
+// the size the app draws maps at (APP_ART_HEIGHT). The empty crop is written at that size too, for
+// the app to draw maps on (src/assets/board-art/empty-board.webp).
 // Which art goes on each hex is planned in src/boardArt/boardPlan.mjs, which the app uses too.
 // Painted terrain comes from scripts/board-art/tiles/<terrain>/: one hex per image, filling the
 // image's width, at any resolution. Each hex gets one of its terrain's tiles, turned 60° a random
@@ -38,6 +39,8 @@ const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
 // (found by fitting the grid to the printed hex lines)
 const EMPTY_BOARD = { file: `${ART}/empty-board.webp`, x0: 115.1, y0: 130.4, width: 187.35 };
+// The size the app draws boards at; the scenarios' art is saved at it too
+const appWidth = artGrid(APP_ART_HEIGHT).width;
 const APP_EMPTY_BOARD = "src/assets/board-art/empty-board.webp";
 const CLEAR = { r: 0, g: 0, b: 0, alpha: 0 };
 
@@ -144,14 +147,16 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
 
   // Pasted on the padded board, cropped back, then the frame put back on top
   const composed = await sharp(padded).composite(layers).png().toBuffer();
-  await sharp(await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
+  const framed = await sharp(await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
     .composite([{ input: frame }])
     .removeAlpha()
-    .webp({ quality: 85 })
-    .toFile(image);
+    .png()
+    .toBuffer();
+  // Built at the empty board's resolution, saved at the app's (a third of the download)
+  await sharp(framed).resize(appWidth, APP_ART_HEIGHT, { fit: "fill" }).webp({ quality: 85 }).toFile(image);
   const notes = [...(drawn.length ? [`drawn ${drawn.join(" and ")}`] : []), ...(separateHills ? ["separate hills"] : [])];
   const hexes = new Set(plan.map((hex) => hex.key)).size;
-  console.log(`${image}: ${W}×${H}, ${hexes} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
+  console.log(`${image}: ${appWidth}×${APP_ART_HEIGHT}, ${hexes} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
 }
 
 const only = process.argv[2]?.toLowerCase();
@@ -165,6 +170,5 @@ if (!boards.length) {
 for (const b of boards) await build(b);
 
 // The empty board the app draws maps on, at the size it draws them
-const appWidth = artGrid(APP_ART_HEIGHT).width;
 await sharp(board).resize(appWidth, APP_ART_HEIGHT, { fit: "fill" }).webp({ quality: 85 }).toFile(APP_EMPTY_BOARD);
 console.log(`${APP_EMPTY_BOARD}: ${appWidth}×${APP_ART_HEIGHT}`);

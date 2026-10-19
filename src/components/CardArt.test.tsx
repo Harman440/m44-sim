@@ -1,12 +1,14 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CombatCardArt } from "./CardArt";
+import { CombatCardArt, PAINTINGS } from "./CardArt";
 import CommandCard from "../game-core/commandCard";
 import { CombatCard } from "../game-core/combatCard";
 import { UnitType } from "../game-core/unit";
 import { Side } from "../types/hex";
 import { same } from "../i18n/lang";
 import { allCombatCards } from "../data/combatCards";
+import { commandDeckFor } from "../data/commandCards";
+import { scenarios } from "../data/scenarios";
 
 const combat = (extra: Partial<CombatCard>): CombatCard => ({
   id: "card-1",
@@ -14,6 +16,21 @@ const combat = (extra: Partial<CombatCard>): CombatCard => ({
   description: same(""),
   cost: 1,
   ...extra,
+});
+
+describe("card paintings", () => {
+  it("are each named after a card's template id, so a misnamed one doesn't go unseen", () => {
+    const templateIds = new Set([
+      ...allCombatCards().map((card) => card.templateId ?? card.id),
+      ...scenarios.flatMap((scenario) =>
+        (["Allies", "Axis"] as const).flatMap((faction) => commandDeckFor(scenario, faction).map((card) => card.templateId))
+      ),
+    ].map((id) => id.replace(/-\d+$/, "")));
+    const strays = Object.keys(PAINTINGS).filter((name) => name !== "british-generals" && !templateIds.has(name));
+
+    expect(strays).toEqual([]);
+    expect(Object.keys(PAINTINGS).length).toBeGreaterThan(20);
+  });
 });
 
 describe("CombatCardArt", () => {

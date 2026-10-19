@@ -14,34 +14,19 @@ import { FACTION_COLORS } from "../looks/looks";
 import { unitSprite } from "./UnitComponent";
 import { GameIconName, iconUrl } from "./GameIcon";
 import generalsArt from "../assets/cards/british-generals.webp";
-import armourAssaultArt from "../assets/cards/armour-assault.webp";
-import artilleryBombardmentArt from "../assets/cards/artillery-bombardment.webp";
-import closeAssaultArt from "../assets/cards/close-assault.webp";
-import finestHourArt from "../assets/cards/finest-hour.webp";
-import firefightArt from "../assets/cards/firefight.webp";
-import hqArt from "../assets/cards/hq.webp";
-import infantryAssaultArt from "../assets/cards/infantry-assault.webp";
-import moveOutArt from "../assets/cards/move-out.webp";
-import preparationsArt from "../assets/cards/preparations.webp";
-import rattenkriegArt from "../assets/cards/rattenkrieg.webp";
-import noRespiteArt from "../assets/cards/no-respite.webp";
-import armourForwardArt from "../assets/cards/armour-forward.webp";
-import medicArt from "../assets/cards/medic.webp";
-import mechanicArt from "../assets/cards/mechanic.webp";
-import behindEnemyLinesArt from "../assets/cards/behind-enemy-lines.webp";
-import motorizedArt from "../assets/cards/motorized.webp";
-import reinforcementsArt from "../assets/cards/reinforcements.webp";
-import streetEquipmentArt from "../assets/cards/street-equipment.webp";
-import heatOfBattleArt from "../assets/cards/heat-of-battle.webp";
-import notOneStepBackArt from "../assets/cards/not-a-step-back.webp";
-import camouflageArt from "../assets/cards/camouflage.webp";
-import airBombardmentArt from "../assets/cards/air-bombardment.webp";
-import barrageArt from "../assets/cards/barrage.webp";
-import airPowerArt from "../assets/cards/air-power.webp";
-import explosivesArt from "../assets/cards/explosives.webp";
-import repositionArt from "../assets/cards/reposition.webp";
-import fortifyArt from "../assets/cards/fortify.webp";
-import spotterArt from "../assets/cards/spotter.webp";
+
+/**
+ * The card paintings, by the card's template id (its id without the copy number): a painting is
+ * `assets/cards/<template id>.webp`, made with `npm run card-art`, and the card shows it with no
+ * code to change. A command card with none shows the generals; a combat card keeps its piece of board
+ */
+export const PAINTINGS: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(import.meta.glob<string>("../assets/cards/*.webp", { eager: true, import: "default" })).map(
+    ([path, url]) => [path.slice(path.lastIndexOf("/") + 1, -".webp".length), url]
+  )
+);
+
+const paintingOf = (templateId: string): string | undefined => PAINTINGS[templateId.replace(/-\d+$/, "")];
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
 import "./CardArt.css";
 
@@ -489,19 +474,6 @@ export function SectionCardArt({ card, faction }: { card: CommandCard; faction: 
 
 // --- tactic cards (La Hora de la Verdad, Escaramuza, En marcha…)
 
-/** Each tactic card's painting, by the card's template (its id without the copy number); the rest show the generals for now */
-const TACTIC_PAINTINGS: Record<string, string> = {
-  "armor-assault": armourAssaultArt,
-  "artillery-bombardment": artilleryBombardmentArt,
-  "close-assault": closeAssaultArt,
-  "finest-hour": finestHourArt,
-  firefight: firefightArt,
-  "infantry-assault": infantryAssaultArt,
-  "direct-from-hq": hqArt,
-  "move-out": moveOutArt,
-  preparations: preparationsArt,
-};
-
 /**
  * A tactic card's art: its painting (the generals as a placeholder), with the card's
  * short summary under it. Its full text is in its details (CardDetails).
@@ -509,7 +481,7 @@ const TACTIC_PAINTINGS: Record<string, string> = {
 export function TacticCardArt({ card }: { card: CommandCard }) {
   const tr = useTr();
   const lang = useLang();
-  const painting = TACTIC_PAINTINGS[card.templateId.replace(/-\d+$/, "")] ?? generalsArt;
+  const painting = paintingOf(card.templateId) ?? generalsArt;
   return (
     <>
       <span className="tactic-art__painting-frame">
@@ -843,31 +815,8 @@ function tableGlyph(card: CombatCard, faction: Faction, row: ArtHex[], mid: numb
 }
 
 /** A combat card's art: a piece of board with what the card does on it, and pictograms for its rules */
-/** Each combat card's painting, by the card's template id; the rest keep their piece of board */
-const COMBAT_PAINTINGS: Record<string, string> = {
-  rattenkrieg: rattenkriegArt,
-  "no-respite": noRespiteArt,
-  "armor-forward": armourForwardArt,
-  medic: medicArt,
-  mechanic: mechanicArt,
-  infiltrators: behindEnemyLinesArt,
-  motorized: motorizedArt,
-  reinforcements: reinforcementsArt,
-  "street-equipment": streetEquipmentArt,
-  "heat-of-battle": heatOfBattleArt,
-  "not-a-step-back": notOneStepBackArt,
-  camouflage: camouflageArt,
-  "air-bombardment": airBombardmentArt,
-  barrage: barrageArt,
-  "air-power": airPowerArt,
-  explosives: explosivesArt,
-  reposition: repositionArt,
-  fortify: fortifyArt,
-  spotter: spotterArt,
-};
-
 export function CombatCardArt({ card, faction }: { card: CombatCard; faction: Faction }) {
-  const painting = COMBAT_PAINTINGS[card.templateId ?? card.id.replace(/-\d+$/, "")];
+  const painting = paintingOf(card.templateId ?? card.id);
   if (painting) {
     // The painting takes the board's place; the special rules stay under it
     const rules = combatRules(card);

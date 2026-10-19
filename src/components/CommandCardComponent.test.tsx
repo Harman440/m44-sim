@@ -72,8 +72,8 @@ describe("CommandCardComponent", () => {
     const painting = (id: string) =>
       renderCard(new CommandCard({ id, tactic: true, orders: 4 })).querySelector(".tactic-art__painting")!.getAttribute("src");
 
-    expect(painting("armor-assault-1")).toContain("armour-assault");
-    expect(painting("direct-from-hq-2")).toContain("hq");
+    expect(painting("armor-assault-1")).toContain("armor-assault");
+    expect(painting("direct-from-hq-2")).toContain("direct-from-hq");
     expect(painting("infantry-assault-1")).toContain("infantry-assault");
     expect(painting("firefight-1")).toContain("firefight");
     expect(painting("finest-hour-1")).toContain("finest-hour");

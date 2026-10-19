@@ -259,9 +259,9 @@ async function cutOut(input) {
   return { image: sharp(rgba, { raw: { width: w, height: h, channels: 4 } }), removed };
 }
 
-const { width, height, hasAlpha } = await sharp(file).metadata();
-// About 3 times its size on the largest card (220px): landscape art fills the card's width, portrait art less
-const maxWidth = maxWidthArg ? Number(maxWidthArg) : width > height ? 640 : 480;
+const { width, hasAlpha } = await sharp(file).metadata();
+// Twice the largest card on screen (220px in the card dialog), for the tablet's 2× screen
+const maxWidth = maxWidthArg ? Number(maxWidthArg) : 480;
 const out = `src/assets/cards/${basename(file).replace(/\.(png|jpe?g)$/i, "").toLowerCase()}.webp`;
 const { image, removed } = hasAlpha ? { image: sharp(file), removed: null } : await cutOut(file);
 
