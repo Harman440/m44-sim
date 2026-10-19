@@ -48,7 +48,7 @@ describe("planBoard", () => {
   });
 
   it("paints a tile from the library on each hex, turned by the hex", () => {
-    expect(planBoard({ hedgerow: [p(4, 7)] }, LIBRARY)).toEqual([{ key: "4-7", type: "hedgerow", art: "painted", tile: "hedgerow/official.webp", turns: 3 }]);
+    expect(planBoard({ hill: [p(4, 7)] }, LIBRARY)).toEqual([{ key: "4-7", type: "hill", art: "painted", tile: "hill/official.webp", turns: 3 }]);
   });
 
   it("joins hills next to each other into ridges, unless each hill goes on its own", () => {
@@ -79,8 +79,8 @@ describe("planBoard", () => {
       bare: [false, true, true, true, true, true],
     });
     expect(at(plan, "2-2")[0]).toMatchObject({ open: [false, false, false, false, false, false] });
-    // A hedgerow on its own is its tile
-    expect(at(planBoard({ hedgerow: [p(0, 0)] }, LIBRARY), "0-0")[0]).toMatchObject({ art: "painted" });
+    // A forest's trees grow over a town or a river beside it, which end in countryside
+    expect(at(planBoard({ forest: [p(4, 4)], town: [p(4, 5)], river: [p(4, 3)] }, LIBRARY), "4-4")[0]).toMatchObject({ bare: [true, true, true, true, true, true] });
   });
 
   it("stands a house over an edge onto the countryside in some towns, never off the board", () => {
@@ -106,9 +106,11 @@ describe("planBoard", () => {
     const plan = planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY);
 
     expect(at(plan, "4-4")).toEqual([
-      { key: "4-4", type: "bridge", art: "painted", tile: "river/3-0.webp", turns: 0 },
+      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), spill: -1, seed: 57 },
       { key: "4-4", type: "bridge", art: "bridgePiece", edges: [0, 3] },
     ]);
+    // Plain, its tile as it is
+    expect(at(planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY, { plain: true }), "4-4")[0]).toMatchObject({ art: "painted", turns: 0 });
   });
 
   it("carries a river straight on at its ends", () => {

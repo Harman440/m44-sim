@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OVERFLOW, joinedTileMaker } from "./joinedTiles.mjs";
+import { OVERFLOW, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
 import type { Pixels } from "./joinedHills.mjs";
 
 const SIZE = 120;
@@ -95,5 +95,47 @@ describe("joinedTileMaker", () => {
     const { overflow } = make(hex("2-2", CLOSED, 0, 1, { bare: EAST, spill: 0 }));
 
     expect(pastEast(overflow)).toBeGreaterThan(200);
+  });
+
+  it("runs a hedge out over the countryside from some hedgerows", () => {
+    const make = joinedTileMaker("hedgerow", tile(false), W, H, 1);
+
+    expect(pastEast(make(hex("6-6", CLOSED, 0, 3, { bare: EAST, spill: 0 })).overflow)).toBe(255);
+    expect(make(hex("6-6", CLOSED, 0, 3, { bare: EAST })).overflow).toBeNull();
+  });
+});
+
+describe("toCountryside", () => {
+  // A hex of grass with a grey square of cobbles in its middle, RGBA
+  const [w, h] = [80, 92];
+  const town = () => {
+    const data = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const cobbles = Math.abs(x - w / 2) < 14 && Math.abs(y - h / 2) < 14;
+        data.set(cobbles ? [190, 192, 196, 255] : [150, 176, 80, 255], (y * w + x) * 4);
+      }
+    }
+    return data;
+  };
+  const alpha = (data: Uint8Array, x: number, y: number) => data[(y * w + x) * 4 + 3];
+
+  it("keeps the hex's own things and the grass just round them, and clears the rest", () => {
+    const data = town();
+    toCountryside(data, w, h, 0.1, 7);
+
+    expect(alpha(data, w / 2, h / 2)).toBe(255);
+    // Just past the cobbles' edge, and towards the hex's edge
+    expect(alpha(data, w / 2 + 15, h / 2)).toBe(255);
+    expect(alpha(data, w - 6, h / 2)).toBe(0);
+  });
+
+  it("doesn't count specks in the grass as the hex's own", () => {
+    const data = town();
+    // A stone near the edge
+    data.set([120, 120, 120, 255], ((h / 2) * w + w - 8) * 4);
+    toCountryside(data, w, h, 0.1, 7);
+
+    expect(alpha(data, w - 8, h / 2)).toBe(0);
   });
 });

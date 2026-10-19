@@ -33,7 +33,7 @@ describe("the app's board art", () => {
     const p = (row: number, col: number) => ({ row, col });
     const kinds = (tiles: Parameters<typeof planMapArt>[0]) => planMapArt(tiles).map((hex) => hex.art);
 
-    expect(kinds({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] })).toEqual(["painted", "painted", "painted", "bridgePiece"]);
+    expect(kinds({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] })).toEqual(["joined", "joined", "joined", "bridgePiece"]);
     // Three river hexes round one corner turn too sharply for the river tiles
     expect(kinds({ river: [p(4, 5), p(4, 4), p(5, 4)] })).toEqual(["drawn", "drawn", "drawn"]);
     // A fork while the map is being made doesn't stop the drawing

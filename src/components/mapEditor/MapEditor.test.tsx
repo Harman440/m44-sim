@@ -4,6 +4,7 @@ import MapEditor, { MapEditorProps } from "./MapEditor";
 import { scenarios } from "../../data/scenarios";
 import { newDraft } from "../../game-core/scenarioDraft";
 import { SettingsContext, DEFAULT_SETTINGS } from "../../settings";
+import * as drawBoard from "../../boardArt/drawBoard";
 
 const MAPS_KEY = "m44-sim:custom-maps";
 /** The maps kept in Mis mapas, as files */
@@ -190,6 +191,20 @@ describe("MapEditor", () => {
     // Once kept, it's kept even when emptied again
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     expect(savedDraft().units).toEqual({ allies: {}, axis: {} });
+  });
+
+  it("draws the plain map while it's made, and the finished one when asked", async () => {
+    const draw = vi.spyOn(drawBoard, "drawBoardArt").mockResolvedValue("blob:art");
+    render(<Editor />);
+    await waitFor(() => expect(draw).toHaveBeenLastCalledWith(expect.anything(), { cols: 13, rows: 9 }, { plain: true }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver el mapa terminado" }));
+
+    await waitFor(() => expect(draw).toHaveBeenLastCalledWith(expect.anything(), { cols: 13, rows: 9 }, { plain: false }));
+    const back = screen.getByRole("button", { name: "Volver al mapa sencillo" });
+    expect(back).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(back);
+    await waitFor(() => expect(draw).toHaveBeenLastCalledWith(expect.anything(), { cols: 13, rows: 9 }, { plain: true }));
   });
 
   it("goes back to the menu", () => {

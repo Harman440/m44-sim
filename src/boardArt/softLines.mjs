@@ -1,17 +1,13 @@
 // boardArt/softLines.mjs
-// The board's edges made soft, on the whole board, in three passes:
+// The board's edges made soft, on the whole board, in two passes:
 // - fillFrame: the empty board's dark frame round the grid (the notches at the ends of the rows,
 //   the zigzag at the top and bottom) filled with the countryside of the hexes beside it, mirrored
 //   out across their edge, so a scenario's map ends in countryside;
-// - blendTerrainEdges: where a hex's terrain meets other terrain or the countryside, the two are
-//   cross-faded over a band with a wobbly middle, so a forest or a town doesn't end on a sharp
-//   hex edge;
 // - softenHexLines: the hex lines (the empty board's printed ones and the tiles' rims) blended
 //   with the board mirrored in from just inside the hex, so a line keeps only a part of its
 //   strength and what's beside it carries on across.
 // Pixel work in plain JavaScript, done the same way by `npm run board` (scripts/compose-board.mjs)
 // and the app (drawBoard.ts).
-import { neighbor } from "./boardPlan.mjs";
 
 /** @typedef {import("./joinedHills.mjs").Pixels} Pixels */
 /** @typedef {Pixels & { data: Uint8Array | Uint8ClampedArray }} Image */
@@ -50,74 +46,6 @@ export function softenHexLines({ data, width, height, channels }, keys, center, 
       const w = (1 - keep) * Math.min(1, (band - near) / (band / 2));
       const [o, s] = [channels * (y * width + x), channels * (sy * width + sx)];
       for (let c = 0; c < 3; c++) data[o + c] = Math.round(/** @type {number} */ (source[o + c]) * (1 - w) + /** @type {number} */ (source[s + c]) * w);
-    });
-  }
-}
-
-/** @param {number} a @param {number} b @param {number} v */
-const smoothstep = (a, b, v) => {
-  const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
-
-/** How wide the cross-fade between two kinds of terrain is on each side of their edge, in hex radii */
-export const TERRAIN_BLEND = 0.13;
-// How far its middle wanders from the hex line, in hex radii
-const WOBBLE = 0.07;
-
-/**
- * Cross-fade the art across every edge between two different kinds of terrain (`typeOf(key)`,
- * "plains" for the countryside; a key off the board is countryside too), in place: each pixel
- * within the band takes its own hex's art and the other hex's, mirrored across the edge, weighed
- * by how far it is from a wobbly line along the edge. At the board's outer edge the fade ends in
- * the countryside of the frame round it (fillFrame), so it carries on into the frame.
- * @param {Image} image
- * @param {string[]} keys
- * @param {(key: string) => { x: number, y: number }} center
- * @param {number} radius
- * @param {(key: string) => string} typeOf
- */
-export function blendTerrainEdges({ data, width, height, channels }, keys, center, radius, typeOf) {
-  const source = Uint8Array.from(data);
-  const onBoard = new Set(keys);
-  const inner = (SQRT3 / 2) * radius;
-  const band = (TERRAIN_BLEND + WOBBLE) * radius;
-  const fade = TERRAIN_BLEND * radius;
-  /** @param {number} x @param {number} y board pixels: the wobble, the same from both hexes */
-  const wobble = (x, y) => {
-    const [u, v] = [x / radius, y / radius];
-    return WOBBLE * radius * (0.6 * Math.sin(4.1 * u + 2.3 * v) + 0.4 * Math.sin(-2.7 * u + 6.9 * v + 1.7));
-  };
-  for (const key of keys) {
-    const type = typeOf(key);
-    const nexts = [0, 1, 2, 3, 4, 5].map((d) => neighbor(key, d));
-    const others = nexts.map((next) => (onBoard.has(next) ? typeOf(next) : null));
-    // Of each pair, the hex that measures the fade: the one that comes first
-    const firsts = nexts.map((next) => key < next);
-    // Nothing to blend round a hex whose neighbours are all its own kind
-    if (others.every((other) => other === type || (other === null && type === "plains"))) continue;
-    const { x: cx, y: cy } = center(key);
-    forEdgeBand(cx, cy, inner, radius, width, height, band, (x, y, near, edge) => {
-      const other = others[edge];
-      if (other === type || (other === null && type === "plains")) return;
-      const [nx, ny] = [/** @type {number} */ (NX[edge]), /** @type {number} */ (NY[edge])];
-      // This hex's art, and the other's mirrored across the edge; at the ends of the long rows
-      // the board's edge is the image's, with nothing past it to fade into
-      const [sx, sy] = [Math.round(x + 2 * near * nx), Math.round(y + 2 * near * ny)];
-      if (sx < 0 || sy < 0 || sx >= width || sy >= height) return;
-      // How much of this hex's art: by the distance in from the edge, measured from the hex of
-      // the two that comes first, so the wobble bends the same way from both sides
-      let mine;
-      if (other === null) {
-        mine = smoothstep(0, 2 * fade, near + wobble(x, y));
-      } else {
-        const first = firsts[edge];
-        const s = (first ? near : -near) + wobble(x, y);
-        const firstShare = smoothstep(-fade, fade, s);
-        mine = first ? firstShare : 1 - firstShare;
-      }
-      const [o, q] = [channels * (y * width + x), channels * (sy * width + sx)];
-      for (let c = 0; c < 3; c++) data[o + c] = Math.round(/** @type {number} */ (source[o + c]) * mine + /** @type {number} */ (source[q + c]) * (1 - mine));
     });
   }
 }

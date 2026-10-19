@@ -29,6 +29,12 @@ import { neighbor, pickFor } from "./boardPlan.mjs";
  * @typedef {(hex: JoinedHex) => { tile: Uint8Array, overflow: Uint8Array | null }} JoinedMaker
  */
 
+// A hedge's bush, as the hedgerow tile paints them: its lit middle and its dark rim
+/** @type {[number, number, number]} */
+const BUSH_LIGHT = [176, 204, 96];
+/** @type {[number, number, number]} */
+const BUSH_DARK = [38, 74, 20];
+
 /** How much larger than its hex a hex's overflow image is */
 export const OVERFLOW = 1.5;
 
@@ -230,9 +236,10 @@ function emptyTown(tile, masks) {
 /**
  * The forest tile's tree crowns: where its light is brightest round about (each crown is lit in
  * its middle), from its middle out, each at least `apart` hex radii from the next
- * @param {Pixels} tile @param {number} apart
+ * (a hedgerow's bushes: only where `keep(r, g, b)` is true of the pixel)
+ * @param {Pixels} tile @param {number} apart @param {(r: number, g: number, b: number) => boolean} [keep]
  */
-function findCrowns({ data, width: W, height: H, channels: C }, apart) {
+function findCrowns({ data, width: W, height: H, channels: C }, apart, keep = () => true) {
   const R = H / 2;
   const lum = new Float32Array(W * H);
   for (let p = 0; p < W * H; p++) {
@@ -262,6 +269,8 @@ function findCrowns({ data, width: W, height: H, channels: C }, apart) {
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (hexReach((x - W / 2) / R, (y - H / 2) / R) > 0.62) continue;
+      const i = C * (y * W + x);
+      if (!keep(/** @type {number} */ (data[i]), /** @type {number} */ (data[i + 1]), /** @type {number} */ (data[i + 2]))) continue;
       peaks.push([/** @type {number} */ (blurred[y * W + x]), x, y]);
     }
   }
@@ -381,7 +390,9 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
   const OR = tile.height / 2;
   const { houses, roofs } = type === "town" ? findHouses(tile) : { houses: [], roofs: new Float32Array() };
   const ground = type === "town" ? emptyTown(tile, [roofs, ...houses.map((h) => h.mask)]) : tile;
-  const trees = type === "forest" ? findCrowns(tile, 0.24) : [];
+  // A forest's tree crowns; a hedgerow's bushes, the dark green clumps along its hedges
+  const trees =
+    type === "forest" ? findCrowns(tile, 0.24) : type === "hedgerow" ? findCrowns(tile, 0.08, (r, g, b) => g - b > 40 && g < 150 && r < 120) : [];
   const inside = new Uint8Array(houses.length ? tile.width * tile.height : 0);
   for (let p = 0; p < inside.length; p++) inside[p] = hexReach(((p % tile.width) - tile.width / 2) / OR, (((p / tile.width) | 0) - tile.height / 2) / OR) < 0.8 ? 1 : 0;
   const px = 1 / TR;
@@ -412,7 +423,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
 
     // Crowns across each edge shared with another forest, the same from either side: each edge's
     // crowns are made from its own seed, in the frame of the hex that owns it
-    /** @typedef {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[] }} Crown */
+    /** `bush`: a hedge's bush, painted as the tiles' bushes are rather than cut from the tile */
+    /** @typedef {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[], bush?: boolean }} Crown */
     /** @type {Crown[]} */
     const crowns = [];
     /** One of the tile's crowns, turned any way, at x, y @param {number} x @param {number} y @param {number} r @param {() => number} r0 @returns {Crown} */
@@ -459,6 +471,22 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
     /** @type {Crown[]} */
     const spillCrowns = [];
     if (type === "forest") for (let d = 0; d < 6; d++) if (bare[d]) spillCrowns.push(...alongEdge(d, [0, 0], [-0.08, 0.02], rand));
+    // A hedge running on out over the countryside: a line of bushes from inside the hex, across
+    // the edge, bending a little
+    if (type === "hedgerow" && spill >= 0) {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[spill]);
+      let angle = Math.atan2(ny, nx) + (rand() - 0.5) * 0.9;
+      const along = (rand() - 0.5) * 0.45;
+      let [x, y] = [nx * 0.5 * INNER - ny * along, ny * 0.5 * INNER + nx * along];
+      const length = 0.6 + 0.25 * rand();
+      for (let t = 0; t < length; t += 0.075) {
+        // Now and then a tree in the hedge
+        const size = rand() < 0.2 ? 0.09 + 0.03 * rand() : 0.055 + 0.03 * rand();
+        spillCrowns.push({ ...crownAt(x + (rand() - 0.5) * 0.03, y + (rand() - 0.5) * 0.03, size, rand), bush: true });
+        angle += (rand() - 0.5) * 0.25;
+        [x, y] = [x + 0.075 * Math.cos(angle), y + 0.075 * Math.sin(angle)];
+      }
+    }
     // Light from the top left: crowns cast their shadow down and to the right
     const [shx, shy] = [0.03, 0.04];
 
@@ -524,6 +552,13 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
         const t = sample(tile, u, v, b);
         // Rounded: darker towards its rim, lit from the top left
         const rim = dist / edgeR;
+        if (crown.bush) {
+          // A bush: a light middle in a dark rim, the tile's texture showing through faintly
+          const mix = Math.min(1, rim ** 1.6 + Math.max(0, (0.6 * dx + 0.8 * dy) / edgeR) * 0.35);
+          const grain = ((0.3 * (t[0] ?? 0) + 0.59 * (t[1] ?? 0) + 0.11 * (t[2] ?? 0)) - 130) * 0.25;
+          over(px, clamp(BUSH_LIGHT[0] * (1 - mix) + BUSH_DARK[0] * mix + grain, 0, 255), clamp(BUSH_LIGHT[1] * (1 - mix) + BUSH_DARK[1] * mix + grain, 0, 255), clamp(BUSH_LIGHT[2] * (1 - mix) + BUSH_DARK[2] * mix + grain, 0, 255), w);
+          continue;
+        }
         const shade = 1.04 - 0.3 * rim * rim - (0.12 * (0.6 * dx + 0.8 * dy)) / edgeR;
         over(px, clamp((t[0] ?? 0) * shade, 0, 255), clamp((t[1] ?? 0) * shade, 0, 255), clamp((t[2] ?? 0) * shade, 0, 255), w);
       }
@@ -558,6 +593,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
         out.set([c[0] ?? 0, c[1] ?? 0, c[2] ?? 0, 255], 4 * (y * TW + x));
       }
     }
+    // A town or a river ends in the board's own countryside
+    if (type === "town" || type === "river") toCountryside(out, TW, TH, type === "town" ? 0.1 : 0.07, seed);
 
     if (!spilt && !spillCrowns.length) return { tile: out, overflow: null };
     // What spills out: the house over its edge, whole, and the trees over the countryside
@@ -581,6 +618,90 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
     }
     return { tile: out, overflow };
   };
+}
+
+/** Whatever isn't grass: grass is green over blue, and not as light as cobbles or water's glints @param {number} r @param {number} g @param {number} b */
+const notGrass = (r, g, b) => !(g - b > 40 && g >= r - 6 && 0.3 * r + 0.59 * g + 0.11 * b < 205);
+
+/**
+ * Let the board's countryside show through a hex's grass, in place: the tile's own grass is kept
+ * only near what makes the hex (a town's cobbles and houses, a river's water and banks), out to
+ * `keep` hex radii from it with a wandering edge, and is clear beyond, so the hex ends in the
+ * countryside round it rather than on its tile's rim. `pixels`: the hex, RGBA, `width` ×
+ * `height` (a hex in a √3 : 2 box, as drawn tiles are)
+ * @param {Uint8Array} pixels @param {number} width @param {number} height @param {number} keep @param {number} seed
+ */
+export function toCountryside(pixels, width, height, keep, seed) {
+  const R = height / 2;
+  const n = width * height;
+  // The hex's own things, inside the hex: then only where most round about is, so the stones and
+  // flowers in the grass and the tile's rim don't count, only the cobbles, the houses, the water
+  const other = new Float32Array(n);
+  for (let p = 0; p < n; p++) {
+    const [r = 0, g = 0, b = 0, a = 0] = [pixels[4 * p], pixels[4 * p + 1], pixels[4 * p + 2], pixels[4 * p + 3]];
+    const inside = hexReach((((p % width) + 0.5 - width / 2) / R), ((((p / width) | 0) + 0.5 - height / 2) / R)) < 0.97;
+    other[p] = a > 0 && inside && notGrass(r, g, b) ? 1 : 0;
+  }
+  const k = Math.max(1, Math.round(0.04 * R));
+  /** @param {Float32Array} from @param {number} step @param {number} along @param {number} lines @param {number} lineStep */
+  const box = (from, step, along, lines, lineStep) => {
+    const to = new Float32Array(n);
+    for (let l = 0; l < lines; l++) {
+      let t = 0;
+      for (let j = 0; j < Math.min(along, k); j++) t += /** @type {number} */ (from[l * lineStep + j * step]);
+      for (let i = 0; i < along; i++) {
+        if (i + k < along) t += /** @type {number} */ (from[l * lineStep + (i + k) * step]);
+        if (i - k - 1 >= 0) t -= /** @type {number} */ (from[l * lineStep + (i - k - 1) * step]);
+        to[l * lineStep + i * step] = t / (2 * k + 1);
+      }
+    }
+    return to;
+  };
+  const solid = box(box(other, 1, width, height, width), width, height, width, 1);
+  const dist = new Float32Array(n);
+  for (let p = 0; p < n; p++) dist[p] = /** @type {number} */ (solid[p]) > 0.55 ? 0 : Infinity;
+  // How far each pixel is from the hex's own things: a two-pass chamfer
+  const D = Math.SQRT2;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x;
+      let d = /** @type {number} */ (dist[p]);
+      if (x > 0) d = Math.min(d, /** @type {number} */ (dist[p - 1]) + 1);
+      if (y > 0) {
+        d = Math.min(d, /** @type {number} */ (dist[p - width]) + 1);
+        if (x > 0) d = Math.min(d, /** @type {number} */ (dist[p - width - 1]) + D);
+        if (x < width - 1) d = Math.min(d, /** @type {number} */ (dist[p - width + 1]) + D);
+      }
+      dist[p] = d;
+    }
+  }
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = width - 1; x >= 0; x--) {
+      const p = y * width + x;
+      let d = /** @type {number} */ (dist[p]);
+      if (x < width - 1) d = Math.min(d, /** @type {number} */ (dist[p + 1]) + 1);
+      if (y < height - 1) {
+        d = Math.min(d, /** @type {number} */ (dist[p + width]) + 1);
+        if (x < width - 1) d = Math.min(d, /** @type {number} */ (dist[p + width + 1]) + D);
+        if (x > 0) d = Math.min(d, /** @type {number} */ (dist[p + width - 1]) + D);
+      }
+      dist[p] = d;
+    }
+  }
+  // The edge wanders, by the hex
+  const rand = rng(seed + 977);
+  const [p1, p2, p3] = [rand() * 6.3, rand() * 6.3, rand() * 6.3];
+  const soft = Math.max(1, R / 60);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x;
+      const [u, v] = [(x - width / 2) / R, (y - height / 2) / R];
+      const wander = 1 + 0.45 * Math.sin(7 * u + 3 * v + p1) * Math.sin(5 * v - 2 * u + p2) + 0.25 * Math.sin(13 * u - 11 * v + p3);
+      const reach = keep * R * wander;
+      const left = clamp((reach + soft - /** @type {number} */ (dist[p])) / (2 * soft), 0, 1);
+      pixels[4 * p + 3] = Math.round(/** @type {number} */ (pixels[4 * p + 3]) * left);
+    }
+  }
 }
 
 /**

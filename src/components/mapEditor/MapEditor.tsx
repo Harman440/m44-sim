@@ -47,6 +47,8 @@ const TEXT = defineMessages({
     exit: "Volver al menú",
     undo: "Deshacer",
     redo: "Rehacer",
+    finished: "Ver el mapa terminado",
+    plain: "Volver al mapa sencillo",
     map: "Mapa",
     onWater: "No puede ir en un río ni en un lago.",
     noUnit: "Ahí no hay ninguna unidad.",
@@ -76,6 +78,8 @@ const TEXT = defineMessages({
     exit: "Back to the menu",
     undo: "Undo",
     redo: "Redo",
+    finished: "Show the finished map",
+    plain: "Back to the plain map",
     map: "Map",
     onWater: "It can't go on a river or a lake.",
     noUnit: "There's no unit there.",
@@ -126,15 +130,15 @@ const reducer = (history: DraftHistory, action: Action): DraftHistory => {
 
 /**
  * The map's board art, drawn again when its terrain or size changes: the plain art, quick to draw
- * on every tap. Joined hills, terrain blending and spilling over its edges come once the map is
- * done, in the menu and the game
+ * on every tap, unless `finished` asks for the art the menu and the game show (joined hills,
+ * terrain blending and spilling over its edges), slower to draw
  */
-function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize): string | undefined {
+function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize, finished: boolean): string | undefined {
   const [art, setArt] = useState<string>();
   const shown = useRef<string>(undefined);
   useEffect(() => {
     let current = true;
-    drawBoardArt(tiles, { cols, rows }, { plain: true }).then(
+    drawBoardArt(tiles, { cols, rows }, { plain: !finished }).then(
       (url) => {
         if (!current) return URL.revokeObjectURL(url);
         const before = shown.current;
@@ -147,7 +151,7 @@ function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize): string | undefine
     return () => {
       current = false;
     };
-  }, [tiles, cols, rows]);
+  }, [tiles, cols, rows, finished]);
   useEffect(
     () => () => {
       if (shown.current) URL.revokeObjectURL(shown.current);
@@ -190,9 +194,10 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const [newMapOpen, setNewMapOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
+  const [finished, setFinished] = useState(false);
   const { flash, flashInvalid, flashHexes } = useHexFlash();
   const size = boardSizeOf(draft);
-  const art = useBoardArt(draft.tiles, size);
+  const art = useBoardArt(draft.tiles, size, finished);
   const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
   const counts = draftCounts(draft);
   const problems = useMemo(() => validateScenario(draft), [draft]);
@@ -351,6 +356,9 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
               {t.redo}
             </Button>
           </Stack>
+          <Button variant={finished ? "contained" : "outlined"} aria-pressed={finished} onClick={() => setFinished(!finished)} startIcon={<GameIcon name="map" />}>
+            {finished ? t.plain : t.finished}
+          </Button>
           <Box>
             <Typography variant="body2">{sideLine("Allies")}</Typography>
             <Typography variant="body2">{sideLine("Axis")}</Typography>

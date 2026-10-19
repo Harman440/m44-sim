@@ -22,9 +22,8 @@
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
 // hedgerows when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes, and a lake joins the lake hexes next to it. The board's edges are made soft
-// (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside, terrain
-// cross-faded into what's beside it, and the hex lines softened; the frame round the grid is put
-// back over the new hexes.
+// (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside and the hex
+// lines softened; the frame round the grid is put back over the new hexes.
 import sharp from "sharp";
 import { readFileSync, readdirSync } from "node:fs";
 import {
@@ -39,8 +38,8 @@ import {
   planBoard,
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
-import { OVERFLOW, joinedTileMaker } from "../src/boardArt/joinedTiles.mjs";
-import { LINE_BAND, blendTerrainEdges, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
+import { OVERFLOW, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
+import { LINE_BAND, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
@@ -122,7 +121,8 @@ const joinedTile = async (hex, file) => {
     const { width, height } = await sharp(file).metadata();
     const [w2, h2] = [width * 2, height * 2];
     const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
-    tileMakers.set(file, joinedTileMaker(hex.type, { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
+    // The tile's folder is its terrain (a bridge's is a river tile)
+    tileMakers.set(file, joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
   }
   const { tile: pixels, overflow } = tileMakers.get(file)(hex);
   const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })
@@ -153,9 +153,14 @@ const bridgeOver = async (key, edges) => {
   const piece = placed(turned.data, key, turned.info.width, turned.info.height);
   return [{ ...piece, input: shadow, left: piece.left + 4, top: piece.top + 5 }, piece];
 };
-// A drawn tile, rendered at the board's hex size
+// A drawn tile, rendered at the board's hex size; a river's grass giving way to the countryside
 const drawnTile = async (hex) => {
-  const input = await sharp(Buffer.from(drawnSvg(hex))).resize(tileWidth, tileHeight).png().toBuffer();
+  let input = await sharp(Buffer.from(drawnSvg(hex))).resize(tileWidth, tileHeight).png().toBuffer();
+  if (hex.type === "river" || hex.type === "bridge") {
+    const data = await sharp(input).ensureAlpha().raw().toBuffer();
+    toCountryside(data, tileWidth, tileHeight, 0.07, hex.seed);
+    input = await sharp(data, { raw: { width: tileWidth, height: tileHeight, channels: 4 } }).png().toBuffer();
+  }
   return placed(input, hex.key, tileWidth, tileHeight);
 };
 
@@ -187,9 +192,6 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
   // Pasted on the padded board, cropped back, its edges softened, then the frame put back on top
   const composed = await sharp(padded).composite(layers).png().toBuffer();
   const data = await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).raw().toBuffer();
-  // Terrain cross-faded into the countryside and other terrain beside it (rivers and bridges are one kind)
-  const types = new Map(plan.map((hex) => [hex.key, hex.type === "bridge" ? "river" : hex.type]));
-  blendTerrainEdges({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, (key) => types.get(key) ?? "plains");
   softenHexLines({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, LINE_BAND);
   // What spills out of the hexes laid on top
   const spilt = await sharp(data, { raw: { width: W, height: H, channels: 4 } })

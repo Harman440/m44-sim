@@ -37,8 +37,13 @@ export const PIECE_HEX_WIDTH = 173.35;
 export const DRAWABLE = { river: ["river", "bridge"], hedgerow: ["hedgerow"] };
 /** Painted terrain that blends into the same terrain next to it (joinedTiles.mjs) */
 export const JOINED_TERRAIN = ["forest", "town", "hedgerow"];
-/** Of those, terrain that's always made so: a forest's trees grow over the countryside, a town re-lays its houses */
-const ALWAYS_JOINED = ["forest", "town"];
+/**
+ * Of those, terrain that's always made so: a forest's trees and some hedgerows' hedges grow out
+ * over the countryside, a town re-lays its houses (some standing over the edge)
+ */
+const ALWAYS_JOINED = ["forest", "town", "hedgerow"];
+/** Terrain whose hexes end in countryside (joinedTiles.mjs's toCountryside) */
+const COUNTRYSIDE_ENDS = ["town", "river", "bridge"];
 /** Terrain that's always drawn in code */
 export const ALWAYS_DRAWN = ["lake"];
 
@@ -142,8 +147,9 @@ const isRiver = (type) => type === "river" || type === "bridge";
 /**
  * A painted tile blended into the same terrain across its `open` edges, turned `turns` × 60°
  * clockwise (joinedTiles.mjs): forests grow trees across them and out over the countryside
- * across their `bare` edges, and a town lays its houses out again, one of them standing over the
- * bare edge `spill` (-1: none)
+ * across their `bare` edges, a town lays its houses out again, one of them standing over the
+ * bare edge `spill` (-1: none), and a hedgerow runs a hedge out over it; a painted river (or
+ * bridge) is one too, its tile's grass giving way to the countryside
  * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, seed: number }} JoinedHex
  */
 /**
@@ -257,7 +263,9 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
           `No painted river tile joins edges ${edges[0]} and ${edges[1]} (at ${key}): add one to the library's river tiles, or draw this board's rivers`
         );
       }
-      plan.push({ key, type, art: "painted", ...fit });
+      // Its tile's grass giving way to the countryside round it (joinedTiles.mjs), unless plain
+      if (plain) plan.push({ key, type, art: "painted", ...fit });
+      else plan.push({ key, type, art: "joined", ...fit, open: edgesTo(key, ["river", "bridge"]), bare: edgesTo(key, []).map(() => false), spill: -1, seed });
       if (type === "bridge") plan.push({ key, type, art: "bridgePiece", edges });
     } else {
       const choices = library[type] ?? [];
@@ -266,10 +274,14 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const joins = JOINED_TERRAIN.includes(type) && !plain ? edgesTo(key, [type]) : [];
       if (ridge.some(Boolean)) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
       else if ((ALWAYS_JOINED.includes(type) && !plain) || joins.some(Boolean)) {
-        // Open countryside across an edge, on the board; a town has a house over one such edge one time in two
-        const bare = [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && !wanted.has(neighbor(key, d)));
-        const bareEdges = [...Array(6).keys()].filter((d) => bare[d]);
-        const spill = type === "town" && bareEdges.length && pickFor(key, 5, 2) === 0 ? (bareEdges[pickFor(key, 6, bareEdges.length)] ?? -1) : -1;
+        // Open countryside across an edge, on the board; a town has a house over one such edge
+        // one time in two, a hedgerow a hedge
+        // (towns and rivers end in countryside too, so a forest's trees grow out over them)
+        const across = (/** @type {number} */ d) => (onBoard.has(neighbor(key, d)) ? (wanted.get(neighbor(key, d)) ?? "plains") : null);
+        const bare = [...Array(6).keys()].map((d) => ["plains", ...(type === "town" ? [] : COUNTRYSIDE_ENDS)].includes(across(d) ?? ""));
+        const bareEdges = [...Array(6).keys()].filter((d) => across(d) === "plains");
+        const spills = type === "town" || type === "hedgerow";
+        const spill = spills && bareEdges.length && pickFor(key, 5, 2) === 0 ? (bareEdges[pickFor(key, 6, bareEdges.length)] ?? -1) : -1;
         plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, bare, spill, seed });
       }
       else plan.push({ key, type, art: "painted", tile, turns: pickFor(key, 2, 6) });

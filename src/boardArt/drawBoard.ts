@@ -3,9 +3,9 @@
 // editor): the empty board, the art boardPlan.mjs plans for each terrain hex, as `npm run board`
 // does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs;
 // forests and hedgerows blended into their own kind and towns' houses laid out again,
-// joinedTiles.mjs, with what spills out of them over the countryside) and the board's edges made
-// soft (softLines.mjs: the frame filled with countryside, terrain cross-faded into what's beside
-// it, the hex lines softened), but
+// joinedTiles.mjs, with what spills out of them over the countryside, and towns and rivers ending
+// in the countryside) and the board's edges made soft (softLines.mjs: the frame filled with
+// countryside, the hex lines softened), but
 // with rivers painted only when the library has a tile for every bend (drawn otherwise), and the
 // board's frame put back on top.
 // It's laid out like the painted art, so its URL goes straight into Scenario.image.
@@ -32,8 +32,8 @@ import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../gam
 import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
-import { OVERFLOW, joinedTileMaker } from "./joinedTiles.mjs";
-import { LINE_BAND, blendTerrainEdges, fillFrame, softenHexLines } from "./softLines.mjs";
+import { OVERFLOW, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
+import { LINE_BAND, fillFrame, softenHexLines } from "./softLines.mjs";
 import type { JoinedMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
@@ -101,7 +101,14 @@ const drawnTile = (hex: DrawnHex, width: number, height: number) =>
     const tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
-    tile.getContext("2d")?.drawImage(svg, 0, 0, width, height);
+    const ctx = tile.getContext("2d", { willReadFrequently: true });
+    ctx?.drawImage(svg, 0, 0, width, height);
+    // A river's grass giving way to the countryside, as the script draws it
+    if (ctx && (hex.type === "river" || hex.type === "bridge")) {
+      const pixels = ctx.getImageData(0, 0, width, height);
+      toCountryside(pixels.data as unknown as Uint8Array, width, height, 0.07, hex.seed);
+      ctx.putImageData(pixels, 0, 0);
+    }
     return tile;
   });
 
@@ -178,7 +185,8 @@ const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   const edges = (list: boolean[]) => list.map(Number).join("");
   const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}@${width}x${height}`;
   return cached(joinedArt, key, async () => {
-    const { tile, overflow } = (await joinedMaker(hex.type, hex.tile, width, height))(hex);
+    // The tile's folder is its terrain (a bridge's is a river tile)
+    const { tile, overflow } = (await joinedMaker(hex.tile.split("/")[0] ?? hex.type, hex.tile, width, height))(hex);
     const [ow, oh] = [Math.round(OVERFLOW * width), Math.round(OVERFLOW * height)];
     return { tile: canvasOf(tile, width, height), overflow: overflow ? canvasOf(overflow, ow, oh) : null };
   });
@@ -326,14 +334,11 @@ export async function paintBoard(
     ctx.restore();
   });
 
-  // Terrain cross-faded into what's beside it and the hex lines softened, as the script does
-  // for the painted art (rivers and bridges are one kind), then what spills out of the hexes on
-  // top; none of it on the editor's plain art
+  // The hex lines softened, as the script does for the painted art, then what spills out of the
+  // hexes on top; neither on the editor's plain art
   if (!plain) {
     const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
     const image = { data: pixels.data, width: grid.width, height: grid.height, channels: 4 };
-    const types = new Map(plan.map((hex) => [hex.key, hex.type === "bridge" ? "river" : hex.type]));
-    blendTerrainEdges(image, keys, grid.center, grid.radius, (key) => types.get(key) ?? "plains");
     softenHexLines(image, keys, grid.center, grid.radius, LINE_BAND * scale);
     ctx.putImageData(pixels, 0, 0);
     plan.forEach((hex, i) => {

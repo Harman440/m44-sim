@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { artGrid, boardKeys } from "./boardPlan.mjs";
-import { blendTerrainEdges, fillFrame, softenHexLines } from "./softLines.mjs";
+import { fillFrame, softenHexLines } from "./softLines.mjs";
 
 // A small board of light ground with dark hex lines printed on it, RGB
 const KEYS = boardKeys(4, 3);
@@ -75,55 +75,5 @@ describe("fillFrame", () => {
     fillFrame(image, KEYS, grid.center, grid.radius);
 
     expect([at(image, notch.x, notch.y), at(image, top.x, top.y)]).toEqual([200, 200]);
-  });
-});
-
-describe("blendTerrainEdges", () => {
-  // Hex 1-1 forest, dark; the countryside round it light
-  const forest = () => {
-    const image = board();
-    const { x: cx, y: cy } = grid.center("1-1");
-    for (let y = 0; y < grid.height; y++) {
-      for (let x = 0; x < grid.width; x++) {
-        const reach = Math.max(...[0, 1, 2, 3, 4, 5].map((d) => (x + 0.5 - cx) * Math.cos((d * Math.PI) / 3) + (y + 0.5 - cy) * Math.sin((d * Math.PI) / 3)));
-        if (reach <= (Math.sqrt(3) / 2) * grid.radius) image.data.fill(60, (y * grid.width + x) * 3, (y * grid.width + x) * 3 + 3);
-      }
-    }
-    return image;
-  };
-
-  it("cross-fades a terrain into the countryside beside it", () => {
-    const image = forest();
-    const { x, y } = grid.center("1-1");
-    const edge = x + (Math.sqrt(3) / 2) * grid.radius;
-
-    blendTerrainEdges(image, KEYS, grid.center, grid.radius, (key) => (key === "1-1" ? "forest" : "plains"));
-
-    // Its middle, and the countryside further off, as they were; a mix on each side of the edge
-    expect(at(image, x, y)).toBe(60);
-    expect(at(image, edge + grid.radius * 0.3, y)).toBe(200);
-    expect(at(image, edge - 2, y)).toBeGreaterThan(60);
-    expect(at(image, edge + 2, y)).toBeLessThan(200);
-  });
-
-  it("leaves the same terrain alone, and fades it out at the board's edge", () => {
-    const image = forest();
-    const { x, y } = grid.center("1-1");
-    const edge = x + (Math.sqrt(3) / 2) * grid.radius;
-    // Just inside 0-0's north-west edge, which faces the frame above the board
-    const top = grid.center("0-0");
-    const inner = (Math.sqrt(3) / 2) * grid.radius - 2;
-    const [tx, ty] = [top.x + inner * Math.cos((4 * Math.PI) / 3), top.y + inner * Math.sin((4 * Math.PI) / 3)];
-    // Forest everywhere, the frame round it countryside
-    for (let py = 0; py < grid.height; py++) {
-      for (let px = 0; px < grid.width; px++) image.data.fill(onBoard(px, py) ? 60 : 200, (py * grid.width + px) * 3, (py * grid.width + px) * 3 + 3);
-    }
-    const [shared, outer] = [at(image, edge - 2, y), at(image, tx, ty)];
-
-    blendTerrainEdges(image, KEYS, grid.center, grid.radius, () => "forest");
-
-    // 1-1 and 1-2 share an edge; above 0-0 is the frame
-    expect(at(image, edge - 2, y)).toBe(shared);
-    expect(at(image, tx, ty)).toBeGreaterThan(outer);
   });
 });
