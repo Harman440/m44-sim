@@ -90,6 +90,40 @@ describe("MapEditor", () => {
     expect(savedDraft().tiles).toEqual({});
   });
 
+  it("puts each side's objectives on the map, and sets the victory in the scenario's details", async () => {
+    render(<Editor />);
+    tool("Objetivo (Aliados)");
+    tap("4-4");
+    tool("Objetivo (Eje)");
+    tap("4-4");
+    tap("2-3");
+
+    expect(document.querySelectorAll('[data-objective="4-4"]')).toHaveLength(2);
+    expect(document.querySelector('[data-objective="2-3"]')).toHaveAttribute("data-objective-side", "Axis");
+    expect(savedDraft().victory.medals).toBe(5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Medallas para ganar: uno más" }));
+    const first = within(dialog).getByRole("group", { name: "Nombre del objetivo 1" });
+    fireEvent.change(within(first).getByLabelText("Nombre · Español"), { target: { value: "Puente" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Quitar Objetivo 2" }));
+
+    expect(savedDraft().victory).toEqual({
+      medals: 6,
+      objectives: [
+        { faction: "Allies", name: { es: "Puente", en: "Objective 1" }, hexes: [{ row: 4, col: 4 }] },
+        { faction: "Axis", name: { es: "Objetivo 1", en: "Objective 1" }, hexes: [{ row: 4, col: 4 }] },
+      ],
+    });
+
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Condiciones de victoria" }));
+    expect(savedDraft().victory).toBeUndefined();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hecho" }));
+    await dialogClosed();
+    expect(document.querySelector("[data-objective]")).toBeNull();
+  });
+
   it("starts a new map as a copy of a scenario", async () => {
     render(<Editor />);
     fireEvent.click(screen.getByRole("button", { name: "Nuevo mapa" }));

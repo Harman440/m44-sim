@@ -118,6 +118,7 @@ const MESSAGES = {
   victoryMedals: { es: "La victoria necesita 1 medalla o más", en: "Victory needs 1 medal or more" },
   objectiveOnWater: { es: "Un objetivo no puede estar en el agua", en: "An objective can't be on water" },
   objectiveTwice: { es: "Una casilla es objetivo dos veces para el mismo bando", en: "A hex is an objective twice for the same side" },
+  objectiveNoName: { es: "Hay objetivos sin nombre", en: "Some objectives have no name" },
 } satisfies Record<string, Localized | ((...args: never[]) => Localized) | Record<Faction, Localized>>;
 
 const isOnBoard = ({ row, col }: Position, { rows, cols } = BOARD_SIZES.standard): boolean =>
@@ -186,6 +187,10 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   atHexes(MESSAGES.sandbagsWithoutUnit, sandbags.filter((position) => !hasUnit(position)));
   atHexes(MESSAGES.eliteWithoutUnit, elite.filter((position) => !hasUnit(position)));
   atHexes(MESSAGES.objectiveOnWater, objectives.filter((position) => isWater(terrainAt(position))));
+  atHexes(
+    MESSAGES.objectiveNoName,
+    (scenario.victory?.objectives ?? []).filter(({ name }) => !name.es.trim() && !name.en.trim()).flatMap(({ hexes }) => hexes)
+  );
   // A hex may be an objective for both sides (Sainte-Mère-Église), once each
   const objectiveKey = ({ hex, faction }: { hex: Position; faction: Faction }) => `${faction}:${positionKey(hex)}`;
   atHexes(

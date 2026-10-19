@@ -19,8 +19,14 @@ import {
   placeUnit,
   recordStep,
   redoStep,
+  removeObjective,
   removeUnit,
+  isObjective,
   setAirSorties,
+  setObjective,
+  setObjectiveName,
+  setVictory,
+  setVictoryMedals,
   setAttacker,
   setBigGuns,
   setExtraDraws,
@@ -46,6 +52,7 @@ import { airSortiesOf, combatDeckEntries, hasBigGuns } from "../data/combatCards
 const A = { row: 4, col: 4 };
 const B = { row: 4, col: 5 };
 const OFF = { row: 1, col: 12 };
+const OFF_WATER = { row: 2, col: 2 };
 
 /** Apply edits one after another, failing the test on one that isn't allowed */
 const edit = (draft: Scenario, ...steps: ((d: Scenario) => Scenario | false)[]) =>
@@ -280,6 +287,74 @@ describe("the scenario's settings", () => {
 
     expect(messages(withAxis)).toEqual(["The Allies have no units"]);
     expect(messages(edit(withAxis, (d) => setParadrop(d, defaultParadrop(d))))).toEqual([]);
+  });
+});
+
+describe("victory", () => {
+  it("turns the victory conditions on and off, and sets the medals", () => {
+    const won = setVictory(empty(), true);
+
+    expect(won.victory).toEqual({ medals: 5 });
+    expect(edit(won, (d) => setVictoryMedals(d, 7)).victory).toEqual({ medals: 7 });
+    expect(setVictoryMedals(won, 0)).toBe(false);
+    expect(setVictoryMedals(empty(), 3)).toBe(false);
+    expect(setVictory(won, false)).toEqual(empty());
+  });
+
+  it("puts objectives on the map one hex each, turning the victory conditions on", () => {
+    const draft = edit(
+      empty(),
+      (d) => setObjective(d, A, "Allies", true),
+      (d) => setObjective(d, B, "Allies", true),
+      (d) => setObjective(d, A, "Axis", true),
+    );
+
+    expect(draft.victory).toEqual({
+      medals: 5,
+      objectives: [
+        { faction: "Allies", name: { es: "Objetivo 1", en: "Objective 1" }, hexes: [A] },
+        { faction: "Allies", name: { es: "Objetivo 2", en: "Objective 2" }, hexes: [B] },
+        { faction: "Axis", name: { es: "Objetivo 1", en: "Objective 1" }, hexes: [A] },
+      ],
+    });
+    expect(setObjective(draft, A, "Allies", true)).toBe(draft);
+    expect(validateScenario(draft).filter((p) => p.positions.length)).toEqual([]);
+
+    const lifted = edit(draft, (d) => setObjective(d, A, "Allies", false));
+    expect([isObjective(lifted, A, "Allies"), isObjective(lifted, A, "Axis")]).toEqual([false, true]);
+    // The next one takes the name left free
+    expect(edit(lifted, (d) => setObjective(d, OFF_WATER, "Allies", true)).victory?.objectives?.at(-1)?.name.en).toBe("Objective 1");
+  });
+
+  it("keeps objectives off water, and takes them off with the hex", () => {
+    const lake = edit(empty(), (d) => paintTerrain(d, A, HexType.LAKE));
+    expect(setObjective(lake, A, "Allies", true)).toBe(false);
+
+    const objective = edit(empty(), (d) => setObjective(d, A, "Axis", true));
+    expect(edit(objective, (d) => paintTerrain(d, A, HexType.RIVER)).victory).toEqual({ medals: 5 });
+    expect(clearHex(objective, A).victory).toEqual({ medals: 5 });
+  });
+
+  it("names and removes objectives", () => {
+    const draft = edit(empty(), (d) => setObjective(d, A, "Allies", true), (d) => setObjective(d, B, "Axis", true));
+    const named = edit(draft, (d) => setObjectiveName(d, 0, "es", "Puente"), (d) => setObjectiveName(d, 0, "en", ""));
+
+    expect(named.victory?.objectives?.[0]?.name).toEqual({ es: "Puente", en: "" });
+    const unnamed = edit(named, (d) => setObjectiveName(d, 0, "es", " "));
+    expect(validateScenario(unnamed).map((p) => p.message.en)).toContain("Some objectives have no name");
+    expect(edit(named, (d) => removeObjective(d, 0)).victory?.objectives?.map((o) => o.faction)).toEqual(["Axis"]);
+    expect(removeObjective(named, 5)).toBe(false);
+  });
+
+  it("toggles objectives across a stroke, as on its first hex", () => {
+    const tool = { kind: "objective", faction: "Allies" } as const;
+    const put = strokeOf(tool, empty(), A);
+    const both = edit(empty(), (d) => put.apply(d, A), (d) => put.apply(d, B));
+    const lift = strokeOf(tool, both, A);
+
+    expect(put.drags).toBe(true);
+    expect(both.victory?.objectives).toHaveLength(2);
+    expect(edit(both, (d) => lift.apply(d, A), (d) => lift.apply(d, B)).victory).toEqual({ medals: 5 });
   });
 });
 

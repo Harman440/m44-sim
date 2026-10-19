@@ -34,7 +34,11 @@ import {
   setExtraDraws,
   setHandSize,
   setParadrop,
+  removeObjective,
+  setObjectiveName,
   setText,
+  setVictory,
+  setVictoryMedals,
 } from "../../game-core/scenarioDraft";
 import { airSortiesOf, hasBigGuns } from "../../data/combatCards";
 import { LANGS, LANG_NAMES, Lang } from "../../i18n/lang";
@@ -51,7 +55,7 @@ const TEXT = defineMessages({
     texts: "Nombre y descripción",
     textsInfo: [
       "El nombre y la descripción se escriben en cada idioma: cada dispositivo enseña los de su idioma, y si uno está vacío, el del otro. Basta con el nombre en un idioma.",
-      "La descripción es lo que enseña el menú al tocar el escenario: la situación de cada bando, y las medallas y los objetivos, que se llevan en la mesa.",
+      "La descripción es lo que enseña el menú al tocar el escenario: la situación de cada bando y lo que tiene que hacer para ganar.",
     ],
     name: "Nombre",
     description: "Descripción",
@@ -83,6 +87,19 @@ const TEXT = defineMessages({
     paradropInfo:
       "Antes del primer turno, el bando deja caer sus paracaidistas sobre el tablero de la mesa y toca en la app la casilla donde ha caído cada uno; " +
       "los que caen fuera del tablero o encima de otra unidad se pierden. Con paracaidistas, el bando puede empezar sin unidades en el mapa. Así empieza Sainte-Mère-Église.",
+    victoryTitle: "Victoria",
+    victory: "Condiciones de victoria",
+    victoryInfo:
+      "Gana el primer bando que llega a las medallas al acabar un turno (con las mismas cada uno, sigue la partida). Cada unidad enemiga destruida es una medalla, " +
+      "y cada casilla objetivo de un bando, una medalla para él mientras tenga una unidad en ella. La app las cuenta en Pasar y jugar; en dos tabletas se llevan en la mesa. " +
+      "Sin condiciones de victoria, la partida sigue hasta que los jugadores paren.",
+    medals: "Medallas para ganar",
+    objectives: "Objetivos",
+    noObjectives: "Sin objetivos: solo cuentan las unidades destruidas. Ponlos en el mapa con la herramienta Objetivos.",
+    objectivesHint: "Se ponen y se quitan en el mapa con la herramienta Objetivos.",
+    hexes: (hexes: number) => (hexes === 1 ? "1 casilla" : `${hexes} casillas`),
+    objectiveName: (n: number) => `Nombre del objetivo ${n}`,
+    removeObjective: (name: string) => `Quitar ${name}`,
     side: "Bando",
     unit: "Unidad",
     units: "Unidades",
@@ -97,7 +114,7 @@ const TEXT = defineMessages({
     texts: "Name and description",
     textsInfo: [
       "The name and the description are written in each language: each device shows its own language's, and the other one when it's empty. A name in one language is enough.",
-      "The description is what the menu shows when the scenario is tapped: each side's situation, and the medals and objectives, which are kept on the table.",
+      "The description is what the menu shows when the scenario is tapped: each side's situation and what it has to do to win.",
     ],
     name: "Name",
     description: "Description",
@@ -129,6 +146,19 @@ const TEXT = defineMessages({
     paradropInfo:
       "Before the first turn, the side drops its paratroopers onto the board on the table and taps in the app the hex where each one landed; " +
       "the ones that land off the board or on another unit are lost. With paratroopers, the side can start with no units on the map. Sainte-Mère-Église starts like this.",
+    victoryTitle: "Victory",
+    victory: "Victory conditions",
+    victoryInfo:
+      "The first side to reach the medals at the end of a turn wins (with as many each, the game goes on). Each enemy unit destroyed is a medal, " +
+      "and each of a side's objective hexes a medal for it while it has a unit there. The app counts them in Pass and play; on two tablets they're kept on the table. " +
+      "Without victory conditions, the game goes on until the players stop.",
+    medals: "Medals to win",
+    objectives: "Objectives",
+    noObjectives: "No objectives: only destroyed units count. Put them on the map with the Objectives tool.",
+    objectivesHint: "They're put on and taken off the map with the Objectives tool.",
+    hexes: (hexes: number) => (hexes === 1 ? "1 hex" : `${hexes} hexes`),
+    objectiveName: (n: number) => `Name of objective ${n}`,
+    removeObjective: (name: string) => `Remove ${name}`,
     side: "Side",
     unit: "Unit",
     units: "Units",
@@ -198,8 +228,9 @@ interface ScenarioSettingsDialogProps {
 
 /**
  * "Datos del escenario": everything about a map but its hexes. The name and description in each
- * language, the attacker, each side's starting cards, air sorties and big guns, and the special
- * rules; then the sides as the menu will show them, and what's still wrong
+ * language, the attacker, each side's starting cards, air sorties and big guns, the special
+ * rules and the victory conditions (the medals and the objectives' names; the objectives
+ * themselves are put on the map); then the sides as the menu will show them, and what's still wrong
  */
 function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, onClose }: ScenarioSettingsDialogProps) {
   const t = useMessages(TEXT);
@@ -317,6 +348,8 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
 
   const extraDraws = draft.extraDraws;
   const paradrop = draft.paradrop;
+  const victory = draft.victory;
+  const objectives = victory?.objectives ?? [];
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
@@ -446,6 +479,72 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
                     onChange={(units) => change(setParadrop(draft, { ...paradrop, units }), "paradrop.units")}
                   />,
                 )}
+              </Stack>
+            )}
+          </Stack>
+
+          <Stack component="section" aria-label={t.victoryTitle} sx={{ gap: 1 }}>
+            <Typography variant="h6" component="h3">
+              {t.victoryTitle}
+            </Typography>
+            {ruleSwitch(t.victory, t.victoryInfo, !!victory, () => change(setVictory(draft, !victory), "victory"))}
+            {victory && (
+              <Stack sx={{ gap: 1.5, pl: { sm: 6 } }}>
+                {labelled(
+                  t.medals,
+                  <Box sx={{ alignSelf: "flex-start" }}>
+                    <NumberStepper
+                      value={victory.medals}
+                      {...SETTING_LIMITS.victoryMedals}
+                      label={t.medals}
+                      onChange={(medals) => change(setVictoryMedals(draft, medals), "victory.medals")}
+                    />
+                  </Box>,
+                )}
+                <Stack sx={{ gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t.objectives}
+                  </Typography>
+                  {objectives.length === 0 && <Typography variant="body2">{t.noObjectives}</Typography>}
+                  {objectives.map((objective, i) => (
+                    <Stack
+                      key={i}
+                      direction="row"
+                      role="group"
+                      aria-label={t.objectiveName(i + 1)}
+                      sx={{ alignItems: "center", gap: 1, flexWrap: { xs: "wrap", sm: "nowrap" } }}
+                    >
+                      <FactionInsignia faction={objective.faction} size={28} />
+                      <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, flex: 1, minWidth: 200 }}>
+                        {LANGS.map((lang) => (
+                          <TextField
+                            key={lang}
+                            size="small"
+                            label={`${t.name} · ${LANG_NAMES[lang]}`}
+                            value={objective.name[lang]}
+                            onChange={(event) => change(setObjectiveName(draft, i, lang, event.target.value), `objective.${i}.${lang}`)}
+                            slotProps={{ htmlInput: { lang, maxLength: 60 } }}
+                          />
+                        ))}
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                        {t.hexes(objective.hexes.length)}
+                      </Typography>
+                      <IconButton
+                        aria-label={t.removeObjective(objective.name.es || objective.name.en || String(i + 1))}
+                        onClick={() => change(removeObjective(draft, i), `objective.${i}.remove`)}
+                        sx={{ width: 48, height: 48 }}
+                      >
+                        <GameIcon name="cancel" size={24} />
+                      </IconButton>
+                    </Stack>
+                  ))}
+                  {objectives.length > 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      {t.objectivesHint}
+                    </Typography>
+                  )}
+                </Stack>
               </Stack>
             )}
           </Stack>

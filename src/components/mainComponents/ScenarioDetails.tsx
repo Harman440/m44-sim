@@ -143,8 +143,8 @@ function detailRows(
                 <Typography variant="caption" color="text.secondary">
                   {t.destroyedOnly}
                 </Typography>
-                {objectives.map((objective) => (
-                  <Stack key={objective.name.es} direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                {objectives.map((objective, i) => (
+                  <Stack key={i} direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
                     <GameIcon name="medal" size={20} />
                     <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
                       {tr(objective.name)}

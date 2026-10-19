@@ -79,10 +79,10 @@ export function MedalBreakdown({ victory }: { victory: VictoryInfo }) {
       {victory.objectives.length > 0 && (
         <Stack spacing={0.5}>
           <Typography variant="subtitle2">{t.objectiveList}</Typography>
-          {victory.objectives.map((objective) => {
+          {victory.objectives.map((objective, i) => {
             const held = objective.hexes.filter((hex) => includesPosition(victory.held[objective.faction], hex)).length;
             return (
-              <Stack key={`${objective.faction}-${objective.name.es}`} direction="row" sx={{ alignItems: "center", gap: 1 }}>
+              <Stack key={i} direction="row" sx={{ alignItems: "center", gap: 1 }}>
                 <FactionInsignia faction={objective.faction} size={20} decorative />
                 <Typography variant="body2">
                   {tr(objective.name)} · {t.held(held, objective.hexes.length)}

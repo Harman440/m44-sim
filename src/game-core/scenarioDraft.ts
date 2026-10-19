@@ -3,7 +3,7 @@
 // one, never changing the one it's given, so the editor keeps every step for undo and React can
 // call them from a reducer. Each returns `false` when the change isn't allowed (a unit or wire
 // on water, a badge or sandbags with no unit), and the same scenario when nothing changes.
-import { Position, Scenario, Tiles, UnitGroup } from "../types/scenario";
+import { Objective, Position, Scenario, Tiles, UnitGroup, Victory } from "../types/scenario";
 import { HexType, MovementRule } from "../types/hex";
 import { FACTIONS, Faction } from "../types/faction";
 import { UnitType } from "./unit";
@@ -11,7 +11,7 @@ import { samePosition } from "./position";
 import { BOARD_SIZES } from "./scenarioFile";
 import { TERRAIN } from "../data/terrain";
 import { airSortiesOf, hasBigGuns } from "../data/combatCards";
-import type { Lang } from "../i18n/lang";
+import type { Lang, Localized } from "../i18n/lang";
 
 const SIDE = { Allies: "allies", Axis: "axis" } as const;
 
@@ -71,6 +71,7 @@ export const isBlank = (draft: Scenario): boolean =>
   Object.keys(draft.units.allies).length === 0 &&
   Object.keys(draft.units.axis).length === 0 &&
   !draft.wire?.length &&
+  !draft.victory?.objectives?.length &&
   !hasName(draft) &&
   !draft.description.es.trim() &&
   !draft.description.en.trim();
@@ -144,7 +145,7 @@ const withoutUnit = (draft: Scenario, position: Position): Scenario => {
 };
 
 /**
- * Paint a hex with a terrain (plains clears it). Water takes off the unit and the wire there
+ * Paint a hex with a terrain (plains clears it). Water takes off the unit, the wire and the objectives there
  */
 export function paintTerrain(draft: Scenario, position: Position, type: HexType): Scenario | false {
   if (!isOnBoard(position)) return false;
@@ -152,7 +153,8 @@ export function paintTerrain(draft: Scenario, position: Position, type: HexType)
   const tiles = groupsWithout(draft.tiles, position);
   if (type !== HexType.PLAINS) tiles[type] = [...(tiles[type] ?? []), position];
   const painted = { ...draft, tiles };
-  return isWater(type) ? withList(withoutUnit(painted, position), "wire", without(draft.wire, position)) : painted;
+  if (!isWater(type)) return painted;
+  return withoutObjectivesAt(withList(withoutUnit(painted, position), "wire", without(draft.wire, position)), position);
 }
 
 /** Put a unit on a hex, in place of any unit there (and its badge and sandbags); not on water */
@@ -190,12 +192,12 @@ export function setWire(draft: Scenario, position: Position, wire: boolean): Sce
 
 export const toggleWire = (draft: Scenario, position: Position) => setWire(draft, position, !hasWire(draft, position));
 
-/** Back to plains, with nothing on it */
+/** Back to plains, with nothing on it, and an objective of neither side */
 export function clearHex(draft: Scenario, position: Position): Scenario {
   const plains = paintTerrain(draft, position, HexType.PLAINS);
   const cleared = removeUnit(plains === false ? draft : plains, position);
   const next = setWire(cleared, position, false);
-  return next === false ? cleared : next;
+  return withoutObjectivesAt(next === false ? cleared : next, position);
 }
 
 /** Each side's units by type, and the town hexes (Rattenkrieg is dealt above RATTENKRIEG_MIN_TOWNS) */
@@ -213,6 +215,7 @@ export const SETTING_LIMITS = {
   airSorties: { min: 0, max: 10 },
   extraDrawTurns: { min: 1, max: 10 },
   paradropUnits: { min: 1, max: 10 },
+  victoryMedals: { min: 1, max: 20 },
 } as const;
 
 const inLimits = (value: number, { min, max }: { min: number; max: number }) => Number.isInteger(value) && value >= min && value <= max;
@@ -283,6 +286,96 @@ export function setParadrop(draft: Scenario, paradrop: Scenario["paradrop"] | nu
   return paradrop ? { ...rest, paradrop } : rest;
 }
 
+// --- Victory --------------------------------------------------------------------
+// The medals to win and each side's objectives. The objectives are put on the map with the
+// objective tool, one hex each, named "Objetivo N" until the player names them; an objective of
+// several hexes (from a copied scenario) loses only the hex taken off it.
+
+/** The medals to win when the victory conditions are turned on: 5, as in most of the house scenarios */
+export const DEFAULT_VICTORY_MEDALS = 5;
+
+/** The scenario with other victory conditions, or (null) none; objectives left empty are dropped */
+const withVictory = (draft: Scenario, victory: Victory | null): Scenario => {
+  const { victory: _old, ...rest } = draft;
+  if (!victory) return rest;
+  const objectives = (victory.objectives ?? []).filter((objective) => objective.hexes.length > 0);
+  return { ...rest, victory: objectives.length ? { medals: victory.medals, objectives } : { medals: victory.medals } };
+};
+
+/** Turn the victory conditions on (with the default medals and no objectives) or off, objectives and all */
+export function setVictory(draft: Scenario, on: boolean): Scenario {
+  if (!!draft.victory === on) return draft;
+  return withVictory(draft, on ? { medals: DEFAULT_VICTORY_MEDALS } : null);
+}
+
+/** The medals to win; the victory conditions must be on */
+export function setVictoryMedals(draft: Scenario, medals: number): Scenario | false {
+  if (!draft.victory || !inLimits(medals, SETTING_LIMITS.victoryMedals)) return false;
+  if (draft.victory.medals === medals) return draft;
+  return { ...draft, victory: { ...draft.victory, medals } };
+}
+
+/** The objectives a hex is one of, any side's */
+export const objectivesAt = (draft: Scenario, position: Position): Objective[] =>
+  (draft.victory?.objectives ?? []).filter((objective) => hasAt(objective.hexes, position));
+
+/** Whether a hex is one of a side's objectives */
+export const isObjective = (draft: Scenario, position: Position, faction: Faction): boolean =>
+  objectivesAt(draft, position).some((objective) => objective.faction === faction);
+
+/** A new objective's name: the first "Objetivo N" the side hasn't used */
+function newObjectiveName(draft: Scenario, faction: Faction): Localized {
+  const used = new Set((draft.victory?.objectives ?? []).filter((o) => o.faction === faction).map((o) => o.name.en));
+  let n = 1;
+  while (used.has(`Objective ${n}`)) n++;
+  return { es: `Objetivo ${n}`, en: `Objective ${n}` };
+}
+
+/** Without a hex in any side's objectives */
+function withoutObjectivesAt(draft: Scenario, position: Position): Scenario {
+  if (!draft.victory || objectivesAt(draft, position).length === 0) return draft;
+  const objectives = (draft.victory.objectives ?? []).map((objective) => ({ ...objective, hexes: without(objective.hexes, position) }));
+  return withVictory(draft, { ...draft.victory, objectives });
+}
+
+/**
+ * Make a hex one of a side's objectives (a new one, of that hex), or not. Not on water. It turns
+ * the victory conditions on when they're off
+ */
+export function setObjective(draft: Scenario, position: Position, faction: Faction, on: boolean): Scenario | false {
+  if (isObjective(draft, position, faction) === on) return draft;
+  if (!on) {
+    const objectives = (draft.victory?.objectives ?? []).map((objective) =>
+      objective.faction === faction ? { ...objective, hexes: without(objective.hexes, position) } : objective,
+    );
+    return withVictory(draft, { ...draft.victory!, objectives });
+  }
+  if (!isOnBoard(position) || isWater(terrainAt(draft, position))) return false;
+  const victory = draft.victory ?? { medals: DEFAULT_VICTORY_MEDALS };
+  const objective: Objective = { faction, name: newObjectiveName(draft, faction), hexes: [position] };
+  return withVictory(draft, { ...victory, objectives: [...(victory.objectives ?? []), objective] });
+}
+
+export const toggleObjective = (draft: Scenario, position: Position, faction: Faction) =>
+  setObjective(draft, position, faction, !isObjective(draft, position, faction));
+
+/** An objective's name in one language (`index` in the victory's objectives) */
+export function setObjectiveName(draft: Scenario, index: number, lang: Lang, name: string): Scenario | false {
+  const objectives = draft.victory?.objectives;
+  const objective = objectives?.[index];
+  if (!objective) return false;
+  if (objective.name[lang] === name) return draft;
+  const renamed = objectives.map((each, i) => (i === index ? { ...each, name: { ...each.name, [lang]: name } } : each));
+  return { ...draft, victory: { ...draft.victory!, objectives: renamed } };
+}
+
+/** Take an objective off the map, all its hexes */
+export function removeObjective(draft: Scenario, index: number): Scenario | false {
+  const objectives = draft.victory?.objectives;
+  if (!objectives?.[index]) return false;
+  return withVictory(draft, { ...draft.victory!, objectives: objectives.filter((_, i) => i !== index) });
+}
+
 // --- Tools ------------------------------------------------------------------
 
 /** What the editor puts on the hexes it's tapped on */
@@ -292,6 +385,7 @@ export type EditorTool =
   | { kind: "elite" }
   | { kind: "sandbags" }
   | { kind: "wire" }
+  | { kind: "objective"; faction: Faction }
   | { kind: "erase" };
 
 /** What a tool does on each hex of one stroke of the finger (or a tap: a stroke of one hex) */
@@ -304,7 +398,7 @@ export interface Stroke {
 /**
  * What a tool does in a stroke, decided on its first hex: on a hex that already has what the tool
  * puts, it takes it off (a forest tool on a forest leaves plains), and so on every hex of the
- * stroke. Terrain, wire and the eraser carry on as the finger slides; a unit, a badge or sandbags
+ * stroke. Terrain, wire, objectives and the eraser carry on as the finger slides; a unit, a badge or sandbags
  * only go on the first hex.
  */
 export function strokeOf(tool: EditorTool, draft: Scenario, first: Position): Stroke {
@@ -316,6 +410,10 @@ export function strokeOf(tool: EditorTool, draft: Scenario, first: Position): St
     case "wire": {
       const wire = !hasWire(draft, first);
       return { drags: true, apply: (d, p) => setWire(d, p, wire) };
+    }
+    case "objective": {
+      const on = !isObjective(draft, first, tool.faction);
+      return { drags: true, apply: (d, p) => setObjective(d, p, tool.faction, on) };
     }
     case "erase":
       return { drags: true, apply: clearHex };

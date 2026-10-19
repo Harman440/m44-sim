@@ -21,6 +21,8 @@ import {
   unitAt,
 } from "../../game-core/scenarioDraft";
 import { validateScenario } from "../../game-core/scenarioFile";
+import { countMedals } from "../../game-core/victory";
+import { VictoryContext, VictoryInfo } from "../VictoryContext";
 import { drawBoardArt } from "../../boardArt/drawBoard";
 import { RATTENKRIEG_MIN_TOWNS } from "../../data/combatCards";
 import { loadCustomMaps, saveCustomMap } from "../../storage";
@@ -57,7 +59,8 @@ const TEXT = defineMessages({
       "Terreno: toca una casilla para pintarla, y otra vez para dejarla en llano. Desliza el dedo para pintar varias. Los ríos y lagos se unen solos con los de al lado; un puente es un río que se puede cruzar.",
       "Unidades: toca una casilla para poner la unidad, y otra vez para quitarla. No pueden ir en el agua.",
       "Marcas: De élite y Sacos terreros van sobre una unidad; la alambrada, en cualquier casilla de tierra. Borrar deja la casilla vacía.",
-      "Datos del escenario: el nombre y la descripción, quién ataca, las cartas de cada bando y las reglas especiales.",
+      "Objetivos: toca una casilla para que valga una medalla al bando mientras tenga una unidad en ella, y otra vez para quitarla. Las medallas para ganar y los nombres de los objetivos, en Datos del escenario.",
+      "Datos del escenario: el nombre y la descripción, quién ataca, las cartas de cada bando, las reglas especiales y la victoria.",
       "Debajo, lo que falta para poder jugarlo; si una línea habla de unas casillas, tócala para verlas en el mapa.",
       "El mapa se guarda solo en Mis mapas, en este dispositivo, mientras lo haces.",
     ],
@@ -83,7 +86,8 @@ const TEXT = defineMessages({
       "Terrain: tap a hex to paint it, and again to leave it as plains. Slide your finger to paint several. Rivers and lakes join up with the ones next to them on their own; a bridge is a river that can be crossed.",
       "Units: tap a hex to put the unit there, and again to take it off. They can't go on water.",
       "Marks: Elite and Sandbags go on a unit; barbed wire on any land hex. Clear empties the hex.",
-      "Scenario details: the name and the description, who attacks, each side's cards and the special rules.",
+      "Objectives: tap a hex to make it worth a medal to the side while it has a unit there, and again to take it off. The medals to win and the objectives' names are in Scenario details.",
+      "Scenario details: the name and the description, who attacks, each side's cards, the special rules and victory.",
       "Below, what's still missing before it can be played; when a line is about some hexes, tap it to see them on the map.",
       "The map is saved in My maps on this device as you make it.",
     ],
@@ -91,6 +95,15 @@ const TEXT = defineMessages({
 });
 
 type Action = { kind: "edit"; next: Scenario; amend: boolean } | { kind: "undo" } | { kind: "redo" } | { kind: "start"; draft: Scenario };
+
+/** The objectives drawn on the map, each medal solid in its side's colour */
+function victoryOnMap(draft: Scenario): VictoryInfo | null {
+  if (!draft.victory) return null;
+  const objectives = draft.victory.objectives ?? [];
+  const hexesOf = (faction: "Allies" | "Axis") => objectives.filter((o) => o.faction === faction).flatMap((o) => o.hexes);
+  const none = { Allies: [], Axis: [] };
+  return { medals: draft.victory.medals, standing: countMedals(none, none), objectives, held: { Allies: hexesOf("Allies"), Axis: hexesOf("Axis") } };
+}
 
 const reducer = (history: DraftHistory, action: Action): DraftHistory => {
   switch (action.kind) {
@@ -152,7 +165,7 @@ export interface MapEditorProps {
 }
 
 /**
- * The map editor: paint terrain and put units, badges, sandbags and wire on the board, and set
+ * The map editor: paint terrain and put units, badges, sandbags, wire and objectives on the board, and set
  * the scenario's settings. The map is kept in Mis mapas as it's edited (storage.ts), once it has
  * something on it, so a reload doesn't lose it.
  */
@@ -171,6 +184,7 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
   const counts = draftCounts(draft);
   const problems = useMemo(() => validateScenario(draft), [draft]);
+  const victory = useMemo(() => victoryOnMap(draft), [draft]);
 
   // Kept in Mis mapas once there's something on it; a new map left blank isn't
   const kept = useRef<Set<string>>(null);
@@ -278,18 +292,20 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
           onPointerUp={endStroke}
           onPointerCancel={endStroke}
         >
-          <Board
-            onTileClick={() => {}}
-            unitHexPosition={null}
-            possibleMovePositions={[]}
-            possibleMoveAndFirePositions={[]}
-            boardManager={board}
-            orders={[]}
-            backgroundImage={art}
-            invalidFlash={flash}
-            faction="Allies"
-            unitFactionAt={(position) => unitAt(draft, position)?.faction ?? "Allies"}
-          />
+          <VictoryContext.Provider value={victory}>
+            <Board
+              onTileClick={() => {}}
+              unitHexPosition={null}
+              possibleMovePositions={[]}
+              possibleMoveAndFirePositions={[]}
+              boardManager={board}
+              orders={[]}
+              backgroundImage={art}
+              invalidFlash={flash}
+              faction="Allies"
+              unitFactionAt={(position) => unitAt(draft, position)?.faction ?? "Allies"}
+            />
+          </VictoryContext.Provider>
         </div>
 
         <div className="phase-layout__controls">

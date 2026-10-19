@@ -22,6 +22,8 @@ const TEXT = defineMessages({
     sandbags: "Sacos terreros",
     wire: "Alambrada",
     erase: "Borrar",
+    objectives: "Objetivos",
+    objectiveOf: (side: string) => `Objetivo (${side})`,
     unitOf: (unit: string, side: string) => `${unit} (${side})`,
     tool: (name: string) => `Herramienta: ${name}`,
   },
@@ -33,6 +35,8 @@ const TEXT = defineMessages({
     sandbags: "Sandbags",
     wire: "Barbed wire",
     erase: "Clear",
+    objectives: "Objectives",
+    objectiveOf: (side: string) => `Objective (${side})`,
     unitOf: (unit: string, side: string) => `${unit} (${side})`,
     tool: (name: string) => `Tool: ${name}`,
   },
@@ -82,7 +86,7 @@ interface EditorToolsProps {
   onTool: (tool: EditorTool) => void;
 }
 
-/** The editor's tools: a terrain, a unit of either side, a badge, sandbags, wire or the eraser */
+/** The editor's tools: a terrain, a unit of either side, a badge, sandbags, wire, the eraser or a side's objective */
 function EditorTools({ tool, onTool }: EditorToolsProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -92,6 +96,7 @@ function EditorTools({ tool, onTool }: EditorToolsProps) {
     // The terrain's name is lower case for the middle of a sentence ("Tanque en bosque")
     if (tool.kind === "terrain") return labels.terrain[tool.type].replace(/^./, (first) => first.toUpperCase());
     if (tool.kind === "unit") return t.unitOf(labels.units[tool.type], labels.factions[tool.faction]);
+    if (tool.kind === "objective") return t.objectiveOf(labels.factions[tool.faction]);
     return t[tool.kind];
   };
 
@@ -160,6 +165,20 @@ function EditorTools({ tool, onTool }: EditorToolsProps) {
             ) : (
               <GameIcon name="cancel" size={28} />
             ),
+          ),
+        )}
+      </Box>
+
+      {heading(t.objectives)}
+      <Box sx={grid}>
+        {FACTIONS.map((faction: Faction) =>
+          button(
+            { kind: "objective", faction },
+            <Box
+              sx={{ width: 38, height: 38, borderRadius: "50%", bgcolor: FACTION_COLORS[faction], color: "var(--m44-paper)", display: "grid", placeItems: "center" }}
+            >
+              <GameIcon name="medal" size={26} />
+            </Box>,
           ),
         )}
       </Box>
