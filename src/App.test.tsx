@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import GameView from "./components/mainComponents/LazyGameView";
@@ -6,7 +6,8 @@ import { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./components/mainComponents/Game
 import { same } from "./i18n/lang";
 import { scenarios } from "./data/scenarios";
 import { toScenarioFile } from "./game-core/scenarioFile";
-import { copyDraft, setText } from "./game-core/scenarioDraft";
+import { copyDraft, resizeBoard, setText } from "./game-core/scenarioDraft";
+import { Scenario } from "./types/scenario";
 
 // jsdom loads no images, so a map from Mis mapas is never drawn: play it without art
 vi.mock("./boardArt/mapArt", () => ({
@@ -202,8 +203,8 @@ describe("App menu and game flow", () => {
 describe("Mis mapas", () => {
   // A map made on this device: a copy of Forêt d'Écouves under another name, its id not yet from its name
   const pegasus = scenarios.find((s) => s.id === "pegasus-bridge")!;
-  const keepMap = (name: string, id = "map-3f9k") => {
-    const map = setText(copyDraft(pegasus, id), "name", "es", name);
+  const keepMap = (name: string, id = "map-3f9k", change: (map: Scenario) => Scenario = (map) => map) => {
+    const map = change(setText(copyDraft(pegasus, id), "name", "es", name));
     const kept = JSON.parse(localStorage.getItem("m44-sim:custom-maps") ?? "[]");
     localStorage.setItem("m44-sim:custom-maps", JSON.stringify([...kept, toScenarioFile(map)]));
   };
@@ -220,6 +221,21 @@ describe("Mis mapas", () => {
     expect(await screen.findByText("Puente · Aliados")).toBeInTheDocument();
     // Its id came from its name when the menu read it
     expect(JSON.parse(localStorage.getItem("m44-sim:saved-game")!).scenarioId).toBe("pegasus-bridge-copy-3f9k");
+  });
+
+  it("plays a map bigger than the standard one only with both sides on the device", async () => {
+    keepMap("Llanura", "map-3f9k", (map) => resizeBoard(map, "right", true) as Scenario);
+    render(<App />);
+
+    pick("Llanura");
+    fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
+
+    expect(screen.queryByRole("button", { name: "Empezar con Aliados" })).not.toBeInTheDocument();
+    expect(screen.getByText(/más grande que el estándar \(14 × 9\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pasar y jugar: los dos bandos aquí" }));
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem("m44-sim:saved-match") ?? "null")?.sides.allies.scenarioId).toBe("pegasus-bridge-copy-3f9k"),
+    );
   });
 
   it("picks a game on one of Mis mapas back up after a reload", async () => {

@@ -8,6 +8,8 @@ import { scenarios } from "../../data/scenarios";
 import { FACTIONS } from "../../types/faction";
 import { TurnPhase } from "../../types/gameManager";
 import { Scenario } from "../../types/scenario";
+import { HexType } from "../../types/hex";
+import { resizeBoard } from "../scenarioDraft";
 
 /** The basic brain on both sides, or another one, seeded */
 const playBasic = (scenario: Scenario, seed: number, turns: number, brain: Brain = basicBrain) => {
@@ -30,6 +32,17 @@ describe("the computer against itself", () => {
       }
     });
   }
+
+  it("plays a bigger map, grown at every edge, to the end", () => {
+    let big: Scenario = scenarios[0]!;
+    for (const edge of ["left", "right", "top", "bottom", "right"] as const) big = resizeBoard(big, edge, true, HexType.FOREST) as Scenario;
+    expect(big.board).toEqual({ cols: 16, rows: 13 });
+    for (const brain of [basicBrain, standardBrain]) {
+      const match = playBasic(big, 4, 20, brain);
+      expect(FACTIONS.every((side) => match.sessions[side].getSnapshot().log.length > 0)).toBe(true);
+      expect(FACTIONS.map((side) => match.sessions[side].board.hexes.size)).toEqual([7 * 16 + 6 * 15, 7 * 16 + 6 * 15]);
+    }
+  });
 
   for (const scenario of scenarios) {
     it(`plays ${scenario.id} with the standard brain without getting stuck`, () => {

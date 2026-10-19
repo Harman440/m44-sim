@@ -34,6 +34,8 @@ import NewMapDialog from "./NewMapDialog";
 import ScenarioProblems from "../ScenarioProblems";
 import ScenarioSettingsDialog from "./ScenarioSettingsDialog";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
+import { BoardSize, boardSizeOf } from "../../game-core/boardSize";
+import BoardSizeDialog from "./BoardSizeDialog";
 import "../mainComponents/GameViews/PhaseLayout.css";
 import "./MapEditor.css";
 
@@ -53,6 +55,7 @@ const TEXT = defineMessages({
     towns: (towns: number) => `Pueblos: ${towns}`,
     rattenkrieg: `Más de ${RATTENKRIEG_MIN_TOWNS}: se reparte Rattenkrieg`,
     settings: "Datos del escenario",
+    boardSize: (cols: number, rows: number) => `Tamaño del mapa: ${cols} × ${rows}`,
     instructions: "Instrucciones",
     help: [
       "Elige una herramienta y toca las casillas del mapa. El mapa se ve desde el lado de los Aliados: el Eje empieza arriba.",
@@ -61,6 +64,7 @@ const TEXT = defineMessages({
       "Marcas: De élite y Sacos terreros van sobre una unidad; la alambrada, en cualquier casilla de tierra. Borrar deja la casilla vacía.",
       "Objetivos: toca una casilla para que valga una medalla al bando mientras tenga una unidad en ella, y otra vez para quitarla. Las medallas para ganar y los nombres de los objetivos, en Datos del escenario.",
       "Datos del escenario: el nombre y la descripción, quién ataca, las cartas de cada bando, las reglas especiales y la victoria.",
+      "Tamaño del mapa: añade o quita casillas por los bordes, del terreno que elijas. Un mapa más grande que el estándar se juega en Pasar y jugar o contra el ordenador.",
       "Debajo, lo que falta para poder jugarlo; si una línea habla de unas casillas, tócala para verlas en el mapa.",
       "El mapa se guarda solo en Mis mapas, en este dispositivo, mientras lo haces.",
     ],
@@ -80,6 +84,7 @@ const TEXT = defineMessages({
     towns: (towns: number) => `Towns: ${towns}`,
     rattenkrieg: `More than ${RATTENKRIEG_MIN_TOWNS}: Rattenkrieg is dealt`,
     settings: "Scenario details",
+    boardSize: (cols: number, rows: number) => `Map size: ${cols} × ${rows}`,
     instructions: "Instructions",
     help: [
       "Pick a tool and tap the hexes on the map. The map is seen from the Allies' side: the Axis starts at the top.",
@@ -88,6 +93,7 @@ const TEXT = defineMessages({
       "Marks: Elite and Sandbags go on a unit; barbed wire on any land hex. Clear empties the hex.",
       "Objectives: tap a hex to make it worth a medal to the side while it has a unit there, and again to take it off. The medals to win and the objectives' names are in Scenario details.",
       "Scenario details: the name and the description, who attacks, each side's cards, the special rules and victory.",
+      "Map size: add or take off hexes at the edges, of the terrain you pick. A map bigger than the standard one is played in Pass and play or against the computer.",
       "Below, what's still missing before it can be played; when a line is about some hexes, tap it to see them on the map.",
       "The map is saved in My maps on this device as you make it.",
     ],
@@ -118,13 +124,13 @@ const reducer = (history: DraftHistory, action: Action): DraftHistory => {
   }
 };
 
-/** The map's board art, drawn again when its terrain changes */
-function useBoardArt(tiles: Tiles): string | undefined {
+/** The map's board art, drawn again when its terrain or size changes */
+function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize): string | undefined {
   const [art, setArt] = useState<string>();
   const shown = useRef<string>(undefined);
   useEffect(() => {
     let current = true;
-    drawBoardArt(tiles).then(
+    drawBoardArt(tiles, { cols, rows }).then(
       (url) => {
         if (!current) return URL.revokeObjectURL(url);
         const before = shown.current;
@@ -137,7 +143,7 @@ function useBoardArt(tiles: Tiles): string | undefined {
     return () => {
       current = false;
     };
-  }, [tiles]);
+  }, [tiles, cols, rows]);
   useEffect(
     () => () => {
       if (shown.current) URL.revokeObjectURL(shown.current);
@@ -179,8 +185,10 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const [problem, setProblem] = useState<string | null>(null);
   const [newMapOpen, setNewMapOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sizeOpen, setSizeOpen] = useState(false);
   const { flash, flashInvalid, flashHexes } = useHexFlash();
-  const art = useBoardArt(draft.tiles);
+  const size = boardSizeOf(draft);
+  const art = useBoardArt(draft.tiles, size);
   const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
   const counts = draftCounts(draft);
   const problems = useMemo(() => validateScenario(draft), [draft]);
@@ -350,6 +358,9 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
           <Button variant="outlined" onClick={openSettings} startIcon={<GameIcon name="history" />}>
             {t.settings}
           </Button>
+          <Button variant="outlined" onClick={() => setSizeOpen(true)} startIcon={<GameIcon name="map" />}>
+            {t.boardSize(size.cols, size.rows)}
+          </Button>
           <ScenarioProblems problems={problems} onShowHexes={(positions) => flashHexes(positions)} />
           <Box sx={{ mt: "auto" }}>
             <InfoButton title={t.title} label={t.instructions}>
@@ -374,6 +385,28 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
           flashHexes(positions, 300);
         }}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      <BoardSizeDialog
+        open={sizeOpen}
+        draft={draft}
+        preview={
+          <VictoryContext.Provider value={victory}>
+            <Board
+              onTileClick={() => {}}
+              unitHexPosition={null}
+              possibleMovePositions={[]}
+              possibleMoveAndFirePositions={[]}
+              boardManager={board}
+              orders={[]}
+              backgroundImage={art}
+              faction="Allies"
+              unitFactionAt={(position) => unitAt(draft, position)?.faction ?? "Allies"}
+            />
+          </VictoryContext.Provider>
+        }
+        onChange={(next) => dispatch({ kind: "edit", next, amend: false })}
+        onClose={() => setSizeOpen(false)}
       />
 
       <NewMapDialog

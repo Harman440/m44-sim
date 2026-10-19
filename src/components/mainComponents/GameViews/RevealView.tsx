@@ -5,6 +5,7 @@ import InfoButton from "../../InfoButton";
 import { MotionConfig } from "motion/react";
 import PassAndPlayMatch, { CollisionView, otherSide } from "../../../game-core/passAndPlay";
 import { turnedRound } from "../../../game-core/BoardManager";
+import { BoardSize, boardSizeOf } from "../../../game-core/boardSize";
 import { Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
 import Board from "../../Board";
@@ -76,9 +77,9 @@ interface RevealViewProps {
 const noop = () => {};
 
 /** Where a collision is marked, in the viewer's view: the hex fought over, or both units' hexes for a crossing */
-const markOf = (collision: CollisionView, viewer: Faction): Position[] => {
+const markOf = (collision: CollisionView, viewer: Faction, size: BoardSize): Position[] => {
   const hexes = collision.hex ? [collision.hex] : collision.units.map((unit) => unit.position);
-  return viewer === "Axis" ? hexes.map((hex) => turnedRound(hex)) : hexes;
+  return viewer === "Axis" ? hexes.map((hex) => turnedRound(hex, size)) : hexes;
 };
 
 /**
@@ -101,7 +102,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
   const cardBadges = [viewer, otherSide(viewer)].flatMap((faction) =>
     match.sessions[faction]
       .getSnapshot()
-      .assignments.map((a) => ({ position: a.position && (faction === viewer ? a.position : turnedRound(a.position)) }))
+      .assignments.map((a) => ({ position: a.position && (faction === viewer ? a.position : turnedRound(a.position, boardSizeOf(match.scenario))) }))
   );
 
   const roll = (index: number) => {
@@ -131,7 +132,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 faction={viewer}
                 opponent={match.opponentOf(viewer)}
                 strength={game.strength}
-                collisions={moved?.collisions.map((collision) => markOf(collision, viewer)) ?? []}
+                collisions={moved?.collisions.map((collision) => markOf(collision, viewer, boardSizeOf(match.scenario))) ?? []}
                 // Until "Mover" the armies stand where they started; then they glide to where they stop
                 atStart={!moved}
               />

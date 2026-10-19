@@ -2,6 +2,7 @@ import { HexType } from "./hex";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "./faction";
 import type { Localized } from "../i18n/lang";
+import type { BoardSize } from "../game-core/boardSize";
 
 // src/types/scenario.ts
 export interface Position {
@@ -28,6 +29,11 @@ export interface Scenario {
   notes?: string;
   /** Board artwork drawn under the hexes (imported asset URL) */
   image?: string;
+  /**
+   * A board bigger than the standard 13×9, grown in the map editor (game-core/boardSize.ts).
+   * Omitted for the standard board. Positions are counted from its top left as on any board
+   */
+  board?: BoardSize;
   /** Command cards each side starts with */
   initialHandSize: { allies: number; axis: number };
   /** The side that normally starts; it plays one extra turn before the defender joins in */

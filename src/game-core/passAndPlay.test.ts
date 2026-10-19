@@ -6,6 +6,7 @@ import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { FIGURES } from "../data/figures";
 import { turnedRound } from "./BoardManager";
+import { STANDARD_BOARD } from "./boardSize";
 import { readRoll } from "./rollResult";
 import { Faction } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
@@ -173,7 +174,7 @@ describe("PassAndPlayMatch", () => {
     expect(axis).toHaveLength(1);
     expect(axis[0]!.unit.getUnitType()).toBe(UnitType.INFANTRY);
     // The Axis sees its own board turned round
-    expect(turnedRound(axis[0]!.position)).toEqual({ row: 1, col: 3 });
+    expect(turnedRound(axis[0]!.position, STANDARD_BOARD)).toEqual({ row: 1, col: 3 });
     expect(armyOf(match.sessions.Allies).map((u) => u.position)).toEqual(
       expect.arrayContaining([{ row: 7, col: 1 }, { row: 8, col: 6 }])
     );
@@ -222,7 +223,7 @@ describe("PassAndPlayMatch", () => {
     match.uncover();
     const axis = match.activeSession();
     axis.pickCard(axis.getSnapshot().hand[0]!);
-    expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }), turnedRound({ row: 4, col: 2 }))).toBe(true);
+    expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
     expect(axis.commitOrders()).toBe(true);
     expect(match.rollCollision(0)).toBe(false); // nothing has moved yet
 
@@ -242,7 +243,7 @@ describe("PassAndPlayMatch", () => {
       ],
     });
     // The Axis unit stopped short, on its own board too
-    expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }));
+    expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }, STANDARD_BOARD));
     expect(match.finishReveal()).toBe(false); // the collision isn't rolled
 
     // Saved and restored mid-movement
@@ -269,7 +270,7 @@ describe("PassAndPlayMatch", () => {
     // Its first flag pins it; each flag after that is a hex it retreats as the battle starts
     expect(axis.getSnapshot().strength).toEqual([
       {
-        position: turnedRound(stays),
+        position: turnedRound(stays, STANDARD_BOARD),
         figures: INFANTRY_FIGURES - hits,
         pinned: retreats > 0,
         retreats: Math.max(0, retreats - 1),
@@ -294,26 +295,26 @@ describe("PassAndPlayMatch", () => {
       match.uncover();
       const axis = match.activeSession();
       axis.pickCard(axis.getSnapshot().hand[0]!);
-      expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }), turnedRound({ row: 4, col: 2 }))).toBe(true);
+      expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
       expect(axis.commitOrders()).toBe(true);
       expect(match.moveUnits()).toBe(true);
       // It stopped on (4,3), next to the Allied unit
-      expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }));
+      expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }, STANDARD_BOARD));
       expect(match.rollCollision(0)).toBe(true);
       return match;
     };
 
     it("sends the unit that moved one hex back the way it came; the standing one stays", () => {
       const match = collide(0); // hits only
-      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 4 }));
-      expect(match.sessions.Axis.board.getHex(turnedRound({ row: 4, col: 4 }))?.unit).not.toBeNull();
+      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD));
+      expect(match.sessions.Axis.board.getHex(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD))?.unit).not.toBeNull();
       expect(match.sessions.Allies.board.getHex({ row: 4, col: 2 })?.unit).not.toBeNull();
       expect(match.getSnapshot().movement!.collisions[0]!.units[0].position).toEqual({ row: 4, col: 4 });
     });
 
     it("leaves the units where they stopped when a flag was rolled", () => {
       const match = collide(5); // flags
-      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }));
+      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }, STANDARD_BOARD));
     });
   });
 
@@ -331,7 +332,7 @@ describe("PassAndPlayMatch", () => {
     match.uncover();
     const axis = match.activeSession();
     axis.pickCard(axis.getSnapshot().hand[0]!);
-    axis.issueOrder(turnedRound({ row: 4, col: 4 }), turnedRound({ row: 4, col: 2 }));
+    axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD));
     axis.commitOrders();
     match.moveUnits();
     expect(match.rollCollision(0)).toBe(true);
@@ -341,7 +342,7 @@ describe("PassAndPlayMatch", () => {
     expect(allied.roll).toMatchObject({ dice: 2, kept: [0] });
     expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
     // No flag: the Axis unit went back the hex it came from
-    expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }))).toBe(INFANTRY_FIGURES - 1);
+    expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD))).toBe(INFANTRY_FIGURES - 1);
     expect(match.finishReveal()).toBe(true);
   });
 
@@ -373,7 +374,7 @@ describe("PassAndPlayMatch", () => {
       expect(match.moveUnits()).toBe(true);
       expect(match.finishReveal()).toBe(true);
     };
-    const axisView = (row: number, col: number) => turnedRound({ row, col });
+    const axisView = (row: number, col: number) => turnedRound({ row, col }, STANDARD_BOARD);
 
     it("lets the side whose turn it is fire, dealing the hits to the enemy unit", () => {
       const match = battleMatch();
@@ -867,8 +868,8 @@ describe("sections in pass and play", () => {
     const hex = (side: Faction, position: { row: number; col: number }) =>
       match.sessions[side].board.getHex(position)!;
     expect(hex("Allies", alliesLeft).getSide()).toBe(Side.LEFT);
-    expect(hex("Axis", turnedRound(alliesLeft)).getSide()).toBe(Side.LEFT);
-    expect(hex("Axis", turnedRound({ row: 3, col: 8 })).getSide()).toBe(Side.RIGHT_CENTER);
+    expect(hex("Axis", turnedRound(alliesLeft, STANDARD_BOARD)).getSide()).toBe(Side.LEFT);
+    expect(hex("Axis", turnedRound({ row: 3, col: 8 }, STANDARD_BOARD)).getSide()).toBe(Side.RIGHT_CENTER);
   });
 
   it("keep the main side's own sections", () => {

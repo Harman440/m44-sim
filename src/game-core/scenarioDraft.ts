@@ -8,7 +8,7 @@ import { HexType, MovementRule } from "../types/hex";
 import { FACTIONS, Faction } from "../types/faction";
 import { UnitType } from "./unit";
 import { samePosition } from "./position";
-import { BOARD_SIZES } from "./scenarioFile";
+import { BoardSize, boardPositions, boardSizeOf, isBoardSize, isOnBoard as isOnSize, isStandardBoard } from "./boardSize";
 import { TERRAIN } from "../data/terrain";
 import { airSortiesOf, hasBigGuns } from "../data/combatCards";
 import type { Lang, Localized } from "../i18n/lang";
@@ -94,8 +94,7 @@ export const copyDraft = (scenario: Scenario, id: string): Scenario => {
   return { ...copy, id, name: { es: es.trim() ? `${es} (copia)` : "", en: en.trim() ? `${en} (copy)` : "" } };
 };
 
-const isOnBoard = ({ row, col }: Position, { rows, cols } = BOARD_SIZES.standard) =>
-  row >= 0 && row < rows && col >= 0 && col < cols - (row % 2);
+const isOnBoard = (draft: Scenario, position: Position) => isOnSize(position, boardSizeOf(draft));
 
 /** A hex's terrain: plains when no list has it */
 export const terrainAt = (draft: Scenario, position: Position): HexType =>
@@ -148,7 +147,7 @@ const withoutUnit = (draft: Scenario, position: Position): Scenario => {
  * Paint a hex with a terrain (plains clears it). Water takes off the unit, the wire and the objectives there
  */
 export function paintTerrain(draft: Scenario, position: Position, type: HexType): Scenario | false {
-  if (!isOnBoard(position)) return false;
+  if (!isOnBoard(draft, position)) return false;
   if (terrainAt(draft, position) === type) return draft;
   const tiles = groupsWithout(draft.tiles, position);
   if (type !== HexType.PLAINS) tiles[type] = [...(tiles[type] ?? []), position];
@@ -159,7 +158,7 @@ export function paintTerrain(draft: Scenario, position: Position, type: HexType)
 
 /** Put a unit on a hex, in place of any unit there (and its badge and sandbags); not on water */
 export function placeUnit(draft: Scenario, position: Position, faction: Faction, type: UnitType): Scenario | false {
-  if (!isOnBoard(position) || isWater(terrainAt(draft, position))) return false;
+  if (!isOnBoard(draft, position) || isWater(terrainAt(draft, position))) return false;
   const there = unitAt(draft, position);
   if (there?.faction === faction && there.type === type) return draft;
   const cleared = there ? withoutUnit(draft, position) : draft;
@@ -186,7 +185,7 @@ export const toggleSandbags = (draft: Scenario, position: Position) => toggleMar
 /** Lay barbed wire on a hex, or take it off; not on water */
 export function setWire(draft: Scenario, position: Position, wire: boolean): Scenario | false {
   if (hasWire(draft, position) === wire) return draft;
-  if (wire && (!isOnBoard(position) || isWater(terrainAt(draft, position)))) return false;
+  if (wire && (!isOnBoard(draft, position) || isWater(terrainAt(draft, position)))) return false;
   return withList(draft, "wire", wire ? [...(draft.wire ?? []), position] : without(draft.wire, position));
 }
 
@@ -350,7 +349,7 @@ export function setObjective(draft: Scenario, position: Position, faction: Facti
     );
     return withVictory(draft, { ...draft.victory!, objectives });
   }
-  if (!isOnBoard(position) || isWater(terrainAt(draft, position))) return false;
+  if (!isOnBoard(draft, position) || isWater(terrainAt(draft, position))) return false;
   const victory = draft.victory ?? { medals: DEFAULT_VICTORY_MEDALS };
   const objective: Objective = { faction, name: newObjectiveName(draft, faction), hexes: [position] };
   return withVictory(draft, { ...victory, objectives: [...(victory.objectives ?? []), objective] });
@@ -377,6 +376,69 @@ export function removeObjective(draft: Scenario, index: number): Scenario | fals
 }
 
 // --- Tools ------------------------------------------------------------------
+
+
+// --- Board size -------------------------------------------------------------------
+// A map grows or shrinks at its edges: a column on the left or right (one hex more or fewer in
+// every row), or two rows at the top or bottom, so the rows stay odd (game-core/boardSize.ts).
+
+export type BoardEdge = "left" | "right" | "top" | "bottom";
+
+/** How far everything moves when an edge grows by one step: a column, or two rows */
+const STEP: Record<BoardEdge, { cols: number; rows: number; shift: Position }> = {
+  left: { cols: 1, rows: 0, shift: { row: 0, col: 1 } },
+  right: { cols: 1, rows: 0, shift: { row: 0, col: 0 } },
+  top: { cols: 0, rows: 2, shift: { row: 2, col: 0 } },
+  bottom: { cols: 0, rows: 2, shift: { row: 0, col: 0 } },
+};
+
+/** The board's size after growing (or shrinking) an edge by one step, or null past the limits */
+export function resizedBoard(draft: Scenario, edge: BoardEdge, grow: boolean): BoardSize | null {
+  const { cols, rows } = boardSizeOf(draft);
+  const k = grow ? 1 : -1;
+  const size = { cols: cols + k * STEP[edge].cols, rows: rows + k * STEP[edge].rows };
+  return isBoardSize(size) ? size : null;
+}
+
+/**
+ * Grow the board at an edge, the new hexes painted with `fill` (plains leaves them open), or
+ * shrink it, dropping whatever was on the hexes taken off. Everything moves along when the left or
+ * top edge changes, so the map stays as it was. `false` past the size limits
+ */
+export function resizeBoard(draft: Scenario, edge: BoardEdge, grow: boolean, fill: HexType = HexType.PLAINS): Scenario | false {
+  const size = resizedBoard(draft, edge, grow);
+  if (!size) return false;
+  const k = grow ? 1 : -1;
+  const move = ({ row, col }: Position): Position => ({ row: row + k * STEP[edge].shift.row, col: col + k * STEP[edge].shift.col });
+  const moved = (positions: readonly Position[] | undefined) => (positions ?? []).map(move).filter((p) => isOnSize(p, size));
+  const movedGroups = <G extends Tiles | UnitGroup>(groups: G): G =>
+    Object.fromEntries(
+      Object.entries(groups)
+        .map(([key, positions]) => [key, moved(positions as Position[] | undefined)] as const)
+        .filter(([, positions]) => positions.length > 0),
+    ) as G;
+
+  let tiles = movedGroups(draft.tiles);
+  if (grow && fill !== HexType.PLAINS) {
+    const old = new Set(boardPositions(boardSizeOf(draft)).map(move).map(({ row, col }) => `${row}-${col}`));
+    const added = boardPositions(size).filter(({ row, col }) => !old.has(`${row}-${col}`));
+    tiles = { ...tiles, [fill]: [...(tiles[fill] ?? []), ...added] };
+  }
+
+  const { board: _board, ...rest } = draft;
+  let resized: Scenario = {
+    ...rest,
+    ...(isStandardBoard(size) ? {} : { board: size }),
+    tiles,
+    units: { allies: movedGroups(draft.units.allies), axis: movedGroups(draft.units.axis) },
+  };
+  resized = withList(withList(withList(resized, "wire", moved(draft.wire)), "sandbags", moved(draft.sandbags)), "elite", moved(draft.elite));
+  if (draft.victory) {
+    const objectives = (draft.victory.objectives ?? []).map((objective) => ({ ...objective, hexes: moved(objective.hexes) }));
+    resized = withVictory(resized, { ...draft.victory, objectives });
+  }
+  return resized;
+}
 
 /** What the editor puts on the hexes it's tapped on */
 export type EditorTool =

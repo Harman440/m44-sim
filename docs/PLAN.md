@@ -78,7 +78,10 @@ Postponed from the first plan (old Step 34).
 ## Later
 
 ### Step 70: Other board sizes
-- [ ] **Decide:** which sizes (the player's notes: "more hexes, more map sizes"). `ScenarioFile.board` is only `"standard"` (13×9) for now, and the board, its sections, the board art and the editor all assume it
+- [x] **Decided:** any size, grown in the map editor by adding hexes of any terrain at the edges (a column on the left or right, two rows at the top or bottom), from 13×9 up to 21×17; the left and right sections are each about a third of the board, as on the official big boards; played in pass and play and against the computer first
+- [x] `Scenario.board` and the file's `board` (`"standard"` or `{ cols, rows }`), the board, its sections and `turnedRound` at any size (`game-core/boardSize.ts`)
+- [x] "Tamaño del mapa" in the editor (`BoardSizeDialog`, `resizeBoard`), and the board art drawn at any size
+- [ ] Own tablets on a bigger map: the menu offers no own-tablet game for one yet
 
 ---
 

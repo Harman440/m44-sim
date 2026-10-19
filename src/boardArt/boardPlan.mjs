@@ -11,8 +11,16 @@ import { TILES } from "./terrainTiles.mjs";
 export const COLS = 13;
 export const ROWS = 9;
 
-/** Every hex of the board as "row-col" */
-export const BOARD_KEYS = [...Array(ROWS)].flatMap((_, row) => [...Array(COLS - (row % 2))].map((_, col) => `${row}-${col}`));
+/**
+ * Every hex of a board as "row-col" (a bigger map's, grown in the map editor, with its size)
+ * @param {number} [cols]
+ * @param {number} [rows]
+ */
+export const boardKeys = (cols = COLS, rows = ROWS) =>
+  [...Array(rows)].flatMap((_, row) => [...Array(cols - (row % 2))].map((_, col) => `${row}-${col}`));
+
+/** Every hex of the standard board as "row-col" */
+export const BOARD_KEYS = boardKeys();
 
 /** The painted art's height in pixels (the empty board's, cropped to its grid) */
 export const ART_HEIGHT = 1514;
@@ -42,15 +50,21 @@ const parseKey = (key) => {
   return { row, col };
 };
 
+/** A board's height in hex radii: 14 for the standard board's 9 rows @param {number} rows */
+const radiiHigh = (rows) => rows * 1.5 + 0.5;
+
 /**
- * The art's grid at a height: 14 hex radii high, as wide as 13 hexes. It's the box the app lays
- * a board's image in (components/boardGeometry.ts).
+ * The art's grid at a height: 14 hex radii high, as wide as 13 hexes on the standard board (a
+ * bigger board's as wide as its columns and as high as its rows). It's the box the app lays a
+ * board's image in (components/boardGeometry.ts).
  * @param {number} height
+ * @param {number} [cols]
+ * @param {number} [rows]
  */
-export function artGrid(height) {
-  const width = Math.round((height * COLS * Math.sqrt(3)) / 14);
-  const hexWidth = width / COLS;
-  const radius = height / 14;
+export function artGrid(height, cols = COLS, rows = ROWS) {
+  const width = Math.round((height * cols * Math.sqrt(3)) / radiiHigh(rows));
+  const hexWidth = width / cols;
+  const radius = height / radiiHigh(rows);
   /** @param {string} key */
   const center = (key) => {
     const { row, col } = parseKey(key);
@@ -58,6 +72,14 @@ export function artGrid(height) {
   };
   return { width, height, hexWidth, radius, center };
 }
+
+/**
+ * The height a board of `rows` rows is drawn at for its hexes to be the size they are on the
+ * standard board drawn `standardHeight` high
+ * @param {number} rows
+ * @param {number} standardHeight
+ */
+export const artHeightFor = (rows, standardHeight) => Math.round((standardHeight * radiiHigh(rows)) / radiiHigh(ROWS));
 
 /**
  * A number from 0 to n − 1 picked by the hex and a salt, so a rebuild gives the same map

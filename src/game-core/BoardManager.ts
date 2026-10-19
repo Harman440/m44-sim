@@ -5,6 +5,7 @@ import { Faction, isFaction } from "../types/faction";
 import { HexType, isHexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
 import { includesPosition, positionKey } from "./position";
+import { BoardSize, boardSizeOf } from "./boardSize";
 
 /** Terrain rules a combat card loosens for one unit's move */
 export interface MoveRules {
@@ -18,10 +19,10 @@ export interface MoveRules {
  * A position as seen from the other side of the table: the Axis' board is the Allies' turned
  * round. Doing it twice gives the position back (the board has an odd number of rows)
  */
-export const turnedRound = (position: Position, width = 13, height = 9): Position => {
-  const flippedCol = width - 1 - position.col;
+export const turnedRound = (position: Position, { cols, rows }: BoardSize): Position => {
+  const flippedCol = cols - 1 - position.col;
   // Odd rows have one hex fewer
-  return { row: height - 1 - position.row, col: position.row % 2 !== 0 ? flippedCol - 1 : flippedCol };
+  return { row: rows - 1 - position.row, col: position.row % 2 !== 0 ? flippedCol - 1 : flippedCol };
 };
 
 class BoardManager {
@@ -34,8 +35,9 @@ class BoardManager {
    * too, with every sandbag: the map editor shows the whole scenario (from the Allies' side)
    */
   constructor(scenario: Scenario, faction: Faction = "Allies", { bothSides = false }: { bothSides?: boolean } = {}) {
-    this.width = 13;
-    this.height = 9;
+    const { cols, rows } = boardSizeOf(scenario);
+    this.width = cols;
+    this.height = rows;
     this.hexes = new Map(); // Store hexes by "row-col" key
 
     this.initializeBoard(scenario, faction, bothSides);
@@ -48,7 +50,7 @@ class BoardManager {
 
     // Axis sees the board turned round
     const flipPosition = (position: Position): Position =>
-      faction === "Axis" ? turnedRound(position, this.width, this.height) : position;
+      faction === "Axis" ? turnedRound(position, this.size) : position;
 
     // Initialize hexes with default terrain
     for (let row = 0; row < this.height; row++) {
@@ -56,7 +58,7 @@ class BoardManager {
       const actualMaxWidth = this.width + (row % 2 === 1 ? -1 : 0);
       for (let col = 0; col < actualMaxWidth; col++) {
         const position: Position = { row, col };
-        const hex = new Hex(position, HexType.PLAINS);
+        const hex = new Hex(position, HexType.PLAINS, this.width);
         this.hexes.set(hex.getKey(), hex);
       }
     }
@@ -67,7 +69,7 @@ class BoardManager {
       positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
-          const tile = new Hex(position, tileType);
+          const tile = new Hex(position, tileType, this.width);
           this.hexes.set(tile.getKey(), tile);
         }
       });
@@ -112,6 +114,11 @@ class BoardManager {
    */
   sectionsSeenFrom(faction: Faction, viewSide: Faction) {
     this.hexes.forEach((hex) => hex.mirrorSections(faction !== viewSide));
+  }
+
+  /** The board's size, for turning positions round (`turnedRound`) */
+  get size(): BoardSize {
+    return { cols: this.width, rows: this.height };
   }
 
   // Get hex at specific position

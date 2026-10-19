@@ -44,6 +44,34 @@ describe("MapEditor", () => {
     expect(savedDraft().units).toEqual({ allies: { infantry: [{ row: 8, col: 4 }] }, axis: { tank: [{ row: 0, col: 4 }] } });
   });
 
+  it("grows the map at its edges with the terrain picked, moving the map along, and undoes it", async () => {
+    render(<Editor />);
+    tool("Infantería (Aliados)");
+    tap("8-0");
+    fireEvent.click(screen.getByRole("button", { name: "Tamaño del mapa: 13 × 9" }));
+    const dialog = screen.getByRole("dialog", { name: "Tamaño del mapa" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Bosque" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Añadir por izquierda" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Añadir por arriba" }));
+
+    expect(within(dialog).getByText("14 × 11 casillas")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Quitar por izquierda" })).toBeEnabled();
+    expect(savedDraft().board).toEqual({ cols: 14, rows: 11 });
+    expect(savedDraft().units.allies.infantry).toEqual([{ row: 10, col: 1 }]);
+    expect(savedDraft().tiles.forest).toContainEqual({ row: 0, col: 5 });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Listo" }));
+    await dialogClosed();
+    // The board has the new hexes
+    expect(hex("10-13")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(screen.getByRole("button", { name: "Tamaño del mapa: 13 × 9" })).toBeInTheDocument();
+    expect(savedDraft().board).toBe("standard");
+    expect(savedDraft().units.allies.infantry).toEqual([{ row: 8, col: 0 }]);
+  });
+
   it("takes a unit off when it's tapped again, with undo and redo", () => {
     render(<Editor />);
     tool("Infantería (Aliados)");

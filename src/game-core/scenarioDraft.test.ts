@@ -21,6 +21,7 @@ import {
   redoStep,
   removeObjective,
   removeUnit,
+  resizeBoard,
   isObjective,
   setAirSorties,
   setObjective,
@@ -48,6 +49,7 @@ import { HexType } from "../types/hex";
 import { UnitType } from "./unit";
 import { scenarios } from "../data/scenarios";
 import { airSortiesOf, combatDeckEntries, hasBigGuns } from "../data/combatCards";
+import { same } from "../i18n/lang";
 
 const A = { row: 4, col: 4 };
 const B = { row: 4, col: 5 };
@@ -425,5 +427,86 @@ describe("undo and redo", () => {
     let long = history;
     for (let i = 0; i < HISTORY_LIMIT + 5; i++) long = recordStep(long, { ...long.present });
     expect(long.past).toHaveLength(HISTORY_LIMIT);
+  });
+});
+
+describe("resizeBoard", () => {
+  const map = (): Scenario => ({
+    ...newDraft("map-test"),
+    tiles: { [HexType.FOREST]: [{ row: 0, col: 0 }], [HexType.TOWN]: [{ row: 8, col: 12 }] },
+    units: { allies: { [UnitType.INFANTRY]: [{ row: 8, col: 0 }] }, axis: { [UnitType.TANK]: [{ row: 0, col: 12 }] } },
+    wire: [{ row: 4, col: 6 }],
+    sandbags: [{ row: 8, col: 0 }],
+    elite: [{ row: 0, col: 12 }],
+    victory: {
+      medals: 4,
+      objectives: [
+        { faction: "Allies", name: same("Pueblo"), hexes: [{ row: 8, col: 12 }] },
+        { faction: "Axis", name: same("Granja"), hexes: [{ row: 0, col: 5 }] },
+      ],
+    },
+  });
+
+  it("adds a column on the right, the map staying where it was", () => {
+    const grown = resizeBoard(map(), "right", true) as Scenario;
+
+    expect(grown.board).toEqual({ cols: 14, rows: 9 });
+    expect(grown.units).toEqual(map().units);
+    expect(grown.tiles).toEqual(map().tiles);
+  });
+
+  it("adds a column on the left, moving everything one hex right", () => {
+    const grown = resizeBoard(map(), "left", true, HexType.FOREST) as Scenario;
+
+    expect(grown.board).toEqual({ cols: 14, rows: 9 });
+    expect(grown.units.allies[UnitType.INFANTRY]).toEqual([{ row: 8, col: 1 }]);
+    expect(grown.wire).toEqual([{ row: 4, col: 7 }]);
+    expect(grown.sandbags).toEqual([{ row: 8, col: 1 }]);
+    expect(grown.elite).toEqual([{ row: 0, col: 13 }]);
+    expect(grown.victory?.objectives?.[0]?.hexes).toEqual([{ row: 8, col: 13 }]);
+    // The new column is forest, one hex in every row
+    const forest = grown.tiles[HexType.FOREST] ?? [];
+    expect(forest).toContainEqual({ row: 0, col: 1 });
+    expect(forest.filter((p) => p.col === 0)).toHaveLength(9);
+  });
+
+  it("adds two rows at the top, moving everything two rows down", () => {
+    const grown = resizeBoard(map(), "top", true) as Scenario;
+
+    expect(grown.board).toEqual({ cols: 13, rows: 11 });
+    expect(grown.units.axis[UnitType.TANK]).toEqual([{ row: 2, col: 12 }]);
+    expect(grown.tiles[HexType.FOREST]).toEqual([{ row: 2, col: 0 }]);
+  });
+
+  it("takes an edge back off, with what was on it, and is the standard board again", () => {
+    const grown = resizeBoard(map(), "left", true, HexType.FOREST) as Scenario;
+    const back = resizeBoard(grown, "left", false) as Scenario;
+
+    expect(back).not.toHaveProperty("board");
+    expect(back.units).toEqual(map().units);
+    expect(back.tiles).toEqual(map().tiles);
+
+    const narrowed = resizeBoard(resizeBoard(map(), "right", true) as Scenario, "right", false) as Scenario;
+    expect(narrowed).toEqual(map());
+  });
+
+  it("drops what falls off a shrinking edge, and an objective left with no hex", () => {
+    const bigger = resizeBoard(resizeBoard(map(), "bottom", true) as Scenario, "right", true) as Scenario;
+    const cut = resizeBoard(resizeBoard(bigger, "left", false) as Scenario, "top", false) as Scenario;
+
+    expect(cut).not.toHaveProperty("board");
+    expect(cut.units.axis).toEqual({});
+    expect(cut.elite).toBeUndefined();
+    expect(cut.units.allies[UnitType.INFANTRY]).toBeUndefined();
+    expect(cut.victory?.objectives).toEqual([{ faction: "Allies", name: same("Pueblo"), hexes: [{ row: 6, col: 11 }] }]);
+  });
+
+  it("stays within the size limits", () => {
+    expect(resizeBoard(map(), "left", false)).toBe(false);
+    expect(resizeBoard(map(), "top", false)).toBe(false);
+    let wide: Scenario = map();
+    for (let i = 0; i < 8; i++) wide = resizeBoard(wide, "right", true) as Scenario;
+    expect(wide.board).toEqual({ cols: 21, rows: 9 });
+    expect(resizeBoard(wide, "right", true)).toBe(false);
   });
 });

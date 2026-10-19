@@ -57,6 +57,18 @@ describe("scenario files", () => {
     expect(parseScenario(file)).toEqual(withoutArt);
   });
 
+  it("keeps a bigger board, and reads a standard-sized one as the standard board", () => {
+    const big = json({ board: { cols: 15, rows: 11 }, units: { allies: { infantry: [{ row: 10, col: 14 }] }, axis: { tank: [{ row: 0, col: 0 }] } } });
+
+    const scenario = parseScenario(big);
+
+    expect(scenario.board).toEqual({ cols: 15, rows: 11 });
+    expect(matchesSchema(big)).toBe(true);
+    expect(toScenarioFile(scenario).board).toEqual({ cols: 15, rows: 11 });
+    expect(parseScenario(json({ board: { cols: 13, rows: 9 } }))).not.toHaveProperty("board");
+    expect(toScenarioFile(parseScenario(json())).board).toBe("standard");
+  });
+
   it("ignores the $schema an editor reads the format from", () => {
     expect(parseScenario(json({ $schema: "../../game-core/scenarioFile.schema.json" })).id).toBe("test-map");
   });
@@ -92,7 +104,9 @@ describe("parseScenario refuses a file of the wrong shape", () => {
     ["a list", [], "The file isn't a scenario"],
     ["a field it doesn't know", json({ medals: 6 }), '"medals" isn\'t a scenario field'],
     ["another version", json({ version: 2 }), '"version" must be 1'],
-    ["another board", json({ board: "overlord" }), '"board" must be "standard"'],
+    ["another board", json({ board: "overlord" }), '"board" must be "standard" or { "cols": 13–21, "rows": 9–17, odd }'],
+    ["an even number of rows", json({ board: { cols: 15, rows: 10 } }), '"board" must be "standard"'],
+    ["a board too wide", json({ board: { cols: 22, rows: 9 } }), '"board" must be "standard"'],
     ["no name", json({ name: undefined }), '"name" is missing'],
     ["a name in one language only", json({ name: { es: "Prueba" } }), '"name" must be a text in each language'],
     ["a terrain it doesn't know", json({ tiles: { swamp: [{ row: 0, col: 0 }] } }), '"tiles.swamp" isn\'t a terrain'],

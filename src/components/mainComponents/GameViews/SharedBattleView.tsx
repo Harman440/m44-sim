@@ -399,7 +399,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const boardSide: Faction = pick?.side ?? (shownShot ? shown!.side : undefined) ?? fireTurn?.side ?? mainSide;
   const boardSession = match.sessions[boardSide];
   const boardGame = boardSession.getSnapshot();
-  const inBoardView = (faction: Faction, position: Position) => (faction === boardSide ? position : turnedRound(position));
+  const inBoardView = (faction: Faction, position: Position) => (faction === boardSide ? position : turnedRound(position, boardSession.board.size));
 
   // The combat cards' marks, both sides', the attacker's first
   const defender = otherSide(match.scenario.attacker);

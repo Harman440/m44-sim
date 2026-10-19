@@ -30,7 +30,7 @@ function HexThumbnail({ board, position, image, faction, size = 28, label }: Hex
   const { width, height, imageMargin } = geometry;
   // Pass and play: seen from the main side, as on the map
   const viewSide = useContext(ViewSideContext) ?? faction;
-  const { x, y } = geometry.hexCenter(viewSide === faction ? position : turnedRound(position, board.width, board.height));
+  const { x, y } = geometry.hexCenter(viewSide === faction ? position : turnedRound(position, board.size));
   // Pointy-top, as in Hexagon
   const points = Array.from({ length: 6 }, (_, i) => {
     const angle = (i * Math.PI) / 3 + Math.PI / 2;

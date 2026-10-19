@@ -3,6 +3,7 @@ import { SavedGame } from "./saveGame";
 import Unit, { UnitType } from "./unit";
 import Order from "./order";
 import { turnedRound } from "./BoardManager";
+import { boardSizeOf } from "./boardSize";
 import { includesPosition, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
 import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
@@ -165,10 +166,6 @@ export interface ArmyView {
   sandbags: readonly Position[];
 }
 
-/** A side's position in the Allies' view of the board, or back: the Axis sees it turned round */
-const inAlliesView = (side: Faction, position: Position): Position =>
-  side === "Axis" ? turnedRound(position) : position;
-
 export const otherSide = (faction: Faction): Faction => (faction === "Axis" ? "Allies" : "Axis");
 
 /** The phases after a side's orders are locked: movement, battle and the final phase */
@@ -214,6 +211,16 @@ class PassAndPlayMatch {
 
   private readonly listeners = new Set<() => void>();
   private snapshot: MatchSnapshot;
+
+  /** A position seen from the other end of the table, on this match's board */
+  private turnedRound(position: Position): Position {
+    return turnedRound(position, boardSizeOf(this.scenario));
+  }
+
+  /** A side's position in the Allies' view of the board, or back: the Axis sees it turned round */
+  private inAlliesView(side: Faction, position: Position): Position {
+    return side === "Axis" ? this.turnedRound(position) : position;
+  }
 
   constructor(
     scenario: Scenario,
@@ -312,7 +319,7 @@ class PassAndPlayMatch {
     for (const side of FACTIONS) {
       const session = this.sessions[side];
       const { orders } = session.getSnapshot();
-      const view = (position: Position) => inAlliesView(side, position);
+      const view = (position: Position) => this.inAlliesView(side, position);
       orders.forEach((order, index) => {
         if (samePosition(order.start, order.end)) standers.push({ side, order: index, position: view(order.start) });
         else movers.push({ side, order: index, path: (order.path ?? [order.start, order.end]).map(view) });
@@ -327,7 +334,7 @@ class PassAndPlayMatch {
     for (const side of FACTIONS) {
       const halts = result.ends
         .filter((end) => end.side === side && end.stopped)
-        .map((end) => ({ order: end.order, at: inAlliesView(side, end.end) }));
+        .map((end) => ({ order: end.order, at: this.inAlliesView(side, end.end) }));
       if (halts.length > 0 && !this.sessions[side].haltOrders(halts)) return false;
     }
     // The tanks that went through barbed wire took it off the other side's board too
@@ -347,7 +354,7 @@ class PassAndPlayMatch {
   rollCollision(index: number): boolean {
     const collision = this.movement?.collisions[index];
     if (!collision || collision.rolls) return false;
-    const units = collision.units.map((unit) => ({ ...unit, at: inAlliesView(unit.side, unit.position) }));
+    const units = collision.units.map((unit) => ({ ...unit, at: this.inAlliesView(unit.side, unit.position) }));
     const placed = units.map((unit) => this.sessions[unit.side].board.getHex(unit.at)?.unit);
 
     const rolls = units.map((unit, i): RollRef | null => {
@@ -402,7 +409,7 @@ class PassAndPlayMatch {
     collision.units.forEach((unit, i) => {
       const result = results[1 - i];
       if (result) {
-        this.sessions[unit.side].sufferHits(inAlliesView(unit.side, unit.position), result.hits, result.retreats, result.hitFaces);
+        this.sessions[unit.side].sufferHits(this.inAlliesView(unit.side, unit.position), result.hits, result.retreats, result.hitFaces);
       }
     });
     this.updateCollision(index, { applied: true });
@@ -421,15 +428,15 @@ class PassAndPlayMatch {
     if (unit.order === null) return;
     const session = this.sessions[unit.side];
     const order = session.getSnapshot().orders[unit.order];
-    const at = inAlliesView(unit.side, unit.position);
+    const at = this.inAlliesView(unit.side, unit.position);
     if (!order || !session.board.getHex(at)?.unit || !samePosition(order.end, at)) return;
     const path = order.path ?? [];
     if (path.length < 2) return;
     const back = path[path.length - 2]!;
     const enemyBoard = this.sessions[otherSide(unit.side)].board;
-    if (session.board.getHex(back)?.unit || enemyBoard.getHex(turnedRound(back))?.unit) return;
+    if (session.board.getHex(back)?.unit || enemyBoard.getHex(this.turnedRound(back))?.unit) return;
     if (!session.haltOrders([{ order: unit.order, at: back }])) return;
-    const moved = inAlliesView(unit.side, back);
+    const moved = this.inAlliesView(unit.side, back);
     this.movement = {
       ...this.movement!,
       collisions: this.movement!.collisions.map((collision) => ({
@@ -578,9 +585,9 @@ class PassAndPlayMatch {
     const axis = this.sessions.Axis;
     for (const hex of allies.board.getAllHexes()) {
       const position = hex.getPosition();
-      const other = axis.board.getHex(turnedRound(position));
+      const other = axis.board.getHex(this.turnedRound(position));
       if (hex.wire && !other?.wire) allies.wireRemovedByEnemy(position);
-      else if (!hex.wire && other?.wire) axis.wireRemovedByEnemy(turnedRound(position));
+      else if (!hex.wire && other?.wire) axis.wireRemovedByEnemy(this.turnedRound(position));
     }
   }
 
@@ -605,7 +612,7 @@ class PassAndPlayMatch {
     const shooter = this.sessions[side];
     const enemy = this.sessions[otherSide(side)];
     const shot = shooter.getSnapshot().shots[index]!;
-    const at = turnedRound(shot.targetPosition!);
+    const at = this.turnedRound(shot.targetPosition!);
     const { hits, retreats, hitFaces } = readRoll(appliedFaces(shot.faces, shot.kept), shot.target);
     const sandbags = enemy.board.getHex(at)?.sandbags ? 1 : 0;
     enemy.sufferHits(at, hits, Math.max(0, retreats - sandbags), hitFaces);
@@ -664,7 +671,7 @@ class PassAndPlayMatch {
     if (!battle.assault) return;
     const { side, order, at } = battle.assault;
     const shooter = this.sessions[side];
-    const free = !this.sessions[otherSide(side)].board.getHex(turnedRound(at))?.unit;
+    const free = !this.sessions[otherSide(side)].board.getHex(this.turnedRound(at))?.unit;
     const from = shooter.orderSummaries()[order]?.firingFrom;
     const can = free && !!from && !shooter.hasRetreated(from) && shooter.canTakeGround(order);
     this.battle = { ...battle, assault: null, ground: can ? { side, order } : null };
@@ -697,7 +704,7 @@ class PassAndPlayMatch {
     if (!victory || this.result) return;
     const units = {
       Allies: armyOf(this.sessions.Allies).map(({ position }) => position),
-      Axis: armyOf(this.sessions.Axis).map(({ position }) => turnedRound(position)),
+      Axis: armyOf(this.sessions.Axis).map(({ position }) => this.turnedRound(position)),
     };
     this.held = heldObjectives(victory.objectives ?? [], units);
     const lost = this.unitsLost();
@@ -778,7 +785,7 @@ class PassAndPlayMatch {
       const attack = session.getSnapshot().cardAttacks.find((a) => a.marker === index);
       if (!target || !attack?.target) return;
       const { hits, retreats, hitFaces } = readRoll(attack.faces, attack.target);
-      enemy.sufferHits(turnedRound(marker), hits, retreats, hitFaces);
+      enemy.sufferHits(this.turnedRound(marker), hits, retreats, hitFaces);
     });
     this.settleRetreats();
     return this.publish();
@@ -814,7 +821,7 @@ class PassAndPlayMatch {
       hex.unit
         ? [
             {
-              position: turnedRound(hex.getPosition()),
+              position: this.turnedRound(hex.getPosition()),
               unitType: hex.unit.getUnitType(),
               sandbags: hex.sandbags,
               camouflaged: enemy.isCamouflaged(hex.getPosition()),
@@ -839,7 +846,7 @@ class PassAndPlayMatch {
 
   /** Hits the collision's unit may deal: as many as its figures */
   private limitOf(side: Faction, position: Position): number {
-    return resultLimit(this.sessions[side].figuresAt(inAlliesView(side, position)) ?? 0, false);
+    return resultLimit(this.sessions[side].figuresAt(this.inAlliesView(side, position)) ?? 0, false);
   }
 
   /**
@@ -951,7 +958,7 @@ class PassAndPlayMatch {
         return {
           ...unit,
           unitType:
-            this.sessions[unit.side].board.getHex(inAlliesView(unit.side, unit.position))?.unit?.getUnitType() ??
+            this.sessions[unit.side].board.getHex(this.inAlliesView(unit.side, unit.position))?.unit?.getUnitType() ??
             UnitType.INFANTRY,
           roll,
         };

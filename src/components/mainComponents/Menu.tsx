@@ -25,6 +25,7 @@ import {
 import { Scenario } from "../../types/scenario";
 import { Faction, GameSetup, MatchSetup } from "../../types/faction";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
+import { boardSizeOf, isStandardBoard } from "../../game-core/boardSize";
 
 const TEXT = defineMessages({
   es: {
@@ -41,6 +42,7 @@ const TEXT = defineMessages({
     testModeRule: "modo prueba",
     startWith: (faction: string) => `Empezar con ${faction}`,
     pickSide: "Elige bando",
+    bigMap: (cols: number, rows: number) => `Este mapa es más grande que el estándar (${cols} × ${rows}): se juega en Pasar y jugar o contra el ordenador.`,
     passAndPlay: "Pasar y jugar: los dos bandos aquí",
     passAndPlayHelp: (side: string | null) =>
       `Los dos jugadores en este dispositivo, pasándolo en cada turno. ${
@@ -92,6 +94,7 @@ const TEXT = defineMessages({
     testModeRule: "test mode",
     startWith: (faction: string) => `Start as the ${faction}`,
     pickSide: "Pick a side",
+    bigMap: (cols: number, rows: number) => `This map is bigger than the standard one (${cols} × ${rows}): it's played in Pass and play or against the computer.`,
     passAndPlay: "Pass and play: both sides here",
     passAndPlayHelp: (side: string | null) =>
       `Both players on this device, passing it every turn. ${
@@ -333,15 +336,22 @@ function Menu({
                 </Typography>
               )}
               {problems.length > 0 && <ScenarioProblems problems={problems} />}
-              <Button
-                size="large"
-                disabled={!faction || problems.length > 0}
-                onClick={() => faction && onStart({ scenarioId: scenario.id, faction, longRangeDie, artilleryCrew, testMode })}
-                startIcon={<GameIcon name="battle" />}
-                sx={{ fontSize: "1.2rem" }}
-              >
-                {problems.length > 0 ? t.notReady : faction ? t.startWith(labels.factions[faction]) : t.pickSide}
-              </Button>
+              {isStandardBoard(boardSizeOf(scenario)) ? (
+                <Button
+                  size="large"
+                  disabled={!faction || problems.length > 0}
+                  onClick={() => faction && onStart({ scenarioId: scenario.id, faction, longRangeDie, artilleryCrew, testMode })}
+                  startIcon={<GameIcon name="battle" />}
+                  sx={{ fontSize: "1.2rem" }}
+                >
+                  {problems.length > 0 ? t.notReady : faction ? t.startWith(labels.factions[faction]) : t.pickSide}
+                </Button>
+              ) : (
+                // Own tablets wait: a bigger map is played with both sides on one device for now
+                <Typography variant="body2" color="text.secondary">
+                  {t.bigMap(boardSizeOf(scenario).cols, boardSizeOf(scenario).rows)}
+                </Typography>
+              )}
               {onPassAndPlay && (
                 <Stack spacing={0.5}>
                   <Button

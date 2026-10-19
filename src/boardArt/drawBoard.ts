@@ -14,14 +14,17 @@ import { HexType } from "../types/hex";
 import {
   APP_ART_HEIGHT,
   ART_HEIGHT,
-  BOARD_KEYS,
   PIECE_HEX_WIDTH,
   artGrid,
+  artHeightFor,
+  boardKeys,
   bridgeAngle,
   canPaintRivers,
   drawnSvg,
+  pickFor,
   planBoard,
 } from "./boardPlan.mjs";
+import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../game-core/boardSize";
 import type { DrawnHex, HexArt, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
@@ -146,9 +149,66 @@ const hexPath = (ctx: CanvasRenderingContext2D, { x, y }: { x: number; y: number
   ctx.closePath();
 };
 
-/** Draw a map's board art on a canvas, `height` pixels high */
-export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height = APP_ART_HEIGHT): Promise<void> {
-  const grid = artGrid(height);
+type Grid = ReturnType<typeof artGrid>;
+
+// A bigger board's background is made from the empty standard board: its hexes, picked away from
+// the section lines printed on it (the long rows' hexes on each side of a line, the short rows'
+// hexes it runs through) and from its edges, and its dark green frame
+const CLEAN_HEXES = [
+  ...[2, 4, 6].flatMap((row) => [1, 2, 5, 6, 7, 10, 11].map((col) => `${row}-${col}`)),
+  ...[1, 3, 5, 7].flatMap((row) => [1, 2, 4, 5, 6, 9, 10].map((col) => `${row}-${col}`)),
+];
+const cleanHexes = (row: number) => CLEAN_HEXES.filter((key) => Number(key.split("-")[0]) % 2 === row % 2);
+
+/** The empty board's frame, from the grass at its left edge beside the second row, stretched over the whole board */
+const paintFrame = (ctx: CanvasRenderingContext2D, base: HTMLImageElement, source: Grid, width: number, height: number) => {
+  const { y } = source.center("1-0");
+  ctx.drawImage(base, 3, y - source.radius * 0.4, source.hexWidth * 0.3, source.radius * 0.8, 0, 0, width, height);
+};
+
+/** A bigger board's open ground: each hex one of the empty board's, the frame round them, and its own section lines */
+function paintBigBase(ctx: CanvasRenderingContext2D, base: HTMLImageElement, grid: Grid, size: BoardSize, scale: number) {
+  const source = artGrid(base.naturalHeight);
+  paintFrame(ctx, base, source, grid.width, grid.height);
+  for (const key of boardKeys(size.cols, size.rows)) {
+    const choices = cleanHexes(Number(key.split("-")[0]));
+    const from = source.center(choices[pickFor(key, 7, choices.length)]!);
+    const to = grid.center(key);
+    ctx.save();
+    ctx.beginPath();
+    hexPath(ctx, to, grid.radius + 0.5 * scale);
+    ctx.clip();
+    const [w, h] = [source.hexWidth * 1.1, source.radius * 2.2];
+    const k = grid.hexWidth / source.hexWidth;
+    ctx.drawImage(base, from.x - w / 2, from.y - h / 2, w, h, to.x - (w * k) / 2, to.y - (h * k) / 2, w * k, h * k);
+    ctx.restore();
+  }
+}
+
+/** The section lines, dashed red as on the printed board, where a bigger board's thirds meet */
+function paintSectionLines(ctx: CanvasRenderingContext2D, grid: Grid, cols: number, scale: number) {
+  const lines = sectionLines(cols);
+  ctx.save();
+  ctx.strokeStyle = "rgba(196, 66, 38, 0.85)";
+  ctx.lineWidth = 3 * scale;
+  ctx.setLineDash([9 * scale, 6 * scale]);
+  for (const at of [lines.left, lines.right]) {
+    const x = grid.hexWidth / 2 + at * grid.hexWidth;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, grid.height);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * Draw a map's board art on a canvas. `height` is the standard board's: a bigger board is drawn
+ * taller and wider, its hexes the same size
+ */
+export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height = APP_ART_HEIGHT, size: BoardSize = STANDARD_BOARD): Promise<void> {
+  const standard = isStandardBoard(size);
+  const grid = standard ? artGrid(height) : artGrid(artHeightFor(size.rows, height), size.cols, size.rows);
   const plan = planMapArt(tiles);
   const tileWidth = grid.hexWidth;
   const tileHeight = 2 * grid.radius;
@@ -160,13 +220,14 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
   ]);
 
   canvas.width = grid.width;
-  canvas.height = height;
+  canvas.height = grid.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("No canvas to draw the board on");
   // Sizes in the painted art's pixels, scaled to this board
   const scale = height / ART_HEIGHT;
 
-  ctx.drawImage(base, 0, 0, grid.width, height);
+  if (standard) ctx.drawImage(base, 0, 0, grid.width, height);
+  else paintBigBase(ctx, base, grid, size, scale);
   plan.forEach((hex, i) => {
     const center = grid.center(hex.key);
     const image = art[i];
@@ -200,20 +261,22 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
   // The frame round the grid put back over anything that stuck out
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, grid.width, height);
-  BOARD_KEYS.forEach((key) => hexPath(ctx, grid.center(key), grid.radius));
+  ctx.rect(0, 0, grid.width, grid.height);
+  boardKeys(size.cols, size.rows).forEach((key) => hexPath(ctx, grid.center(key), grid.radius));
   ctx.clip("evenodd");
-  ctx.drawImage(base, 0, 0, grid.width, height);
+  if (standard) ctx.drawImage(base, 0, 0, grid.width, height);
+  else paintFrame(ctx, base, artGrid(base.naturalHeight), grid.width, grid.height);
   ctx.restore();
+  if (!standard) paintSectionLines(ctx, grid, size.cols, scale);
 }
 
 /**
  * A map's board art as an image URL for Scenario.image. It's a blob: URL; revoke it
  * (URL.revokeObjectURL) once the image is no longer shown.
  */
-export async function drawBoardArt(tiles: Tiles, height = APP_ART_HEIGHT): Promise<string> {
+export async function drawBoardArt(tiles: Tiles, size: BoardSize = STANDARD_BOARD, height = APP_ART_HEIGHT): Promise<string> {
   const canvas = document.createElement("canvas");
-  await paintBoard(canvas, tiles, height);
+  await paintBoard(canvas, tiles, height, size);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
   if (!blob) throw new Error("Couldn't draw the board");
   return URL.createObjectURL(blob);

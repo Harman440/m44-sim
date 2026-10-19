@@ -11,19 +11,17 @@ import { Faction, isFaction } from "../types/faction";
 import { isUnitType } from "./unit";
 import { positionKey } from "./position";
 import { TERRAIN } from "../data/terrain";
+import { BOARD_LIMITS, BoardSize, boardSizeOf, isBoardSize, isOnBoard, isStandardBoard } from "./boardSize";
 import { Lang, Localized, isLocalized } from "../i18n/lang";
 
 export const SCENARIO_FILE_VERSION = 1;
 
-/** The boards a file can be played on: only the standard one so far */
-export const BOARD_SIZES = { standard: { cols: 13, rows: 9 } } as const;
-export type BoardSize = keyof typeof BOARD_SIZES;
-
-export interface ScenarioFile extends Omit<Scenario, "image"> {
+export interface ScenarioFile extends Omit<Scenario, "image" | "board"> {
   /** Where an editor finds the format (scenarioFile.schema.json); the app ignores it */
   $schema?: string;
   version: typeof SCENARIO_FILE_VERSION;
-  board: BoardSize;
+  /** "standard" (13×9), or a bigger board grown in the map editor */
+  board: "standard" | BoardSize;
   /**
    * No longer used: the Reinforcements card's table of a unit per die face, from before the card
    * always brought infantry. Older files (and maps kept on a device) still have it; it's dropped
@@ -78,9 +76,9 @@ export class ScenarioFileError extends Error {
 }
 
 /** The scenario as a file; its board art stays with the app */
-export const toScenarioFile = ({ image: _image, ...scenario }: Scenario): ScenarioFile => ({
+export const toScenarioFile = ({ image: _image, board, ...scenario }: Scenario): ScenarioFile => ({
   version: SCENARIO_FILE_VERSION,
-  board: "standard",
+  board: board && !isStandardBoard(board) ? { cols: board.cols, rows: board.rows } : "standard",
   ...scenario,
 });
 
@@ -106,6 +104,10 @@ const MESSAGES = {
     Axis: { es: "El Eje no tiene unidades", en: "The Axis has no units" },
   },
   offBoard: { es: "Hay casillas fuera del tablero", en: "Some hexes are off the board" },
+  boardSize: {
+    es: `El tablero debe tener de ${BOARD_LIMITS.cols.min} a ${BOARD_LIMITS.cols.max} columnas y de ${BOARD_LIMITS.rows.min} a ${BOARD_LIMITS.rows.max} filas, un número impar`,
+    en: `The board must have ${BOARD_LIMITS.cols.min} to ${BOARD_LIMITS.cols.max} columns and ${BOARD_LIMITS.rows.min} to ${BOARD_LIMITS.rows.max} rows, an odd number`,
+  },
   twoTerrains: { es: "Hay casillas con dos terrenos", en: "Some hexes have two terrains" },
   twoUnits: { es: "Hay casillas con dos unidades", en: "Some hexes have two units" },
   unitOnWater: { es: "Hay unidades en un río o un lago", en: "Some units are on a river or a lake" },
@@ -121,8 +123,6 @@ const MESSAGES = {
   objectiveNoName: { es: "Hay objetivos sin nombre", en: "Some objectives have no name" },
 } satisfies Record<string, Localized | ((...args: never[]) => Localized) | Record<Faction, Localized>>;
 
-const isOnBoard = ({ row, col }: Position, { rows, cols } = BOARD_SIZES.standard): boolean =>
-  Number.isInteger(row) && Number.isInteger(col) && row >= 0 && row < rows && col >= 0 && col < cols - (row % 2);
 
 const isWater = (type: HexType | undefined): boolean => type !== undefined && TERRAIN[type].movement === MovementRule.BLOCK;
 
@@ -179,7 +179,8 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
     ...objectives,
   ];
 
-  atHexes(MESSAGES.offBoard, everyPosition.filter((position) => !isOnBoard(position)));
+  if (scenario.board && !isBoardSize(scenario.board)) problem(MESSAGES.boardSize);
+  atHexes(MESSAGES.offBoard, everyPosition.filter((position) => !isOnBoard(position, boardSizeOf(scenario))));
   atHexes(MESSAGES.twoTerrains, twoTerrains);
   atHexes(MESSAGES.twoUnits, units.filter((position) => (unitCount.get(positionKey(position)) ?? 0) > 1));
   atHexes(MESSAGES.unitOnWater, units.filter((position) => isWater(terrainAt(position))));
@@ -229,9 +230,23 @@ const EXPECTED = {
   hexType: { es: "no es un terreno", en: "isn't a terrain" },
   unitType: { es: "no es un tipo de unidad", en: "isn't a unit type" },
   version: { es: `debe ser ${SCENARIO_FILE_VERSION}`, en: `must be ${SCENARIO_FILE_VERSION}` },
-  board: { es: 'debe ser "standard"', en: 'must be "standard"' },
+  board: {
+    es: `debe ser "standard" o { "cols": ${BOARD_LIMITS.cols.min}–${BOARD_LIMITS.cols.max}, "rows": ${BOARD_LIMITS.rows.min}–${BOARD_LIMITS.rows.max}, impar }`,
+    en: `must be "standard" or { "cols": ${BOARD_LIMITS.cols.min}–${BOARD_LIMITS.cols.max}, "rows": ${BOARD_LIMITS.rows.min}–${BOARD_LIMITS.rows.max}, odd }`,
+  },
   objectives: { es: "debe ser una lista de objetivos", en: "must be a list of objectives" },
 } satisfies Record<string, Localized>;
+
+/** A file's board: undefined for the standard one, null when it isn't a board */
+function readBoard(board: unknown): BoardSize | undefined | null {
+  if (board === "standard") return undefined;
+  if (!isRecord(board) || Object.keys(board).some((key) => key !== "cols" && key !== "rows")) return null;
+  const size = { cols: board.cols, rows: board.rows };
+  if (typeof size.cols !== "number" || typeof size.rows !== "number") return null;
+  const read = { cols: size.cols, rows: size.rows };
+  if (!isBoardSize(read)) return null;
+  return isStandardBoard(read) ? undefined : read;
+}
 
 const NOT_A_SCENARIO: Localized = { es: "El archivo no es un escenario", en: "The file isn't a scenario" };
 
@@ -350,10 +365,12 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
 
   optional("$schema", (value, path) => reader.check(value, path, isText, EXPECTED.text));
   if (file.version !== SCENARIO_FILE_VERSION) reader.fail("version", EXPECTED.version);
-  if (!(isText(file.board) && file.board in BOARD_SIZES)) reader.fail("board", EXPECTED.board);
+  const board = readBoard(file.board);
+  if (board === null) reader.fail("board", EXPECTED.board);
 
   const read = {
     id: reader.check(file.id, "id", isText, EXPECTED.text),
+    board: board ?? undefined,
     name: reader.check(file.name, "name", isLocalized, EXPECTED.localized),
     description: reader.check(file.description, "description", isLocalized, EXPECTED.localized),
     notes: optional("notes", (value, path) => reader.check(value, path, isText, EXPECTED.text)),

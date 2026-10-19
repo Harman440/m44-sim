@@ -42,7 +42,7 @@ const TEXT = defineMessages({
   },
 });
 
-const TERRAINS = [
+export const TERRAINS = [
   HexType.PLAINS,
   HexType.FOREST,
   HexType.HILL,
@@ -58,7 +58,7 @@ const MARKS = ["elite", "sandbags", "wire", "erase"] as const;
 const sameTool = (a: EditorTool, b: EditorTool) => JSON.stringify(a) === JSON.stringify(b);
 
 /** A picture of each terrain's hex, as it's drawn on the board */
-function useTerrainSwatches() {
+export function useTerrainSwatches() {
   const [swatches, setSwatches] = useState<Partial<Record<HexType, string>>>({});
   useEffect(() => {
     let current = true;

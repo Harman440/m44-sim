@@ -4,6 +4,7 @@ import PassAndPlayMatch from "./passAndPlay";
 import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { turnedRound } from "./BoardManager";
+import { STANDARD_BOARD } from "./boardSize";
 import { samePosition } from "./position";
 import { allCombatCards } from "../data/combatCards";
 import { Faction } from "../types/faction";
@@ -52,7 +53,7 @@ const newMatch = (face = 0, map: Scenario = scenario, longRangeDie = false) => {
   return new PassAndPlayMatch(map, { Allies: side("Allies"), Axis: side("Axis") });
 };
 
-const axisView = (row: number, col: number) => turnedRound({ row, col });
+const axisView = (row: number, col: number) => turnedRound({ row, col }, STANDARD_BOARD);
 
 /**
  * The side holding the device plays a command card (by id, "all-0" by default) with an order

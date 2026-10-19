@@ -152,7 +152,7 @@ function Board({
   const viewSide = useContext(ViewSideContext) ?? faction;
   const turned = viewSide !== faction;
   const geometry = turned
-    ? { ...grid, hexCenter: (position: Position) => grid.hexCenter(turnedRound(position, boardWidth, boardHeight)) }
+    ? { ...grid, hexCenter: (position: Position) => grid.hexCenter(turnedRound(position, boardManager.size)) }
     : grid;
   const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
 
@@ -182,7 +182,7 @@ function Board({
   /** The other army's order arrows, turned round onto this side's view */
   const renderOpponent = () => {
     if (!opponent) return null;
-    const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardWidth, boardHeight));
+    const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardManager.size));
     return (
       <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
         {opponent.orders.map((order, index) => (
@@ -238,7 +238,7 @@ function Board({
     const shared = (hex: Position) => new Set(objectives.filter((o) => includesPosition(o.hexes, hex)).map((o) => o.faction)).size > 1;
     return objectives.flatMap((objective) =>
       objective.hexes.map((hex) => {
-        const position = faction === 'Axis' ? turnedRound(hex, boardWidth, boardHeight) : hex;
+        const position = faction === 'Axis' ? turnedRound(hex, boardManager.size) : hex;
         const { x, y } = geometry.hexCenter(position);
         // At the top of the hex, over the edge of a unit's token
         const r = hexSize * 0.3;
@@ -408,7 +408,7 @@ function Board({
     return drawn
       .sort((a, b) => unitKey(a.unit) - unitKey(b.unit))
       .map((token) => {
-        const { x, y } = geometry.hexCenter(token.other ? turnedRound(token.position, boardWidth, boardHeight) : token.position);
+        const { x, y } = geometry.hexCenter(token.other ? turnedRound(token.position, boardManager.size) : token.position);
         return (
           <g
             key={unitKey(token.unit)}
@@ -461,7 +461,7 @@ function Board({
     const other = opponent
       ? [...opponent.sandbags, ...left(opponent.orders)].map((position) => ({
           position,
-          center: geometry.hexCenter(turnedRound(position, boardWidth, boardHeight)),
+          center: geometry.hexCenter(turnedRound(position, boardManager.size)),
           side: opponent.faction,
         }))
       : [];

@@ -43,7 +43,7 @@ export const CAUTIOUS_WEIGHTS: BrainWeights = {
 };
 
 /** The hex in the Allies' view, as objectives are */
-const inAlliesView = (view: AiView, position: Position) => (view.side === "Axis" ? turnedRound(position) : position);
+const inAlliesView = (view: AiView, position: Position) => (view.side === "Axis" ? turnedRound(position, view.session.board.size) : position);
 
 /** What ending a move on this hex is worth for the scenario's objectives */
 function objectiveWorth(view: AiView, position: Position, weights: BrainWeights): number {

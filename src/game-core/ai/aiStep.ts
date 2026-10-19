@@ -8,6 +8,7 @@ import CommandCard, { Section } from "../commandCard";
 import { CombatCard } from "../combatCard";
 import { EXTRA_SLOT, OrderSlot } from "../orderRules";
 import { turnedRound } from "../BoardManager";
+import { boardSizeOf } from "../boardSize";
 import { positionKey } from "../position";
 import { RewardChoice } from "../coins";
 import { UnitType } from "../unit";
@@ -73,7 +74,7 @@ export interface Brain {
 /** The enemy army as the computer's side may see it (`opponentOf`), turned into its own view */
 export function seenEnemies(match: PassAndPlayMatch, side: Faction): SeenEnemy[] {
   return match.opponentOf(side).units.map((placed) => ({
-    position: turnedRound(placed.position),
+    position: turnedRound(placed.position, boardSizeOf(match.scenario)),
     unitType: placed.unit.getUnitType(),
     figures: placed.figures ?? null,
   }));

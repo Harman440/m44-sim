@@ -9,7 +9,21 @@
   "properties": {
     "$schema": { "type": "string", "description": "Where an editor finds this format; the app ignores it" },
     "version": { "const": 1, "description": "The file format's version" },
-    "board": { "enum": ["standard"], "description": "The standard board: 13 hexes across, 9 rows" },
+    "board": {
+      "description": "\"standard\": the standard board, 13 hexes across and 9 rows. Or a bigger board grown in the map editor: hexes in a long row (odd rows have one fewer) and rows, always odd",
+      "oneOf": [
+        { "enum": ["standard"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cols", "rows"],
+          "properties": {
+            "cols": { "type": "integer", "minimum": 13, "maximum": 21 },
+            "rows": { "type": "integer", "minimum": 9, "maximum": 17, "not": { "multipleOf": 2 } }
+          }
+        }
+      ]
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
@@ -130,8 +144,8 @@
       "additionalProperties": false,
       "required": ["row", "col"],
       "properties": {
-        "row": { "type": "integer", "minimum": 0, "maximum": 8 },
-        "col": { "type": "integer", "minimum": 0, "maximum": 12, "description": "Up to 11 on odd rows" }
+        "row": { "type": "integer", "minimum": 0, "maximum": 16, "description": "Up to 8 on the standard board, one fewer than the board's rows" },
+        "col": { "type": "integer", "minimum": 0, "maximum": 20, "description": "Up to 12 on the standard board (11 on odd rows), one fewer than the board's columns" }
       }
     },
     "positions": { "type": "array", "items": { "$ref": "#/definitions/position" } },

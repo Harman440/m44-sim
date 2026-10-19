@@ -2,6 +2,7 @@ import { AxialCoord, HexType, MovementRule, Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { TERRAIN, TerrainRules } from "../data/terrain";
 import { positionKey } from "./position";
+import { STANDARD_BOARD, sectionLines } from "./boardSize";
 import Unit from "./unit";
 
 const MIRRORED_SIDE: Record<Side, Side> = {
@@ -17,6 +18,8 @@ class Hex {
   private readonly posAxial: AxialCoord;
   private side: Side;
   private readonly type: HexType;
+  /** The board's width, which decides where its sections meet */
+  private readonly boardCols: number;
 
   private _unit: Unit | null = null;
   /** Barbed wire on the hex: removable, so it isn't part of the terrain */
@@ -24,9 +27,10 @@ class Hex {
   /** Sandbags on the hex (this side's unit's): they go when the unit leaves */
   private _sandbags = false;
 
-  constructor(position: Position, type: HexType = HexType.PLAINS) {
+  constructor(position: Position, type: HexType = HexType.PLAINS, boardCols: number = STANDARD_BOARD.cols) {
     this.position = position;
     this.type = type;
+    this.boardCols = boardCols;
 
     // Convert position to axial
     this.posAxial = this.offsetToAxial(this.position);
@@ -45,18 +49,14 @@ class Hex {
   }
 
   private _setSide(pos: Position): Side {
-    switch (true) {
-      case pos.col <= 3 && pos.row % 2 === 0 || pos.col <= 2 && pos.row % 2 === 1:
-        return Side.LEFT;
-      case pos.col === 3 && pos.row % 2 === 1:
-        return Side.LEFT_CENTER;
-      case pos.col <= 8 && pos.row % 2 === 0 || pos.col <= 7 && pos.row % 2 === 1:
-        return Side.CENTER;
-      case pos.col === 8 && pos.row % 2 === 1:
-        return Side.RIGHT_CENTER;
-      default:
-        return Side.RIGHT;
-    }
+    // Across the board in hexes: short rows sit half a hex right
+    const x = pos.col + (pos.row % 2) / 2;
+    const lines = sectionLines(this.boardCols);
+    if (x < lines.left) return Side.LEFT;
+    if (x === lines.left) return Side.LEFT_CENTER;
+    if (x < lines.right) return Side.CENTER;
+    if (x === lines.right) return Side.RIGHT_CENTER;
+    return Side.RIGHT;
   }
 
   // Getters for readonly properties

@@ -61,7 +61,7 @@ Every push to `main` publishes to GitHub Pages at https://harman440.github.io/m4
 - Coins are called **suministros** / **supplies** in the UI (`GameIcon name="coins"`); the code keeps "coins".
 - UI uses **MUI 9** with the theme of the chosen look. Use MUI components for new UI and style them with `sx` (MUI 9 removed the style-shorthand props). The SVG board and the card art stay custom.
 - **Style custom CSS with the `--m44-*` variables, never fixed colours**, so it works in every look.
-- Board: 13×9 offset grid with pointy-top hexes; odd rows have one fewer column and are shifted half a hex. Positions are `{row, col}`, map keys `"row-col"`. For Axis, positions are flipped and the board image is rotated 180°. Sections: left/center/right plus the shared left-center/right-center border hexes.
+- Board: 13×9 offset grid (a map from the editor can be bigger: `game-core/boardSize.ts`, `Scenario.board`; always pass the size to `turnedRound`) with pointy-top hexes; odd rows have one fewer column and are shifted half a hex. Positions are `{row, col}`, map keys `"row-col"`. For Axis, positions are flipped and the board image is rotated 180°. Sections: left/center/right plus the shared left-center/right-center border hexes.
 - Rules are a loose variant: when a rule is ambiguous, ask instead of assuming official M44.
 - The physical table is the source of truth after battle on own tablets: the app tracks whole units only. Pass and play is the exception: everything is in the app, and units have figures.
 - Unit sprites live in `src/assets/units/<allies|axis>/<unit type>.webp|svg`, mapped in `UnitComponent`.
