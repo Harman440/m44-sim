@@ -26,7 +26,9 @@ npm run dev        # http://localhost:3000
 |---|---|
 | `npm run dev` | Dev server on port 3000 |
 | `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
+| `npm run check` | Typecheck and every test, before committing |
 | `npm test` | Vitest in watch mode (`npx vitest run` for a single run) |
+| `npm run test:core` | Only the rules tests, in plain Node (about 10 s) |
 | `npm run build` | Production build to `dist/` (includes the service worker for offline use) |
 | `npm run tablet` | Build and serve the production app on your network (port 4173), for testing on the tablet before publishing |
 | `npm run icons` | Regenerate the app icon PNGs from `public/icons/icon.svg` |
@@ -56,7 +58,8 @@ Saved games belong to the address they were played on: a game saved on one addre
 - `docs/PASS_AND_PLAY_NEXT.md`: what's left of pass and play
 - `docs/PLAY_THE_COMPUTER.md`: playing against the computer
 - `docs/oldPlans/`: the finished plans
-- `CLAUDE.md`: conventions for working on the code
+- `CLAUDE.md`: conventions for working on the code, and a map of it
+- `docs/ARCHITECTURE.md`: what each module does, in detail
 
 ## Tech
 

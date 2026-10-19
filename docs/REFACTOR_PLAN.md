@@ -47,13 +47,15 @@ Copy-paste is low: jscpd finds 0.66% duplicated lines. The cost is in a few very
 
 The app is fine. The slow part is the tests:
 
-- [ ] **`npx vitest run` takes ~104 s**, and ~40% of it is setting up jsdom, even for the 31 game-core and data test files that never touch the DOM. Split `vitest.config.ts` into two projects: `node` for `src/game-core` and `src/data` (no `setup.ts`), `jsdom` for the rest. Also leave the PWA plugin out of the test config.
-- [ ] Add `npm run check` (typecheck + tests in one command), and `npm run test:core` for game-core only, for quick runs during rules work.
+- [x] **`npx vitest run` takes ~104 s**, and ~40% of it is setting up jsdom, even for the 31 game-core and data test files that never touch the DOM. Split `vitest.config.ts` into two projects: `node` for `src/game-core` and `src/data` (no `setup.ts`), `jsdom` for the rest. Also leave the PWA plugin out of the test config.
+- [x] Add `npm run check` (typecheck + tests in one command), and `npm run test:core` for game-core only, for quick runs during rules work.
+
+Done: the rules tests run in Node and the UI tests pre-bundle MUI. The whole run went from ~104 s to ~73 s on 4 cores, and `npm run test:core` takes ~10 s.
 
 ## 5. Tooling to save time and tokens
 
-- [ ] **Shorten `CLAUDE.md`** (50 KB, about 12,000 tokens read at the start of every session, and edited in 128 of 268 commits). Keep the map: folders, main classes, conventions, commands, under ~10 KB. The per-feature details (which card does what, each view's buttons) are already in the code's doc comments; move what isn't into `docs/ARCHITECTURE.md`, read only when needed. Stop adding a sentence per feature.
-- [ ] **A session start hook** that runs `npm ci` in cloud sessions (each new session installs the packages by hand now).
+- [x] **Shorten `CLAUDE.md`** (50 KB, about 12,000 tokens read at the start of every session, and edited in 128 of 268 commits). Keep the map: folders, main classes, conventions, commands, under ~10 KB. The per-feature details (which card does what, each view's buttons) are already in the code's doc comments; move what isn't into `docs/ARCHITECTURE.md`, read only when needed. Stop adding a sentence per feature. Done: CLAUDE.md is 10.5 KB, and the module details are in `docs/ARCHITECTURE.md`.
+- [x] **A session start hook** that runs `npm ci` in cloud sessions (each new session installs the packages by hand now).
 - [ ] **A screenshot script** (`npm run shots`): Playwright plays a scripted turn and saves a screenshot of each phase at 1280×800 and 800×1280 with touch. Checking UI through the browser tool one click at a time is the most expensive part of UI work.
 - [ ] **Project skills** in `.claude/skills/` for the recurring jobs, loaded only when needed: "add a combat card" (data, labels, rule book, deck rule, art, tests), "add a scenario" (catalog file, `boards.json`, `npm run board`), "new state in GameSession" (until item 3's refactor makes it short), "finish a step" (typecheck, tests, tick PLAN.md, commit).
 - [ ] Card art without code (item 3's glob).
