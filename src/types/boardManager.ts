@@ -6,6 +6,8 @@ export interface PathNode {
   cost: number;
   canContinue: boolean; // false for 'stop' hexes
   path: Position[];
+  /** The longest the move can be now, set by terrain it has been on (a beach: TerrainRules.moveThrough) */
+  cap?: number;
 }
 
 // Result type that includes both reachable positions and their paths

@@ -17,8 +17,9 @@ import { neighbor, pickFor } from "./boardPlan.mjs";
 /** @typedef {import("./joinedHills.mjs").Pixels} Pixels */
 /**
  * `key`: the hex, "row-col"; `open`: the six edges (0 = east, clockwise) shared with the same
- * terrain; `turns`: the tile turned × 60° clockwise
- * @typedef {{ key: string, open: boolean[], turns: number, seed: number }} JoinedHex
+ * terrain; `turns`: the tile turned × 60° clockwise; `fade`: the edges a beach fades out across,
+ * into the land beside it, along a ragged line
+ * @typedef {{ key: string, open: boolean[], turns: number, seed: number, fade?: boolean[] }} JoinedHex
  * @typedef {(hex: JoinedHex) => Uint8Array} JoinedMaker
  */
 
@@ -398,8 +399,21 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, ou
   for (let p = 0; p < inside.length; p++) inside[p] = hexReach(((p % tile.width) - tile.width / 2) / OR, (((p / tile.width) | 0) - tile.height / 2) / OR) < 0.8 ? 1 : 0;
   const px = 1 / TR;
 
-  return ({ key, open, turns, seed }) => {
+  return ({ key, open, turns, seed, fade = [] }) => {
     const rand = rng(seed);
+    const fading = DIRS.filter((_, d) => fade[d]);
+    // The ragged line a beach fades along: how far in the land reaches, by the angle round the hex
+    const [p1, p2] = fading.length ? [rand() * 6.3, rand() * 6.3] : [0, 0];
+    /** @param {number} hx @param {number} hy */
+    const fadeAt = (hx, hy) => {
+      if (!fading.length) return 1;
+      let near = Infinity;
+      for (const [nx = 0, ny = 0] of fading) near = Math.min(near, INNER - (hx * nx + hy * ny));
+      const along = Math.atan2(hy, hx);
+      const reach = 0.3 + 0.07 * Math.sin(along * 9 + p1) + 0.04 * Math.sin(along * 23 + p2);
+      const t = clamp((near - 0.02) / reach, 0, 1);
+      return t * t * (3 - 2 * t);
+    };
     // From the board's orientation to the tile's: turned back
     const turn = (-turns * Math.PI) / 3;
     const [ct, st] = [Math.cos(turn), Math.sin(turn)];
@@ -539,7 +553,110 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, ou
         out[o] = r;
         out[o + 1] = g;
         out[o + 2] = bl;
-        out[o + 3] = 255;
+        out[o + 3] = Math.round(255 * fadeAt(hx, hy));
+      }
+    }
+    return out;
+  };
+}
+
+/**
+ * A spill: the trees of a forest, or a hedgerow's bushes, reaching onto a hex next to it
+ * @typedef {{ key: string, toward: boolean[], seed: number }} SpillHex
+ * `toward`: the six edges (0 = east, clockwise) the hex shares with the terrain spilling onto it
+ * @typedef {(hex: SpillHex) => Uint8Array} SpillMaker
+ */
+
+// The crowns' size on a spill, in hex radii (the smallest and how much bigger they can be), and
+// how many go by each edge
+const SPILL = {
+  forest: { r: 0.16, spread: 0.05, count: [1, 2], apart: 0.24 },
+  hedgerow: { r: 0.09, spread: 0.03, count: [2, 3], apart: 0.12 },
+};
+
+/**
+ * Returns a function that draws what `type` (a forest, or a hedgerow: SPILL's keys) spills onto a
+ * hex across the edges it shares with it: a few of its crowns, cut from `tile` as the joined
+ * forests' are, by each edge and off its corners, overhanging it onto the forest a little, each
+ * with its shadow. The rest is transparent: the art round them shows. A square of
+ * `scale·tileHeight` RGBA pixels round the hex's middle (wider than the hex, for the crowns over
+ * its east and west edges), in the board's orientation
+ * @param {string} type
+ * @param {Pixels} tile
+ * @param {number} tileWidth
+ * @param {number} tileHeight
+ * @param {number} [scale]
+ * @returns {SpillMaker}
+ */
+export function spillMaker(type, tile, tileWidth, tileHeight, scale = 2) {
+  const TW = scale * tileHeight, TH = scale * tileHeight, TR = TH / 2;
+  const OR = tile.height / 2;
+  const rules = SPILL[/** @type {keyof typeof SPILL} */ (type)] ?? SPILL.forest;
+  const trees = findCrowns(tile, rules.apart);
+
+  return ({ key, toward }) => {
+    /** @type {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[] }[]} */
+    const crowns = [];
+    for (let d = 0; d < 6; d++) {
+      if (!toward[d]) continue;
+      const r0 = rng(pickFor(key, 31 + d, 1 << 30));
+      const [few = 1, many = 2] = rules.count;
+      const count = few + Math.floor(r0() * (many - few + 1));
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      for (let i = 0; i < count; i++) {
+        const r = rules.r + rules.spread * r0();
+        // Along the edge, off its corners, each in its own stretch of it; mostly inside the hex,
+        // overhanging the edge
+        const span = 0.47 - r - 0.06;
+        const s = -span + ((2 * span) / count) * (i + 0.15 + 0.7 * r0());
+        const depth = r * (0.25 + 0.35 * r0());
+        const [x, y] = [nx * (INNER - depth) - ny * s, ny * (INNER - depth) + nx * s];
+        const [sx = 0, sy = 0] = trees[Math.floor(r0() * trees.length)] ?? [tile.width / 2, tile.height / 2];
+        const angle = r0() * 2 * Math.PI;
+        crowns.push({ x, y, r, sx, sy, cos: Math.cos(angle), sin: Math.sin(angle), lumps: [r0() * 6.3, r0() * 6.3, 0.05 + 0.04 * r0()] });
+      }
+    }
+    // Light from the top left: crowns cast their shadow down and to the right
+    const [shx, shy] = [0.03, 0.04];
+    const out = new Uint8Array(TW * TH * 4);
+    const b = [0, 0, 0, 0];
+    for (let y = 0; y < TH; y++) {
+      const hy = (y - TH / 2 + 0.5) / TR;
+      for (let x = 0; x < TW; x++) {
+        const hx = (x - TW / 2 + 0.5) / TR;
+        // Built up over transparent: the shadows, then the crowns
+        let [r, g, bl, a] = [0, 0, 0, 0];
+        for (const crown of crowns) {
+          const [dx, dy] = [hx - crown.x, hy - crown.y];
+          if (Math.abs(dx) > crown.r + 0.1 || Math.abs(dy) > crown.r + 0.1) continue;
+          const [l1 = 0, l2 = 0, lump = 0] = crown.lumps;
+          const theta = Math.atan2(dy, dx);
+          const edgeR = crown.r * (1 + lump * Math.sin(5 * theta + l1) + 0.6 * lump * Math.sin(3 * theta + l2));
+          const soft = 0.025;
+          const shadow = 0.25 * clamp((edgeR - Math.hypot(dx - shx, dy - shy)) / soft, 0, 1);
+          if (shadow > 0) {
+            const na = shadow + a * (1 - shadow);
+            [r, g, bl] = [(r * a * (1 - shadow)) / na, (g * a * (1 - shadow)) / na, (bl * a * (1 - shadow)) / na];
+            a = na;
+          }
+          const dist = Math.hypot(dx, dy);
+          const w = clamp((edgeR - dist) / soft, 0, 1);
+          if (w <= 0) continue;
+          const [u, v] = [crown.sx + (dx * crown.cos - dy * crown.sin) * OR, crown.sy + (dx * crown.sin + dy * crown.cos) * OR];
+          const t = sample(tile, u, v, b);
+          const rim = dist / edgeR;
+          const shade = 1.04 - 0.3 * rim * rim - (0.12 * (0.6 * dx + 0.8 * dy)) / edgeR;
+          const na = w + a * (1 - w);
+          r = (clamp((t[0] ?? 0) * shade, 0, 255) * w + r * a * (1 - w)) / na;
+          g = (clamp((t[1] ?? 0) * shade, 0, 255) * w + g * a * (1 - w)) / na;
+          bl = (clamp((t[2] ?? 0) * shade, 0, 255) * w + bl * a * (1 - w)) / na;
+          a = na;
+        }
+        const o = 4 * (y * TW + x);
+        out[o] = r;
+        out[o + 1] = g;
+        out[o + 2] = bl;
+        out[o + 3] = Math.round(a * 255);
       }
     }
     return out;

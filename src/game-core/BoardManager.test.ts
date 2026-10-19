@@ -179,6 +179,34 @@ describe("BoardManager pathfinding", () => {
     expect(destinations(board, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);
   });
 
+  it("moves a unit at most 2 hexes once its move starts on a beach or enters one, whatever it could move", () => {
+    // From a beach, 4 hexes of move are 2
+    const fromBeach = new BoardManager(makeScenario({ tiles: { beach: [start] } }));
+    expect(Math.max(...fromBeach.calculatePossibleMovesWithPaths(fromBeach.getHex(start)!, 4).map((r) => r.cost))).toBe(2);
+    const ignoring = fromBeach.calculatePossibleMovesWithPaths(fromBeach.getHex(start)!, 4, false, { ignoreTerrain: true });
+    expect(Math.max(...ignoring.map((r) => r.cost))).toBe(2);
+
+    // A beach next to the start (4-7): through it, no further than 2 hexes; round it, the whole move
+    const board = new BoardManager(makeScenario({ tiles: { beach: [{ row: 4, col: 7 }] } }));
+    const results = board.calculatePossibleMovesWithPaths(board.getHex(start)!, 4);
+    for (const result of results) {
+      if (result.path.slice(1).some((p) => key(p) === "4-7")) expect(result.cost).toBeLessThanOrEqual(2);
+    }
+    expect(Math.max(...results.map((r) => r.cost))).toBe(4); // the whole move, round the beach
+    expect(results.find((r) => key(r.position) === "4-8")?.cost).toBe(2);
+  });
+
+  it("stops a unit that enters a swamp, which can still fire, and moves one leaving it 1 hex", () => {
+    const into = new BoardManager(makeScenario({ tiles: { swamp: [{ row: 4, col: 7 }] } }));
+    for (const result of into.calculatePossibleMovesWithPaths(into.getHex(start)!, 3)) {
+      expect(result.path.slice(1, -1).map(key)).not.toContain("4-7");
+    }
+    expect(destinations(into, 1, true)).toContain("4-7");
+
+    const out = new BoardManager(makeScenario({ tiles: { swamp: [start] } }));
+    expect(destinations(out, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);
+  });
+
   it("ignores the hedgerow limits when a card ignores terrain", () => {
     const scenario = makeScenario({ tiles: { hedgerow: [start, { row: 4, col: 9 }] } });
     const board = new BoardManager(scenario);

@@ -11,6 +11,10 @@ export enum HexType {
   BRIDGE = "bridge",
   /** A pond or lake: impassable, doesn't block line of sight */
   LAKE = "lake",
+  /** Sand: a move that starts on it or enters it is 2 hexes at most (house rule) */
+  BEACH = "beach",
+  /** A unit that enters it stops, and one leaving it moves 1 hex (house rule) */
+  SWAMP = "swamp",
 }
 
 export const isHexType = (value: unknown): value is HexType =>

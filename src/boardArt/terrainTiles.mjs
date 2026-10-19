@@ -95,14 +95,18 @@ const bush = (x, y, r, pal, rand, shadow = 0.35) => {
   }
   return s;
 };
-// The tile frame: clipped to the hex, with the lighter bevel of the printed terrain tiles and the board's hex line
+// The tile frame: clipped to the hex, with the lighter bevel of the printed terrain tiles and the
+// board's hex line. A `rim` of null leaves both out: the tile is laid straight on the board's
+// countryside, which shows round it with its own hex lines (water)
 const frame = (body, rim = "#8f8e58", extraDefs = "") =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f(-W / 2)} -100 ${f(W)} 200" width="${f(W * 2)}" height="400">` +
   `<defs><clipPath id="hex"><polygon points="${hexPoints()}"/></clipPath>${bushDefs()}${extraDefs}</defs>` +
   `<g clip-path="url(#hex)">${body}` +
-  `<polygon points="${hexPoints(R - 2.5)}" fill="none" stroke="${rim}" stroke-width="5" opacity=".75"/>` +
-  `<polygon points="${hexPoints(R - 5.5)}" fill="none" stroke="#fffbe0" stroke-width="1" opacity=".22"/></g>` +
-  `<polygon points="${hexPoints()}" fill="none" stroke="#6f7a48" stroke-width="2.2"/></svg>`;
+  (rim === null
+    ? "</g></svg>"
+    : `<polygon points="${hexPoints(R - 2.5)}" fill="none" stroke="${rim}" stroke-width="5" opacity=".75"/>` +
+      `<polygon points="${hexPoints(R - 5.5)}" fill="none" stroke="#fffbe0" stroke-width="1" opacity=".22"/></g>` +
+      `<polygon points="${hexPoints()}" fill="none" stroke="#6f7a48" stroke-width="2.2"/></svg>`);
 
 // ---------- RIVERS ----------
 // The river's centre line from edge `a` to edge `b`, as sample points; continuous across tiles
@@ -134,8 +138,8 @@ const band = (line, w, amp, rand) => {
   return smoothOpen(left) + "L" + smoothOpen(right.reverse()).slice(1) + "Z";
 };
 // Deep, dark water between grey pebble banks
-// The bevel round a water tile, as faint as the plains' hex lines around it
-const WATER_RIM = "#b3bb8c";
+// Water tiles have no bevel or ground of their own: they're laid on the board's countryside
+const WATER_RIM = null;
 const RIVER = { ground: ["#a6b684", "#c3cb9c", "#879a5e"], bankOuter: ["#5f7a32", 31], bank: ["#a8a390", 25], water: ["#28586f", "#4f8aa5", 19], reeds: 6, stones: 110 };
 // Short light streaks that follow the current
 const ripples = (line, w, rand) => {
@@ -157,7 +161,8 @@ function riverBody(a, b, seed) {
   const s = RIVER;
   const rand = rng(seed * 31 + a * 7 + b);
   const line = riverLine(a, b);
-  let body = ground(...s.ground, seed, 0.03) + grass(rand, 24, "#6d8246", 0.25);
+  // No ground: the board's countryside shows round the banks
+  let body = "";
   const defs = `<linearGradient id="wg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${s.water[1]}"/><stop offset="1" stop-color="${s.water[0]}"/></linearGradient>` +
     `<filter id="rip" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".06" numOctaves="2" seed="${seed}"/><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -3 1.35"/></filter>` +
     `<filter id="blur3" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>`;
@@ -302,7 +307,8 @@ export function lake(open = [false, false, false, false, false, false], seed = 7
   const defs = `<radialGradient id="lg" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#5b95ad"/><stop offset=".6" stop-color="#3c7189"/><stop offset="1" stop-color="#2a5a70"/></radialGradient>` +
     `<filter id="rip" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="${seed}"/><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -3 1.35"/></filter>` +
     `<filter id="blur3" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>`;
-  let b = ground(...RIVER.ground, seed, 0.03) + grass(rand, 24, "#6d8246", 0.25);
+  // No ground: the board's countryside shows round the shore
+  let b = "";
   // Damp dark grass, then a pale muddy shore round the water
   b += `<path d="${water}" fill="none" stroke="#5f7a32" stroke-width="22" opacity=".8" filter="url(#blur3)"/>`;
   b += `<path d="${water}" fill="none" stroke="#a8a390" stroke-width="11"/>`;

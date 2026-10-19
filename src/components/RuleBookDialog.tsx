@@ -76,6 +76,7 @@ const STEP_ICONS: Record<TutorialStepId, GameIconName> = {
 
 const GROUP_ICONS: Record<HouseRuleGroupId, GameIconName> = {
   simultaneous: "endTurn",
+  terrain: "map",
   dice: "dice",
   commandCards: "cards",
   supplies: "coins",
