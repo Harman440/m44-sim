@@ -22,18 +22,14 @@ import { neighbor, pickFor } from "./boardPlan.mjs";
 /**
  * `key`: the hex, "row-col"; `open`: the six edges (0 = east, clockwise) shared with the same
  * terrain; `bare`: the edges shared with open countryside on the board; `spill`: the bare edge a
- * town's house stands over, or -1; `turns`: the tile turned × 60° clockwise
- * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, turns: number, seed: number }} JoinedHex
+ * town's house stands over, or -1; `streets`: the edges a town's streets run out over a little;
+ * `woods`: a river's edges facing a forest, which grows into it up to the water (growWoods);
+ * `turns`: the tile turned × 60° clockwise
+ * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], turns: number, seed: number }} JoinedHex
  * `tile`: the hex, RGBA; `overflow`: what spills out of it, RGBA, OVERFLOW times the hex's size
  * and centred on it, or null
  * @typedef {(hex: JoinedHex) => { tile: Uint8Array, overflow: Uint8Array | null }} JoinedMaker
  */
-
-// A hedge's bush, as the hedgerow tile paints them: its lit middle and its dark rim
-/** @type {[number, number, number]} */
-const BUSH_LIGHT = [176, 204, 96];
-/** @type {[number, number, number]} */
-const BUSH_DARK = [38, 74, 20];
 
 /** How much larger than its hex a hex's overflow image is */
 export const OVERFLOW = 1.5;
@@ -236,10 +232,9 @@ function emptyTown(tile, masks) {
 /**
  * The forest tile's tree crowns: where its light is brightest round about (each crown is lit in
  * its middle), from its middle out, each at least `apart` hex radii from the next
- * (a hedgerow's bushes: only where `keep(r, g, b)` is true of the pixel)
- * @param {Pixels} tile @param {number} apart @param {(r: number, g: number, b: number) => boolean} [keep]
+ * @param {Pixels} tile @param {number} apart
  */
-function findCrowns({ data, width: W, height: H, channels: C }, apart, keep = () => true) {
+function findCrowns({ data, width: W, height: H, channels: C }, apart) {
   const R = H / 2;
   const lum = new Float32Array(W * H);
   for (let p = 0; p < W * H; p++) {
@@ -269,8 +264,6 @@ function findCrowns({ data, width: W, height: H, channels: C }, apart, keep = ()
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (hexReach((x - W / 2) / R, (y - H / 2) / R) > 0.62) continue;
-      const i = C * (y * W + x);
-      if (!keep(/** @type {number} */ (data[i]), /** @type {number} */ (data[i + 1]), /** @type {number} */ (data[i + 2]))) continue;
       peaks.push([/** @type {number} */ (blurred[y * W + x]), x, y]);
     }
   }
@@ -383,23 +376,22 @@ function spillHouse(house, edge, W, H, rand) {
  * @param {number} tileWidth
  * @param {number} tileHeight
  * @param {number} [scale]
+ * @param {Pixels} [forest] the forest tile, RGBA, for a river's woods
  * @returns {JoinedMaker}
  */
-export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
+export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, forest) {
   const TW = scale * tileWidth, TH = scale * tileHeight, TR = TH / 2;
   const OR = tile.height / 2;
   const { houses, roofs } = type === "town" ? findHouses(tile) : { houses: [], roofs: new Float32Array() };
   const ground = type === "town" ? emptyTown(tile, [roofs, ...houses.map((h) => h.mask)]) : tile;
-  // A forest's tree crowns; a hedgerow's bushes, the dark green clumps along its hedges
-  const trees =
-    type === "forest" ? findCrowns(tile, 0.24) : type === "hedgerow" ? findCrowns(tile, 0.08, (r, g, b) => g - b > 40 && g < 150 && r < 120) : [];
+  const trees = type === "forest" ? findCrowns(tile, 0.24) : [];
   const inside = new Uint8Array(houses.length ? tile.width * tile.height : 0);
   for (let p = 0; p < inside.length; p++) inside[p] = hexReach(((p % tile.width) - tile.width / 2) / OR, (((p / tile.width) | 0) - tile.height / 2) / OR) < 0.8 ? 1 : 0;
   const px = 1 / TR;
 
   const OW = Math.round(OVERFLOW * TW), OH = Math.round(OVERFLOW * TH);
 
-  return ({ key, open, bare, spill, turns, seed }) => {
+  return ({ key, open, bare, spill, streets = [], woods = [], turns, seed }) => {
     const rand = rng(seed);
     // From the board's orientation to the tile's: turned back
     const turn = (-turns * Math.PI) / 3;
@@ -423,8 +415,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
 
     // Crowns across each edge shared with another forest, the same from either side: each edge's
     // crowns are made from its own seed, in the frame of the hex that owns it
-    /** `bush`: a hedge's bush, painted as the tiles' bushes are rather than cut from the tile */
-    /** @typedef {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[], bush?: boolean }} Crown */
+    /** @typedef {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[] }} Crown */
     /** @type {Crown[]} */
     const crowns = [];
     /** One of the tile's crowns, turned any way, at x, y @param {number} x @param {number} y @param {number} r @param {() => number} r0 @returns {Crown} */
@@ -471,22 +462,6 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
     /** @type {Crown[]} */
     const spillCrowns = [];
     if (type === "forest") for (let d = 0; d < 6; d++) if (bare[d]) spillCrowns.push(...alongEdge(d, [0, 0], [-0.08, 0.02], rand));
-    // A hedge running on out over the countryside: a line of bushes from inside the hex, across
-    // the edge, bending a little
-    if (type === "hedgerow" && spill >= 0) {
-      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[spill]);
-      let angle = Math.atan2(ny, nx) + (rand() - 0.5) * 0.9;
-      const along = (rand() - 0.5) * 0.45;
-      let [x, y] = [nx * 0.5 * INNER - ny * along, ny * 0.5 * INNER + nx * along];
-      const length = 0.6 + 0.25 * rand();
-      for (let t = 0; t < length; t += 0.075) {
-        // Now and then a tree in the hedge
-        const size = rand() < 0.2 ? 0.09 + 0.03 * rand() : 0.055 + 0.03 * rand();
-        spillCrowns.push({ ...crownAt(x + (rand() - 0.5) * 0.03, y + (rand() - 0.5) * 0.03, size, rand), bush: true });
-        angle += (rand() - 0.5) * 0.25;
-        [x, y] = [x + 0.075 * Math.cos(angle), y + 0.075 * Math.sin(angle)];
-      }
-    }
     // Light from the top left: crowns cast their shadow down and to the right
     const [shx, shy] = [0.03, 0.04];
 
@@ -508,11 +483,40 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
       sample(tile, hu, hv, b);
       over(px, b[0] ?? 0, b[1] ?? 0, b[2] ?? 0, w);
     };
+    // A town's streets: from among its houses out across an edge, a little way into the hex
+    // beside it, narrowing; cobbles from the middle of the tile's square, with a darker kerb.
+    // Inside the hex they're laid under the houses, past its edge in the overflow
+    const lanes = streets.map((d) => {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      const tilt = (rand() - 0.5) * 0.5, side = (rand() - 0.5) * 0.3;
+      const [dx, dy] = [nx * Math.cos(tilt) - ny * Math.sin(tilt), nx * Math.sin(tilt) + ny * Math.cos(tilt)];
+      return { ox: nx * 0.45 * INNER - ny * side, oy: ny * 0.45 * INNER + nx * side, dx, dy, length: (0.78 + 0.12 * rand()) * INNER, phase: rand() * 6.3 };
+    });
+    /** A street's cobbles over a colour with alpha, at a point in hex radii @param {number} hx @param {number} hy @param {number[]} px */
+    const paintStreets = (hx, hy, px) => {
+      for (const lane of lanes) {
+        const [rx, ry] = [hx - lane.ox, hy - lane.oy];
+        const along = rx * lane.dx + ry * lane.dy, across = -rx * lane.dy + ry * lane.dx;
+        if (along < -0.1 || along > lane.length + 0.1) continue;
+        const t = clamp(along / lane.length, 0, 1);
+        const half = (0.1 - 0.035 * t) * (1 + 0.12 * Math.sin(along * 40 + lane.phase));
+        // Squared off where it starts, among the houses; rounded at its far end
+        const off = along > lane.length ? Math.hypot(along - lane.length, across) : along < 0 ? Infinity : Math.abs(across);
+        const w = clamp((half - off) / 0.012, 0, 1);
+        if (w <= 0) continue;
+        const [mu, mv] = [mirrorIn(along * OR * 0.9, 0.22 * OR), mirrorIn(across * OR, 0.22 * OR)];
+        sample(ground, tile.width / 2 + mu, tile.height / 2 + mv, b);
+        const kerb = off > half * 0.75 ? 0.7 : 0.9;
+        over(px, (b[0] ?? 0) * kerb, (b[1] ?? 0) * kerb, (b[2] ?? 0) * kerb, w);
+      }
+    };
+
     /** The tile (its houses re-laid) at a point in hex radii, in the board's orientation @param {number} x @param {number} y */
     const tileAt = (x, y) => {
       const [u = 0, v = 0] = toTile(x, y);
       sample(ground, u, v, a);
       a[3] = 1;
+      if (lanes.length) paintStreets(x, y, a);
       if (!placed.length) return a;
       let shade = 1;
       for (const [i, h] of placed.entries()) {
@@ -552,13 +556,6 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
         const t = sample(tile, u, v, b);
         // Rounded: darker towards its rim, lit from the top left
         const rim = dist / edgeR;
-        if (crown.bush) {
-          // A bush: a light middle in a dark rim, the tile's texture showing through faintly
-          const mix = Math.min(1, rim ** 1.6 + Math.max(0, (0.6 * dx + 0.8 * dy) / edgeR) * 0.35);
-          const grain = ((0.3 * (t[0] ?? 0) + 0.59 * (t[1] ?? 0) + 0.11 * (t[2] ?? 0)) - 130) * 0.25;
-          over(px, clamp(BUSH_LIGHT[0] * (1 - mix) + BUSH_DARK[0] * mix + grain, 0, 255), clamp(BUSH_LIGHT[1] * (1 - mix) + BUSH_DARK[1] * mix + grain, 0, 255), clamp(BUSH_LIGHT[2] * (1 - mix) + BUSH_DARK[2] * mix + grain, 0, 255), w);
-          continue;
-        }
         const shade = 1.04 - 0.3 * rim * rim - (0.12 * (0.6 * dx + 0.8 * dy)) / edgeR;
         over(px, clamp((t[0] ?? 0) * shade, 0, 255), clamp((t[1] ?? 0) * shade, 0, 255), clamp((t[2] ?? 0) * shade, 0, 255), w);
       }
@@ -595,9 +592,11 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
     }
     // A town or a river ends in the board's own countryside
     if (type === "town" || type === "river") toCountryside(out, TW, TH, type === "town" ? 0.1 : 0.07, seed);
+    // A forest beside a river grows into it, up to the water
+    if (type === "river" && forest) growWoods(out, TW, TH, woods, seed, forest);
 
-    if (!spilt && !spillCrowns.length) return { tile: out, overflow: null };
-    // What spills out: the house over its edge, whole, and the trees over the countryside
+    if (!spilt && !spillCrowns.length && !lanes.length) return { tile: out, overflow: null };
+    // What spills out: the streets and the house over its edge, whole, and the trees over the countryside
     const overflow = new Uint8Array(OW * OH * 4);
     const spiltMask = spilt ? maskOf(spilt) : null;
     const px4 = [0, 0, 0, 0];
@@ -606,6 +605,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
       for (let x = 0; x < OW; x++) {
         const hx = (x - OW / 2 + 0.5) / TR;
         px4.fill(0);
+        if (lanes.length && hexReach(hx, hy) > 0.99) paintStreets(hx, hy, px4);
         if (spilt && spiltMask) {
           const [u = 0, v = 0] = toTile(hx, hy);
           paintHouse(spilt, spiltMask, u, v, px4);
@@ -619,6 +619,13 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
     return { tile: out, overflow };
   };
 }
+
+/** A coordinate folded back and forth into −half…half, so a texture repeats mirrored @param {number} v @param {number} half */
+const mirrorIn = (v, half) => {
+  const period = 4 * half;
+  const m = (((v + half) % period) + period) % period;
+  return m < 2 * half ? m - half : 3 * half - m;
+};
 
 /** Whatever isn't grass: grass is green over blue, and not as light as cobbles or water's glints @param {number} r @param {number} g @param {number} b */
 const notGrass = (r, g, b) => !(g - b > 40 && g >= r - 6 && 0.3 * r + 0.59 * g + 0.11 * b < 205);
@@ -716,3 +723,141 @@ function over(px, r, g, b, alpha) {
   px[2] = b * alpha + (px[2] ?? 0) * keep;
   px[3] = alpha + (px[3] ?? 0) * keep;
 }
+
+// Each forest tile's crowns, found once
+/** @type {WeakMap<Pixels, [number, number][]>} */
+const forestCrowns = new WeakMap();
+
+/**
+ * Grow a forest into a river hex from its edges facing one (`woods`), in place: the land on that
+ * side of the water, up to the bank, filled with the forest tile's trees, so the forest runs
+ * straight into the river instead of ending at the hex line. `pixels`: the river hex, RGBA,
+ * `width` × `height` (after toCountryside); `forest`: the forest tile, RGBA
+ * @param {Uint8Array} pixels @param {number} width @param {number} height @param {boolean[]} woods
+ * @param {number} seed @param {Pixels} forest
+ */
+export function growWoods(pixels, width, height, woods, seed, forest) {
+  if (!woods.some(Boolean)) return;
+  const R = height / 2, n = width * height;
+  // The water (and a bridge): what isn't grass, where most round about isn't. The land beside it
+  // is where the woods may grow, inside the hex
+  const solid = new Uint8Array(n);
+  const k = Math.max(1, Math.round(0.03 * R));
+  const other = new Uint8Array(n);
+  for (let p = 0; p < n; p++) {
+    const [r = 0, g = 0, b = 0] = [pixels[4 * p], pixels[4 * p + 1], pixels[4 * p + 2]];
+    other[p] = notGrass(r, g, b) ? 1 : 0;
+  }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let t = 0, c = 0;
+      for (let dy = -k; dy <= k; dy++) {
+        for (let dx = -k; dx <= k; dx++) {
+          const [xx, yy] = [x + dx, y + dy];
+          if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
+          t += /** @type {number} */ (other[yy * width + xx]);
+          c++;
+        }
+      }
+      solid[y * width + x] = t / c > 0.55 ? 1 : 0;
+    }
+  }
+  /** @param {number} p */
+  const at = (p) => [((p % width) + 0.5 - width / 2) / R, (((p / width) | 0) + 0.5 - height / 2) / R];
+  // Kept back from the edges that don't face a forest, by a wandering margin, so the woods end
+  // in their crowns there rather than on the hex line
+  const rand = rng(seed + 4211);
+  const [p1, p2] = [rand() * 6.3, rand() * 6.3];
+  /** @param {number} x @param {number} y */
+  const clear = (x, y) => {
+    const margin = 0.2 + 0.05 * Math.sin(9 * x + 4 * y + p1) + 0.04 * Math.sin(-5 * x + 11 * y + p2);
+    for (let d = 0; d < 6; d++) {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      if (!woods[d] && INNER - (x * nx + y * ny) < margin) return false;
+    }
+    return hexReach(x, y) <= 0.985;
+  };
+  // Flooded from the wooded edges over the land, never across the water nor round it by the rim
+  const wood = new Uint8Array(n);
+  const stack = [];
+  for (let p = 0; p < n; p++) {
+    const [x = 0, y = 0] = at(p);
+    if (solid[p] || !clear(x, y)) continue;
+    for (let d = 0; d < 6; d++) {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      if (woods[d] && INNER - (x * nx + y * ny) < 0.08 && hexReach(x, y) > 0.9) {
+        wood[p] = 1;
+        stack.push(p);
+        break;
+      }
+    }
+  }
+  while (stack.length) {
+    const p = /** @type {number} */ (stack.pop());
+    const x = p % width;
+    for (const q of [x > 0 ? p - 1 : -1, x < width - 1 ? p + 1 : -1, p - width, p + width]) {
+      if (q < 0 || q >= n || wood[q] || solid[q]) continue;
+      const [qx = 0, qy = 0] = at(q);
+      if (!clear(qx, qy)) continue;
+      wood[q] = 1;
+      stack.push(q);
+    }
+  }
+  // Under the trees the forest's shade, then its crowns on a jittered grid, over the woods only
+  let sources = forestCrowns.get(forest);
+  if (!sources) {
+    sources = findCrowns(forest, 0.24);
+    forestCrowns.set(forest, sources);
+  }
+  const OR = forest.height / 2;
+  // The crowns standing in the woods (their middles in it), which reach a little past them over
+  // the land, never over the water
+  /** @param {number} x @param {number} y */
+  const inWood = (x, y) => {
+    const [px, py] = [Math.round(x * R + width / 2 - 0.5), Math.round(y * R + height / 2 - 0.5)];
+    return px >= 0 && py >= 0 && px < width && py < height && wood[py * width + px] === 1;
+  };
+  /** @type {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number }[]} */
+  const crowns = [];
+  for (let gy = -1.1; gy < 1.1; gy += 0.15) {
+    for (let gx = -1; gx < 1; gx += 0.15) {
+      const [sx = 0, sy = 0] = sources[Math.floor(rand() * sources.length)] ?? [forest.width / 2, forest.height / 2];
+      const angle = rand() * 2 * Math.PI;
+      const [x, y, r] = [gx + (rand() - 0.5) * 0.1, gy + (rand() - 0.5) * 0.1, 0.1 + 0.05 * rand()];
+      if (inWood(x, y)) crowns.push({ x, y, r, sx, sy, cos: Math.cos(angle), sin: Math.sin(angle) });
+    }
+  }
+  const b = [0, 0, 0, 0];
+  for (let p = 0; p < n; p++) {
+    if (solid[p]) continue;
+    const [x = 0, y = 0] = at(p);
+    if (!wood[p] && hexReach(x, y) > 0.985) continue;
+    // In the woods, the forest floor; outside, the land as it is, under the crowns' rims
+    const px = wood[p] ? [SHADE[0], SHADE[1], SHADE[2], 1] : [0, 0, 0, 0];
+    for (const crown of crowns) {
+      const [dx, dy] = [x - crown.x, y - crown.y];
+      if (Math.abs(dx) > crown.r + 0.05 || Math.abs(dy) > crown.r + 0.05) continue;
+      const shadow = clamp((crown.r - Math.hypot(dx - 0.03, dy - 0.04)) / 0.025, 0, 1);
+      if (shadow > 0) over(px, 0, 0, 0, 0.25 * shadow);
+      const dist = Math.hypot(dx, dy);
+      const w = clamp((crown.r - dist) / 0.025, 0, 1);
+      if (w <= 0) continue;
+      sample(forest, crown.sx + (dx * crown.cos - dy * crown.sin) * OR, crown.sy + (dx * crown.sin + dy * crown.cos) * OR, b);
+      const rim = dist / crown.r;
+      const shade = 1.04 - 0.3 * rim * rim - (0.12 * (0.6 * dx + 0.8 * dy)) / crown.r;
+      over(px, clamp((b[0] ?? 0) * shade, 0, 255), clamp((b[1] ?? 0) * shade, 0, 255), clamp((b[2] ?? 0) * shade, 0, 255), w);
+    }
+    const alpha = px[3] ?? 0;
+    if (alpha <= 0) continue;
+    // Laid over what's there (premultiplied), opaque where the crowns or the woods cover it
+    const o = 4 * p;
+    const under = /** @type {number} */ (pixels[o + 3]) / 255;
+    const total = alpha + under * (1 - alpha);
+    for (let c = 0; c < 3; c++) pixels[o + c] = ((px[c] ?? 0) + /** @type {number} */ (pixels[o + c]) * under * (1 - alpha)) / total;
+    pixels[o + 3] = 255 * total;
+  }
+}
+
+// The forest floor between its crowns
+/** @type {[number, number, number]} */
+const SHADE = [44, 72, 22];

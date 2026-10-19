@@ -2,7 +2,8 @@
 // Usage: npm run board [-- <part of a board's name>]
 // scripts/boards.json lists every board: its terrain file (src/data/boards/*.json, which
 // scenarios.ts imports too), the image to write, and optionally `drawn`: terrain to draw in code
-// instead of painting it with the tiles ("river", which takes its bridges along, and "hedgerow"),
+// instead of painting it with the tiles ("river", which takes its bridges along; hedgerows and lakes
+// are always drawn),
 // and `separateHills`: each hill on its own tile instead of joined into ridges.
 //
 // The art is the empty board cropped to the edges of its hex grid, which is the box the app lays
@@ -16,12 +17,13 @@
 // clockwise: 3-0.webp runs west to east), and it's turned to join the river's edges; a painted
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
 // A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
-// Forests and hedgerows next to their own kind blend into it, a forest's trees growing over the
-// edge and out over the countryside, and every town lays its tile's houses out again, some with a
-// house standing over the edge (src/boardArt/joinedTiles.mjs).
-// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
-// hedgerows when the board asks. A river runs through the edges it shares with the next river or
-// bridge hexes, and a lake joins the lake hexes next to it. The board's edges are made soft
+// Forests next to their own kind blend into it, their trees growing over the edge and out over
+// the countryside, every town lays its tile's houses out again (some with a house standing over
+// the edge, its streets running out a little), and towns and rivers end in the countryside, a
+// forest growing into a river beside it (src/boardArt/joinedTiles.mjs).
+// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes and hedgerows always, and rivers
+// and bridges when the board asks. A river runs through the edges it shares with the next river or
+// bridge hexes, and a lake or a hedgerow joins the ones next to it. The board's edges are made soft
 // (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside and the hex
 // lines softened; the frame round the grid is put back over the new hexes.
 import sharp from "sharp";
@@ -32,13 +34,14 @@ import {
   BOARD_KEYS,
   COLS,
   PIECE_HEX_WIDTH,
+  BRIDGE_WIDTH,
   artGrid,
   bridgeAngle,
   drawnSvg,
   planBoard,
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
-import { OVERFLOW, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
+import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
@@ -114,6 +117,17 @@ const joinedHill = async (file, open, key, seed) => {
   const tile = await hillMakers.get(file)(open, seed, center(key));
   return sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
 };
+// The library's forest tile at twice its size, for the woods that grow into a river beside a forest
+let forestPixels;
+const forestTile = async () => {
+  if (!forestPixels && library.forest?.length) {
+    const file = `${ART}/tiles/forest/${library.forest[0]}`;
+    const { width, height } = await sharp(file).metadata();
+    const data = await sharp(file).resize(width * 2, height * 2).ensureAlpha().raw().toBuffer();
+    forestPixels = { data, width: width * 2, height: height * 2, channels: 4 };
+  }
+  return forestPixels;
+};
 // Tiles blended into the same terrain beside them, one maker per tile, built at twice the board's size
 const tileMakers = new Map();
 const joinedTile = async (hex, file) => {
@@ -122,7 +136,7 @@ const joinedTile = async (hex, file) => {
     const [w2, h2] = [width * 2, height * 2];
     const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
     // The tile's folder is its terrain (a bridge's is a river tile)
-    tileMakers.set(file, joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
+    tileMakers.set(file, joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight, 2, await forestTile()));
   }
   const { tile: pixels, overflow } = tileMakers.get(file)(hex);
   const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })
@@ -141,24 +155,27 @@ const placed = (input, key, width, height) => {
   const { x, y } = center(key);
   return { input, left: Math.round(x - width / 2) + PAD, top: Math.round(y - height / 2) + PAD };
 };
-// The bridge piece laid square across the river from edge to edge, with its shadow
+// The bridge piece laid square across the river from edge to edge, narrowed, with its shadow
 const bridgeOver = async (key, edges) => {
   const file = `${ART}/pieces/bridge.webp`;
   const { width, height } = await sharp(file).metadata();
   const k = hexWidth / PIECE_HEX_WIDTH;
-  const scaled = await sharp(file).resize(Math.round(width * k), Math.round(height * k)).png().toBuffer();
+  const scaled = await sharp(file).resize(Math.round(width * k * BRIDGE_WIDTH), Math.round(height * k), { fit: "fill" }).png().toBuffer();
   const turned = await sharp(scaled).rotate(bridgeAngle(edges), { background: CLEAR }).png().toBuffer({ resolveWithObject: true });
   // The board's light comes from the top left
   const shadow = await sharp(turned.data).linear([0, 0, 0, 0.45], [0, 0, 0, 0]).blur(3).png().toBuffer();
   const piece = placed(turned.data, key, turned.info.width, turned.info.height);
   return [{ ...piece, input: shadow, left: piece.left + 4, top: piece.top + 5 }, piece];
 };
-// A drawn tile, rendered at the board's hex size; a river's grass giving way to the countryside
+// A drawn tile, rendered at the board's hex size; a river's grass giving way to the countryside,
+// or to a forest beside it
 const drawnTile = async (hex) => {
   let input = await sharp(Buffer.from(drawnSvg(hex))).resize(tileWidth, tileHeight).png().toBuffer();
   if (hex.type === "river" || hex.type === "bridge") {
     const data = await sharp(input).ensureAlpha().raw().toBuffer();
     toCountryside(data, tileWidth, tileHeight, 0.07, hex.seed);
+    const forest = await forestTile();
+    if (forest) growWoods(data, tileWidth, tileHeight, hex.woods, hex.seed, forest);
     input = await sharp(data, { raw: { width: tileWidth, height: tileHeight, channels: 4 } }).png().toBuffer();
   }
   return placed(input, hex.key, tileWidth, tileHeight);

@@ -19,6 +19,7 @@ import {
   APP_ART_HEIGHT,
   ART_HEIGHT,
   PIECE_HEX_WIDTH,
+  BRIDGE_WIDTH,
   artGrid,
   artHeightFor,
   boardKeys,
@@ -32,7 +33,7 @@ import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../gam
 import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
-import { OVERFLOW, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
+import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "./softLines.mjs";
 import type { JoinedMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
@@ -92,21 +93,29 @@ const cached = <T>(cache: Map<string, Promise<T>>, key: string, make: () => Prom
 const images = new Map<string, Promise<HTMLImageElement>>();
 const loadImage = (url: string) => cached(images, url, () => load(url));
 
+// The library's forest tile at twice its size, for the woods that grow into a river beside a forest
+let forestPixels: Promise<Pixels> | undefined;
+const forestTile = () =>
+  (forestPixels ??= loadImage(TILE_URLS.get(`forest/${TILE_LIBRARY.forest?.[0]}`) ?? "").then((image) =>
+    pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2),
+  ));
+
 // Drawn hexes rendered once at a size and kept as bitmaps: the browser would render an SVG
 // image again every time it's pasted
 const drawnTiles = new Map<string, Promise<HTMLCanvasElement>>();
 const drawnTile = (hex: DrawnHex, width: number, height: number) =>
-  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}@${width}x${height}`, async () => {
+  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}@${width}x${height}`, async () => {
     const svg = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawnSvg(hex))}`);
     const tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
     const ctx = tile.getContext("2d", { willReadFrequently: true });
     ctx?.drawImage(svg, 0, 0, width, height);
-    // A river's grass giving way to the countryside, as the script draws it
+    // A river's grass giving way to the countryside, or a forest beside it, as the script draws it
     if (ctx && (hex.type === "river" || hex.type === "bridge")) {
       const pixels = ctx.getImageData(0, 0, width, height);
       toCountryside(pixels.data as unknown as Uint8Array, width, height, 0.07, hex.seed);
+      if (hex.woods.some(Boolean)) growWoods(pixels.data as unknown as Uint8Array, width, height, hex.woods, hex.seed, await forestTile());
       ctx.putImageData(pixels, 0, 0);
     }
     return tile;
@@ -163,7 +172,8 @@ const joinedMakers = new Map<string, Promise<JoinedMaker>>();
 const joinedMaker = (type: string, tile: string, width: number, height: number) =>
   cached(joinedMakers, `${tile}@${width}x${height}`, async () => {
     const image = await loadImage(TILE_URLS.get(tile) ?? tile);
-    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1);
+    const forest = type === "river" ? await forestTile() : undefined;
+    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1, forest);
   });
 
 /** RGBA pixels as a canvas */
@@ -183,7 +193,7 @@ const joinedArt = new Map<string, Promise<{ tile: HTMLCanvasElement; overflow: H
 const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
   const edges = (list: boolean[]) => list.map(Number).join("");
-  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}@${width}x${height}`;
+  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}:${hex.streets ?? ""}@${width}x${height}`;
   return cached(joinedArt, key, async () => {
     // The tile's folder is its terrain (a bridge's is a river tile)
     const { tile, overflow } = (await joinedMaker(hex.tile.split("/")[0] ?? hex.type, hex.tile, width, height))(hex);
@@ -322,7 +332,7 @@ export async function paintBoard(
     } else if (hex.art === "bridgePiece") {
       // Square across the river, its shadow cast down and right: the board's light is from the top left
       const k = grid.hexWidth / PIECE_HEX_WIDTH;
-      const [pieceWidth, pieceHeight] = [bridge.naturalWidth * k, bridge.naturalHeight * k];
+      const [pieceWidth, pieceHeight] = [bridge.naturalWidth * k * BRIDGE_WIDTH, bridge.naturalHeight * k];
       ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
       ctx.shadowBlur = 6 * scale;
       ctx.shadowOffsetX = 4 * scale;

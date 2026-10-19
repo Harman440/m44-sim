@@ -59,46 +59,58 @@ describe("planBoard", () => {
     expect(planBoard(hills, LIBRARY, { separateHills: true }).map((hex) => hex.art)).toEqual(["painted", "painted", "painted"]);
   });
 
-  it("blends forests and hedgerows into their own kind, and lays every town's houses out again", () => {
+  it("blends forests into their own kind, lays every town's houses out again, and draws hedgerows", () => {
     const plan = planBoard({ forest: [p(4, 4), p(4, 5), p(0, 0)], hedgerow: [p(6, 6), p(6, 7)], town: [p(2, 2)] }, LIBRARY);
 
     expect(plan.map((hex) => [hex.key, hex.art])).toEqual([
       ["4-4", "joined"],
       ["4-5", "joined"],
       ["0-0", "joined"],
-      ["6-6", "joined"],
-      ["6-7", "joined"],
+      ["6-6", "drawn"],
+      ["6-7", "drawn"],
       ["2-2", "joined"],
     ]);
     expect(at(plan, "4-5")[0]).toMatchObject({ tile: "forest/official.webp", open: [false, false, false, true, false, false] });
-    // A forest beside a hedgerow is on its own, its trees growing out over the countryside round
-    // it but not over the hedgerow
-    expect(at(planBoard({ forest: [p(4, 4)], hedgerow: [p(4, 5)] }, LIBRARY), "4-4")[0]).toMatchObject({
-      art: "joined",
-      open: [false, false, false, false, false, false],
-      bare: [false, true, true, true, true, true],
-    });
+    // A hedgerow's fields run on into the hedgerow beside it
+    expect(at(plan, "6-6")[0]).toMatchObject({ open: [true, false, false, false, false, false] });
     expect(at(plan, "2-2")[0]).toMatchObject({ open: [false, false, false, false, false, false] });
-    // A forest's trees grow over a town or a river beside it, which end in countryside
-    expect(at(planBoard({ forest: [p(4, 4)], town: [p(4, 5)], river: [p(4, 3)] }, LIBRARY), "4-4")[0]).toMatchObject({ bare: [true, true, true, true, true, true] });
+    // A forest's trees grow over a town, a river or a hedgerow beside it, which end in countryside
+    expect(at(planBoard({ forest: [p(4, 4)], town: [p(4, 5)], river: [p(4, 3)], hedgerow: [p(3, 3)] }, LIBRARY), "4-4")[0]).toMatchObject({
+      bare: [true, true, true, true, true, true],
+    });
   });
 
-  it("stands a house over an edge onto the countryside in some towns, never off the board", () => {
-    const towns = planBoard({ town: BOARD_KEYS.map((key) => ({ row: Number(key.split("-")[0]), col: Number(key.split("-")[1]) })).filter((_, i) => i % 3 === 0) }, LIBRARY);
-    const spills = towns.filter((hex) => hex.art === "joined" && hex.spill >= 0);
+  it("runs a town's streets out over an edge or two, and always to a bridge", () => {
+    const streets = (tiles: Terrain) => (at(planBoard(tiles, LIBRARY), "4-4")[0] as { streets: number[] }).streets;
 
-    expect(spills.length).toBeGreaterThan(towns.length / 4);
-    expect(spills.length).toBeLessThan((3 * towns.length) / 4);
-    for (const hex of spills) if (hex.art === "joined") expect(hex.bare[hex.spill]).toBe(true);
-    // The board's edge isn't countryside to spill onto
-    expect(at(planBoard({ town: [p(0, 0)] }, LIBRARY), "0-0")[0]).toMatchObject({ bare: [true, true, false, false, false, false] });
+    for (const key of ["4-4", "2-6", "6-2"]) {
+      const [row = 0, col = 0] = key.split("-").map(Number);
+      const out = (at(planBoard({ town: [p(row, col)] }, LIBRARY), key)[0] as { streets: number[] }).streets;
+      expect(out.length).toBeGreaterThanOrEqual(1);
+      expect(out.length).toBeLessThanOrEqual(2);
+    }
+    expect(streets({ town: [p(4, 4)], river: [p(4, 2)], bridge: [p(4, 3)] })).toContain(3);
+    // Not into another town, nor a lake
+    expect(streets({ town: [p(4, 4), p(4, 5), p(4, 3), p(3, 4), p(3, 3)], lake: [p(5, 3), p(5, 4)] })).toEqual([]);
+  });
+
+  it("grows a forest into a river beside it", () => {
+    const plan = planBoard({ river: [p(4, 3), p(4, 4), p(4, 5)], forest: [p(3, 4)] }, LIBRARY);
+
+    expect(at(plan, "4-4")[0]).toMatchObject({ art: "joined", woods: [false, false, false, false, false, true] });
+    expect(at(planBoard({ river: [p(4, 3), p(4, 4), p(4, 5)], forest: [p(3, 4)] }, LIBRARY, { drawn: ["river"] }), "4-4")[0]).toMatchObject({
+      art: "drawn",
+      woods: [false, false, false, false, false, true],
+    });
   });
 
   it("puts each terrain hex on its own tile for the editor's plain art", () => {
     const tiles: Terrain = { hill: [p(4, 4), p(4, 5)], forest: [p(2, 2), p(2, 3)], town: [p(6, 6)], hedgerow: [p(7, 7), p(7, 8)] };
 
-    expect(planBoard(tiles, LIBRARY, { plain: true }).map((hex) => hex.art)).toEqual(Array(7).fill("painted"));
-    expect(planBoard(tiles, LIBRARY).map((hex) => hex.art)).toEqual(["ridge", "ridge", "joined", "joined", "joined", "joined", "joined"]);
+    // Hedgerows are always drawn, but each on its own
+    expect(planBoard(tiles, LIBRARY, { plain: true }).map((hex) => hex.art)).toEqual([...Array(5).fill("painted"), "drawn", "drawn"]);
+    expect(at(planBoard(tiles, LIBRARY, { plain: true }), "7-7")[0]).toMatchObject({ open: [] });
+    expect(planBoard(tiles, LIBRARY).map((hex) => hex.art)).toEqual(["ridge", "ridge", "joined", "joined", "joined", "drawn", "drawn"]);
   });
 
   it("turns a river tile to join the river's edges, and lays a bridge across it", () => {
@@ -106,7 +118,7 @@ describe("planBoard", () => {
     const plan = planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY);
 
     expect(at(plan, "4-4")).toEqual([
-      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), spill: -1, seed: 57 },
+      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), spill: -1, woods: Array(6).fill(false), seed: 57 },
       { key: "4-4", type: "bridge", art: "bridgePiece", edges: [0, 3] },
     ]);
     // Plain, its tile as it is
@@ -162,7 +174,7 @@ describe("canPaintRivers", () => {
 
 describe("drawnSvg", () => {
   it("draws rivers, bridges, lakes and hedgerows as SVG", () => {
-    const hex = (type: string): DrawnHex => ({ key: "4-4", type, art: "drawn", seed: 57, edges: [0, 3], open: [false, false, false, false, false, false] });
+    const hex = (type: string): DrawnHex => ({ key: "4-4", type, art: "drawn", seed: 57, edges: [0, 3], open: [false, false, false, false, false, false], woods: [] });
 
     for (const type of ["river", "bridge", "lake", "hedgerow"]) expect(drawnSvg(hex(type))).toMatch(/^<svg /);
     expect(() => drawnSvg(hex("forest"))).toThrow("Can't draw forest");

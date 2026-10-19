@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OVERFLOW, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
+import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
 import type { Pixels } from "./joinedHills.mjs";
 
 const SIZE = 120;
@@ -96,12 +96,58 @@ describe("joinedTileMaker", () => {
 
     expect(pastEast(overflow)).toBeGreaterThan(200);
   });
+});
 
-  it("runs a hedge out over the countryside from some hedgerows", () => {
-    const make = joinedTileMaker("hedgerow", tile(false), W, H, 1);
+describe("a town's streets", () => {
+  it("run out over the edges they're given", () => {
+    const make = joinedTileMaker("town", tile(true), W, H, 1);
+    const [OW, OH] = [Math.round(OVERFLOW * W), Math.round(OVERFLOW * H)];
+    const past = (overflow: Uint8Array | null, east: boolean) => {
+      let most = 0;
+      for (let y = 0; y < OH; y++) {
+        for (let x = 0; x < OW; x++) {
+          const out = east ? x > OW / 2 + W / 2 + 1 : x < OW / 2 - W / 2 - 1;
+          if (out) most = Math.max(most, overflow?.[(y * OW + x) * 4 + 3] ?? 0);
+        }
+      }
+      return most;
+    };
+    const { overflow } = make(hex("2-2", CLOSED, 0, 1, { streets: [0] }));
 
-    expect(pastEast(make(hex("6-6", CLOSED, 0, 3, { bare: EAST, spill: 0 })).overflow)).toBe(255);
-    expect(make(hex("6-6", CLOSED, 0, 3, { bare: EAST })).overflow).toBeNull();
+    expect(past(overflow, true)).toBe(255);
+    expect(past(overflow, false)).toBe(0);
+  });
+});
+
+describe("growWoods", () => {
+  // A river hex: grass, with a band of water across its middle, west to east, RGBA
+  const [w, h] = [80, 92];
+  const river = () => {
+    const data = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) data.set(Math.abs(y - h / 2) < 8 ? [70, 110, 160, 255] : [150, 176, 80, 255], (y * w + x) * 4);
+    }
+    return data;
+  };
+  const forest = tile(false);
+
+  it("grows a forest from its edge up to the water, and not across it", () => {
+    const data = river();
+    // A forest across the north-east edge (5)
+    growWoods(data, w, h, [false, false, false, false, false, true], 3, forest);
+
+    const at = (x: number, y: number) => [...data.slice((y * w + x) * 4, (y * w + x) * 4 + 3)].join();
+    // North of the water, near the forest: changed; the water and the land south of it: as they were
+    expect(at(w / 2 + 6, h / 2 - 14)).not.toBe("150,176,80");
+    expect(at(w / 2, h / 2)).toBe("70,110,160");
+    expect(at(w / 2, h / 2 + 20)).toBe("150,176,80");
+  });
+
+  it("leaves a river with no forest beside it alone", () => {
+    const data = river();
+    growWoods(data, w, h, CLOSED, 3, forest);
+
+    expect(data).toEqual(river());
   });
 });
 
