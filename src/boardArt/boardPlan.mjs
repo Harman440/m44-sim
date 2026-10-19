@@ -35,8 +35,10 @@ export const PIECE_HEX_WIDTH = 173.35;
  * @type {Record<string, string[] | undefined>}
  */
 export const DRAWABLE = { river: ["river", "bridge"], hedgerow: ["hedgerow"] };
-/** Painted terrain that blends into the same terrain next to it (joinedTiles.mjs); a town always re-lays its houses */
+/** Painted terrain that blends into the same terrain next to it (joinedTiles.mjs) */
 export const JOINED_TERRAIN = ["forest", "town", "hedgerow"];
+/** Of those, terrain that's always made so: a forest's trees grow over the countryside, a town re-lays its houses */
+const ALWAYS_JOINED = ["forest", "town"];
 /** Terrain that's always drawn in code */
 export const ALWAYS_DRAWN = ["lake"];
 
@@ -139,9 +141,10 @@ const isRiver = (type) => type === "river" || type === "bridge";
  */
 /**
  * A painted tile blended into the same terrain across its `open` edges, turned `turns` × 60°
- * clockwise (joinedTiles.mjs): forests grow trees across them, and a town lays its houses out
- * again, joined or not
- * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], seed: number }} JoinedHex
+ * clockwise (joinedTiles.mjs): forests grow trees across them and out over the countryside
+ * across their `bare` edges, and a town lays its houses out again, one of them standing over the
+ * bare edge `spill` (-1: none)
+ * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, seed: number }} JoinedHex
  */
 /**
  * The bridge piece laid across a painted river, from edge to edge
@@ -212,13 +215,13 @@ export function canPaintRivers(tiles, library) {
  * The art for each terrain hex, in the order it's laid on the board.
  * `drawn`: terrain to draw in code (DRAWABLE's keys); `separateHills`: each hill on its own tile
  * instead of joined into ridges; `strict`: throw at a river that can't be painted or drawn as it is
- * (`npm run board`) instead of making do (the app)
+ * (`npm run board`) instead of making do (the app); `keys`: the board's hexes (a bigger map's)
  * @param {Terrain} tiles
  * @param {TileLibrary} library
- * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean }} [options]
+ * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[] }} [options]
  * @returns {HexArt[]}
  */
-export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true } = {}) {
+export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS } = {}) {
   const drawn = new Set([
     ...ALWAYS_DRAWN,
     ...drawnChoice.flatMap((choice) => {
@@ -232,6 +235,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
     if (!drawn.has(type) && !library[isRiver(type) ? "river" : type]?.length) throw new Error(`No art for ${type}`);
   }
   const riverEdges = riverEdgesIn(wanted, strict);
+  const onBoard = new Set(keys);
   /** @param {string} key @param {string[]} types */
   const edgesTo = (key, types) => [...Array(6).keys()].map((d) => types.includes(wanted.get(neighbor(key, d)) ?? ""));
 
@@ -259,7 +263,13 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const ridge = type === "hill" && !separateHills ? edgesTo(key, ["hill"]) : [];
       const joins = JOINED_TERRAIN.includes(type) ? edgesTo(key, [type]) : [];
       if (ridge.some(Boolean)) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
-      else if (type === "town" || joins.some(Boolean)) plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, seed });
+      else if (ALWAYS_JOINED.includes(type) || joins.some(Boolean)) {
+        // Open countryside across an edge, on the board; a town has a house over one such edge one time in two
+        const bare = [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && !wanted.has(neighbor(key, d)));
+        const bareEdges = [...Array(6).keys()].filter((d) => bare[d]);
+        const spill = type === "town" && bareEdges.length && pickFor(key, 5, 2) === 0 ? (bareEdges[pickFor(key, 6, bareEdges.length)] ?? -1) : -1;
+        plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, bare, spill, seed });
+      }
       else plan.push({ key, type, art: "painted", tile, turns: pickFor(key, 2, 6) });
     }
   }

@@ -17,12 +17,14 @@
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
 // A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
 // Forests and hedgerows next to their own kind blend into it, a forest's trees growing over the
-// edge, and every town lays its tile's houses out again (src/boardArt/joinedTiles.mjs).
+// edge and out over the countryside, and every town lays its tile's houses out again, some with a
+// house standing over the edge (src/boardArt/joinedTiles.mjs).
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
 // hedgerows when the board asks. A river runs through the edges it shares with the next river or
-// bridge hexes, and a lake joins the lake hexes next to it. The hex lines, printed and the tiles'
-// rims, are softened over the whole board (src/boardArt/softLines.mjs), and the frame round the
-// grid is put back over the new hexes.
+// bridge hexes, and a lake joins the lake hexes next to it. The board's edges are made soft
+// (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside, terrain
+// cross-faded into what's beside it, and the hex lines softened; the frame round the grid is put
+// back over the new hexes.
 import sharp from "sharp";
 import { readFileSync, readdirSync } from "node:fs";
 import {
@@ -37,8 +39,8 @@ import {
   planBoard,
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
-import { joinedTileMaker } from "../src/boardArt/joinedTiles.mjs";
-import { LINE_BAND, softenHexLines } from "../src/boardArt/softLines.mjs";
+import { OVERFLOW, joinedTileMaker } from "../src/boardArt/joinedTiles.mjs";
+import { LINE_BAND, blendTerrainEdges, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
@@ -64,7 +66,7 @@ const hexPath = ({ x, y }, r) =>
 const svg = (width, height, body) =>
   Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`);
 
-const board = await sharp(EMPTY_BOARD.file)
+const printed = await sharp(EMPTY_BOARD.file)
   .extract({
     left: Math.round(EMPTY_BOARD.x0 - EMPTY_BOARD.width / 2),
     top: Math.round(EMPTY_BOARD.y0 - emptyRadius),
@@ -72,8 +74,12 @@ const board = await sharp(EMPTY_BOARD.file)
     height: Math.round(14 * emptyRadius),
   })
   .resize(W, H, { fit: "fill" })
-  .png()
+  .ensureAlpha()
+  .raw()
   .toBuffer();
+// Its dark frame round the grid filled with the countryside beside it, so a map ends in countryside
+fillFrame({ data: printed, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius);
+const board = await sharp(printed, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
 // The frame: everything outside the hexes
 const frameMask = svg(W, H, `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${BOARD_KEYS.map((k) => hexPath(center(k), radius)).join("")}"/>`);
 const frame = await sharp(board).ensureAlpha().composite([{ input: frameMask, blend: "dest-in" }]).png().toBuffer();
@@ -118,12 +124,18 @@ const joinedTile = async (hex, file) => {
     const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
     tileMakers.set(file, joinedTileMaker(hex.type, { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
   }
-  const pixels = tileMakers.get(file)(hex);
+  const { tile: pixels, overflow } = tileMakers.get(file)(hex);
   const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })
     .resize(tileWidth, tileHeight)
     .png()
     .toBuffer();
-  return sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
+  const layer = placed(await sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer(), hex.key, tileWidth, tileHeight);
+  if (!overflow) return { layer, spill: null };
+  // What spills out of the hex, laid over the board at the end
+  const [w2, h2] = [Math.round(OVERFLOW * 2 * tileWidth), Math.round(OVERFLOW * 2 * tileHeight)];
+  const [w, h] = [Math.round(w2 / 2), Math.round(h2 / 2)];
+  const spill = await sharp(Buffer.from(overflow.buffer), { raw: { width: w2, height: h2, channels: 4 } }).resize(w, h).png().toBuffer();
+  return { layer, spill: placed(spill, hex.key, w, h) };
 };
 const placed = (input, key, width, height) => {
   const { x, y } = center(key);
@@ -158,20 +170,34 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
   }
 
   const layers = [];
+  const spills = [];
   for (const hex of plan) {
     const file = "tile" in hex ? `${ART}/tiles/${hex.tile}` : null;
     if (hex.art === "drawn") layers.push(await drawnTile(hex));
     else if (hex.art === "painted") layers.push(placed(await paintedTile(file, hex.turns), hex.key, tileWidth, tileHeight));
     else if (hex.art === "ridge") layers.push(placed(await joinedHill(file, hex.open, hex.key, hex.seed), hex.key, tileWidth, tileHeight));
-    else if (hex.art === "joined") layers.push(placed(await joinedTile(hex, file), hex.key, tileWidth, tileHeight));
+    else if (hex.art === "joined") {
+      const { layer, spill } = await joinedTile(hex, file);
+      layers.push(layer);
+      if (spill) spills.push(spill);
+    }
     else layers.push(...(await bridgeOver(hex.key, hex.edges)));
   }
 
-  // Pasted on the padded board, cropped back, its hex lines softened, then the frame put back on top
+  // Pasted on the padded board, cropped back, its edges softened, then the frame put back on top
   const composed = await sharp(padded).composite(layers).png().toBuffer();
   const data = await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).raw().toBuffer();
+  // Terrain cross-faded into the countryside and other terrain beside it (rivers and bridges are one kind)
+  const types = new Map(plan.map((hex) => [hex.key, hex.type === "bridge" ? "river" : hex.type]));
+  blendTerrainEdges({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, (key) => types.get(key) ?? "plains");
   softenHexLines({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, LINE_BAND);
-  const framed = await sharp(data, { raw: { width: W, height: H, channels: 4 } })
+  // What spills out of the hexes laid on top
+  const spilt = await sharp(data, { raw: { width: W, height: H, channels: 4 } })
+    .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR })
+    .composite(spills)
+    .png()
+    .toBuffer();
+  const framed = await sharp(await sharp(spilt).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
     .composite([{ input: frame }])
     .removeAlpha()
     .png()

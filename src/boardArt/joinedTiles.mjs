@@ -7,7 +7,11 @@
 // - forests: tree crowns, cut from the tile, grow across each edge shared with another forest,
 //   so the trees aren't held inside their hex. Both hexes draw the same crowns, each its own side;
 // - towns: the tile's houses are lifted off it, the ground under them filled in, and laid out
-//   again on each hex, turned and placed by the hex, so no two towns look alike.
+//   again on each hex, turned and placed by the hex, so no two towns look alike;
+// - spilling over the countryside: a forest's trees grow out over each edge it shares with open
+//   countryside, and some towns have a house standing partly over one such edge (`spill`). These
+//   are an overflow image, larger than the hex and clear round them, laid on the board after
+//   everything else (and after softLines.mjs's passes) so they lie over the hex next door.
 // Only the pixel work, in plain JavaScript, made the same way by `npm run board` (scripts/
 // compose-board.mjs reads and writes the images with sharp) and the app (drawBoard.ts, a canvas).
 import { rng } from "./terrainTiles.mjs";
@@ -17,10 +21,16 @@ import { neighbor, pickFor } from "./boardPlan.mjs";
 /** @typedef {import("./joinedHills.mjs").Pixels} Pixels */
 /**
  * `key`: the hex, "row-col"; `open`: the six edges (0 = east, clockwise) shared with the same
- * terrain; `turns`: the tile turned × 60° clockwise
- * @typedef {{ key: string, open: boolean[], turns: number, seed: number }} JoinedHex
- * @typedef {(hex: JoinedHex) => Uint8Array} JoinedMaker
+ * terrain; `bare`: the edges shared with open countryside on the board; `spill`: the bare edge a
+ * town's house stands over, or -1; `turns`: the tile turned × 60° clockwise
+ * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, turns: number, seed: number }} JoinedHex
+ * `tile`: the hex, RGBA; `overflow`: what spills out of it, RGBA, OVERFLOW times the hex's size
+ * and centred on it, or null
+ * @typedef {(hex: JoinedHex) => { tile: Uint8Array, overflow: Uint8Array | null }} JoinedMaker
  */
+
+/** How much larger than its hex a hex's overflow image is */
+export const OVERFLOW = 1.5;
 
 const SQRT3 = Math.sqrt(3);
 // The hex's inner radius, in hex radii
@@ -276,15 +286,28 @@ const area = (layout) => layout.reduce((t, h) => t + h.size * h.scale * h.scale,
  * little smaller, and is left out after that
  * @param {House[]} houses @param {number} W @param {number} H @param {() => number} rand
  * @param {Uint8Array} inside where a house may go on an empty tile: 1 off the hex's edges
+ * @param {Placed | null} first a house already placed (the one spilling over an edge)
  * @returns {Placed[]}
  */
-function layHouses(houses, W, H, rand, inside) {
+function layHouses(houses, W, H, rand, inside, first) {
   const OR = H / 2;
   // Where a house may go: off the hex's edges and clear of the houses already placed
   const free = Uint8Array.from(inside);
   const gap = 2 * Math.max(1, Math.round(OR / 40));
   /** @type {Placed[]} */
   const placed = [];
+  if (first) {
+    const [cos, sin] = [first.scale * first.cos, first.scale * first.sin];
+    for (const [u, v] of first.points) {
+      const [sx, sy] = [Math.round(first.x + u * cos - v * sin), Math.round(first.y + u * sin + v * cos)];
+      for (let dy = -gap; dy <= gap; dy++) {
+        for (let dx = -gap; dx <= gap; dx++) {
+          const [tx, ty] = [sx + dx, sy + dy];
+          if (tx >= 0 && ty >= 0 && tx < W && ty < H) free[ty * W + tx] = 0;
+        }
+      }
+    }
+  }
   for (const house of houses) {
     for (let attempt = 0; attempt < 300; attempt++) {
       const scale = attempt < 200 ? 1 : 0.85;
@@ -315,6 +338,34 @@ function layHouses(houses, W, H, rand, inside) {
 }
 
 /**
+ * A house placed standing partly over edge `edge` (in the tile's own orientation): its middle near
+ * the edge, just inside it, clear of the hex's other edges and of the corners, or null when it won't go
+ * @param {House} house @param {number} edge @param {number} W @param {number} H @param {() => number} rand
+ * @returns {Placed | null}
+ */
+function spillHouse(house, edge, W, H, rand) {
+  const OR = H / 2;
+  const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[edge]);
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const angle = rand() * 2 * Math.PI;
+    const [depth, along] = [(0.86 + 0.14 * rand()) * INNER, (rand() - 0.5) * 0.4];
+    const [x, y] = [W / 2 + (nx * depth - ny * along) * OR, H / 2 + (ny * depth + nx * along) * OR];
+    const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
+    const fits = house.points.every(([u, v]) => {
+      const [px, py] = [(x + u * cos - v * sin - W / 2) / OR, (y + u * sin + v * cos - H / 2) / OR];
+      // Off the other edges, and within the edge's own length, short of its corners
+      for (let d = 0; d < 6; d++) {
+        const [mx = 0, my = 0] = /** @type {number[]} */ (DIRS[d]);
+        if (d !== edge && px * mx + py * my > 0.86 * INNER) return false;
+      }
+      return Math.abs(-px * ny + py * nx) < 0.36 && px * nx + py * ny < 1.3 * INNER;
+    });
+    if (fits) return { ...house, x, y, cos, sin, scale: 1 };
+  }
+  return null;
+}
+
+/**
  * Returns a function that draws one hex of `type` (boardPlan's JOINED_TERRAIN) `scale` times the board's
  * size, `scale·tileWidth` × `scale·tileHeight` RGBA pixels in the board's orientation (the
  * tile's turn already made). `tile`: the library tile, RGBA, at any size (twice its own reads best)
@@ -335,28 +386,62 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
   for (let p = 0; p < inside.length; p++) inside[p] = hexReach(((p % tile.width) - tile.width / 2) / OR, (((p / tile.width) | 0) - tile.height / 2) / OR) < 0.8 ? 1 : 0;
   const px = 1 / TR;
 
-  return ({ key, open, turns, seed }) => {
+  const OW = Math.round(OVERFLOW * TW), OH = Math.round(OVERFLOW * TH);
+
+  return ({ key, open, bare, spill, turns, seed }) => {
     const rand = rng(seed);
     // From the board's orientation to the tile's: turned back
     const turn = (-turns * Math.PI) / 3;
     const [ct, st] = [Math.cos(turn), Math.sin(turn)];
 
-    // The houses laid out again, the two smallest twice where there's room: the best of a few tries
+    // A town's house standing over a bare edge (one of the two smaller ones), then the rest laid
+    // out again, the two smallest twice where there's room: the best of a few tries
+    const spilt = houses.length && spill >= 0 ? spillHouse(/** @type {House} */ (houses[houses.length - 1 - Math.floor(rand() * 2)]), (((spill - turns) % 6) + 6) % 6, tile.width, tile.height, rand) : null;
     /** @type {Placed[]} */
     let placed = [];
     const wanted = [...houses, ...houses.slice(-2)];
     for (let i = 0; i < 8 && placed.length < wanted.length; i++) {
-      const layout = layHouses(wanted, tile.width, tile.height, rand, inside);
+      const layout = layHouses(wanted, tile.width, tile.height, rand, inside, spilt);
       if (area(layout) > area(placed)) placed = layout;
     }
-    const masks = placed.map((h) => ({ data: h.mask, width: tile.width, height: tile.height, channels: 1 }));
+    /** @param {Placed} h */
+    const maskOf = (h) => ({ data: h.mask, width: tile.width, height: tile.height, channels: 1 });
+    const masks = placed.map(maskOf);
     // Houses cast a short shadow down and to the right, the board's light being from the top left
     const shadowShift = 0.035 * OR;
 
     // Crowns across each edge shared with another forest, the same from either side: each edge's
-    // crowns are made from its own seed, in the frame of the hex that owns it (`owns`)
-    /** @type {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[] }[]} */
+    // crowns are made from its own seed, in the frame of the hex that owns it
+    /** @typedef {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number, lumps: number[] }} Crown */
+    /** @type {Crown[]} */
     const crowns = [];
+    /** One of the tile's crowns, turned any way, at x, y @param {number} x @param {number} y @param {number} r @param {() => number} r0 @returns {Crown} */
+    const crownAt = (x, y, r, r0) => {
+      const [sx = 0, sy = 0] = trees[Math.floor(r0() * trees.length)] ?? [tile.width / 2, tile.height / 2];
+      const angle = r0() * 2 * Math.PI;
+      return { x, y, r, sx, sy, cos: Math.cos(angle), sin: Math.sin(angle), lumps: [r0() * 6.3, r0() * 6.3, 0.05 + 0.04 * r0()] };
+    };
+    /**
+     * Crowns along edge d, seen from a hex whose centre is at `o` from this one's, `out` how
+     * far past the edge their middles go (in hex radii, from − to +)
+     * @param {number} d @param {number[]} o @param {[number, number]} out @param {() => number} r0
+     */
+    const alongEdge = (d, [ox = 0, oy = 0], [lo, hi], r0) => {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      const [mx, my] = [ox + nx * INNER, oy + ny * INNER];
+      const count = 3 + Math.floor(r0() * 2);
+      /** @type {Crown[]} */
+      const list = [];
+      for (let i = 0; i < count; i++) {
+        const r = 0.13 + 0.06 * r0();
+        // Kept off the corners: a crown nearer the corner than its size would reach the third hex there
+        const span = 0.47 - r - 0.04;
+        const s = (count === 1 ? 0 : -span + (2 * span * i) / (count - 1)) + (r0() - 0.5) * 0.06;
+        const u = lo + (hi - lo) * r0();
+        list.push(crownAt(mx - ny * s + nx * u, my + nx * s + ny * u, r, r0));
+      }
+      return list;
+    };
     if (type === "forest") {
       for (let d = 0; d < 6; d++) {
         if (!open[d]) continue;
@@ -366,43 +451,40 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
         const [orow = 0, ocol = 0] = other.split("-").map(Number);
         const mine = row < orow || (row === orow && col < ocol);
         const r0 = rng(pickFor(mine ? key : other, 11 + (mine ? d : (d + 3) % 6), 1 << 30));
-        // The edge's middle, from the hex that owns it
-        const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[mine ? d : (d + 3) % 6]);
-        const [ox, oy] = mine ? [0, 0] : [SQRT3 * (DIRS[d]?.[0] ?? 0), SQRT3 * (DIRS[d]?.[1] ?? 0)];
-        const [mx, my] = [ox + nx * INNER, oy + ny * INNER];
-        const count = 3 + Math.floor(r0() * 2);
-        for (let i = 0; i < count; i++) {
-          const r = 0.13 + 0.06 * r0();
-          // Kept off the corners: a crown nearer the corner than its size would reach the third hex there
-          const span = 0.47 - r - 0.04;
-          const s = (count === 1 ? 0 : -span + (2 * span * i) / (count - 1)) + (r0() - 0.5) * 0.06;
-          const u = (r0() - 0.5) * 0.12;
-          const [x, y] = [mx - ny * s + nx * u, my + nx * s + ny * u];
-          // One of the tile's crowns, turned any way
-          const [sx = 0, sy = 0] = trees[Math.floor(r0() * trees.length)] ?? [tile.width / 2, tile.height / 2];
-          const angle = r0() * 2 * Math.PI;
-          crowns.push({
-            x,
-            y,
-            r,
-            sx,
-            sy,
-            cos: Math.cos(angle),
-            sin: Math.sin(angle),
-            lumps: [r0() * 6.3, r0() * 6.3, 0.05 + 0.04 * r0()],
-          });
-        }
+        const o = mine ? [0, 0] : [SQRT3 * (DIRS[d]?.[0] ?? 0), SQRT3 * (DIRS[d]?.[1] ?? 0)];
+        crowns.push(...alongEdge(mine ? d : (d + 3) % 6, o, [-0.06, 0.06], r0));
       }
     }
+    // Trees growing out over the countryside: in the overflow, over everything round the hex
+    /** @type {Crown[]} */
+    const spillCrowns = [];
+    if (type === "forest") for (let d = 0; d < 6; d++) if (bare[d]) spillCrowns.push(...alongEdge(d, [0, 0], [-0.08, 0.02], rand));
     // Light from the top left: crowns cast their shadow down and to the right
     const [shx, shy] = [0.03, 0.04];
 
-    const out = new Uint8Array(TW * TH * 4);
     const a = [0, 0, 0, 0], b = [0, 0, 0, 0], m = [0];
+    /** Tile coordinates of a point in hex radii, in the board's orientation @param {number} x @param {number} y */
+    const toTile = (x, y) => [(x * ct - y * st) * OR + tile.width / 2, (x * st + y * ct) * OR + tile.height / 2];
+    /**
+     * A house's shadow and the house over a colour with alpha, at tile coordinates u, v
+     * @param {Placed} h @param {Pixels} mask @param {number} u @param {number} v @param {number[]} px
+     */
+    const paintHouse = (h, mask, u, v, px) => {
+      const [du, dv] = [u - h.x - shadowShift, v - h.y - shadowShift];
+      const s = 0.4 * (sample(mask, h.cx + (du * h.cos + dv * h.sin) / h.scale, h.cy + (dv * h.cos - du * h.sin) / h.scale, m)[0] ?? 0);
+      over(px, 0, 0, 0, s);
+      const [eu, ev] = [u - h.x, v - h.y];
+      const [hu, hv] = [h.cx + (eu * h.cos + ev * h.sin) / h.scale, h.cy + (ev * h.cos - eu * h.sin) / h.scale];
+      const w = sample(mask, hu, hv, m)[0] ?? 0;
+      if (w <= 0) return;
+      sample(tile, hu, hv, b);
+      over(px, b[0] ?? 0, b[1] ?? 0, b[2] ?? 0, w);
+    };
     /** The tile (its houses re-laid) at a point in hex radii, in the board's orientation @param {number} x @param {number} y */
     const tileAt = (x, y) => {
-      const [u, v] = [(x * ct - y * st) * OR + tile.width / 2, (x * st + y * ct) * OR + tile.height / 2];
+      const [u = 0, v = 0] = toTile(x, y);
       sample(ground, u, v, a);
+      a[3] = 1;
       if (!placed.length) return a;
       let shade = 1;
       for (const [i, h] of placed.entries()) {
@@ -421,7 +503,33 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
       }
       return a;
     };
+    /**
+     * The crowns over a colour with alpha, each with its shadow, at a point in hex radii
+     * @param {Crown[]} list @param {number} hx @param {number} hy @param {number[]} px
+     */
+    const paintCrowns = (list, hx, hy, px) => {
+      for (const crown of list) {
+        const [dx, dy] = [hx - crown.x, hy - crown.y];
+        if (Math.abs(dx) > crown.r + 0.1 || Math.abs(dy) > crown.r + 0.1) continue;
+        const [l1 = 0, l2 = 0, lump = 0] = crown.lumps;
+        const theta = Math.atan2(dy, dx);
+        const edgeR = crown.r * (1 + lump * Math.sin(5 * theta + l1) + 0.6 * lump * Math.sin(3 * theta + l2));
+        const soft = 0.025;
+        const shadow = clamp((edgeR - Math.hypot(dx - shx, dy - shy)) / soft, 0, 1);
+        if (shadow > 0) over(px, 0, 0, 0, 0.25 * shadow);
+        const dist = Math.hypot(dx, dy);
+        const w = clamp((edgeR - dist) / soft, 0, 1);
+        if (w <= 0) continue;
+        const [u, v] = [crown.sx + (dx * crown.cos - dy * crown.sin) * OR, crown.sy + (dx * crown.sin + dy * crown.cos) * OR];
+        const t = sample(tile, u, v, b);
+        // Rounded: darker towards its rim, lit from the top left
+        const rim = dist / edgeR;
+        const shade = 1.04 - 0.3 * rim * rim - (0.12 * (0.6 * dx + 0.8 * dy)) / edgeR;
+        over(px, clamp((t[0] ?? 0) * shade, 0, 255), clamp((t[1] ?? 0) * shade, 0, 255), clamp((t[2] ?? 0) * shade, 0, 255), w);
+      }
+    };
 
+    const out = new Uint8Array(TW * TH * 4);
     for (let y = 0; y < TH; y++) {
       const hy = (y - TH / 2 + 0.5) / TR;
       for (let x = 0; x < TW; x++) {
@@ -443,40 +551,47 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
           [qx, qy] = [hx - push * nx, hy - push * ny];
         }
         const c = tileAt(qx, qy);
-        const o = 4 * (y * TW + x);
-        let [r, g, bl] = [c[0] ?? 0, c[1] ?? 0, c[2] ?? 0];
         // A faint hex line where the terrain carries on
-        if (open[edge] && nearest < 1.5 * scale * px) {
-          [r, g, bl] = [r * 0.55 + (HEX_LINE[0] ?? 0) * 0.45, g * 0.55 + (HEX_LINE[1] ?? 0) * 0.45, bl * 0.55 + (HEX_LINE[2] ?? 0) * 0.45];
-        }
-        // The crowns over the edges, each with its shadow
-        for (const crown of crowns) {
-          const [dx, dy] = [hx - crown.x, hy - crown.y];
-          if (Math.abs(dx) > crown.r + 0.1 || Math.abs(dy) > crown.r + 0.1) continue;
-          const [l1 = 0, l2 = 0, lump = 0] = crown.lumps;
-          const theta = Math.atan2(dy, dx);
-          const edgeR = crown.r * (1 + lump * Math.sin(5 * theta + l1) + 0.6 * lump * Math.sin(3 * theta + l2));
-          const soft = 0.025;
-          const shadow = clamp((edgeR - Math.hypot(dx - shx, dy - shy)) / soft, 0, 1);
-          if (shadow > 0) [r, g, bl] = [r * (1 - 0.25 * shadow), g * (1 - 0.25 * shadow), bl * (1 - 0.25 * shadow)];
-          const dist = Math.hypot(dx, dy);
-          const w = clamp((edgeR - dist) / soft, 0, 1);
-          if (w <= 0) continue;
-          const [u, v] = [crown.sx + (dx * crown.cos - dy * crown.sin) * OR, crown.sy + (dx * crown.sin + dy * crown.cos) * OR];
-          const t = sample(tile, u, v, b);
-          // Rounded: darker towards its rim, lit from the top left
-          const rim = dist / edgeR;
-          const shade = 1.04 - 0.3 * rim * rim - (0.12 * (0.6 * dx + 0.8 * dy)) / edgeR;
-          r = r * (1 - w) + clamp((t[0] ?? 0) * shade, 0, 255) * w;
-          g = g * (1 - w) + clamp((t[1] ?? 0) * shade, 0, 255) * w;
-          bl = bl * (1 - w) + clamp((t[2] ?? 0) * shade, 0, 255) * w;
-        }
-        out[o] = r;
-        out[o + 1] = g;
-        out[o + 2] = bl;
-        out[o + 3] = 255;
+        if (open[edge] && nearest < 1.5 * scale * px) over(c, HEX_LINE[0] ?? 0, HEX_LINE[1] ?? 0, HEX_LINE[2] ?? 0, 0.45);
+        // The crowns over the edges
+        paintCrowns(crowns, hx, hy, c);
+        out.set([c[0] ?? 0, c[1] ?? 0, c[2] ?? 0, 255], 4 * (y * TW + x));
       }
     }
-    return out;
+
+    if (!spilt && !spillCrowns.length) return { tile: out, overflow: null };
+    // What spills out: the house over its edge, whole, and the trees over the countryside
+    const overflow = new Uint8Array(OW * OH * 4);
+    const spiltMask = spilt ? maskOf(spilt) : null;
+    const px4 = [0, 0, 0, 0];
+    for (let y = 0; y < OH; y++) {
+      const hy = (y - OH / 2 + 0.5) / TR;
+      for (let x = 0; x < OW; x++) {
+        const hx = (x - OW / 2 + 0.5) / TR;
+        px4.fill(0);
+        if (spilt && spiltMask) {
+          const [u = 0, v = 0] = toTile(hx, hy);
+          paintHouse(spilt, spiltMask, u, v, px4);
+        }
+        paintCrowns(spillCrowns, hx, hy, px4);
+        const alpha = px4[3] ?? 0;
+        if (alpha <= 0) continue;
+        overflow.set([(px4[0] ?? 0) / alpha, (px4[1] ?? 0) / alpha, (px4[2] ?? 0) / alpha, 255 * alpha], 4 * (y * OW + x));
+      }
+    }
+    return { tile: out, overflow };
   };
+}
+
+/**
+ * Lay a colour over a pixel, in place: `px` is premultiplied RGB with its alpha in px[3] (an
+ * opaque pixel's alpha is 1, so it stays plain RGB)
+ * @param {number[]} px @param {number} r @param {number} g @param {number} b @param {number} alpha
+ */
+function over(px, r, g, b, alpha) {
+  const keep = 1 - alpha;
+  px[0] = r * alpha + (px[0] ?? 0) * keep;
+  px[1] = g * alpha + (px[1] ?? 0) * keep;
+  px[2] = b * alpha + (px[2] ?? 0) * keep;
+  px[3] = alpha + (px[3] ?? 0) * keep;
 }

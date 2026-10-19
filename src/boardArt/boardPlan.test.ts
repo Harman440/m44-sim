@@ -48,7 +48,7 @@ describe("planBoard", () => {
   });
 
   it("paints a tile from the library on each hex, turned by the hex", () => {
-    expect(planBoard({ forest: [p(4, 7)] }, LIBRARY)).toEqual([{ key: "4-7", type: "forest", art: "painted", tile: "forest/official.webp", turns: 3 }]);
+    expect(planBoard({ hedgerow: [p(4, 7)] }, LIBRARY)).toEqual([{ key: "4-7", type: "hedgerow", art: "painted", tile: "hedgerow/official.webp", turns: 3 }]);
   });
 
   it("joins hills next to each other into ridges, unless each hill goes on its own", () => {
@@ -65,15 +65,33 @@ describe("planBoard", () => {
     expect(plan.map((hex) => [hex.key, hex.art])).toEqual([
       ["4-4", "joined"],
       ["4-5", "joined"],
-      ["0-0", "painted"],
+      ["0-0", "joined"],
       ["6-6", "joined"],
       ["6-7", "joined"],
       ["2-2", "joined"],
     ]);
     expect(at(plan, "4-5")[0]).toMatchObject({ tile: "forest/official.webp", open: [false, false, false, true, false, false] });
-    // A forest beside a hedgerow is still on its own
-    expect(at(planBoard({ forest: [p(4, 4)], hedgerow: [p(4, 5)] }, LIBRARY), "4-4")[0]).toMatchObject({ art: "painted" });
+    // A forest beside a hedgerow is on its own, its trees growing out over the countryside round
+    // it but not over the hedgerow
+    expect(at(planBoard({ forest: [p(4, 4)], hedgerow: [p(4, 5)] }, LIBRARY), "4-4")[0]).toMatchObject({
+      art: "joined",
+      open: [false, false, false, false, false, false],
+      bare: [false, true, true, true, true, true],
+    });
     expect(at(plan, "2-2")[0]).toMatchObject({ open: [false, false, false, false, false, false] });
+    // A hedgerow on its own is its tile
+    expect(at(planBoard({ hedgerow: [p(0, 0)] }, LIBRARY), "0-0")[0]).toMatchObject({ art: "painted" });
+  });
+
+  it("stands a house over an edge onto the countryside in some towns, never off the board", () => {
+    const towns = planBoard({ town: BOARD_KEYS.map((key) => ({ row: Number(key.split("-")[0]), col: Number(key.split("-")[1]) })).filter((_, i) => i % 3 === 0) }, LIBRARY);
+    const spills = towns.filter((hex) => hex.art === "joined" && hex.spill >= 0);
+
+    expect(spills.length).toBeGreaterThan(towns.length / 4);
+    expect(spills.length).toBeLessThan((3 * towns.length) / 4);
+    for (const hex of spills) if (hex.art === "joined") expect(hex.bare[hex.spill]).toBe(true);
+    // The board's edge isn't countryside to spill onto
+    expect(at(planBoard({ town: [p(0, 0)] }, LIBRARY), "0-0")[0]).toMatchObject({ bare: [true, true, false, false, false, false] });
   });
 
   it("turns a river tile to join the river's edges, and lays a bridge across it", () => {

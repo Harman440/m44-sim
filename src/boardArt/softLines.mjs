@@ -1,11 +1,20 @@
 // boardArt/softLines.mjs
-// The board's hex lines softened: the empty board's printed lines and the rims of the terrain
-// tiles, on the whole board once its art is laid. Each pixel near a hex's edge is blended with the
-// board mirrored in from just inside the hex, so the line keeps only a part of its strength and
-// what's beside it carries on across. Pixel work in plain JavaScript, done the same way by
-// `npm run board` (scripts/compose-board.mjs) and the app (drawBoard.ts).
+// The board's edges made soft, on the whole board, in three passes:
+// - fillFrame: the empty board's dark frame round the grid (the notches at the ends of the rows,
+//   the zigzag at the top and bottom) filled with the countryside of the hexes beside it, mirrored
+//   out across their edge, so a scenario's map ends in countryside;
+// - blendTerrainEdges: where a hex's terrain meets other terrain or the countryside, the two are
+//   cross-faded over a band with a wobbly middle, so a forest or a town doesn't end on a sharp
+//   hex edge;
+// - softenHexLines: the hex lines (the empty board's printed ones and the tiles' rims) blended
+//   with the board mirrored in from just inside the hex, so a line keeps only a part of its
+//   strength and what's beside it carries on across.
+// Pixel work in plain JavaScript, done the same way by `npm run board` (scripts/compose-board.mjs)
+// and the app (drawBoard.ts).
+import { neighbor } from "./boardPlan.mjs";
 
 /** @typedef {import("./joinedHills.mjs").Pixels} Pixels */
+/** @typedef {Pixels & { data: Uint8Array | Uint8ClampedArray }} Image */
 
 const SQRT3 = Math.sqrt(3);
 // The six edges' outward directions (0 = east, clockwise)
@@ -20,7 +29,7 @@ export const LINE_KEEP = 0.3;
 /**
  * Soften the hex lines of a board's pixels, in place. `center(key)` and `radius` are the art's
  * grid (boardPlan's artGrid); `band`: how far each side of a line is softened, in pixels
- * @param {Pixels & { data: Uint8Array | Uint8ClampedArray }} image
+ * @param {Image} image
  * @param {string[]} keys every hex of the board
  * @param {(key: string) => { x: number, y: number }} center
  * @param {number} radius
@@ -32,36 +41,225 @@ export function softenHexLines({ data, width, height, channels }, keys, center, 
   const inner = (SQRT3 / 2) * radius;
   for (const key of keys) {
     const { x: cx, y: cy } = center(key);
-    for (let y = Math.max(0, Math.floor(cy - radius)); y < Math.min(height, Math.ceil(cy + radius)); y++) {
-      // Only the ends of each row are near an edge: the row's half-width inside the hex, and
-      // how far in from each end the band reaches (a slanted edge comes in half as fast across)
-      const hy = y + 0.5 - cy;
-      const half = Math.min(inner, 2 * (inner - (Math.abs(hy) * SQRT3) / 2));
-      const reach = 2 * band + 2;
-      const [from, to] = [Math.max(0, Math.floor(cx - half - 1)), Math.min(width, Math.ceil(cx + half + 1))];
-      for (let x = from; x < to; x++) {
-        if (x > cx - half + reach && x < cx + half - reach - 1) x = Math.ceil(cx + half - reach - 1);
-        const hx = x + 0.5 - cx;
-        // The nearest edge of this hex, and how far in from it the pixel is
-        let near = Infinity, edge = 0;
+    forEdgeBand(cx, cy, inner, radius, width, height, band, (x, y, near, edge) => {
+      const [nx, ny] = [/** @type {number} */ (NX[edge]), /** @type {number} */ (NY[edge])];
+      const push = 2 * (band - near);
+      const sx = Math.min(width - 1, Math.max(0, Math.round(x - push * nx)));
+      const sy = Math.min(height - 1, Math.max(0, Math.round(y - push * ny)));
+      // The line itself kept at `keep`, fading to the board as it is at the band's edge
+      const w = (1 - keep) * Math.min(1, (band - near) / (band / 2));
+      const [o, s] = [channels * (y * width + x), channels * (sy * width + sx)];
+      for (let c = 0; c < 3; c++) data[o + c] = Math.round(/** @type {number} */ (source[o + c]) * (1 - w) + /** @type {number} */ (source[s + c]) * w);
+    });
+  }
+}
+
+/** @param {number} a @param {number} b @param {number} v */
+const smoothstep = (a, b, v) => {
+  const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** How wide the cross-fade between two kinds of terrain is on each side of their edge, in hex radii */
+export const TERRAIN_BLEND = 0.13;
+// How far its middle wanders from the hex line, in hex radii
+const WOBBLE = 0.07;
+
+/**
+ * Cross-fade the art across every edge between two different kinds of terrain (`typeOf(key)`,
+ * "plains" for the countryside; a key off the board is countryside too), in place: each pixel
+ * within the band takes its own hex's art and the other hex's, mirrored across the edge, weighed
+ * by how far it is from a wobbly line along the edge. At the board's outer edge the fade ends in
+ * the countryside of the frame round it (fillFrame), so it carries on into the frame.
+ * @param {Image} image
+ * @param {string[]} keys
+ * @param {(key: string) => { x: number, y: number }} center
+ * @param {number} radius
+ * @param {(key: string) => string} typeOf
+ */
+export function blendTerrainEdges({ data, width, height, channels }, keys, center, radius, typeOf) {
+  const source = Uint8Array.from(data);
+  const onBoard = new Set(keys);
+  const inner = (SQRT3 / 2) * radius;
+  const band = (TERRAIN_BLEND + WOBBLE) * radius;
+  const fade = TERRAIN_BLEND * radius;
+  /** @param {number} x @param {number} y board pixels: the wobble, the same from both hexes */
+  const wobble = (x, y) => {
+    const [u, v] = [x / radius, y / radius];
+    return WOBBLE * radius * (0.6 * Math.sin(4.1 * u + 2.3 * v) + 0.4 * Math.sin(-2.7 * u + 6.9 * v + 1.7));
+  };
+  for (const key of keys) {
+    const type = typeOf(key);
+    const nexts = [0, 1, 2, 3, 4, 5].map((d) => neighbor(key, d));
+    const others = nexts.map((next) => (onBoard.has(next) ? typeOf(next) : null));
+    // Of each pair, the hex that measures the fade: the one that comes first
+    const firsts = nexts.map((next) => key < next);
+    // Nothing to blend round a hex whose neighbours are all its own kind
+    if (others.every((other) => other === type || (other === null && type === "plains"))) continue;
+    const { x: cx, y: cy } = center(key);
+    forEdgeBand(cx, cy, inner, radius, width, height, band, (x, y, near, edge) => {
+      const other = others[edge];
+      if (other === type || (other === null && type === "plains")) return;
+      const [nx, ny] = [/** @type {number} */ (NX[edge]), /** @type {number} */ (NY[edge])];
+      // This hex's art, and the other's mirrored across the edge; at the ends of the long rows
+      // the board's edge is the image's, with nothing past it to fade into
+      const [sx, sy] = [Math.round(x + 2 * near * nx), Math.round(y + 2 * near * ny)];
+      if (sx < 0 || sy < 0 || sx >= width || sy >= height) return;
+      // How much of this hex's art: by the distance in from the edge, measured from the hex of
+      // the two that comes first, so the wobble bends the same way from both sides
+      let mine;
+      if (other === null) {
+        mine = smoothstep(0, 2 * fade, near + wobble(x, y));
+      } else {
+        const first = firsts[edge];
+        const s = (first ? near : -near) + wobble(x, y);
+        const firstShare = smoothstep(-fade, fade, s);
+        mine = first ? firstShare : 1 - firstShare;
+      }
+      const [o, q] = [channels * (y * width + x), channels * (sy * width + sx)];
+      for (let c = 0; c < 3; c++) data[o + c] = Math.round(/** @type {number} */ (source[o + c]) * mine + /** @type {number} */ (source[q + c]) * (1 - mine));
+    });
+  }
+}
+
+/**
+ * Fill everything round the grid (the frame of the empty board) with the hexes beside it, each
+ * pixel mirrored in across the edge of the hex it's nearest, in place
+ * @param {Image} image
+ * @param {string[]} keys
+ * @param {(key: string) => { x: number, y: number }} center
+ * @param {number} radius
+ */
+export function fillFrame({ data, width, height, channels }, keys, center, radius) {
+  const key = `${width}x${height}:${radius}:${keys.length}:${keys.at(-1)}`;
+  let pairs = frameMaps.get(key);
+  if (!pairs) {
+    pairs = frameMap(width, height, keys, center, radius);
+    frameMaps.set(key, pairs);
+  }
+  const source = Uint8Array.from(data);
+  for (let i = 0; i < pairs.length; i += 2) {
+    const o = channels * /** @type {number} */ (pairs[i]), q = channels * /** @type {number} */ (pairs[i + 1]);
+    for (let c = 0; c < 3; c++) data[o + c] = /** @type {number} */ (source[q + c]);
+  }
+}
+
+// Which pixel each pixel of the frame is filled from, by board: the same every time a board of a
+// size is drawn, so the map editor works it out once
+/** @type {Map<string, Int32Array>} */
+const frameMaps = new Map();
+
+/**
+ * The frame's pixels and the pixel inside the board each is filled from, in pairs
+ * @param {number} width @param {number} height
+ * @param {string[]} keys
+ * @param {(key: string) => { x: number, y: number }} center
+ * @param {number} radius
+ */
+function frameMap(width, height, keys, center, radius) {
+  /** @type {number[]} */
+  const pairs = [];
+  const inner = (SQRT3 / 2) * radius;
+  // The hexes' centres by row and column, to find the nine round a pixel
+  /** @type {({ x: number, y: number } | undefined)[][]} */
+  const grid = [];
+  for (const key of keys) {
+    const [row = 0, col = 0] = key.split("-").map(Number);
+    (grid[row] ??= [])[col] = center(key);
+  }
+  /** @param {{ x: number, y: number }} c @param {number} x @param {number} y how far out of hex c a point is, 1 on its edge */
+  const reach = (c, x, y) => {
+    const dx = x - c.x, dy = y - c.y;
+    let m = 0;
+    for (let d = 0; d < 6; d++) {
+      const t = dx * /** @type {number} */ (NX[d]) + dy * /** @type {number} */ (NY[d]);
+      if (t > m) m = t;
+    }
+    return m / inner;
+  };
+  for (let y = 0; y < height; y++) {
+    const row = Math.round((y - radius) / (1.5 * radius));
+    // The frame is only round the edge: the zigzag above the first row and below the last, and
+    // the notches at the ends of the short rows
+    const across = y < radius || y >= height - radius;
+    for (let x = 0; x < width; x++) {
+      if (!across && x >= 2 * inner && x < width - 2 * inner) x = Math.floor(width - 2 * inner);
+      const px = x + 0.5, py = y + 0.5;
+      // The nine hexes round it: the one it's least far out of
+      let best = Infinity;
+      /** @type {{ x: number, y: number } | undefined} */
+      let hex;
+      for (let r = Math.max(0, row - 1); r <= row + 1; r++) {
+        const line = grid[r];
+        if (!line) continue;
+        const col = Math.round((px - inner - (r % 2) * inner) / (2 * inner));
+        for (let c = Math.max(0, col - 1); c <= col + 1; c++) {
+          const h = line[c];
+          if (!h) continue;
+          const out = reach(h, px, py);
+          if (out < best) {
+            best = out;
+            hex = h;
+          }
+        }
+      }
+      if (!hex || best <= 1) continue;
+      // Mirrored in across the edges it's beyond, until it's inside
+      let qx = px, qy = py;
+      for (let i = 0; i < 3; i++) {
+        let out = 0, edge = 0;
         for (let d = 0; d < 6; d++) {
-          const toEdge = inner - (hx * /** @type {number} */ (NX[d]) + hy * /** @type {number} */ (NY[d]));
-          if (toEdge < near) {
-            near = toEdge;
+          const t = (qx - hex.x) * /** @type {number} */ (NX[d]) + (qy - hex.y) * /** @type {number} */ (NY[d]) - inner;
+          if (t > out) {
+            out = t;
             edge = d;
           }
         }
-        // Outside the hex (another hex's), or past the band
-        if (near < 0 || near >= band) continue;
-        const [nx, ny] = [/** @type {number} */ (NX[edge]), /** @type {number} */ (NY[edge])];
-        const push = 2 * (band - near);
-        const sx = Math.min(width - 1, Math.max(0, Math.round(x - push * nx)));
-        const sy = Math.min(height - 1, Math.max(0, Math.round(y - push * ny)));
-        // The line itself kept at `keep`, fading to the board as it is at the band's edge
-        const w = (1 - keep) * Math.min(1, (band - near) / (band / 2));
-        const [o, s] = [channels * (y * width + x), channels * (sy * width + sx)];
-        for (let c = 0; c < 3; c++) data[o + c] = Math.round(/** @type {number} */ (source[o + c]) * (1 - w) + /** @type {number} */ (source[s + c]) * w);
+        if (out <= 0) break;
+        // A pixel more, past the hex line printed on the edge
+        const push = 2 * out + 0.06 * radius;
+        qx -= push * /** @type {number} */ (NX[edge]);
+        qy -= push * /** @type {number} */ (NY[edge]);
       }
+      const sx = Math.min(width - 1, Math.max(0, Math.floor(qx)));
+      const sy = Math.min(height - 1, Math.max(0, Math.floor(qy)));
+      pairs.push(y * width + x, sy * width + sx);
+    }
+  }
+  return Int32Array.from(pairs);
+}
+
+/**
+ * Calls `fn(x, y, near, edge)` for each pixel of a hex within `band` pixels of its edges: `near`
+ * how far in from its nearest edge, `edge` which (0 = east, clockwise). Only the ends of each
+ * row are visited
+ * @param {number} cx @param {number} cy the hex's centre
+ * @param {number} inner @param {number} radius
+ * @param {number} width @param {number} height the board's
+ * @param {number} band
+ * @param {(x: number, y: number, near: number, edge: number) => void} fn
+ */
+function forEdgeBand(cx, cy, inner, radius, width, height, band, fn) {
+  for (let y = Math.max(0, Math.floor(cy - radius)); y < Math.min(height, Math.ceil(cy + radius)); y++) {
+    // The row's half-width inside the hex, and how far in from each end the band reaches (a
+    // slanted edge comes in half as fast across)
+    const hy = y + 0.5 - cy;
+    const half = Math.min(inner, 2 * (inner - (Math.abs(hy) * SQRT3) / 2));
+    const reach = 2 * band + 2;
+    const [from, to] = [Math.max(0, Math.floor(cx - half - 1)), Math.min(width, Math.ceil(cx + half + 1))];
+    for (let x = from; x < to; x++) {
+      if (x > cx - half + reach && x < cx + half - reach - 1) x = Math.ceil(cx + half - reach - 1);
+      const hx = x + 0.5 - cx;
+      let near = Infinity, edge = 0;
+      for (let d = 0; d < 6; d++) {
+        const toEdge = inner - (hx * /** @type {number} */ (NX[d]) + hy * /** @type {number} */ (NY[d]));
+        if (toEdge < near) {
+          near = toEdge;
+          edge = d;
+        }
+      }
+      // Outside the hex (another hex's), or past the band
+      if (near >= 0 && near < band) fn(x, y, near, edge);
     }
   }
 }

@@ -3,7 +3,9 @@
 // editor): the empty board, the art boardPlan.mjs plans for each terrain hex, as `npm run board`
 // does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs;
 // forests and hedgerows blended into their own kind and towns' houses laid out again,
-// joinedTiles.mjs) and the hex lines softened (softLines.mjs), but
+// joinedTiles.mjs, with what spills out of them over the countryside) and the board's edges made
+// soft (softLines.mjs: the frame filled with countryside, terrain cross-faded into what's beside
+// it, the hex lines softened), but
 // with rivers painted only when the library has a tile for every bend (drawn otherwise), and the
 // board's frame put back on top.
 // It's laid out like the painted art, so its URL goes straight into Scenario.image.
@@ -30,8 +32,8 @@ import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../gam
 import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
-import { joinedTileMaker } from "./joinedTiles.mjs";
-import { LINE_BAND, softenHexLines } from "./softLines.mjs";
+import { OVERFLOW, joinedTileMaker } from "./joinedTiles.mjs";
+import { LINE_BAND, blendTerrainEdges, fillFrame, softenHexLines } from "./softLines.mjs";
 import type { JoinedMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
@@ -52,10 +54,11 @@ for (const name of [...TILE_URLS.keys()].sort()) {
 }
 
 /** The art the app plans for a map's terrain */
-export const planMapArt = (tiles: Tiles): HexArt[] =>
+export const planMapArt = (tiles: Tiles, size: BoardSize = STANDARD_BOARD): HexArt[] =>
   planBoard(tiles, TILE_LIBRARY, {
     drawn: canPaintRivers(tiles, TILE_LIBRARY) ? [] : ["river"],
     strict: false,
+    keys: boardKeys(size.cols, size.rows),
   });
 
 const load = (src: string): Promise<HTMLImageElement> =>
@@ -147,17 +150,28 @@ const joinedMaker = (type: string, tile: string, width: number, height: number) 
     return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1);
   });
 
-/** A forest, town or hedgerow blended into its own kind beside it, made at the board's size and kept as a bitmap */
+/** RGBA pixels as a canvas */
+const canvasOf = (pixels: Uint8Array, width: number, height: number) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer as ArrayBuffer), width, height), 0, 0);
+  return canvas;
+};
+
+/**
+ * A forest, town or hedgerow blended into its own kind beside it, made at the board's size and
+ * kept as bitmaps: the hex, and what spills out of it (OVERFLOW times the hex's size), if anything
+ */
+const joinedArt = new Map<string, Promise<{ tile: HTMLCanvasElement; overflow: HTMLCanvasElement | null }>>();
 const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
-  const key = `joined:${hex.tile}:${hex.key}:${hex.turns}:${hex.open.map(Number).join("")}@${width}x${height}`;
-  return cached(drawnTiles, key, async () => {
-    const pixels = (await joinedMaker(hex.type, hex.tile, width, height))(hex);
-    const tile = document.createElement("canvas");
-    tile.width = width;
-    tile.height = height;
-    tile.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer as ArrayBuffer), width, height), 0, 0);
-    return tile;
+  const edges = (list: boolean[]) => list.map(Number).join("");
+  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}@${width}x${height}`;
+  return cached(joinedArt, key, async () => {
+    const { tile, overflow } = (await joinedMaker(hex.type, hex.tile, width, height))(hex);
+    const [ow, oh] = [Math.round(OVERFLOW * width), Math.round(OVERFLOW * height)];
+    return { tile: canvasOf(tile, width, height), overflow: overflow ? canvasOf(overflow, ow, oh) : null };
   });
 };
 
@@ -165,7 +179,7 @@ const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
 const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<CanvasImageSource> | null => {
   if (hex.art === "painted") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
   if (hex.art === "ridge") return ridgeTile(hex, grid);
-  if (hex.art === "joined") return joinedTile(hex, grid);
+  if (hex.art === "joined") return joinedTile(hex, grid).then(({ tile }) => tile);
   if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius));
   return null;
 };
@@ -238,14 +252,16 @@ function paintSectionLines(ctx: CanvasRenderingContext2D, grid: Grid, cols: numb
 export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height = APP_ART_HEIGHT, size: BoardSize = STANDARD_BOARD): Promise<void> {
   const standard = isStandardBoard(size);
   const grid = standard ? artGrid(height) : artGrid(artHeightFor(size.rows, height), size.cols, size.rows);
-  const plan = planMapArt(tiles);
+  const plan = planMapArt(tiles, size);
+  const keys = boardKeys(size.cols, size.rows);
   const tileWidth = grid.hexWidth;
   const tileHeight = 2 * grid.radius;
   // Everything loaded first, so the board is drawn in one go
-  const [base, bridge, art] = await Promise.all([
+  const [base, bridge, art, spills] = await Promise.all([
     loadImage(emptyBoardUrl),
     loadImage(bridgeUrl),
     Promise.all(plan.map((hex) => hexImage(hex, grid))),
+    Promise.all(plan.map((hex) => (hex.art === "joined" ? joinedTile(hex, grid).then(({ overflow }) => overflow) : null))),
   ]);
 
   canvas.width = grid.width;
@@ -255,8 +271,17 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
   // Sizes in the painted art's pixels, scaled to this board
   const scale = height / ART_HEIGHT;
 
+  // The empty board, its frame already countryside (`npm run board` fills it); a bigger board's
+  // filled here, and kept to put the frame back at the end
+  let frame: CanvasImageSource = base;
   if (standard) ctx.drawImage(base, 0, 0, grid.width, height);
-  else paintBigBase(ctx, base, grid, size, scale);
+  else {
+    paintBigBase(ctx, base, grid, size, scale);
+    const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
+    fillFrame({ data: pixels.data, width: grid.width, height: grid.height, channels: 4 }, keys, grid.center, grid.radius);
+    ctx.putImageData(pixels, 0, 0);
+    frame = canvasOf(new Uint8Array(pixels.data.buffer), grid.width, grid.height);
+  }
   plan.forEach((hex, i) => {
     const center = grid.center(hex.key);
     const image = art[i];
@@ -287,10 +312,21 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
     ctx.restore();
   });
 
-  // The hex lines softened, as the script does for the painted art
+  // Terrain cross-faded into what's beside it and the hex lines softened, as the script does
+  // for the painted art (rivers and bridges are one kind), then what spills out of the hexes on top
   const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
-  softenHexLines({ data: pixels.data, width: grid.width, height: grid.height, channels: 4 }, boardKeys(size.cols, size.rows), grid.center, grid.radius, LINE_BAND * scale);
+  const image = { data: pixels.data, width: grid.width, height: grid.height, channels: 4 };
+  const types = new Map(plan.map((hex) => [hex.key, hex.type === "bridge" ? "river" : hex.type]));
+  blendTerrainEdges(image, keys, grid.center, grid.radius, (key) => types.get(key) ?? "plains");
+  softenHexLines(image, keys, grid.center, grid.radius, LINE_BAND * scale);
   ctx.putImageData(pixels, 0, 0);
+  plan.forEach((hex, i) => {
+    const spill = spills[i];
+    if (!spill) return;
+    const { x, y } = grid.center(hex.key);
+    const [w, h] = [OVERFLOW * tileWidth, OVERFLOW * tileHeight];
+    ctx.drawImage(spill, x - w / 2, y - h / 2, w, h);
+  });
 
   // The frame round the grid put back over anything that stuck out
   ctx.save();
@@ -298,8 +334,7 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
   ctx.rect(0, 0, grid.width, grid.height);
   boardKeys(size.cols, size.rows).forEach((key) => hexPath(ctx, grid.center(key), grid.radius));
   ctx.clip("evenodd");
-  if (standard) ctx.drawImage(base, 0, 0, grid.width, height);
-  else paintFrame(ctx, base, artGrid(base.naturalHeight), grid.width, grid.height);
+  ctx.drawImage(frame, 0, 0, grid.width, grid.height);
   ctx.restore();
   if (!standard) paintSectionLines(ctx, grid, size.cols, scale);
 }
