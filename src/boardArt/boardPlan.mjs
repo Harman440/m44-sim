@@ -215,13 +215,15 @@ export function canPaintRivers(tiles, library) {
  * The art for each terrain hex, in the order it's laid on the board.
  * `drawn`: terrain to draw in code (DRAWABLE's keys); `separateHills`: each hill on its own tile
  * instead of joined into ridges; `strict`: throw at a river that can't be painted or drawn as it is
- * (`npm run board`) instead of making do (the app); `keys`: the board's hexes (a bigger map's)
+ * (`npm run board`) instead of making do (the app); `keys`: the board's hexes (a bigger map's);
+ * `plain`: each terrain hex its own tile as it is, nothing joined (the map editor's quick art,
+ * while the map is being made)
  * @param {Terrain} tiles
  * @param {TileLibrary} library
- * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[] }} [options]
+ * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[], plain?: boolean }} [options]
  * @returns {HexArt[]}
  */
-export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS } = {}) {
+export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS, plain = false } = {}) {
   const drawn = new Set([
     ...ALWAYS_DRAWN,
     ...drawnChoice.flatMap((choice) => {
@@ -260,10 +262,10 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
     } else {
       const choices = library[type] ?? [];
       const tile = `${type}/${choices[pickFor(key, 1, choices.length)]}`;
-      const ridge = type === "hill" && !separateHills ? edgesTo(key, ["hill"]) : [];
-      const joins = JOINED_TERRAIN.includes(type) ? edgesTo(key, [type]) : [];
+      const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill"]) : [];
+      const joins = JOINED_TERRAIN.includes(type) && !plain ? edgesTo(key, [type]) : [];
       if (ridge.some(Boolean)) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
-      else if (ALWAYS_JOINED.includes(type) || joins.some(Boolean)) {
+      else if ((ALWAYS_JOINED.includes(type) && !plain) || joins.some(Boolean)) {
         // Open countryside across an edge, on the board; a town has a house over one such edge one time in two
         const bare = [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && !wanted.has(neighbor(key, d)));
         const bareEdges = [...Array(6).keys()].filter((d) => bare[d]);

@@ -124,13 +124,17 @@ const reducer = (history: DraftHistory, action: Action): DraftHistory => {
   }
 };
 
-/** The map's board art, drawn again when its terrain or size changes */
+/**
+ * The map's board art, drawn again when its terrain or size changes: the plain art, quick to draw
+ * on every tap. Joined hills, terrain blending and spilling over its edges come once the map is
+ * done, in the menu and the game
+ */
 function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize): string | undefined {
   const [art, setArt] = useState<string>();
   const shown = useRef<string>(undefined);
   useEffect(() => {
     let current = true;
-    drawBoardArt(tiles, { cols, rows }).then(
+    drawBoardArt(tiles, { cols, rows }, { plain: true }).then(
       (url) => {
         if (!current) return URL.revokeObjectURL(url);
         const before = shown.current;

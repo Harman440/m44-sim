@@ -94,6 +94,13 @@ describe("planBoard", () => {
     expect(at(planBoard({ town: [p(0, 0)] }, LIBRARY), "0-0")[0]).toMatchObject({ bare: [true, true, false, false, false, false] });
   });
 
+  it("puts each terrain hex on its own tile for the editor's plain art", () => {
+    const tiles: Terrain = { hill: [p(4, 4), p(4, 5)], forest: [p(2, 2), p(2, 3)], town: [p(6, 6)], hedgerow: [p(7, 7), p(7, 8)] };
+
+    expect(planBoard(tiles, LIBRARY, { plain: true }).map((hex) => hex.art)).toEqual(Array(7).fill("painted"));
+    expect(planBoard(tiles, LIBRARY).map((hex) => hex.art)).toEqual(["ridge", "ridge", "joined", "joined", "joined", "joined", "joined"]);
+  });
+
   it("turns a river tile to join the river's edges, and lays a bridge across it", () => {
     // West to east along row 4, the bridge in the middle
     const plan = planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY);

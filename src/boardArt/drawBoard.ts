@@ -53,13 +53,22 @@ for (const name of [...TILE_URLS.keys()].sort()) {
   (TILE_LIBRARY[terrain] ??= []).push(file);
 }
 
-/** The art the app plans for a map's terrain */
-export const planMapArt = (tiles: Tiles, size: BoardSize = STANDARD_BOARD): HexArt[] =>
+/** The art the app plans for a map's terrain (`plain`: each hex its own tile, nothing joined) */
+export const planMapArt = (tiles: Tiles, size: BoardSize = STANDARD_BOARD, plain = false): HexArt[] =>
   planBoard(tiles, TILE_LIBRARY, {
     drawn: canPaintRivers(tiles, TILE_LIBRARY) ? [] : ["river"],
     strict: false,
     keys: boardKeys(size.cols, size.rows),
+    plain,
   });
+
+/**
+ * How a board is drawn: `height` the standard board's; `plain`, quickly, for the map editor while
+ * a map is being made: each terrain hex its own library tile, with no hills joined into ridges, no
+ * terrain blended or spilling over its edges and the hex lines as printed. The finished art is
+ * drawn once the map is done (the menu and the game)
+ */
+export type DrawOptions = { height?: number; plain?: boolean };
 
 const load = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -249,10 +258,15 @@ function paintSectionLines(ctx: CanvasRenderingContext2D, grid: Grid, cols: numb
  * Draw a map's board art on a canvas. `height` is the standard board's: a bigger board is drawn
  * taller and wider, its hexes the same size
  */
-export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height = APP_ART_HEIGHT, size: BoardSize = STANDARD_BOARD): Promise<void> {
+export async function paintBoard(
+  canvas: HTMLCanvasElement,
+  tiles: Tiles,
+  size: BoardSize = STANDARD_BOARD,
+  { height = APP_ART_HEIGHT, plain = false }: DrawOptions = {},
+): Promise<void> {
   const standard = isStandardBoard(size);
   const grid = standard ? artGrid(height) : artGrid(artHeightFor(size.rows, height), size.cols, size.rows);
-  const plan = planMapArt(tiles, size);
+  const plan = planMapArt(tiles, size, plain);
   const keys = boardKeys(size.cols, size.rows);
   const tileWidth = grid.hexWidth;
   const tileHeight = 2 * grid.radius;
@@ -313,20 +327,23 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
   });
 
   // Terrain cross-faded into what's beside it and the hex lines softened, as the script does
-  // for the painted art (rivers and bridges are one kind), then what spills out of the hexes on top
-  const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
-  const image = { data: pixels.data, width: grid.width, height: grid.height, channels: 4 };
-  const types = new Map(plan.map((hex) => [hex.key, hex.type === "bridge" ? "river" : hex.type]));
-  blendTerrainEdges(image, keys, grid.center, grid.radius, (key) => types.get(key) ?? "plains");
-  softenHexLines(image, keys, grid.center, grid.radius, LINE_BAND * scale);
-  ctx.putImageData(pixels, 0, 0);
-  plan.forEach((hex, i) => {
-    const spill = spills[i];
-    if (!spill) return;
-    const { x, y } = grid.center(hex.key);
-    const [w, h] = [OVERFLOW * tileWidth, OVERFLOW * tileHeight];
-    ctx.drawImage(spill, x - w / 2, y - h / 2, w, h);
-  });
+  // for the painted art (rivers and bridges are one kind), then what spills out of the hexes on
+  // top; none of it on the editor's plain art
+  if (!plain) {
+    const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
+    const image = { data: pixels.data, width: grid.width, height: grid.height, channels: 4 };
+    const types = new Map(plan.map((hex) => [hex.key, hex.type === "bridge" ? "river" : hex.type]));
+    blendTerrainEdges(image, keys, grid.center, grid.radius, (key) => types.get(key) ?? "plains");
+    softenHexLines(image, keys, grid.center, grid.radius, LINE_BAND * scale);
+    ctx.putImageData(pixels, 0, 0);
+    plan.forEach((hex, i) => {
+      const spill = spills[i];
+      if (!spill) return;
+      const { x, y } = grid.center(hex.key);
+      const [w, h] = [OVERFLOW * tileWidth, OVERFLOW * tileHeight];
+      ctx.drawImage(spill, x - w / 2, y - h / 2, w, h);
+    });
+  }
 
   // The frame round the grid put back over anything that stuck out
   ctx.save();
@@ -343,15 +360,16 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
  * A map's board art as an image URL for Scenario.image. It's a blob: URL; revoke it
  * (URL.revokeObjectURL) once the image is no longer shown.
  */
-export async function drawBoardArt(tiles: Tiles, size: BoardSize = STANDARD_BOARD, height = APP_ART_HEIGHT): Promise<string> {
+export async function drawBoardArt(tiles: Tiles, size: BoardSize = STANDARD_BOARD, options: DrawOptions = {}): Promise<string> {
   const canvas = document.createElement("canvas");
-  await paintBoard(canvas, tiles, height, size);
+  await paintBoard(canvas, tiles, size, options);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
   if (!blob) throw new Error("Couldn't draw the board");
   return URL.createObjectURL(blob);
 }
 
-// The editor's terrain tools show a hex of their terrain, cut from a board drawn with only that hex
+// The editor's terrain tools show a hex of their terrain, cut from a board drawn with only that
+// hex, plain like the editor's board
 const SWATCH_HEX = "4-6";
 const swatches = new Map<string, Promise<string>>();
 
@@ -360,7 +378,7 @@ export const terrainSwatch = (type: HexType): Promise<string> =>
   cached(swatches, type, async () => {
     const board = document.createElement("canvas");
     const [row = 0, col = 0] = SWATCH_HEX.split("-").map(Number);
-    await paintBoard(board, type === HexType.PLAINS ? {} : { [type]: [{ row, col }] });
+    await paintBoard(board, type === HexType.PLAINS ? {} : { [type]: [{ row, col }] }, STANDARD_BOARD, { plain: true });
     const grid = artGrid(APP_ART_HEIGHT);
     const { x, y } = grid.center(SWATCH_HEX);
     const [width, height] = [Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius)];
