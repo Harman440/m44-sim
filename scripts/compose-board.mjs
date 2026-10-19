@@ -20,8 +20,9 @@
 // edge, and every town lays its tile's houses out again (src/boardArt/joinedTiles.mjs).
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
 // hedgerows when the board asks. A river runs through the edges it shares with the next river or
-// bridge hexes, and a lake joins the lake hexes next to it. The frame round the grid is put back
-// over the new hexes.
+// bridge hexes, and a lake joins the lake hexes next to it. The hex lines, printed and the tiles'
+// rims, are softened over the whole board (src/boardArt/softLines.mjs), and the frame round the
+// grid is put back over the new hexes.
 import sharp from "sharp";
 import { readFileSync, readdirSync } from "node:fs";
 import {
@@ -37,6 +38,7 @@ import {
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
 import { joinedTileMaker } from "../src/boardArt/joinedTiles.mjs";
+import { LINE_BAND, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
@@ -165,9 +167,11 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
     else layers.push(...(await bridgeOver(hex.key, hex.edges)));
   }
 
-  // Pasted on the padded board, cropped back, then the frame put back on top
+  // Pasted on the padded board, cropped back, its hex lines softened, then the frame put back on top
   const composed = await sharp(padded).composite(layers).png().toBuffer();
-  const framed = await sharp(await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
+  const data = await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).raw().toBuffer();
+  softenHexLines({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, LINE_BAND);
+  const framed = await sharp(data, { raw: { width: W, height: H, channels: 4 } })
     .composite([{ input: frame }])
     .removeAlpha()
     .png()

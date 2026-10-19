@@ -3,7 +3,7 @@
 // editor): the empty board, the art boardPlan.mjs plans for each terrain hex, as `npm run board`
 // does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs;
 // forests and hedgerows blended into their own kind and towns' houses laid out again,
-// joinedTiles.mjs), but
+// joinedTiles.mjs) and the hex lines softened (softLines.mjs), but
 // with rivers painted only when the library has a tile for every bend (drawn otherwise), and the
 // board's frame put back on top.
 // It's laid out like the painted art, so its URL goes straight into Scenario.image.
@@ -31,6 +31,7 @@ import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
 import { joinedTileMaker } from "./joinedTiles.mjs";
+import { LINE_BAND, softenHexLines } from "./softLines.mjs";
 import type { JoinedMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
@@ -285,6 +286,11 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
     }
     ctx.restore();
   });
+
+  // The hex lines softened, as the script does for the painted art
+  const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
+  softenHexLines({ data: pixels.data, width: grid.width, height: grid.height, channels: 4 }, boardKeys(size.cols, size.rows), grid.center, grid.radius, LINE_BAND * scale);
+  ctx.putImageData(pixels, 0, 0);
 
   // The frame round the grid put back over anything that stuck out
   ctx.save();
