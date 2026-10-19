@@ -86,15 +86,8 @@ const builtIns: Scenario[] = [
     // Air rules: one air sortie to the Axis; the other is shuffled into the deck, which gives
     // the Allies none
     airPower: { allies: 0, axis: 1 },
-    // The house victory (the player's ruling, 2026-10-19): 5 medals; Lezey and Arracourt a medal
-    // each for the Axis while it holds them
-    victory: {
-      medals: 5,
-      objectives: [
-        { faction: 'Axis', name: same('Lezey'), hexes: [{ row: 2, col: 6 }] },
-        { faction: 'Axis', name: same('Arracourt'), hexes: [{ row: 8, col: 6 }] },
-      ],
-    },
+    // The house victory (the player's ruling, 2026-10-19): 5 medals, for destroyed units only
+    victory: { medals: 5 },
     tiles: arracourtTiles as Tiles,
     // The artillery dug in west of Arracourt
     sandbags: [{ row: 7, col: 4 }],
