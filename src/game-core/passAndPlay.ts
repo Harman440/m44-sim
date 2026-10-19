@@ -4,8 +4,9 @@ import Unit, { UnitType } from "./unit";
 import Order from "./order";
 import { turnedRound } from "./BoardManager";
 import { boardSizeOf } from "./boardSize";
-import { includesPosition, samePosition } from "./position";
+import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
+import { inSight } from "./fogOfWar";
 import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
 import { appliedFaces, keptForHits, readRoll } from "./rollResult";
 import { MatchResult, Medals, countMedals, heldObjectives, winnerOf } from "./victory";
@@ -15,7 +16,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 16;
+export const MATCH_SAVE_VERSION = 17;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -33,6 +34,10 @@ export interface SavedMatch {
   held?: Record<Faction, Position[]>;
   /** How the match ended, once it has */
   result?: MatchResult | null;
+  /** Fog of war (against the computer) */
+  fog?: boolean;
+  /** Fog of war: the enemy units each side saw when the last battle ended, in its own view; null before the first */
+  sighted?: Record<Faction, Position[]> | null;
 }
 
 /** The units that didn't move fire first, then the ones that moved */
@@ -208,6 +213,13 @@ class PassAndPlayMatch {
   private battle: MatchBattle | null;
   private held: Record<Faction, Position[]>;
   private result: MatchResult | null;
+  /**
+   * Fog of war (against the computer only, game-core/fogOfWar.ts): each side sees the enemy units
+   * in its units' sight once the turn's units have moved, until the battle ends
+   */
+  readonly fog: boolean;
+  /** The enemy units each side saw when the last battle ended, in its own view: what it knows while giving orders. Null before the first battle: both armies are known */
+  private sighted: Record<Faction, Position[]> | null;
 
   private readonly listeners = new Set<() => void>();
   private snapshot: MatchSnapshot;
@@ -235,6 +247,8 @@ class PassAndPlayMatch {
       battle = null,
       held = { Allies: [], Axis: [] },
       result = null,
+      fog = false,
+      sighted = null,
     }: {
       computer?: Faction | null;
       active?: Faction;
@@ -245,6 +259,8 @@ class PassAndPlayMatch {
       battle?: MatchBattle | null;
       held?: Record<Faction, Position[]>;
       result?: MatchResult | null;
+      fog?: boolean;
+      sighted?: Record<Faction, Position[]> | null;
     } = {}
   ) {
     if (sessions.Allies.faction !== "Allies" || sessions.Axis.faction !== "Axis") {
@@ -259,6 +275,8 @@ class PassAndPlayMatch {
     this.active = computer ? otherSide(computer) : active;
     this.mainSide = mainSide;
     this.covered = computer ? false : covered;
+    this.fog = computer !== null && fog;
+    this.sighted = sighted;
     this.revealedTurn = revealedTurn;
     this.movement = movement;
     this.battle = battle;
@@ -688,6 +706,8 @@ class PassAndPlayMatch {
   }
 
   private finishBattle() {
+    // What each side sees as the battle ends is what it knows until the next turn's units move
+    if (this.fog) this.sighted = { Allies: this.liveSight("Allies"), Axis: this.liveSight("Axis") };
     for (const side of FACTIONS) this.sessions[side].endBattle();
     this.battle = null;
     this.scoreTurn();
@@ -780,7 +800,7 @@ class PassAndPlayMatch {
     const enemy = this.sessions[otherSide(side)];
     game.attackMarks.forEach(({ marker: index, position: marker }) => {
       if (session.getSnapshot().cardAttacks.some((attack) => attack.marker === index)) return;
-      const target = session.enemyAt(marker);
+      const target = session.enemyAt(marker, { hidden: true });
       session.attackHex(index, target ? target.unitType === UnitType.INFANTRY : null);
       const attack = session.getSnapshot().cardAttacks.find((a) => a.marker === index);
       if (!target || !attack?.target) return;
@@ -817,6 +837,7 @@ class PassAndPlayMatch {
   /** The other army's units as `viewer` sees them, for its session's targets */
   private enemiesOf(viewer: Faction): EnemyUnit[] {
     const enemy = this.sessions[otherSide(viewer)];
+    const seen = this.sightOf(viewer);
     return enemy.board.getAllHexes().flatMap((hex) =>
       hex.unit
         ? [
@@ -825,10 +846,43 @@ class PassAndPlayMatch {
               unitType: hex.unit.getUnitType(),
               sandbags: hex.sandbags,
               camouflaged: enemy.isCamouflaged(hex.getPosition()),
+              ...(seen && !seen.has(positionKey(this.turnedRound(hex.getPosition()))) && { hidden: true }),
             },
           ]
         : []
     );
+  }
+
+  // --- Fog of war
+
+  /**
+   * The enemy units `viewer` sees now, by hex in its own view, or null when it sees them all (no
+   * fog, or no battle yet). Live once the turn's units have moved, until the battle ends: in its
+   * units' sight, and those that fired this turn; before that, what it saw when the last battle
+   * ended, where those units stood (the enemy's orders move its units on its own board as they're given)
+   */
+  private sightOf(viewer: Faction): Set<string> | null {
+    if (!this.fog) return null;
+    if (this.movement || this.battle) return new Set(this.liveSight(viewer).map(positionKey));
+    return this.sighted && new Set(this.sighted[viewer].map(positionKey));
+  }
+
+  /** The enemy units `viewer`'s units see where everything stands now, and those that fired at it this turn (its view) */
+  private liveSight(viewer: Faction): Position[] {
+    const own = this.sessions[viewer];
+    const enemySide = otherSide(viewer);
+    const enemy = this.sessions[enemySide];
+    const enemies = armyOf(enemy).map(({ position }) => this.turnedRound(position));
+    const seen = inSight(own.board, armyOf(own).map(({ position }) => position), enemies);
+    const orders = enemy.getSnapshot().orders;
+    const fired = (this.battle?.fired ?? [])
+      .filter((turn) => turn.side === enemySide && turn.shot !== null)
+      .flatMap((turn) => {
+        const unit = orders[turn.order]?.unit;
+        const at = unit && armyOf(enemy).find((placed) => placed.unit === unit);
+        return at ? [this.turnedRound(at.position)] : [];
+      });
+    return [...seen, ...fired];
   }
 
   private updateCollision(index: number, changes: Partial<MatchCollision>) {
@@ -872,15 +926,35 @@ class PassAndPlayMatch {
         hitThisTurn: stands?.hitThisTurn ?? 0,
       };
     };
-    const army = armyOf(session).map((placed) => ({ ...placed, ...strength(placed.position) }));
-    const sandbags = session.board.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : []));
-    if (revealed) return { faction, units: army, orders: game.orders, camouflaged: game.camouflaged, sandbags };
-
     const startOf = new Map(game.orders.map((order) => [order.unit, order.start]));
+    // Fog of war: only the units the viewer sees, by where they stand now once they've moved, by
+    // where they started before (what it saw when the last battle ended)
+    const sight = this.sightOf(viewer);
+    const live = !!(this.movement || this.battle);
+    const seen = (unit: Unit, position: Position) =>
+      !sight || sight.has(positionKey(this.turnedRound(live ? position : (startOf.get(unit) ?? position))));
+    const army = armyOf(session)
+      .filter((placed) => seen(placed.unit, placed.position))
+      .map((placed) => ({ ...placed, ...strength(placed.position) }));
+    const seenHexes = new Set(army.map((placed) => positionKey(placed.position)));
+    const seenStarts = new Set(army.map((placed) => positionKey(startOf.get(placed.unit) ?? placed.position)));
+    const visible = (hexes: readonly Position[], at: Set<string>) => (sight ? hexes.filter((hex) => at.has(positionKey(hex))) : [...hexes]);
+    const sandbags = session.board.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : []));
+    if (revealed) {
+      const orders = sight ? game.orders.filter((order) => army.some((placed) => placed.unit === order.unit)) : game.orders;
+      return { faction, units: army, orders, camouflaged: visible(game.camouflaged, seenHexes), sandbags: visible(sandbags, seenHexes) };
+    }
+
     const units = army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position }));
     // A unit ordered off its sandbags left them, but the enemy can't see that yet
     const left = game.orders.flatMap((order) => order.lostSandbags);
-    return { faction, units, orders: [], camouflaged: session.camouflagedAtStart(), sandbags: [...sandbags, ...left] };
+    return {
+      faction,
+      units,
+      orders: [],
+      camouflaged: visible(session.camouflagedAtStart(), seenStarts),
+      sandbags: visible([...sandbags, ...left], seenStarts),
+    };
   }
 
   save(): SavedMatch {
@@ -895,6 +969,8 @@ class PassAndPlayMatch {
       battle: this.battle && JSON.parse(JSON.stringify(this.battle)),
       held: JSON.parse(JSON.stringify(this.held)),
       result: this.result && JSON.parse(JSON.stringify(this.result)),
+      fog: this.fog,
+      sighted: this.sighted && JSON.parse(JSON.stringify(this.sighted)),
     };
   }
 
@@ -930,6 +1006,8 @@ class PassAndPlayMatch {
       battle,
       held: saved.held ?? { Allies: [], Axis: [] },
       result: saved.result ?? null,
+      fog: saved.fog ?? false,
+      sighted: saved.sighted ?? null,
     });
   }
 

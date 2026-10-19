@@ -9,6 +9,7 @@ import { MAX_COMBAT_CARDS_PER_TURN, MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } fro
 import { Localized } from "../i18n/lang";
 import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
 import { UnitType } from "../game-core/unit";
+import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
@@ -551,6 +552,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: "Con «Contra el ordenador» juegas un bando y el ordenador el otro, en tu dispositivo y sin pantalla que tape el juego. Solo ve lo que vería un jugador: tus órdenes no, hasta que se muestran. Elige su carta y da sus órdenes a la vez que tú; en la batalla dispara tras una pausa, y sus dados quedan sobre el mapa hasta que tocas «Seguir». Busca casillas desde las que disparar con buena cobertura, dispara donde más daño hace (rematando unidades tocadas) y gasta sus suministros en órdenes extra y en cartas de combate: por ahora juega las de dados, las de ataque (marca las casillas con más enemigos), las que se dan a una unidad, Ni un paso atrás, Fortificar y Fuego concentrado; aún no las de movimiento, Táctico, Refuerzos, Reposicionamiento, Fuego de supresión ni ¡Fusiles arriba!.",
           en: "With \"Against the computer\" you play one side and the computer the other, on your device and with no screen covering the game. It sees only what a player would: not your orders, until they're shown. It picks its card and gives its orders as you give yours; in the battle it fires after a pause, and its dice stay on the map until you tap \"Continue\". It looks for hexes to fire from with good cover, fires where it does most damage (finishing off weakened units) and spends its supplies on extra orders and combat cards: for now it plays the dice cards, the attack cards (marking the hexes with the most enemies), the cards given to a unit, Not One Step Back, Fortify and Concentrated Fire; not yet the movement cards, Tactician, Reinforcements, Reposition, Suppressive Fire or Rifles Up!.",
+        },
+      },
+      {
+        title: { es: "Niebla de guerra", en: "Fog of war" },
+        house: {
+          es: `Contra el ordenador, con «Niebla de guerra» en Ajustes (encendida si no la apagas). Al principio de la partida se ven los dos ejércitos. Cuando las unidades han movido y empieza la batalla, solo ves las unidades enemigas a ${VISION} casillas o menos de una de las tuyas y en su línea de visión (los bosques, pueblos, colinas y otras unidades la tapan); una unidad tuya en una colina ve a ${VISION_FROM_HILL}. Lo que ves cambia durante la batalla, al retirarse o caer unidades, y lo que veías al terminarla es lo que sabes al dar las órdenes del turno siguiente: las unidades que salen de la vista desaparecen del mapa. Solo puedes disparar a lo que ves, y una unidad oculta que dispara se ve el resto del turno. Un bombardeo o un ataque aéreo alcanza lo que haya en sus casillas, se vea o no. El ordenador juega con la misma niebla.`,
+          en: `Against the computer, with "Fog of war" in Settings (on unless you switch it off). At the start of the game both armies are known. Once the units have moved and the battle starts, you only see the enemy units ${VISION} hexes or less from one of yours and in its line of sight (forests, towns, hills and other units block it); a unit of yours on a hill sees ${VISION_FROM_HILL}. What you see changes during the battle as units retreat or fall, and what you saw when it ended is what you know while giving the next turn's orders: units that go out of sight disappear from the map. You can only fire at what you see, and a hidden unit that fires is seen for the rest of the turn. A barrage or an air attack hits whatever is on its hexes, seen or not. The computer plays under the same fog.`,
         },
       },
       {

@@ -187,6 +187,11 @@ export interface EnemyUnit {
   sandbags: boolean;
   /** It has the camouflage badge: only a close assault can hit it */
   camouflaged: boolean;
+  /**
+   * Out of this side's sight (fog of war, game-core/fogOfWar.ts): it isn't a target and doesn't
+   * block the view, but it's still there, so retreats and moves can't end on it
+   */
+  hidden?: boolean;
 }
 
 /** Pass and play: a shot aimed at an enemy unit, before it's rolled (`GameSession.aimAt`) */
@@ -1332,7 +1337,7 @@ class GameSession {
   fireTargetsFor(orderIndex: number): FireTarget[] {
     const context = this.fireContextFor(orderIndex);
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
-    const enemies = this.enemyView?.().map((enemy) => enemy.position);
+    const enemies = this.seenEnemies()?.map((enemy) => enemy.position);
     return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, enemies);
   }
 
@@ -1353,9 +1358,14 @@ class GameSession {
     this.enemyView = view;
   }
 
-  /** Pass and play: the enemy unit on this hex (this side's view), if any */
-  enemyAt(position: Position): EnemyUnit | null {
-    return this.enemyView?.().find((enemy) => samePosition(enemy.position, position)) ?? null;
+  /** Pass and play: the enemy units this side can see (all of them without fog of war) */
+  private seenEnemies(): EnemyUnit[] | undefined {
+    return this.enemyView?.().filter((enemy) => !enemy.hidden);
+  }
+
+  /** Pass and play: the enemy unit this side sees on this hex (this side's view), if any; `hidden` finds one in the fog too */
+  enemyAt(position: Position, { hidden = false }: { hidden?: boolean } = {}): EnemyUnit | null {
+    return this.enemyView?.().find((enemy) => samePosition(enemy.position, position) && (hidden || !enemy.hidden)) ?? null;
   }
 
   /**

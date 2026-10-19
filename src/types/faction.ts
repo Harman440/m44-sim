@@ -26,4 +26,6 @@ export interface GameSetup {
   testMode?: boolean;
   /** Experimental rule: a destroyed artillery unit leaves its crew as an infantry unit */
   artilleryCrew?: boolean;
+  /** Fog of war in a match against the computer (game-core/fogOfWar.ts); on unless switched off */
+  fogOfWar?: boolean;
 }

@@ -33,6 +33,16 @@ describe("the computer against itself", () => {
     });
   }
 
+  for (const scenario of scenarios) {
+    it(`plays ${scenario.id} under fog of war without getting stuck`, () => {
+      const random = seeded(5);
+      vi.spyOn(Math, "random").mockImplementation(random);
+      const match = playOut(scenario, { Allies: standardBrain, Axis: standardBrain }, random, 20, { fog: true });
+      expect(match.fog).toBe(true);
+      expect(FACTIONS.every((side) => match.sessions[side].getSnapshot().log.length > 0)).toBe(true);
+    });
+  }
+
   it("plays a bigger map, grown at every edge, to the end", () => {
     let big: Scenario = scenarios[0]!;
     for (const edge of ["left", "right", "top", "bottom", "right"] as const) big = resizeBoard(big, edge, true, HexType.FOREST) as Scenario;

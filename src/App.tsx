@@ -198,7 +198,11 @@ const App = () => {
         // Both armies are in the app: units have figures and take the hits
         Allies: newSession(drawn, 'Allies', setup, true),
         Axis: newSession(drawn, 'Axis', setup, true),
-      }, { mainSide: setup.mainSide, computer: setup.computer ? otherSide(setup.mainSide) : null });
+      }, {
+        mainSide: setup.mainSide,
+        computer: setup.computer ? otherSide(setup.mainSide) : null,
+        fog: setup.computer === true && setup.fogOfWar !== false,
+      });
       setGame((prev) => ({ play: { match }, resumed: false, number: (prev?.number ?? 0) + 1 }));
     });
   };

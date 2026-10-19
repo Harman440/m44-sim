@@ -79,6 +79,28 @@ describe("App menu and game flow", () => {
     expect(screen.getByText(/Reglas de prueba: dado de 8 caras a distancia/)).toBeInTheDocument();
   });
 
+  it("plays against the computer in fog of war unless it's switched off in Ajustes", async () => {
+    const savedFog = () => JSON.parse(localStorage.getItem("m44-sim:saved-match") ?? "null")?.fog;
+    const { unmount } = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
+    fireEvent.click(screen.getByRole("button", { name: "Contra el ordenador" }));
+    await waitFor(() => expect(savedFog()).toBe(true));
+    unmount();
+    localStorage.clear();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustes" }));
+    expect(screen.getByLabelText("Niebla de guerra")).toBeChecked();
+    fireEvent.click(screen.getByLabelText("Niebla de guerra"));
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+    fireEvent.click(screen.getByRole("button", { name: /^Forêt d'Écouves/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Aliados" }));
+    fireEvent.click(screen.getByRole("button", { name: "Contra el ordenador" }));
+    await waitFor(() => expect(savedFog()).toBe(false));
+  });
+
   it("opens the rule book from the menu and from the game's menu, keeping the game", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Reglamento" }));

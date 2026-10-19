@@ -61,12 +61,12 @@ export function playOut(
   brains: Record<Faction, Brain>,
   random: () => number,
   turns: number,
-  { computer = "Axis" }: { computer?: Faction } = {}
+  { computer = "Axis", fog = false }: { computer?: Faction; fog?: boolean } = {}
 ): PassAndPlayMatch {
   const match = new PassAndPlayMatch(
     scenario,
     { Allies: newSession(scenario, "Allies", random), Axis: newSession(scenario, "Axis", random) },
-    { computer }
+    { computer, fog }
   );
   // The computer's side acts second, as against a person
   const order = computer === "Axis" ? FACTIONS : [...FACTIONS].reverse();
