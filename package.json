@@ -27,6 +27,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
+    "test:core": "vitest run --project core",
+    "check": "tsc --noEmit && vitest run",
     "optimize-image": "node scripts/optimize-image.mjs",
     "card-art": "node scripts/card-art.mjs",
     "icons": "node scripts/generate-icons.mjs",

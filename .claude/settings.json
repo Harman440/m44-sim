@@ -7,5 +7,17 @@
       "Bash(npx vite *)",
       "Bash(git commit -q -m 'docs: install on the tablet from GitHub Pages *)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
   }
 }
