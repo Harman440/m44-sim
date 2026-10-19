@@ -12,8 +12,18 @@ describe("the app's board art", () => {
       hedgerow: ["official.webp"],
       hill: ["official.webp"],
       river: ["3-0.webp", "5-1.webp"],
-      town: ["official.webp"],
+      town: ["official.webp", ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `village-${n}.webp`)],
     });
+  });
+
+  it("paints a town with the tile picked for it", () => {
+    const tiles = { town: [{ row: 4, col: 4 }, { row: 4, col: 5 }] };
+    const picked = planMapArt(tiles, [{ row: 4, col: 4, tile: "village-6" }]);
+
+    expect(picked.map((hex) => "tile" in hex && hex.tile)[0]).toBe("town/village-6.webp");
+    expect(picked[1]).toEqual(planMapArt(tiles)[1]);
+    // A tile the library hasn't got is left to the hex
+    expect(planMapArt(tiles, [{ row: 4, col: 4, tile: "gone" }])).toEqual(planMapArt(tiles));
   });
 
   it.each(scenarios.map((s) => [s.id, s] as const))("puts %s's terrain on the same hexes as its painted art", (_id, scenario) => {

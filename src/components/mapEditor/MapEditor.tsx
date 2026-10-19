@@ -3,7 +3,7 @@ import type { PointerEvent } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import Board from "../Board";
 import BoardManager from "../../game-core/BoardManager";
-import { Position, Scenario, Tiles } from "../../types/scenario";
+import { PickedTile, Position, Scenario, Tiles } from "../../types/scenario";
 import { HexType } from "../../types/hex";
 import { UnitType } from "../../game-core/unit";
 import { positionKey } from "../../game-core/position";
@@ -124,13 +124,13 @@ const reducer = (history: DraftHistory, action: Action): DraftHistory => {
   }
 };
 
-/** The map's board art, drawn again when its terrain or size changes */
-function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize): string | undefined {
+/** The map's board art, drawn again when its terrain, its size or the tiles picked change */
+function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize, picked: PickedTile[] | undefined): string | undefined {
   const [art, setArt] = useState<string>();
   const shown = useRef<string>(undefined);
   useEffect(() => {
     let current = true;
-    drawBoardArt(tiles, { cols, rows }).then(
+    drawBoardArt(tiles, { cols, rows }, picked).then(
       (url) => {
         if (!current) return URL.revokeObjectURL(url);
         const before = shown.current;
@@ -143,7 +143,7 @@ function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize): string | undefine
     return () => {
       current = false;
     };
-  }, [tiles, cols, rows]);
+  }, [tiles, cols, rows, picked]);
   useEffect(
     () => () => {
       if (shown.current) URL.revokeObjectURL(shown.current);
@@ -188,7 +188,7 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const [sizeOpen, setSizeOpen] = useState(false);
   const { flash, flashInvalid, flashHexes } = useHexFlash();
   const size = boardSizeOf(draft);
-  const art = useBoardArt(draft.tiles, size);
+  const art = useBoardArt(draft.tiles, size, draft.pickedTiles);
   const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
   const counts = draftCounts(draft);
   const problems = useMemo(() => validateScenario(draft), [draft]);

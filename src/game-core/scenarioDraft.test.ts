@@ -37,6 +37,7 @@ import {
   setWire,
   startHistory,
   strokeOf,
+  pickedTileAt,
   terrainAt,
   toggleElite,
   toggleSandbags,
@@ -166,6 +167,20 @@ describe("editing", () => {
     expect(paintTerrain(forest, A, HexType.FOREST)).toBe(forest);
     expect(removeUnit(forest, A)).toBe(forest);
     expect(paintTerrain(forest, OFF, HexType.FOREST)).toBe(false);
+  });
+
+  it("keeps the tile picked for a town until the hex is painted with something else", () => {
+    const town = edit(empty(), (d) => paintTerrain(d, A, HexType.TOWN, "village-3"), (d) => paintTerrain(d, B, HexType.TOWN));
+
+    expect(town.tiles).toEqual({ town: [A, B] });
+    expect(town.pickedTiles).toEqual([{ ...A, tile: "village-3" }]);
+    expect(paintTerrain(town, A, HexType.TOWN, "village-3")).toBe(town);
+    expect(paintTerrain(town, A, HexType.TOWN)).toBe(town);
+    const other = edit(town, (d) => paintTerrain(d, A, HexType.TOWN, "official"));
+    expect(other.tiles).toBe(town.tiles);
+    expect(pickedTileAt(other, A)).toBe("official");
+    expect(edit(other, (d) => paintTerrain(d, A, HexType.FOREST))).not.toHaveProperty("pickedTiles");
+    expect(edit(other, (d) => clearHex(d, A))).not.toHaveProperty("pickedTiles");
   });
 
   it("takes the unit and the wire off a hex painted with water", () => {
@@ -371,6 +386,21 @@ describe("strokes", () => {
     expect(edit(forest, (d) => clear.apply(d, A), (d) => clear.apply(d, B)).tiles).toEqual({});
   });
 
+  it("gives towns a picked tile across the stroke, or clears them when it starts on a town with that tile", () => {
+    const tool = { kind: "terrain", type: HexType.TOWN, tile: "village-1" } as const;
+    const towns = edit(empty(), (d) => paintTerrain(d, A, HexType.TOWN), (d) => paintTerrain(d, B, HexType.TOWN, "village-2"));
+    const repick = strokeOf(tool, towns, A);
+    const picked = edit(towns, (d) => repick.apply(d, A), (d) => repick.apply(d, B));
+
+    expect(picked.tiles).toEqual(towns.tiles);
+    expect([pickedTileAt(picked, A), pickedTileAt(picked, B)]).toEqual(["village-1", "village-1"]);
+    const clear = strokeOf(tool, picked, A);
+    expect(edit(picked, (d) => clear.apply(d, A), (d) => clear.apply(d, B))).toMatchObject({ tiles: {} });
+    // The town tool with no tile of its own clears a town whatever its tile
+    const plain = strokeOf({ kind: "terrain", type: HexType.TOWN }, picked, A);
+    expect(edit(picked, (d) => plain.apply(d, A)).tiles).toEqual({ town: [B] });
+  });
+
   it("lays or lifts wire across the stroke, as on its first hex", () => {
     const lay = strokeOf({ kind: "wire" }, empty(), A);
     const wired = edit(empty(), (d) => lay.apply(d, A), (d) => lay.apply(d, B));
@@ -435,6 +465,7 @@ describe("resizeBoard", () => {
     ...newDraft("map-test"),
     tiles: { [HexType.FOREST]: [{ row: 0, col: 0 }], [HexType.TOWN]: [{ row: 8, col: 12 }] },
     units: { allies: { [UnitType.INFANTRY]: [{ row: 8, col: 0 }] }, axis: { [UnitType.TANK]: [{ row: 0, col: 12 }] } },
+    pickedTiles: [{ row: 8, col: 12, tile: "village-5" }],
     wire: [{ row: 4, col: 6 }],
     sandbags: [{ row: 8, col: 0 }],
     elite: [{ row: 0, col: 12 }],
@@ -463,6 +494,7 @@ describe("resizeBoard", () => {
     expect(grown.wire).toEqual([{ row: 4, col: 7 }]);
     expect(grown.sandbags).toEqual([{ row: 8, col: 1 }]);
     expect(grown.elite).toEqual([{ row: 0, col: 13 }]);
+    expect(grown.pickedTiles).toEqual([{ row: 8, col: 13, tile: "village-5" }]);
     expect(grown.victory?.objectives?.[0]?.hexes).toEqual([{ row: 8, col: 13 }]);
     // The new column is forest, one hex in every row
     const forest = grown.tiles[HexType.FOREST] ?? [];

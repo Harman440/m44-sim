@@ -118,6 +118,25 @@ describe("MapEditor", () => {
     expect(savedDraft().tiles).toEqual({});
   });
 
+  it("picks a town's tile, or leaves it to the hex", () => {
+    render(<Editor />);
+    expect(screen.queryByRole("button", { name: "Al azar" })).not.toBeInTheDocument();
+
+    tool("Pueblo");
+    tap("4-4");
+    expect(screen.getByRole("button", { name: "Al azar" })).toHaveAttribute("aria-pressed", "true");
+    tool("Pueblo (loseta 3)");
+    tap("4-5");
+    tap("4-4");
+
+    expect(screen.getByRole("button", { name: "Pueblo" })).toHaveAttribute("aria-pressed", "true");
+    expect(savedDraft().tiles).toEqual({ town: [{ row: 4, col: 4 }, { row: 4, col: 5 }] });
+    expect(savedDraft().pickedTiles).toEqual([
+      { row: 4, col: 5, tile: "village-2" },
+      { row: 4, col: 4, tile: "village-2" },
+    ]);
+  });
+
   it("puts each side's objectives on the map, and sets the victory in the scenario's details", async () => {
     render(<Editor />);
     tool("Objetivo (Aliados)");

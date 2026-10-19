@@ -119,6 +119,13 @@ export const bridgeAngle = ([a = 0, b = 3]) => {
   return (Math.atan2(mb.y - ma.y, mb.x - ma.x) * 180) / Math.PI;
 };
 
+/**
+ * The tiles picked for hexes, by "row-col", as planBoard takes them
+ * @param {{ row: number, col: number, tile: string }[] | undefined} pickedTiles
+ * @returns {Record<string, string>}
+ */
+export const pickedByHex = (pickedTiles) => Object.fromEntries((pickedTiles ?? []).map(({ row, col, tile }) => [`${row}-${col}`, tile]));
+
 /** @param {string} type */
 const isRiver = (type) => type === "river" || type === "bridge";
 
@@ -212,13 +219,15 @@ export function canPaintRivers(tiles, library) {
  * The art for each terrain hex, in the order it's laid on the board.
  * `drawn`: terrain to draw in code (DRAWABLE's keys); `separateHills`: each hill on its own tile
  * instead of joined into ridges; `strict`: throw at a river that can't be painted or drawn as it is
- * (`npm run board`) instead of making do (the app)
+ * (`npm run board`) instead of making do (the app); `picked`: the tile picked for a hex (in the map
+ * editor, Scenario.pickedTiles), its file's name without ".webp" by "row-col", taken when its
+ * terrain's folder has it
  * @param {Terrain} tiles
  * @param {TileLibrary} library
- * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean }} [options]
+ * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, picked?: Record<string, string> }} [options]
  * @returns {HexArt[]}
  */
-export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true } = {}) {
+export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, picked = {} } = {}) {
   const drawn = new Set([
     ...ALWAYS_DRAWN,
     ...drawnChoice.flatMap((choice) => {
@@ -255,7 +264,8 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       if (type === "bridge") plan.push({ key, type, art: "bridgePiece", edges });
     } else {
       const choices = library[type] ?? [];
-      const tile = `${type}/${choices[pickFor(key, 1, choices.length)]}`;
+      const pick = `${picked[key]}.webp`;
+      const tile = `${type}/${choices.includes(pick) ? pick : choices[pickFor(key, 1, choices.length)]}`;
       const ridge = type === "hill" && !separateHills ? edgesTo(key, ["hill"]) : [];
       const joins = JOINED_TERRAIN.includes(type) ? edgesTo(key, [type]) : [];
       if (ridge.some(Boolean)) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });

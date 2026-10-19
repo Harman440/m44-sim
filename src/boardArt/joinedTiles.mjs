@@ -61,11 +61,100 @@ const sample = ({ data, width, height, channels }, x, y, out) => {
 };
 
 /**
- * The town tile's houses: each a mask over the tile (1 on the house, its outline and the shadow
- * under it), found by their blue-grey roofs and dark outlines
- * @param {Pixels} tile
+ * A town tile's houses drawn round by hand, for a tile whose roofs its colours can't tell from the
+ * ground (light roofs on white cobbles, red ones on brown earth): each house's outline as points
+ * in the tile's pixels, the tile being `size` (its library image's width and height). Kept beside
+ * the tile as <tile>.json
+ * @typedef {{ size: [number, number], houses: [number, number][][] }} HouseOutlines
  */
-function findHouses(tile) {
+
+/**
+ * Grow a mask by `radius` pixels (or shrink it, `grow` false), on a W × H image
+ * @param {Uint8Array} mask @param {number} W @param {number} H @param {number} radius @param {boolean} grow
+ */
+const morph = (mask, W, H, radius, grow) => {
+  const out = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let v = grow ? 0 : 1;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const [xx, yy] = [x + dx, y + dy];
+          const s = xx < 0 || yy < 0 || xx >= W || yy >= H ? 0 : /** @type {number} */ (mask[yy * W + xx]);
+          v = grow ? v | s : v & s;
+        }
+      }
+      out[y * W + x] = v;
+    }
+  }
+  return out;
+};
+
+/**
+ * A house from its mask over the tile: its middle, its size and its outline points from the
+ * middle, for placing it
+ * @param {Uint8Array} mask @param {number} W @param {number} k
+ */
+const houseFrom = (mask, W, k) => {
+  let [sx, sy, n] = [0, 0, 0];
+  for (let p = 0; p < mask.length; p++) {
+    if (mask[p]) {
+      sx += p % W;
+      sy += (p / W) | 0;
+      n++;
+    }
+  }
+  const [cx, cy] = [sx / n, sy / n];
+  /** @type {[number, number][]} */
+  const points = [];
+  for (let p = 0; p < mask.length; p++) if (mask[p] && (p % W) % (2 * k) === 0 && ((p / W) | 0) % (2 * k) === 0) points.push([(p % W) - cx, ((p / W) | 0) - cy]);
+  return { mask: Float32Array.from(mask), cx, cy, size: n, points };
+};
+
+/**
+ * The houses drawn round in `outlines`, on the tile read at any size: each outline filled and
+ * grown by the house's own dark outline
+ * @param {Pixels} tile @param {HouseOutlines} outlines
+ */
+function outlinedHouses({ data, width: W, height: H, channels: C }, { size: [OW, OH], houses: shapes }) {
+  const k = Math.max(1, Math.round(H / 149));
+  const [fx, fy] = [W / OW, H / OH];
+  const roofs = new Float32Array(W * H);
+  const houses = shapes
+    .map((shape) => {
+      const poly = shape.map(([x, y]) => [x * fx, y * fy]);
+      const filled = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          // Even-odd, at the pixel's middle
+          let inside = false;
+          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const [xi = 0, yi = 0] = /** @type {number[]} */ (poly[i]);
+            const [xj = 0, yj = 0] = /** @type {number[]} */ (poly[j]);
+            if (yi > y + 0.5 !== yj > y + 0.5 && x + 0.5 < ((xj - xi) * (y + 0.5 - yi)) / (yj - yi) + xi) inside = !inside;
+          }
+          // Only what the tile has: not the corners outside its hex
+          if (inside && (C < 4 || /** @type {number} */ (data[C * (y * W + x) + 3]) > 200)) filled[y * W + x] = 1;
+        }
+      }
+      const mask = morph(filled, W, H, k, true);
+      if (C === 4) for (let p = 0; p < W * H; p++) if (/** @type {number} */ (data[4 * p + 3]) <= 200) mask[p] = 0;
+      for (let p = 0; p < W * H; p++) if (mask[p]) roofs[p] = 1;
+      return houseFrom(mask, W, k);
+    })
+    .sort((a, b) => b.size - a.size);
+  return { houses, roofs };
+}
+
+/**
+ * The town tile's houses: each a mask over the tile (1 on the house, its outline and the shadow
+ * under it), drawn round in `outlines` when the tile has them, or found by their blue-grey roofs
+ * and dark outlines
+ * @param {Pixels} tile
+ * @param {HouseOutlines} [outlines]
+ */
+export function findHouses(tile, outlines) {
+  if (outlines) return outlinedHouses(tile, outlines);
   const { data, width: W, height: H, channels: C } = tile;
   const R = H / 2;
   const k = Math.max(1, Math.round(H / 149));
@@ -80,26 +169,8 @@ function findHouses(tile) {
       if (alpha > 200 && inside && ((b - r > 8 && b >= g - 6) || (lum < 75 && g - b < 35))) roof[y * W + x] = 1;
     }
   }
-  /** @param {Uint8Array} mask @param {number} radius @param {boolean} grow */
-  const morph = (mask, radius, grow) => {
-    const out = new Uint8Array(W * H);
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        let v = grow ? 0 : 1;
-        for (let dy = -radius; dy <= radius; dy++) {
-          for (let dx = -radius; dx <= radius; dx++) {
-            const [xx, yy] = [x + dx, y + dy];
-            const s = xx < 0 || yy < 0 || xx >= W || yy >= H ? 0 : /** @type {number} */ (mask[yy * W + xx]);
-            v = grow ? v | s : v & s;
-          }
-        }
-        out[y * W + x] = v;
-      }
-    }
-    return out;
-  };
   // Closed, so each house is one piece with its outline
-  const closed = morph(morph(roof, k, true), k, false);
+  const closed = morph(morph(roof, W, H, k, true), W, H, k, false);
   const label = new Int32Array(W * H).fill(-1);
   /** @type {number[][]} */
   const pieces = [];
@@ -137,21 +208,7 @@ function findHouses(tile) {
           stack.push(q);
         }
       }
-      const mask = morph(outside.map((v) => 1 - v), k, true);
-      let [sx, sy, n] = [0, 0, 0];
-      for (let p = 0; p < W * H; p++) {
-        if (mask[p]) {
-          sx += p % W;
-          sy += (p / W) | 0;
-          n++;
-        }
-      }
-      const [cx, cy] = [sx / n, sy / n];
-      // The house's outline points, from its middle, for placing it
-      /** @type {[number, number][]} */
-      const points = [];
-      for (let p = 0; p < W * H; p++) if (mask[p] && (p % W) % (2 * k) === 0 && ((p / W) | 0) % (2 * k) === 0) points.push([(p % W) - cx, ((p / W) | 0) - cy]);
-      return { mask: Float32Array.from(mask), cx, cy, size: n, points };
+      return houseFrom(morph(outside.map((v) => 1 - v), W, H, k, true), W, k);
     })
     .sort((a, b) => b.size - a.size);
   // Everything that looked like a house, the bits too small to be one included, to clear off the ground
@@ -273,7 +330,8 @@ const area = (layout) => layout.reduce((t, h) => t + h.size * h.scale * h.scale,
 /**
  * The houses laid out on the tile, in its own pixels: largest first, each turned any way and put
  * where it clears the others and stays off the hex's edges; one that won't fit tries again a
- * little smaller, and is left out after that
+ * little smaller, and is left out after that. The largest, when it won't fit anywhere (a church,
+ * a farm's barn), stays where it is on the tile, so the tile keeps its main building
  * @param {House[]} houses @param {number} W @param {number} H @param {() => number} rand
  * @param {Uint8Array} inside where a house may go on an empty tile: 1 off the hex's edges
  * @returns {Placed[]}
@@ -285,31 +343,35 @@ function layHouses(houses, W, H, rand, inside) {
   const gap = 2 * Math.max(1, Math.round(OR / 40));
   /** @type {Placed[]} */
   const placed = [];
-  for (const house of houses) {
+  /** @param {House} house @param {number} x @param {number} y @param {number} angle @param {number} scale */
+  const place = (house, x, y, angle, scale) => {
+    const [cos, sin] = [scale * Math.cos(angle), scale * Math.sin(angle)];
+    for (const [u, v] of house.points) {
+      const [sx, sy] = [Math.round(x + u * cos - v * sin), Math.round(y + u * sin + v * cos)];
+      for (let dy = -gap; dy <= gap; dy++) {
+        for (let dx = -gap; dx <= gap; dx++) {
+          const [tx, ty] = [sx + dx, sy + dy];
+          if (tx >= 0 && ty >= 0 && tx < W && ty < H) free[ty * W + tx] = 0;
+        }
+      }
+    }
+    placed.push({ ...house, x, y, cos: Math.cos(angle), sin: Math.sin(angle), scale });
+  };
+  for (const [i, house] of houses.entries()) {
     for (let attempt = 0; attempt < 300; attempt++) {
       const scale = attempt < 200 ? 1 : 0.85;
       const angle = rand() * 2 * Math.PI, dist = Math.sqrt(rand()) * 0.5 * OR, at = rand() * 2 * Math.PI;
       const [x, y] = [W / 2 + dist * Math.cos(at), H / 2 + dist * Math.sin(at)];
       const [cos, sin] = [scale * Math.cos(angle), scale * Math.sin(angle)];
-      /** @param {[number, number]} point */
-      const spot = ([u, v]) => [Math.round(x + u * cos - v * sin), Math.round(y + u * sin + v * cos)];
-      const fits = house.points.every((point) => {
-        const [sx = 0, sy = 0] = spot(point);
+      const fits = house.points.every(([u, v]) => {
+        const [sx, sy] = [Math.round(x + u * cos - v * sin), Math.round(y + u * sin + v * cos)];
         return sx >= 0 && sy >= 0 && sx < W && sy < H && free[sy * W + sx];
       });
       if (!fits) continue;
-      for (const point of house.points) {
-        const [sx = 0, sy = 0] = spot(point);
-        for (let dy = -gap; dy <= gap; dy++) {
-          for (let dx = -gap; dx <= gap; dx++) {
-            const [tx, ty] = [sx + dx, sy + dy];
-            if (tx >= 0 && ty >= 0 && tx < W && ty < H) free[ty * W + tx] = 0;
-          }
-        }
-      }
-      placed.push({ ...house, x, y, cos: Math.cos(angle), sin: Math.sin(angle), scale });
+      place(house, x, y, angle, scale);
       break;
     }
+    if (i === 0 && !placed.length) place(house, house.cx, house.cy, 0, 1);
   }
   return placed;
 }
@@ -323,12 +385,13 @@ function layHouses(houses, W, H, rand, inside) {
  * @param {number} tileWidth
  * @param {number} tileHeight
  * @param {number} [scale]
+ * @param {HouseOutlines} [outlines] a town tile's houses drawn round by hand (<tile>.json)
  * @returns {JoinedMaker}
  */
-export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
+export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, outlines = undefined) {
   const TW = scale * tileWidth, TH = scale * tileHeight, TR = TH / 2;
   const OR = tile.height / 2;
-  const { houses, roofs } = type === "town" ? findHouses(tile) : { houses: [], roofs: new Float32Array() };
+  const { houses, roofs } = type === "town" ? findHouses(tile, outlines) : { houses: [], roofs: new Float32Array() };
   const ground = type === "town" ? emptyTown(tile, [roofs, ...houses.map((h) => h.mask)]) : tile;
   const trees = type === "forest" ? findCrowns(tile, 0.24) : [];
   const inside = new Uint8Array(houses.length ? tile.width * tile.height : 0);
@@ -399,6 +462,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
 
     const out = new Uint8Array(TW * TH * 4);
     const a = [0, 0, 0, 0], b = [0, 0, 0, 0], m = [0];
+    /** A house's mask at a point of the tile: nothing off the tile @param {number} i @param {number} u @param {number} v */
+    const maskAt = (i, u, v) => (u < 0 || v < 0 || u > tile.width - 1 || v > tile.height - 1 ? 0 : (sample(/** @type {Pixels} */ (masks[i]), u, v, m)[0] ?? 0));
     /** The tile (its houses re-laid) at a point in hex radii, in the board's orientation @param {number} x @param {number} y */
     const tileAt = (x, y) => {
       const [u, v] = [(x * ct - y * st) * OR + tile.width / 2, (x * st + y * ct) * OR + tile.height / 2];
@@ -407,14 +472,14 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2) {
       let shade = 1;
       for (const [i, h] of placed.entries()) {
         const [du, dv] = [u - h.x - shadowShift, v - h.y - shadowShift];
-        const s = sample(/** @type {Pixels} */ (masks[i]), h.cx + (du * h.cos + dv * h.sin) / h.scale, h.cy + (dv * h.cos - du * h.sin) / h.scale, m)[0] ?? 0;
+        const s = maskAt(i, h.cx + (du * h.cos + dv * h.sin) / h.scale, h.cy + (dv * h.cos - du * h.sin) / h.scale);
         shade *= 1 - 0.4 * s;
       }
       for (let c = 0; c < 3; c++) a[c] = /** @type {number} */ (a[c]) * shade;
       for (const [i, h] of placed.entries()) {
         const [du, dv] = [u - h.x, v - h.y];
         const [hu, hv] = [h.cx + (du * h.cos + dv * h.sin) / h.scale, h.cy + (dv * h.cos - du * h.sin) / h.scale];
-        const w = sample(/** @type {Pixels} */ (masks[i]), hu, hv, m)[0] ?? 0;
+        const w = maskAt(i, hu, hv);
         if (w <= 0) continue;
         sample(tile, hu, hv, b);
         for (let c = 0; c < 3; c++) a[c] = /** @type {number} */ (a[c]) * (1 - w) + /** @type {number} */ (b[c]) * w;

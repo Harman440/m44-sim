@@ -17,13 +17,14 @@
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
 // A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
 // Forests and hedgerows next to their own kind blend into it, a forest's trees growing over the
-// edge, and every town lays its tile's houses out again (src/boardArt/joinedTiles.mjs).
+// edge, and every town lays its tile's houses out again (src/boardArt/joinedTiles.mjs): found by
+// their colours on the official tile, and drawn round by hand in <tile>.json beside the others.
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
 // hedgerows when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes, and a lake joins the lake hexes next to it. The frame round the grid is put back
 // over the new hexes.
 import sharp from "sharp";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import {
   APP_ART_HEIGHT,
   ART_HEIGHT,
@@ -114,7 +115,10 @@ const joinedTile = async (hex, file) => {
     const { width, height } = await sharp(file).metadata();
     const [w2, h2] = [width * 2, height * 2];
     const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
-    tileMakers.set(file, joinedTileMaker(hex.type, { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
+    // A town tile's houses drawn round by hand, beside it
+    const outlinesFile = file.replace(/\.webp$/, ".json");
+    const outlines = existsSync(outlinesFile) ? JSON.parse(readFileSync(outlinesFile, "utf8")) : undefined;
+    tileMakers.set(file, joinedTileMaker(hex.type, { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight, 2, outlines));
   }
   const pixels = tileMakers.get(file)(hex);
   const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })

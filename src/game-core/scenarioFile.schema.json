@@ -76,6 +76,20 @@
     "wire": { "$ref": "#/definitions/positions", "description": "Hexes with barbed wire (not on water)" },
     "sandbags": { "$ref": "#/definitions/positions", "description": "Hexes whose unit starts with sandbags (either side's)" },
     "elite": { "$ref": "#/definitions/positions", "description": "Hexes whose unit starts as elite (either side's)" },
+    "pickedTiles": {
+      "description": "The painted tiles picked for some hexes (towns) in the map editor: each tile is a file's name, without .webp, in its terrain's folder of the tile library (scripts/board-art/tiles/town/). The other hexes' tiles are picked by the hex",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["row", "col", "tile"],
+        "properties": {
+          "row": { "$ref": "#/definitions/position/properties/row" },
+          "col": { "$ref": "#/definitions/position/properties/col" },
+          "tile": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+        }
+      }
+    },
     "extraDraws": {
       "description": "One side draws 2 command cards instead of 1 after each of its first turns",
       "type": "object",

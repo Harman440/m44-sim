@@ -11,6 +11,15 @@ export interface Position {
 }
 
 export type Tiles = Partial<Record<HexType, Position[]>>;
+
+/**
+ * A hex whose painted tile was picked in the map editor: `tile` is the file's name, without
+ * ".webp", in its terrain's folder of the tile library (scripts/board-art/tiles/town/village-3.webp
+ * is "village-3"). The art of a hex left out, or of a tile the library hasn't got, is picked by the hex
+ */
+export interface PickedTile extends Position {
+  tile: string;
+}
 /*Keys must be valid unit types ("infantry" | "artillery" | "tank").
 But each key is optional (Partial).*/
 export type UnitGroup = Partial<Record<UnitType, Position[]>>;
@@ -39,6 +48,8 @@ export interface Scenario {
   /** The side that normally starts; it plays one extra turn before the defender joins in */
   attacker: Faction;
   tiles: Tiles;
+  /** The painted tiles picked for some hexes (towns) in the map editor; the others are picked by the hex */
+  pickedTiles?: PickedTile[];
   units: Factions;
   /**
    * Units one side drops on the table before the game starts (Sainte-Mère-Église); that
