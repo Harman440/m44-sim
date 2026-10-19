@@ -117,7 +117,7 @@ const MESSAGES = {
   airPower: { es: "Las salidas aéreas deben ser 0 o más", en: "Air sorties must be 0 or more" },
   victoryMedals: { es: "La victoria necesita 1 medalla o más", en: "Victory needs 1 medal or more" },
   objectiveOnWater: { es: "Un objetivo no puede estar en el agua", en: "An objective can't be on water" },
-  objectiveTwice: { es: "Una casilla es objetivo dos veces", en: "A hex is an objective twice" },
+  objectiveTwice: { es: "Una casilla es objetivo dos veces para el mismo bando", en: "A hex is an objective twice for the same side" },
 } satisfies Record<string, Localized | ((...args: never[]) => Localized) | Record<Faction, Localized>>;
 
 const isOnBoard = ({ row, col }: Position, { rows, cols } = BOARD_SIZES.standard): boolean =>
@@ -165,7 +165,10 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   const wire = scenario.wire ?? [];
   const sandbags = scenario.sandbags ?? [];
   const elite = scenario.elite ?? [];
-  const objectives = (scenario.victory?.objectives ?? []).flatMap((objective) => objective.hexes);
+  const objectiveHexes = (scenario.victory?.objectives ?? []).flatMap((objective) =>
+    objective.hexes.map((hex) => ({ hex, faction: objective.faction }))
+  );
+  const objectives = objectiveHexes.map(({ hex }) => hex);
   const everyPosition = [
     ...Object.values(scenario.tiles).flatMap((positions) => positions ?? []),
     ...units,
@@ -183,9 +186,13 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   atHexes(MESSAGES.sandbagsWithoutUnit, sandbags.filter((position) => !hasUnit(position)));
   atHexes(MESSAGES.eliteWithoutUnit, elite.filter((position) => !hasUnit(position)));
   atHexes(MESSAGES.objectiveOnWater, objectives.filter((position) => isWater(terrainAt(position))));
+  // A hex may be an objective for both sides (Sainte-Mère-Église), once each
+  const objectiveKey = ({ hex, faction }: { hex: Position; faction: Faction }) => `${faction}:${positionKey(hex)}`;
   atHexes(
     MESSAGES.objectiveTwice,
-    objectives.filter((position, i) => objectives.findIndex((other) => positionKey(other) === positionKey(position)) !== i)
+    objectiveHexes
+      .filter((objective, i) => objectiveHexes.findIndex((other) => objectiveKey(other) === objectiveKey(objective)) !== i)
+      .map(({ hex }) => hex)
   );
 
   for (const [side, faction] of SIDES) {

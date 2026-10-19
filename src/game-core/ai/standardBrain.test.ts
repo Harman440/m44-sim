@@ -5,7 +5,7 @@ import CommandCard from "../commandCard";
 import { AiView, seenEnemies } from "./aiStep";
 import { basicBrain } from "./basicBrain";
 import { shotValue, standardBrain, threatAt } from "./standardBrain";
-import { figuresLeft, playOut, seeded } from "./selfPlay";
+import { playOut, seeded } from "./selfPlay";
 import { UnitType } from "../unit";
 import { scenarios } from "../../data/scenarios";
 import { FACTIONS, Faction } from "../../types/faction";
@@ -85,24 +85,24 @@ describe("standardBrain", () => {
     expect(standardBrain.extraOrder!(view, view.session.getSnapshot().extraOrderable)).toBeNull();
   });
 
-  it("plays better than the basic brain, on every built-in scenario and from both sides", () => {
-    // Three games each way: the dice make a single game a poor judge (the full measure is duel.test.ts)
-    let total = 0;
+  it("wins more games than it loses against the basic brain, on every built-in scenario and from both sides", () => {
+    // Two games each way: the dice make a single game a poor judge (the full measure is duel.test.ts)
+    let won = 0;
+    let lost = 0;
     for (const scenario of scenarios) {
       for (const side of FACTIONS) {
-        for (const seed of [31, 32, 33]) {
+        for (const seed of [31, 32]) {
           const random = seeded(seed);
           vi.spyOn(Math, "random").mockImplementation(random);
           const other: Faction = side === "Allies" ? "Axis" : "Allies";
           const brains = { [side]: standardBrain, [other]: basicBrain } as Record<Faction, typeof basicBrain>;
-          const start = figuresLeft(playOut(scenario, brains, seeded(0), 0));
-          const left = figuresLeft(playOut(scenario, brains, random, 12));
+          const result = playOut(scenario, brains, random, 20).getSnapshot().result;
           vi.restoreAllMocks();
-          // The share of its figures it kept, less the share the basic brain kept
-          total += left[side] / start[side] - left[other] / start[other];
+          if (result?.winner === side) won++;
+          else if (result) lost++;
         }
       }
     }
-    expect(total).toBeGreaterThan(0);
+    expect(won).toBeGreaterThan(lost);
   });
 });

@@ -144,14 +144,14 @@ describe("validateScenario", () => {
     ]);
   });
 
-  it("checks the victory: at least a medal, and objectives on dry land, each hex once", () => {
+  it("checks the victory: at least a medal, and objectives on dry land, each hex once a side", () => {
     const name = { es: "Puente", en: "Bridge" };
     const problems = problemsWith({
       victory: {
         medals: 0,
         objectives: [
           { faction: "Allies", name, hexes: [{ row: 4, col: 6 }, { row: 2, col: 2 }] },
-          { faction: "Axis", name, hexes: [{ row: 2, col: 2 }] },
+          { faction: "Allies", name, hexes: [{ row: 2, col: 2 }] },
         ],
       },
     });
@@ -160,6 +160,11 @@ describe("validateScenario", () => {
     );
     expect(problems.find((p) => /water/.test(p.message.en))!.positions).toEqual([{ row: 4, col: 6 }]);
     expect(() => parseScenario(json({ victory: { medals: 4, objectives: [{ faction: "Allies", hexes: [] }] } }))).toThrow();
+    // One hex can be both sides' objective
+    const both = problemsWith({
+      victory: { medals: 5, objectives: [{ faction: "Allies", name, hexes: [{ row: 2, col: 2 }] }, { faction: "Axis", name, hexes: [{ row: 2, col: 2 }] }] },
+    });
+    expect(both).toEqual([]);
   });
 
   it("knows odd rows have one hex less", () => {

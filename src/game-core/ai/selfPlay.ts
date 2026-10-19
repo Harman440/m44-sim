@@ -60,17 +60,20 @@ export function playOut(
   scenario: Scenario,
   brains: Record<Faction, Brain>,
   random: () => number,
-  turns: number
+  turns: number,
+  { computer = "Axis" }: { computer?: Faction } = {}
 ): PassAndPlayMatch {
   const match = new PassAndPlayMatch(
     scenario,
     { Allies: newSession(scenario, "Allies", random), Axis: newSession(scenario, "Axis", random) },
-    { computer: "Axis" }
+    { computer }
   );
+  // The computer's side acts second, as against a person
+  const order = computer === "Axis" ? FACTIONS : [...FACTIONS].reverse();
   let steps = 0;
   while (Math.min(...FACTIONS.map((side) => match.sessions[side].getSnapshot().turn)) <= turns) {
     if (unitsLeft(match).includes(0) || match.getSnapshot().result) break;
-    const moved = FACTIONS.some((side) => aiStep(match, side, brains[side], random)) || sharedStep(match);
+    const moved = order.some((side) => aiStep(match, side, brains[side], random)) || sharedStep(match);
     if (!moved) {
       const phases = FACTIONS.map((side) => {
         const game = match.sessions[side].getSnapshot();

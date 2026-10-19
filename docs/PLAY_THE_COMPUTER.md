@@ -69,7 +69,7 @@ Each idea is a brain change with a test, measured by playing the new brain again
 - [x] Supplies: buy extra orders (`Brain.extraOrder`, after the card's orders) for the units whose best move fires (in the duel it ends with a supply or two where the basic brain has 30 or more)
 - [x] Supplies: a combat card instead of 2 supplies while the hand has fewer than two cards it knows how to play; with a full hand it discards a card it doesn't know first (before this, its hand filled with cards it never played)
 - [x] Objectives, a first go: a move ending on one of its side's objective hexes is worth more (`OWN_OBJECTIVE`), and on one of the enemy's a little (`ENEMY_OBJECTIVE`: the enemy can't hold it)
-- [ ] Play to win: the brain was tuned to keep its own figures (the duel's score), which makes it cautious; with medals the duel should count wins, and the brain may need to press harder (few computer-against-computer games reach a winner in 30 turns)
+- [x] Play to win (2026-10-19): the brain was tuned to keep its own figures, which made it cautious: games against itself seldom ended. The duel now counts games won (`duel.test.ts`, 20 turns), and the weights are settings (`BrainWeights`, `makeStandardBrain`; `AI_TUNE=1` searches them). The standard brain now fears the enemy's fire a quarter as much (threat 0.5, was 2), closes in faster (approach 0.35, was 0.15, and only for a unit with no shot from the hex, so artillery in range stays) and makes for the objectives (0.15 a hex). It beat the basic brain 35–13 (none of 48 undecided) and the cautious weights 24–14 (10 undecided); against itself every game ends, in 7 to 16 turns
 - [ ] **Decide:** levels to pick in the menu (Fácil, Normal…)
 
 ## Decisions

@@ -132,12 +132,13 @@ const builtIns: Scenario[] = [
     // guns only for the Axis (the player's ruling)
     bigGuns: ['Axis'],
     paradrop: { faction: 'Allies', unitType: UnitType.INFANTRY, units: 4 },
-    // The house victory (the player's ruling, 2026-10-19): 4 medals; each of the town's 3 hexes a
-    // medal for the Allies while they hold it
+    // The house victory (the player's ruling, 2026-10-19): 5 medals; the town's bottom-left hex a
+    // medal for whichever side holds it
     victory: {
-      medals: 4,
+      medals: 5,
       objectives: [
-        { faction: 'Allies', name: same('Sainte-Mère-Église'), hexes: [{ row: 3, col: 6 }, { row: 4, col: 6 }, { row: 4, col: 7 }] },
+        { faction: 'Allies', name: same('Sainte-Mère-Église'), hexes: [{ row: 4, col: 6 }] },
+        { faction: 'Axis', name: same('Sainte-Mère-Église'), hexes: [{ row: 4, col: 6 }] },
       ],
     },
     tiles: sainteMereEgliseTiles as Tiles,

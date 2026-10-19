@@ -232,14 +232,18 @@ function Board({
    * Pass and play: the objective hexes, a medal in the colour of the side that scores each, solid
    * while that side holds it (at the end of the last turn). Their positions are in the Allies' view
    */
-  const renderObjectives = () =>
-    (victory?.objectives ?? []).flatMap((objective) =>
+  const renderObjectives = () => {
+    const objectives = victory?.objectives ?? [];
+    // A hex that's both sides' objective has both medals, side by side
+    const shared = (hex: Position) => new Set(objectives.filter((o) => includesPosition(o.hexes, hex)).map((o) => o.faction)).size > 1;
+    return objectives.flatMap((objective) =>
       objective.hexes.map((hex) => {
         const position = faction === 'Axis' ? turnedRound(hex, boardWidth, boardHeight) : hex;
         const { x, y } = geometry.hexCenter(position);
         // At the top of the hex, over the edge of a unit's token
         const r = hexSize * 0.3;
-        const cx = x;
+        const offset = shared(hex) ? (objective.faction === viewSide ? -1 : 1) * r * 1.1 : 0;
+        const cx = x + offset;
         const cy = y - hexSize * 0.66;
         const held = includesPosition(victory!.held[objective.faction], hex);
         const id = `objective-${objective.faction}-${positionKey(hex)}`;
@@ -260,6 +264,7 @@ function Board({
         );
       })
     );
+  };
 
   const renderMarkers = () =>
     markers.map((position, i) => {
