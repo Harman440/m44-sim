@@ -59,6 +59,23 @@ describe("planBoard", () => {
     expect(planBoard(hills, LIBRARY, { separateHills: true }).map((hex) => hex.art)).toEqual(["painted", "painted", "painted"]);
   });
 
+  it("blends forests and hedgerows into their own kind, and lays every town's houses out again", () => {
+    const plan = planBoard({ forest: [p(4, 4), p(4, 5), p(0, 0)], hedgerow: [p(6, 6), p(6, 7)], town: [p(2, 2)] }, LIBRARY);
+
+    expect(plan.map((hex) => [hex.key, hex.art])).toEqual([
+      ["4-4", "joined"],
+      ["4-5", "joined"],
+      ["0-0", "painted"],
+      ["6-6", "joined"],
+      ["6-7", "joined"],
+      ["2-2", "joined"],
+    ]);
+    expect(at(plan, "4-5")[0]).toMatchObject({ tile: "forest/official.webp", open: [false, false, false, true, false, false] });
+    // A forest beside a hedgerow is still on its own
+    expect(at(planBoard({ forest: [p(4, 4)], hedgerow: [p(4, 5)] }, LIBRARY), "4-4")[0]).toMatchObject({ art: "painted" });
+    expect(at(plan, "2-2")[0]).toMatchObject({ open: [false, false, false, false, false, false] });
+  });
+
   it("turns a river tile to join the river's edges, and lays a bridge across it", () => {
     // West to east along row 4, the bridge in the middle
     const plan = planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY);

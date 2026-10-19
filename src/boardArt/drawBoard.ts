@@ -1,7 +1,9 @@
 // boardArt/drawBoard.ts
 // A board's art drawn in the browser, for a map that has no painted art (one made in the map
 // editor): the empty board, the art boardPlan.mjs plans for each terrain hex, as `npm run board`
-// does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs), but
+// does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs;
+// forests and hedgerows blended into their own kind and towns' houses laid out again,
+// joinedTiles.mjs), but
 // with rivers painted only when the library has a tile for every bend (drawn otherwise), and the
 // board's frame put back on top.
 // It's laid out like the painted art, so its URL goes straight into Scenario.image.
@@ -25,9 +27,11 @@ import {
   planBoard,
 } from "./boardPlan.mjs";
 import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../game-core/boardSize";
-import type { DrawnHex, HexArt, RidgeHex } from "./boardPlan.mjs";
+import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
+import { joinedTileMaker } from "./joinedTiles.mjs";
+import type { JoinedMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
 import grassUrl from "../../scripts/board-art/textures/grass.webp";
@@ -133,10 +137,34 @@ const ridgeTile = (hex: RidgeHex, grid: ReturnType<typeof artGrid>) => {
   });
 };
 
-/** The image a hex is drawn with: its painted tile, its ridge or its drawn tile, at the board's size */
+// Tiles blended into the same terrain beside them, made from a library tile at a size: the tile
+// read at twice its own size, as the script reads it
+const joinedMakers = new Map<string, Promise<JoinedMaker>>();
+const joinedMaker = (type: string, tile: string, width: number, height: number) =>
+  cached(joinedMakers, `${tile}@${width}x${height}`, async () => {
+    const image = await loadImage(TILE_URLS.get(tile) ?? tile);
+    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1);
+  });
+
+/** A forest, town or hedgerow blended into its own kind beside it, made at the board's size and kept as a bitmap */
+const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
+  const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
+  const key = `joined:${hex.tile}:${hex.key}:${hex.turns}:${hex.open.map(Number).join("")}@${width}x${height}`;
+  return cached(drawnTiles, key, async () => {
+    const pixels = (await joinedMaker(hex.type, hex.tile, width, height))(hex);
+    const tile = document.createElement("canvas");
+    tile.width = width;
+    tile.height = height;
+    tile.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer as ArrayBuffer), width, height), 0, 0);
+    return tile;
+  });
+};
+
+/** The image a hex is drawn with: its painted tile, its ridge, its joined tile or its drawn tile, at the board's size */
 const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<CanvasImageSource> | null => {
   if (hex.art === "painted") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
   if (hex.art === "ridge") return ridgeTile(hex, grid);
+  if (hex.art === "joined") return joinedTile(hex, grid);
   if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius));
   return null;
 };
@@ -232,7 +260,7 @@ export async function paintBoard(canvas: HTMLCanvasElement, tiles: Tiles, height
     const center = grid.center(hex.key);
     const image = art[i];
     ctx.save();
-    if ((hex.art === "painted" || hex.art === "ridge") && image) {
+    if ((hex.art === "painted" || hex.art === "ridge" || hex.art === "joined") && image) {
       // Turned on the hex and cut to it, a hair larger so no seam shows
       ctx.beginPath();
       hexPath(ctx, center, tileHeight / 2 + 0.5 * scale);

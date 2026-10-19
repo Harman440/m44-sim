@@ -35,6 +35,8 @@ export const PIECE_HEX_WIDTH = 173.35;
  * @type {Record<string, string[] | undefined>}
  */
 export const DRAWABLE = { river: ["river", "bridge"], hedgerow: ["hedgerow"] };
+/** Painted terrain that blends into the same terrain next to it (joinedTiles.mjs); a town always re-lays its houses */
+export const JOINED_TERRAIN = ["forest", "town", "hedgerow"];
 /** Terrain that's always drawn in code */
 export const ALWAYS_DRAWN = ["lake"];
 
@@ -136,10 +138,16 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * @typedef {{ key: string, type: string, art: "ridge", tile: string, open: boolean[], seed: number }} RidgeHex
  */
 /**
+ * A painted tile blended into the same terrain across its `open` edges, turned `turns` × 60°
+ * clockwise (joinedTiles.mjs): forests grow trees across them, and a town lays its houses out
+ * again, joined or not
+ * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], seed: number }} JoinedHex
+ */
+/**
  * The bridge piece laid across a painted river, from edge to edge
  * @typedef {{ key: string, type: string, art: "bridgePiece", edges: number[] }} BridgePiece
  */
-/** @typedef {PaintedHex | DrawnHex | RidgeHex | BridgePiece} HexArt */
+/** @typedef {PaintedHex | DrawnHex | RidgeHex | JoinedHex | BridgePiece} HexArt */
 
 /**
  * The hexes of each terrain by hex, the last one listed winning; plains need no art
@@ -249,7 +257,9 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const choices = library[type] ?? [];
       const tile = `${type}/${choices[pickFor(key, 1, choices.length)]}`;
       const ridge = type === "hill" && !separateHills ? edgesTo(key, ["hill"]) : [];
+      const joins = JOINED_TERRAIN.includes(type) ? edgesTo(key, [type]) : [];
       if (ridge.some(Boolean)) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
+      else if (type === "town" || joins.some(Boolean)) plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, seed });
       else plan.push({ key, type, art: "painted", tile, turns: pickFor(key, 2, 6) });
     }
   }

@@ -16,6 +16,8 @@
 // clockwise: 3-0.webp runs west to east), and it's turned to join the river's edges; a painted
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
 // A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
+// Forests and hedgerows next to their own kind blend into it, a forest's trees growing over the
+// edge, and every town lays its tile's houses out again (src/boardArt/joinedTiles.mjs).
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers, bridges and
 // hedgerows when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes, and a lake joins the lake hexes next to it. The frame round the grid is put back
@@ -34,6 +36,7 @@ import {
   planBoard,
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
+import { joinedTileMaker } from "../src/boardArt/joinedTiles.mjs";
 
 const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
@@ -104,6 +107,22 @@ const joinedHill = async (file, open, key, seed) => {
   const tile = await hillMakers.get(file)(open, seed, center(key));
   return sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
 };
+// Tiles blended into the same terrain beside them, one maker per tile, built at twice the board's size
+const tileMakers = new Map();
+const joinedTile = async (hex, file) => {
+  if (!tileMakers.has(file)) {
+    const { width, height } = await sharp(file).metadata();
+    const [w2, h2] = [width * 2, height * 2];
+    const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
+    tileMakers.set(file, joinedTileMaker(hex.type, { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
+  }
+  const pixels = tileMakers.get(file)(hex);
+  const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })
+    .resize(tileWidth, tileHeight)
+    .png()
+    .toBuffer();
+  return sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
+};
 const placed = (input, key, width, height) => {
   const { x, y } = center(key);
   return { input, left: Math.round(x - width / 2) + PAD, top: Math.round(y - height / 2) + PAD };
@@ -142,6 +161,7 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
     if (hex.art === "drawn") layers.push(await drawnTile(hex));
     else if (hex.art === "painted") layers.push(placed(await paintedTile(file, hex.turns), hex.key, tileWidth, tileHeight));
     else if (hex.art === "ridge") layers.push(placed(await joinedHill(file, hex.open, hex.key, hex.seed), hex.key, tileWidth, tileHeight));
+    else if (hex.art === "joined") layers.push(placed(await joinedTile(hex, file), hex.key, tileWidth, tileHeight));
     else layers.push(...(await bridgeOver(hex.key, hex.edges)));
   }
 

@@ -19,7 +19,7 @@ The app has to work in desktop browsers **and on Android tablets** (Chrome), in 
 - `npx vitest run <file>`: one test file; `npm test` is watch mode
 - `npm run build`: production build to `dist/`, with the service worker (`vite-plugin-pwa`)
 - `npm run tablet`: build and serve the production app on the network (port 4173), to test install and offline locally
-- Asset scripts (`card-art`, `optimize-image`, `icons`, `board`): see ARCHITECTURE.md's "Asset scripts". Card paintings go to `src/assets/cards/<card template id>.webp` and show up with no code change, board art comes from `scripts/boards.json`. A change to `src/boardArt/boardPlan.mjs`, `terrainTiles.mjs` or `joinedHills.mjs` must leave `npm run board`'s images byte for byte as they were unless it means to change them (run it and check `git status`)
+- Asset scripts (`card-art`, `optimize-image`, `icons`, `board`): see ARCHITECTURE.md's "Asset scripts". Card paintings go to `src/assets/cards/<card template id>.webp` and show up with no code change, board art comes from `scripts/boards.json`. A change to `src/boardArt/boardPlan.mjs`, `terrainTiles.mjs`, `joinedHills.mjs` or `joinedTiles.mjs` must leave `npm run board`'s images byte for byte as they were unless it means to change them (run it and check `git status`)
 
 Tests: `vitest.config.ts` has two projects: `core` (Node) for `src/{game-core,data,boardArt,i18n,labels}/**/*.test.ts`, `ui` (jsdom) for the rest. A test in those folders must not need the DOM. The `ui` project pre-bundles MUI; a new `@mui/material/<path>` import must be added to `BUNDLED` there.
 

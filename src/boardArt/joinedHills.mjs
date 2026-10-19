@@ -21,7 +21,7 @@ const SQRT3 = Math.sqrt(3);
 // How far from the middle of a shared edge towards its corners the plateau crosses it
 const NECK = 0.68;
 // The board's hex line, drawn faintly where the ridge crosses one
-const HEX_LINE = [0x6f, 0x7a, 0x48];
+export const HEX_LINE = [0x6f, 0x7a, 0x48];
 // The six edges' outward directions (0 = east, clockwise)
 const EDGE_DIRS = [0, 1, 2, 3, 4, 5].map((d) => edgeDir(d));
 
