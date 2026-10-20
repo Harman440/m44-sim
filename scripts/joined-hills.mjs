@@ -6,7 +6,8 @@ import { joinedHillMaker, plateauCrop } from "../src/boardArt/joinedHills.mjs";
 /**
  * Reads the hill tile and the grass texture and returns a function that draws one hill hex
  * `tileWidth` × `tileHeight` as a PNG: `(open, seed, center)` with `open` the six edges (0 = east,
- * clockwise) shared with another hill and `center` the hex's centre on the board.
+ * clockwise) shared with another hill or a river and `center` the hex's centre on the board. Its
+ * `raw` and `raw1` make the RGBA pixels instead, at twice the board's size and at its size.
  */
 export async function joinedHills(tileFile, grassFile, tileWidth, tileHeight) {
   const raw = async (image, width, height, channels) => ({ data: await image.raw().toBuffer(), width, height, channels });
@@ -23,6 +24,10 @@ export async function joinedHills(tileFile, grassFile, tileWidth, tileHeight) {
   const fullTile = await raw(sharp(tileFile).resize(TW, TH).ensureAlpha(), TW, TH, 4);
   const make = joinedHillMaker({ tile, plateau, grass, fullTile }, tileWidth, tileHeight);
 
-  return async (open, seed, center) =>
+  const png = async (open, seed, center) =>
     sharp(Buffer.from(make(open, seed, center).buffer), { raw: { width: TW, height: TH, channels: 4 } }).resize(tileWidth, tileHeight).png().toBuffer();
+  // The raw pixels too, at twice the board's size and at its size, for a hill running on into a river
+  png.raw = make;
+  png.raw1 = joinedHillMaker({ tile, plateau, grass, fullTile }, tileWidth, tileHeight, 1);
+  return png;
 }

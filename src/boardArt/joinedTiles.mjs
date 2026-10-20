@@ -24,8 +24,9 @@ import { neighbor, pickFor } from "./boardPlan.mjs";
  * terrain; `bare`: the edges shared with open countryside on the board; `spill`: the bare edge a
  * town's house stands over, or -1; `streets`: the edges a town's streets run out over a little;
  * `woods`: a river's edges facing a forest, which grows into it up to the water (growWoods);
- * `turns`: the tile turned × 60° clockwise
- * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], turns: number, seed: number }} JoinedHex
+ * `hills`: its edges facing a hill, whose ridge runs on into it (growHill), `center` the hex's
+ * centre on the board (for the ridge's plateau texture); `turns`: the tile turned × 60° clockwise
+ * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], center?: { x: number, y: number }, turns: number, seed: number }} JoinedHex
  * `tile`: the hex, RGBA; `overflow`: what spills out of it, RGBA, OVERFLOW times the hex's size
  * and centred on it, or null
  * @typedef {(hex: JoinedHex) => { tile: Uint8Array, overflow: Uint8Array | null }} JoinedMaker
@@ -377,9 +378,10 @@ function spillHouse(house, edge, W, H, rand) {
  * @param {number} tileHeight
  * @param {number} [scale]
  * @param {Pixels} [forest] the forest tile, RGBA, for a river's woods
+ * @param {import("./joinedHills.mjs").RidgeMaker} [hillMaker] ridges at the same size and scale, for the hills beside a river
  * @returns {JoinedMaker}
  */
-export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, forest) {
+export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, forest, hillMaker) {
   const TW = scale * tileWidth, TH = scale * tileHeight, TR = TH / 2;
   const OR = tile.height / 2;
   const { houses, roofs } = type === "town" ? findHouses(tile) : { houses: [], roofs: new Float32Array() };
@@ -391,7 +393,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
 
   const OW = Math.round(OVERFLOW * TW), OH = Math.round(OVERFLOW * TH);
 
-  return ({ key, open, bare, spill, streets = [], woods = [], turns, seed }) => {
+  return ({ key, open, bare, spill, streets = [], woods = [], hills = [], center = { x: 0, y: 0 }, turns, seed }) => {
     const rand = rng(seed);
     // From the board's orientation to the tile's: turned back
     const turn = (-turns * Math.PI) / 3;
@@ -623,6 +625,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
     if (type === "town" || type === "river") toCountryside(out, TW, TH, type === "town" ? 0.1 : 0.07, seed);
     // A forest beside a river grows into it, up to the water
     if (type === "river" && forest) growWoods(out, TW, TH, woods, seed, forest);
+    // A hill beside it comes down to its bank
+    if (type === "river" && hillMaker && hills.some(Boolean)) growHill(out, TW, TH, hills, seed, hillMaker(hills, seed, center));
 
     if (!spilt && !spillCrowns.length && !lanes.length && !yards.length) return { tile: out, overflow: null };
     // What spills out: the streets and the house over its edge, whole, and the trees over the countryside
@@ -761,9 +765,9 @@ function over(px, r, g, b, alpha) {
 const forestCrowns = new WeakMap();
 
 /**
- * Grow a forest into a river hex from its edges facing one (`woods`), in place: the land on that
- * side of the water, up to the bank, filled with the forest tile's trees, so the forest runs
- * straight into the river instead of ending at the hex line. `pixels`: the river hex, RGBA,
+ * Grow a forest into a river hex from its edges facing one (`woods`), in place: the land in the
+ * part of the hex facing each such edge, up to the bank, filled with the forest tile's trees, so
+ * the forest runs straight into the river instead of ending at the hex line. `pixels`: the river hex, RGBA,
  * `width` × `height` (after toCountryside); `forest`: the forest tile, RGBA
  * @param {Uint8Array} pixels @param {number} width @param {number} height @param {boolean[]} woods
  * @param {number} seed @param {Pixels} forest
@@ -771,70 +775,10 @@ const forestCrowns = new WeakMap();
 export function growWoods(pixels, width, height, woods, seed, forest) {
   if (!woods.some(Boolean)) return;
   const R = height / 2, n = width * height;
-  // The water (and a bridge): what isn't grass, where most round about isn't. The land beside it
-  // is where the woods may grow, inside the hex
-  const solid = new Uint8Array(n);
-  const k = Math.max(1, Math.round(0.03 * R));
-  const other = new Uint8Array(n);
-  for (let p = 0; p < n; p++) {
-    const [r = 0, g = 0, b = 0] = [pixels[4 * p], pixels[4 * p + 1], pixels[4 * p + 2]];
-    other[p] = notGrass(r, g, b) ? 1 : 0;
-  }
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let t = 0, c = 0;
-      for (let dy = -k; dy <= k; dy++) {
-        for (let dx = -k; dx <= k; dx++) {
-          const [xx, yy] = [x + dx, y + dy];
-          if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
-          t += /** @type {number} */ (other[yy * width + xx]);
-          c++;
-        }
-      }
-      solid[y * width + x] = t / c > 0.55 ? 1 : 0;
-    }
-  }
+  const { land: wood, solid } = landFacing(pixels, width, height, woods, seed);
   /** @param {number} p */
   const at = (p) => [((p % width) + 0.5 - width / 2) / R, (((p / width) | 0) + 0.5 - height / 2) / R];
-  // Kept back from the edges that don't face a forest, by a wandering margin, so the woods end
-  // in their crowns there rather than on the hex line
   const rand = rng(seed + 4211);
-  const [p1, p2] = [rand() * 6.3, rand() * 6.3];
-  /** @param {number} x @param {number} y */
-  const clear = (x, y) => {
-    const margin = 0.2 + 0.05 * Math.sin(9 * x + 4 * y + p1) + 0.04 * Math.sin(-5 * x + 11 * y + p2);
-    for (let d = 0; d < 6; d++) {
-      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
-      if (!woods[d] && INNER - (x * nx + y * ny) < margin) return false;
-    }
-    return hexReach(x, y) <= 0.985;
-  };
-  // Flooded from the wooded edges over the land, never across the water nor round it by the rim
-  const wood = new Uint8Array(n);
-  const stack = [];
-  for (let p = 0; p < n; p++) {
-    const [x = 0, y = 0] = at(p);
-    if (solid[p] || !clear(x, y)) continue;
-    for (let d = 0; d < 6; d++) {
-      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
-      if (woods[d] && INNER - (x * nx + y * ny) < 0.08 && hexReach(x, y) > 0.9) {
-        wood[p] = 1;
-        stack.push(p);
-        break;
-      }
-    }
-  }
-  while (stack.length) {
-    const p = /** @type {number} */ (stack.pop());
-    const x = p % width;
-    for (const q of [x > 0 ? p - 1 : -1, x < width - 1 ? p + 1 : -1, p - width, p + width]) {
-      if (q < 0 || q >= n || wood[q] || solid[q]) continue;
-      const [qx = 0, qy = 0] = at(q);
-      if (!clear(qx, qy)) continue;
-      wood[q] = 1;
-      stack.push(q);
-    }
-  }
   // Under the trees the forest's shade, then its crowns on a jittered grid, over the woods only
   let sources = forestCrowns.get(forest);
   if (!sources) {
@@ -903,3 +847,113 @@ export function growWoods(pixels, width, height, woods, seed, forest) {
 // The forest floor between its crowns
 /** @type {[number, number, number]} */
 const SHADE = [44, 72, 22];
+
+/**
+ * The land of a river hex in the part facing some of its edges (`edges`): what isn't water (nor a
+ * bridge) inside the hex, nearest by angle to one of those edges (the line between the parts
+ * wanders a little), and reached from the edge without crossing the water. `solid`: the water
+ * @param {Uint8Array} pixels @param {number} width @param {number} height @param {boolean[]} edges @param {number} seed
+ */
+function landFacing(pixels, width, height, edges, seed) {
+  const R = height / 2, n = width * height;
+  // The water (and a bridge): what isn't grass, where most round about isn't
+  const solid = new Uint8Array(n);
+  const k = Math.max(1, Math.round(0.03 * R));
+  const other = new Uint8Array(n);
+  for (let p = 0; p < n; p++) {
+    const [r = 0, g = 0, b = 0] = [pixels[4 * p], pixels[4 * p + 1], pixels[4 * p + 2]];
+    other[p] = notGrass(r, g, b) ? 1 : 0;
+  }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let t = 0, c = 0;
+      for (let dy = -k; dy <= k; dy++) {
+        for (let dx = -k; dx <= k; dx++) {
+          const [xx, yy] = [x + dx, y + dy];
+          if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
+          t += /** @type {number} */ (other[yy * width + xx]);
+          c++;
+        }
+      }
+      solid[y * width + x] = t / c > 0.55 ? 1 : 0;
+    }
+  }
+  /** @param {number} p */
+  const at = (p) => [((p % width) + 0.5 - width / 2) / R, (((p / width) | 0) + 0.5 - height / 2) / R];
+  const rand = rng(seed + 4211);
+  const [p1, p2] = [rand() * 6.3, rand() * 6.3];
+  /** Inside the hex and in a part facing one of the edges @param {number} x @param {number} y */
+  const facing = (x, y) => {
+    if (hexReach(x, y) > 0.985) return false;
+    const r = Math.hypot(x, y);
+    const wander = (10 * Math.sin(9 * r + p1) + 6 * Math.sin(17 * r + p2)) * (Math.PI / 180);
+    const angle = Math.atan2(y, x) + wander;
+    const d = ((Math.round(angle / (Math.PI / 3)) % 6) + 6) % 6;
+    return edges[d] === true;
+  };
+  // Flooded from the edges over the land, never across the water
+  const land = new Uint8Array(n);
+  const stack = [];
+  for (let p = 0; p < n; p++) {
+    const [x = 0, y = 0] = at(p);
+    if (solid[p] || !facing(x, y)) continue;
+    for (let d = 0; d < 6; d++) {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      if (edges[d] && INNER - (x * nx + y * ny) < 0.08) {
+        land[p] = 1;
+        stack.push(p);
+        break;
+      }
+    }
+  }
+  while (stack.length) {
+    const p = /** @type {number} */ (stack.pop());
+    const x = p % width;
+    for (const q of [x > 0 ? p - 1 : -1, x < width - 1 ? p + 1 : -1, p - width, p + width]) {
+      if (q < 0 || q >= n || land[q] || solid[q]) continue;
+      const [qx = 0, qy = 0] = at(q);
+      if (!facing(qx, qy)) continue;
+      land[q] = 1;
+      stack.push(q);
+    }
+  }
+  return { land, solid };
+}
+
+/**
+ * Run a hill on into a river hex from its edges facing one (`hills`), in place: `hill` is the
+ * ridge made for this hex as if it were a hill running out through those edges (joinedHills.mjs,
+ * RGBA, the hex's size), laid over the land in the part facing them, up to a little short of the
+ * water, so the hill comes down to the river's bank instead of ending at the hex line
+ * @param {Uint8Array} pixels @param {number} width @param {number} height @param {boolean[]} hills
+ * @param {number} seed @param {Uint8Array} hill
+ */
+export function growHill(pixels, width, height, hills, seed, hill) {
+  if (!hills.some(Boolean)) return;
+  const n = width * height;
+  const { land, solid } = landFacing(pixels, width, height, hills, seed);
+  // How far each pixel is from the water, for a strip of bank kept along it
+  const near = Math.max(2, Math.round(height / 40));
+  for (let p = 0; p < n; p++) {
+    if (!land[p]) continue;
+    const x = p % width, y = (p / width) | 0;
+    let wet = false;
+    for (let dy = -near; dy <= near && !wet; dy++) {
+      for (let dx = -near; dx <= near; dx++) {
+        const [xx, yy] = [x + dx, y + dy];
+        if (xx >= 0 && yy >= 0 && xx < width && yy < height && solid[yy * width + xx]) {
+          wet = true;
+          break;
+        }
+      }
+    }
+    if (wet) continue;
+    const o = 4 * p;
+    const a = /** @type {number} */ (hill[o + 3]) / 255;
+    if (a <= 0) continue;
+    const under = /** @type {number} */ (pixels[o + 3]) / 255;
+    const total = a + under * (1 - a);
+    for (let c = 0; c < 3; c++) pixels[o + c] = (/** @type {number} */ (hill[o + c]) * a + /** @type {number} */ (pixels[o + c]) * under * (1 - a)) / total;
+    pixels[o + 3] = 255 * total;
+  }
+}

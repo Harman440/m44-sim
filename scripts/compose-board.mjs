@@ -16,7 +16,8 @@
 // number of times. A river tile's name starts with the edges its river joins (0 = east, then
 // clockwise: 3-0.webp runs west to east), and it's turned to join the river's edges; a painted
 // bridge is a river tile with the bridge piece (board-art/pieces/bridge.webp) laid across it.
-// A hill next to another hill is joined to it into a ridge (joined-hills.mjs), made from its tile.
+// A hill is made into a ridge (joined-hills.mjs) from its tile, running on into the hills and
+// rivers beside it, its cliffs giving way to the countryside.
 // Forests next to their own kind blend into it, their trees growing over the edge and out over
 // the countryside, every town lays its tile's houses out again (some with a house standing over
 // the edge, its streets running out a little), and towns and rivers end in the countryside, a
@@ -42,7 +43,7 @@ import {
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
 import { HEDGEROW_SPREAD } from "../src/boardArt/terrainTiles.mjs";
-import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
+import { OVERFLOW, growHill, growWoods, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
@@ -113,9 +114,12 @@ const paintedTile = async (file, turns) => {
 };
 // Joined hills, one maker per hill tile
 const hillMakers = new Map();
-const joinedHill = async (file, open, key, seed) => {
+const hillMaker = async (file) => {
   if (!hillMakers.has(file)) hillMakers.set(file, await joinedHills(file, `${ART}/textures/grass.webp`, tileWidth, tileHeight));
-  const tile = await hillMakers.get(file)(open, seed, center(key));
+  return hillMakers.get(file);
+};
+const joinedHill = async (file, open, key, seed) => {
+  const tile = await (await hillMaker(file))(open, seed, center(key));
   return sharp(tile).composite([{ input: tileMask, blend: "dest-in" }]).png().toBuffer();
 };
 // The library's forest tile at twice its size, for the woods that grow into a river beside a forest
@@ -137,9 +141,11 @@ const joinedTile = async (hex, file) => {
     const [w2, h2] = [width * 2, height * 2];
     const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
     // The tile's folder is its terrain (a bridge's is a river tile)
-    tileMakers.set(file, joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight, 2, await forestTile()));
+    // (one maker per tile, made by the first hex that needs it: every river's gets the hills')
+    const hills = library.hill?.length ? await hillMaker(`${ART}/tiles/hill/${library.hill[0]}`) : null;
+    tileMakers.set(file, joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight, 2, await forestTile(), hills?.raw));
   }
-  const { tile: pixels, overflow } = tileMakers.get(file)(hex);
+  const { tile: pixels, overflow } = tileMakers.get(file)({ ...hex, center: center(hex.key) });
   const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })
     .resize(tileWidth, tileHeight)
     .png()
@@ -182,6 +188,10 @@ const drawnTile = async (hex) => {
     toCountryside(data, tileWidth, tileHeight, 0.07, hex.seed);
     const forest = await forestTile();
     if (forest) growWoods(data, tileWidth, tileHeight, hex.woods, hex.seed, forest);
+    if (hex.hillTile && hex.hills) {
+      const hill = (await hillMaker(`${ART}/tiles/${hex.hillTile}`)).raw1(hex.hills, hex.seed, center(hex.key));
+      growHill(data, tileWidth, tileHeight, hex.hills, hex.seed, hill);
+    }
     input = await sharp(data, { raw: { width: tileWidth, height: tileHeight, channels: 4 } }).png().toBuffer();
   }
   return placed(input, hex.key, tileWidth, tileHeight);

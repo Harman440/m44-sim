@@ -3,9 +3,10 @@
 // The plateau's outline runs out through every edge shared with another hill, as a lake's shore
 // does (shoreCurves in terrainTiles.mjs), wide enough there to read as one ridge. The tile's
 // cliff ring, measured at every angle, is unrolled along that outline, so the cliffs are the
-// tile's own strokes. The plateau and the grass at the foot of the cliffs are textures laid
-// across the whole board, so they carry on over the hex lines. The tile's bevel stays on the
-// edges that don't join a hill; where one does, a faint hex line crosses the ridge.
+// tile's own strokes. The plateau is a texture laid across the whole board, so it carries on over
+// the hex lines; a little past the cliffs' foot the hill is clear, at a wandering line, so the
+// board's countryside shows round it. Where it joins another hill a faint hex line crosses it.
+// A lone hill is made the same way, its outline running out through no edge.
 // Only the pixel work, in plain JavaScript: scripts/joined-hills.mjs reads and writes the images
 // with sharp for `npm run board`, and the app (drawBoard.ts) with a canvas, so a ridge is made
 // the same way in both.
@@ -51,14 +52,15 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
  * `npm run board` builds at twice the size and brings it down, so it blurs less; the app builds at
  * the board's size, four times quicker.
  * `tile`: the hill tile at twice its size; `plateau`: its plateauCrop, blurred; `grass`: the grass
- * texture at twice its size; `fullTile`: the hill tile at scale·tileWidth × scale·tileHeight
+ * texture at twice its size; `fullTile` (no longer used: the tile's bevel isn't drawn) the hill tile
+ * at scale·tileWidth × scale·tileHeight
  * @param {{ tile: Pixels, plateau: Pixels, grass: Pixels, fullTile: Pixels }} images
  * @param {number} tileWidth
  * @param {number} tileHeight
  * @param {number} [scale]
  * @returns {RidgeMaker}
  */
-export function joinedHillMaker({ tile, plateau: plateauImage, grass, fullTile }, tileWidth, tileHeight, scale = 2) {
+export function joinedHillMaker({ tile, plateau: plateauImage, grass }, tileWidth, tileHeight, scale = 2) {
   const OW = tile.width, OH = tile.height, OR = OH / 2, TC = tile.channels;
   const tileData = tile.data;
   /** @param {number} x @param {number} y @param {number[]} out */
@@ -165,8 +167,6 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass, fullTile }
   let deepestCliff = 0;
   for (let i = 0; i < 360; i++) deepestCliff = Math.max(deepestCliff, /** @type {number} */ (foot[i]) - /** @type {number} */ (top[i]));
   const GRASS_REACH = (deepestCliff + 6) / k + 1;
-  const FC = fullTile.channels;
-  const fullData = fullTile.data;
 
   return (open, seed, center) => {
     const rand = rng(seed);
@@ -249,7 +249,10 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass, fullTile }
         }
 
         let w, near, far;
+        // Past the cliff's foot the hill gives way to the board's countryside, at a wandering line
+        let alpha = 1;
         if (bi < 0) {
+          if (!inside) alpha = 0;
           // Out of reach of the outline: the texture alone (what the blend below gives at w = 1)
           w = 1;
           near = a;
@@ -273,21 +276,21 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass, fullTile }
             near = sample(OW / 2 + ca * rc, OH / 2 + sa * rc, a);
             far = mirrored(grass, ox + x, oy + y, b, 1, [0, 0, 0]);
             w = clamp((r - rFoot) / 6, 0, 1);
+            const [u, v] = [(ox + x) / TR, (oy + y) / TR];
+            const keep = 4 + 3 * Math.sin(7 * u + 3 * v) * Math.sin(5 * v - 2 * u + 1.3);
+            alpha = clamp(1 - (r - rFoot - keep) / 4, 0, 1);
           }
         }
-        const o = 4 * (y * TW + x), f = FC * (y * TW + x);
+        const o = 4 * (y * TW + x);
         for (let c = 0; c < 3; c++) out[o + c] = /** @type {number} */ (near[c]) * (1 - w) + /** @type {number} */ (far[c]) * w;
-        out[o + 3] = 255;
+        out[o + 3] = Math.round(255 * alpha);
 
-        // Along each edge: the tile's bevel where no hill joins, a faint hex line where one does
+        // A faint hex line where the ridge crosses into another hill
         const angle = (Math.atan2(hy, hx) * 180) / Math.PI;
         const d = Math.round((((angle % 360) + 360) % 360) / 60) % 6;
         const [nx, ny] = /** @type {[number, number]} */ (EDGE_DIRS[d]);
         const toEdge = ((SQRT3 / 2) * TH) / 2 - (hx * nx + hy * ny);
-        if (!open[d] && toEdge < 0.07 * TR) {
-          const t = Math.min(1, (0.07 * TR - toEdge) / (0.03 * TR));
-          for (let c = 0; c < 3; c++) out[o + c] = /** @type {number} */ (out[o + c]) * (1 - t) + /** @type {number} */ (fullData[f + c]) * t;
-        } else if (open[d] && toEdge < 1.5 * scale) {
+        if (open[d] && toEdge < 1.5 * scale) {
           for (let c = 0; c < 3; c++) out[o + c] = /** @type {number} */ (out[o + c]) * 0.55 + /** @type {number} */ (HEX_LINE[c]) * 0.45;
         }
       }

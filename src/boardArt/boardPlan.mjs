@@ -141,11 +141,13 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * a lake or a hedgerow runs out through; `woods`, a river's edges facing a forest; `bare`, a
  * hedgerow's edges onto open countryside, which it spreads out over (its image is
  * terrainTiles.mjs's HEDGEROW_SPREAD times the hex's box, laid over what's round it)
- * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], bare: boolean[] }} DrawnHex
+ * `hills` and `hillTile`: a river's edges facing a hill, whose ridge (made from that tile) runs on
+ * into it up to the water
+ * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], bare: boolean[], hills?: boolean[], hillTile?: string }} DrawnHex
  */
 /**
- * A hill joined into a ridge with the hills across its `open` edges (scripts/joined-hills.mjs, only
- * in `npm run board`)
+ * A hill made into a ridge, running on into the hills and rivers across its `open` edges (none for
+ * a lone hill), its cliffs giving way to the countryside (joinedHills.mjs)
  * @typedef {{ key: string, type: string, art: "ridge", tile: string, open: boolean[], seed: number }} RidgeHex
  */
 /**
@@ -155,7 +157,7 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * bare edge `spill` (-1: none) and its streets running out a little over the edges `streets`; a painted river (or
  * bridge) is one too, its tile's grass giving way to the countryside, or to a forest beside it
  * across its `woods` edges
- * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], seed: number }} JoinedHex
+ * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, seed: number }} JoinedHex
  */
 /**
  * The bridge piece laid across a painted river, from edge to edge
@@ -252,6 +254,13 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
   /** @param {string} key @param {string[]} types */
   const edgesTo = (key, types) => [...Array(6).keys()].map((d) => types.includes(wanted.get(neighbor(key, d)) ?? ""));
 
+  // A river's edges facing a hill, whose ridge runs on into it up to the water, and the hill tile
+  const hillTile = `hill/${(library.hill ?? [])[0]}`;
+  /** @param {string} key */
+  const hillsBeside = (key) => {
+    const hills = separateHills ? [] : edgesTo(key, ["hill"]);
+    return hills.some(Boolean) ? { hills, hillTile } : {};
+  };
   /** @type {HexArt[]} */
   const plan = [];
   for (const [key, type] of wanted) {
@@ -262,9 +271,11 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const joins = type === "lake" || (type === "hedgerow" && !plain);
       // A river's edges facing a forest, which grows into it up to the water
       const woods = isRiver(type) && !plain ? edgesTo(key, ["forest"]) : [];
-      // A hedgerow spreads out over the open countryside beside it, on the board
-      const bare = type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && !wanted.has(neighbor(key, d))) : [];
-      plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, bare });
+      const hills = isRiver(type) && !plain ? hillsBeside(key) : {};
+      // A hedgerow spreads out over the open countryside beside it, on the board, and over a river's bank
+      const bare =
+        type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && ["plains", "river", "bridge"].includes(wanted.get(neighbor(key, d)) ?? "plains")) : [];
+      plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, bare, ...hills });
     } else if (isRiver(type)) {
       const edges = riverEdges(key);
       const fits = riverTilesFor(library, edges);
@@ -276,20 +287,23 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       }
       // Its tile's grass giving way to the countryside round it (joinedTiles.mjs), unless plain
       if (plain) plan.push({ key, type, art: "painted", ...fit });
-      else plan.push({ key, type, art: "joined", ...fit, open: edgesTo(key, ["river", "bridge"]), bare: edgesTo(key, []).map(() => false), spill: -1, woods: edgesTo(key, ["forest"]), seed });
+      else plan.push({ key, type, art: "joined", ...fit, open: edgesTo(key, ["river", "bridge"]), bare: edgesTo(key, []).map(() => false), spill: -1, woods: edgesTo(key, ["forest"]), ...hillsBeside(key), seed });
       if (type === "bridge") plan.push({ key, type, art: "bridgePiece", edges });
     } else {
       const choices = library[type] ?? [];
       const tile = `${type}/${choices[pickFor(key, 1, choices.length)]}`;
-      const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill"]) : [];
+      // A hill is a ridge (its cliffs giving way to the countryside), running on into the hills and
+      // the rivers beside it; a lone one too, its outline running out through no edge
+      const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill", "river", "bridge"]) : [];
       const joins = JOINED_TERRAIN.includes(type) && !plain ? edgesTo(key, [type]) : [];
-      if (ridge.some(Boolean)) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
+      if (type === "hill" && !separateHills && !plain) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
       else if ((ALWAYS_JOINED.includes(type) && !plain) || joins.some(Boolean)) {
         // Open countryside across an edge, on the board; a town has a house over one such edge
         // one time in two
         // (towns and rivers end in countryside too, so a forest's trees grow out over them)
         const across = (/** @type {number} */ d) => (onBoard.has(neighbor(key, d)) ? (wanted.get(neighbor(key, d)) ?? "plains") : null);
-        const bare = [...Array(6).keys()].map((d) => ["plains", ...(type === "town" ? [] : COUNTRYSIDE_ENDS)].includes(across(d) ?? ""));
+        // (a town's cobbled yards spill onto a river's bank)
+        const bare = [...Array(6).keys()].map((d) => ["plains", ...(type === "town" ? ["river", "bridge"] : COUNTRYSIDE_ENDS)].includes(across(d) ?? ""));
         const bareEdges = [...Array(6).keys()].filter((d) => across(d) === "plains");
         const spill = type === "town" && bareEdges.length && pickFor(key, 5, 2) === 0 ? (bareEdges[pickFor(key, 6, bareEdges.length)] ?? -1) : -1;
         // A town's streets run out a little over the edges to a bridge, and over one or two others
