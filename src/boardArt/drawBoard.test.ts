@@ -3,6 +3,7 @@ import { TILE_LIBRARY, planMapArt, tilesFor } from "./drawBoard";
 import { HexType } from "../types/hex";
 import { scenarios } from "../data/scenarios";
 import { positionKey } from "../game-core/position";
+import { boardKeys } from "./boardPlan.mjs";
 
 // The canvas itself is checked in the browser (jsdom has none); these check what it's asked to draw
 
@@ -33,14 +34,20 @@ describe("the app's board art", () => {
     const plan = planMapArt(scenario.tiles);
     const terrainHexes = Object.values(scenario.tiles).flatMap((positions) => positions ?? []).map(positionKey);
 
-    const own = plan.filter((hex) => hex.art !== "spill");
+    // (and the terrain carried on into the half hexes outside the board, on rows or columns -1 and past the last)
+    const board = new Set(boardKeys());
+    const own = plan.filter((hex) => hex.art !== "spill" && board.has(hex.key));
     expect([...new Set(own.map((hex) => hex.key))].sort()).toEqual([...new Set(terrainHexes)].sort());
   });
 
   it("joins hills next to each other into ridges, as on the painted boards", () => {
     const p = (row: number, col: number) => ({ row, col });
 
-    expect(planMapArt({ hill: [p(4, 4), p(4, 5), p(0, 0)] }).map((hex) => hex.art)).toEqual(["ridge", "ridge", "ridge"]);
+    // The hill in the corner carries on into the half hexes outside the board, as ridges too
+    const plan = planMapArt({ hill: [p(4, 4), p(4, 5), p(0, 0)] });
+    expect(plan.map((hex) => hex.art).every((art) => art === "ridge")).toBe(true);
+    expect(plan.map((hex) => hex.key).sort()).toEqual(["-1--1", "-1-0", "0-0", "1--1", "4-4", "4-5"]);
+    expect(planMapArt({ hill: [p(0, 0)] }, undefined, true).map((hex) => hex.key)).toEqual(["0-0"]);
   });
 
   it("paints rivers when the library fits every bend, and draws them otherwise", () => {

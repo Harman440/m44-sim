@@ -16,7 +16,7 @@
 // compose-board.mjs reads and writes the images with sharp) and the app (drawBoard.ts, a canvas).
 import { rng } from "./terrainTiles.mjs";
 import { HEX_LINE } from "./joinedHills.mjs";
-import { neighbor, pickFor } from "./boardPlan.mjs";
+import { neighbor, parseKey, pickFor } from "./boardPlan.mjs";
 
 /** @typedef {import("./joinedHills.mjs").Pixels} Pixels */
 /**
@@ -615,8 +615,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
         if (!open[d]) continue;
         // The edge belongs to the hex of the two that comes first, row by row
         const other = neighbor(key, d);
-        const [row = 0, col = 0] = key.split("-").map(Number);
-        const [orow = 0, ocol = 0] = other.split("-").map(Number);
+        const { row, col } = parseKey(key);
+        const { row: orow, col: ocol } = parseKey(other);
         const mine = row < orow || (row === orow && col < ocol);
         const r0 = rng(pickFor(mine ? key : other, 11 + (mine ? d : (d + 3) % 6), 1 << 30));
         const o = mine ? [0, 0] : [SQRT3 * (DIRS[d]?.[0] ?? 0), SQRT3 * (DIRS[d]?.[1] ?? 0)];

@@ -78,6 +78,8 @@ export const planMapArt = (tiles: Tiles, size: BoardSize = STANDARD_BOARD, plain
     keys,
     plain,
     picked: pickedByHex(picked),
+    // The terrain carried on into the half hexes outside the board, but not on the editor's quick art
+    outskirts: !plain,
   });
 };
 
@@ -334,6 +336,10 @@ export async function paintBoard(
   const grid = standard ? artGrid(height) : artGrid(artHeightFor(size.rows, height), size.cols, size.rows);
   const plan = planMapArt(tiles, size, plain, picked);
   const keys = boardKeys(size.cols, size.rows);
+  // The board's hexes and the outskirts' with terrain carried on into them: their lines softened,
+  // and kept clear of the frame
+  const onBoard = new Set(keys);
+  const drawnKeys = [...keys, ...new Set(plan.filter((hex) => hex.art !== "spill" && !onBoard.has(hex.key)).map((hex) => hex.key))];
   const tileWidth = grid.hexWidth;
   const tileHeight = 2 * grid.radius;
   // Everything loaded first, so the board is drawn in one go
@@ -406,7 +412,7 @@ export async function paintBoard(
   if (!plain) {
     const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
     const image = { data: pixels.data, width: grid.width, height: grid.height, channels: 4 };
-    softenHexLines(image, keys, grid.center, grid.radius, LINE_BAND * scale);
+    softenHexLines(image, drawnKeys, grid.center, grid.radius, LINE_BAND * scale);
     ctx.putImageData(pixels, 0, 0);
     plan.forEach((hex, i) => {
       const image = art[i];
@@ -432,7 +438,7 @@ export async function paintBoard(
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, grid.width, grid.height);
-  boardKeys(size.cols, size.rows).forEach((key) => hexPath(ctx, grid.center(key), grid.radius));
+  drawnKeys.forEach((key) => hexPath(ctx, grid.center(key), grid.radius));
   ctx.clip("evenodd");
   ctx.drawImage(frame, 0, 0, grid.width, grid.height);
   ctx.restore();

@@ -61,10 +61,13 @@ export const SPILLS = { forest: ["plains"] };
  * @typedef {Record<string, string[]>} TileLibrary the painted tiles' file names by terrain folder, sorted
  */
 
-/** @param {string} key */
-const parseKey = (key) => {
-  const [row = 0, col = 0] = key.split("-").map(Number);
-  return { row, col };
+/**
+ * A hex's row and column from its "row-col" key (a hex outside the board can be on row or column -1: "-1-4")
+ * @param {string} key
+ */
+export const parseKey = (key) => {
+  const [, row = "0", col = "0"] = key.match(/^(-?\d+)-(-?\d+)$/) ?? [];
+  return { row: Number(row), col: Number(col) };
 };
 
 /** A board's height in hex radii: 14 for the standard board's 9 rows @param {number} rows */
@@ -85,7 +88,7 @@ export function artGrid(height, cols = COLS, rows = ROWS) {
   /** @param {string} key */
   const center = (key) => {
     const { row, col } = parseKey(key);
-    return { x: hexWidth / 2 + col * hexWidth + (row % 2) * (hexWidth / 2), y: radius + row * 1.5 * radius };
+    return { x: hexWidth / 2 + col * hexWidth + (row & 1) * (hexWidth / 2), y: radius + row * 1.5 * radius };
   };
   return { width, height, hexWidth, radius, center };
 }
@@ -118,7 +121,7 @@ export const pickFor = (key, salt, n) => {
  */
 export const neighbor = (key, d) => {
   const { row, col } = parseKey(key);
-  const shift = row % 2;
+  const shift = row & 1;
   const [dr, dc] = /** @type {[number, number]} */ ([[0, 1], [1, shift], [1, shift - 1], [0, -1], [-1, shift - 1], [-1, shift]][d]);
   return `${row + dr}-${col + dc}`;
 };
@@ -307,6 +310,71 @@ export function canPaintRivers(tiles, library, keys = BOARD_KEYS) {
   });
 }
 
+/** Terrain that carries on into the outskirts beside it (a river only through the edge it flows out of) */
+const OUTSKIRTS_TERRAIN = ["forest", "town", "hill", "hedgerow", "lake", "swamp", "beach"];
+
+/**
+ * The hexes just outside a board whose part inside the art's box (the zigzag above the first row
+ * and below the last, the half hexes at the ends of the short rows) shows on its image
+ * @param {string[]} keys the board's hexes
+ */
+export function outskirtKeys(keys) {
+  const onBoard = new Set(keys);
+  const parsed = keys.map(parseKey);
+  const rows = Math.max(...parsed.map((p) => p.row)) + 1;
+  const cols = Math.max(...parsed.map((p) => p.col)) + 1;
+  // In hexes of the art's grid (a hex 1 wide, √3 radii; rows 1.5 radii apart): the box is cols × (1.5 rows + 0.5) radii
+  const [width, height] = [cols, (1.5 * rows + 0.5) / Math.sqrt(3)];
+  const [halfWide, halfHigh] = [0.5, 1 / Math.sqrt(3)];
+  /** @type {string[]} */
+  const out = [];
+  for (let row = -1; row <= rows; row++) {
+    for (let col = -1; col <= cols; col++) {
+      const key = `${row}-${col}`;
+      if (onBoard.has(key)) continue;
+      const [x, y] = [0.5 + col + (row & 1) / 2, (1 + 1.5 * row) / Math.sqrt(3)];
+      if (x + halfWide > 1e-6 && x - halfWide < width - 1e-6 && y + halfHigh > 1e-6 && y - halfHigh < height - 1e-6) out.push(key);
+    }
+  }
+  return out;
+}
+
+/**
+ * The board's terrain carried on into its outskirts (outskirtKeys), only for the art: each
+ * outskirt hex takes the terrain of the board hexes beside it (the one most of them have, the
+ * hex picking between equals), and a river runs on into the hex it flows out to. Plains stay plain
+ * @param {Map<string, string>} wanted the board's terrain by hex
+ * @param {string[]} keys the board's hexes
+ * @param {(key: string) => number[]} riverEdges where a board river hex's river runs
+ * @returns {Map<string, string>}
+ */
+const outskirtTerrain = (wanted, keys, riverEdges) => {
+  const onBoard = new Set(keys);
+  /** @type {Map<string, string>} */
+  const out = new Map();
+  for (const key of outskirtKeys(keys)) {
+    /** @type {Map<string, number>} */
+    const count = new Map();
+    for (let d = 0; d < 6; d++) {
+      const other = neighbor(key, d);
+      const type = onBoard.has(other) ? wanted.get(other) : undefined;
+      if (type && OUTSKIRTS_TERRAIN.includes(type)) count.set(type, (count.get(type) ?? 0) + 1);
+    }
+    const most = Math.max(0, ...count.values());
+    const best = [...count].filter(([, n]) => n === most).map(([type]) => type).sort();
+    const type = best[pickFor(key, 50, best.length)];
+    if (type) out.set(key, type);
+  }
+  for (const [key, type] of wanted) {
+    if (!isRiver(type)) continue;
+    for (const d of riverEdges(key)) {
+      const other = neighbor(key, d);
+      if (!onBoard.has(other) && outskirtKeys(keys).includes(other)) out.set(other, "river");
+    }
+  }
+  return out;
+};
+
 /** Terrain a beach fades into at its edges: land that isn't beach (water and the board's edge keep the sand) @param {string} type */
 const fadesInto = (type) => !isRiver(type) && type !== "lake" && type !== "beach";
 
@@ -318,17 +386,19 @@ const fadesInto = (type) => !isRiver(type) && type !== "lake" && type !== "beach
  * `plain`: each terrain hex its own tile as it is, nothing joined (the map editor's quick art,
  * while the map is being made); `picked`: the tile picked for a hex (in the map editor,
  * Scenario.pickedTiles), its file's name without ".webp" by "row-col", taken when its terrain's
- * folder has it.
+ * folder has it; `outskirts`: the terrain carried on into the hexes just outside the board, as
+ * far as the art's box shows them (outskirtTerrain), so a forest or a river doesn't stop dead at
+ * the board's edge. They never spill back onto the board (no lone trees, houses or streets).
  * A lake is painted from the library's lake tiles when every hex of it has one that fits (the
  * edges its water carries on through, and any river flowing in), and drawn otherwise. A beach
  * fades into the land beside it, a beach tile whose name starts with edges (grass tufts on them)
  * turned to face it where one does; a swamp ends in the same ragged edge
  * @param {Terrain} tiles
  * @param {TileLibrary} library
- * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[], plain?: boolean, picked?: Record<string, string> }} [options]
+ * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[], plain?: boolean, picked?: Record<string, string>, outskirts?: boolean }} [options]
  * @returns {HexArt[]}
  */
-export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS, plain = false, picked = {} } = {}) {
+export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS, plain = false, picked = {}, outskirts = false } = {}) {
   const drawn = new Set([
     ...ALWAYS_DRAWN,
     ...drawnChoice.flatMap((choice) => {
@@ -342,6 +412,13 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
     if (type !== "lake" && !drawn.has(type) && !library[isRiver(type) ? "river" : type]?.length) throw new Error(`No art for ${type}`);
   }
   const onBoard = new Set(keys);
+  if (outskirts && !plain) {
+    const board = riverPlanner(wanted, library, onBoard, strict);
+    const extra = outskirtTerrain(wanted, keys, (key) => (drawn.has(wanted.get(key) ?? "") ? board(key).twoEdges : board(key).edges));
+    for (const [key, type] of extra) wanted.set(key, type);
+  }
+  /** Whether a hex is in the outskirts, outside the board @param {string} key */
+  const outside = (key) => !onBoard.has(key);
   const river = riverPlanner(wanted, library, onBoard, strict);
   /** Where a river hex's river runs, as it's drawn or painted @param {string} key */
   const riverEdges = (key) => (drawn.has(wanted.get(key) ?? "") ? river(key).twoEdges : river(key).edges);
@@ -423,7 +500,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const hills = isRiver(type) && !plain ? hillsBeside(key) : {};
       // A hedgerow spreads out over the open countryside beside it, on the board, and over a river's bank
       const bare =
-        type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && ["plains", "river", "bridge"].includes(wanted.get(neighbor(key, d)) ?? "plains")) : [];
+        type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => !outside(key) && onBoard.has(neighbor(key, d)) && ["plains", "river", "bridge"].includes(wanted.get(neighbor(key, d)) ?? "plains")) : [];
       plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, bare, ...hills });
     } else if (isRiver(type)) {
       const { edges, fits } = river(key);
@@ -484,7 +561,8 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
         // Open countryside across an edge, on the board; a town has a house over one such edge
         // one time in two
         // (towns and rivers end in countryside too, so a forest's trees grow out over them)
-        const across = (/** @type {number} */ d) => (onBoard.has(neighbor(key, d)) ? (wanted.get(neighbor(key, d)) ?? "plains") : null);
+        // (an outskirt hex has none: nothing of it reaches back onto the board)
+        const across = (/** @type {number} */ d) => (!outside(key) && onBoard.has(neighbor(key, d)) ? (wanted.get(neighbor(key, d)) ?? "plains") : null);
         // (a town's cobbled yards spill onto a river's bank)
         const bare = [...Array(6).keys()].map((d) => ["plains", ...(type === "town" ? ["river", "bridge"] : COUNTRYSIDE_ENDS)].includes(across(d) ?? ""));
         const bareEdges = [...Array(6).keys()].filter((d) => across(d) === "plains");
@@ -513,7 +591,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
   const spills = new Map();
   for (const hex of [...plan]) {
     const onto = SPILLS[hex.type];
-    if (!onto || !("tile" in hex)) continue;
+    if (!onto || !("tile" in hex) || outside(hex.key)) continue;
     for (let d = 0; d < 6; d++) {
       const other = neighbor(hex.key, d);
       if (!onBoard.has(other) || !onto.includes(wanted.get(other) ?? "plains")) continue;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOARD_KEYS, artGrid, canPaintRivers, drawnSvg, neighbor, pickFor, planBoard } from "./boardPlan.mjs";
+import { BOARD_KEYS, artGrid, canPaintRivers, drawnSvg, neighbor, outskirtKeys, parseKey, pickFor, planBoard } from "./boardPlan.mjs";
 import type { DrawnHex, HexArt, JoinedHex, SpillHex, Terrain } from "./boardPlan.mjs";
 import boards from "../../scripts/boards.json";
 import { scenarios } from "../data/scenarios";
@@ -251,6 +251,50 @@ describe("planBoard", () => {
   it("stops at a bend no river tile turns to fit", () => {
     expect(() => planBoard(SHARP_BEND, LIBRARY)).toThrow("No painted river tile joins edges 2 and 3 (at 4-5)");
     expect(planBoard(SHARP_BEND, LIBRARY, { drawn: ["river"] }).map((hex) => hex.art)).toEqual(["drawn", "drawn", "drawn"]);
+  });
+});
+
+describe("the outskirts", () => {
+  it("are the half hexes outside the board that its art shows", () => {
+    const keys = outskirtKeys(BOARD_KEYS);
+    // Above and below (the zigzags, corners included) and the ends of the short rows
+    expect(keys.filter((k) => parseKey(k).row === -1)).toHaveLength(14);
+    expect(keys.filter((k) => parseKey(k).row === 9)).toHaveLength(14);
+    expect(keys).toContain("1--1");
+    expect(keys).toContain("1-12");
+    // Not the long rows' ends, which lie wholly outside the art's box
+    expect(keys).not.toContain("0--1");
+    expect(keys).not.toContain("0-13");
+    expect(keys.some((k) => BOARD_KEYS.includes(k))).toBe(false);
+  });
+
+  it("parse with their minus signs and keep the odd rows' shift", () => {
+    expect(parseKey("-1--1")).toEqual({ row: -1, col: -1 });
+    expect(neighbor("-1-3", 1)).toBe("0-4");
+    expect(neighbor("0-4", 4)).toBe("-1-3");
+    expect(artGrid(1514).center("-1-0").x).toBeCloseTo(artGrid(1514).center("1-0").x);
+  });
+
+  it("carry the terrain on past the board's edge, and nothing of them comes back onto it", () => {
+    const plan = planBoard({ forest: [p(0, 2), p(0, 3)], town: [p(1, 0)] }, LIBRARY, { outskirts: true });
+    const art = (key: string) => plan.find((hex) => hex.key === key && hex.art !== "spill");
+
+    expect(art("-1-2")?.type).toBe("forest");
+    expect(art("1--1")?.type).toBe("town");
+    expect((art("1--1") as JoinedHex).spill).toBe(-1);
+    expect((art("1--1") as JoinedHex).streets).toEqual([]);
+    // The board's forest runs on into it; no lone trees stand out from it on the board
+    expect((art("0-2") as JoinedHex).open[5]).toBe(true);
+    expect(plan.filter((hex) => hex.art === "spill").every((hex) => (hex as SpillHex).toward.some(Boolean) && BOARD_KEYS.includes(hex.key))).toBe(true);
+    expect(planBoard({ forest: [p(0, 2)] }, LIBRARY).some((hex) => !BOARD_KEYS.includes(hex.key))).toBe(false);
+  });
+
+  it("take a river on through the edge it flows out of", () => {
+    const plan = planBoard({ river: [p(0, 4), p(1, 4), p(2, 4)] }, LIBRARY, { outskirts: true, drawn: ["river"] });
+    const outside = plan.filter((hex) => !BOARD_KEYS.includes(hex.key));
+
+    expect(outside.map((hex) => hex.type)).toEqual(["river"]);
+    expect((plan.find((hex) => hex.key === "0-4") as DrawnHex).edges).toContain(4);
   });
 });
 

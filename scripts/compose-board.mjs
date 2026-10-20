@@ -31,7 +31,9 @@
 // and bridges when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes, and a lake or a hedgerow joins the ones next to it. The board's edges are made soft
 // (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside and the hex
-// lines softened; the frame round the grid is put back over the new hexes.
+// lines softened; the frame round the grid is put back over the new hexes. The terrain carries
+// on into the half hexes outside the board that the art's box shows (planBoard's `outskirts`), so
+// a forest or a river doesn't stop dead at the edge; nothing can stand there.
 import sharp from "sharp";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import {
@@ -90,11 +92,13 @@ const printed = await sharp(EMPTY_BOARD.file)
 gradeCountryside({ data: printed, width: W, height: H, channels: 4 });
 fillFrame({ data: printed, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius);
 const board = await sharp(printed, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
-// The frame: everything outside the hexes
-const frameMask = svg(W, H, `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${BOARD_KEYS.map((k) => hexPath(center(k), radius)).join("")}"/>`);
-const frame = await sharp(board).ensureAlpha().composite([{ input: frameMask, blend: "dest-in" }]).png().toBuffer();
-// Tiles are pasted on the board with a margin, so hexes on the edge can stick out
-const PAD = 200;
+// The frame: everything outside the hexes (the board's, and the outskirts' that have terrain)
+const frameOf = async (keys) => {
+  const mask = svg(W, H, `<path fill-rule="evenodd" d="M0,0H${W}V${H}H0Z${keys.map((k) => hexPath(center(k), radius)).join("")}"/>`);
+  return sharp(board).ensureAlpha().composite([{ input: mask, blend: "dest-in" }]).png().toBuffer();
+};
+// Tiles are pasted on the board with a margin, so hexes on the edge and outside it can stick out
+const PAD = 320;
 const padded = await sharp(board).ensureAlpha().extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR }).png().toBuffer();
 
 // The painted tiles' file names by terrain folder
@@ -231,7 +235,7 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
   const tiles = JSON.parse(readFileSync(terrain, "utf8"));
   let plan;
   try {
-    plan = planBoard(tiles, library, { drawn, separateHills });
+    plan = planBoard(tiles, library, { drawn, separateHills, outskirts: true });
   } catch (error) {
     const hint = error.message.startsWith("No painted river") ? ' ("drawn": ["river"] in scripts/boards.json)' : "";
     throw new Error(`${terrain}: ${error.message}${hint}`);
@@ -255,10 +259,13 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
     else layers.push(...(await bridgeOver(hex.key, hex.edges)));
   }
 
+  // The board's hexes and the outskirts' with terrain carried on into them
+  const onBoard = new Set(BOARD_KEYS);
+  const drawnKeys = [...BOARD_KEYS, ...new Set(plan.filter((hex) => hex.art !== "spill" && !onBoard.has(hex.key)).map((hex) => hex.key))];
   // Pasted on the padded board, cropped back, its edges softened, then the frame put back on top
   const composed = await sharp(padded).composite(layers).png().toBuffer();
   const data = await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).raw().toBuffer();
-  softenHexLines({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, LINE_BAND);
+  softenHexLines({ data, width: W, height: H, channels: 4 }, drawnKeys, center, radius, LINE_BAND);
   // The hedgerows, larger than their hexes, and what spills out of the hexes laid on top
   const spilt = await sharp(data, { raw: { width: W, height: H, channels: 4 } })
     .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR })
@@ -266,15 +273,15 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
     .png()
     .toBuffer();
   const framed = await sharp(await sharp(spilt).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())
-    .composite([{ input: frame }])
+    .composite([{ input: await frameOf(drawnKeys) }])
     .removeAlpha()
     .png()
     .toBuffer();
   // Built at the empty board's resolution, saved at the app's (a third of the download)
   await sharp(framed).resize(appWidth, APP_ART_HEIGHT, { fit: "fill" }).webp({ quality: 85 }).toFile(image);
   const notes = [...(drawn.length ? [`drawn ${drawn.join(" and ")}`] : []), ...(separateHills ? ["separate hills"] : [])];
-  const hexes = new Set(plan.filter((hex) => hex.art !== "spill").map((hex) => hex.key)).size;
-  console.log(`${image}: ${appWidth}×${APP_ART_HEIGHT}, ${hexes} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
+  const hexes = new Set(plan.filter((hex) => hex.art !== "spill" && onBoard.has(hex.key)).map((hex) => hex.key)).size;
+  console.log(`${image}: ${appWidth}×${APP_ART_HEIGHT}, ${hexes} terrain hexes, ${drawnKeys.length - BOARD_KEYS.length} outside${notes.map((t) => `, ${t}`).join("")}`);
 }
 
 const only = process.argv[2]?.toLowerCase();
