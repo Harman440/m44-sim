@@ -321,6 +321,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "A unit that enters a swamp stops there, and may still fire. One whose move starts in a swamp moves 1 hex. It's fired at as on open ground.",
         },
       },
+      {
+        title: { es: "Océano", en: "Ocean" },
+        house: {
+          es: `Una unidad que empieza su movimiento en el océano, o entra en él, mueve ${TERRAIN[HexType.OCEAN].moveThrough} casilla. Una unidad en el océano no puede disparar, ni retroceder: cada casilla que tendría que retroceder es un impacto. Se dispara a ella como en campo abierto.`,
+          en: `A unit whose move starts in the ocean, or enters it, moves ${TERRAIN[HexType.OCEAN].moveThrough} hex. A unit in the ocean can't fire, nor retreat: each hex it should retreat is a hit instead. It's fired at as on open ground.`,
+        },
+      },
     ],
   },
   {

@@ -3214,6 +3214,23 @@ describe("pass and play movement", () => {
     expect(restored.getSnapshot().standingCollisions).toEqual(session.getSnapshot().standingCollisions);
   });
 
+  it("gives a unit in the ocean no shot, whether it holds or wades in", () => {
+    // Infantry at 7-1 holds in the ocean; the one at 7-3 wades into the ocean at 6-3, not 2 hexes to 5-3
+    const session = new GameSession({
+      scenario: { ...scenario, tiles: { ocean: [LEFT_INF, { row: 6, col: 3 }, { row: 5, col: 3 }] } },
+      faction: "Allies",
+      initialHandSize: 4,
+      commandCards: cards(),
+    });
+    expect(session.pickCard(session.getSnapshot().hand.find((c) => c.id === "all")!)).toBe(true);
+    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(true);
+    // A move into the ocean is 1 hex
+    expect(session.issueOrder({ row: 7, col: 3 }, { row: 5, col: 3 })).toBe(false);
+    expect(session.issueOrder({ row: 7, col: 3 }, { row: 6, col: 3 })).toBe(true);
+    expect(session.issueOrder(TANK, TANK)).toBe(true);
+    expect(session.getSnapshot().orders.map((order) => order.canFire)).toEqual([false, false, true]);
+  });
+
   it("doesn't roll a collision for a unit whose order doesn't let it fire", () => {
     const { session, order } = movedTwo();
     expect(order.canFire).toBe(false);
@@ -3339,6 +3356,23 @@ describe("pass and play figures", () => {
     expect(session.mustRetreat(edge)).toBe(false);
     expect(session.isPinned(edge)).toBe(true);
     expect(session.retreatBlocked(edge)).toBe(false);
+  });
+
+  it("makes each hex a unit in the ocean should retreat a hit, as it can't retreat", () => {
+    const session = new GameSession({
+      scenario: { ...withArtillery, tiles: { ocean: [LEFT_INF] } },
+      faction: "Allies",
+      initialHandSize: 4,
+      commandCards: cards(),
+      figures: true,
+    });
+    // The first flag only pins it; the next two are hexes to retreat
+    session.sufferHits(LEFT_INF, 0, 3);
+    expect(session.retreatOptions(LEFT_INF)).toEqual([]);
+    expect(session.retreatBlocked(LEFT_INF)).toBe(true);
+    expect(session.retreatBlocked(LEFT_INF)).toBe(true);
+    expect(session.figuresAt(LEFT_INF)).toBe(4);
+    expect(session.mustRetreat(LEFT_INF)).toBe(false);
   });
 
   it("counts each hex armour can't retreat as one hit", () => {

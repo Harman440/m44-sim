@@ -24,7 +24,7 @@
 // tile, and drawn round by hand in <tile>.json beside the others), towns and rivers end in the
 // countryside, a forest growing into a river beside it, and a lone tree or two stand out on the
 // countryside by some of a forest's edges (src/boardArt/joinedTiles.mjs). A beach fades into the
-// land beside it. A river forks, ends in a pond, or runs into a lake beside it, with the tile that
+// land beside it, its surf toward the ocean; an ocean hex turns its shore toward the land. A river forks, ends in a pond, or runs into a lake beside it, with the tile that
 // fits it; a lake is painted with the lake tiles when every hex of it has one that fits, and drawn
 // otherwise.
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes and hedgerows always, and rivers

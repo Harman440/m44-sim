@@ -102,8 +102,11 @@ function summarizeEach(
     const bonusShot = !!groundShot && !groundShot.pushedBack;
     const allowed = order.shots + (bonusShot ? 1 : 0);
     const overrunPending = bonusShot && unitShots.at(-1) === groundShot;
-    // It fought a collision (house rule), or it's marked to retreat: no more shots this turn
-    const blocked = unitShots.some((shot) => shot.collision) || retreating.has(order.unit);
+    const firingFrom = (groundShot && groundShot.targetPosition) || order.end;
+    // It fought a collision (house rule), it's marked to retreat, or it took ground into the
+    // ocean, where nothing fires (house rule): no more shots this turn
+    const blocked =
+      unitShots.some((shot) => shot.collision) || retreating.has(order.unit) || !!board.getHex(firingFrom)?.getTerrain().noFire;
     const skipped = unmovedGroup && unmovedFireSkipped && order.canFire && !removed && unitShots.length < allowed;
     return {
       index,
@@ -117,7 +120,7 @@ function summarizeEach(
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
       closeAssaultOnly: order.closeAssaultOnly || overrunPending,
-      firingFrom: (groundShot && groundShot.targetPosition) || order.end,
+      firingFrom,
       tookGround: !!groundShot,
       extra: order.extra,
       removed,

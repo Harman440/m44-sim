@@ -207,6 +207,16 @@ describe("BoardManager pathfinding", () => {
     expect(destinations(out, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);
   });
 
+  it("moves a unit 1 hex out of the ocean or into it, and lets it fire from nowhere in it", () => {
+    const out = new BoardManager(makeScenario({ tiles: { ocean: [start] } }));
+    expect(destinations(out, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);
+
+    const into = new BoardManager(makeScenario({ tiles: { ocean: [{ row: 4, col: 7 }] } }));
+    const results = into.calculatePossibleMovesWithPaths(into.getHex(start)!, 3);
+    expect(results.filter((r) => r.path.slice(1).some((p) => key(p) === "4-7")).map((r) => r.cost)).toEqual([1]);
+    expect(destinations(into, 1, true)).not.toContain("4-7");
+  });
+
   it("ignores the hedgerow limits when a card ignores terrain", () => {
     const scenario = makeScenario({ tiles: { hedgerow: [start, { row: 4, col: 9 }] } });
     const board = new BoardManager(scenario);

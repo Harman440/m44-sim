@@ -152,7 +152,7 @@
     },
     "faction": { "enum": ["Allies", "Axis"] },
     "unitType": { "enum": ["infantry", "tank", "artillery"] },
-    "hexType": { "enum": ["plains", "forest", "hill", "town", "hedgerow", "river", "bridge", "lake", "beach", "swamp"] },
+    "hexType": { "enum": ["plains", "forest", "hill", "town", "hedgerow", "river", "bridge", "lake", "beach", "swamp", "ocean"] },
     "position": {
       "type": "object",
       "additionalProperties": false,

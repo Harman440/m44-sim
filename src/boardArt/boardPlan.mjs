@@ -239,6 +239,33 @@ const tilesJoining = (library, folder, edges, river = []) =>
   });
 
 /**
+ * The tiles of a library folder whose name starts with edges (after `prefix`: "surf-1-2.webp"),
+ * each with the turns that face them best toward the edges `toward`: the most of its edges on
+ * them, less those off them. None when no turn has more on than off
+ * @param {TileLibrary} library
+ * @param {string} folder
+ * @param {number[]} toward
+ * @param {string} [prefix]
+ */
+const tilesFacing = (library, folder, toward, prefix = "") => {
+  /** @type {{ tile: string, turns: number }[]} */
+  let best = [];
+  let bestScore = 0;
+  for (const file of library[folder] ?? []) {
+    if (!file.startsWith(prefix)) continue;
+    const { edges } = edgesInName(file.slice(prefix.length));
+    if (!edges.length) continue;
+    for (let t = 0; t < 6; t++) {
+      const on = turned(edges, t);
+      const score = on.filter((d) => toward.includes(d)).length - on.filter((d) => !toward.includes(d)).length;
+      if (score > bestScore) [best, bestScore] = [[], score];
+      if (score === bestScore && score > 0) best.push({ tile: `${folder}/${file}`, turns: t });
+    }
+  }
+  return best;
+};
+
+/**
  * Where each river hex's river runs, and the painted tiles that fit it. A river runs through the
  * edges it shares with the next river or bridge hexes: a fork where it joins three (a tile for it
  * or not: the first two are taken otherwise), and, joining one, into a lake beside it (the lake hex
@@ -311,7 +338,7 @@ export function canPaintRivers(tiles, library, keys = BOARD_KEYS) {
 }
 
 /** Terrain that carries on into the outskirts beside it (a river only through the edge it flows out of) */
-const OUTSKIRTS_TERRAIN = ["forest", "town", "hill", "hedgerow", "lake", "swamp", "beach"];
+const OUTSKIRTS_TERRAIN = ["forest", "town", "hill", "hedgerow", "lake", "swamp", "beach", "ocean"];
 
 /**
  * The hexes just outside a board whose part inside the art's box (the zigzag above the first row
@@ -376,7 +403,9 @@ const outskirtTerrain = (wanted, keys, riverEdges) => {
 };
 
 /** Terrain a beach fades into at its edges: land that isn't beach (water and the board's edge keep the sand) @param {string} type */
-const fadesInto = (type) => !isRiver(type) && type !== "lake" && type !== "beach";
+const fadesInto = (type) => !isRiver(type) && type !== "lake" && type !== "beach" && type !== "ocean";
+/** A beach tile with surf along the edges after "surf-" ("surf-1-2.webp"), turned to face the ocean */
+const SURF = "surf-";
 
 /**
  * The art for each terrain hex, in the order it's laid on the board.
@@ -392,7 +421,10 @@ const fadesInto = (type) => !isRiver(type) && type !== "lake" && type !== "beach
  * A lake is painted from the library's lake tiles when every hex of it has one that fits (the
  * edges its water carries on through, and any river flowing in), and drawn otherwise. A beach
  * fades into the land beside it, a beach tile whose name starts with edges (grass tufts on them)
- * turned to face it where one does; a swamp ends in the same ragged edge
+ * turned to face it where one does, or one with surf turned to face the ocean beside it; a swamp
+ * ends in the same ragged edge. An ocean hex next to land (anything but ocean, as far as the art
+ * shows) takes the ocean tile whose shore best faces it ("4-5.webp": the land across edges 4 and
+ * 5), else open sea, its waves turned level
  * @param {Terrain} tiles
  * @param {TileLibrary} library
  * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[], plain?: boolean, picked?: Record<string, string>, outskirts?: boolean }} [options]
@@ -419,6 +451,8 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
   }
   /** Whether a hex is in the outskirts, outside the board @param {string} key */
   const outside = (key) => !onBoard.has(key);
+  /** The hexes the art shows: the board's, and its outskirts' */
+  const shown = new Set([...keys, ...(outskirts && !plain ? outskirtKeys(keys) : [])]);
   const river = riverPlanner(wanted, library, onBoard, strict);
   /** Where a river hex's river runs, as it's drawn or painted @param {string} key */
   const riverEdges = (key) => (drawn.has(wanted.get(key) ?? "") ? river(key).twoEdges : river(key).edges);
@@ -521,27 +555,27 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       });
       const fading = fade.flatMap((on, d) => (on ? [d] : []));
       const files = library.beach ?? [];
-      // The tile with grass tufts that best faces the land, or plain sand
-      /** @type {{ tile: string, turns: number }[]} */
-      let best = [];
-      let bestScore = 0;
-      for (const file of files) {
-        const { edges } = edgesInName(file);
-        if (!edges.length) continue;
-        for (let t = 0; t < 6; t++) {
-          const on = turned(edges, t);
-          const score = on.filter((d) => fading.includes(d)).length - on.filter((d) => !fading.includes(d)).length;
-          if (score > bestScore) [best, bestScore] = [[], score];
-          if (score === bestScore && score > 0) best.push({ tile: `beach/${file}`, turns: t });
-        }
-      }
-      const sand = files.filter((file) => !edgesInName(file).edges.length);
+      // The tile with surf that best faces the ocean, else the one with grass tufts that best
+      // faces the land, or plain sand
+      const sea = [...Array(6).keys()].filter((d) => wanted.get(neighbor(key, d)) === "ocean");
+      const surf = sea.length ? tilesFacing(library, "beach", sea, SURF) : [];
+      const best = surf.length ? surf : tilesFacing(library, "beach", fading);
+      const sand = files.filter((file) => !edgesInName(file).edges.length && !file.startsWith(SURF));
       const pick = `${picked[key]}.webp`;
       const art = files.includes(pick)
         ? { tile: `beach/${pick}`, turns: pickFor(key, 2, 6) }
         : (best[pickFor(key, 4, best.length)] ?? { tile: `beach/${sand[pickFor(key, 1, sand.length)] ?? files[0]}`, turns: pickFor(key, 2, 6) });
       if (plain) plan.push({ key, type, art: "painted", ...art });
       else plan.push({ key, type, art: "joined", ...art, open: edgesTo(key, ["beach"]), bare: fade.map(() => false), spill: -1, fade, seed });
+    } else if (type === "ocean") {
+      const land = [...Array(6).keys()].filter((d) => {
+        const other = neighbor(key, d);
+        return shown.has(other) && wanted.get(other) !== "ocean";
+      });
+      const shore = plain ? [] : tilesFacing(library, "ocean", land);
+      const sea = (library.ocean ?? []).filter((file) => !edgesInName(file).edges.length);
+      const art = shore[pickFor(key, 4, shore.length)] ?? { tile: `ocean/${sea[pickFor(key, 1, sea.length)] ?? library.ocean?.[0]}`, turns: 3 * pickFor(key, 2, 2) };
+      plan.push({ key, type, art: "painted", ...art });
     } else if (type === "swamp" && !plain) {
       // A swamp ends in a ragged edge into the land beside it, as a beach does, and runs on into
       // the swamp beside it

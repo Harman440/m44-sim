@@ -14,8 +14,9 @@ const MORE = {
   ...LIBRARY,
   river: ["0-2-4.webp", "0-3-5.webp", "3-0.webp", "3.webp", "5-1.webp"],
   lake: ["0-1-5-r3.webp", "1-2.webp", "2-3-4.webp", "4-5.webp"],
-  beach: ["4-5-a.webp", "sand.webp"],
+  beach: ["4-5-a.webp", "sand.webp", "surf-1-2.webp"],
   swamp: ["digital.webp"],
+  ocean: ["4-5.webp", "sea.webp"],
 };
 /** The hexes with art of their own: not the countryside a forest's lone trees stand on */
 const own = (plan: HexArt[]) => plan.filter((hex) => hex.art !== "spill");
@@ -219,6 +220,23 @@ describe("planBoard", () => {
       open: [true, false, false, false, false, false],
       fade: [false, true, true, true, true, true],
     });
+  });
+
+  it("turns an ocean's shore toward the land beside it, and a beach's surf toward the ocean", () => {
+    // Countryside down to row 4, a beach at 4-5, the ocean from row 5 down
+    const sea = [5, 6, 7, 8].flatMap((row) => [...Array(13 - (row % 2)).keys()].map((col) => p(row, col)));
+    const plan = planBoard({ beach: [p(4, 5)], ocean: sea }, MORE);
+
+    // The beach's surf on its edges onto the ocean (1 and 2), faded into the land at the others
+    expect(at(plan, "4-5")[0]).toMatchObject({ tile: "beach/surf-1-2.webp", turns: 0, fade: [true, false, false, true, true, true] });
+    // Land at edges 4 and 5: the shore tile as it is
+    expect(at(plan, "5-5")[0]).toMatchObject({ art: "painted", tile: "ocean/4-5.webp", turns: 0 });
+    // Out at sea: open water, its waves level
+    const open = at(plan, "7-5")[0];
+    expect(open).toMatchObject({ art: "painted", tile: "ocean/sea.webp" });
+    expect([0, 3]).toContain(open && "turns" in open ? open.turns : -1);
+    // On the editor's plain art, open water too
+    expect(at(planBoard({ ocean: sea }, MORE, { plain: true }), "5-5")[0]).toMatchObject({ tile: "ocean/sea.webp" });
   });
 
   it("stands a lone tree or two on the countryside by some of a forest's edges, after every hex's own art", () => {

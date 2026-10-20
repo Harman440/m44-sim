@@ -10,11 +10,12 @@ import { boardKeys } from "./boardPlan.mjs";
 describe("the app's board art", () => {
   it("has the library of painted tiles", () => {
     expect(TILE_LIBRARY).toEqual({
-      beach: ["4-5-a.webp", "4-5-b.webp", "4-5-c.webp", "sand.webp"],
+      beach: ["4-5-a.webp", "4-5-b.webp", "4-5-c.webp", "sand.webp", "surf-1-2.webp"],
       forest: ["official.webp"],
       hedgerow: ["official.webp"],
       hill: ["official.webp"],
       lake: ["0-1-5-r3.webp", "1-2.webp", "2-3-4.webp", "4-5.webp"],
+      ocean: ["4-5.webp", "sea.webp"],
       river: ["0-2-4.webp", "0-3-5.webp", "3-0.webp", "3.webp", "5-1.webp"],
       swamp: ["digital.webp"],
       town: ["official.webp", ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `village-${n}.webp`)],

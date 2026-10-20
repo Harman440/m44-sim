@@ -15,6 +15,8 @@ export enum HexType {
   BEACH = "beach",
   /** A unit that enters it stops, and one leaving it moves 1 hex (house rule) */
   SWAMP = "swamp",
+  /** Sea: a move that starts on it or enters it is 1 hex, a unit on it can't fire, and a retreat is a hit (house rule) */
+  OCEAN = "ocean",
 }
 
 export const isHexType = (value: unknown): value is HexType =>

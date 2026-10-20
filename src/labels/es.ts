@@ -23,6 +23,7 @@ const TERRAIN: Labels["terrain"] = {
   [HexType.LAKE]: "lago",
   [HexType.BEACH]: "playa",
   [HexType.SWAMP]: "pantano",
+  [HexType.OCEAN]: "océano",
 };
 
 const SECTIONS: Labels["sections"] = {

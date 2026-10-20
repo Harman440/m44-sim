@@ -827,12 +827,14 @@ class GameSession {
       cost,
       boostCard: used?.card.id ?? null,
     };
+    // A unit in the ocean can't fire (house rule)
+    const noFire = !!this.board.getHex(to)?.getTerrain().noFire;
     if (samePosition(from, to)) {
-      order = new Order({ ...props, path: [from], shots: limits.holdShots });
+      order = new Order({ ...props, path: [from], shots: noFire ? 0 : limits.holdShots });
     } else {
       // Paths must be found before moving: afterwards the start hex is empty and the destination taken
       const path = plan.paths(limits.maxMove).get(positionKey(to));
-      const canFire = plan.paths(limits.moveAndFire, true).has(positionKey(to));
+      const canFire = !noFire && plan.paths(limits.moveAndFire, true).has(positionKey(to));
       if (!path) return false;
       const lostSandbags = this.moveUnit(from, to);
       if (!lostSandbags) return false;
@@ -1012,10 +1014,11 @@ class GameSession {
 
   /**
    * Pass and play: where the unit on this hex can retreat one hex, toward its own edge (the
-   * bottom of this side's view): the two hexes behind it that are free and passable
+   * bottom of this side's view): the two hexes behind it that are free and passable. None from
+   * the ocean, where each hex to retreat is a hit (`retreatBlocked`)
    */
   retreatOptions(position: Position): Position[] {
-    if (!this.mustRetreat(position)) return [];
+    if (!this.mustRetreat(position) || this.board.getHex(position)!.getTerrain().noRetreat) return [];
     const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
     return this.board
       .getHex(position)!
@@ -1841,7 +1844,7 @@ class GameSession {
     const marked = new Set(this.orders.map((order) => order.unit));
     return this.board
       .getAllHexes()
-      .filter((hex) => hex.unit && !marked.has(hex.unit))
+      .filter((hex) => hex.unit && !marked.has(hex.unit) && !hex.getTerrain().noFire)
       .map((hex) => hex.getPosition());
   }
 

@@ -59,6 +59,7 @@ export const TERRAINS = [
   HexType.LAKE,
   HexType.BEACH,
   HexType.SWAMP,
+  HexType.OCEAN,
 ];
 const UNIT_TYPES = [UnitType.INFANTRY, UnitType.TANK, UnitType.ARTILLERY];
 const MARKS = ["elite", "sandbags", "wire", "erase"] as const;

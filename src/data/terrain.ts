@@ -24,6 +24,10 @@ export interface TerrainRules {
   firesAs?: HexType;
   /** A move that starts on it or enters it is at most this many hexes long, whatever cards add (house beach rule) */
   moveThrough?: number;
+  /** A unit on it can't fire, whether it moved or not (house ocean rule) */
+  noFire?: boolean;
+  /** A unit on it can't retreat: each hex it should retreat is a hit instead (house ocean rule) */
+  noRetreat?: boolean;
 }
 
 export const TERRAIN: Record<HexType, TerrainRules> = {
@@ -47,4 +51,14 @@ export const TERRAIN: Record<HexType, TerrainRules> = {
   // Both are fired at as open ground
   [HexType.BEACH]: { movement: MovementRule.NORMAL, fireAfterMove: true, blocksSight: false, firesAs: HexType.PLAINS, moveThrough: 2 },
   [HexType.SWAMP]: { movement: MovementRule.STOP, fireAfterMove: true, blocksSight: false, leaveOneHex: true, firesAs: HexType.PLAINS },
+  // House rule: a unit in the sea wades in and out a hex at a time, can't fire, and can't fall back
+  [HexType.OCEAN]: {
+    movement: MovementRule.NORMAL,
+    fireAfterMove: false,
+    blocksSight: false,
+    firesAs: HexType.PLAINS,
+    moveThrough: 1,
+    noFire: true,
+    noRetreat: true,
+  },
 };
