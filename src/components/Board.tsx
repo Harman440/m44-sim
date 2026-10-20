@@ -20,6 +20,7 @@ import Unit from '../game-core/unit';
 import type { MarkerRule } from '../game-core/combatCard';
 import { SandbagsArt } from './SandbagsIcon';
 import { CamouflageBadge } from './CamouflageIcon';
+import BoardSurround from './BoardSurround';
 
 /** Hexes to flash red; a new `id` restarts the animation on the same hexes */
 export interface HexFlash {
@@ -504,13 +505,14 @@ function Board({
     });
 
   const { width, height, imageMargin } = geometry;
-  // Crop the view to the board image: the hexes all lie inside it, so the
-  // dark margin around it would only waste screen space on tablets. With
-  // `focus`, crop further to those hexes (still inside the image).
-  let viewX = imageMargin;
-  let viewY = imageMargin;
-  let viewWidth = width - 2 * imageMargin;
-  let viewHeight = height - 2 * imageMargin;
+  // The view: the board's art (the box its hexes fill) and a ring of countryside hexes round it
+  // (BoardSurround), reaching a hex's radius past its edges. With `focus`, cropped to those hexes
+  const corner = grid.hexCenter({ row: 0, col: 0 });
+  const hexWidth = hexSize * Math.sqrt(3);
+  let viewX = corner.x - hexWidth / 2 - hexSize;
+  let viewY = corner.y - hexSize - hexSize;
+  let viewWidth = boardWidth * hexWidth + 2 * hexSize;
+  let viewHeight = (1.5 * boardHeight + 0.5) * hexSize + 2 * hexSize;
   if (focus.length > 0) {
     const centers = focus.map(geometry.hexCenter);
     const halfWidth = (hexSize * Math.sqrt(3)) / 2;
@@ -557,6 +559,9 @@ function Board({
             }
           />
         )}
+
+        {/* The countryside round the board, over the art's frame */}
+        {focus.length === 0 && <BoardSurround size={boardManager.size} geometry={grid} />}
 
         {/* Layer 2: Hexagon tiles, then the units and the sandbags in front of them */}
         {renderBoard()}

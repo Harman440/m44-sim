@@ -132,3 +132,12 @@
 .board__objective-medal {
   fill: var(--m44-paper);
 }
+
+/* The countryside hexes round the board (BoardSurround): out of play, so a light veil and a faint line */
+.board__surround-veil {
+  fill: var(--m44-ink, #000);
+  fill-opacity: 0.12;
+  stroke: var(--m44-ink, #000);
+  stroke-opacity: 0.18;
+  stroke-width: 1.5;
+}
