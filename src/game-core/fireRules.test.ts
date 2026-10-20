@@ -179,6 +179,18 @@ describe("fire questions (house rules)", () => {
     expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.ARTILLERY), near, fireBonusSteps).dice).toBe(3);
   });
 
+  it("takes a die from any unit firing out of a ford, and fires at a unit in a river as in the open", () => {
+    const near = { distance: "1", targetTerrain: "plains", sandbags: "no" };
+    const fromFord = (unitType: UnitType) => ({ ...context(unitType), fromTerrain: HexType.RIVER, fromFord: true });
+
+    const { dice, steps } = calculateFireDice(FIRE_QUESTIONS, fromFord(UnitType.INFANTRY), near, fireBonusSteps);
+    expect(dice).toBe(2);
+    expect(steps).toContainEqual({ label: { es: "Desde un vado", en: "From a ford" }, dice: -1, kind: "ford" });
+    expect(calculateFireDice(FIRE_QUESTIONS, fromFord(UnitType.TANK), near, fireBonusSteps).dice).toBe(2);
+    const atRiver = { ...near, targetTerrain: HexType.RIVER };
+    expect(calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), atRiver, fireBonusSteps).dice).toBe(3);
+  });
+
   it("adds the command card's close assault or ranged bonus", () => {
     const card = new CommandCard({
       name: same("Test"),

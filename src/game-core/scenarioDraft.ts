@@ -300,6 +300,13 @@ export function setParadrop(draft: Scenario, paradrop: Scenario["paradrop"] | nu
   return paradrop ? { ...rest, paradrop } : rest;
 }
 
+/** The map's rivers can be forded (house rule), or not; left out of the map when not */
+export function setFordableRivers(draft: Scenario, on: boolean): Scenario {
+  if (!!draft.fordableRivers === on) return draft;
+  const { fordableRivers: _old, ...rest } = draft;
+  return on ? { ...rest, fordableRivers: true } : rest;
+}
+
 // --- Victory --------------------------------------------------------------------
 // The medals to win and each side's objectives. The objectives are put on the map with the
 // objective tool, one hex each, named "Objetivo N" until the player names them; an objective of

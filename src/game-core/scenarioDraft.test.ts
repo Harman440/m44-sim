@@ -31,6 +31,7 @@ import {
   setAttacker,
   setBigGuns,
   setExtraDraws,
+  setFordableRivers,
   setHandSize,
   setParadrop,
   setText,
@@ -280,6 +281,18 @@ describe("the scenario's settings", () => {
     expect(back).toEqual(draft);
     expect(setAirSorties(draft, "Allies", -1)).toBe(false);
     expect(setBigGuns(draft, "Axis", true)).toBe(draft);
+  });
+
+  it("turns fordable rivers on and off, keeping them out of the map when off, through a file too", () => {
+    const draft = empty();
+    const ford = setFordableRivers(draft, true);
+    expect(ford.fordableRivers).toBe(true);
+    expect(setFordableRivers(ford, true)).toBe(ford);
+    expect(parseScenario(JSON.parse(JSON.stringify(toScenarioFile(ford))), { rules: false }).fordableRivers).toBe(true);
+    expect(setFordableRivers(ford, false)).toEqual(draft);
+    expect(() => parseScenario({ ...JSON.parse(JSON.stringify(toScenarioFile(draft))), fordableRivers: "yes" }, { rules: false })).toThrow(
+      ScenarioFileError
+    );
   });
 
   it("turns the extra draws and the paradrop on and off", () => {

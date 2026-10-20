@@ -11,6 +11,7 @@ import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
 import { UnitType } from "../game-core/unit";
 import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
+import { FORD_FIRE_DICE } from "./fireQuestions";
 import { HexType } from "../types/hex";
 
 const infantry = FIGURES[UnitType.INFANTRY];
@@ -330,6 +331,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: `Una unidad que empieza su movimiento en el océano, o entra en él, mueve ${TERRAIN[HexType.OCEAN].moveThrough} casilla. Una unidad en el océano no puede disparar, ni retroceder: cada casilla que tendría que retroceder es un impacto. Se dispara a ella como en campo abierto.`,
           en: `A unit whose move starts in the ocean, or enters it, moves ${TERRAIN[HexType.OCEAN].moveThrough} hex. A unit in the ocean can't fire, nor retreat: each hex it should retreat is a hit instead. It's fired at as on open ground.`,
+        },
+      },
+      {
+        title: { es: "Río vadeable", en: "Fordable river" },
+        house: {
+          es: `En los mapas que lo dicen, los ríos se pueden vadear. Cualquier unidad puede entrar en el río y se para ahí; puede disparar, con ${-FORD_FIRE_DICE} dado menos, y también puede retirarse a él. Se dispara a ella como en campo abierto.`,
+          en: `On the maps that say so, rivers can be forded. Any unit may enter the river and stops there; it may still fire, with ${-FORD_FIRE_DICE} die fewer, and may retreat into it too. It's fired at as on open ground.`,
         },
       },
     ],

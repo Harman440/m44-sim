@@ -116,6 +116,10 @@
         "axis": { "type": "integer", "minimum": 0 }
       }
     },
+    "fordableRivers": {
+      "description": "Its rivers can be forded (house rule): a unit wades in and stops, can still fire with a die less, and is fired at as in the open",
+      "type": "boolean"
+    },
     "victory": {
       "description": "How the scenario is won in pass and play: the first side to this many medals at the end of a turn. Each enemy unit destroyed is a medal; each objective hex is a medal for its side while one of its units stands on it at the end of a turn",
       "type": "object",

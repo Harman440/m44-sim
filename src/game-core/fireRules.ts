@@ -30,6 +30,8 @@ export interface FireContext {
   fromTerrain?: HexType;
   /** The unit fires from a hex with barbed wire (infantry loses a die) */
   fromWire?: boolean;
+  /** The unit fires from a river it's fording (it loses a die) */
+  fromFord?: boolean;
   /** The enemy may have camouflaged units (the Camouflage card): a shot at range asks about its target */
   enemyCamouflage?: boolean;
   /**
@@ -53,7 +55,7 @@ export interface FireOption {
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
-export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown" | "joined" | "pinned";
+export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown" | "ford" | "joined" | "pinned";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {

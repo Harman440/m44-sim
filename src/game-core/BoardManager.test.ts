@@ -207,6 +207,18 @@ describe("BoardManager pathfinding", () => {
     expect(destinations(out, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);
   });
 
+  it("keeps every unit out of a river, unless the map's rivers can be forded: then it wades in, stops and can fire", () => {
+    const river = { river: [{ row: 4, col: 7 }] };
+    expect(destinations(new BoardManager(makeScenario({ tiles: river })), 3)).not.toContain("4-7");
+
+    const ford = new BoardManager(makeScenario({ tiles: river, fordableRivers: true }));
+    for (const result of ford.calculatePossibleMovesWithPaths(ford.getHex(start)!, 3)) {
+      expect(result.path.slice(1, -1).map(key)).not.toContain("4-7");
+    }
+    expect(destinations(ford, 1, true)).toContain("4-7");
+    expect(ford.getHex({ row: 4, col: 7 })!.getTerrain().ford).toBe(true);
+  });
+
   it("moves a unit 1 hex out of the ocean or into it, and lets it fire from nowhere in it", () => {
     const out = new BoardManager(makeScenario({ tiles: { ocean: [start] } }));
     expect(destinations(out, 3).sort()).toEqual(["3-5", "3-6", "4-5", "4-7", "5-5", "5-6"]);

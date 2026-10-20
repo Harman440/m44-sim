@@ -284,6 +284,12 @@ const fromTownSteps = ({ unitType, fromTerrain }: FireContext): DiceStep[] =>
     ? [{ label: { es: "Desde un pueblo", en: "From a town" }, dice: FROM_TOWN_FIRE_DICE[unitType], kind: "fromTown" }]
     : [];
 
+/** Dice lost by a unit firing from a river it's fording (house rule, `Scenario.fordableRivers`), any unit */
+export const FORD_FIRE_DICE = -1;
+
+const fordSteps = ({ fromFord }: FireContext): DiceStep[] =>
+  fromFord ? [{ label: { es: "Desde un vado", en: "From a ford" }, dice: FORD_FIRE_DICE, kind: "ford" }] : [];
+
 /**
  * Dice lost by a pinned unit (house rule: it took a flag this turn), by its type. Armour and
  * artillery ignore the pin
@@ -302,7 +308,7 @@ const pinnedSteps = ({ unitType, pinned }: FireContext, answers: FireAnswers): D
     ? [{ label: { es: "Inmovilizada", en: "Pinned" }, dice: PINNED_FIRE_DICE[unitType], kind: "pinned" }]
     : [];
 
-/** Extra dice that don't need a question: the command card's bonuses, and the firing unit's own hex (barbed wire, a town) */
+/** Extra dice that don't need a question: the command card's bonuses, and the firing unit's own hex (barbed wire, a town, a ford) */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
   answers.distance
     ? [
@@ -310,6 +316,7 @@ export const fireBonusSteps = (context: FireContext, answers: FireAnswers): Dice
         ...combatSteps(context, answers.distance === "1"),
         ...wireSteps(context),
         ...fromTownSteps(context),
+        ...fordSteps(context),
         ...pinnedSteps(context, answers),
       ]
     : [];

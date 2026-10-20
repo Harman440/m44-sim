@@ -69,7 +69,7 @@ class BoardManager {
       positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
-          const tile = new Hex(position, tileType, this.width);
+          const tile = new Hex(position, tileType, this.width, !!scenario.fordableRivers);
           this.hexes.set(tile.getKey(), tile);
         }
       });

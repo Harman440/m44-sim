@@ -28,6 +28,8 @@ export interface TerrainRules {
   noFire?: boolean;
   /** A unit on it can't retreat: each hex it should retreat is a hit instead (house ocean rule) */
   noRetreat?: boolean;
+  /** A river forded (house rule): a unit on it fires with FORD_FIRE_DICE (fireQuestions.ts) */
+  ford?: boolean;
 }
 
 export const TERRAIN: Record<HexType, TerrainRules> = {
@@ -42,8 +44,9 @@ export const TERRAIN: Record<HexType, TerrainRules> = {
     firstStepOnly: true,
     leaveOneHex: true,
   },
-  // Water: no unit can enter it or stand on it, and it doesn't block sight
-  [HexType.RIVER]: { movement: MovementRule.BLOCK, fireAfterMove: false, blocksSight: false },
+  // Water: no unit can enter it or stand on it, and it doesn't block sight. A river can be forded
+  // on some maps (FORDABLE_RIVER), where a unit in it is fired at as in the open
+  [HexType.RIVER]: { movement: MovementRule.BLOCK, fireAfterMove: false, blocksSight: false, firesAs: HexType.PLAINS },
   [HexType.LAKE]: { movement: MovementRule.BLOCK, fireAfterMove: false, blocksSight: false },
   // Plays like plains (house rule)
   [HexType.BRIDGE]: { movement: MovementRule.NORMAL, fireAfterMove: true, blocksSight: false, firesAs: HexType.PLAINS },
@@ -61,4 +64,16 @@ export const TERRAIN: Record<HexType, TerrainRules> = {
     noFire: true,
     noRetreat: true,
   },
+};
+
+/**
+ * A river on a map with fordable rivers (`Scenario.fordableRivers`, house rule): any unit wades in
+ * and stops, can still fire, with a die less (`ford`), and is fired at as in the open
+ */
+export const FORDABLE_RIVER: TerrainRules = {
+  movement: MovementRule.STOP,
+  fireAfterMove: true,
+  blocksSight: false,
+  firesAs: HexType.PLAINS,
+  ford: true,
 };

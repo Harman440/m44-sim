@@ -81,6 +81,8 @@ export interface Scenario {
    * scenario gives the side, 0 for a side whose enemy has air superiority. 1 each when omitted
    */
   airPower?: { allies: number; axis: number };
+  /** Its rivers can be forded (house rule, `FORDABLE_RIVER`): a unit wades in and stops, and fires with a die less */
+  fordableRivers?: boolean;
   /**
    * How the scenario is won (pass and play, where the app knows both armies): the first side to
    * `medals` medals at the end of a turn. Each enemy unit destroyed is a medal; each objective

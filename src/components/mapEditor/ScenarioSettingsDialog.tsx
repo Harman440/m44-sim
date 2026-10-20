@@ -34,6 +34,7 @@ import {
   setExtraDraws,
   setHandSize,
   setParadrop,
+  setFordableRivers,
   removeObjective,
   setObjectiveName,
   setText,
@@ -87,6 +88,9 @@ const TEXT = defineMessages({
     paradropInfo:
       "Antes del primer turno, el bando deja caer sus paracaidistas sobre el tablero de la mesa y toca en la app la casilla donde ha caído cada uno; " +
       "los que caen fuera del tablero o encima de otra unidad se pierden. Con paracaidistas, el bando puede empezar sin unidades en el mapa. Así empieza Sainte-Mère-Église.",
+    fordableRivers: "Ríos vadeables",
+    fordableRiversInfo:
+      "Los ríos del mapa se pueden vadear (los puentes siguen como siempre). Cualquier unidad puede entrar en el río y se para ahí; puede disparar, con un dado menos, y retirarse a él. Se dispara a ella como en campo abierto.",
     victoryTitle: "Victoria",
     victory: "Condiciones de victoria",
     victoryInfo:
@@ -146,6 +150,9 @@ const TEXT = defineMessages({
     paradropInfo:
       "Before the first turn, the side drops its paratroopers onto the board on the table and taps in the app the hex where each one landed; " +
       "the ones that land off the board or on another unit are lost. With paratroopers, the side can start with no units on the map. Sainte-Mère-Église starts like this.",
+    fordableRivers: "Fordable rivers",
+    fordableRiversInfo:
+      "The map's rivers can be forded (bridges stay as they are). Any unit may enter the river and stops there; it may still fire, with a die fewer, and may retreat into it. It's fired at as on open ground.",
     victoryTitle: "Victory",
     victory: "Victory conditions",
     victoryInfo:
@@ -480,6 +487,9 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
                   />,
                 )}
               </Stack>
+            )}
+            {ruleSwitch(t.fordableRivers, t.fordableRiversInfo, !!draft.fordableRivers, () =>
+              change(setFordableRivers(draft, !draft.fordableRivers), "fordableRivers"),
             )}
           </Stack>
 

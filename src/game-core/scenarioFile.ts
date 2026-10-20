@@ -51,6 +51,7 @@ const FILE_FIELDS = {
   extraDraws: true,
   bigGuns: true,
   airPower: true,
+  fordableRivers: true,
   victory: true,
 } as const satisfies Record<keyof ScenarioFile, true>;
 export const SCENARIO_FILE_FIELDS = Object.keys(FILE_FIELDS) as (keyof ScenarioFile)[];
@@ -226,6 +227,7 @@ const EXPECTED = {
   text: { es: "debe ser un texto", en: "must be a text" },
   localized: { es: 'debe ser un texto en cada idioma: { "es": …, "en": … }', en: 'must be a text in each language: { "es": …, "en": … }' },
   wholeNumber: { es: "debe ser un número entero", en: "must be a whole number" },
+  boolean: { es: "debe ser true o false", en: "must be true or false" },
   faction: { es: 'debe ser "Allies" o "Axis"', en: 'must be "Allies" or "Axis"' },
   factions: { es: 'debe ser una lista de bandos ("Allies", "Axis")', en: 'must be a list of sides ("Allies", "Axis")' },
   positions: { es: 'debe ser una lista de casillas { "row": …, "col": … }', en: 'must be a list of hexes { "row": …, "col": … }' },
@@ -400,6 +402,9 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     extraDraws: optional("extraDraws", (value, path) => reader.extraDraws(value, path)),
     bigGuns: optional("bigGuns", (value, path) => reader.check(value, path, isFactionList, EXPECTED.factions)),
     airPower: optional("airPower", (value, path) => reader.sides(value, path, reader.number)),
+    fordableRivers: optional("fordableRivers", (value, path) =>
+      reader.check(value, path, (v): v is boolean => typeof v === "boolean", EXPECTED.boolean)
+    ),
     victory: optional("victory", (value, path) => reader.victory(value, path)),
   };
   if (reader.problems.length) throw new ScenarioFileError(reader.problems);

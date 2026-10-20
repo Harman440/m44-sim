@@ -1,6 +1,6 @@
 import { AxialCoord, HexType, MovementRule, Side } from "../types/hex";
 import { Position } from "../types/scenario";
-import { TERRAIN, TerrainRules } from "../data/terrain";
+import { FORDABLE_RIVER, TERRAIN, TerrainRules } from "../data/terrain";
 import { positionKey } from "./position";
 import { STANDARD_BOARD, sectionLines } from "./boardSize";
 import Unit from "./unit";
@@ -26,11 +26,14 @@ class Hex {
   private _wire = false;
   /** Sandbags on the hex (this side's unit's): they go when the unit leaves */
   private _sandbags = false;
+  /** The map's rivers can be forded (`Scenario.fordableRivers`) */
+  private readonly fordable: boolean;
 
-  constructor(position: Position, type: HexType = HexType.PLAINS, boardCols: number = STANDARD_BOARD.cols) {
+  constructor(position: Position, type: HexType = HexType.PLAINS, boardCols: number = STANDARD_BOARD.cols, fordable = false) {
     this.position = position;
     this.type = type;
     this.boardCols = boardCols;
+    this.fordable = fordable;
 
     // Convert position to axial
     this.posAxial = this.offsetToAxial(this.position);
@@ -65,7 +68,9 @@ class Hex {
   getSide(): Side { return this.side; }
   getType(): HexType { return this.type; }
   /** What the terrain does to units moving and firing (data/terrain.ts) */
-  getTerrain(): TerrainRules { return TERRAIN[this.type]; }
+  getTerrain(): TerrainRules {
+    return this.fordable && this.type === HexType.RIVER ? FORDABLE_RIVER : TERRAIN[this.type];
+  }
 
   getKey() {
     return positionKey(this.position);

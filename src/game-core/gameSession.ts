@@ -1323,6 +1323,7 @@ class GameSession {
       combatBonuses: this.combatBonusesFor(orderIndex),
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
       fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
+      fromFord: !!this.board.getHex(summary.firingFrom)?.getTerrain().ford,
       // Pass and play knows each enemy unit's badge, so it's always answered
       enemyCamouflage: this.enemyView !== null || this.enemyCamouflage,
       // Pass and play knows whether the unit is pinned; on own tablets the player says

@@ -3833,3 +3833,27 @@ describe("GameSession firing combat cards", () => {
     expect(kinds.indexOf("longRange")).toBeGreaterThan(kinds.lastIndexOf("battle"));
   });
 });
+
+describe("GameSession fordable rivers", () => {
+  it("lets a unit wade into a fordable river and fire from it with a die less", () => {
+    const FORD: Position = { row: 6, col: 1 };
+    const commandCards = cards();
+    const session = new GameSession({
+      scenario: { ...scenario, tiles: { river: [FORD] }, fordableRivers: true },
+      faction: "Allies",
+      initialHandSize: commandCards.length,
+      commandCards,
+    });
+    session.pickCard(session.getSnapshot().hand.find((c) => c.id === "left")!);
+    expect(session.getMoveOptions(LEFT_INF)!.moveAndFire).toContainEqual(FORD);
+    expect(session.issueOrder(LEFT_INF, FORD)).toBe(true);
+    orderAllAndFight(session);
+    const index = session.getSnapshot().orders.findIndex((o) => samePosition(o.end, FORD));
+
+    expect(session.fireTargetsFor(index).find((t) => samePosition(t.position, { row: 5, col: 1 }))?.dice).toBe(2);
+    // It moved, so the unit that held fires first, or gives its shot up
+    expect(session.skipUnmovedFire()).toBe(true);
+    expect(session.fireAt(index, { position: { row: 5, col: 1 }, infantry: true, sandbags: false })).toBe(true);
+    expect(session.getSnapshot().shots[0]!.steps).toContainEqual({ label: { es: "Desde un vado", en: "From a ford" }, dice: -1, kind: "ford" });
+  });
+});

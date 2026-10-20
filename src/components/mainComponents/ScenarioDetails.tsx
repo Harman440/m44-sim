@@ -48,6 +48,10 @@ const TEXT = defineMessages({
       "bando, una medalla para él mientras una de sus unidades esté en ella al final del turno. Un bando sin unidades pierde. " +
       "En tablets propias las medallas se cuentan en la mesa.",
     destroyedOnly: "Unidades destruidas",
+    fordable: "Ríos vadeables",
+    fordableInfo:
+      "Cualquier unidad puede entrar en un río y se para ahí; puede disparar, con un dado menos, y retirarse a él. Se dispara a ella como en campo abierto.",
+    fordableValue: "Sí",
   },
   en: {
     role: "Role",
@@ -85,6 +89,10 @@ const TEXT = defineMessages({
       "hexes a medal for it while one of its units stands there at the end of the turn. A side with no units left loses. " +
       "On own tablets the medals are counted at the table.",
     destroyedOnly: "Units destroyed",
+    fordable: "Fordable rivers",
+    fordableInfo:
+      "Any unit may enter a river and stops there; it may still fire, with a die fewer, and may retreat into it. It's fired at as on open ground.",
+    fordableValue: "Yes",
   },
 });
 
@@ -155,6 +163,20 @@ function detailRows(
               </Stack>
             );
           },
+        },
+      ]
+    : [];
+  // A map-wide rule: the same for both sides
+  const fordableRow: DetailRow[] = scenario.fordableRivers
+    ? [
+        {
+          label: t.fordable,
+          info: <Typography variant="body1">{t.fordableInfo}</Typography>,
+          value: () => (
+            <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
+              {t.fordableValue}
+            </Typography>
+          ),
         },
       ]
     : [];
@@ -229,6 +251,7 @@ function detailRows(
       },
     },
     ...victoryRow,
+    ...fordableRow,
   ];
 }
 
