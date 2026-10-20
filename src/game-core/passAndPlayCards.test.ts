@@ -6,6 +6,7 @@ import { UnitType } from "./unit";
 import { turnedRound } from "./BoardManager";
 import { STANDARD_BOARD } from "./boardSize";
 import { samePosition } from "./position";
+import { hexDistance } from "./fireTargets";
 import { allCombatCards } from "../data/combatCards";
 import { Faction } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
@@ -67,7 +68,8 @@ const play = (
     marks = [],
     moves = [],
     assign,
-  }: { card?: string; combat?: string; marks?: Position[]; moves?: [Position, Position][]; assign?: Position } = {}
+    boost,
+  }: { card?: string; combat?: string; marks?: Position[]; moves?: [Position, Position][]; assign?: Position; boost?: [Position, Position] } = {}
 ) => {
   match.uncover();
   const session = match.activeSession();
@@ -77,6 +79,8 @@ const play = (
   expect(session.pickCard(command, undefined, combatCard)).toBe(true);
   marks.forEach((mark) => expect(session.markHex(mark)).toBe(true));
   moves.forEach(([from, to]) => expect(session.issueOrder(from, to)).toBe(true));
+  // A unit moves with the combat card's move
+  if (boost) expect(session.issueOrder(boost[0], boost[1], undefined, true)).toBe(true);
   while (session.getSnapshot().ordersLeft > 0) {
     const position = session.getSnapshot().orderable[0]!;
     expect(session.issueOrder(position, position)).toBe(true);
@@ -257,5 +261,28 @@ describe("combat cards in the shared battle", () => {
     const kinds = shot.kinds!;
     expect(kinds.filter((kind) => kind === "longRange")).toHaveLength(shot.dice - option!.dice);
     expect(kinds.filter((kind) => kind === "battle")).toHaveLength(option!.dice);
+  });
+
+  it("fires Behind Enemy Lines' infantry before any other unit, and moves it up to 3 hexes more in the final phase", () => {
+    const match = newMatch();
+    toTurn2Battle(match, {}, { combat: "infiltrators", boost: [{ row: 4, col: 2 }, { row: 6, col: 0 }] });
+    const allies = match.sessions.Allies;
+    const infantry = allies.getSnapshot().orders.findIndex((o) => o.boostCard !== null);
+    const at = { row: 6, col: 0 };
+
+    // The Axis attacks, but its units that held wait for the infantry
+    expect(match.getSnapshot().battle).toMatchObject({ side: "Allies", group: "first", fireable: [infantry] });
+    expect(match.holdFire(infantry)).toBe(true);
+    expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", group: "unmoved" });
+    while (match.getSnapshot().battle?.side) match.holdFire(match.getSnapshot().battle!.fireable[0]!);
+    expect(match.endBattle()).toBe(true);
+
+    const due = allies.getSnapshot().finalMove!;
+    expect(due).toMatchObject({ from: at, card: { templateId: "infiltrators" } });
+    expect(due.options.every((p) => hexDistance(p, at) <= 3)).toBe(true);
+    const to = due.options.find((p) => hexDistance(p, at) === 3)!;
+    expect(allies.makeFinalMove(to)).toBe(true);
+    expect(allies.getSnapshot().finalMove).toBeNull();
+    expect(allies.makeFinalMove(at)).toBe(false);
   });
 });

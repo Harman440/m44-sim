@@ -44,6 +44,7 @@ const TEXT = defineMessages({
       `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en una casilla libre.`,
     placeReinforcement: "Colocar el refuerzo",
     reposition: "Reposicionar la artillería",
+    behindLines: "Mover la infantería tras las líneas",
     reinforcementPlacedShared: (unit: string) => `llega ${unit.toLowerCase()}, en la casilla de la cruz.`,
     mapEdits: (n: number) => (n === 1 ? "1 cambio" : `${n} cambios`),
     updateMap: "Actualizar mapa",
@@ -110,6 +111,7 @@ const TEXT = defineMessages({
       `${unit.toLowerCase()} arrives. The cross hex is taken: place it on a free hex.`,
     placeReinforcement: "Place the reinforcement",
     reposition: "Reposition the artillery",
+    behindLines: "Move the infantry behind the lines",
     reinforcementPlacedShared: (unit: string) => `${unit.toLowerCase()} arrives, on the cross hex.`,
     mapEdits: (n: number) => (n === 1 ? "1 change" : `${n} changes`),
     updateMap: "Update map",
@@ -462,10 +464,16 @@ function EndOfTurnView({
                   {t.placeReinforcement}
                 </Button>
               )}
-              {!game.reinforcementToPlace && game.repositioning && (
-                <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="artillery" />}>
-                  {t.reposition}
-                </Button>
+              {!game.reinforcementToPlace && game.finalMove && (
+                game.finalMove.card.effect?.kind === "reposition" ? (
+                  <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="artillery" />}>
+                    {t.reposition}
+                  </Button>
+                ) : (
+                  <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+                    {t.behindLines}
+                  </Button>
+                )
               )}
               <MapPreview session={session} faction={faction} height={110} />
             </>

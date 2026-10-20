@@ -21,6 +21,7 @@ const TEXT = defineMessages({
     unitSelected: "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala",
     placeReinforcement: (unit: string) => `Refuerzo (${unit.toLowerCase()}): toca la casilla libre donde lo pones`,
     repositioning: "Reposicionamiento: toca la casilla resaltada a la que va tu artillería, hasta 2 casillas",
+    behindLines: "Tras las líneas enemigas: toca la casilla resaltada a la que va tu infantería, hasta 3 casillas",
     selected: (hex: string) => `Seleccionado: ${hex}`,
     removeLeavesCrew: "Eliminar: queda infantería",
     remove: "Eliminar unidad",
@@ -37,6 +38,7 @@ const TEXT = defineMessages({
     unitSelected: "Tap an empty hex to move the unit (retreat or advance), or remove it",
     placeReinforcement: (unit: string) => `Reinforcement (${unit.toLowerCase()}): tap the free hex where you put it`,
     repositioning: "Reposition: tap the highlighted hex your artillery moves to, up to 2 hexes away",
+    behindLines: "Behind Enemy Lines: tap the highlighted hex your infantry moves to, up to 3 hexes away",
     selected: (hex: string) => `Selected: ${hex}`,
     removeLeavesCrew: "Remove: infantry stays",
     remove: "Remove unit",
@@ -82,16 +84,16 @@ function EndOfTurnMap({
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
   const { flash, flashInvalid } = useHexFlash();
-  /** Pass and play: the artillery given Reposition still to move (a reinforcement goes first) */
-  const repositioning = game.reinforcementToPlace ? null : game.repositioning;
+  /** Pass and play: the unit a card moves after the battle, still to move (a reinforcement goes first) */
+  const finalMove = game.reinforcementToPlace ? null : game.finalMove;
 
   const handleTileClick = (position: Position) => {
     const hex = boardManager.getHex(position);
     if (!hex) return;
 
-    // Pass and play's Reposition: the artillery's move, up to 2 hexes
-    if (repositioning) {
-      if (!session.reposition(position)) flashInvalid(position);
+    // Pass and play's card moves: Reposition's artillery, Behind Enemy Lines' infantry
+    if (finalMove) {
+      if (!session.makeFinalMove(position)) flashInvalid(position);
       return;
     }
     if (selected && samePosition(selected, position)) {
@@ -138,8 +140,8 @@ function EndOfTurnMap({
       <div className="phase-layout__board">
         <Board
           onTileClick={handleTileClick}
-          unitHexPosition={repositioning ? repositioning.from : selected}
-          possibleMovePositions={repositioning ? [...repositioning.options] : []}
+          unitHexPosition={finalMove ? finalMove.from : selected}
+          possibleMovePositions={finalMove ? [...finalMove.options] : []}
           possibleMoveAndFirePositions={[]}
           boardManager={boardManager}
           orders={game.orders}
@@ -163,8 +165,10 @@ function EndOfTurnMap({
             ? t.unitSelected
             : game.reinforcementToPlace
               ? t.placeReinforcement(labels.units[game.reinforcementToPlace])
-              : repositioning
-                ? t.repositioning
+              : finalMove
+                ? finalMove.card.effect?.kind === "reposition"
+                  ? t.repositioning
+                  : t.behindLines
                 : (hint ?? (shared ? t.hintShared : t.hint))}
         </Typography>
 

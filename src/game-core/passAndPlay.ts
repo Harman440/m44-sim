@@ -9,6 +9,7 @@ import { hexDistance } from "./fireTargets";
 import { inSight } from "./fogOfWar";
 import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
 import { appliedFaces, keptForHits, readRoll } from "./rollResult";
+import { OrderSummary } from "./turnSummary";
 import { MatchResult, Medals, countMedals, heldObjectives, winnerOf } from "./victory";
 import { resultLimit } from "../data/figures";
 import { Faction, FACTIONS } from "../types/faction";
@@ -40,8 +41,13 @@ export interface SavedMatch {
   sighted?: Record<Faction, Position[]> | null;
 }
 
-/** The units that didn't move fire first, then the ones that moved */
-export type FireGroup = "unmoved" | "moved";
+/** A unit a card makes fire before any other (Behind Enemy Lines), then the units that didn't move, then the ones that moved */
+export type FireGroup = "first" | "unmoved" | "moved";
+
+const FIRE_GROUPS: readonly FireGroup[] = ["first", "unmoved", "moved"];
+
+/** The group a unit fires in */
+const groupOf = (summary: OrderSummary): FireGroup => (summary.firesFirst ? "first" : summary.unmovedGroup ? "unmoved" : "moved");
 
 /**
  * The shared battle: both sides take turns to fire, one unit at a time, the attacker first in
@@ -492,8 +498,8 @@ class PassAndPlayMatch {
   // --- The battle: the sides take turns to fire, one unit at a time
 
   /**
-   * The side whose turn it is to fire, and the group: the units that didn't move first (with
-   * ¡Fusiles arriba!'s moved infantry), then the ones that moved. In each group the attacker fires first and the sides alternate; a side
+   * The side whose turn it is to fire, and the group: a unit given Behind Enemy Lines first, then
+   * the units that didn't move (with ¡Fusiles arriba!'s moved infantry), then the ones that moved. In each group the attacker fires first and the sides alternate; a side
    * with nothing left to fire lets the other go on. Null once nobody can fire
    */
   private battleTurn(): { side: Faction; group: FireGroup } | null {
@@ -501,13 +507,9 @@ class PassAndPlayMatch {
     if (!battle || this.busy()) return null;
     if (battle.bonus) {
       const summary = this.sessions[battle.bonus.side].orderSummaries()[battle.bonus.order];
-      return { side: battle.bonus.side, group: summary?.unmovedGroup ? "unmoved" : "moved" };
+      return { side: battle.bonus.side, group: summary ? groupOf(summary) : "moved" };
     }
-    const group: FireGroup | null = FACTIONS.some((side) => this.fireable(side, "unmoved").length > 0)
-      ? "unmoved"
-      : FACTIONS.some((side) => this.fireable(side, "moved").length > 0)
-        ? "moved"
-        : null;
+    const group = FIRE_GROUPS.find((g) => FACTIONS.some((side) => this.fireable(side, g).length > 0));
     if (!group) return null;
     const can = (side: Faction) => this.fireable(side, group).length > 0;
     const last = battle.fired.filter((turn) => turn.group === group).at(-1);
@@ -528,7 +530,7 @@ class PassAndPlayMatch {
     return session
       .orderSummaries()
       .filter((summary) => summary.shotsLeft > 0 && !held.has(summary.index))
-      .filter((summary) => (group === "unmoved") === summary.unmovedGroup)
+      .filter((summary) => groupOf(summary) === group)
       .map((summary) => summary.index);
   }
 

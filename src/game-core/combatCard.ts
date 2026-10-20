@@ -130,6 +130,8 @@ export interface MoveEffect {
   moveAndFire?: boolean;
   /** It fires before any other unit, whatever the firing order (Behind Enemy Lines) */
   firesFirst?: boolean;
+  /** In the final phase it moves up to this many hexes more (Behind Enemy Lines); pass and play moves it, own tablets mirror the table */
+  moveAfterBattle?: number;
 }
 
 /** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */

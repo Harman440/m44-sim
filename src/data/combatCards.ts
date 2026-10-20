@@ -162,6 +162,7 @@ const TEMPLATES: CombatCardTemplate[] = [
         moveAndFire: true,
         firesFirst: true,
         notOnTheMove: true,
+        moveAfterBattle: 3,
       },
       tableReminder: {
         es: "Tras las líneas enemigas: mueve ahora hasta 3 casillas la infantería y refléjalo en «Actualizar mapa».",

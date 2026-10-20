@@ -3707,20 +3707,20 @@ describe("GameSession defensive combat cards", () => {
     expect(session.issueOrder(ARTILLERY, ARTILLERY)).toBe(true);
     expect(session.assignCard(ARTILLERY)).toBe(true);
     holdAndFight(session);
-    expect(session.getSnapshot().repositioning).toBeNull();
+    expect(session.getSnapshot().finalMove).toBeNull();
     expect(session.endBattle()).toBe(true);
 
-    const due = session.getSnapshot().repositioning!;
+    const due = session.getSnapshot().finalMove!;
     expect(due.from).toEqual(ARTILLERY);
     expect(due.options.every((p) => hexDistance(p, ARTILLERY) <= 2)).toBe(true);
     const to = due.options.find((p) => hexDistance(p, ARTILLERY) === 2)!;
-    expect(session.reposition({ row: 2, col: 2 })).toBe(false);
-    expect(session.reposition(to)).toBe(true);
+    expect(session.makeFinalMove({ row: 2, col: 2 })).toBe(false);
+    expect(session.makeFinalMove(to)).toBe(true);
     expect(unitAt(session, to)?.getUnitType()).toBe(UnitType.ARTILLERY);
-    expect(session.getSnapshot().repositioning).toBeNull();
+    expect(session.getSnapshot().finalMove).toBeNull();
 
     expect(session.undoBattleEdit()).toBe(true);
-    expect(session.getSnapshot().repositioning?.from).toEqual(ARTILLERY);
+    expect(session.getSnapshot().finalMove?.from).toEqual(ARTILLERY);
   });
 
   it("Reposicionamiento: on their own tablets the player mirrors the move with the map", () => {
@@ -3730,7 +3730,7 @@ describe("GameSession defensive combat cards", () => {
     holdAndFight(session);
     session.endBattle();
 
-    expect(session.getSnapshot().repositioning).toBeNull();
+    expect(session.getSnapshot().finalMove).toBeNull();
   });
 });
 

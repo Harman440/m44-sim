@@ -51,7 +51,7 @@ const TEXT = defineMessages({
   es: {
     title: (turn: number) => `Turno ${turn}: la batalla`,
     fires: { Allies: "Disparan los Aliados", Axis: "Dispara el Eje" },
-    groups: { unmoved: "Unidades que no se movieron", moved: "Unidades que se movieron" },
+    groups: { first: "Dispara primero: Tras las líneas enemigas", unmoved: "Unidades que no se movieron", moved: "Unidades que se movieron" },
     tapUnit: "Toca en el mapa una de las unidades marcadas.",
     range: (range: string) => `Alcance: ${range}`,
     closeAssaultOnly: "Solo asalto cercano",
@@ -104,7 +104,7 @@ const TEXT = defineMessages({
   en: {
     title: (turn: number) => `Turn ${turn}: the battle`,
     fires: { Allies: "The Allies fire", Axis: "The Axis fires" },
-    groups: { unmoved: "Units that didn't move", moved: "Units that moved" },
+    groups: { first: "Fires first: Behind Enemy Lines", unmoved: "Units that didn't move", moved: "Units that moved" },
     tapUnit: "Tap one of the marked units on the map.",
     range: (range: string) => `Range: ${range}`,
     closeAssaultOnly: "Close assault only",

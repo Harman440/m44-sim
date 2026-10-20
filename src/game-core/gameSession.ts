@@ -167,8 +167,8 @@ export interface GameSnapshot {
   concentratedFire: boolean;
   /** Suppressive Fire was played: each ordered shot may roll the suppressive die */
   suppressiveFire: boolean;
-  /** Pass and play, final phase: the artillery given Reposition and the hexes it can move to, until it has moved */
-  repositioning: { from: Position; options: readonly Position[] } | null;
+  /** Pass and play, final phase: the next unit a card moves now (Reposition, Behind Enemy Lines) and the hexes it can go to; null once each has moved */
+  finalMove: { from: Position; options: readonly Position[]; card: CombatCard } | null;
   /** Paratroopers placed so far, in order (PARADROP) */
   drops: readonly Position[];
   /** Paratroopers that can still be placed (PARADROP) */
@@ -405,7 +405,8 @@ export type BattleEdit = (
   | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit; sandbags?: boolean }
   /**
    * `unit`: the unit moved, kept so the turn log names it (orders after a fix in Órdenes move units too);
-   * `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to`
+   * `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to`;
+   * `reposition`: a card's move after the battle (Reposition, Behind Enemy Lines)
    */
   | { kind: "move"; from: Position; to: Position; unit: Unit; sandbags?: Position[]; clearedWire?: boolean; reposition?: boolean }
   /** A unit that arrived: the Reinforcements card */
@@ -1752,28 +1753,40 @@ class GameSession {
     return !!unit && this.camouflagedUnits().includes(unit);
   }
 
-  // Reposition: after the battle, the artillery given the card moves up to 2 hexes. On their
-  // own tablets the player mirrors the table's move with "Actualizar mapa"; pass and play moves it here
+  // Card moves after the battle: the artillery given Reposition moves up to 2 hexes, the infantry
+  // that went Behind Enemy Lines up to 3 more. On their own tablets the player mirrors the table's
+  // move with "Actualizar mapa"; pass and play moves it here, one unit at a time
 
-  /** Pass and play, final phase: the unit given Reposition and the hexes it can move to, until it has moved */
-  private repositioning(): { from: Position; options: Position[] } | null {
+  /** Pass and play, final phase: the next unit a card moves now and the hexes it can go to, until each has moved */
+  private finalMove(): { from: Position; options: Position[]; card: CombatCard } | null {
     if (!this.figures || this.phase !== TurnPhase.END_OF_TURN) return null;
-    if (this.battleEdits.some((edit) => edit.kind === "move" && edit.reposition)) return null;
-    const given = this.assignments.find((a) => a.card.effect?.kind === "reposition");
-    const effect = given?.card.effect;
-    const from = given && this.positionOf(given.unit);
-    if (!from || effect?.kind !== "reposition") return null;
+    const due = [
+      ...this.assignments.flatMap(({ unit, card }) =>
+        card.effect?.kind === "reposition" ? [{ unit, card, hexes: card.effect.hexes, rules: {} }] : []
+      ),
+      ...this.orders.flatMap(({ unit, boostCard }) => {
+        const card = this.combatCardsPlayed.find((c) => c.id === boostCard);
+        const effect = card?.effect;
+        if (!card || effect?.kind !== "move" || !effect.moveAfterBattle) return [];
+        return [{ unit, card, hexes: effect.moveAfterBattle, rules: { ignoreTerrain: effect.ignoreTerrain } }];
+      }),
+    ];
     const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
-    const options = this.board
-      .calculatePossibleMovesWithPaths(this.board.getHex(from)!, effect.hexes)
-      .filter(({ position, path }) => !samePosition(position, from) && path.every((p) => !enemies.has(positionKey(p))))
-      .map(({ position }) => position);
-    return { from, options };
+    for (const { unit, card, hexes, rules } of due) {
+      const from = this.positionOf(unit);
+      if (!from || this.battleEdits.some((edit) => edit.kind === "move" && edit.reposition && edit.unit === unit)) continue;
+      const options = this.board
+        .calculatePossibleMovesWithPaths(this.board.getHex(from)!, hexes, false, rules)
+        .filter(({ position, path }) => !samePosition(position, from) && path.every((p) => !enemies.has(positionKey(p))))
+        .map(({ position }) => position);
+      if (options.length > 0) return { from, options, card };
+    }
+    return null;
   }
 
-  /** Pass and play: the unit given Reposition moves to one of its hexes, as a map edit */
-  reposition(to: Position): boolean {
-    const due = this.repositioning();
+  /** Pass and play: the unit a card moves after the battle goes to one of its hexes, as a map edit */
+  makeFinalMove(to: Position): boolean {
+    const due = this.finalMove();
     if (!due || !includesPosition(due.options, to)) return false;
     const unit = this.board.getHex(due.from)!.unit!;
     const sandbags = this.moveUnit(due.from, to);
@@ -2699,7 +2712,7 @@ class GameSession {
       camouflaged: this.camouflagedUnits().flatMap((unit) => this.positionOf(unit) ?? []),
       concentratedFire: !!this.playedEffect("concentratedFire"),
       suppressiveFire: !!this.playedEffect("suppressiveFire"),
-      repositioning: this.repositioning(),
+      finalMove: this.finalMove(),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
       canUnpickCard: this.canUnpickCard(),
