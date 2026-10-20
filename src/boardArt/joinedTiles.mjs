@@ -364,6 +364,18 @@ function findCrowns({ data, width: W, height: H, channels: C }, apart) {
   return crowns;
 }
 
+/**
+ * A town's street: from `ox, oy` along `dx, dy` for `length`, in hex radii in the board's orientation
+ * @typedef {{ ox: number, oy: number, dx: number, dy: number, length: number, phase: number }} Lane
+ */
+
+/** How far a point is from a street's middle line, in hex radii @param {Lane} lane @param {number} x @param {number} y */
+const laneReach = (lane, x, y) => {
+  const [rx, ry] = [x - lane.ox, y - lane.oy];
+  const along = clamp(rx * lane.dx + ry * lane.dy, 0, lane.length);
+  return Math.hypot(rx - along * lane.dx, ry - along * lane.dy);
+};
+
 /** @typedef {ReturnType<typeof findHouses>["houses"][number]} House */
 /** @typedef {House & { x: number, y: number, cos: number, sin: number, scale: number }} Placed */
 
@@ -401,7 +413,7 @@ function layHouses(houses, W, H, rand, inside, first) {
   for (const [index, house] of houses.entries()) {
     for (let attempt = 0; attempt < 300; attempt++) {
       const scale = attempt < 200 ? 1 : 0.85;
-      const angle = rand() * 2 * Math.PI, dist = Math.sqrt(rand()) * 0.5 * OR, at = rand() * 2 * Math.PI;
+      const angle = rand() * 2 * Math.PI, dist = Math.sqrt(rand()) * 0.62 * OR, at = rand() * 2 * Math.PI;
       const [x, y] = [W / 2 + dist * Math.cos(at), H / 2 + dist * Math.sin(at)];
       const [cos, sin] = [scale * Math.cos(angle), scale * Math.sin(angle)];
       /** @param {[number, number]} point */
@@ -523,11 +535,41 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       spillable.length && spill >= 0
         ? spillHouse(/** @type {House} */ (spillable[Math.floor(rand() * spillable.length)]), (((spill - turns) % 6) + 6) % 6, tile.width, tile.height, rand)
         : null;
+    // A town's streets: from its square out across an edge, a little way into the hex beside it
+    /** @type {Lane[]} */
+    const lanes = streets.map((d) => {
+      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+      const tilt = (rand() - 0.5) * 0.4, side = (rand() - 0.5) * 0.2;
+      const [dx, dy] = [nx * Math.cos(tilt) - ny * Math.sin(tilt), nx * Math.sin(tilt) + ny * Math.cos(tilt)];
+      return { ox: nx * 0.2 * INNER - ny * side, oy: ny * 0.2 * INNER + nx * side, dx, dy, length: (1.03 + 0.12 * rand()) * INNER, phase: rand() * 6.3 };
+    });
+    // The town's square near the middle and its main street across the hex (along its first
+    // street out, if it has one), kept clear of houses, so the houses stand apart round them
+    const square = houses.length
+      ? { x: (rand() - 0.5) * 0.12, y: (rand() - 0.5) * 0.12, r: 0.19 + 0.05 * rand(), lumps: [rand() * 6.3, rand() * 6.3] }
+      : null;
+    const axis = ((streets[0] ?? Math.floor(rand() * 3)) * Math.PI) / 3 + (rand() - 0.5) * 0.3;
+    /** @type {Lane[]} */
+    const mainStreet = square
+      ? [axis, axis + Math.PI].map((angle) => ({ ox: square.x, oy: square.y, dx: Math.cos(angle), dy: Math.sin(angle), length: 0.68 * INNER, phase: rand() * 6.3 }))
+      : [];
     /** @type {Placed[]} */
     let placed = [];
     const wanted = [...houses, ...houses.slice(-2)];
+    // Where a house may go in this hex: off the hex's edges, the square and the streets
+    const free = Uint8Array.from(inside);
+    if (square) {
+      for (let p = 0; p < free.length; p++) {
+        if (!free[p]) continue;
+        const [tu, tv] = [((p % tile.width) - tile.width / 2) / OR, (((p / tile.width) | 0) - tile.height / 2) / OR];
+        // In hex radii in the board's orientation (toTile turned back)
+        const [x, y] = [tu * ct + tv * st, -tu * st + tv * ct];
+        if (Math.hypot(x - square.x, y - square.y) < square.r + 0.03) free[p] = 0;
+        else if ([...mainStreet, ...lanes].some((lane) => laneReach(lane, x, y) < 0.15)) free[p] = 0;
+      }
+    }
     for (let i = 0; i < 8 && placed.length < wanted.length; i++) {
-      const layout = layHouses(wanted, tile.width, tile.height, rand, inside, spilt);
+      const layout = layHouses(wanted, tile.width, tile.height, rand, free, spilt);
       if (area(layout) > area(placed)) placed = layout;
     }
     /** @param {Placed} h */
@@ -606,7 +648,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       sample(tile, hu, hv, b);
       over(px, b[0] ?? 0, b[1] ?? 0, b[2] ?? 0, w);
     };
-    // A town's streets: from among its houses out across an edge, a little way into the hex
+    // The streets run from the square out across an edge, a little way into the hex
     // beside it, narrowing; cobbles from the middle of the tile's square, with a darker kerb.
     // Inside the hex they're laid under the houses, past its edge in the overflow
     // Cobbled yards over some of the edges with streets or countryside beyond: lumpy patches of
@@ -620,9 +662,12 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
         const [depth, side] = [(0.88 + 0.1 * rand()) * INNER, (rand() - 0.5) * 0.35];
         return { x: nx * depth - ny * side, y: ny * depth + nx * side, r: 0.17 + 0.07 * rand(), lumps: [rand() * 6.3, rand() * 6.3] };
       });
-    /** The yards' cobbles over a colour with alpha, at a point in hex radii @param {number} hx @param {number} hy @param {number[]} px */
-    const paintYards = (hx, hy, px) => {
-      for (const yard of yards) {
+    /**
+     * Cobbled patches (the yards, the square) over a colour with alpha, at a point in hex radii
+     * @param {number} hx @param {number} hy @param {number[]} px @param {typeof yards} [list]
+     */
+    const paintYards = (hx, hy, px, list = yards) => {
+      for (const yard of list) {
         const [dx, dy] = [hx - yard.x, hy - yard.y];
         if (Math.abs(dx) > yard.r * 1.3 || Math.abs(dy) > yard.r * 1.3) continue;
         const theta = Math.atan2(dy, dx);
@@ -637,15 +682,12 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
         over(px, (b[0] ?? 0) * rim, (b[1] ?? 0) * rim, (b[2] ?? 0) * rim, w);
       }
     };
-    const lanes = streets.map((d) => {
-      const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
-      const tilt = (rand() - 0.5) * 0.5, side = (rand() - 0.5) * 0.3;
-      const [dx, dy] = [nx * Math.cos(tilt) - ny * Math.sin(tilt), nx * Math.sin(tilt) + ny * Math.cos(tilt)];
-      return { ox: nx * 0.45 * INNER - ny * side, oy: ny * 0.45 * INNER + nx * side, dx, dy, length: (0.78 + 0.12 * rand()) * INNER, phase: rand() * 6.3 };
-    });
-    /** A street's cobbles over a colour with alpha, at a point in hex radii @param {number} hx @param {number} hy @param {number[]} px */
-    const paintStreets = (hx, hy, px) => {
-      for (const lane of lanes) {
+    /**
+     * The streets' cobbles over a colour with alpha, at a point in hex radii
+     * @param {number} hx @param {number} hy @param {number[]} px @param {Lane[]} [list]
+     */
+    const paintStreets = (hx, hy, px, list = lanes) => {
+      for (const lane of list) {
         const [rx, ry] = [hx - lane.ox, hy - lane.oy];
         const along = rx * lane.dx + ry * lane.dy, across = -rx * lane.dy + ry * lane.dx;
         if (along < -0.1 || along > lane.length + 0.1) continue;
@@ -662,6 +704,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       }
     };
 
+    // Inside the hex: the main street and the streets out
+    const inHex = [...mainStreet, ...lanes];
     // The alpha of the tile at the last point tileAt read
     let seen = 1;
     /** A house's mask at a point of the tile: nothing off the tile @param {number} i @param {number} u @param {number} v */
@@ -674,7 +718,8 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       seen = /** @type {number} */ (a[3]) / 255;
       a[3] = 1;
       if (yards.length) paintYards(x, y, a);
-      if (lanes.length) paintStreets(x, y, a);
+      if (square) paintYards(x, y, a, [square]);
+      if (inHex.length) paintStreets(x, y, a, inHex);
       if (!placed.length) return a;
       let shade = 1;
       for (const [i, h] of placed.entries()) {

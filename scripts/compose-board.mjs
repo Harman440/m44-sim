@@ -49,7 +49,7 @@ import {
 import { joinedHills } from "./joined-hills.mjs";
 import { HEDGEROW_SPREAD } from "../src/boardArt/terrainTiles.mjs";
 import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, spillMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
-import { LINE_BAND, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
+import { LINE_BAND, fillFrame, gradeCountryside, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
 // Where the empty board's hex grid is: the centre of hex 0-0 and the width of a hex, in pixels
@@ -86,7 +86,8 @@ const printed = await sharp(EMPTY_BOARD.file)
   .ensureAlpha()
   .raw()
   .toBuffer();
-// Its dark frame round the grid filled with the countryside beside it, so a map ends in countryside
+// Its pale grass made a darker, fuller green, then its dark frame round the grid filled with the countryside beside it, so a map ends in countryside
+gradeCountryside({ data: printed, width: W, height: H, channels: 4 });
 fillFrame({ data: printed, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius);
 const board = await sharp(printed, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
 // The frame: everything outside the hexes

@@ -3,6 +3,8 @@
 // - fillFrame: the empty board's dark frame round the grid (the notches at the ends of the rows,
 //   the zigzag at the top and bottom) filled with the countryside of the hexes beside it, mirrored
 //   out across their edge, so a scenario's map ends in countryside;
+// - gradeCountryside: the printed board's pale grass made a little darker and greener, more like
+//   real fields seen from above (done once, on the empty board, before anything is laid on it);
 // - softenHexLines: the hex lines (the empty board's printed ones and the tiles' rims) blended
 //   with the board mirrored in from just inside the hex, so a line keeps only a part of its
 //   strength and what's beside it carries on across.
@@ -21,6 +23,29 @@ const NY = [0, 1, 2, 3, 4, 5].map((d) => Math.sin((d * Math.PI) / 3));
 export const LINE_BAND = 4;
 /** How much of a line is left */
 export const LINE_KEEP = 0.3;
+
+/** The grass colour the countryside is pulled towards, at full light, and how far (0…1) */
+export const COUNTRYSIDE_TONE = [138, 188, 88];
+export const COUNTRYSIDE_PULL = 0.45;
+/** How much of its light the countryside keeps */
+export const COUNTRYSIDE_LIGHT = 0.85;
+
+/**
+ * The empty board's grass graded, in place: each pixel pulled towards a fuller green of its own
+ * lightness, then darkened a little, so the pale, pinkish print reads as fields
+ * @param {Image} image
+ */
+export function gradeCountryside({ data, width, height, channels }) {
+  for (let o = 0; o < width * height * channels; o += channels) {
+    const [r, g, b] = [/** @type {number} */ (data[o]), /** @type {number} */ (data[o + 1]), /** @type {number} */ (data[o + 2])];
+    const light = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+    for (let c = 0; c < 3; c++) {
+      const own = /** @type {number} */ ([r, g, b][c]);
+      const tone = /** @type {number} */ (COUNTRYSIDE_TONE[c]) * light;
+      data[o + c] = Math.min(255, Math.round(((1 - COUNTRYSIDE_PULL) * own + COUNTRYSIDE_PULL * tone) * COUNTRYSIDE_LIGHT));
+    }
+  }
+}
 
 /**
  * Soften the hex lines of a board's pixels, in place. `center(key)` and `radius` are the art's
