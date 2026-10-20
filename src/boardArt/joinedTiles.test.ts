@@ -119,6 +119,23 @@ describe("a town's streets", () => {
   });
 });
 
+describe("a town's cobbled yards", () => {
+  it("spill out over some of its edges onto the countryside", () => {
+    const make = joinedTileMaker("town", tile(true), W, H, 1);
+    const [OW, OH] = [Math.round(OVERFLOW * W), Math.round(OVERFLOW * H)];
+    const pastEast = (overflow: Uint8Array | null) => {
+      let most = 0;
+      for (let y = 0; y < OH; y++) for (let x = Math.ceil(OW / 2 + W / 2) + 1; x < OW; x++) most = Math.max(most, overflow?.[(y * OW + x) * 4 + 3] ?? 0);
+      return most;
+    };
+    const spilt = [...Array(8).keys()].map((seed) => pastEast(make(hex("2-2", CLOSED, 0, seed, { bare: EAST })).overflow));
+
+    // Over the countryside to the east in some towns, not all
+    expect(spilt.filter((alpha) => alpha === 255).length).toBeGreaterThan(0);
+    expect(spilt.filter((alpha) => alpha === 0).length).toBeGreaterThan(0);
+  });
+});
+
 describe("growWoods", () => {
   // A river hex: grass, with a band of water across its middle, west to east, RGBA
   const [w, h] = [80, 92];

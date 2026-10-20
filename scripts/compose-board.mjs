@@ -41,6 +41,7 @@ import {
   planBoard,
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
+import { HEDGEROW_SPREAD } from "../src/boardArt/terrainTiles.mjs";
 import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
 
@@ -167,6 +168,11 @@ const bridgeOver = async (key, edges) => {
   const piece = placed(turned.data, key, turned.info.width, turned.info.height);
   return [{ ...piece, input: shadow, left: piece.left + 4, top: piece.top + 5 }, piece];
 };
+// A drawn hedgerow, rendered HEDGEROW_SPREAD times the hex's box, to lay over what's round it
+const hedgerowOver = async (hex) => {
+  const [w, h] = [Math.round(HEDGEROW_SPREAD * tileWidth), Math.round(HEDGEROW_SPREAD * tileHeight)];
+  return placed(await sharp(Buffer.from(drawnSvg(hex))).resize(w, h).png().toBuffer(), hex.key, w, h);
+};
 // A drawn tile, rendered at the board's hex size; a river's grass giving way to the countryside,
 // or to a forest beside it
 const drawnTile = async (hex) => {
@@ -193,9 +199,11 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
 
   const layers = [];
   const spills = [];
+  const hedgerows = [];
   for (const hex of plan) {
     const file = "tile" in hex ? `${ART}/tiles/${hex.tile}` : null;
-    if (hex.art === "drawn") layers.push(await drawnTile(hex));
+    if (hex.art === "drawn" && hex.type === "hedgerow") hedgerows.push(await hedgerowOver(hex));
+    else if (hex.art === "drawn") layers.push(await drawnTile(hex));
     else if (hex.art === "painted") layers.push(placed(await paintedTile(file, hex.turns), hex.key, tileWidth, tileHeight));
     else if (hex.art === "ridge") layers.push(placed(await joinedHill(file, hex.open, hex.key, hex.seed), hex.key, tileWidth, tileHeight));
     else if (hex.art === "joined") {
@@ -210,10 +218,10 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
   const composed = await sharp(padded).composite(layers).png().toBuffer();
   const data = await sharp(composed).extract({ left: PAD, top: PAD, width: W, height: H }).raw().toBuffer();
   softenHexLines({ data, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius, LINE_BAND);
-  // What spills out of the hexes laid on top
+  // The hedgerows, larger than their hexes, and what spills out of the hexes laid on top
   const spilt = await sharp(data, { raw: { width: W, height: H, channels: 4 } })
     .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR })
-    .composite(spills)
+    .composite([...hedgerows, ...spills])
     .png()
     .toBuffer();
   const framed = await sharp(await sharp(spilt).extract({ left: PAD, top: PAD, width: W, height: H }).png().toBuffer())

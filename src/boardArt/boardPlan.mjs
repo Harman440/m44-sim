@@ -138,8 +138,10 @@ const isRiver = (type) => type === "river" || type === "bridge";
  */
 /**
  * Drawn in code (terrainTiles.mjs): `edges`, the two edges a river runs through; `open`, the edges
- * a lake or a hedgerow runs out through; `woods`, a river's edges facing a forest
- * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[] }} DrawnHex
+ * a lake or a hedgerow runs out through; `woods`, a river's edges facing a forest; `bare`, a
+ * hedgerow's edges onto open countryside, which it spreads out over (its image is
+ * terrainTiles.mjs's HEDGEROW_SPREAD times the hex's box, laid over what's round it)
+ * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], bare: boolean[] }} DrawnHex
  */
 /**
  * A hill joined into a ridge with the hills across its `open` edges (scripts/joined-hills.mjs, only
@@ -260,7 +262,9 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const joins = type === "lake" || (type === "hedgerow" && !plain);
       // A river's edges facing a forest, which grows into it up to the water
       const woods = isRiver(type) && !plain ? edgesTo(key, ["forest"]) : [];
-      plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods });
+      // A hedgerow spreads out over the open countryside beside it, on the board
+      const bare = type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && !wanted.has(neighbor(key, d))) : [];
+      plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, bare });
     } else if (isRiver(type)) {
       const edges = riverEdges(key);
       const fits = riverTilesFor(library, edges);
@@ -308,13 +312,13 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
 }
 
 /**
- * A drawn hex's SVG (a hex-shaped tile in a √3 : 2 box)
+ * A drawn hex's SVG (a hex-shaped tile in a √3 : 2 box; a hedgerow's HEDGEROW_SPREAD times it)
  * @param {DrawnHex} hex
  * @returns {string}
  */
-export function drawnSvg({ type, seed, edges, open }) {
+export function drawnSvg({ type, seed, edges, open, bare }) {
   if (type === "river" || type === "bridge") return TILES[type](edges[0], edges[1], seed);
   if (type === "lake") return TILES.lake(open, seed);
-  if (type === "hedgerow") return TILES.hedgerow(seed, open);
+  if (type === "hedgerow") return TILES.hedgerow(seed, open, bare);
   throw new Error(`Can't draw ${type}`);
 }

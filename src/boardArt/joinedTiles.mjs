@@ -486,6 +486,34 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
     // A town's streets: from among its houses out across an edge, a little way into the hex
     // beside it, narrowing; cobbles from the middle of the tile's square, with a darker kerb.
     // Inside the hex they're laid under the houses, past its edge in the overflow
+    // Cobbled yards over some of the edges with streets or countryside beyond: lumpy patches of
+    // the square's cobbles straddling the edge, so the town's ground runs on a little past it.
+    // Laid under the houses inside the hex, and in the overflow past its edge, as the streets are
+    const yards = [...new Set([...streets, ...[0, 1, 2, 3, 4, 5].filter((d) => bare[d])])]
+      .sort((p, q) => p - q)
+      .filter(() => rand() < 0.6)
+      .map((d) => {
+        const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
+        const [depth, side] = [(0.88 + 0.1 * rand()) * INNER, (rand() - 0.5) * 0.35];
+        return { x: nx * depth - ny * side, y: ny * depth + nx * side, r: 0.17 + 0.07 * rand(), lumps: [rand() * 6.3, rand() * 6.3] };
+      });
+    /** The yards' cobbles over a colour with alpha, at a point in hex radii @param {number} hx @param {number} hy @param {number[]} px */
+    const paintYards = (hx, hy, px) => {
+      for (const yard of yards) {
+        const [dx, dy] = [hx - yard.x, hy - yard.y];
+        if (Math.abs(dx) > yard.r * 1.3 || Math.abs(dy) > yard.r * 1.3) continue;
+        const theta = Math.atan2(dy, dx);
+        const [l1 = 0, l2 = 0] = yard.lumps;
+        const edge = yard.r * (1 + 0.18 * Math.sin(3 * theta + l1) + 0.1 * Math.sin(5 * theta + l2));
+        const dist = Math.hypot(dx, dy);
+        const w = clamp((edge - dist) / 0.012, 0, 1);
+        if (w <= 0) continue;
+        sample(ground, tile.width / 2 + mirrorIn(dx * OR, 0.22 * OR), tile.height / 2 + mirrorIn(dy * OR, 0.22 * OR), b);
+        // Worn darker at its rim, where the grass begins
+        const rim = dist > edge * 0.82 ? 0.78 : 0.92;
+        over(px, (b[0] ?? 0) * rim, (b[1] ?? 0) * rim, (b[2] ?? 0) * rim, w);
+      }
+    };
     const lanes = streets.map((d) => {
       const [nx = 0, ny = 0] = /** @type {number[]} */ (DIRS[d]);
       const tilt = (rand() - 0.5) * 0.5, side = (rand() - 0.5) * 0.3;
@@ -516,6 +544,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       const [u = 0, v = 0] = toTile(x, y);
       sample(ground, u, v, a);
       a[3] = 1;
+      if (yards.length) paintYards(x, y, a);
       if (lanes.length) paintStreets(x, y, a);
       if (!placed.length) return a;
       let shade = 1;
@@ -595,7 +624,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
     // A forest beside a river grows into it, up to the water
     if (type === "river" && forest) growWoods(out, TW, TH, woods, seed, forest);
 
-    if (!spilt && !spillCrowns.length && !lanes.length) return { tile: out, overflow: null };
+    if (!spilt && !spillCrowns.length && !lanes.length && !yards.length) return { tile: out, overflow: null };
     // What spills out: the streets and the house over its edge, whole, and the trees over the countryside
     const overflow = new Uint8Array(OW * OH * 4);
     const spiltMask = spilt ? maskOf(spilt) : null;
@@ -605,7 +634,10 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       for (let x = 0; x < OW; x++) {
         const hx = (x - OW / 2 + 0.5) / TR;
         px4.fill(0);
-        if (lanes.length && hexReach(hx, hy) > 0.99) paintStreets(hx, hy, px4);
+        if (hexReach(hx, hy) > 0.99) {
+          if (yards.length) paintYards(hx, hy, px4);
+          if (lanes.length) paintStreets(hx, hy, px4);
+        }
         if (spilt && spiltMask) {
           const [u = 0, v = 0] = toTile(hx, hy);
           paintHouse(spilt, spiltMask, u, v, px4);
@@ -817,14 +849,24 @@ export function growWoods(pixels, width, height, woods, seed, forest) {
     const [px, py] = [Math.round(x * R + width / 2 - 0.5), Math.round(y * R + height / 2 - 0.5)];
     return px >= 0 && py >= 0 && px < width && py < height && wood[py * width + px] === 1;
   };
+  /** Whether a crown there is clear of the water and inside the hex, its shadow too @param {number} x @param {number} y @param {number} r */
+  const fits = (x, y, r) =>
+    [...Array(16).keys()].every((i) => {
+      const a = (i * Math.PI) / 8;
+      const [cx, cy] = [x + 0.015 + (r + 0.03) * Math.cos(a), y + 0.02 + (r + 0.03) * Math.sin(a)];
+      const [px, py] = [Math.round(cx * R + width / 2 - 0.5), Math.round(cy * R + height / 2 - 0.5)];
+      return hexReach(cx, cy) < 0.99 && px >= 0 && py >= 0 && px < width && py < height && !solid[py * width + px];
+    });
   /** @type {{ x: number, y: number, r: number, sx: number, sy: number, cos: number, sin: number }[]} */
   const crowns = [];
   for (let gy = -1.1; gy < 1.1; gy += 0.15) {
     for (let gx = -1; gx < 1; gx += 0.15) {
       const [sx = 0, sy = 0] = sources[Math.floor(rand() * sources.length)] ?? [forest.width / 2, forest.height / 2];
       const angle = rand() * 2 * Math.PI;
-      const [x, y, r] = [gx + (rand() - 0.5) * 0.1, gy + (rand() - 0.5) * 0.1, 0.1 + 0.05 * rand()];
-      if (inWood(x, y)) crowns.push({ x, y, r, sx, sy, cos: Math.cos(angle), sin: Math.sin(angle) });
+      const [x, y] = [gx + (rand() - 0.5) * 0.1, gy + (rand() - 0.5) * 0.1];
+      // A whole tree or none: smaller by the water or the hex's edge if it must, never cut by them
+      const r = [0.1 + 0.05 * rand(), 0.075, 0.055].find((size) => inWood(x, y) && fits(x, y, size));
+      if (r) crowns.push({ x, y, r, sx, sy, cos: Math.cos(angle), sin: Math.sin(angle) });
     }
   }
   const b = [0, 0, 0, 0];

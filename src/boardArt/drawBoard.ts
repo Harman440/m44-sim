@@ -34,6 +34,7 @@ import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
 import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
+import { HEDGEROW_SPREAD } from "./terrainTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "./softLines.mjs";
 import type { JoinedMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
@@ -104,7 +105,7 @@ const forestTile = () =>
 // image again every time it's pasted
 const drawnTiles = new Map<string, Promise<HTMLCanvasElement>>();
 const drawnTile = (hex: DrawnHex, width: number, height: number) =>
-  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}@${width}x${height}`, async () => {
+  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}:${hex.bare.map(Number).join("")}@${width}x${height}`, async () => {
     const svg = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawnSvg(hex))}`);
     const tile = document.createElement("canvas");
     tile.width = width;
@@ -207,6 +208,7 @@ const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<Canvas
   if (hex.art === "painted") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
   if (hex.art === "ridge") return ridgeTile(hex, grid);
   if (hex.art === "joined") return joinedTile(hex, grid).then(({ tile }) => tile);
+  if (hex.art === "drawn" && hex.type === "hedgerow") return drawnTile(hex, Math.ceil(HEDGEROW_SPREAD * grid.hexWidth), Math.ceil(HEDGEROW_SPREAD * 2 * grid.radius));
   if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius));
   return null;
 };
@@ -314,6 +316,11 @@ export async function paintBoard(
     ctx.putImageData(pixels, 0, 0);
     frame = canvasOf(new Uint8Array(pixels.data.buffer), grid.width, grid.height);
   }
+  /** A drawn hedgerow's image, HEDGEROW_SPREAD times the hex's box, centred on it */
+  const drawHedgerow = (image: CanvasImageSource, { x, y }: { x: number; y: number }) => {
+    const [w, h] = [HEDGEROW_SPREAD * tileWidth, HEDGEROW_SPREAD * tileHeight];
+    ctx.drawImage(image, x - w / 2, y - h / 2, w, h);
+  };
   plan.forEach((hex, i) => {
     const center = grid.center(hex.key);
     const image = art[i];
@@ -326,6 +333,10 @@ export async function paintBoard(
       ctx.translate(center.x, center.y);
       ctx.rotate(((hex.art === "painted" ? hex.turns : 0) * Math.PI) / 3);
       ctx.drawImage(image, -tileWidth / 2, -tileHeight / 2, tileWidth, tileHeight);
+    } else if (hex.art === "drawn" && hex.type === "hedgerow") {
+      // Larger than its hex, laid over what's round it: after the hex lines are softened, but
+      // straight away on the plain art
+      if (plain && image) drawHedgerow(image, center);
     } else if (hex.art === "drawn" && image) {
       // Already cut to the hex, with its hex line
       ctx.drawImage(image, center.x - tileWidth / 2, center.y - tileHeight / 2, tileWidth, tileHeight);
@@ -344,13 +355,17 @@ export async function paintBoard(
     ctx.restore();
   });
 
-  // The hex lines softened, as the script does for the painted art, then what spills out of the
-  // hexes on top; neither on the editor's plain art
+  // The hex lines softened, as the script does for the painted art, then the hedgerows and what
+  // spills out of the hexes on top; neither on the editor's plain art
   if (!plain) {
     const pixels = ctx.getImageData(0, 0, grid.width, grid.height);
     const image = { data: pixels.data, width: grid.width, height: grid.height, channels: 4 };
     softenHexLines(image, keys, grid.center, grid.radius, LINE_BAND * scale);
     ctx.putImageData(pixels, 0, 0);
+    plan.forEach((hex, i) => {
+      const image = art[i];
+      if (hex.art === "drawn" && hex.type === "hedgerow" && image) drawHedgerow(image, grid.center(hex.key));
+    });
     plan.forEach((hex, i) => {
       const spill = spills[i];
       if (!spill) return;
