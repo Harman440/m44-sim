@@ -84,8 +84,21 @@ const starPath = (cx: number, cy: number, outer: number, inner: number) =>
 const SPRITE_SIZE = 44;
 const BADGE_RADIUS = 10;
 
+// Preview: infantry stands in the hex as this many figures
+const INFANTRY_FIGURES = 6;
+const FIGURE_SIZE = 30;
+/** Where each figure stands, from the centre: back row first, so the front row overlaps it */
+const FIGURE_SPOTS: ReadonlyArray<readonly [number, number]> = [
+  [-20, -14],
+  [0, -16],
+  [20, -14],
+  [-20, 12],
+  [0, 14],
+  [20, 12],
+];
+
 /**
- * A unit as a round token in its side's colour. A dashed gold ring marks a
+ * A unit as its side's sprite, with no token behind it. A dashed gold ring marks a
  * unit that can be ordered; a badge shows it will fire (crosshair) or has
  * fired (check).
  */
@@ -111,17 +124,6 @@ const UnitComponent: React.FC<UnitProps> = ({
 
   return (
     <g className="unit">
-      <circle
-        className="unit__token"
-        cx={x}
-        cy={y}
-        r={TOKEN_RADIUS}
-        fill="#f1ead6"
-        fillOpacity={0.9}
-        stroke={FACTION_COLORS[faction]}
-        strokeWidth={4}
-      />
-
       {orderable && (
         <circle
           className="unit__ring unit__ring--orderable"
@@ -135,15 +137,30 @@ const UnitComponent: React.FC<UnitProps> = ({
         />
       )}
 
-      <image
-        href={href}
-        data-unit-type={unitType}
-        x={x - SPRITE_SIZE / 2}
-        y={y - SPRITE_SIZE / 2}
-        width={SPRITE_SIZE}
-        height={SPRITE_SIZE}
-        preserveAspectRatio="xMidYMid meet"
-      />
+      {unitType === UnitType.INFANTRY ? (
+        FIGURE_SPOTS.slice(0, INFANTRY_FIGURES).map(([dx, dy], i) => (
+          <image
+            key={i}
+            href={href}
+            data-unit-type={unitType}
+            x={x + dx - FIGURE_SIZE / 2}
+            y={y + dy - FIGURE_SIZE / 2}
+            width={FIGURE_SIZE}
+            height={FIGURE_SIZE}
+            preserveAspectRatio="xMidYMid meet"
+          />
+        ))
+      ) : (
+        <image
+          href={href}
+          data-unit-type={unitType}
+          x={x - SPRITE_SIZE / 2}
+          y={y - SPRITE_SIZE / 2}
+          width={SPRITE_SIZE}
+          height={SPRITE_SIZE}
+          preserveAspectRatio="xMidYMid meet"
+        />
+      )}
 
       {/* The scenario's elite badge (moves its whole move and fires), top left */}
       {unitData?.elite && (
