@@ -48,13 +48,14 @@ describe("planBoard", () => {
   });
 
   it("paints a tile from the library on each hex, turned by the hex", () => {
-    expect(planBoard({ hill: [p(4, 7)] }, LIBRARY)).toEqual([{ key: "4-7", type: "hill", art: "painted", tile: "hill/official.webp", turns: 3 }]);
+    expect(planBoard({ hill: [p(4, 7)] }, LIBRARY, { plain: true })).toEqual([{ key: "4-7", type: "hill", art: "painted", tile: "hill/official.webp", turns: 3 }]);
   });
 
-  it("joins hills next to each other into ridges, unless each hill goes on its own", () => {
+  it("joins hills next to each other into ridges, a lone hill one too, unless each hill goes on its own", () => {
     const hills: Terrain = { hill: [p(4, 4), p(4, 5), p(0, 0)] };
 
-    expect(planBoard(hills, LIBRARY).map((hex) => hex.art)).toEqual(["ridge", "ridge", "painted"]);
+    expect(planBoard(hills, LIBRARY).map((hex) => hex.art)).toEqual(["ridge", "ridge", "ridge"]);
+    expect(at(planBoard(hills, LIBRARY), "0-0")[0]).toMatchObject({ open: Array(6).fill(false) });
     expect(at(planBoard(hills, LIBRARY), "4-4")[0]).toMatchObject({ open: [true, false, false, false, false, false] });
     expect(planBoard(hills, LIBRARY, { separateHills: true }).map((hex) => hex.art)).toEqual(["painted", "painted", "painted"]);
   });
@@ -93,6 +94,15 @@ describe("planBoard", () => {
     expect(streets({ town: [p(4, 4)], river: [p(4, 2)], bridge: [p(4, 3)] })).toContain(3);
     // Not into another town, nor a lake
     expect(streets({ town: [p(4, 4), p(4, 5), p(4, 3), p(3, 4), p(3, 3)], lake: [p(5, 3), p(5, 4)] })).toEqual([]);
+  });
+
+  it("runs a hill on into a river beside it, and the river's art up to the water", () => {
+    const plan = planBoard({ river: [p(4, 3), p(4, 4), p(4, 5)], hill: [p(3, 4)] }, LIBRARY);
+
+    // 3-4 is across 4-4's north-east edge (5); 4-4 and 4-5 are across 3-4's south-west and south-east ones
+    expect(at(plan, "3-4")[0]).toMatchObject({ art: "ridge", open: [false, true, true, false, false, false] });
+    expect(at(plan, "4-4")[0]).toMatchObject({ hills: [false, false, false, false, false, true], hillTile: "hill/official.webp" });
+    expect(at(plan, "4-3")[0]).not.toHaveProperty("hills");
   });
 
   it("grows a forest into a river beside it", () => {

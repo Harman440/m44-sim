@@ -254,11 +254,15 @@ const cornerAt = (d, k = 1) => { const a = ((d * 60 + 30) * Math.PI) / 180; retu
  * `reach` and `cornerReach`: how far out it comes in the middle of a closed edge and at a
  * wobbled corner, as [least, more at random] fractions of the hex's inner radius (a lake's
  * shore by default; a hedgerow's comes out past the edges onto open countryside), or, edge by
- * edge, `reachAt(d)` and `cornerAt(d)` (the corner after edge d).
+ * edge, `reachAt(d)` and `cornerAt(d)` (the corner after edge d). `outAt(d)`: how far past an
+ * open edge it bulges, in inner radii from the middle (1.35: a third of the way into the next hex).
+ * @param {boolean[]} open
+ * @param {() => number} rand
+ * @param {{ neck?: number, wobble?: boolean, reach?: number[], cornerReach?: number[], reachAt?: (d: number) => number[], cornerAt?: (d: number) => number[], outAt?: (d: number) => number }} [options]
+ * @returns {number[][][]}
  */
-export function shoreCurves(open, rand, { neck = 0.5, wobble = false, reach = [0.6, 0.08], cornerReach = [0.64, 0.1], reachAt = () => reach, cornerAt: cornerReachAt = () => cornerReach } = {}) {
+export function shoreCurves(open, rand, { neck = 0.5, wobble = false, reach = [0.6, 0.08], cornerReach = [0.64, 0.1], reachAt = () => reach, cornerAt: cornerReachAt = () => cornerReach, outAt = (d) => 1.35 } = {}) {
   const wet = (d) => open[d] && open[(d + 1) % 6]; // the corner after edge d: all three hexes join
-  const OUT = 1.35;
   const nodes = []; // [x, y, tangent direction or null]
   const cross = (d, towards, outward) => {
     const m = edgeMid(d), c = towards;
@@ -268,14 +272,14 @@ export function shoreCurves(open, rand, { neck = 0.5, wobble = false, reach = [0
   for (let d = 0; d < 6; d++) {
     if (open[d]) {
       if (!wet((d + 5) % 6)) cross(d, cornerAt((d + 5) % 6), true);
-      const m = edgeMid(d, OUT);
+      const m = edgeMid(d, outAt(d));
       nodes.push([m[0], m[1], null]);
       if (!wet(d)) cross(d, cornerAt(d), false);
     } else {
       const [lo, more] = reachAt(d), [x, y] = edgeDir(d), r = (W / 2) * (lo + rand() * more);
       nodes.push([x * r, y * r, null]);
     }
-    if (wet(d)) { const c = cornerAt(d, OUT); nodes.push([c[0], c[1], null]); }
+    if (wet(d)) { const c = cornerAt(d, Math.max(outAt(d), outAt((d + 1) % 6))); nodes.push([c[0], c[1], null]); }
     else if (wobble && !open[d] && !open[(d + 1) % 6]) {
       const [lo, more] = cornerReachAt(d), [x, y] = cornerAt(d, (W / 2 / R) * (lo + rand() * more));
       nodes.push([x, y, null]);

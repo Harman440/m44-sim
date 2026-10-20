@@ -24,8 +24,8 @@ export async function joinedHills(tileFile, grassFile, tileWidth, tileHeight) {
   const fullTile = await raw(sharp(tileFile).resize(TW, TH).ensureAlpha(), TW, TH, 4);
   const make = joinedHillMaker({ tile, plateau, grass, fullTile }, tileWidth, tileHeight);
 
-  const png = async (open, seed, center) =>
-    sharp(Buffer.from(make(open, seed, center).buffer), { raw: { width: TW, height: TH, channels: 4 } }).resize(tileWidth, tileHeight).png().toBuffer();
+  const png = async (open, seed, center, toRiver) =>
+    sharp(Buffer.from(make(open, seed, center, undefined, toRiver).buffer), { raw: { width: TW, height: TH, channels: 4 } }).resize(tileWidth, tileHeight).png().toBuffer();
   // The raw pixels too, at twice the board's size and at its size, for a hill running on into a river
   png.raw = make;
   png.raw1 = joinedHillMaker({ tile, plateau, grass, fullTile }, tileWidth, tileHeight, 1);

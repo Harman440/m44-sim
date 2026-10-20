@@ -16,7 +16,12 @@ import { R, edgeDir, rng, shoreCurves } from "./terrainTiles.mjs";
  * An image's pixels, row by row, `channels` values each (RGB or RGBA)
  * @typedef {{ data: ArrayLike<number>, width: number, height: number, channels: number }} Pixels
  */
-/** @typedef {(open: boolean[], seed: number, center: { x: number, y: number }) => Uint8Array} RidgeMaker */
+/**
+ * `offset`: draw the hill of the hex that far away instead (in hex radii; its outline only, the
+ * textures staying where `center` is on the board), for a hill running on into a river beside it
+ * `toRiver`: which of the `open` edges lead into a river rather than another hill
+ * @typedef {(open: boolean[], seed: number, center: { x: number, y: number }, offset?: { x: number, y: number }, toRiver?: boolean[]) => Uint8Array} RidgeMaker
+ */
 
 const SQRT3 = Math.sqrt(3);
 // How far from the middle of a shared edge towards its corners the plateau crosses it
@@ -168,17 +173,19 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass }, tileWidt
   for (let i = 0; i < 360; i++) deepestCliff = Math.max(deepestCliff, /** @type {number} */ (foot[i]) - /** @type {number} */ (top[i]));
   const GRASS_REACH = (deepestCliff + 6) / k + 1;
 
-  return (open, seed, center) => {
+  return (open, seed, center, offset, toRiver) => {
     const rand = rng(seed);
     // The plateau's outline, as points at the build's scale, with the distance along it
     /** @type {[number, number][]} */
     const pts = [];
-    for (const curve of shoreCurves(open, rand, { neck: NECK, wobble: true })) {
+    // Into a river it only bulges a little way, its cliffs closing well short of the water
+    const outAt = (/** @type {number} */ d) => (toRiver?.[d] ? 1.02 : 1.35);
+    for (const curve of shoreCurves(open, rand, { neck: NECK, wobble: true, outAt })) {
       const [p0, p1, p2, p3] = /** @type {[number, number][]} */ (curve);
       for (let j = 0; j < 60; j++) {
         const t = j / 60, u = 1 - t;
         const [x, y] = [0, 1].map((c) => u ** 3 * (p0?.[c] ?? 0) + 3 * u * u * t * (p1?.[c] ?? 0) + 3 * u * t * t * (p2?.[c] ?? 0) + t ** 3 * (p3?.[c] ?? 0));
-        pts.push([((x ?? 0) * TR) / R, ((y ?? 0) * TR) / R]);
+        pts.push([((x ?? 0) * TR) / R + (offset?.x ?? 0) * TR, ((y ?? 0) * TR) / R + (offset?.y ?? 0) * TR]);
       }
     }
     const n = pts.length;
@@ -277,8 +284,8 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass }, tileWidt
             far = mirrored(grass, ox + x, oy + y, b, 1, [0, 0, 0]);
             w = clamp((r - rFoot) / 6, 0, 1);
             const [u, v] = [(ox + x) / TR, (oy + y) / TR];
-            const keep = 4 + 3 * Math.sin(7 * u + 3 * v) * Math.sin(5 * v - 2 * u + 1.3);
-            alpha = clamp(1 - (r - rFoot - keep) / 4, 0, 1);
+            const keep = -3 + 3 * Math.sin(7 * u + 3 * v) * Math.sin(5 * v - 2 * u + 1.3);
+            alpha = clamp(1 - (r - rFoot - keep) / 5, 0, 1);
           }
         }
         const o = 4 * (y * TW + x);
@@ -290,7 +297,7 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass }, tileWidt
         const d = Math.round((((angle % 360) + 360) % 360) / 60) % 6;
         const [nx, ny] = /** @type {[number, number]} */ (EDGE_DIRS[d]);
         const toEdge = ((SQRT3 / 2) * TH) / 2 - (hx * nx + hy * ny);
-        if (open[d] && toEdge < 1.5 * scale) {
+        if (open[d] && !toRiver?.[d] && !offset && toEdge < 1.5 * scale) {
           for (let c = 0; c < 3; c++) out[o + c] = /** @type {number} */ (out[o + c]) * 0.55 + /** @type {number} */ (HEX_LINE[c]) * 0.45;
         }
       }

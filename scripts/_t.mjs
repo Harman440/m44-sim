@@ -1,0 +1,21 @@
+import pw from "/opt/node22/lib/node_modules/playwright/index.js";
+import fs from "node:fs";
+const browser = await pw.chromium.launch();
+const page = await browser.newPage();
+page.on("pageerror", (e) => console.log("error:", e.message));
+page.on("console", (m) => m.type() === "error" && console.log("console:", m.text()));
+await page.goto("http://localhost:3000/");
+const r = await page.evaluate(async () => {
+  const { drawBoardArt } = await import("/src/boardArt/drawBoard.ts");
+  const p = (row, col) => ({ row, col });
+  const tiles = { river: [p(4, 2), p(4, 3), p(4, 4), p(4, 6), p(4, 7), p(4, 8)], bridge: [p(4, 5)], hill: [p(3, 3), p(3, 4), p(5, 7)], town: [p(5, 4), p(3, 6)], hedgerow: [p(5, 2)], forest: [p(3, 8), p(3, 7)] };
+  const t = performance.now();
+  const url = await drawBoardArt(tiles);
+  const ms = performance.now() - t;
+  const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
+  let s = ""; for (const b of buf) s += String.fromCharCode(b);
+  return { ms, img: btoa(s) };
+});
+console.log("drawn in", Math.round(r.ms));
+fs.writeFileSync(process.argv[2], Buffer.from(r.img, "base64"));
+await browser.close();

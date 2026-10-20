@@ -41,13 +41,19 @@ const EAST = [true, false, false, false, false, false];
 const pixel = (data: Uint8Array, size: number, x: number, y: number) => Array.from(data.slice((y * size + x) * 4, (y * size + x) * 4 + 4));
 
 describe("joinedHillMaker", () => {
-  it("makes an opaque hex at the scale asked for", () => {
+  it("makes a hex at the scale asked for, clear past the cliffs' foot", () => {
     const twice = maker(2)(EAST, 7, { x: 100, y: 100 });
     const once = maker(1)(EAST, 7, { x: 100, y: 100 });
+    const alpha = (x: number, y: number) => once[(y * 40 + x) * 4 + 3];
 
     expect(twice).toHaveLength(80 * 80 * 4);
     expect(once).toHaveLength(40 * 40 * 4);
-    expect(once.filter((_, i) => i % 4 === 3).every((alpha) => alpha === 255)).toBe(true);
+    // The plateau in the middle is solid; past the cliffs, out towards the closed edges, the
+    // countryside shows through
+    expect(alpha(20, 20)).toBe(255);
+    const clear = [...Array(40 * 40).keys()].filter((p) => once[p * 4 + 3] === 0);
+    expect(clear.length).toBeGreaterThan(40);
+    expect(clear.every((p) => Math.hypot((p % 40) - 19.5, Math.floor(p / 40) - 19.5) > 12)).toBe(true);
   });
 
   it("makes the same hex every time", () => {

@@ -24,9 +24,10 @@ import { neighbor, pickFor } from "./boardPlan.mjs";
  * terrain; `bare`: the edges shared with open countryside on the board; `spill`: the bare edge a
  * town's house stands over, or -1; `streets`: the edges a town's streets run out over a little;
  * `woods`: a river's edges facing a forest, which grows into it up to the water (growWoods);
- * `hills`: its edges facing a hill, whose ridge runs on into it (growHill), `center` the hex's
- * centre on the board (for the ridge's plateau texture); `turns`: the tile turned × 60° clockwise
- * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], center?: { x: number, y: number }, turns: number, seed: number }} JoinedHex
+ * `hillShapes`: the hills beside a river, whose ridges run on into it (growHill), `center` the
+ * hex's centre on the board (for the ridge's plateau texture); `turns`: the tile turned × 60°
+ * clockwise
+ * @typedef {{ key: string, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hillShapes?: import("./boardPlan.mjs").HillShape[], center?: { x: number, y: number }, turns: number, seed: number }} JoinedHex
  * `tile`: the hex, RGBA; `overflow`: what spills out of it, RGBA, OVERFLOW times the hex's size
  * and centred on it, or null
  * @typedef {(hex: JoinedHex) => { tile: Uint8Array, overflow: Uint8Array | null }} JoinedMaker
@@ -164,6 +165,8 @@ function findHouses(tile) {
       /** @type {[number, number][]} */
       const points = [];
       for (let p = 0; p < W * H; p++) if (mask[p] && (p % W) % (2 * k) === 0 && ((p / W) | 0) % (2 * k) === 0) points.push([(p % W) - cx, ((p / W) | 0) - cy]);
+      // Outermost first: a spot that won't fit is found out sooner
+      points.sort((a, b) => b[0] * b[0] + b[1] * b[1] - (a[0] * a[0] + a[1] * a[1]));
       return { mask: Float32Array.from(mask), cx, cy, size: n, points };
     })
     .sort((a, b) => b.size - a.size);
@@ -393,7 +396,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
 
   const OW = Math.round(OVERFLOW * TW), OH = Math.round(OVERFLOW * TH);
 
-  return ({ key, open, bare, spill, streets = [], woods = [], hills = [], center = { x: 0, y: 0 }, turns, seed }) => {
+  return ({ key, open, bare, spill, streets = [], woods = [], hillShapes = [], center = { x: 0, y: 0 }, turns, seed }) => {
     const rand = rng(seed);
     // From the board's orientation to the tile's: turned back
     const turn = (-turns * Math.PI) / 3;
@@ -626,7 +629,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
     // A forest beside a river grows into it, up to the water
     if (type === "river" && forest) growWoods(out, TW, TH, woods, seed, forest);
     // A hill beside it comes down to its bank
-    if (type === "river" && hillMaker && hills.some(Boolean)) growHill(out, TW, TH, hills, seed, hillMaker(hills, seed, center));
+    if (type === "river" && hillMaker) for (const shape of hillShapes) growHill(out, TW, TH, shape.edge, seed, hillOver(hillMaker, shape, center));
 
     if (!spilt && !spillCrowns.length && !lanes.length && !yards.length) return { tile: out, overflow: null };
     // What spills out: the streets and the house over its edge, whole, and the trees over the countryside
@@ -921,17 +924,27 @@ function landFacing(pixels, width, height, edges, seed) {
 }
 
 /**
- * Run a hill on into a river hex from its edges facing one (`hills`), in place: `hill` is the
- * ridge made for this hex as if it were a hill running out through those edges (joinedHills.mjs,
- * RGBA, the hex's size), laid over the land in the part facing them, up to a little short of the
- * water, so the hill comes down to the river's bank instead of ending at the hex line
- * @param {Uint8Array} pixels @param {number} width @param {number} height @param {boolean[]} hills
+ * The ridge of the hill across edge `shape.edge`, drawn in this hex's box where it runs on past
+ * that edge (RGBA, the hex's size): the hill's own outline, so the two meet at the hex line
+ * @param {import("./joinedHills.mjs").RidgeMaker} hillMaker @param {import("./boardPlan.mjs").HillShape} shape
+ * @param {{ x: number, y: number }} center this hex's centre on the board
+ */
+export const hillOver = (hillMaker, { edge, open, toRiver, seed }, center) =>
+  hillMaker(open, seed, center, { x: SQRT3 * (DIRS[edge]?.[0] ?? 0), y: SQRT3 * (DIRS[edge]?.[1] ?? 0) }, toRiver);
+
+/**
+ * Run a hill on into a river hex from its edge facing one (`edge`), in place: `hill` is the hill's
+ * ridge where it runs on past that edge (hillOver: it bulges a little past it, its cliffs closing
+ * round), laid over the land short of the water, so the hill comes down towards the river's bank
+ * instead of ending at the hex line
+ * @param {Uint8Array} pixels @param {number} width @param {number} height @param {number} edge
  * @param {number} seed @param {Uint8Array} hill
  */
-export function growHill(pixels, width, height, hills, seed, hill) {
-  if (!hills.some(Boolean)) return;
+export function growHill(pixels, width, height, edge, seed, hill) {
+  void edge;
   const n = width * height;
-  const { land, solid } = landFacing(pixels, width, height, hills, seed);
+  // The hill's own outline keeps it to the part of the hex by its edge: only the water stops it
+  const { land, solid } = landFacing(pixels, width, height, [true, true, true, true, true, true], seed);
   // How far each pixel is from the water, for a strip of bank kept along it
   const near = Math.max(2, Math.round(height / 40));
   for (let p = 0; p < n; p++) {

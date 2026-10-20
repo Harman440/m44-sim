@@ -26,7 +26,7 @@ describe("the app's board art", () => {
   it("joins hills next to each other into ridges, as on the painted boards", () => {
     const p = (row: number, col: number) => ({ row, col });
 
-    expect(planMapArt({ hill: [p(4, 4), p(4, 5), p(0, 0)] }).map((hex) => hex.art)).toEqual(["ridge", "ridge", "painted"]);
+    expect(planMapArt({ hill: [p(4, 4), p(4, 5), p(0, 0)] }).map((hex) => hex.art)).toEqual(["ridge", "ridge", "ridge"]);
   });
 
   it("paints rivers when the library fits every bend, and draws them otherwise", () => {

@@ -33,7 +33,7 @@ import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../gam
 import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
-import { OVERFLOW, growWoods, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
+import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
 import { HEDGEROW_SPREAD } from "./terrainTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "./softLines.mjs";
 import type { JoinedMaker } from "./joinedTiles.mjs";
@@ -104,19 +104,23 @@ const forestTile = () =>
 // Drawn hexes rendered once at a size and kept as bitmaps: the browser would render an SVG
 // image again every time it's pasted
 const drawnTiles = new Map<string, Promise<HTMLCanvasElement>>();
-const drawnTile = (hex: DrawnHex, width: number, height: number) =>
-  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}:${hex.bare.map(Number).join("")}@${width}x${height}`, async () => {
+const drawnTile = (hex: DrawnHex, width: number, height: number, center: { x: number; y: number }) =>
+  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}:${hex.bare.map(Number).join("")}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`, async () => {
     const svg = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawnSvg(hex))}`);
     const tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
     const ctx = tile.getContext("2d", { willReadFrequently: true });
     ctx?.drawImage(svg, 0, 0, width, height);
-    // A river's grass giving way to the countryside, or a forest beside it, as the script draws it
+    // A river's grass giving way to the countryside, or a forest or a hill beside it, as the script draws it
     if (ctx && (hex.type === "river" || hex.type === "bridge")) {
       const pixels = ctx.getImageData(0, 0, width, height);
       toCountryside(pixels.data as unknown as Uint8Array, width, height, 0.07, hex.seed);
       if (hex.woods.some(Boolean)) growWoods(pixels.data as unknown as Uint8Array, width, height, hex.woods, hex.seed, await forestTile());
+      for (const shape of hex.hillShapes ?? []) {
+        const hill = hillOver(await ridgeMaker(hex.hillTile ?? "", width, height), shape, center);
+        growHill(pixels.data as unknown as Uint8Array, width, height, shape.edge, hex.seed, hill);
+      }
       ctx.putImageData(pixels, 0, 0);
     }
     return tile;
@@ -156,9 +160,9 @@ const ridgeMaker = (tile: string, width: number, height: number) =>
 /** A hill joined to the hills beside it, made at the board's size (the script makes it at twice), kept as a bitmap */
 const ridgeTile = (hex: RidgeHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
-  const key = `ridge:${hex.tile}:${hex.key}:${hex.open.map(Number).join("")}@${width}x${height}`;
+  const key = `ridge:${hex.tile}:${hex.key}:${hex.open.map(Number).join("")}:${(hex.toRiver ?? []).map(Number).join("")}@${width}x${height}`;
   return cached(drawnTiles, key, async () => {
-    const pixels = (await ridgeMaker(hex.tile, width, height))(hex.open, hex.seed, grid.center(hex.key));
+    const pixels = (await ridgeMaker(hex.tile, width, height))(hex.open, hex.seed, grid.center(hex.key), undefined, hex.toRiver);
     const tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
@@ -173,8 +177,11 @@ const joinedMakers = new Map<string, Promise<JoinedMaker>>();
 const joinedMaker = (type: string, tile: string, width: number, height: number) =>
   cached(joinedMakers, `${tile}@${width}x${height}`, async () => {
     const image = await loadImage(TILE_URLS.get(tile) ?? tile);
-    const forest = type === "river" ? await forestTile() : undefined;
-    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1, forest);
+    // A river's forests and hills beside it grow into it
+    const river = type === "river";
+    const forest = river ? await forestTile() : undefined;
+    const hill = river && TILE_LIBRARY.hill?.[0] ? await ridgeMaker(`hill/${TILE_LIBRARY.hill[0]}`, width, height) : undefined;
+    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1, forest, hill);
   });
 
 /** RGBA pixels as a canvas */
@@ -194,10 +201,11 @@ const joinedArt = new Map<string, Promise<{ tile: HTMLCanvasElement; overflow: H
 const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
   const edges = (list: boolean[]) => list.map(Number).join("");
-  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}:${hex.streets ?? ""}@${width}x${height}`;
+  const center = grid.center(hex.key);
+  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}:${hex.streets ?? ""}:${edges(hex.woods ?? [])}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`;
   return cached(joinedArt, key, async () => {
     // The tile's folder is its terrain (a bridge's is a river tile)
-    const { tile, overflow } = (await joinedMaker(hex.tile.split("/")[0] ?? hex.type, hex.tile, width, height))(hex);
+    const { tile, overflow } = (await joinedMaker(hex.tile.split("/")[0] ?? hex.type, hex.tile, width, height))({ ...hex, center });
     const [ow, oh] = [Math.round(OVERFLOW * width), Math.round(OVERFLOW * height)];
     return { tile: canvasOf(tile, width, height), overflow: overflow ? canvasOf(overflow, ow, oh) : null };
   });
@@ -208,8 +216,8 @@ const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<Canvas
   if (hex.art === "painted") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
   if (hex.art === "ridge") return ridgeTile(hex, grid);
   if (hex.art === "joined") return joinedTile(hex, grid).then(({ tile }) => tile);
-  if (hex.art === "drawn" && hex.type === "hedgerow") return drawnTile(hex, Math.ceil(HEDGEROW_SPREAD * grid.hexWidth), Math.ceil(HEDGEROW_SPREAD * 2 * grid.radius));
-  if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius));
+  if (hex.art === "drawn" && hex.type === "hedgerow") return drawnTile(hex, Math.ceil(HEDGEROW_SPREAD * grid.hexWidth), Math.ceil(HEDGEROW_SPREAD * 2 * grid.radius), grid.center(hex.key));
+  if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius), grid.center(hex.key));
   return null;
 };
 

@@ -142,13 +142,15 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * hedgerow's edges onto open countryside, which it spreads out over (its image is
  * terrainTiles.mjs's HEDGEROW_SPREAD times the hex's box, laid over what's round it)
  * `hills` and `hillTile`: a river's edges facing a hill, whose ridge (made from that tile) runs on
- * into it up to the water
- * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], bare: boolean[], hills?: boolean[], hillTile?: string }} DrawnHex
+ * into it, short of the water; `hillShapes`: each one's edge, and its ridge's `open` and `seed`
+ * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], bare: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[] }} DrawnHex
+ * @typedef {{ edge: number, open: boolean[], toRiver: boolean[], seed: number }} HillShape
  */
 /**
  * A hill made into a ridge, running on into the hills and rivers across its `open` edges (none for
  * a lone hill), its cliffs giving way to the countryside (joinedHills.mjs)
- * @typedef {{ key: string, type: string, art: "ridge", tile: string, open: boolean[], seed: number }} RidgeHex
+ * (`toRiver`: which of them lead into a river, where it bulges less far)
+ * @typedef {{ key: string, type: string, art: "ridge", tile: string, open: boolean[], toRiver?: boolean[], seed: number }} RidgeHex
  */
 /**
  * A painted tile blended into the same terrain across its `open` edges, turned `turns` × 60°
@@ -157,7 +159,7 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * bare edge `spill` (-1: none) and its streets running out a little over the edges `streets`; a painted river (or
  * bridge) is one too, its tile's grass giving way to the countryside, or to a forest beside it
  * across its `woods` edges
- * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, seed: number }} JoinedHex
+ * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[], seed: number }} JoinedHex
  */
 /**
  * The bridge piece laid across a painted river, from edge to edge
@@ -259,7 +261,16 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
   /** @param {string} key */
   const hillsBeside = (key) => {
     const hills = separateHills ? [] : edgesTo(key, ["hill"]);
-    return hills.some(Boolean) ? { hills, hillTile } : {};
+    if (!hills.some(Boolean)) return {};
+    // Each hill's own ridge, as its hex makes it, to draw on in the river from where it is
+    const hillShapes = [...Array(6).keys()]
+      .filter((d) => hills[d])
+      .map((d) => {
+        const next = neighbor(key, d);
+        const { row, col } = parseKey(next);
+        return { edge: d, open: edgesTo(next, ["hill", "river", "bridge"]), toRiver: edgesTo(next, ["river", "bridge"]), seed: row * 13 + col + 1 };
+      });
+    return { hills, hillTile, hillShapes };
   };
   /** @type {HexArt[]} */
   const plan = [];
@@ -296,7 +307,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       // the rivers beside it; a lone one too, its outline running out through no edge
       const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill", "river", "bridge"]) : [];
       const joins = JOINED_TERRAIN.includes(type) && !plain ? edgesTo(key, [type]) : [];
-      if (type === "hill" && !separateHills && !plain) plan.push({ key, type, art: "ridge", tile, open: ridge, seed });
+      if (type === "hill" && !separateHills && !plain) plan.push({ key, type, art: "ridge", tile, open: ridge, toRiver: edgesTo(key, ["river", "bridge"]), seed });
       else if ((ALWAYS_JOINED.includes(type) && !plain) || joins.some(Boolean)) {
         // Open countryside across an edge, on the board; a town has a house over one such edge
         // one time in two
