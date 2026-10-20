@@ -5,7 +5,7 @@ import { HexType } from "../../types/hex";
 import { FACTIONS, Faction } from "../../types/faction";
 import { UnitType } from "../../game-core/unit";
 import { EditorTool } from "../../game-core/scenarioDraft";
-import { terrainSwatch } from "../../boardArt/drawBoard";
+import { terrainSwatch, tilesFor } from "../../boardArt/drawBoard";
 import { unitSprite } from "../UnitComponent";
 import SandbagsIcon from "../SandbagsIcon";
 import { BarbedWireIcon } from "../BarbedWire";
@@ -23,6 +23,9 @@ const TEXT = defineMessages({
     wire: "Alambrada",
     erase: "Borrar",
     objectives: "Objetivos",
+    townTiles: "Losetas de pueblo",
+    randomTile: "Al azar",
+    tileOf: (terrain: string, n: number) => `${terrain} (loseta ${n})`,
     objectiveOf: (side: string) => `Objetivo (${side})`,
     unitOf: (unit: string, side: string) => `${unit} (${side})`,
     tool: (name: string) => `Herramienta: ${name}`,
@@ -36,6 +39,9 @@ const TEXT = defineMessages({
     wire: "Barbed wire",
     erase: "Clear",
     objectives: "Objectives",
+    townTiles: "Town tiles",
+    randomTile: "Random",
+    tileOf: (terrain: string, n: number) => `${terrain} (tile ${n})`,
     objectiveOf: (side: string) => `Objective (${side})`,
     unitOf: (unit: string, side: string) => `${unit} (${side})`,
     tool: (name: string) => `Tool: ${name}`,
@@ -51,11 +57,35 @@ export const TERRAINS = [
   HexType.RIVER,
   HexType.BRIDGE,
   HexType.LAKE,
+  HexType.BEACH,
+  HexType.SWAMP,
 ];
 const UNIT_TYPES = [UnitType.INFANTRY, UnitType.TANK, UnitType.ARTILLERY];
 const MARKS = ["elite", "sandbags", "wire", "erase"] as const;
 
 const sameTool = (a: EditorTool, b: EditorTool) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Terrain whose painted tile the editor lets the player pick, hex by hex */
+const PICKABLE: HexType[] = [HexType.TOWN];
+
+/** A picture of each of a terrain's tiles, by tile, drawn once `type` is given */
+function useTileSwatches(type: HexType | undefined) {
+  const [swatches, setSwatches] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!type) return;
+    let current = true;
+    tilesFor(type).forEach((tile) =>
+      terrainSwatch(type, tile).then(
+        (url) => current && setSwatches((before) => ({ ...before, [tile]: url })),
+        () => {},
+      ),
+    );
+    return () => {
+      current = false;
+    };
+  }, [type]);
+  return swatches;
+}
 
 /** A picture of each terrain's hex, as it's drawn on the board */
 export function useTerrainSwatches() {
@@ -91,27 +121,35 @@ function EditorTools({ tool, onTool }: EditorToolsProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const swatches = useTerrainSwatches();
+  const picking = tool.kind === "terrain" && PICKABLE.includes(tool.type) ? tool.type : undefined;
+  const tileSwatches = useTileSwatches(picking);
+  const pickable = picking ? tilesFor(picking) : [];
 
   const toolName = (tool: EditorTool): string => {
-    // The terrain's name is lower case for the middle of a sentence ("Tanque en bosque")
-    if (tool.kind === "terrain") return labels.terrain[tool.type].replace(/^./, (first) => first.toUpperCase());
+    if (tool.kind === "terrain") {
+      // The terrain's name is lower case for the middle of a sentence ("Tanque en bosque")
+      const terrain = labels.terrain[tool.type].replace(/^./, (first) => first.toUpperCase());
+      return tool.tile ? t.tileOf(terrain, tilesFor(tool.type).indexOf(tool.tile) + 1) : terrain;
+    }
     if (tool.kind === "unit") return t.unitOf(labels.units[tool.type], labels.factions[tool.faction]);
     if (tool.kind === "objective") return t.objectiveOf(labels.factions[tool.faction]);
     return t[tool.kind];
   };
 
-  const button = (each: EditorTool, art: ReactNode) => (
+  const button = (each: EditorTool, art: ReactNode, selected = sameTool(each, tool), label = toolName(each)) => (
     <ToggleButton
       key={JSON.stringify(each)}
       value={JSON.stringify(each)}
-      selected={sameTool(each, tool)}
+      selected={selected}
       onChange={() => onTool(each)}
-      aria-label={toolName(each)}
+      aria-label={label}
       sx={{ minHeight: 48, p: "4px !important" }}
     >
       {art}
     </ToggleButton>
   );
+  const swatch = (url: string | undefined) =>
+    url ? <Box component="img" src={url} alt="" sx={{ width: 36, height: 41, display: "block" }} /> : <Box sx={{ width: 36, height: 41 }} />;
   const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))", gap: 0.5 };
   const heading = (text: string) => (
     <Typography variant="overline" component="h3" sx={{ lineHeight: 1.6 }}>
@@ -126,14 +164,27 @@ function EditorTools({ tool, onTool }: EditorToolsProps) {
         {TERRAINS.map((type) =>
           button(
             { kind: "terrain", type },
-            swatches[type] ? (
-              <Box component="img" src={swatches[type]} alt="" sx={{ width: 36, height: 41, display: "block" }} />
-            ) : (
-              <Box sx={{ width: 36, height: 41 }} />
-            ),
+            swatch(swatches[type]),
+            // A town with a tile picked is still the town tool
+            tool.kind === "terrain" && tool.type === type,
           ),
         )}
       </Box>
+
+      {picking && pickable.length > 1 && (
+        <>
+          {heading(t.townTiles)}
+          <Box sx={grid}>
+            {button(
+              { kind: "terrain", type: picking },
+              <GameIcon name="dice" size={28} />,
+              !(tool.kind === "terrain" && tool.tile),
+              t.randomTile,
+            )}
+            {pickable.map((tile) => button({ kind: "terrain", type: picking, tile }, swatch(tileSwatches[tile])))}
+          </Box>
+        </>
+      )}
 
       {heading(t.units)}
       <Box sx={grid}>

@@ -22,6 +22,8 @@ export interface TerrainRules {
   leaveOneHex?: boolean;
   /** A target on it is fired at as if it were on this terrain instead */
   firesAs?: HexType;
+  /** A move that starts on it or enters it is at most this many hexes long, whatever cards add (house beach rule) */
+  moveThrough?: number;
 }
 
 export const TERRAIN: Record<HexType, TerrainRules> = {
@@ -41,4 +43,8 @@ export const TERRAIN: Record<HexType, TerrainRules> = {
   [HexType.LAKE]: { movement: MovementRule.BLOCK, fireAfterMove: false, blocksSight: false },
   // Plays like plains (house rule)
   [HexType.BRIDGE]: { movement: MovementRule.NORMAL, fireAfterMove: true, blocksSight: false, firesAs: HexType.PLAINS },
+  // House rules: slow going in the sand; a swamp holds a unit, and lets it out one hex at a time.
+  // Both are fired at as open ground
+  [HexType.BEACH]: { movement: MovementRule.NORMAL, fireAfterMove: true, blocksSight: false, firesAs: HexType.PLAINS, moveThrough: 2 },
+  [HexType.SWAMP]: { movement: MovementRule.STOP, fireAfterMove: true, blocksSight: false, leaveOneHex: true, firesAs: HexType.PLAINS },
 };

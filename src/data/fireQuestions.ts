@@ -34,9 +34,9 @@ export const PUSH_BACK_UNIT_TYPES: readonly UnitType[] = [UnitType.INFANTRY];
 
 /**
  * Where the target can be: the board's terrain types plus a bunker. No unit can
- * be on water, and a bridge counts as open ground (`effectiveTerrain`).
+ * be on water, and a bridge, a beach or a swamp counts as open ground (`effectiveTerrain`).
  */
-export type TargetTerrain = Exclude<HexType, HexType.RIVER | HexType.LAKE | HexType.BRIDGE> | "bunker";
+export type TargetTerrain = Exclude<HexType, HexType.RIVER | HexType.LAKE | HexType.BRIDGE | HexType.BEACH | HexType.SWAMP> | "bunker";
 
 /** Dice lost when the target is in this terrain, by the firing unit's type; answers are the keys, in this order */
 export const TARGET_TERRAIN_MODIFIERS: Record<TargetTerrain, { label: Localized; dice: Record<UnitType, number> }> = {

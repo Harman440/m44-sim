@@ -5,7 +5,7 @@
 // `parseScenario` reads a file back; `validateScenario` lists what's wrong with
 // any scenario, so the built-ins, the catalog and the editor's maps all pass
 // the same checks.
-import { Position, Scenario } from "../types/scenario";
+import { PickedTile, Position, Scenario } from "../types/scenario";
 import { HexType, MovementRule, isHexType } from "../types/hex";
 import { Faction, isFaction } from "../types/faction";
 import { isUnitType } from "./unit";
@@ -41,6 +41,7 @@ const FILE_FIELDS = {
   initialHandSize: true,
   attacker: true,
   tiles: true,
+  pickedTiles: true,
   units: true,
   reinforcements: true,
   paradrop: true,
@@ -172,6 +173,7 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   const objectives = objectiveHexes.map(({ hex }) => hex);
   const everyPosition = [
     ...Object.values(scenario.tiles).flatMap((positions) => positions ?? []),
+    ...(scenario.pickedTiles ?? []).map(({ row, col }) => ({ row, col })),
     ...units,
     ...wire,
     ...sandbags,
@@ -227,6 +229,10 @@ const EXPECTED = {
   faction: { es: 'debe ser "Allies" o "Axis"', en: 'must be "Allies" or "Axis"' },
   factions: { es: 'debe ser una lista de bandos ("Allies", "Axis")', en: 'must be a list of sides ("Allies", "Axis")' },
   positions: { es: 'debe ser una lista de casillas { "row": …, "col": … }', en: 'must be a list of hexes { "row": …, "col": … }' },
+  pickedTiles: {
+    es: 'debe ser una lista de casillas con su loseta { "row": …, "col": …, "tile": "village-3" }',
+    en: 'must be a list of hexes with their tile { "row": …, "col": …, "tile": "village-3" }',
+  },
   hexType: { es: "no es un terreno", en: "isn't a terrain" },
   unitType: { es: "no es un tipo de unidad", en: "isn't a unit type" },
   version: { es: `debe ser ${SCENARIO_FILE_VERSION}`, en: `must be ${SCENARIO_FILE_VERSION}` },
@@ -257,6 +263,14 @@ const isNumber = (value: unknown): value is number => Number.isInteger(value);
 const isPosition = (value: unknown): value is Position =>
   isRecord(value) && Object.keys(value).length === 2 && Number.isInteger(value.row) && Number.isInteger(value.col);
 const isPositionList = (value: unknown): value is Position[] => Array.isArray(value) && value.every(isPosition);
+const isPickedTile = (value: unknown): value is PickedTile =>
+  isRecord(value) &&
+  Object.keys(value).length === 3 &&
+  Number.isInteger(value.row) &&
+  Number.isInteger(value.col) &&
+  typeof value.tile === "string" &&
+  /^[a-z0-9-]+$/.test(value.tile);
+const isPickedTileList = (value: unknown): value is PickedTile[] => Array.isArray(value) && value.every(isPickedTile);
 const isFactionList = (value: unknown): value is Faction[] => Array.isArray(value) && value.every(isFaction);
 
 const join = (path: string, key: string) => (path ? `${path}.${key}` : key);
@@ -377,6 +391,7 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     initialHandSize: reader.sides(file.initialHandSize, "initialHandSize", reader.number),
     attacker: reader.faction(file.attacker, "attacker"),
     tiles: reader.groups(file.tiles, "tiles", isHexType, EXPECTED.hexType),
+    pickedTiles: optional("pickedTiles", (value, path) => reader.check(value, path, isPickedTileList, EXPECTED.pickedTiles)),
     units: reader.sides(file.units, "units", (value, path) => reader.groups(value, path, isUnitType, EXPECTED.unitType)),
     paradrop: optional("paradrop", (value, path) => reader.paradrop(value, path)),
     wire: optional("wire", reader.positions),

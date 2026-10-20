@@ -13,7 +13,7 @@
 // only pastes images: the editor can redraw the whole board on every tap (about 25 ms on a
 // desktop, 100 ms with its processor slowed 4 times; the JPEG takes most of it). A new ridge hex
 // takes longest to make, about 26 ms on a desktop.
-import { Tiles } from "../types/scenario";
+import { PickedTile, Tiles } from "../types/scenario";
 import { HexType } from "../types/hex";
 import {
   APP_ART_HEIGHT,
@@ -27,16 +27,17 @@ import {
   canPaintRivers,
   drawnSvg,
   pickFor,
+  pickedByHex,
   planBoard,
 } from "./boardPlan.mjs";
 import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../game-core/boardSize";
-import type { DrawnHex, HexArt, JoinedHex, RidgeHex } from "./boardPlan.mjs";
+import type { DrawnHex, HexArt, JoinedHex, RidgeHex, SpillHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
-import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, toCountryside } from "./joinedTiles.mjs";
+import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, spillMaker, toCountryside } from "./joinedTiles.mjs";
 import { HEDGEROW_SPREAD } from "./terrainTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "./softLines.mjs";
-import type { JoinedMaker } from "./joinedTiles.mjs";
+import type { HouseOutlines, JoinedMaker, SpillMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
 import grassUrl from "../../scripts/board-art/textures/grass.webp";
@@ -48,6 +49,13 @@ const TILE_URLS = new Map(
   ),
 );
 
+// The houses drawn round on a town tile, beside it as <tile>.json, by "<terrain>/<file>.webp"
+const HOUSE_OUTLINES = new Map(
+  Object.entries(import.meta.glob<HouseOutlines>("../../scripts/board-art/tiles/*/*.json", { eager: true, import: "default" })).map(
+    ([path, outlines]) => [path.split("/").slice(-2).join("/").replace(/\.json$/, ".webp"), outlines],
+  ),
+);
+
 /** The library's file names by terrain, sorted, as boardPlan.mjs takes them */
 export const TILE_LIBRARY: Record<string, string[]> = {};
 for (const name of [...TILE_URLS.keys()].sort()) {
@@ -55,22 +63,32 @@ for (const name of [...TILE_URLS.keys()].sort()) {
   (TILE_LIBRARY[terrain] ??= []).push(file);
 }
 
-/** The art the app plans for a map's terrain (`plain`: each hex its own tile, nothing joined) */
-export const planMapArt = (tiles: Tiles, size: BoardSize = STANDARD_BOARD, plain = false): HexArt[] =>
-  planBoard(tiles, TILE_LIBRARY, {
-    drawn: canPaintRivers(tiles, TILE_LIBRARY) ? [] : ["river"],
+/** The tiles a terrain can be painted with, as Scenario.pickedTiles names them (the file's name without ".webp") */
+export const tilesFor = (type: HexType): string[] => (TILE_LIBRARY[type] ?? []).map((file) => file.replace(/\.webp$/, ""));
+
+/**
+ * The art the app plans for a map's terrain (`plain`: each hex its own tile, nothing joined;
+ * `picked`: the tiles picked for some hexes, Scenario.pickedTiles)
+ */
+export const planMapArt = (tiles: Tiles, size: BoardSize = STANDARD_BOARD, plain = false, picked: PickedTile[] = []): HexArt[] => {
+  const keys = boardKeys(size.cols, size.rows);
+  return planBoard(tiles, TILE_LIBRARY, {
+    drawn: canPaintRivers(tiles, TILE_LIBRARY, keys) ? [] : ["river"],
     strict: false,
-    keys: boardKeys(size.cols, size.rows),
+    keys,
     plain,
+    picked: pickedByHex(picked),
   });
+};
 
 /**
  * How a board is drawn: `height` the standard board's; `plain`, quickly, for the map editor while
  * a map is being made: each terrain hex its own library tile, with no hills joined into ridges, no
  * terrain blended or spilling over its edges and the hex lines as printed. The finished art is
- * drawn once the map is done (the menu and the game)
+ * drawn once the map is done (the menu and the game). `picked`: the tiles picked for some hexes
+ * (Scenario.pickedTiles)
  */
-export type DrawOptions = { height?: number; plain?: boolean };
+export type DrawOptions = { height?: number; plain?: boolean; picked?: PickedTile[] };
 
 const load = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -181,7 +199,10 @@ const joinedMaker = (type: string, tile: string, width: number, height: number) 
     const river = type === "river";
     const forest = river ? await forestTile() : undefined;
     const hill = river && TILE_LIBRARY.hill?.[0] ? await ridgeMaker(`hill/${TILE_LIBRARY.hill[0]}`, width, height) : undefined;
-    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * 2, image.naturalHeight * 2), width, height, 1, forest, hill);
+    // Read at about twice the hex's size: a small tile at twice its own, as the script reads it, a
+    // large one at its own, so finding its houses doesn't take long
+    const k = Math.max(1, Math.round((2 * width) / image.naturalWidth));
+    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * k, image.naturalHeight * k), width, height, 1, forest, hill, HOUSE_OUTLINES.get(tile));
   });
 
 /** RGBA pixels as a canvas */
@@ -211,11 +232,28 @@ const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   });
 };
 
-/** The image a hex is drawn with: its painted tile, its ridge, its joined tile or its drawn tile, at the board's size */
+// A forest's lone trees out on the countryside beside it, cut from a library tile read as the joined tiles read it
+const spillMakers = new Map<string, Promise<SpillMaker>>();
+const spillMakerFor = (tile: string, width: number, height: number) =>
+  cached(spillMakers, `${tile}@${width}x${height}`, async () => {
+    const image = await loadImage(TILE_URLS.get(tile) ?? tile);
+    const k = Math.max(1, Math.round((2 * width) / image.naturalWidth));
+    return spillMaker(pixelsOf(image, image.naturalWidth * k, image.naturalHeight * k), width, height, 1);
+  });
+
+/** A forest's lone trees on a hex of countryside, made at the board's size and kept as a bitmap: a square round the hex */
+const spillTile = (hex: SpillHex, grid: ReturnType<typeof artGrid>) => {
+  const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
+  const key = `spill:${hex.type}:${hex.tile}:${hex.key}:${hex.toward.map(Number).join("")}@${width}x${height}`;
+  return cached(drawnTiles, key, async () => canvasOf((await spillMakerFor(hex.tile, width, height))(hex), height, height));
+};
+
+/** The image a hex is drawn with: its painted tile, its ridge, its joined tile, its drawn tile or a forest's lone trees, at the board's size */
 const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<CanvasImageSource> | null => {
   if (hex.art === "painted") return loadImage(TILE_URLS.get(hex.tile) ?? hex.tile);
   if (hex.art === "ridge") return ridgeTile(hex, grid);
   if (hex.art === "joined") return joinedTile(hex, grid).then(({ tile }) => tile);
+  if (hex.art === "spill") return spillTile(hex, grid);
   if (hex.art === "drawn" && hex.type === "hedgerow") return drawnTile(hex, Math.ceil(HEDGEROW_SPREAD * grid.hexWidth), Math.ceil(HEDGEROW_SPREAD * 2 * grid.radius), grid.center(hex.key));
   if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius), grid.center(hex.key));
   return null;
@@ -290,11 +328,11 @@ export async function paintBoard(
   canvas: HTMLCanvasElement,
   tiles: Tiles,
   size: BoardSize = STANDARD_BOARD,
-  { height = APP_ART_HEIGHT, plain = false }: DrawOptions = {},
+  { height = APP_ART_HEIGHT, plain = false, picked = [] }: DrawOptions = {},
 ): Promise<void> {
   const standard = isStandardBoard(size);
   const grid = standard ? artGrid(height) : artGrid(artHeightFor(size.rows, height), size.cols, size.rows);
-  const plan = planMapArt(tiles, size, plain);
+  const plan = planMapArt(tiles, size, plain, picked);
   const keys = boardKeys(size.cols, size.rows);
   const tileWidth = grid.hexWidth;
   const tileHeight = 2 * grid.radius;
@@ -374,6 +412,13 @@ export async function paintBoard(
       const image = art[i];
       if (hex.art === "drawn" && hex.type === "hedgerow" && image) drawHedgerow(image, grid.center(hex.key));
     });
+    // A forest's lone trees, a square round their hex, not cut to it
+    plan.forEach((hex, i) => {
+      const image = art[i];
+      if (hex.art !== "spill" || !image) return;
+      const { x, y } = grid.center(hex.key);
+      ctx.drawImage(image, x - tileHeight / 2, y - tileHeight / 2, tileHeight, tileHeight);
+    });
     plan.forEach((hex, i) => {
       const spill = spills[i];
       if (!spill) return;
@@ -411,12 +456,16 @@ export async function drawBoardArt(tiles: Tiles, size: BoardSize = STANDARD_BOAR
 const SWATCH_HEX = "4-6";
 const swatches = new Map<string, Promise<string>>();
 
-/** A picture of one hex of a terrain on the board (a data: URL), for the map editor's tools */
-export const terrainSwatch = (type: HexType): Promise<string> =>
-  cached(swatches, type, async () => {
+/**
+ * A picture of one hex of a terrain on the board (a data: URL), for the map editor's tools; with
+ * `tile`, painted with that tile of the library
+ */
+export const terrainSwatch = (type: HexType, tile?: string): Promise<string> =>
+  cached(swatches, tile ? `${type}/${tile}` : type, async () => {
     const board = document.createElement("canvas");
     const [row = 0, col = 0] = SWATCH_HEX.split("-").map(Number);
-    await paintBoard(board, type === HexType.PLAINS ? {} : { [type]: [{ row, col }] }, STANDARD_BOARD, { plain: true });
+    const picked = tile ? [{ row, col, tile }] : [];
+    await paintBoard(board, type === HexType.PLAINS ? {} : { [type]: [{ row, col }] }, STANDARD_BOARD, { plain: true, picked });
     const grid = artGrid(APP_ART_HEIGHT);
     const { x, y } = grid.center(SWATCH_HEX);
     const [width, height] = [Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius)];

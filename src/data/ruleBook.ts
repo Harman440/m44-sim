@@ -10,6 +10,8 @@ import { Localized } from "../i18n/lang";
 import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
 import { UnitType } from "../game-core/unit";
 import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
+import { TERRAIN } from "./terrain";
+import { HexType } from "../types/hex";
 
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
@@ -29,7 +31,7 @@ export interface TutorialStep {
   points: readonly Localized[];
 }
 
-export type HouseRuleGroupId = "simultaneous" | "dice" | "commandCards" | "supplies" | "passAndPlay" | "optional";
+export type HouseRuleGroupId = "simultaneous" | "terrain" | "dice" | "commandCards" | "supplies" | "passAndPlay" | "optional";
 
 /** A rule played differently from the official game */
 export interface HouseRule {
@@ -297,6 +299,26 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: "Solo los blindados toman terreno; la infantería nunca arrolla. Si el objetivo se retira o es eliminado (una sola bandera solo lo inmoviliza), el blindado ocupa su casilla y combate otra vez, solo en asalto cercano. Una vez por unidad y turno.",
           en: "Only armor takes ground; infantry never overruns. If the target retreats or is eliminated (a single flag only pins it), the armor moves into its hex and battles again, in close assault only. Once per unit per turn.",
+        },
+      },
+    ],
+  },
+  {
+    id: "terrain",
+    title: { es: "Terreno", en: "Terrain" },
+    rules: [
+      {
+        title: { es: "Playa", en: "Beach" },
+        house: {
+          es: `Una unidad que empieza su movimiento en la playa, o entra en ella, mueve ${TERRAIN[HexType.BEACH].moveThrough} casillas como mucho, aunque una carta le deje mover más. Se dispara a ella como en campo abierto.`,
+          en: `A unit whose move starts on a beach, or enters one, moves ${TERRAIN[HexType.BEACH].moveThrough} hexes at most, even when a card lets it move further. It's fired at as on open ground.`,
+        },
+      },
+      {
+        title: { es: "Pantano", en: "Swamp" },
+        house: {
+          es: "Una unidad que entra en un pantano se para ahí, y puede disparar. Una que empieza su movimiento en un pantano mueve 1 casilla. Se dispara a ella como en campo abierto.",
+          en: "A unit that enters a swamp stops there, and may still fire. One whose move starts in a swamp moves 1 hex. It's fired at as on open ground.",
         },
       },
     ],

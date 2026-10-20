@@ -21,6 +21,8 @@ const TERRAIN: Labels["terrain"] = {
   [HexType.RIVER]: "river",
   [HexType.BRIDGE]: "bridge",
   [HexType.LAKE]: "lake",
+  [HexType.BEACH]: "beach",
+  [HexType.SWAMP]: "swamp",
 };
 
 const SECTIONS: Labels["sections"] = {

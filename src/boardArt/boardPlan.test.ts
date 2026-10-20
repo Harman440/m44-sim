@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BOARD_KEYS, artGrid, canPaintRivers, drawnSvg, neighbor, pickFor, planBoard } from "./boardPlan.mjs";
-import type { DrawnHex, HexArt, Terrain } from "./boardPlan.mjs";
+import type { DrawnHex, HexArt, JoinedHex, SpillHex, Terrain } from "./boardPlan.mjs";
 import boards from "../../scripts/boards.json";
 import { scenarios } from "../data/scenarios";
 import { positionKey } from "../game-core/position";
@@ -9,7 +9,17 @@ const LIBRARY = { forest: ["official.webp"], hedgerow: ["official.webp"], hill: 
 // Three river hexes round one corner: each turns sharply, which no river tile does
 const SHARP_BEND: Terrain = { river: [{ row: 4, col: 5 }, { row: 4, col: 4 }, { row: 5, col: 4 }] };
 const p = (row: number, col: number) => ({ row, col });
-const keysOf = (plan: HexArt[]) => [...new Set(plan.map((hex) => hex.key))];
+// With forks, a pond at a river's end, lake pieces and beaches
+const MORE = {
+  ...LIBRARY,
+  river: ["0-2-4.webp", "0-3-5.webp", "3-0.webp", "3.webp", "5-1.webp"],
+  lake: ["0-1-5-r3.webp", "1-2.webp", "2-3-4.webp", "4-5.webp"],
+  beach: ["4-5-a.webp", "sand.webp"],
+  swamp: ["digital.webp"],
+};
+/** The hexes with art of their own: not the countryside a forest's lone trees stand on */
+const own = (plan: HexArt[]) => plan.filter((hex) => hex.art !== "spill");
+const keysOf = (plan: HexArt[]) => [...new Set(own(plan).map((hex) => hex.key))];
 const at = (plan: HexArt[], key: string) => plan.filter((hex) => hex.key === key);
 
 describe("the board's grid", () => {
@@ -63,7 +73,7 @@ describe("planBoard", () => {
   it("blends forests into their own kind, lays every town's houses out again, and draws hedgerows", () => {
     const plan = planBoard({ forest: [p(4, 4), p(4, 5), p(0, 0)], hedgerow: [p(6, 6), p(6, 7)], town: [p(2, 2)] }, LIBRARY);
 
-    expect(plan.map((hex) => [hex.key, hex.art])).toEqual([
+    expect(own(plan).map((hex) => [hex.key, hex.art])).toEqual([
       ["4-4", "joined"],
       ["4-5", "joined"],
       ["0-0", "joined"],
@@ -121,7 +131,7 @@ describe("planBoard", () => {
     // Hedgerows are always drawn, but each on its own
     expect(planBoard(tiles, LIBRARY, { plain: true }).map((hex) => hex.art)).toEqual([...Array(5).fill("painted"), "drawn", "drawn"]);
     expect(at(planBoard(tiles, LIBRARY, { plain: true }), "7-7")[0]).toMatchObject({ open: [] });
-    expect(planBoard(tiles, LIBRARY).map((hex) => hex.art)).toEqual(["ridge", "ridge", "joined", "joined", "joined", "drawn", "drawn"]);
+    expect(own(planBoard(tiles, LIBRARY)).map((hex) => hex.art)).toEqual(["ridge", "ridge", "joined", "joined", "joined", "drawn", "drawn"]);
   });
 
   it("turns a river tile to join the river's edges, and lays a bridge across it", () => {
@@ -156,11 +166,86 @@ describe("planBoard", () => {
     expect(() => planBoard({ forest: [p(0, 0)] }, LIBRARY, { drawn: ["forest"] })).toThrow("Can't draw forest");
   });
 
-  it("stops at a river that forks for the script, and keeps two of its branches for the app", () => {
+  it("stops at a river that forks with no tile for it for the script, and keeps two of its branches for the app", () => {
     const fork: Terrain = { river: [p(4, 4), p(4, 3), p(4, 5), p(3, 4)] };
 
-    expect(() => planBoard(fork, LIBRARY, { drawn: ["river"] })).toThrow("River at 4-4 joins more than two river hexes");
+    expect(() => planBoard(fork, LIBRARY, { drawn: ["river"] })).toThrow("No painted river tile forks to edges 0, 3, 5 (at 4-4)");
     expect(at(planBoard(fork, LIBRARY, { drawn: ["river"], strict: false }), "4-4")[0]).toMatchObject({ edges: [0, 3] });
+    expect(() => planBoard({ river: [p(4, 4), p(4, 3), p(4, 5), p(3, 4), p(5, 4)] }, MORE)).toThrow("joins more than three");
+  });
+
+  it("forks a river with a fork tile, and ends one that stops on the board in a pond", () => {
+    const fork = planBoard({ river: [p(4, 4), p(4, 3), p(4, 5), p(3, 4)] }, MORE);
+
+    expect(at(fork, "4-4")[0]).toMatchObject({ art: "joined", tile: "river/0-3-5.webp", turns: 0 });
+    // Each branch stops a hex short of the next land: a pond, turned to face the fork
+    expect(at(fork, "4-3")[0]).toMatchObject({ tile: "river/3.webp", turns: 3 });
+    expect(at(fork, "4-5")[0]).toMatchObject({ tile: "river/3.webp", turns: 0 });
+    // At the board's edge it runs on off the board
+    expect(at(planBoard({ river: [p(4, 0), p(4, 1)] }, MORE), "4-0")[0]).toMatchObject({ tile: "river/3-0.webp" });
+    // A bridge never ends in a pond
+    expect(at(planBoard({ river: [p(4, 3)], bridge: [p(4, 4)] }, MORE), "4-4")[1]).toMatchObject({ art: "bridgePiece", edges: [3, 0] });
+  });
+
+  it("runs a river into a lake beside it: the drawn lake opens to it, and a lake painted from pieces takes one with its mouth", () => {
+    // Four hexes, a river flowing into the west one from the west
+    const lake: Terrain = { lake: [p(3, 4), p(4, 4), p(4, 5), p(5, 4)], river: [p(4, 3)] };
+    const painted = planBoard(lake, MORE);
+
+    expect(at(painted, "4-3")[0]).toMatchObject({ tile: "river/3-0.webp" });
+    const pieces = own(painted).filter((hex) => hex.type === "lake").map((hex) => ("tile" in hex ? hex.tile : hex.art));
+    // The bottom hex takes either piece that opens to the two above it: 4-5, or 1-2 turned round
+    expect(pieces.slice(0, 3)).toEqual(["lake/1-2.webp", "lake/0-1-5-r3.webp", "lake/2-3-4.webp"]);
+    expect(["lake/4-5.webp", "lake/1-2.webp"]).toContain(pieces[3]);
+    // Without lake pieces, drawn: the west hex opens to the river as well as to the lake hexes
+    expect(at(planBoard(lake, LIBRARY), "4-4")[0]).toMatchObject({ art: "drawn", open: [true, true, false, true, false, true] });
+    // A lake the pieces don't fit is drawn whole
+    expect(own(planBoard({ lake: [p(4, 4), p(4, 5)] }, MORE)).map((hex) => hex.art)).toEqual(["drawn", "drawn"]);
+  });
+
+  it("fades a beach and a swamp into the land beside them, a tufted beach tile turned to face it, and keeps the sand by water and the board's edge", () => {
+    // A row of beach with countryside above it (edges 4 and 5) and a lake below one hex
+    const beach: Terrain = { beach: [p(4, 4), p(4, 5), p(4, 6)], lake: [p(5, 5)] };
+    const middle = at(planBoard(beach, MORE), "4-5")[0] as JoinedHex;
+
+    expect(middle).toMatchObject({ art: "joined", tile: "beach/4-5-a.webp", turns: 0, open: [true, false, false, true, false, false] });
+    // Land at edges 1, 2, 4 and 5 but the lake at 1 (5-5): faded at 2, 4 and 5
+    expect(middle.fade).toEqual([false, false, true, false, true, true]);
+    // Only water and the board's edge round it: plain sand
+    expect(at(planBoard({ beach: [p(0, 0)], lake: [p(0, 1), p(1, 0)] }, MORE), "0-0")[0]).toMatchObject({ tile: "beach/sand.webp", fade: [false, false, false, false, false, false] });
+    // A swamp beside another
+    expect(at(planBoard({ swamp: [p(4, 4), p(4, 5)] }, MORE), "4-4")[0]).toMatchObject({
+      art: "joined",
+      open: [true, false, false, false, false, false],
+      fade: [false, true, true, true, true, true],
+    });
+  });
+
+  it("stands a lone tree or two on the countryside by some of a forest's edges, after every hex's own art", () => {
+    const forests = BOARD_KEYS.filter((_, i) => i % 9 === 0).map((key) => ({ row: Number(key.split("-")[0]), col: Number(key.split("-")[1]) }));
+    const plan = planBoard({ forest: forests }, LIBRARY);
+    const spills = plan.filter((hex): hex is SpillHex => hex.art === "spill");
+    const edges = spills.reduce((n, hex) => n + hex.toward.filter(Boolean).length, 0);
+
+    // About one edge in three of the forests' edges onto the countryside on the board
+    expect(edges).toBeGreaterThan(forests.length);
+    expect(edges).toBeLessThan(forests.length * 3);
+    expect(spills.every((hex) => BOARD_KEYS.includes(hex.key) && hex.tile === "forest/official.webp")).toBe(true);
+    expect(plan.slice(-spills.length)).toEqual(spills);
+    // None onto a town, nor on the editor's plain art
+    const town = planBoard({ forest: [p(4, 4)], town: [...Array(6).keys()].map((d) => { const [row = 0, col = 0] = neighbor("4-4", d).split("-").map(Number); return { row, col }; }) }, LIBRARY);
+    expect(town.some((hex) => hex.art === "spill")).toBe(false);
+    expect(planBoard({ forest: forests }, LIBRARY, { plain: true }).some((hex) => hex.art === "spill")).toBe(false);
+  });
+
+  it("paints a hex with the tile picked for it, when its terrain's folder has it", () => {
+    const tiles: Terrain = { town: [p(4, 4), p(4, 5)] };
+    const library = { ...LIBRARY, town: ["official.webp", "village-1.webp", "village-2.webp"] };
+    const picked = planBoard(tiles, library, { picked: { "4-4": "village-2" } });
+
+    expect(at(picked, "4-4")[0]).toMatchObject({ tile: "town/village-2.webp" });
+    expect(at(picked, "4-5")[0]).toEqual(at(planBoard(tiles, library), "4-5")[0]);
+    expect(planBoard(tiles, library, { picked: { "4-4": "gone" } })).toEqual(planBoard(tiles, library));
   });
 
   it("stops at a bend no river tile turns to fit", () => {
@@ -177,7 +262,11 @@ describe("canPaintRivers", () => {
     expect(canPaintRivers({ forest: [p(0, 0)] }, LIBRARY)).toBe(true);
   });
 
-  it("is false at a sharp bend or a fork", () => {
+  it("is true at a fork the library has a tile for", () => {
+    expect(canPaintRivers({ river: [p(4, 4), p(4, 3), p(4, 5), p(3, 4)] }, MORE)).toBe(true);
+  });
+
+  it("is false at a sharp bend or a fork with no tile for it", () => {
     expect(canPaintRivers(SHARP_BEND, LIBRARY)).toBe(false);
     expect(canPaintRivers({ river: [p(4, 4), p(4, 3), p(4, 5), p(3, 4)] }, LIBRARY)).toBe(false);
   });

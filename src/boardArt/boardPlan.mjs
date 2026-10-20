@@ -46,8 +46,14 @@ export const JOINED_TERRAIN = ["forest", "town"];
 const ALWAYS_JOINED = ["forest", "town"];
 /** Terrain whose hexes end in countryside (joinedTiles.mjs's toCountryside, the drawn hedgerow's rounded patch) */
 const COUNTRYSIDE_ENDS = ["town", "river", "bridge", "hedgerow"];
-/** Terrain that's always drawn in code */
-export const ALWAYS_DRAWN = ["lake", "hedgerow"];
+/** Terrain that's always drawn in code (a lake is drawn when the library's lake tiles don't fit it) */
+export const ALWAYS_DRAWN = ["hedgerow"];
+/**
+ * Terrain whose trees stand here and there out on the hexes next to it, and the terrain they stand
+ * on (plains: the open countryside): a lone tree or two by some of a forest's edges
+ * @type {Record<string, string[]>}
+ */
+export const SPILLS = { forest: ["plains"] };
 
 /**
  * @typedef {{ row: number, col: number }} Position
@@ -159,13 +165,27 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * bare edge `spill` (-1: none) and its streets running out a little over the edges `streets`; a painted river (or
  * bridge) is one too, its tile's grass giving way to the countryside, or to a forest beside it
  * across its `woods` edges
- * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[], seed: number }} JoinedHex
+ * across its `woods` edges; a beach fades out across its `fade` edges, into the land there
+ * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[], fade?: boolean[], seed: number }} JoinedHex
  */
 /**
  * The bridge piece laid across a painted river, from edge to edge
  * @typedef {{ key: string, type: string, art: "bridgePiece", edges: number[] }} BridgePiece
  */
-/** @typedef {PaintedHex | DrawnHex | RidgeHex | JoinedHex | BridgePiece} HexArt */
+/**
+ * A lone tree or two of `type` standing on the hex at `key`, open countryside, by the edges it
+ * shares with it (`toward`), cut from `tile` (joinedTiles.mjs's spillMaker); laid over every hex's
+ * own art
+ * @typedef {{ key: string, type: string, art: "spill", tile: string, toward: boolean[], seed: number }} SpillHex
+ */
+/** @typedef {PaintedHex | DrawnHex | RidgeHex | JoinedHex | BridgePiece | SpillHex} HexArt */
+
+/**
+ * The tiles picked for hexes, by "row-col", as planBoard takes them
+ * @param {{ row: number, col: number, tile: string }[] | undefined} pickedTiles
+ * @returns {Record<string, string>}
+ */
+export const pickedByHex = (pickedTiles) => Object.fromEntries((pickedTiles ?? []).map(({ row, col, tile }) => [`${row}-${col}`, tile]));
 
 /**
  * The hexes of each terrain by hex, the last one listed winning; plains need no art
@@ -182,49 +202,113 @@ const terrainByHex = (tiles) => {
 };
 
 /**
- * Where rivers run: through the edges each river hex shares with the next river or bridge hexes.
- * At the end of a river it carries straight on; on a hex joining more than two, `strict` throws
- * (`npm run board`) and otherwise the first two are taken (a map half made in the editor)
+ * The edges a tile's file name starts with ("0-2-4.webp": 0, 2 and 4; none in "sand.webp"), and
+ * the edges a river flows in through, after "-r" ("0-1-5-r3.webp": 3)
+ * @param {string} file
+ */
+const edgesInName = (file) => {
+  /** @param {string | undefined} list */
+  const read = (list) => (list ? list.split("-").map(Number) : []);
+  return { edges: read(file.match(/^(\d(?:-\d)*)/)?.[1]), river: read(file.match(/-r(\d(?:-\d)*)/)?.[1]) };
+};
+/** @param {number[]} a @param {number[]} b */
+const sameEdges = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+/** @param {number[]} edges @param {number} turns */
+const turned = (edges, turns) => edges.map((d) => (d + turns) % 6);
+
+/**
+ * The tiles of a library folder whose edges, turned, are just `edges` (and a river flows in
+ * through just `river`), each with its turn. A river tile's file name starts with the edges its
+ * river joins (0 = east, clockwise: 3-0.webp runs west to east, 0-2-4.webp forks, 3.webp ends in a
+ * pond); a lake tile's, with the edges its water carries on through to the next lake hexes
+ * @param {TileLibrary} library
+ * @param {string} folder
+ * @param {number[]} edges
+ * @param {number[]} [river]
+ */
+const tilesJoining = (library, folder, edges, river = []) =>
+  (library[folder] ?? []).flatMap((file) => {
+    const named = edgesInName(file);
+    if (!named.edges.length) return [];
+    return [...Array(6).keys()]
+      .filter((t) => sameEdges(turned(named.edges, t), edges) && sameEdges(turned(named.river, t), river))
+      .map((turns) => ({ tile: `${folder}/${file}`, turns }));
+  });
+
+/**
+ * Where each river hex's river runs, and the painted tiles that fit it. A river runs through the
+ * edges it shares with the next river or bridge hexes: a fork where it joins three (a tile for it
+ * or not: the first two are taken otherwise), and, joining one, into a lake beside it (the lake hex
+ * it bends least to), else a pond where it stops on the board, else straight on (at the board's
+ * edge, off it); the first of these a river tile fits. A bridge doesn't fork or end in a pond. Two
+ * branches of a fork that touch each other aren't joined: each runs from the fork. On a hex
+ * joining more than three, or a fork with no tile for it, `strict` throws (`npm run board`).
+ * `edges` is what the painted art does, `twoEdges` what a drawn river does (two edges, any bend),
+ * `whole` whether every river beside it is joined
  * @param {Map<string, string>} wanted
+ * @param {TileLibrary} library
+ * @param {Set<string>} onBoard the board's hexes
  * @param {boolean} strict
  */
-const riverEdgesIn = (wanted, strict) => (/** @type {string} */ key) => {
-  const edges = [...Array(6).keys()].filter((d) => isRiver(wanted.get(neighbor(key, d)) ?? ""));
-  if (edges.length > 2 && strict) throw new Error(`River at ${key} joins more than two river hexes`);
-  const [first, second] = edges;
-  if (first === undefined) return [0, 3];
-  return [first, second ?? (first + 3) % 6];
+const riverPlanner = (wanted, library, onBoard, strict) => (/** @type {string} */ key) => {
+  const type = wanted.get(key);
+  /** The river hexes beside one @param {string} hex */
+  const riversBy = (hex) => [...Array(6).keys()].filter((d) => isRiver(wanted.get(neighbor(hex, d)) ?? ""));
+  /** Whether a hex is a fork: three rivers beside it @param {string} hex */
+  const isFork = (hex) => isRiver(wanted.get(hex) ?? "") && riversBy(hex).length >= 3;
+  const rivers = riversBy(key).filter((d) => {
+    const other = neighbor(key, d);
+    // Not a branch of a fork beside them both, when neither is the fork
+    if (isFork(key) || isFork(other)) return true;
+    return ![(d + 1) % 6, (d + 5) % 6].some((e) => isFork(neighbor(key, e)) && neighbor(key, e) !== other);
+  });
+  if (rivers.length > 3 && strict) throw new Error(`River at ${key} joins more than three river hexes`);
+  const lakes = [...Array(6).keys()].filter((d) => wanted.get(neighbor(key, d)) === "lake");
+  /** How far an edge turns from straight on from `from` @param {number} from @param {number} d */
+  const bend = (from, d) => Math.min((d - from + 9) % 6, (from - d + 9) % 6);
+  const [first, second] = rivers;
+
+  // What the river could do, in order
+  /** @type {number[][]} */
+  const choices = [];
+  if (rivers.length >= 3 && type === "river") choices.push(rivers.slice(0, 3));
+  if (first !== undefined && second !== undefined) choices.push([first, second]);
+  else if (first !== undefined) {
+    for (const lake of [...lakes].sort((a, b) => bend(first, a) - bend(first, b))) choices.push([first, lake]);
+    if (type === "river" && onBoard.has(neighbor(key, (first + 3) % 6))) choices.push([first]);
+    choices.push([first, (first + 3) % 6]);
+  } else {
+    for (const lake of lakes) choices.push([lake, (lake + 3) % 6]);
+    choices.push([0, 3]);
+  }
+  const twoEdges = /** @type {number[]} */ (choices.find((edges) => edges.length === 2));
+  for (const edges of choices) {
+    const fits = tilesJoining(library, "river", edges);
+    if (fits.length) return { edges, fits, twoEdges, whole: rivers.length <= edges.length };
+    if (strict && edges.length === 3) throw new Error(`No painted river tile forks to edges ${edges.join(", ")} (at ${key}): add one to the library's river tiles`);
+  }
+  return { edges: twoEdges, fits: [], twoEdges, whole: rivers.length <= 2 };
 };
 
 /**
- * The painted river tiles that join two edges, each with its turn. A river tile's file name
- * starts with the edges its river joins (0 = east, clockwise: 3-0.webp runs west to east)
- * @param {TileLibrary} library
- * @param {number[]} edges
- */
-const riverTilesFor = (library, [a, b]) =>
-  (library.river ?? []).flatMap((file) => {
-    const [, p = 0, q = 0] = (file.match(/^(\d)-(\d)/) ?? []).map(Number);
-    return [...Array(6).keys()]
-      .filter((t) => [(p + t) % 6, (q + t) % 6].sort().join() === [a, b].sort().join())
-      .map((turns) => ({ tile: `river/${file}`, turns }));
-  });
-
-/**
- * Whether every river on the map can be painted from the library: each river hex joins at most
- * two others, and a river tile turns to fit each bend. When not, the app draws the rivers
+ * Whether every river on the map can be painted from the library: a river tile turns to fit
+ * each hex's river (a bend, a fork, a pond). When not, the app draws the rivers
  * @param {Terrain} tiles
  * @param {TileLibrary} library
+ * @param {string[]} [keys] the board's hexes
  */
-export function canPaintRivers(tiles, library) {
+export function canPaintRivers(tiles, library, keys = BOARD_KEYS) {
   const wanted = terrainByHex(tiles);
-  const riverEdges = riverEdgesIn(wanted, false);
+  const river = riverPlanner(wanted, library, new Set(keys), false);
   return [...wanted].every(([key, type]) => {
     if (!isRiver(type)) return true;
-    const joins = [...Array(6).keys()].filter((d) => isRiver(wanted.get(neighbor(key, d)) ?? "")).length;
-    return joins <= 2 && riverTilesFor(library, riverEdges(key)).length > 0;
+    const { fits, whole } = river(key);
+    return whole && fits.length > 0;
   });
 }
+
+/** Terrain a beach fades into at its edges: land that isn't beach (water and the board's edge keep the sand) @param {string} type */
+const fadesInto = (type) => !isRiver(type) && type !== "lake" && type !== "beach";
 
 /**
  * The art for each terrain hex, in the order it's laid on the board.
@@ -232,13 +316,19 @@ export function canPaintRivers(tiles, library) {
  * instead of joined into ridges; `strict`: throw at a river that can't be painted or drawn as it is
  * (`npm run board`) instead of making do (the app); `keys`: the board's hexes (a bigger map's);
  * `plain`: each terrain hex its own tile as it is, nothing joined (the map editor's quick art,
- * while the map is being made)
+ * while the map is being made); `picked`: the tile picked for a hex (in the map editor,
+ * Scenario.pickedTiles), its file's name without ".webp" by "row-col", taken when its terrain's
+ * folder has it.
+ * A lake is painted from the library's lake tiles when every hex of it has one that fits (the
+ * edges its water carries on through, and any river flowing in), and drawn otherwise. A beach
+ * fades into the land beside it, a beach tile whose name starts with edges (grass tufts on them)
+ * turned to face it where one does; a swamp ends in the same ragged edge
  * @param {Terrain} tiles
  * @param {TileLibrary} library
- * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[], plain?: boolean }} [options]
+ * @param {{ drawn?: string[], separateHills?: boolean, strict?: boolean, keys?: string[], plain?: boolean, picked?: Record<string, string> }} [options]
  * @returns {HexArt[]}
  */
-export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS, plain = false } = {}) {
+export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHills = false, strict = true, keys = BOARD_KEYS, plain = false, picked = {} } = {}) {
   const drawn = new Set([
     ...ALWAYS_DRAWN,
     ...drawnChoice.flatMap((choice) => {
@@ -249,12 +339,52 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
   ]);
   const wanted = terrainByHex(tiles);
   for (const type of new Set(wanted.values())) {
-    if (!drawn.has(type) && !library[isRiver(type) ? "river" : type]?.length) throw new Error(`No art for ${type}`);
+    if (type !== "lake" && !drawn.has(type) && !library[isRiver(type) ? "river" : type]?.length) throw new Error(`No art for ${type}`);
   }
-  const riverEdges = riverEdgesIn(wanted, strict);
   const onBoard = new Set(keys);
+  const river = riverPlanner(wanted, library, onBoard, strict);
+  /** Where a river hex's river runs, as it's drawn or painted @param {string} key */
+  const riverEdges = (key) => (drawn.has(wanted.get(key) ?? "") ? river(key).twoEdges : river(key).edges);
   /** @param {string} key @param {string[]} types */
   const edgesTo = (key, types) => [...Array(6).keys()].map((d) => types.includes(wanted.get(neighbor(key, d)) ?? ""));
+  /** The edges a lake hex's water carries on through, and those a river flows in through @param {string} key */
+  const lakeEdges = (key) => {
+    const all = [...Array(6).keys()];
+    const lake = all.filter((d) => wanted.get(neighbor(key, d)) === "lake");
+    const inflow = all.filter((d) => {
+      const other = neighbor(key, d);
+      return isRiver(wanted.get(other) ?? "") && riverEdges(other).includes((d + 3) % 6);
+    });
+    return { lake, inflow };
+  };
+  // Each lake, painted when every one of its hexes has a lake tile that fits
+  /** @type {Map<string, { tile: string, turns: number } | null>} */
+  const lakeArt = new Map();
+  for (const [key, type] of wanted) {
+    if (type !== "lake" || lakeArt.has(key)) continue;
+    const lake = [key];
+    for (let i = 0; i < lake.length; i++) {
+      for (let d = 0; d < 6; d++) {
+        const other = neighbor(/** @type {string} */ (lake[i]), d);
+        if (wanted.get(other) === "lake" && !lake.includes(other)) lake.push(other);
+      }
+    }
+    const fits = lake.map((hex) => {
+      const { lake: open, inflow } = lakeEdges(hex);
+      return tilesJoining(library, "lake", open, inflow);
+    });
+    const painted = fits.every((list) => list.length > 0);
+    lake.forEach((hex, i) => {
+      const list = fits[i] ?? [];
+      lakeArt.set(hex, painted ? (list[pickFor(hex, 5, list.length)] ?? null) : null);
+    });
+  }
+  /** A tile of a terrain's library: the one picked for the hex, or one by the hex @param {string} key @param {string} type */
+  const tileFor = (key, type) => {
+    const choices = library[type] ?? [];
+    const pick = `${picked[key]}.webp`;
+    return `${type}/${choices.includes(pick) ? pick : choices[pickFor(key, 1, choices.length)]}`;
+  };
 
   // A river's edges facing a hill, whose ridge runs on into it up to the water, and the hill tile
   const hillTile = `hill/${(library.hill ?? [])[0]}`;
@@ -277,9 +407,17 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
   for (const [key, type] of wanted) {
     const { row, col } = parseKey(key);
     const seed = row * 13 + col + 1;
-    if (drawn.has(type)) {
-      // A lake runs out to the lakes beside it, a hedgerow's fields on into the hedgerows beside it
-      const joins = type === "lake" || (type === "hedgerow" && !plain);
+    const lake = type === "lake" ? lakeArt.get(key) : null;
+    if (lake) {
+      plan.push({ key, type, art: "painted", ...lake });
+    } else if (type === "lake") {
+      // Drawn: running out to the lakes beside it, and to a river flowing in
+      const { lake: open, inflow } = lakeEdges(key);
+      const edges = [...Array(6).keys()].map((d) => open.includes(d) || inflow.includes(d));
+      plan.push({ key, type, art: "drawn", seed, edges: [], open: edges, woods: [], bare: [] });
+    } else if (drawn.has(type)) {
+      // A hedgerow's fields run on into the hedgerows beside it
+      const joins = type === "hedgerow" && !plain;
       // A river's edges facing a forest, which grows into it up to the water
       const woods = isRiver(type) && !plain ? edgesTo(key, ["forest"]) : [];
       const hills = isRiver(type) && !plain ? hillsBeside(key) : {};
@@ -288,21 +426,55 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
         type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => onBoard.has(neighbor(key, d)) && ["plains", "river", "bridge"].includes(wanted.get(neighbor(key, d)) ?? "plains")) : [];
       plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, bare, ...hills });
     } else if (isRiver(type)) {
-      const edges = riverEdges(key);
-      const fits = riverTilesFor(library, edges);
+      const { edges, fits } = river(key);
       const fit = fits[pickFor(key, 3, fits.length)];
       if (!fit) {
         throw new Error(
-          `No painted river tile joins edges ${edges[0]} and ${edges[1]} (at ${key}): add one to the library's river tiles, or draw this board's rivers`
+          `No painted river tile joins edges ${edges.join(" and ")} (at ${key}): add one to the library's river tiles, or draw this board's rivers`
         );
       }
       // Its tile's grass giving way to the countryside round it (joinedTiles.mjs), unless plain
       if (plain) plan.push({ key, type, art: "painted", ...fit });
       else plan.push({ key, type, art: "joined", ...fit, open: edgesTo(key, ["river", "bridge"]), bare: edgesTo(key, []).map(() => false), spill: -1, woods: edgesTo(key, ["forest"]), ...hillsBeside(key), seed });
       if (type === "bridge") plan.push({ key, type, art: "bridgePiece", edges });
+    } else if (type === "beach") {
+      const fade = [...Array(6).keys()].map((d) => {
+        const other = neighbor(key, d);
+        return onBoard.has(other) && fadesInto(wanted.get(other) ?? "plains");
+      });
+      const fading = fade.flatMap((on, d) => (on ? [d] : []));
+      const files = library.beach ?? [];
+      // The tile with grass tufts that best faces the land, or plain sand
+      /** @type {{ tile: string, turns: number }[]} */
+      let best = [];
+      let bestScore = 0;
+      for (const file of files) {
+        const { edges } = edgesInName(file);
+        if (!edges.length) continue;
+        for (let t = 0; t < 6; t++) {
+          const on = turned(edges, t);
+          const score = on.filter((d) => fading.includes(d)).length - on.filter((d) => !fading.includes(d)).length;
+          if (score > bestScore) [best, bestScore] = [[], score];
+          if (score === bestScore && score > 0) best.push({ tile: `beach/${file}`, turns: t });
+        }
+      }
+      const sand = files.filter((file) => !edgesInName(file).edges.length);
+      const pick = `${picked[key]}.webp`;
+      const art = files.includes(pick)
+        ? { tile: `beach/${pick}`, turns: pickFor(key, 2, 6) }
+        : (best[pickFor(key, 4, best.length)] ?? { tile: `beach/${sand[pickFor(key, 1, sand.length)] ?? files[0]}`, turns: pickFor(key, 2, 6) });
+      if (plain) plan.push({ key, type, art: "painted", ...art });
+      else plan.push({ key, type, art: "joined", ...art, open: edgesTo(key, ["beach"]), bare: fade.map(() => false), spill: -1, fade, seed });
+    } else if (type === "swamp" && !plain) {
+      // A swamp ends in a ragged edge into the land beside it, as a beach does, and runs on into
+      // the swamp beside it
+      const fade = [...Array(6).keys()].map((d) => {
+        const other = neighbor(key, d);
+        return onBoard.has(other) && (wanted.get(other) ?? "plains") !== "swamp";
+      });
+      plan.push({ key, type, art: "joined", tile: tileFor(key, type), turns: pickFor(key, 2, 6), open: edgesTo(key, ["swamp"]), bare: fade.map(() => false), spill: -1, fade, seed });
     } else {
-      const choices = library[type] ?? [];
-      const tile = `${type}/${choices[pickFor(key, 1, choices.length)]}`;
+      const tile = tileFor(key, type);
       // A hill is a ridge (its cliffs giving way to the countryside), running on into the hills and
       // the rivers beside it; a lone one too, its outline running out through no edge
       const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill", "river", "bridge"]) : [];
@@ -333,7 +505,28 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       else plan.push({ key, type, art: "painted", tile, turns: pickFor(key, 2, 6) });
     }
   }
-  return plan;
+  if (plain) return plan;
+
+  // A lone tree or two standing out on the countryside by some of a forest's edges, laid over
+  // everything else
+  /** @type {Map<string, SpillHex>} */
+  const spills = new Map();
+  for (const hex of [...plan]) {
+    const onto = SPILLS[hex.type];
+    if (!onto || !("tile" in hex)) continue;
+    for (let d = 0; d < 6; d++) {
+      const other = neighbor(hex.key, d);
+      if (!onBoard.has(other) || !onto.includes(wanted.get(other) ?? "plains")) continue;
+      // By about one edge in three
+      if (pickFor(hex.key, 40 + d, 3) !== 0) continue;
+      const { row, col } = parseKey(other);
+      const id = `${hex.type}:${other}`;
+      const spill = spills.get(id) ?? { key: other, type: hex.type, art: "spill", tile: hex.tile, toward: [false, false, false, false, false, false], seed: row * 13 + col + 1 };
+      spill.toward[(d + 3) % 6] = true;
+      spills.set(id, spill);
+    }
+  }
+  return [...plan, ...spills.values()];
 }
 
 /**

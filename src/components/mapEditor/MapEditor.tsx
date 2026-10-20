@@ -3,7 +3,7 @@ import type { PointerEvent } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import Board from "../Board";
 import BoardManager from "../../game-core/BoardManager";
-import { Position, Scenario, Tiles } from "../../types/scenario";
+import { PickedTile, Position, Scenario, Tiles } from "../../types/scenario";
 import { HexType } from "../../types/hex";
 import { UnitType } from "../../game-core/unit";
 import { positionKey } from "../../game-core/position";
@@ -129,16 +129,16 @@ const reducer = (history: DraftHistory, action: Action): DraftHistory => {
 };
 
 /**
- * The map's board art, drawn again when its terrain or size changes: the plain art, quick to draw
+ * The map's board art, drawn again when its terrain, its size or the tiles picked change: the plain art, quick to draw
  * on every tap, unless `finished` asks for the art the menu and the game show (joined hills,
  * terrain blending and spilling over its edges), slower to draw
  */
-function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize, finished: boolean): string | undefined {
+function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize, finished: boolean, picked: PickedTile[] | undefined): string | undefined {
   const [art, setArt] = useState<string>();
   const shown = useRef<string>(undefined);
   useEffect(() => {
     let current = true;
-    drawBoardArt(tiles, { cols, rows }, { plain: !finished }).then(
+    drawBoardArt(tiles, { cols, rows }, { plain: !finished, picked }).then(
       (url) => {
         if (!current) return URL.revokeObjectURL(url);
         const before = shown.current;
@@ -151,7 +151,7 @@ function useBoardArt(tiles: Tiles, { cols, rows }: BoardSize, finished: boolean)
     return () => {
       current = false;
     };
-  }, [tiles, cols, rows, finished]);
+  }, [tiles, cols, rows, finished, picked]);
   useEffect(
     () => () => {
       if (shown.current) URL.revokeObjectURL(shown.current);
@@ -197,7 +197,7 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const [finished, setFinished] = useState(false);
   const { flash, flashInvalid, flashHexes } = useHexFlash();
   const size = boardSizeOf(draft);
-  const art = useBoardArt(draft.tiles, size, finished);
+  const art = useBoardArt(draft.tiles, size, finished, draft.pickedTiles);
   const board = useMemo(() => new BoardManager(draft, "Allies", { bothSides: true }), [draft]);
   const counts = draftCounts(draft);
   const problems = useMemo(() => validateScenario(draft), [draft]);

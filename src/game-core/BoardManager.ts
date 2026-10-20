@@ -147,7 +147,8 @@ class BoardManager {
    * cheapest path to each (Dijkstra; every hex costs 1). Stop terrain and barbed wire end
    * movement; with `forFirePositions`, only destinations the unit can still fire from.
    * A hedgerow can only be entered by a unit that starts next to it, and a
-   * unit that starts on one moves 1 hex (data/terrain.ts).
+   * unit that starts on one (or on a swamp) moves 1 hex; a move that starts on
+   * a beach or enters one is 2 hexes at most, whatever cards add (data/terrain.ts).
    * `rules` loosens terrain for combat cards (Armor Forward, House to House…).
    */
   calculatePossibleMovesWithPaths = (
@@ -161,6 +162,11 @@ class BoardManager {
     const hedgerowRules = !rules.ignoreTerrain;
     if (hedgerowRules && startHex.getTerrain().leaveOneHex) maxRange = Math.min(maxRange, 1);
 
+    // The longest a move can be once it has been on a hex (a beach), cards or not
+    const capOf = (hex: Hex, cap: number | undefined) => {
+      const through = hex.getTerrain().moveThrough;
+      return through === undefined ? cap : Math.min(cap ?? Infinity, through);
+    };
     // A sorted array is plenty for a 117-hex board
     const queue: PathNode[] = [
       {
@@ -168,12 +174,16 @@ class BoardManager {
         cost: 0,
         canContinue: true,
         path: [startPos], // Initialize with start position
+        cap: capOf(startHex, undefined),
       },
     ];
 
-    // Track visited positions and their costs
-    const visited = new Map<Hex, number>();
+    // Track visited positions and their costs, apart for each cap: a capped path to a hex mustn't
+    // hide a longer-reaching one
+    const visited = new Map<string, number>();
+    const stateOf = (hex: Hex, cap: number | undefined) => `${positionKey(hex.getPosition())}|${cap ?? ""}`;
     const reachableResults: PathResult[] = [];
+    const reached = new Set<string>();
 
     while (queue.length > 0) {
       // Sort queue by cost (simple priority queue implementation)
@@ -182,18 +192,23 @@ class BoardManager {
       const currentHex = this.getHex(current.position)!;
 
       // Skip if we've already visited this position with a lower cost
-      if (visited.has(currentHex) && visited.get(currentHex)! <= current.cost) {
+      const state = stateOf(currentHex, current.cap);
+      if (visited.has(state) && visited.get(state)! <= current.cost) {
         continue;
       }
 
-      visited.set(currentHex, current.cost);
+      visited.set(state, current.cost);
+      const range = Math.min(maxRange, current.cap ?? Infinity);
 
-      // Add to reachable positions if within range (excluding start position)
+      // Add to reachable positions if within range (excluding start position), the cheapest path to each
+      const key = positionKey(current.position);
       if (
         current.cost > 0 &&
-        current.cost <= maxRange &&
+        current.cost <= range &&
+        !reached.has(key) &&
         (forFirePositions ? canFireFrom(currentHex) : true)
       ) {
+        reached.add(key);
         reachableResults.push({
           position: current.position,
           cost: current.cost,
@@ -202,7 +217,7 @@ class BoardManager {
       }
 
       // Don't explore further if this hex stops movement or we're at max range
-      if (!current.canContinue || current.cost >= maxRange) {
+      if (!current.canContinue || current.cost >= range) {
         continue;
       }
 
@@ -221,14 +236,16 @@ class BoardManager {
         }
 
         const newCost = current.cost + 1;
+        const cap = capOf(neighborHex, current.cap);
 
-        // Skip if this path is more expensive than max range
-        if (newCost > maxRange) {
+        // Skip if this path is more expensive than max range, or than the terrain it's been on allows
+        if (newCost > Math.min(maxRange, cap ?? Infinity)) {
           continue;
         }
 
         // Skip if we've already found a cheaper path to this neighbor
-        if (visited.has(neighborHex) && visited.get(neighborHex)! <= newCost) {
+        const next = stateOf(neighborHex, cap);
+        if (visited.has(next) && visited.get(next)! <= newCost) {
           continue;
         }
 
@@ -239,6 +256,7 @@ class BoardManager {
           // A card that ignores terrain doesn't lift barbed wire: the unit still stops there
           canContinue: rules.ignoreTerrain ? !neighborHex.wire : neighborHex.canContinueMovement(),
           path: [...current.path, neighborPos], // Extend the path
+          cap,
         });
       }
     }

@@ -57,6 +57,16 @@ describe("scenario files", () => {
     expect(parseScenario(file)).toEqual(withoutArt);
   });
 
+  it("keeps the tiles picked for towns, and refuses a tile that isn't a file's name", () => {
+    const picked = json({ tiles: { town: [{ row: 4, col: 4 }] }, pickedTiles: [{ row: 4, col: 4, tile: "village-3" }] });
+
+    expect(matchesSchema(picked)).toBe(true);
+    expect(parseScenario(picked).pickedTiles).toEqual([{ row: 4, col: 4, tile: "village-3" }]);
+    expect(() => parseScenario(json({ pickedTiles: [{ row: 4, col: 4, tile: "../x.webp" }] }))).toThrow(ScenarioFileError);
+    expect(() => parseScenario(json({ pickedTiles: [{ row: 4, col: 4 }] }))).toThrow(ScenarioFileError);
+    expect(matchesSchema(json({ pickedTiles: [{ row: 4, col: 4, tile: "../x.webp" }] }))).toBe(false);
+  });
+
   it("keeps a bigger board, and reads a standard-sized one as the standard board", () => {
     const big = json({ board: { cols: 15, rows: 11 }, units: { allies: { infantry: [{ row: 10, col: 14 }] }, axis: { tank: [{ row: 0, col: 0 }] } } });
 
@@ -109,7 +119,7 @@ describe("parseScenario refuses a file of the wrong shape", () => {
     ["a board too wide", json({ board: { cols: 22, rows: 9 } }), '"board" must be "standard"'],
     ["no name", json({ name: undefined }), '"name" is missing'],
     ["a name in one language only", json({ name: { es: "Prueba" } }), '"name" must be a text in each language'],
-    ["a terrain it doesn't know", json({ tiles: { swamp: [{ row: 0, col: 0 }] } }), '"tiles.swamp" isn\'t a terrain'],
+    ["a terrain it doesn't know", json({ tiles: { desert: [{ row: 0, col: 0 }] } }), '"tiles.desert" isn\'t a terrain'],
     ["a unit type it doesn't know", json({ units: { allies: { jeep: [{ row: 8, col: 0 }] }, axis: {} } }), '"units.allies.jeep" isn\'t a unit type'],
     ["a hex with something else in it", json({ wire: [{ row: 1, col: 1, kind: "wire" }] }), '"wire" must be a list of hexes'],
     ["half a hand size", json({ initialHandSize: { allies: 4.5, axis: 4 } }), '"initialHandSize.allies" must be a whole number'],

@@ -20,15 +20,20 @@
 // rivers beside it, its cliffs giving way to the countryside.
 // Forests next to their own kind blend into it, their trees growing over the edge and out over
 // the countryside, every town lays its tile's houses out again (some with a house standing over
-// the edge, its streets running out a little), and towns and rivers end in the countryside, a
-// forest growing into a river beside it (src/boardArt/joinedTiles.mjs).
+// the edge, its streets running out a little; its houses found by their colours on the official
+// tile, and drawn round by hand in <tile>.json beside the others), towns and rivers end in the
+// countryside, a forest growing into a river beside it, and a lone tree or two stand out on the
+// countryside by some of a forest's edges (src/boardArt/joinedTiles.mjs). A beach fades into the
+// land beside it. A river forks, ends in a pond, or runs into a lake beside it, with the tile that
+// fits it; a lake is painted with the lake tiles when every hex of it has one that fits, and drawn
+// otherwise.
 // Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes and hedgerows always, and rivers
 // and bridges when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes, and a lake or a hedgerow joins the ones next to it. The board's edges are made soft
 // (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside and the hex
 // lines softened; the frame round the grid is put back over the new hexes.
 import sharp from "sharp";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import {
   APP_ART_HEIGHT,
   ART_HEIGHT,
@@ -43,7 +48,7 @@ import {
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
 import { HEDGEROW_SPREAD } from "../src/boardArt/terrainTiles.mjs";
-import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
+import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, spillMaker, toCountryside } from "../src/boardArt/joinedTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "../src/boardArt/softLines.mjs";
 
 const ART = "scripts/board-art";
@@ -144,7 +149,13 @@ const joinedTile = async (hex, file) => {
     // (one maker per tile, made by the first hex that needs it: every river's gets the hills')
     const river = hex.tile.startsWith("river/");
     const hills = river && library.hill?.length ? await hillMaker(`${ART}/tiles/hill/${library.hill[0]}`) : null;
-    tileMakers.set(file, joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight, 2, river ? await forestTile() : undefined, hills?.raw));
+    // A town tile's houses drawn round by hand, beside it
+    const outlinesFile = file.replace(/\.webp$/, ".json");
+    const outlines = existsSync(outlinesFile) ? JSON.parse(readFileSync(outlinesFile, "utf8")) : undefined;
+    tileMakers.set(
+      file,
+      joinedTileMaker(hex.tile.split("/")[0], { data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight, 2, river ? await forestTile() : undefined, hills?.raw, outlines),
+    );
   }
   const { tile: pixels, overflow } = tileMakers.get(file)({ ...hex, center: center(hex.key) });
   const tile = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileWidth, height: 2 * tileHeight, channels: 4 } })
@@ -158,6 +169,23 @@ const joinedTile = async (hex, file) => {
   const [w, h] = [Math.round(w2 / 2), Math.round(h2 / 2)];
   const spill = await sharp(Buffer.from(overflow.buffer), { raw: { width: w2, height: h2, channels: 4 } }).resize(w, h).png().toBuffer();
   return { layer, spill: placed(spill, hex.key, w, h) };
+};
+// A forest's lone trees out on the countryside beside it, one maker per tile
+const spillMakers = new Map();
+const spillTile = async (hex, file) => {
+  if (!spillMakers.has(file)) {
+    const { width, height } = await sharp(file).metadata();
+    const [w2, h2] = [width * 2, height * 2];
+    const data = await sharp(file).resize(w2, h2).ensureAlpha().raw().toBuffer();
+    spillMakers.set(file, spillMaker({ data, width: w2, height: h2, channels: 4 }, tileWidth, tileHeight));
+  }
+  // A square round the hex, not cut to it
+  const pixels = spillMakers.get(file)(hex);
+  const input = await sharp(Buffer.from(pixels.buffer), { raw: { width: 2 * tileHeight, height: 2 * tileHeight, channels: 4 } })
+    .resize(tileHeight, tileHeight)
+    .png()
+    .toBuffer();
+  return placed(input, hex.key, tileHeight, tileHeight);
 };
 const placed = (input, key, width, height) => {
   const { x, y } = center(key);
@@ -217,6 +245,7 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
     else if (hex.art === "drawn") layers.push(await drawnTile(hex));
     else if (hex.art === "painted") layers.push(placed(await paintedTile(file, hex.turns), hex.key, tileWidth, tileHeight));
     else if (hex.art === "ridge") layers.push(placed(await joinedHill(file, hex.open, hex.key, hex.seed, hex.toRiver), hex.key, tileWidth, tileHeight));
+    else if (hex.art === "spill") spills.push(await spillTile(hex, file));
     else if (hex.art === "joined") {
       const { layer, spill } = await joinedTile(hex, file);
       layers.push(layer);
@@ -243,7 +272,7 @@ async function build({ terrain, image, drawn = [], separateHills = false }) {
   // Built at the empty board's resolution, saved at the app's (a third of the download)
   await sharp(framed).resize(appWidth, APP_ART_HEIGHT, { fit: "fill" }).webp({ quality: 85 }).toFile(image);
   const notes = [...(drawn.length ? [`drawn ${drawn.join(" and ")}`] : []), ...(separateHills ? ["separate hills"] : [])];
-  const hexes = new Set(plan.map((hex) => hex.key)).size;
+  const hexes = new Set(plan.filter((hex) => hex.art !== "spill").map((hex) => hex.key)).size;
   console.log(`${image}: ${appWidth}×${APP_ART_HEIGHT}, ${hexes} terrain hexes${notes.map((t) => `, ${t}`).join("")}`);
 }
 

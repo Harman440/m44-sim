@@ -3,7 +3,7 @@
 // one, never changing the one it's given, so the editor keeps every step for undo and React can
 // call them from a reducer. Each returns `false` when the change isn't allowed (a unit or wire
 // on water, a badge or sandbags with no unit), and the same scenario when nothing changes.
-import { Objective, Position, Scenario, Tiles, UnitGroup, Victory } from "../types/scenario";
+import { Objective, PickedTile, Position, Scenario, Tiles, UnitGroup, Victory } from "../types/scenario";
 import { HexType, MovementRule } from "../types/hex";
 import { FACTIONS, Faction } from "../types/faction";
 import { UnitType } from "./unit";
@@ -143,15 +143,30 @@ const withoutUnit = (draft: Scenario, position: Position): Scenario => {
   return withList(withList({ ...draft, units }, "sandbags", without(draft.sandbags, position)), "elite", without(draft.elite, position));
 };
 
+/** The painted tile picked for a hex (Scenario.pickedTiles), if one was */
+export const pickedTileAt = (draft: Scenario, position: Position): string | undefined =>
+  draft.pickedTiles?.find((p) => samePosition(p, position))?.tile;
+
+/** The scenario with its picked tiles changed; none left leaves the list out */
+const withPicked = (draft: Scenario, picked: PickedTile[]): Scenario => {
+  const { pickedTiles: _old, ...rest } = draft;
+  return picked.length ? { ...rest, pickedTiles: picked } : rest;
+};
+
 /**
- * Paint a hex with a terrain (plains clears it). Water takes off the unit, the wire and the objectives there
+ * Paint a hex with a terrain (plains clears it), with `tile`, one of the library's tiles for it
+ * (tilesFor in boardArt/drawBoard.ts), or the tile its hex picks. Water takes off the unit, the
+ * wire and the objectives there
  */
-export function paintTerrain(draft: Scenario, position: Position, type: HexType): Scenario | false {
+export function paintTerrain(draft: Scenario, position: Position, type: HexType, tile?: string): Scenario | false {
   if (!isOnBoard(draft, position)) return false;
-  if (terrainAt(draft, position) === type) return draft;
-  const tiles = groupsWithout(draft.tiles, position);
-  if (type !== HexType.PLAINS) tiles[type] = [...(tiles[type] ?? []), position];
-  const painted = { ...draft, tiles };
+  const sameTerrain = terrainAt(draft, position) === type;
+  if (sameTerrain && (tile === undefined || pickedTileAt(draft, position) === tile)) return draft;
+  const tiles = sameTerrain ? draft.tiles : groupsWithout(draft.tiles, position);
+  if (!sameTerrain && type !== HexType.PLAINS) tiles[type] = [...(tiles[type] ?? []), position];
+  const picked = (draft.pickedTiles ?? []).filter((p) => !samePosition(p, position));
+  if (tile !== undefined && type !== HexType.PLAINS) picked.push({ row: position.row, col: position.col, tile });
+  const painted = withPicked({ ...draft, tiles }, picked);
   if (!isWater(type)) return painted;
   return withoutObjectivesAt(withList(withoutUnit(painted, position), "wire", without(draft.wire, position)), position);
 }
@@ -433,6 +448,10 @@ export function resizeBoard(draft: Scenario, edge: BoardEdge, grow: boolean, fil
     units: { allies: movedGroups(draft.units.allies), axis: movedGroups(draft.units.axis) },
   };
   resized = withList(withList(withList(resized, "wire", moved(draft.wire)), "sandbags", moved(draft.sandbags)), "elite", moved(draft.elite));
+  resized = withPicked(
+    resized,
+    (draft.pickedTiles ?? []).map((p) => ({ ...move(p), tile: p.tile })).filter((p) => isOnSize(p, size)),
+  );
   if (draft.victory) {
     const objectives = (draft.victory.objectives ?? []).map((objective) => ({ ...objective, hexes: moved(objective.hexes) }));
     resized = withVictory(resized, { ...draft.victory, objectives });
@@ -442,7 +461,7 @@ export function resizeBoard(draft: Scenario, edge: BoardEdge, grow: boolean, fil
 
 /** What the editor puts on the hexes it's tapped on */
 export type EditorTool =
-  | { kind: "terrain"; type: HexType }
+  | { kind: "terrain"; type: HexType; tile?: string }
   | { kind: "unit"; faction: Faction; type: UnitType }
   | { kind: "elite" }
   | { kind: "sandbags" }
@@ -460,14 +479,15 @@ export interface Stroke {
 /**
  * What a tool does in a stroke, decided on its first hex: on a hex that already has what the tool
  * puts, it takes it off (a forest tool on a forest leaves plains), and so on every hex of the
- * stroke. Terrain, wire, objectives and the eraser carry on as the finger slides; a unit, a badge or sandbags
+ * stroke. A terrain tool with a tile of its own (a town's) on a hex of its terrain with another
+ * tile gives it this one. Terrain, wire, objectives and the eraser carry on as the finger slides; a unit, a badge or sandbags
  * only go on the first hex.
  */
 export function strokeOf(tool: EditorTool, draft: Scenario, first: Position): Stroke {
   switch (tool.kind) {
     case "terrain": {
-      const type = terrainAt(draft, first) === tool.type ? HexType.PLAINS : tool.type;
-      return { drags: true, apply: (d, p) => paintTerrain(d, p, type) };
+      const same = terrainAt(draft, first) === tool.type && (tool.tile === undefined || pickedTileAt(draft, first) === tool.tile);
+      return { drags: true, apply: (d, p) => (same ? paintTerrain(d, p, HexType.PLAINS) : paintTerrain(d, p, tool.type, tool.tile)) };
     }
     case "wire": {
       const wire = !hasWire(draft, first);
