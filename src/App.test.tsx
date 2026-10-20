@@ -8,6 +8,9 @@ import { scenarios } from "./data/scenarios";
 import { toScenarioFile } from "./game-core/scenarioFile";
 import { copyDraft, resizeBoard, setText } from "./game-core/scenarioDraft";
 import { Scenario } from "./types/scenario";
+import { downloadJson } from "./download";
+
+vi.mock("./download", () => ({ downloadJson: vi.fn() }));
 
 // jsdom loads no images, so a map from Mis mapas is never drawn: play it without art
 vi.mock("./boardArt/mapArt", () => ({
@@ -315,6 +318,39 @@ describe("Mis mapas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Volver al menú" }));
     // Back on the map just edited
     expect(screen.getByRole("heading", { name: "Puente", level: 2 })).toBeInTheDocument();
+  });
+
+  it("exports a map as a file, for the other tablet or the catalog", () => {
+    keepMap("Puente");
+    render(<App />);
+    pick("Puente");
+
+    fireEvent.click(screen.getByRole("button", { name: "Exportar" }));
+
+    const map = JSON.parse(localStorage.getItem("m44-sim:custom-maps")!)[0];
+    expect(downloadJson).toHaveBeenLastCalledWith("pegasus-bridge-copy-3f9k.m44map.json", map);
+    expect(map.id).toBe("pegasus-bridge-copy-3f9k");
+  });
+
+  it("shows a map that has gone into the catalog once, the catalog's, and offers to delete the device's copy", async () => {
+    // The device's copy has the catalog's id: it was exported and added with npm run add-scenario
+    keepMap("Puente", "pegasus-bridge");
+    render(<App />);
+
+    expect(screen.getAllByRole("button", { name: /^(Pegasus Bridge|Puente)/ })).toHaveLength(1);
+    expect(screen.getByText("Los mapas que hagas en el editor aparecen aquí.")).toBeInTheDocument();
+
+    pick("Pegasus Bridge");
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Borrar mi copia" }));
+    expect(screen.getByRole("dialog", { name: "¿Borrar tu copia de «Pegasus Bridge»?" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Borrar" }));
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+
+    expect(JSON.parse(localStorage.getItem("m44-sim:custom-maps")!)).toEqual([]);
+    expect(screen.queryByRole("button", { name: "Borrar mi copia" })).not.toBeInTheDocument();
+    // The catalog's map stays picked
+    expect(screen.getByRole("heading", { name: "Pegasus Bridge", level: 2 })).toBeInTheDocument();
   });
 });
 

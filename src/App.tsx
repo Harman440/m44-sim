@@ -17,9 +17,10 @@ import OldBrowser from './components/OldBrowser';
 import { isBrowserTooOld } from './browserSupport';
 import { Faction, GameSetup, MatchSetup } from './types/faction';
 import { Scenario } from './types/scenario';
-import { validateScenario } from './game-core/scenarioFile';
+import { toScenarioFile, validateScenario } from './game-core/scenarioFile';
 import { copyDraft, mapIdFor, newDraft, newMapId } from './game-core/scenarioDraft';
 import { withBoardArt } from './boardArt/mapArt';
+import { downloadJson } from './download';
 import {
   clearSavedGame,
   clearSavedMatch,
@@ -114,14 +115,18 @@ const App = () => {
   // On a browser too old for the app, say so up front rather than break off mid-game
   const [oldBrowser, setOldBrowser] = useState(isBrowserTooOld);
 
-  // The maps made on this device (Mis mapas), with the built-ins in the menu
-  const [customMaps, setCustomMaps] = useState<Scenario[]>(() => loadMaps().maps);
+  // The maps made on this device (Mis mapas), with the built-ins in the menu. A map that has since
+  // gone into the catalog shows once, the catalog's: the device's copy is only offered for deleting
+  const [keptMaps, setKeptMaps] = useState<Scenario[]>(() => loadMaps().maps);
+  const customMaps = useMemo(() => keptMaps.filter(({ id }) => !BUILT_IN_IDS.includes(id)), [keptMaps]);
+  const copiesInCatalog = useMemo(() => keptMaps.filter(({ id }) => BUILT_IN_IDS.includes(id)).map(({ id }) => id), [keptMaps]);
   const allScenarios = useMemo(() => [...scenarios, ...customMaps], [customMaps]);
 
-  // A game or match on a map from Mis mapas is picked back up once its board art is drawn
+  // A game or match on a map without painted art (from Mis mapas, or a catalog map too big to paint)
+  // is picked back up once its board art is drawn
   const [restoring, setRestoring] = useState<Scenario | null>(() => {
     const savedId = savedMatchScenarioId() ?? savedGameScenarioId();
-    return customMaps.find(({ id }) => id === savedId) ?? null;
+    return allScenarios.find(({ id, image }) => id === savedId && !image) ?? null;
   });
   const [game, setGame] = useState<CurrentGame | null>(() => (restoring ? null : resumeSaved(allScenarios)));
   useEffect(() => {
@@ -215,7 +220,7 @@ const App = () => {
 
   const closeEditor = (mapId: string) => {
     const { maps, renamed } = loadMaps();
-    setCustomMaps(maps);
+    setKeptMaps(maps);
     setShownMap(renamed.get(mapId) ?? mapId);
     setEditing(null);
   };
@@ -227,13 +232,19 @@ const App = () => {
     const taken = new Set(allScenarios.map((each) => each.id));
     const duplicate = { ...copy, id: mapIdFor(copy, (each) => taken.has(each)) };
     saveCustomMap(duplicate);
-    setCustomMaps(loadCustomMaps());
+    setKeptMaps(loadCustomMaps());
     return duplicate.id;
+  };
+
+  /** Download a map as a file, for the other tablet or the catalog (`npm run add-scenario`) */
+  const exportMap = (id: string) => {
+    const map = customMaps.find((each) => each.id === id);
+    if (map) downloadJson(`${id}.m44map.json`, toScenarioFile(map));
   };
 
   const deleteMap = (id: string) => {
     deleteCustomMap(id);
-    setCustomMaps(loadCustomMaps());
+    setKeptMaps(loadCustomMaps());
   };
 
   return (
@@ -262,6 +273,7 @@ const App = () => {
             <Menu
               scenarios={scenarios}
               customMaps={customMaps}
+              copiesInCatalog={copiesInCatalog}
               initialScenarioId={shownMap}
               initialSetup={loadLastSetup()}
               onStart={handleStart}
@@ -269,6 +281,7 @@ const App = () => {
               onOpenEditor={() => setEditing(newDraft(newMapId()))}
               onEditMap={(id) => setEditing(customMaps.find((map) => map.id === id) ?? null)}
               onDuplicateMap={duplicateMap}
+              onExportMap={exportMap}
               onDeleteMap={deleteMap}
             />
           )}

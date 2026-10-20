@@ -33,6 +33,16 @@ npm run dev        # http://localhost:3000
 | `npm run tablet` | Build and serve the production app on your network (port 4173), for testing on the tablet before publishing |
 | `npm run icons` | Regenerate the app icon PNGs from `public/icons/icon.svg` |
 | `npm run optimize-image -- <file> [maxWidth]` | Convert an image to WebP, scaled down, next to the original |
+| `npm run add-scenario -- <file>` | Add a map exported from "Mis mapas" to the app's catalog, with its board art |
+
+### Maps from the editor on every device
+
+The map editor keeps its maps in "Mis mapas", in that browser on that device only. To give one to every device, put it in the catalog:
+1. In the menu, pick the map in "Mis mapas" and press **Exportar**: it downloads `<id>.m44map.json` (to Descargas on Android).
+2. Bring the file to the computer and run `npm run add-scenario -- <file>` (`--check` only checks it; `--replace` updates a map already in the catalog). It checks the map, writes `src/data/catalog/<id>.json` and paints its board art (`src/assets/scenarios/<id>.webp`).
+3. Add the description in both languages if it has none, and sources or rulings in `notes`, then `npm run check` and push to `main`.
+
+Every device gets the map when the app updates. A device that still has its own copy shows the catalog's, and a game in progress on it carries on; the menu offers "Borrar mi copia".
 
 ### Playing on an Android tablet
 

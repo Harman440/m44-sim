@@ -3,6 +3,12 @@ import { scenarios } from "./scenarios";
 import BoardManager from "../game-core/BoardManager";
 import { Position, UnitGroup } from "../types/scenario";
 import { describeProblem, validateScenario } from "../game-core/scenarioFile";
+import boards from "../../scripts/boards.json";
+
+// The catalog's maps, and those of them with painted art: `npm run add-scenario` leaves a map it
+// can't paint (bigger than 13×9, or a river fork no tile fits) out of boards.json, and the app draws its art
+const catalogIds = Object.keys(import.meta.glob("./catalog/*.json")).map((path) => path.slice("./catalog/".length, -".json".length));
+const paintedIds = new Set(boards.map(({ terrain }) => terrain.match(/^src\/data\/catalog\/(.+)\.json$/)?.[1]));
 
 const flatten = (groups: Partial<Record<string, Position[]>>) =>
   Object.values(groups).flatMap((positions) => positions ?? []);
@@ -11,8 +17,9 @@ const flatten = (groups: Partial<Record<string, Position[]>>) =>
 // occupied hex, so typos in scenario data would otherwise go unnoticed.
 // The catalog's files are checked as they're read (data/catalog.ts)
 describe.each(scenarios.map((s) => [s.id, s] as const))("scenario %s", (_id, scenario) => {
-  it("has board art", () => {
-    expect(scenario.image).toBeTruthy();
+  it("has board art, unless it's a catalog map the app draws", () => {
+    const painted = !catalogIds.includes(scenario.id) || paintedIds.has(scenario.id);
+    expect(Boolean(scenario.image)).toBe(painted);
   });
 
   it("breaks none of the rules a scenario file is checked against", () => {

@@ -212,6 +212,10 @@ export const TUTORIAL: readonly TutorialStep[] = [
         es: "Si el mapa no coincide con la mesa, usa «Actualizar mapa» en Órdenes, antes de dar ninguna orden, o en la fase final.",
         en: "If the map doesn't match the table, use \"Update map\" in Orders, before giving any order, or in the final phase.",
       },
+      {
+        es: "Los mapas del «Editor de mapas» se guardan en «Mis mapas», solo en este dispositivo. «Exportar» guarda uno en un archivo; una vez añadido al catálogo de la app, todos los dispositivos lo tienen al actualizarla.",
+        en: "Maps from the \"Map editor\" are kept in \"My maps\", on this device only. \"Export\" saves one as a file; once it's added to the app's catalog, every device has it when the app updates.",
+      },
     ],
   },
 ];

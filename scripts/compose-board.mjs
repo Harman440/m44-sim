@@ -1,7 +1,8 @@
 // Build the scenarios' board art from their terrain, on the empty Memoir '44 board.
 // Usage: npm run board [-- <part of a board's name>]
 // scripts/boards.json lists every board: its terrain file (src/data/boards/*.json, which
-// scenarios.ts imports too), the image to write, and optionally `drawn`: terrain to draw in code
+// scenarios.ts imports too, or a catalog scenario's file, src/data/catalog/<id>.json, whose
+// terrain and town tiles picked in the map editor it reads), the image to write, and optionally `drawn`: terrain to draw in code
 // instead of painting it with the tiles ("river", which takes its bridges along; hedgerows and lakes
 // are always drawn),
 // and `separateHills`: each hill on its own tile instead of joined into ridges.
@@ -46,6 +47,7 @@ import {
   artGrid,
   bridgeAngle,
   drawnSvg,
+  pickedByHex,
   planBoard,
 } from "../src/boardArt/boardPlan.mjs";
 import { joinedHills } from "./joined-hills.mjs";
@@ -232,10 +234,15 @@ const drawnTile = async (hex) => {
 };
 
 async function build({ terrain, image, drawn = [], separateHills = false }) {
-  const tiles = JSON.parse(readFileSync(terrain, "utf8"));
+  const json = JSON.parse(readFileSync(terrain, "utf8"));
+  // A catalog scenario's file has its terrain in `tiles`, and the town tiles picked in the editor
+  const scenario = "version" in json && "tiles" in json;
+  if (scenario && json.board !== "standard") throw new Error(`${terrain}: only a standard 13×9 board can be painted (the app draws a bigger one)`);
+  const tiles = scenario ? json.tiles : json;
+  const picked = scenario ? pickedByHex(json.pickedTiles) : {};
   let plan;
   try {
-    plan = planBoard(tiles, library, { drawn, separateHills, outskirts: true });
+    plan = planBoard(tiles, library, { drawn, separateHills, outskirts: true, picked });
   } catch (error) {
     const hint = error.message.startsWith("No painted river") ? ' ("drawn": ["river"] in scripts/boards.json)' : "";
     throw new Error(`${terrain}: ${error.message}${hint}`);

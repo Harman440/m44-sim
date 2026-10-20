@@ -7,6 +7,7 @@ import { useMapArt } from "../useMapArt";
 import { TEST_MODE_COINS } from "../../data/coinRules";
 import { validateScenario } from "../../game-core/scenarioFile";
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -80,9 +81,16 @@ const TEXT = defineMessages({
     mapActions: "Acciones del mapa",
     edit: "Editar",
     duplicate: "Duplicar",
+    export: "Exportar",
+    exportHelp: "Exportar guarda el mapa en un archivo: para pasarlo a otro dispositivo o añadirlo al catálogo de la app.",
     delete: "Borrar",
     deleteTitle: (name: string) => `¿Borrar «${name}»?`,
     deleteText: "Se borra de este dispositivo, y no se puede deshacer.",
+    copyInCatalog:
+      "Este mapa ya está en el catálogo de la app, y se juega el del catálogo. Tu copia en Mis mapas ya no se usa: puedes borrarla.",
+    deleteCopy: "Borrar mi copia",
+    deleteCopyTitle: (name: string) => `¿Borrar tu copia de «${name}»?`,
+    deleteCopyText: "Se borra de este dispositivo; el mapa sigue en el catálogo.",
     cancel: "Cancelar",
   },
   en: {
@@ -136,9 +144,16 @@ const TEXT = defineMessages({
     mapActions: "Map actions",
     edit: "Edit",
     duplicate: "Duplicate",
+    export: "Export",
+    exportHelp: "Export saves the map as a file: to move it to another device or add it to the app's catalog.",
     delete: "Delete",
     deleteTitle: (name: string) => `Delete "${name}"?`,
     deleteText: "It's deleted from this device, and it can't be undone.",
+    copyInCatalog:
+      "This map is in the app's catalog now, and the catalog's is the one played. Your copy in My maps isn't used any more: you can delete it.",
+    deleteCopy: "Delete my copy",
+    deleteCopyTitle: (name: string) => `Delete your copy of "${name}"?`,
+    deleteCopyText: "It's deleted from this device; the map stays in the catalog.",
     cancel: "Cancel",
   },
 });
@@ -148,6 +163,8 @@ interface MenuProps {
   scenarios: readonly Scenario[];
   /** The maps made on this device ("Mis mapas"), playable or not yet */
   customMaps?: readonly Scenario[];
+  /** The ids of maps on this device that are in the catalog now: shown as the catalog's, with their copy offered for deleting */
+  copiesInCatalog?: readonly string[];
   /** The scenario shown when the menu opens (the map just edited) */
   initialScenarioId?: string;
   /** Pre-selected choices, e.g. the last game's */
@@ -160,6 +177,9 @@ interface MenuProps {
   onEditMap?: (id: string) => void;
   /** Copy a map into Mis mapas; gives the copy's id */
   onDuplicateMap?: (id: string) => string | null;
+  /** Download a map as a file */
+  onExportMap?: (id: string) => void;
+  /** Delete a map from this device (from Mis mapas, or the copy of one in the catalog) */
   onDeleteMap?: (id: string) => void;
 }
 
@@ -177,6 +197,7 @@ function ScenarioThumbnail({ scenario }: { scenario: Scenario }) {
 function Menu({
   scenarios,
   customMaps = [],
+  copiesInCatalog = [],
   initialScenarioId,
   initialSetup,
   onStart,
@@ -184,6 +205,7 @@ function Menu({
   onOpenEditor,
   onEditMap,
   onDuplicateMap,
+  onExportMap,
   onDeleteMap,
 }: MenuProps) {
   // Nothing is picked beforehand, but the map just edited: the player taps the scenario and the side
@@ -198,7 +220,8 @@ function Menu({
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [ruleBookOpen, setRuleBookOpen] = useState(false);
-  const [deleting, setDeleting] = useState<Scenario | null>(null);
+  // The map to delete, and whether it's only the device's copy of one in the catalog
+  const [deleting, setDeleting] = useState<{ map: Scenario; copy: boolean } | null>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const sideBySide = useMediaQuery((theme) => theme.breakpoints.up("md"));
   const t = useMessages(TEXT);
@@ -206,6 +229,7 @@ function Menu({
   const tr = useTr();
   const scenario = scenarios.find((s) => s.id === scenarioId) ?? customMaps.find((s) => s.id === scenarioId);
   const customMap = customMaps.some((s) => s.id === scenarioId);
+  const copyInCatalog = scenarioId !== null && copiesInCatalog.includes(scenarioId);
   // The built-ins are always playable (scenarios.test.ts); a map from Mis mapas may be half made
   const problems = useMemo(() => (scenario && customMap ? validateScenario(scenario) : []), [scenario, customMap]);
   const art = useMapArt(scenario);
@@ -407,12 +431,32 @@ function Menu({
                       {t.duplicate}
                     </Button>
                   )}
+                  {onExportMap && (
+                    <Button variant="outlined" startIcon={<GameIcon name="download" />} onClick={() => onExportMap(scenario.id)}>
+                      {t.export}
+                    </Button>
+                  )}
                   {onDeleteMap && (
-                    <Button variant="outlined" color="error" startIcon={<GameIcon name="cancel" />} onClick={() => setDeleting(scenario)}>
+                    <Button variant="outlined" color="error" startIcon={<GameIcon name="cancel" />} onClick={() => setDeleting({ map: scenario, copy: false })}>
                       {t.delete}
                     </Button>
                   )}
                 </Stack>
+              )}
+              {customMap && onExportMap && (
+                <Typography variant="body2" color="text.secondary">
+                  {t.exportHelp}
+                </Typography>
+              )}
+              {copyInCatalog && onDeleteMap && (
+                <Alert severity="info">
+                  {t.copyInCatalog}
+                  <Box sx={{ mt: 1 }}>
+                    <Button variant="outlined" color="error" startIcon={<GameIcon name="cancel" />} onClick={() => setDeleting({ map: scenario, copy: true })}>
+                      {t.deleteCopy}
+                    </Button>
+                  </Box>
+                </Alert>
               )}
             </Stack>
           </Box>
@@ -426,9 +470,9 @@ function Menu({
       <Dialog open={deleting !== null} onClose={() => setDeleting(null)} maxWidth="xs" fullWidth>
         {deleting && (
           <>
-            <DialogTitle>{t.deleteTitle(nameOf(deleting))}</DialogTitle>
+            <DialogTitle>{deleting.copy ? t.deleteCopyTitle(nameOf(deleting.map)) : t.deleteTitle(nameOf(deleting.map))}</DialogTitle>
             <DialogContent>
-              <DialogContentText>{t.deleteText}</DialogContentText>
+              <DialogContentText>{deleting.copy ? t.deleteCopyText : t.deleteText}</DialogContentText>
             </DialogContent>
             <DialogActions>
               <Button variant="outlined" onClick={() => setDeleting(null)}>
@@ -438,8 +482,9 @@ function Menu({
                 variant="contained"
                 color="error"
                 onClick={() => {
-                  onDeleteMap?.(deleting.id);
-                  setScenarioId(null);
+                  onDeleteMap?.(deleting.map.id);
+                  // The catalog's map stays picked
+                  if (!deleting.copy) setScenarioId(null);
                   setDeleting(null);
                 }}
               >

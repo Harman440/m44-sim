@@ -28,15 +28,15 @@ Steps 49–53 are built (the scenario file, board art in the browser, the editor
 ### Step 54: Sending a map to the other tablet
 - [ ] "Compartir": a link to the app with the map in the hash (`#map=…`: the JSON compressed with `CompressionStream` in base64url, uncompressed where the browser lacks it), sent with the Web Share API on the tablets or copied on desktop
 - [ ] Opening the link asks "¿Añadir «…» a Mis mapas?" after `parseScenario` has checked it, then clears the hash. If a map with the same id and other content is already there, it asks before replacing it. A link opened during a game waits: it's asked about once the player is back in the menu
-- [ ] "Exportar" downloads `<id>.m44map.json` (also asked for in [REFACTOR_PLAN.md](REFACTOR_PLAN.md), with "export all" as a backup) (`downloadJson`), and "Importar" in Mis mapas reads one with the file picker. The iPad needs it: an app added to the home screen keeps its own storage, apart from Safari, so a link opened in Safari would land in Safari's maps (check on the iPad)
+- [ ] "Exportar" downloads `<id>.m44map.json` (also asked for in [REFACTOR_PLAN.md](REFACTOR_PLAN.md), with "export all" as a backup) (`downloadJson`; built with Step 55), and "Importar" in Mis mapas reads one with the file picker. The iPad needs it: an app added to the home screen keeps its own storage, apart from Safari, so a link opened in Safari would land in Safari's maps (check on the iPad)
 - [ ] Test the round trip (link and file give back the same scenario); a broken link or file shows a message and changes nothing
 
 ### Step 55: Adding a map to the catalog
-- [ ] `npm run add-scenario -- <file>`: checks the exported file (`parseScenario`), writes `src/data/catalog/<id>.json`, adds its board to `scripts/boards.json` (`compose-board.mjs` reads the terrain from the scenario file), and runs `npm run board -- <id>` for the painted art, with ridges
-- [ ] Then by hand: the description in both languages, the sources and rulings in `notes`, `drawn` or `separateHills` in `boards.json` if the art needs them, and tests for any special rule. Pushing to `main` deploys it to every device
-- [ ] The script keeps the map's id, terrain and units as exported (it only adds texts and notes), so a game in progress on the device's copy goes on with the catalog's after an update
-- [ ] A map that's both in the catalog and on the device shows once, the catalog's version, and the menu offers to delete the device's copy
-- [ ] The rule book's tutorial (`ruleBook.ts`), the README and CLAUDE.md describe the editor, the scenario file and `npm run add-scenario`
+- [x] `npm run add-scenario -- <file>`: checks the exported file (`parseScenario`), writes `src/data/catalog/<id>.json`, adds its board to `scripts/boards.json` (`compose-board.mjs` reads the terrain from the scenario file), and runs `npm run board -- <id>` for the painted art, with ridges (rivers drawn when no tile fits a bend; a bigger board, or a river fork no tile fits, isn't painted: the app draws its art)
+- [x] Then by hand: the description in both languages, the sources and rulings in `notes`, `drawn` or `separateHills` in `boards.json` if the art needs them, and tests for any special rule. Pushing to `main` deploys it to every device
+- [x] The script keeps the map's id, terrain and units as exported (it only adds texts and notes), so a game in progress on the device's copy goes on with the catalog's after an update
+- [x] A map that's both in the catalog and on the device shows once, the catalog's version, and the menu offers to delete the device's copy
+- [x] The rule book's tutorial (`ruleBook.ts`), the README and CLAUDE.md describe the editor, the scenario file and `npm run add-scenario`
 
 ### Step 56: Maps made by Claude Code
 - [ ] **Decided:** for now Claude Code makes the maps, not the app (no API key or network in the app). The player asks for a battle, or for a made-up map; Claude Code writes the scenario file, the player looks at it on the tablet (Importar, Step 54), and it goes into the catalog (Step 55)

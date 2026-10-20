@@ -86,7 +86,8 @@ describe("combat card data", () => {
   });
 
   it("gives Cortina de Fuego to both sides unless the scenario says a side has no big guns", () => {
-    scenarios.filter((s) => !["pegasus-bridge", "sainte-mere-eglise"].includes(s.id)).forEach((s) => {
+    // Every scenario that doesn't say who has big guns (a catalog map may say none do)
+    scenarios.filter((s) => s.bigGuns === undefined).forEach((s) => {
       expect(names(s, "Allies")).toContain("Cortina de Fuego");
       expect(names(s, "Axis")).toContain("Cortina de Fuego");
     });

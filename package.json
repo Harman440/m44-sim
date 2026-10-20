@@ -33,6 +33,7 @@
     "card-art": "node scripts/card-art.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "board": "node scripts/compose-board.mjs",
+    "add-scenario": "node scripts/add-scenario.mjs",
     "water-tile": "node scripts/water-tile.mjs",
     "tablet": "vite build && vite preview --host --port 4173"
   },
