@@ -3,6 +3,8 @@ import { Position } from "../types/scenario";
 import { FORDABLE_RIVER, TERRAIN, TerrainRules } from "../data/terrain";
 import { positionKey } from "./position";
 import { STANDARD_BOARD, sectionLines } from "./boardSize";
+import { FrontLayout, frontSide, sectionsOfSide } from "./frontSections";
+import type { Section } from "./commandCard";
 import Unit from "./unit";
 
 const MIRRORED_SIDE: Record<Side, Side> = {
@@ -20,6 +22,9 @@ class Hex {
   private readonly type: HexType;
   /** The board's width, which decides where its sections meet */
   private readonly boardCols: number;
+  /** The sections variant's sections, instead of the usual three (`useFrontSections`) */
+  private frontLayout: FrontLayout | null = null;
+  private mirrored = false;
 
   private _unit: Unit | null = null;
   /** Barbed wire on the hex: removable, so it isn't part of the terrain */
@@ -47,13 +52,26 @@ class Hex {
    * same hexes for both sides (the grid's sections are symmetric, so left and right just swap)
    */
   mirrorSections(mirrored: boolean) {
+    this.mirrored = mirrored;
     const side = this._setSide(this.position);
     this.side = mirrored ? MIRRORED_SIDE[side] : side;
+  }
+
+  /** The sections variant: the board's sections are these (game-core/frontSections.ts) */
+  useFrontSections(layout: FrontLayout) {
+    this.frontLayout = layout;
+    this.mirrorSections(this.mirrored);
+  }
+
+  /** The sections the hex is in: two for a border hex */
+  getSections(): Section[] {
+    return sectionsOfSide(this.side, this.frontLayout);
   }
 
   private _setSide(pos: Position): Side {
     // Across the board in hexes: short rows sit half a hex right
     const x = pos.col + (pos.row % 2) / 2;
+    if (this.frontLayout) return frontSide(x, this.frontLayout);
     const lines = sectionLines(this.boardCols);
     if (x < lines.left) return Side.LEFT;
     if (x === lines.left) return Side.LEFT_CENTER;

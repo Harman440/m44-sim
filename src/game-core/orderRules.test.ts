@@ -60,7 +60,7 @@ const holdAt = (board: BoardManager, position: Position, section: Section | null
 
 const slotsAt = (ctx: OrderContext, position: Position) => {
   const hex = ctx.board.getHex(position)!;
-  return orderSlots(ctx, hex.unit!, hex.getSide());
+  return orderSlots(ctx, hex.unit!, hex.getSections());
 };
 
 describe("sections", () => {

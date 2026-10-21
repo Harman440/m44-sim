@@ -385,6 +385,27 @@ function Board({
     return tiles;
   };
 
+  /**
+   * The sections variant: the lines between its sections, through the hexes that are in both (the
+   * board art still shows the usual three sections). The lines are symmetric, so the same from either end
+   */
+  const renderSectionLines = () => {
+    const layout = boardManager.frontLayout;
+    if (!layout || layout.lines.length === 0) return null;
+    const first = grid.hexCenter({ row: 0, col: 0 });
+    const hexWidth = hexSize * Math.sqrt(3);
+    const top = first.y - hexSize;
+    const bottom = grid.hexCenter({ row: boardHeight - 1, col: 0 }).y + hexSize;
+    return (
+      <g className="board__section-lines" data-testid="section-lines" pointerEvents="none">
+        {layout.lines.map((line) => {
+          const x = first.x + line * hexWidth;
+          return <line key={line} x1={x} x2={x} y1={top} y2={bottom} strokeWidth={hexSize * 0.12} strokeDasharray={`${hexSize * 0.4} ${hexSize * 0.25}`} />;
+        })}
+      </g>
+    );
+  };
+
   /** The hexes the fog of war hides, shaded; taps go through to the hexes */
   const renderFog = () => {
     if (!fog || fog.dark.length === 0) return null;
@@ -618,6 +639,7 @@ function Board({
         {/* Layer 2: Hexagon tiles, then the units and the sandbags in front of them */}
         {renderBoard()}
         {renderFog()}
+        {renderSectionLines()}
         {renderUnits()}
         {renderSandbags()}
         {renderObjectives()}

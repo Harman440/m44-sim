@@ -57,7 +57,7 @@ const loadMaps = () => {
 };
 
 /** A new game for one side, as the menu set it up */
-const newSession = (scenario: Scenario, faction: Faction, setup: Omit<GameSetup, 'faction'>, figures = false) =>
+const newSession = (scenario: Scenario, faction: Faction, setup: Omit<GameSetup, 'faction'>, figures = false, sectionOrders = false) =>
   new GameSession({
     scenario,
     faction,
@@ -68,6 +68,7 @@ const newSession = (scenario: Scenario, faction: Faction, setup: Omit<GameSetup,
     testMode: setup.testMode === true,
     artilleryCrew: setup.artilleryCrew === true,
     figures,
+    sectionOrders,
   });
 
 interface CurrentGame {
@@ -201,8 +202,8 @@ const App = () => {
       clearSavedGame();
       const match = new PassAndPlayMatch(drawn, {
         // Both armies are in the app: units have figures and take the hits
-        Allies: newSession(drawn, 'Allies', setup, true),
-        Axis: newSession(drawn, 'Axis', setup, true),
+        Allies: newSession(drawn, 'Allies', setup, true, setup.sectionOrders !== false),
+        Axis: newSession(drawn, 'Axis', setup, true, setup.sectionOrders !== false),
       }, {
         mainSide: setup.mainSide,
         computer: setup.computer ? otherSide(setup.mainSide) : null,

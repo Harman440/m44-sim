@@ -10,18 +10,10 @@ import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { EXTRA_ORDER_COST } from "../data/coinRules";
 import type { MoveEffect } from "./combatCard";
+import { sectionsOfSide } from "./frontSections";
 
 /** The sections a hex's side belongs to: a border hex is in both */
-export function sectionsOf(side: Side): Section[] {
-  switch (side) {
-    case Side.LEFT_CENTER:
-      return [Side.LEFT, Side.CENTER];
-    case Side.RIGHT_CENTER:
-      return [Side.CENTER, Side.RIGHT];
-    default:
-      return [side];
-  }
-}
+export const sectionsOf = (side: Side): Section[] => sectionsOfSide(side);
 
 /**
  * What an order counts against: one of the card's orders (in a section, for
@@ -121,15 +113,15 @@ export function slotCost(card: CommandCard, unit: Unit, slot: OrderSlot): number
  * Extra orders bought with coins are separate (`canBuyExtraOrder`), since any
  * unit can take one.
  */
-export function orderSlots(context: OrderContext, unit: Unit, side: Side): OrderSlot[] {
+export function orderSlots(context: OrderContext, unit: Unit, hexSections: readonly Section[]): OrderSlot[] {
   if (isOrdered(context, unit)) return [];
   const limits = remaining(context);
 
   const cardSlots: OrderSlot[] = [];
   const affordable = context.card.coinCostOf(unit.getUnitType()) <= context.coins;
   if (limits.cardOrders > 0 && affordable && fitsCard(context, unit)) {
-    const sections = sectionsOf(side).filter((section) => cardSections(context).includes(section));
-    if (context.card.perSection === null) {
+    const sections = hexSections.filter((section) => cardSections(context).includes(section));
+    if (!context.card.hasQuotas) {
       if (sections.length > 0) cardSlots.push({ section: null, onTheMove: false });
     } else {
       sections
@@ -150,7 +142,7 @@ export function canBuyExtraOrder(context: OrderContext, unit: Unit): boolean {
 export function orderablePositions(context: OrderContext): Position[] {
   return context.board
     .getAllHexes()
-    .filter((hex) => hex.unit && orderSlots(context, hex.unit, hex.getSide()).length > 0)
+    .filter((hex) => hex.unit && orderSlots(context, hex.unit, hex.getSections()).length > 0)
     .map((hex) => hex.getPosition());
 }
 
@@ -175,11 +167,11 @@ export function ordersLeft(context: OrderContext): number {
 
   const fitting = free
     .filter((hex) => fitsCard(context, hex.unit!))
-    .map((hex) => sectionsOf(hex.getSide()).filter((section) => cardSections(context).includes(section)))
+    .map((hex) => hex.getSections().filter((section) => cardSections(context).includes(section)))
     .filter((sections) => sections.length > 0);
 
   let cardOrders = 0;
-  if (card.perSection !== null) {
+  if (card.hasQuotas) {
     cardOrders = Math.min(limits.cardOrders, maxMatching(fitting, limits.quota));
   } else if (!card.paidInCoins) {
     cardOrders = Math.min(limits.cardOrders, fitting.length);
@@ -217,7 +209,7 @@ function remaining({ card, orders }: OrderContext) {
   return {
     cardOrders: card.orders === "all" ? Infinity : card.orders - cardOrders.length,
     quota: (section: Section) =>
-      (card.perSection ?? Infinity) - cardOrders.filter((order) => order.section === section).length,
+      card.quotaIn(section) - cardOrders.filter((order) => order.section === section).length,
     onTheMove: card.onTheMove - onTheMove.length,
   };
 }

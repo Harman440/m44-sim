@@ -28,4 +28,6 @@ export interface GameSetup {
   artilleryCrew?: boolean;
   /** Fog of war in pass and play and against the computer (game-core/fogOfWar.ts); on unless switched off */
   fogOfWar?: boolean;
+  /** The sections variant in pass and play and against the computer (game-core/frontSections.ts); on unless switched off */
+  sectionOrders?: boolean;
 }

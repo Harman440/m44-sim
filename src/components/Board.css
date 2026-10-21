@@ -186,6 +186,13 @@
 }
 
 /* Fog of war: the hexes out of sight, shaded (see-through as a whole, so overlapping edges don't show) */
+/* The sections variant's lines between sections */
+.board__section-lines line {
+  stroke: var(--m44-accent);
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
 .board__fog {
   opacity: 0.55;
 }

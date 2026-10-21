@@ -205,11 +205,13 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             {/* Pass and play: each side's medals */}
             <MedalTally />
             {/* The command deck and discard pile; a tap shows the deck */}
-            <CardPiles
-              drawPileCount={game.drawPileCount}
-              discardPileCount={game.discardPileCount}
-              onOpen={() => setDeckOpen(true)}
-            />
+            {!session.sectionOrders && (
+              <CardPiles
+                drawPileCount={game.drawPileCount}
+                discardPileCount={game.discardPileCount}
+                onOpen={() => setDeckOpen(true)}
+              />
+            )}
             {/* The battle shows the coins large in its own screen */}
             {game.phase !== TurnPhase.BATTLE && (
               <Button
@@ -343,6 +345,7 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
               faction={faction}
               largeMap={shared ? <LargeMap session={session} faction={faction} /> : undefined}
               initialPicks={lastPlay}
+              fixedCommand={session.sectionOrders ? (game.hand[0] ?? null) : null}
             />
           )}
 

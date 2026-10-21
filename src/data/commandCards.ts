@@ -15,6 +15,8 @@ import { Side } from '../types/hex';
 import { Faction } from '../types/faction';
 import { Scenario } from '../types/scenario';
 import { Localized, byLang } from '../i18n/lang';
+import { boardSizeOf } from '../game-core/boardSize';
+import { MIN_SECTION_HEXES, ORDERS_PER_SECTION, frontLayout, sectionQuotas } from '../game-core/frontSections';
 
 interface CardTemplate {
   count: number;
@@ -341,4 +343,34 @@ export function commandDeckFor(scenario: Scenario, faction: Faction): CommandCar
     ...buildDeck([...sharedTemplates, ...unitTemplates(tanks, hasUnits(scenario, faction, UnitType.ARTILLERY))]),
     ...(tanks ? reserveCards() : []),
   ];
+}
+
+/** The sections variant's only card, with the same id on every board */
+export const SECTION_ORDERS_CARD_ID = 'section-orders';
+
+/**
+ * The sections variant (game-core/frontSections.ts) has no command cards: every turn the side
+ * plays this one, which stays in the hand. It orders up to 4 units in each of the board's
+ * sections (5 in a section of more than 7 hexes), fewer if the player wants
+ */
+export function sectionOrdersCard(scenario: Scenario): CommandCard {
+  const layout = frontLayout(boardSizeOf(scenario).cols);
+  const quotas = sectionQuotas(layout);
+  const sections = layout.sections;
+  const total = sections.reduce((sum, section) => sum + quotas[section], 0);
+  const big = sections.some((section) => quotas[section] > ORDERS_PER_SECTION);
+  return new CommandCard({
+    id: SECTION_ORDERS_CARD_ID,
+    name: { es: 'Órdenes por sección', en: 'Orders by section' },
+    title: { es: 'Órdenes', en: 'Orders' },
+    description: {
+      es: `Da órdenes a hasta ${ORDERS_PER_SECTION} unidades en cada sección${big ? ` (${ORDERS_PER_SECTION + 1} en una sección de más de ${MIN_SECTION_HEXES} casillas)` : ''}. Puedes dar menos. Una unidad en la línea entre dos secciones cuenta para la que elijas.`,
+      en: `Order up to ${ORDERS_PER_SECTION} units in each section${big ? ` (${ORDERS_PER_SECTION + 1} in a section of more than ${MIN_SECTION_HEXES} hexes)` : ''}. You may order fewer. A unit on the line between two sections counts for the one you pick.`,
+    },
+    sections,
+    orders: total,
+    sectionQuotas: quotas,
+    optionalOrders: true,
+    unseen: true,
+  });
 }

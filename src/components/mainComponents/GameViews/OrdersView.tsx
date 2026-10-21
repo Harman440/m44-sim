@@ -24,6 +24,7 @@ import type { Labels } from "../../../labels";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 import { EXTRA_SLOT, OrderSlot, sameSlot } from "../../../game-core/orderRules";
 import { EXTRA_ORDER_COST } from "../../../data/coinRules";
+import { ORDERS_PER_SECTION } from "../../../game-core/frontSections";
 import CommandCard from "../../../game-core/commandCard";
 import { UnitType } from "../../../game-core/unit";
 import GameSession, { GameSnapshot, MoveOptions } from "../../../game-core/gameSession";
@@ -56,6 +57,8 @@ const TEXT = defineMessages({
     promptMarkCard: (card: string) => `Marca las casillas de ${card}`,
     promptConfirm: "No quedan órdenes: confirma",
     promptTapUnit: "Toca una unidad resaltada",
+    promptOptional: "Toca una unidad resaltada, o confirma",
+    sectionCount: (section: string, given: number, quota: number) => `${section}: ${given}/${quota}`,
     helpMark: (rule: string, n: number) => `${rule} Faltan ${n}.`,
     helpExtraSelected: "Orden extra: toca una casilla resaltada para mover la unidad, o elige una acción.",
     helpExtra: (costs: string) =>
@@ -68,9 +71,12 @@ const TEXT = defineMessages({
     helpConfirm: "No quedan órdenes: confirma las órdenes o deshaz la última.",
     helpSelected: "Toca una casilla resaltada para mover la unidad, o elige una acción: mantenerla en su casilla o cancelar.",
     helpTapUnit: "Toca una unidad resaltada para darle una orden; después, la casilla adonde se mueve.",
+    helpOptional: (orders: number) =>
+      `Da órdenes a hasta ${orders} unidades en cada sección (las cuentas de abajo); una unidad en la línea entre dos secciones cuenta para la que elijas. Puedes dar menos y confirmar cuando quieras.`,
     fixMapTitle: "Órdenes: actualizar mapa",
     fixMapHint: "Corrige el mapa para que coincida con la mesa: toca una unidad",
     changeCard: "Cambiar carta",
+    changeCombatCards: "Cambiar cartas de combate",
     combatCardTitle: (card: string) => `Carta de combate: ${card}`,
     notePaper: "Si hace falta, anota en papel sobre qué unidades la usas.",
     promptGive: (card: string) => `Toca la unidad que recibe ${card}`,
@@ -139,6 +145,8 @@ const TEXT = defineMessages({
     promptMarkCard: (card: string) => `Mark the hexes for ${card}`,
     promptConfirm: "No orders left: confirm",
     promptTapUnit: "Tap a highlighted unit",
+    promptOptional: "Tap a highlighted unit, or confirm",
+    sectionCount: (section: string, given: number, quota: number) => `${section}: ${given}/${quota}`,
     helpMark: (rule: string, n: number) => `${rule} ${n} left.`,
     helpExtraSelected: "Extra order: tap a highlighted hex to move the unit, or pick an action.",
     helpExtra: (costs: string) =>
@@ -151,9 +159,12 @@ const TEXT = defineMessages({
     helpConfirm: "No orders left: confirm the orders or undo the last one.",
     helpSelected: "Tap a highlighted hex to move the unit, or pick an action: hold it in its hex or cancel.",
     helpTapUnit: "Tap a highlighted unit to give it an order; then the hex it moves to.",
+    helpOptional: (orders: number) =>
+      `Order up to ${orders} units in each section (the counts below); a unit on the line between two sections counts for the one you pick. You may order fewer and confirm whenever you like.`,
     fixMapTitle: "Orders: update map",
     fixMapHint: "Fix the map so it matches the table: tap a unit",
     changeCard: "Change card",
+    changeCombatCards: "Change combat cards",
     combatCardTitle: (card: string) => `Combat card: ${card}`,
     notePaper: "If needed, note on paper which units you use it on.",
     promptGive: (card: string) => `Tap the unit that gets ${card}`,
@@ -275,6 +286,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   const boardManager = session.board;
   const { orders, ordersLeft } = game;
   const paidCard = game.activeCard?.paidInCoins ?? false;
+  /** The sections variant: the card's orders are a limit, and can be confirmed at any time */
+  const optional = game.activeCard?.optionalOrders ?? false;
 
   // Selected unit and its highlighted destinations (UI state only)
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
@@ -447,7 +460,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     if (ordersLeft <= 0 && assignDue) return t.promptGiveCard(tr(game.assigning!.card.name));
     if (ordersLeft <= 0) return t.promptConfirm;
     if (selectedHex) return t.tapHighlightedHex;
-    return t.promptTapUnit;
+    return optional ? t.promptOptional : t.promptTapUnit;
   };
 
   /** The same, explained: behind "Instrucciones" */
@@ -481,7 +494,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     if (selectedHex) {
       return t.helpSelected;
     }
-    return t.helpTapUnit;
+    return optional ? t.helpOptional(ORDERS_PER_SECTION) : t.helpTapUnit;
   };
 
   if (fixingMap && game.canEditMap) {
@@ -546,7 +559,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
         )}
         {game.canUnpickCard && (
           <Button variant="outlined" onClick={() => session.unpickCard()} startIcon={<GameIcon name="undo" />}>
-            {t.changeCard}
+            {game.chosenCard?.unseen ? t.changeCombatCards : t.changeCard}
           </Button>
         )}
         {game.combatCardsPlayed.map((card) => {
@@ -642,7 +655,14 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
             {prompt()}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {paidCard ? t.cardOrdersLeft(game.cardOrdersLeft) : t.ordersLeft(ordersLeft)} ·{" "}
+            {game.sectionOrdersGiven.length > 0
+              ? game.sectionOrdersGiven
+                  .map(({ section, given, quota }) => t.sectionCount(labels.sectionsShort[section], given, quota))
+                  .join(" · ")
+              : paidCard
+                ? t.cardOrdersLeft(game.cardOrdersLeft)
+                : t.ordersLeft(ordersLeft)}{" "}
+            ·{" "}
             {labels.coins(game.coins)}
           </Typography>
         </Box>
@@ -755,7 +775,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
               {t.back}
             </Button>
           )}
-          {ordersLeft <= 0 && markersLeft <= 0 && !assignDue && (
+          {(ordersLeft <= 0 || optional) && markersLeft <= 0 && !assignDue && (
             <Button
               onClick={() => session.commitOrders() && play("stamp")}
               startIcon={<GameIcon name="confirm" />}

@@ -58,7 +58,8 @@ function PlayedCards({ faction, command, section, combat, assignments = [], layo
   return (
     <>
       <Box className={`played-cards${className ? ` ${className}` : ""}`} data-testid="played-cards">
-        {command && (
+        {/* The sections variant's orders aren't a card */}
+        {command && !command.unseen && (
           <Stack sx={{ alignItems: "center", gap: 0.5 }}>
             <motion.div layoutId={layoutPrefix && `${layoutPrefix}${command.id}`} transition={PLAY_FLIGHT}>
               <CommandCardComponent faction={faction} cardData={command} onClick={() => setLooking({ command, section })} />

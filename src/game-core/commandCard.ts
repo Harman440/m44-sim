@@ -51,6 +51,12 @@ export interface CommandCardProps {
   coinCost?: Partial<Record<UnitType, number>>;
   /** At most this many orders in each section (General Advance: 2); a border unit counts for the section the player picks */
   perSection?: number;
+  /** At most this many orders in each section, section by section (the sections variant's board card); a section left out has none */
+  sectionQuotas?: Partial<Record<Section, number>>;
+  /** The player may give fewer orders than the card allows (the sections variant) */
+  optionalOrders?: boolean;
+  /** Never shown as a card, nor drawn or discarded: the sections variant's orders */
+  unseen?: boolean;
   /** Extra units anywhere on the board that may move but can't fire (Probe, Recon) */
   onTheMove?: number;
   /** Its units can't move; they hold (Firefight) */
@@ -107,6 +113,9 @@ class CommandCard {
   readonly orders: number | "all";
   readonly coinCost: Partial<Record<UnitType, number>>;
   readonly perSection: number | null;
+  readonly sectionQuotas: Partial<Record<Section, number>> | null;
+  readonly optionalOrders: boolean;
+  readonly unseen: boolean;
   readonly onTheMove: number;
   readonly noMove: boolean;
   readonly moveBonus: number;
@@ -132,6 +141,9 @@ class CommandCard {
     orders = 0,
     coinCost = {},
     perSection,
+    sectionQuotas,
+    optionalOrders = false,
+    unseen = false,
     onTheMove = 0,
     noMove = false,
     moveBonus = 0,
@@ -156,6 +168,9 @@ class CommandCard {
     this.orders = orders;
     this.coinCost = coinCost;
     this.perSection = perSection ?? null;
+    this.sectionQuotas = sectionQuotas ?? null;
+    this.optionalOrders = optionalOrders;
+    this.unseen = unseen;
     this.onTheMove = onTheMove;
     this.noMove = noMove;
     this.moveBonus = moveBonus;
@@ -177,6 +192,17 @@ class CommandCard {
   /** Its orders cost coins (Finest Hour) */
   get paidInCoins(): boolean {
     return Object.values(this.coinCost).some((cost) => cost > 0);
+  }
+
+  /** Its orders are limited section by section (`perSection` or `sectionQuotas`) */
+  get hasQuotas(): boolean {
+    return this.perSection !== null || this.sectionQuotas !== null;
+  }
+
+  /** The most orders it gives in this section (Infinity without quotas) */
+  quotaIn(section: Section): number {
+    if (this.sectionQuotas) return this.sectionQuotas[section] ?? 0;
+    return this.perSection ?? Infinity;
   }
 
   /** The player picks the card's section when playing it */

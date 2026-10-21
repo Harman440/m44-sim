@@ -6,6 +6,7 @@ import { HexType, isHexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
 import { includesPosition, positionKey } from "./position";
 import { BoardSize, boardSizeOf } from "./boardSize";
+import { FrontLayout, frontLayout } from "./frontSections";
 
 /** Terrain rules a combat card loosens for one unit's move */
 export interface MoveRules {
@@ -113,7 +114,20 @@ class BoardManager {
    * section for both armies. For the other side the sections swap
    */
   sectionsSeenFrom(faction: Faction, viewSide: Faction) {
+    this.sectionsMirrored = faction !== viewSide;
     this.hexes.forEach((hex) => hex.mirrorSections(faction !== viewSide));
+  }
+
+  /** The sections variant's sections, once `useFrontSections` has set them; null for the usual three */
+  frontLayout: FrontLayout | null = null;
+  /** Pass and play: the sections are named from the other end of the table (`sectionsSeenFrom`) */
+  sectionsMirrored = false;
+
+  /** The sections variant: split the board into its sections of at least 7 hexes (game-core/frontSections.ts) */
+  useFrontSections() {
+    const layout = frontLayout(this.width);
+    this.frontLayout = layout;
+    this.hexes.forEach((hex) => hex.useFrontSections(layout));
   }
 
   /** The board's size, for turning positions round (`turnedRound`) */

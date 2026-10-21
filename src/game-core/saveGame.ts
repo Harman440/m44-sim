@@ -19,7 +19,7 @@ import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 36;
+export const SAVE_VERSION = 37;
 
 interface SavedUnit {
   type: UnitType;
@@ -41,6 +41,8 @@ export interface SavedGame {
   artilleryCrew: boolean;
   /** Pass and play: units have figures and take hits (the session's `figures`) */
   figures: boolean;
+  /** The sections variant: no command cards, orders by section (the session's `sectionOrders`) */
+  sectionOrders: boolean;
   /** Hits each damaged unit has taken, by unit index */
   hits: { unit: number; hits: number }[];
   /** Flags each unit took this turn (one pins it, each more makes it retreat), by unit index */
@@ -232,7 +234,7 @@ function readCardAttacks(attacks: unknown, markerCount: number): CardAttack[] {
 }
 
 /** The per-game rule settings a save keeps */
-export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew" | "figures">;
+export type SavedRules = Pick<SavedGame, "longRangeDie" | "testMode" | "artilleryCrew" | "figures" | "sectionOrders">;
 
 export function writeSave(
   scenarioId: string,
@@ -367,6 +369,7 @@ export function readSave(
   if (typeof saved.testMode !== "boolean") throw new Error("Test mode setting is missing");
   if (typeof saved.artilleryCrew !== "boolean") throw new Error("Artillery crew setting is missing");
   if (typeof saved.figures !== "boolean") throw new Error("Figures setting is missing");
+  if (typeof saved.sectionOrders !== "boolean") throw new Error("Sections variant setting is missing");
   if (!Object.values(TurnPhase).some((phase) => typeof phase === "number" && phase === saved.phase)) {
     throw new Error(`Unknown phase ${saved.phase}`);
   }

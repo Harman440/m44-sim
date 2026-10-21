@@ -17,7 +17,7 @@ export const seeded = (seed: number) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-export const newSession = (scenario: Scenario, faction: Faction, random: () => number) =>
+export const newSession = (scenario: Scenario, faction: Faction, random: () => number, sectionOrders = false) =>
   new GameSession({
     scenario,
     faction,
@@ -25,6 +25,7 @@ export const newSession = (scenario: Scenario, faction: Faction, random: () => n
     commandCards: commandDeckFor(scenario, faction),
     combatCards: combatDeckFor(scenario, faction),
     figures: true,
+    sectionOrders,
     random,
   });
 
@@ -61,11 +62,11 @@ export function playOut(
   brains: Record<Faction, Brain>,
   random: () => number,
   turns: number,
-  { computer = "Axis", fog = false }: { computer?: Faction; fog?: boolean } = {}
+  { computer = "Axis", fog = false, sectionOrders = false }: { computer?: Faction; fog?: boolean; sectionOrders?: boolean } = {}
 ): PassAndPlayMatch {
   const match = new PassAndPlayMatch(
     scenario,
-    { Allies: newSession(scenario, "Allies", random), Axis: newSession(scenario, "Axis", random) },
+    { Allies: newSession(scenario, "Allies", random, sectionOrders), Axis: newSession(scenario, "Axis", random, sectionOrders) },
     { computer, fog }
   );
   // The computer's side acts second, as against a person

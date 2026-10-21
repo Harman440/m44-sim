@@ -49,6 +49,8 @@ const TEXT = defineMessages({
     costs: (coins: string) => `Cuesta ${coins}`,
     hand: "Tu mano",
     handCount: (command: number, combat: number) => `Cartas de mando (${command}) · Cartas de combate (${combat})`,
+    combatCount: (combat: number) => `Cartas de combate (${combat})`,
+    ordersSlot: "Órdenes",
     changeSectionTitle: (combat: string, command: string) => `${combat}: ¿a qué sección cambias ${command}?`,
     whichSection: (command: string) => `${command}: ¿en qué sección?`,
     cancel: "Cancelar",
@@ -83,6 +85,8 @@ const TEXT = defineMessages({
     costs: (coins: string) => `Costs ${coins}`,
     hand: "Your hand",
     handCount: (command: number, combat: number) => `Command cards (${command}) · Combat cards (${combat})`,
+    combatCount: (combat: number) => `Combat cards (${combat})`,
+    ordersSlot: "Orders",
     changeSectionTitle: (combat: string, command: string) => `${combat}: which section do you move ${command} to?`,
     whichSection: (command: string) => `${command}: in which section?`,
     cancel: "Cancel",
@@ -125,6 +129,11 @@ interface CardsViewProps {
    * start in the tray (flying back from the orders screen) and the hand slides up
    */
   initialPicks?: { command: CommandCard; combat: readonly CombatCard[] } | null;
+  /**
+   * The sections variant: no command cards. This card (the side's only one) is always the one
+   * played, said in words rather than shown, and only combat cards are picked
+   */
+  fixedCommand?: CommandCard | null;
 }
 
 function CardsView({
@@ -140,6 +149,7 @@ function CardsView({
   faction = "Allies",
   largeMap,
   initialPicks = null,
+  fixedCommand = null,
 }: CardsViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -147,7 +157,7 @@ function CardsView({
   const lang = useLang();
   /** The command card picked to play; it leaves the hand for the tray */
   const [commandPick, setCommandPick] = useState<CommandCard | null>(() =>
-    initialPicks && handCards.includes(initialPicks.command) ? initialPicks.command : null
+    fixedCommand ?? (initialPicks && handCards.includes(initialPicks.command) ? initialPicks.command : null)
   );
   /** The combat cards picked to play with it, in the order picked (two at most) */
   const [combatPicks, setCombatPicks] = useState<readonly CombatCard[]>(() =>
@@ -175,8 +185,10 @@ function CardsView({
   const trayRef = useRef<HTMLElement>(null);
   const play = useSound();
 
-  const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
-  const nextCardToDeal = handCards.find((card) => !dealtCardIds.has(card.id));
+  // The sections variant's card isn't dealt nor shown in the hand
+  const dealtHand = fixedCommand ? [] : handCards;
+  const visibleHand = dealtHand.filter((card) => dealtCardIds.has(card.id));
+  const nextCardToDeal = dealtHand.find((card) => !dealtCardIds.has(card.id));
   const handCommand = sortCommandHand(visibleHand.filter((card) => card !== commandPick));
 
   // Deal hand cards that haven't been shown yet, one at a time. The dealt ids
@@ -258,7 +270,7 @@ function CardsView({
   const tapCombat = (card: CombatCard) => (cantPlay(card) === null ? pickCombat(card, true) : look({ combat: card }));
   const landedInTray = (id: string) => setFlying((current) => (current?.id === id ? null : current));
   const unpick = (card: CommandCard | CombatCard) => {
-    if (card === commandPick) setCommandPick(null);
+    if (card === commandPick && !fixedCommand) setCommandPick(null);
     setCombatPicks((picks) => picks.filter((picked) => picked !== card));
     if (lookingAt(card)) setLooking(null);
   };
@@ -335,20 +347,22 @@ function CardsView({
                       </div>
                     );
                   })}
-                  <div className={`cards-tray__card cards-tray__card--command${commandPick ? "" : " cards-tray__card--empty"}`}>
-                    {commandPick && (
-                      <motion.div
-                        key={commandPick.id}
-                        layoutId={`${PLAY_LAYOUT_PREFIX}${commandPick.id}`}
-                        initial={returned.has(commandPick) ? false : { y: 24, opacity: 0, scale: 1.2 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        transition={{ layout: PLAY_FLIGHT }}
-                        style={{ visibility: flying?.id === commandPick.id ? "hidden" : undefined }}
-                      >
-                        <CommandCardComponent faction={faction} cardData={commandPick} onClick={(c) => look({ command: c })} />
-                      </motion.div>
-                    )}
-                  </div>
+                  {!fixedCommand && (
+                    <div className={`cards-tray__card cards-tray__card--command${commandPick ? "" : " cards-tray__card--empty"}`}>
+                      {commandPick && (
+                        <motion.div
+                          key={commandPick.id}
+                          layoutId={`${PLAY_LAYOUT_PREFIX}${commandPick.id}`}
+                          initial={returned.has(commandPick) ? false : { y: 24, opacity: 0, scale: 1.2 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          transition={{ layout: PLAY_FLIGHT }}
+                          style={{ visibility: flying?.id === commandPick.id ? "hidden" : undefined }}
+                        >
+                          <CommandCardComponent faction={faction} cardData={commandPick} onClick={(c) => look({ command: c })} />
+                        </motion.div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <Stack className="cards-tray__lines">
@@ -359,7 +373,7 @@ function CardsView({
                   )}
                   <div className="cards-tray__line">
                     <Typography variant="overline" className="cards-tray__slot">
-                      {t.commandSlot}
+                      {fixedCommand ? t.ordersSlot : t.commandSlot}
                     </Typography>
                     <div className="cards-tray__name">
                       <Typography sx={{ fontWeight: 600 }} color={commandPick ? "text.primary" : "text.secondary"}>
@@ -376,7 +390,7 @@ function CardsView({
                         </Typography>
                       )}
                     </div>
-                    {commandPick && (
+                    {commandPick && !fixedCommand && (
                       <Button variant="text" size="small" aria-label={t.removeCard(tr(commandPick.name))} onClick={() => unpick(commandPick)}>
                         {t.remove}
                       </Button>
@@ -504,7 +518,7 @@ function CardsView({
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
           >
             <Typography variant="overline" component="h3" id="hand-title" className="hand-group__title">
-              {t.handCount(visibleHand.length, combatHand.length)}
+              {fixedCommand ? t.combatCount(combatHand.length) : t.handCount(visibleHand.length, combatHand.length)}
             </Typography>
             <CardHand
               label={t.hand}

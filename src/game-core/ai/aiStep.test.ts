@@ -43,6 +43,22 @@ describe("the computer against itself", () => {
     });
   }
 
+  for (const scenario of scenarios) {
+    it(`plays ${scenario.id} in the sections variant without getting stuck`, () => {
+      for (const brain of [basicBrain, standardBrain]) {
+        const random = seeded(6);
+        vi.spyOn(Math, "random").mockImplementation(random);
+        const match = playOut(scenario, { Allies: brain, Axis: brain }, random, 20, { sectionOrders: true });
+        for (const side of FACTIONS) {
+          const { log } = match.sessions[side].getSnapshot();
+          expect(log.length).toBeGreaterThan(0);
+          // Every turn plays the one card, ordering at most 4 units in each section
+          expect(log.every((turn) => turn.orders.length <= 8)).toBe(true);
+        }
+      }
+    });
+  }
+
   it("plays a bigger map, grown at every edge, to the end", () => {
     let big: Scenario = scenarios[0]!;
     for (const edge of ["left", "right", "top", "bottom", "right"] as const) big = resizeBoard(big, edge, true, HexType.FOREST) as Scenario;
