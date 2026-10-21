@@ -58,6 +58,7 @@ function ParadropView({ faction, session, game }: ParadropViewProps) {
     <div className="phase-layout">
       <div className="phase-layout__board">
         <Board
+          zoomable
           onTileClick={handleTileClick}
           unitHexPosition={null}
           possibleMovePositions={[]}

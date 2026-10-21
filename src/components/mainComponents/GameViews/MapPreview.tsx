@@ -28,20 +28,14 @@ interface MapPreviewProps {
 
 const noop = () => {};
 
-/**
- * Pass and play: a small read-only map of both armies as they stand, for picking cards and the
- * final phase; a tap shows it large
- */
-function MapPreview({ session, faction, height = 140 }: MapPreviewProps) {
-  const t = useMessages(TEXT);
-  const [open, setOpen] = useState(false);
+/** The read-only map of both armies as they stand, without this turn's order arrows */
+function ArmiesMap({ session, faction, zoomable = false }: { session: GameSession; faction: Faction; zoomable?: boolean }) {
   const shared = useContext(OpponentContext);
   const game = session.getSnapshot();
-  // Where the armies stand, without this turn's order arrows
   const opponent = shared ? { ...shared.opponent, orders: [] } : null;
-
-  const board = (
+  return (
     <Board
+      zoomable={zoomable}
       onTileClick={noop}
       unitHexPosition={null}
       possibleMovePositions={[]}
@@ -55,6 +49,29 @@ function MapPreview({ session, faction, height = 140 }: MapPreviewProps) {
       camouflaged={game.camouflaged}
     />
   );
+}
+
+/**
+ * Pass and play: the map as large as the space it's given allows, zoomable, for when the
+ * cards are put away (see `HandAwayBar`)
+ */
+export function LargeMap({ session, faction }: { session: GameSession; faction: Faction }) {
+  return (
+    <Box className="large-map" data-testid="large-map">
+      <div className="large-map__fit">
+        <ArmiesMap session={session} faction={faction} zoomable />
+      </div>
+    </Box>
+  );
+}
+
+/**
+ * Pass and play: a small read-only map of both armies as they stand, for picking cards and the
+ * final phase; a tap shows it large
+ */
+function MapPreview({ session, faction, height = 140 }: MapPreviewProps) {
+  const t = useMessages(TEXT);
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -65,13 +82,15 @@ function MapPreview({ session, faction, height = 140 }: MapPreviewProps) {
         sx={{ flex: "none", display: "block", width: height * 1.6, maxWidth: "100%", borderRadius: "var(--m44-radius)" }}
       >
         {/* The board takes no taps here: the whole preview is one button */}
-        <Box sx={{ pointerEvents: "none" }}>{board}</Box>
+        <Box sx={{ pointerEvents: "none" }}>
+          <ArmiesMap session={session} faction={faction} />
+        </Box>
       </ButtonBase>
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="lg">
         <DialogTitle>{t.title}</DialogTitle>
         {/* As large as fits both ways: --board-aspect is set by Board */}
         <DialogContent sx={{ "& .board__svg": { width: "min(100%, calc((100dvh - 200px) * var(--board-aspect)))" } }}>
-          {board}
+          <ArmiesMap session={session} faction={faction} zoomable />
         </DialogContent>
         <DialogActions>
           <Button variant="text" onClick={() => setOpen(false)}>

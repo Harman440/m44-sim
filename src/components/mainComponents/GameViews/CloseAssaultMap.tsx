@@ -53,6 +53,7 @@ function CloseAssaultMap({ faction, session, game, onDone }: CloseAssaultMapProp
     <div className="phase-layout">
       <div className="phase-layout__board">
         <Board
+          zoomable
           onTileClick={handleTileClick}
           unitHexPosition={null}
           possibleMovePositions={[]}

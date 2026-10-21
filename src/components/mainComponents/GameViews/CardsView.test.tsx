@@ -407,6 +407,43 @@ describe("CardsView looking at a card", () => {
   });
 });
 
+describe("CardsView putting the cards away", () => {
+  it("swaps the table and the hand for the large map and back, keeping the pick", () => {
+    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), orders: 1 });
+    const { container } = render(
+      <CardsView
+        handCards={[card]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onCardClick={() => {}}
+        mapPreview={<div data-testid="small-map" />}
+        largeMap={<div data-testid="large-map" />}
+      />
+    );
+    fireEvent.click(within(container.querySelector(".cards-hands") as HTMLElement).getByText(card.name.es));
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar las cartas y ver el mapa" }));
+    expect(screen.getByTestId("large-map")).toBeInTheDocument();
+    expect(screen.queryByTestId("small-map")).not.toBeInTheDocument();
+    expect(container.querySelector(".cards-hands")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Tu jugada" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a las cartas" }));
+    expect(screen.queryByTestId("large-map")).not.toBeInTheDocument();
+    const tray = screen.getByRole("region", { name: "Tu jugada" });
+    expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
+  });
+
+  it("has no bar without a map to show (own tablets)", () => {
+    render(
+      <CardsView handCards={[]} drawPileCount={0} discardPileCount={0} dealtCardIds={new Set()} onCardDealt={() => {}} onCardClick={() => {}} />
+    );
+    expect(screen.queryByTestId("hand-away-bar")).not.toBeInTheDocument();
+  });
+});
+
 describe("CardsView one hand", () => {
   it("holds the command cards by section, then the combat cards, playable ones first", () => {
     const right = new CommandCard({ id: "right", name: same("Derecha"), sections: [Side.RIGHT], orders: 2 });

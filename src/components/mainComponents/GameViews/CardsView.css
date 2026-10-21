@@ -221,3 +221,11 @@
 .hand-card--combat:not(.hand-card--playable) .game-card {
   filter: grayscale(1);
 }
+
+/* Pass and play, the cards put away: the map fills the table's and the hand's space */
+.cards-view__map {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

@@ -118,6 +118,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
           <div className="phase-layout">
             <div className="phase-layout__board">
               <Board
+                zoomable
                 onTileClick={noop}
                 unitHexPosition={null}
                 possibleMovePositions={[]}

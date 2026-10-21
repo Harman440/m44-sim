@@ -466,6 +466,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
           <div className="phase-layout">
             <Box className="phase-layout__board" sx={{ position: "relative" }}>
               <Board
+                zoomable
                 onTileClick={pick || fireTurn ? tapMap : noop}
                 unitHexPosition={pick?.from ?? (shownShot ? shotFrom : (pickedSummary?.firingFrom ?? null))}
                 possibleMovePositions={pick?.from ? [...pick.options] : []}

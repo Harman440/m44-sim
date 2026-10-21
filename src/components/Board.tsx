@@ -1,4 +1,5 @@
 import { useContext, useRef } from 'react';
+import { IconButton } from '@mui/material';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
 import type { UnitStrength } from '../game-core/gameSession';
@@ -20,6 +21,21 @@ import Unit from '../game-core/unit';
 import type { MarkerRule } from '../game-core/combatCard';
 import { SandbagsArt } from './SandbagsIcon';
 import { CamouflageBadge } from './CamouflageIcon';
+import { useBoardZoom } from './boardZoom';
+import { defineMessages, useMessages } from '../i18n/useI18n';
+
+const TEXT = defineMessages({
+  es: {
+    zoomIn: 'Acercar el mapa',
+    zoomOut: 'Alejar el mapa',
+    fit: 'Ver el mapa entero',
+  },
+  en: {
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    fit: 'Show the whole map',
+  },
+});
 
 /** Hexes to flash red; a new `id` restarts the animation on the same hexes */
 export interface HexFlash {
@@ -78,6 +94,11 @@ interface BoardProps {
    * from: the reveal before the armies move. Taken off, they glide to where they stand
    */
   atStart?: boolean;
+  /**
+   * The player can zoom and pan: pinch, the mouse wheel and the +/− buttons
+   * zoom, a drag pans once zoomed in (a drag is never a tap on a hex)
+   */
+  zoomable?: boolean;
 }
 
 /** A unit drawn on the map, where it stands in its own side's view */
@@ -134,8 +155,10 @@ function Board({
   opponent: opponentProp,
   strength: strengthProp,
   collisions = [],
-  atStart = false
+  atStart = false,
+  zoomable = false
 }: BoardProps) {
+  const t = useMessages(TEXT);
   const shared = useContext(OpponentContext);
   const victory = useContext(VictoryContext);
   /** Each unit's hits this turn when this map last drew it, and the count it last shook at (renderUnits) */
@@ -524,11 +547,15 @@ function Board({
     viewHeight = bottom - top;
   }
 
+  const zoom = useBoardZoom({ x: viewX, y: viewY, width: viewWidth, height: viewHeight }, zoomable);
+  const shown = zoom.view;
+
   return (
-    <div className="board">
-      {/* viewBox + CSS width lets the board scale down to fit tablets */}
+    <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.zoomed ? ' board--zoomed' : ''}`} {...zoom.handlers}>
+      {/* viewBox + CSS width lets the board scale down to fit tablets; zooming narrows the viewBox */}
       <svg
-        viewBox={`${viewX} ${viewY} ${viewWidth} ${viewHeight}`}
+        ref={zoom.svgRef}
+        viewBox={`${shown.x} ${shown.y} ${shown.width} ${shown.height}`}
         style={{ maxWidth: focus.length > 0 ? undefined : width, '--board-aspect': viewWidth / viewHeight } as React.CSSProperties}
         className="board__svg"
       >
@@ -577,6 +604,19 @@ function Board({
         {/* Layer 5: dice at each hex a unit can fire at (top layer) */}
         {renderTargetDice()}
       </svg>
+      {zoomable && (
+        <div className="board__zoom">
+          <IconButton className="board__zoom-button" aria-label={t.zoomIn} title={t.zoomIn} disabled={!zoom.canZoomIn} onClick={zoom.zoomIn}>
+            +
+          </IconButton>
+          <IconButton className="board__zoom-button" aria-label={t.zoomOut} title={t.zoomOut} disabled={!zoom.zoomed} onClick={zoom.zoomOut}>
+            −
+          </IconButton>
+          <IconButton className="board__zoom-button" aria-label={t.fit} title={t.fit} disabled={!zoom.zoomed} onClick={zoom.reset}>
+            ⤢
+          </IconButton>
+        </div>
+      )}
     </div>
   );
 };

@@ -496,6 +496,7 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
     <div className="phase-layout">
       <div className="phase-layout__board">
         <Board
+          zoomable
           onTileClick={handleTileClick}
           unitHexPosition={unitHexPosition}
           possibleMovePositions={moveOptions?.moves ?? []}

@@ -132,3 +132,55 @@
 .board__objective-medal {
   fill: var(--m44-paper);
 }
+
+/* A zoomable board: pinch and drag are ours, not the page's, once zoomed in.
+   Unzoomed, a portrait page still scrolls over it; landscape doesn't scroll */
+.board--zoomable {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.board--zoomed {
+  touch-action: none;
+}
+
+.board--zoomed .board__svg {
+  cursor: grab;
+}
+
+@media (orientation: landscape) {
+  .board--zoomable {
+    touch-action: none;
+  }
+}
+
+/* The zoom buttons, in the board's top right corner, see-through so the map shows under them */
+.board__zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.board__zoom-button.MuiIconButton-root {
+  width: 48px;
+  height: 48px;
+  font-family: var(--m44-font-display);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--m44-ink);
+  background: color-mix(in srgb, var(--m44-paper) 72%, transparent);
+  border: var(--m44-border-width, 2px) solid var(--m44-border);
+  backdrop-filter: blur(2px);
+}
+
+.board__zoom-button.MuiIconButton-root:hover {
+  background: color-mix(in srgb, var(--m44-paper) 90%, transparent);
+}
+
+.board__zoom-button.Mui-disabled {
+  opacity: 0.4;
+}

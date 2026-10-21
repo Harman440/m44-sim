@@ -122,3 +122,8 @@
     --card-width: clamp(112px, 18vh, 180px);
   }
 }
+
+/* Pass and play, the cards put away: only the large map shows */
+.end-of-turn--away > :not(.large-map, .hand-away-bar) {
+  display: none !important;
+}

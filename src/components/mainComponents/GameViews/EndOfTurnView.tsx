@@ -14,7 +14,8 @@ import Flight, { Box as ScreenBox, boxOf, centredBox } from "../../Flight";
 import GameIcon from "../../GameIcon";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
-import MapPreview from "./MapPreview";
+import MapPreview, { LargeMap } from "./MapPreview";
+import HandAwayBar from "./HandAwayBar";
 import { RewardChoice } from "../../../game-core/coins";
 import { sortCombatHand, sortCommandHand } from "../../../game-core/handOrder";
 import { END_OF_TURN_COINS } from "../../../data/coinRules";
@@ -243,6 +244,8 @@ function EndOfTurnView({
   const drawChoice = chosenCard?.drawChoice ?? 1;
   const reward = chosenCard?.endOfTurnReward;
   const [showMap, setShowMap] = useState(false);
+  /** Pass and play: the steps and the hand are put away and the map shows large; they stay mounted, so the flights keep their places */
+  const [handAway, setHandAway] = useState(false);
   const [looking, setLooking] = useState<ShownCard | null>(null);
   /** The reward the player is weighing; taken with Confirmar */
   const [selection, setSelection] = useState<RewardChoice>("coins");
@@ -453,7 +456,8 @@ function EndOfTurnView({
     [arrivingKeys.has(key) && "card-hand__slot--incoming", isNew && "hand-card--new"].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className="end-of-turn">
+    <div className={`end-of-turn${shared && handAway ? " end-of-turn--away" : ""}`}>
+      {shared && handAway && <LargeMap session={session} faction={faction} />}
       <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
         <StepHeading title={t.step1} info={<Typography variant="body1">{shared ? t.step1InfoShared : t.step1Info}</Typography>}>
           {/* Pass and play: the app keeps the map, so there's nothing to update, only to see */}
@@ -730,6 +734,7 @@ function EndOfTurnView({
       ))}
 
       <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label={t.card} />
+      {shared && <HandAwayBar away={handAway} onToggle={() => setHandAway((away) => !away)} />}
     </div>
   );
 }

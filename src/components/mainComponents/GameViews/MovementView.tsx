@@ -73,6 +73,7 @@ function MovementView({ faction, session, game }: MovementViewProps) {
     <div className="phase-layout">
       <div className="phase-layout__board">
         <Board
+          zoomable
           onTileClick={noop}
           unitHexPosition={null}
           possibleMovePositions={[]}
