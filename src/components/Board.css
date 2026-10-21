@@ -184,3 +184,12 @@
 .board__zoom-button.Mui-disabled {
   opacity: 0.4;
 }
+
+/* Fog of war: the hexes out of sight, shaded (see-through as a whole, so overlapping edges don't show) */
+.board__fog {
+  opacity: 0.55;
+}
+
+.board__fog polygon {
+  fill: var(--m44-fog, #000);
+}

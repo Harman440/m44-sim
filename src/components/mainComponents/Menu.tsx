@@ -60,10 +60,10 @@ const TEXT = defineMessages({
       "Los disparos a una unidad no adyacente se tiran con un dado de 8 caras: 3 infantería, 2 tanques, " +
       "bandera y 2 suministros. El tanque impacta a blindados y artillería. Actívalo en los dos dispositivos.",
     artilleryCrew: "La artillería destruida queda como infantería",
-    againstComputer: "Contra el ordenador",
+    fogTitle: "Pasar y jugar y contra el ordenador",
     fogOfWar: "Niebla de guerra",
     fogOfWarHelp: (vision: number, fromHill: number) =>
-      `Al empezar la batalla de cada turno solo ves las unidades enemigas a ${vision} casillas o menos de una de las tuyas y en su línea de visión (${fromHill} desde una colina); una unidad oculta que dispara se ve el resto del turno. El ordenador juega con la misma niebla. Al principio de la partida se ven los dos ejércitos.`,
+      `Al empezar la batalla de cada turno solo ves las unidades enemigas a ${vision} casillas o menos de una de las tuyas y en su línea de visión (${fromHill} desde una colina); lo que no ves queda a oscuras, y una unidad oculta que dispara se ve el resto del turno. Contra el ordenador, él juega con la misma niebla; al principio de la partida se ven los dos ejércitos. Entre dos jugadores, en la batalla el mapa oscurece las casillas que algún bando no ve y esconde las unidades que su enemigo no ve.`,
     artilleryCrewHelp:
       "Cuando destruyen una de tus artillerías, sus artilleros siguen luchando: en la fase final, al " +
       "eliminarla del mapa, en su casilla queda una unidad de infantería. Pon en la mesa una figura de " +
@@ -123,10 +123,10 @@ const TEXT = defineMessages({
       "Shots at a unit that isn't adjacent are rolled with an 8-sided die: 3 infantry, 2 tanks, " +
       "a flag and 2 supplies. The tank hits armor and artillery. Turn it on on both devices.",
     artilleryCrew: "Destroyed artillery stays as infantry",
-    againstComputer: "Against the computer",
+    fogTitle: "Pass and play and against the computer",
     fogOfWar: "Fog of war",
     fogOfWarHelp: (vision: number, fromHill: number) =>
-      `When each turn's battle starts you only see the enemy units ${vision} hexes or less from one of yours and in its line of sight (${fromHill} from a hill); a hidden unit that fires is seen for the rest of the turn. The computer plays under the same fog. At the start of the game both armies are known.`,
+      `When each turn's battle starts you only see the enemy units ${vision} hexes or less from one of yours and in its line of sight (${fromHill} from a hill); what you don't see is darkened, and a hidden unit that fires is seen for the rest of the turn. Against the computer, it plays under the same fog; at the start of the game both armies are known. Between two players, in the battle the map darkens the hexes either side doesn't see and hides the units their enemy doesn't see.`,
     artilleryCrewHelp:
       "When one of your artillery units is destroyed, its crew keeps fighting: in the final phase, when " +
       "you remove it from the map, an infantry unit stays on its hex. Put an infantry figure in its " +
@@ -393,7 +393,7 @@ function Menu({
                     size="large"
                     disabled={!faction || problems.length > 0}
                     onClick={() =>
-                      faction && onPassAndPlay({ scenarioId: scenario.id, mainSide: faction, longRangeDie, artilleryCrew, testMode })
+                      faction && onPassAndPlay({ scenarioId: scenario.id, mainSide: faction, longRangeDie, artilleryCrew, testMode, fogOfWar })
                     }
                     startIcon={<GameIcon name="pass" />}
                   >
@@ -503,7 +503,7 @@ function Menu({
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <Typography variant="h6" component="h3" sx={{ mt: 3, mb: 0.5 }}>
-          {t.againstComputer}
+          {t.fogTitle}
         </Typography>
         <FormControlLabel
           control={<Switch checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} />}

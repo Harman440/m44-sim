@@ -29,3 +29,15 @@ export function inSight(board: BoardManager, own: readonly Position[], enemies: 
     own.some((from) => hexDistance(from, enemy) <= visionFrom(board, from) && hasLineOfSight(board, from, enemy, enemyKeys)),
   );
 }
+
+/**
+ * The hexes a side sees, in that side's view of the board (`board`, with its own units on it):
+ * each in range of one of `own` and in its line of sight, which the enemy units it knows of
+ * (`enemies`, by `positionKey`) block too. The hexes its units stand on are always among them
+ */
+export function seenHexes(board: BoardManager, own: readonly Position[], enemies: ReadonlySet<string>): Position[] {
+  return board
+    .getAllHexes()
+    .map((hex) => hex.getPosition())
+    .filter((to) => own.some((from) => hexDistance(from, to) <= visionFrom(board, from) && hasLineOfSight(board, from, to, enemies)));
+}

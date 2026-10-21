@@ -206,7 +206,7 @@ const App = () => {
       }, {
         mainSide: setup.mainSide,
         computer: setup.computer ? otherSide(setup.mainSide) : null,
-        fog: setup.computer === true && setup.fogOfWar !== false,
+        fog: setup.fogOfWar !== false,
       });
       setGame((prev) => ({ play: { match }, resumed: false, number: (prev?.number ?? 0) + 1 }));
     });

@@ -3,10 +3,10 @@ import { SavedGame } from "./saveGame";
 import Unit, { UnitType } from "./unit";
 import Order from "./order";
 import { turnedRound } from "./BoardManager";
-import { boardSizeOf } from "./boardSize";
+import { boardPositions, boardSizeOf } from "./boardSize";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
-import { inSight } from "./fogOfWar";
+import { inSight, seenHexes } from "./fogOfWar";
 import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
 import { appliedFaces, keptForHits, readRoll } from "./rollResult";
 import { OrderSummary } from "./turnSummary";
@@ -220,8 +220,9 @@ class PassAndPlayMatch {
   private held: Record<Faction, Position[]>;
   private result: MatchResult | null;
   /**
-   * Fog of war (against the computer only, game-core/fogOfWar.ts): each side sees the enemy units
-   * in its units' sight once the turn's units have moved, until the battle ends
+   * Fog of war (game-core/fogOfWar.ts): each side sees the enemy units in its units' sight. Against
+   * the computer once the turn's units have moved, until the battle ends (then what it saw is what
+   * it knows); between two people only in the battle, on the screen they share
    */
   readonly fog: boolean;
   /** The enemy units each side saw when the last battle ended, in its own view: what it knows while giving orders. Null before the first battle: both armies are known */
@@ -281,7 +282,7 @@ class PassAndPlayMatch {
     this.active = computer ? otherSide(computer) : active;
     this.mainSide = mainSide;
     this.covered = computer ? false : covered;
-    this.fog = computer !== null && fog;
+    this.fog = fog;
     this.sighted = sighted;
     this.revealedTurn = revealedTurn;
     this.movement = movement;
@@ -709,7 +710,7 @@ class PassAndPlayMatch {
 
   private finishBattle() {
     // What each side sees as the battle ends is what it knows until the next turn's units move
-    if (this.fog) this.sighted = { Allies: this.liveSight("Allies"), Axis: this.liveSight("Axis") };
+    if (this.fog && this.computer) this.sighted = { Allies: this.liveSight("Allies"), Axis: this.liveSight("Axis") };
     for (const side of FACTIONS) this.sessions[side].endBattle();
     this.battle = null;
     this.scoreTurn();
@@ -861,15 +862,61 @@ class PassAndPlayMatch {
    * The enemy units `viewer` sees now, by hex in its own view, or null when it sees them all (no
    * fog, or no battle yet). Live once the turn's units have moved, until the battle ends: in its
    * units' sight, and those that fired this turn; before that, what it saw when the last battle
-   * ended, where those units stood (the enemy's orders move its units on its own board as they're given)
+   * ended, where those units stood (the enemy's orders move its units on its own board as they're
+   * given). Between two people, only in the battle
    */
   private sightOf(viewer: Faction): Set<string> | null {
     if (!this.fog) return null;
-    if (this.movement || this.battle) return new Set(this.liveSight(viewer).map(positionKey));
-    return this.sighted && new Set(this.sighted[viewer].map(positionKey));
+    if (this.battle || (this.computer && this.movement)) return new Set(this.liveSight(viewer).map(positionKey));
+    return this.computer && this.sighted ? new Set(this.sighted[viewer].map(positionKey)) : null;
   }
 
-  /** The enemy units `viewer`'s units see where everything stands now, and those that fired at it this turn (its view) */
+  /**
+   * The hexes `viewer` sees now, by key in its own view, or null when it sees everything: those
+   * in its units' sight (from where they stood when the last battle ended, until the units move)
+   * and those of the enemy units it sees
+   */
+  private sightHexes(viewer: Faction): Set<string> | null {
+    const enemies = this.sightOf(viewer);
+    if (!enemies) return null;
+    const own = this.sessions[viewer];
+    const game = own.getSnapshot();
+    const moved = !!(this.movement || this.battle) || game.turn <= this.revealedTurn;
+    const startOf = new Map(game.orders.map((order) => [order.unit, order.start]));
+    const from = armyOf(own).map(({ unit, position }) => (moved ? position : (startOf.get(unit) ?? position)));
+    return new Set([...seenHexes(own.board, from, enemies).map(positionKey), ...enemies]);
+  }
+
+  /**
+   * Fog of war on a map drawn from `board`'s side (the screens both players share): the hexes to
+   * darken and that side's units to leave off, both in its view; null when nothing is hidden now.
+   * Against the computer the fog is the person's alone: the computer's units it doesn't see are
+   * left off. Between two people (in the battle) a hex is clear only when both sides see it, and
+   * each side's units are shown only when the enemy sees them
+   */
+  fogOn(board: Faction): { dark: Position[]; hidden: Position[] } | null {
+    const watchers: readonly Faction[] = this.computer ? [otherSide(this.computer)] : FACTIONS;
+    const sights = watchers.map((watcher) => ({ watcher, hexes: this.sightHexes(watcher) }));
+    if (sights.some(({ hexes }) => !hexes)) return null;
+    const inViewOf = (side: Faction, position: Position) => (side === board ? position : this.turnedRound(position));
+    const dark = boardPositions(boardSizeOf(this.scenario)).filter(
+      (position) => !sights.every(({ watcher, hexes }) => hexes!.has(positionKey(inViewOf(watcher, position))))
+    );
+    const enemy = otherSide(board);
+    const seenByEnemy = watchers.includes(enemy) ? this.sightOf(enemy) : null;
+    const hidden = seenByEnemy
+      ? armyOf(this.sessions[board])
+          .map(({ position }) => position)
+          .filter((position) => !seenByEnemy.has(positionKey(this.turnedRound(position))))
+      : [];
+    return { dark, hidden };
+  }
+
+  /**
+   * The enemy units `viewer`'s units see where everything stands now, those that fired at it this
+   * turn and, in the battle, its artillery ordered to fire (its view). The other units that can fire
+   * at one of its units are always in its sight: their range is shorter than `VISION`
+   */
   private liveSight(viewer: Faction): Position[] {
     const own = this.sessions[viewer];
     const enemySide = otherSide(viewer);
@@ -884,7 +931,13 @@ class PassAndPlayMatch {
         const at = unit && armyOf(enemy).find((placed) => placed.unit === unit);
         return at ? [this.turnedRound(at.position)] : [];
       });
-    return [...seen, ...fired];
+    // Artillery ordered to fire shows itself as soon as the battle starts
+    const artillery = this.battle
+      ? armyOf(enemy)
+          .filter(({ unit }) => unit.getUnitType() === UnitType.ARTILLERY && orders.some((order) => order.unit === unit && order.canFire))
+          .map(({ position }) => this.turnedRound(position))
+      : [];
+    return [...seen, ...fired, ...artillery];
   }
 
   private updateCollision(index: number, changes: Partial<MatchCollision>) {
@@ -910,7 +963,7 @@ class PassAndPlayMatch {
    * Orders move units on their side's board as they're given, so while they're secret their
    * units are shown where the orders started.
    */
-  opponentOf(viewer: Faction): ArmyView {
+  opponentOf(viewer: Faction, { fogged = true }: { fogged?: boolean } = {}): ArmyView {
     const faction = otherSide(viewer);
     const session = this.sessions[faction];
     const game = session.getSnapshot();
@@ -931,8 +984,9 @@ class PassAndPlayMatch {
     const startOf = new Map(game.orders.map((order) => [order.unit, order.start]));
     // Fog of war: only the units the viewer sees, by where they stand now once they've moved, by
     // where they started before (what it saw when the last battle ended)
-    const sight = this.sightOf(viewer);
-    const live = !!(this.movement || this.battle);
+    const sight = fogged ? this.sightOf(viewer) : null;
+    // After the battle the units stand where it left them, as when it was last seen
+    const live = !!(this.movement || this.battle) || game.turn <= this.revealedTurn;
     const seen = (unit: Unit, position: Position) =>
       !sight || sight.has(positionKey(this.turnedRound(live ? position : (startOf.get(unit) ?? position))));
     const army = armyOf(session)

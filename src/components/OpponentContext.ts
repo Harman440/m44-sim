@@ -2,6 +2,15 @@ import { createContext } from "react";
 import type { ArmyView } from "../game-core/passAndPlay";
 import type { UnitStrength } from "../game-core/gameSession";
 import type { Faction } from "../types/faction";
+import type { Position } from "../types/scenario";
+
+/** Fog of war on a map (`PassAndPlayMatch.fogOn`), in the board's own view */
+export interface BoardFog {
+  /** The hexes darkened */
+  dark: readonly Position[];
+  /** This side's units left off the map, with their orders, sandbags and badges */
+  hidden: readonly Position[];
+}
 
 /** Pass and play: what every map of the game screen draws besides this side's own units */
 export interface SharedBoard {
@@ -9,6 +18,8 @@ export interface SharedBoard {
   opponent: ArmyView;
   /** This side's units' figures and retreats */
   strength: readonly UnitStrength[];
+  /** Fog of war over the maps, if any */
+  fog?: BoardFog | null;
 }
 
 /** Null in the one-side game, where the other army is only on the table */

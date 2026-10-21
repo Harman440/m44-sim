@@ -395,7 +395,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const aim = picked?.target ? (aims.find((a) => samePosition(a.position, picked.target!)) ?? null) : null;
   const fireablePositions = fireTurn ? battle.fireable.map((order) => summaries[order]!.firingFrom) : [];
 
-  // The board of the side acting now, seen from the main side
+  // The board of the side acting now, seen from the main side. Fog of war: against the computer,
+  // what the person sees (its board shows all the person's units, and only its own the person
+  // sees); between two people, each side's units its enemy sees
   const boardSide: Faction = pick?.side ?? (shownShot ? shown!.side : undefined) ?? fireTurn?.side ?? mainSide;
   const boardSession = match.sessions[boardSide];
   const boardGame = boardSession.getSnapshot();
@@ -483,7 +485,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 orders={boardGame.orders}
                 backgroundImage={boardSession.scenario.image}
                 faction={boardSide}
-                opponent={match.opponentOf(boardSide)}
+                opponent={match.opponentOf(boardSide, { fogged: boardSide !== computer })}
+                fog={match.fogOn(boardSide)}
                 strength={boardGame.strength}
                 firedUnits={
                   new Set(boardGame.orders.filter((_, i) => boardSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))

@@ -123,7 +123,7 @@ function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
     <Suspense fallback={loading}>
       {/* The other army on every map: where it stands, and its orders once revealed */}
       <OpponentContext.Provider
-        value={{ opponent: match.opponentOf(active), strength: match.activeSession().getSnapshot().strength }}
+        value={{ opponent: match.opponentOf(active), strength: match.activeSession().getSnapshot().strength, fog: match.fogOn(active) }}
       >
         {/* Keyed by side: each player's screen starts with its own UI state */}
         <GameView

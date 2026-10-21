@@ -71,3 +71,25 @@ describe("Board sandbags", () => {
     expect(turnedOf(container, "Axis")).toBe(true);
   });
 });
+
+describe("Board fog of war", () => {
+  it("darkens the hexes out of sight and leaves off the hidden units with their sandbags", () => {
+    const allies = new BoardManager(scenario, "Allies");
+    const axis = new BoardManager(scenario, "Axis");
+
+    const { container } = render(
+      <Board
+        {...plain}
+        boardManager={allies}
+        faction="Allies"
+        opponent={armyOf(axis, "Axis")}
+        fog={{ dark: [{ row: 0, col: 0 }, { row: 6, col: 2 }], hidden: [{ row: 6, col: 2 }] }}
+      />
+    );
+
+    expect([...container.querySelectorAll("[data-fog-at]")].map((hex) => hex.getAttribute("data-fog-at"))).toEqual(["0-0", "6-2"]);
+    expect(container.querySelector('[data-unit-at="6-2"]')).toBeNull();
+    expect(container.querySelector('[data-sandbags-side="Allies"]')).toBeNull();
+    expect(container.querySelector('[data-faction="Axis"]')).not.toBeNull();
+  });
+});

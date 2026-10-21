@@ -32,6 +32,8 @@ export interface LookColors {
   moveOnly: string;
   /** Die faces */
   die: string;
+  /** Board: the shade over the hexes the fog of war hides */
+  fog: string;
 }
 
 export interface Look {
@@ -81,6 +83,7 @@ export const LOOKS: Record<LookId, Look> = {
       moveAndFire: "#3f7d20",
       moveOnly: "#c98a00",
       die: "#fbf7ec",
+      fog: "#1e1a12",
     },
     fonts: {
       display: "'Stardos Stencil', 'Special Elite', serif",
@@ -116,6 +119,7 @@ export const LOOKS: Record<LookId, Look> = {
       moveAndFire: "#3f7d20",
       moveOnly: "#d18f00",
       die: "#fffaf0",
+      fog: "#0e1220",
     },
     fonts: {
       display: "'Black Ops One', 'Barlow Condensed', sans-serif",
@@ -151,6 +155,7 @@ export const LOOKS: Record<LookId, Look> = {
       moveAndFire: "#7fb24a",
       moveOnly: "#e3a72f",
       die: "#efe6cf",
+      fog: "#000000",
     },
     fonts: {
       display: "'Allerta Stencil', 'IBM Plex Sans Condensed', sans-serif",

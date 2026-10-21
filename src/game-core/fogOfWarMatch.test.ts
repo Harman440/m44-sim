@@ -21,7 +21,7 @@ const scenario: Scenario = {
     axis: { infantry: [{ row: 1, col: 3 }, { row: 5, col: 11 }] },
   },
 };
-const cards = () => Array.from({ length: 8 }, (_, i) => new CommandCard({ id: `all-${i}`, orders: 6 }));
+const cards = (orders = 6) => Array.from({ length: 8 }, (_, i) => new CommandCard({ id: `all-${i}`, orders }));
 const newSession = (faction: Faction) => new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards(), figures: true });
 const restoreSide = (saved: SavedGame) => GameSession.restore(saved, scenario, cards());
 const newMatch = (fog: boolean) =>
@@ -40,6 +40,26 @@ const holdAll = (session: GameSession) => {
 /** The enemy units a side sees, in their own side's view */
 const seenBy = (match: PassAndPlayMatch, viewer: Faction) =>
   match.opponentOf(viewer).units.map(({ position }) => `${position.row}-${position.col}`).sort();
+
+/** A side orders only the unit on this hex to hold (with a card of one order) */
+const holdOnly = (session: GameSession, position: { row: number; col: number }) => {
+  expect(session.pickCard(session.getSnapshot().hand[0]!)).toBe(true);
+  expect(session.issueOrder(position, position)).toBe(true);
+  expect(session.commitOrders()).toBe(true);
+};
+
+const keys = (positions: readonly { row: number; col: number }[]) => positions.map(({ row, col }) => `${row}-${col}`).sort();
+
+// The Axis' infantry 4 hexes from the Allied unit spots it for the artillery behind, 5 hexes away
+const spotted: Scenario = {
+  ...scenario,
+  units: { allies: { infantry: [{ row: 8, col: 6 }] }, axis: { infantry: [{ row: 4, col: 6 }], artillery: [{ row: 3, col: 6 }] } },
+};
+const spottedMatch = ({ computer, orders = 1 }: { computer?: Faction; orders?: number }) => {
+  const side = (faction: Faction) =>
+    new GameSession({ scenario: spotted, faction, initialHandSize: 2, commandCards: cards(orders), figures: true });
+  return new PassAndPlayMatch(spotted, { Allies: side("Allies"), Axis: side("Axis") }, { computer: computer ?? null, fog: true });
+};
 
 /** Turn 1: the Axis' orders, the move, into the battle */
 const toBattle = (match: PassAndPlayMatch) => {
@@ -72,25 +92,44 @@ describe("fog of war against the computer", () => {
     expect(seenBy(match, "Allies")).toEqual(["3-0"]);
   });
 
-  it("shows a hidden unit that fires for the rest of the turn", () => {
-    // The Axis' infantry 4 hexes from the Allied unit spots it for the artillery behind, 5 hexes away
-    const spotted: Scenario = {
-      ...scenario,
-      units: { allies: { infantry: [{ row: 8, col: 6 }] }, axis: { infantry: [{ row: 4, col: 6 }], artillery: [{ row: 3, col: 6 }] } },
-    };
-    const side = (faction: Faction) => new GameSession({ scenario: spotted, faction, initialHandSize: 2, commandCards: cards(), figures: true });
-    const match = new PassAndPlayMatch(spotted, { Allies: side("Allies"), Axis: side("Axis") }, { computer: "Axis", fog: true });
-    holdAll(match.sessions.Axis);
+  it("shows artillery ordered to fire from the start of the battle, and one that fires for the rest of the turn", () => {
+    const match = spottedMatch({ computer: "Axis" });
+    // Only the infantry (4-6 in both views) is ordered: the artillery (3-6, which is 5-5 in the Axis' view) is out of sight
+    holdOnly(match.sessions.Axis, { row: 4, col: 6 });
     expect(match.moveUnits()).toBe(true);
     expect(match.finishReveal()).toBe(true);
-    // The artillery (3-6, which is 5-5 in the Axis' view) is out of sight
     expect(seenBy(match, "Allies")).toEqual(["4-6"]);
 
-    const artillery = match.sessions.Axis.getSnapshot().orders.findIndex((order) => order.unit.getUnitType() === "artillery");
+    const ordered = spottedMatch({ computer: "Axis", orders: 2 });
+    holdAll(ordered.sessions.Axis);
+    expect(ordered.moveUnits()).toBe(true);
+    expect(ordered.finishReveal()).toBe(true);
+    expect(seenBy(ordered, "Allies")).toEqual(["4-6", "5-5"]);
+    const artillery = ordered.sessions.Axis.getSnapshot().orders.findIndex((order) => order.unit.getUnitType() === "artillery");
     // The Allied unit at 8-6 is 0-6 in the Axis' view
-    expect(match.fire(artillery, { row: 0, col: 6 })).toBe(true);
+    expect(ordered.fire(artillery, { row: 0, col: 6 })).toBe(true);
+    expect(seenBy(ordered, "Allies")).toEqual(["4-6", "5-5"]);
+  });
 
-    expect(seenBy(match, "Allies")).toEqual(["4-6", "5-5"]);
+  it("darkens the hexes the person doesn't see and leaves off the computer's hidden units on its board", () => {
+    const match = spottedMatch({ computer: "Axis" });
+    // Before the first battle both armies are known
+    expect(match.fogOn("Allies")).toBeNull();
+    holdOnly(match.sessions.Axis, { row: 4, col: 6 });
+    expect(match.moveUnits()).toBe(true);
+    expect(match.finishReveal()).toBe(true);
+
+    const allies = match.fogOn("Allies")!;
+    expect(allies.hidden).toEqual([]);
+    expect(keys(allies.dark)).toContain("0-6");
+    expect(keys(allies.dark)).not.toContain("8-6");
+    expect(keys(allies.dark)).not.toContain("4-6");
+    // The computer's board (when it fires): its artillery (5-5 in its view), out of the person's sight, is left off
+    const axis = match.fogOn("Axis")!;
+    expect(keys(axis.hidden)).toEqual(["5-5"]);
+    expect(keys(axis.dark)).toContain("8-6");
+    // The person's own units are all on that board
+    expect(match.opponentOf("Axis", { fogged: false }).units).toHaveLength(1);
   });
 
   it("is kept in a save", () => {
@@ -104,12 +143,42 @@ describe("fog of war against the computer", () => {
     expect(seenBy(restored, "Allies")).toEqual(["3-0"]);
   });
 
-  it("shows everything without the switch, and never in a match between two people", () => {
+  it("shows everything without the switch", () => {
     const match = newMatch(false);
     toBattle(match);
     expect(seenBy(match, "Allies")).toEqual(["3-0", "7-8"]);
+    expect(match.fogOn("Allies")).toBeNull();
+  });
+});
 
-    const people = new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { fog: true });
-    expect(people.fog).toBe(false);
+describe("fog of war between two people", () => {
+  it("hides, in the battle only, each side's units its enemy doesn't see, and darkens what either side doesn't see", () => {
+    const match = spottedMatch({});
+    expect(match.fog).toBe(true);
+    // The Axis attacks: it plays turn 1 alone
+    holdOnly(match.sessions.Axis, { row: 4, col: 6 });
+    expect(match.moveUnits()).toBe(true);
+    // The movement isn't fogged
+    expect(match.fogOn("Allies")).toBeNull();
+    expect(match.finishReveal()).toBe(true);
+
+    expect(seenBy(match, "Allies")).toEqual(["4-6"]);
+    expect(seenBy(match, "Axis")).toEqual(["8-6"]);
+    // The Axis' artillery, not ordered, out of the Allies' sight: left off the Axis' board (5-5 in its view)
+    expect(keys(match.fogOn("Axis")!.hidden)).toEqual(["5-5"]);
+    expect(match.fogOn("Allies")!.hidden).toEqual([]);
+    // A hex is clear only when both sides see it: the Allies' rear and the artillery's are dark
+    const dark = keys(match.fogOn("Allies")!.dark);
+    expect(dark).toContain("8-0");
+    expect(dark).toContain("3-6");
+    expect(dark).not.toContain("6-6");
+    expect(dark).not.toContain("8-6");
+    // A hidden unit isn't a target
+    expect(match.sessions.Allies.enemyAt({ row: 5, col: 5 })).toBeNull();
+
+    expect(match.endBattle()).toBe(true);
+    // After the battle both armies are shown again
+    expect(match.fogOn("Allies")).toBeNull();
+    expect(seenBy(match, "Allies")).toEqual(["4-6", "5-5"]);
   });
 });

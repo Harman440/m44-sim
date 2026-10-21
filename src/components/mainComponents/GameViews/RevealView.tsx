@@ -132,6 +132,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 backgroundImage={session.scenario.image}
                 faction={viewer}
                 opponent={match.opponentOf(viewer)}
+                fog={match.fogOn(viewer)}
                 strength={game.strength}
                 collisions={moved?.collisions.map((collision) => markOf(collision, viewer, boardSizeOf(match.scenario))) ?? []}
                 // Until "Mover" the armies stand where they started; then they glide to where they stop

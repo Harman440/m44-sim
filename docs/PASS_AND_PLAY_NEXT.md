@@ -28,5 +28,5 @@ The risky parts, to watch in a match with "Modo prueba" (every combat card in th
 - [ ] The map editor: the medals and objective hexes of a new map (a file can already have them)
 
 ## Later
-- Fog of war
+- Fog of war: built (in the battle only between two people; see `fogOfWar.ts` in ARCHITECTURE.md)
 - Playing against the computer: planned in [PLAY_THE_COMPUTER.md](PLAY_THE_COMPUTER.md)

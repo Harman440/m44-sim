@@ -3,7 +3,7 @@ import { IconButton } from '@mui/material';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
 import type { UnitStrength } from '../game-core/gameSession';
-import { OpponentContext, ViewSideContext } from './OpponentContext';
+import { OpponentContext, ViewSideContext, type BoardFog } from './OpponentContext';
 import { VictoryContext } from './VictoryContext';
 import { iconUrl } from './GameIcon';
 import Hexagon, { HexHighlight } from './Hexagon';
@@ -82,6 +82,11 @@ interface BoardProps {
    * its colour; by default the game screen's (`OpponentContext`)
    */
   opponent?: ArmyView | null;
+  /**
+   * Pass and play: fog of war, the hexes darkened and this side's units left off; by default the
+   * game screen's
+   */
+  fog?: BoardFog | null;
   /** Pass and play: this side's units' figures and retreats; by default the game screen's */
   strength?: readonly UnitStrength[] | null;
   /**
@@ -153,6 +158,7 @@ function Board({
   faction,
   unitFactionAt,
   opponent: opponentProp,
+  fog: fogProp,
   strength: strengthProp,
   collisions = [],
   atStart = false,
@@ -165,6 +171,11 @@ function Board({
   const seenHits = useRef(new WeakMap<Unit, number>());
   const shookAt = useRef(new WeakMap<Unit, number>());
   const opponent = opponentProp === undefined ? (shared?.opponent ?? null) : opponentProp;
+  const fog = fogProp === undefined ? (shared?.fog ?? null) : fogProp;
+  const hiddenAt = (position: Position) => !!fog && includesPosition(fog.hidden, position);
+  // No unit is shown on a dark hex, so neither is its badge
+  const badgeHidden = (position: Position) => hiddenAt(position) || (!!fog && includesPosition(fog.dark, position));
+  const hiddenUnits = new Set(fog?.hidden.flatMap((position) => boardManager.getHex(position)?.unit ?? []) ?? []);
   const strength = new Map(
     (strengthProp === undefined ? (shared?.strength ?? []) : (strengthProp ?? [])).map((s) => [positionKey(s.position), s])
   );
@@ -191,7 +202,7 @@ function Board({
   };
 
   const renderOrders = () => {
-    return orders.map((order, index) => (
+    return orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
       <OrderComponent
         key={index} // an order's index identifies it for the whole turn (see Order)
         orderIndex={index}
@@ -374,13 +385,32 @@ function Board({
     return tiles;
   };
 
+  /** The hexes the fog of war hides, shaded; taps go through to the hexes */
+  const renderFog = () => {
+    if (!fog || fog.dark.length === 0) return null;
+    const corners = (x: number, y: number) =>
+      Array.from({ length: 6 }, (_, i) => {
+        const angle = (i * Math.PI) / 3 + Math.PI / 2;
+        // A hair bigger, so no seam shows between two dark hexes
+        return `${x + hexSize * 1.02 * Math.cos(angle)},${y + hexSize * 1.02 * Math.sin(angle)}`;
+      }).join(' ');
+    return (
+      <g className="board__fog" data-testid="fog-of-war" pointerEvents="none">
+        {fog.dark.map((position) => {
+          const { x, y } = geometry.hexCenter(position);
+          return <polygon key={positionKey(position)} data-fog-at={positionKey(position)} points={corners(x, y)} />;
+        })}
+      </g>
+    );
+  };
+
   /** Every unit on the map, this side's and the other army's, where it's drawn */
   const tokens = (): PlacedToken[] => {
     const startOf = (list: readonly Order[]) => new Map(list.map((order) => [order.unit, order.start]));
     const ownStarts = atStart ? startOf(orders) : null;
     const own = boardManager.getAllHexes().flatMap((hex): PlacedToken[] => {
       const unit = hex.unit;
-      if (!unit) return [];
+      if (!unit || hiddenUnits.has(unit)) return [];
       const position = hex.getPosition();
       const stands = strength.get(positionKey(position));
       return [{
@@ -474,8 +504,8 @@ function Board({
     // At the start of the movement the units ordered off their sandbags still stand behind them
     const left = (list: readonly Order[]) => (atStart ? list.flatMap((order) => order.lostSandbags) : []);
     const own = [
-      ...boardManager.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : [])),
-      ...left(orders),
+      ...boardManager.getAllHexes().flatMap((hex) => (hex.sandbags && !hiddenAt(hex.getPosition()) ? [hex.getPosition()] : [])),
+      ...left(orders.filter((order) => !hiddenUnits.has(order.unit))),
     ].map((position) => ({
       position,
       center: geometry.hexCenter(position),
@@ -501,7 +531,7 @@ function Board({
   /** A small card on the units a combat card was given to, at the token's left */
   /** The camouflage token, right of the token, halfway down */
   const renderCamouflage = () =>
-    camouflaged.map((position) => {
+    camouflaged.filter((position) => !badgeHidden(position)).map((position) => {
       const { x, y } = geometry.hexCenter(position);
       return (
         <g key={positionKey(position)} data-camouflage={positionKey(position)} pointerEvents="none">
@@ -512,7 +542,7 @@ function Board({
 
   const renderCardBadges = () =>
     cardBadges.flatMap(({ position }, i) => {
-      if (!position) return [];
+      if (!position || badgeHidden(position)) return [];
       const { x, y } = geometry.hexCenter(position);
       const w = hexSize * 0.3;
       const h = w * 1.4;
@@ -587,6 +617,7 @@ function Board({
 
         {/* Layer 2: Hexagon tiles, then the units and the sandbags in front of them */}
         {renderBoard()}
+        {renderFog()}
         {renderUnits()}
         {renderSandbags()}
         {renderObjectives()}

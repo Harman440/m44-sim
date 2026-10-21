@@ -18,6 +18,7 @@ export const lookCssVariables = ({ colors, fonts, radius, border, shadow }: Look
   "--m44-move-fire": colors.moveAndFire,
   "--m44-move-only": colors.moveOnly,
   "--m44-die": colors.die,
+  "--m44-fog": colors.fog,
   "--m44-font-display": fonts.display,
   "--m44-font-body": fonts.body,
   "--m44-radius": `${radius}px`,
