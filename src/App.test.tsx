@@ -116,7 +116,7 @@ describe("App menu and game flow", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Reglamento" }));
     expect(await screen.findByRole("tab", { name: "Reglas de la casa" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
-    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
   });
 
   it("opens the map editor from the menu, and goes back", async () => {
@@ -139,7 +139,7 @@ describe("App menu and game flow", () => {
     expect(screen.queryByText("Atacante")).not.toBeInTheDocument(); // the role is in the menu, not the header
     expect(screen.getByText("Turno 1 · extra")).toBeInTheDocument();
     expect(screen.getByText("1. Carta").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
-    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
   });
 
   it("shows the defender a waiting screen during the attacker's extra turn, then starts at turn 2", () => {
@@ -148,12 +148,12 @@ describe("App menu and game flow", () => {
 
     expect(screen.queryByText("Defensor")).not.toBeInTheDocument();
     expect(screen.getByText("Los Aliados atacan primero")).toBeInTheDocument();
-    expect(screen.queryByText("Zona de Mando")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Tu jugada" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Empezar turno 2" }));
 
     expect(screen.getByText("Turno 2")).toBeInTheDocument();
-    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
   });
 
   it("asks before leaving a game, and goes back to the menu on Salir", async () => {
@@ -164,7 +164,7 @@ describe("App menu and game flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Seguir jugando" }));
     // The dialog animates out; the page is inert until it's gone
     await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
-    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
 
     openExitDialog();
     fireEvent.click(screen.getByRole("button", { name: "Salir" }));
@@ -385,7 +385,7 @@ describe("App settings", () => {
     await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
 
     expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
-    expect(screen.getByText("Zona de Mando")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
   });
 
   it("switches to English from Ajustes straight away, remembers it, and plays the game in English", () => {

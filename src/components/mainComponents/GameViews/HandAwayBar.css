@@ -33,32 +33,3 @@
 .hand-away-bar__chevron--up {
   transform: translateY(3px) rotate(-135deg);
 }
-
-/* The large map fills the space the cards left, clear of the bar; in
-   landscape as large as fits both ways (the box is pinned to the space, so
-   its height is known to the container query) */
-.large-map {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding-bottom: 64px;
-}
-
-@media (orientation: landscape) {
-  .large-map__fit {
-    position: absolute;
-    inset: 0 0 64px 0;
-    container-type: size;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
-
-  .large-map__fit .board__svg {
-    width: min(100cqw, 100cqh * var(--board-aspect));
-  }
-
-  .large-map__fit .board {
-    width: auto;
-  }
-}

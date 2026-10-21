@@ -14,7 +14,7 @@ import Flight, { Box as ScreenBox, boxOf, centredBox } from "../../Flight";
 import GameIcon from "../../GameIcon";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
-import MapPreview, { LargeMap } from "./MapPreview";
+import LargeMap from "./LargeMap";
 import HandAwayBar from "./HandAwayBar";
 import { RewardChoice } from "../../../game-core/coins";
 import { sortCombatHand, sortCommandHand } from "../../../game-core/handOrder";
@@ -22,7 +22,6 @@ import { END_OF_TURN_COINS } from "../../../data/coinRules";
 import { MAX_COMBAT_HAND } from "../../../data/combatCards";
 import CombatCardComponent from "../../CombatCardComponent";
 import { useSound } from "../../../sound";
-import "./CardsView.css";
 import "./EndOfTurnView.css";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
@@ -482,55 +481,15 @@ function EndOfTurnView({
     </Typography>
   );
 
-  return (
-    <div className={`end-of-turn${shared && handAway ? " end-of-turn--away" : ""}`}>
-      {shared && handAway && <LargeMap session={session} faction={faction} />}
-      {shared ? (
-        <>
-          {/* Pass and play: the app has done the retreats and casualties, so the top is as in the Command Zone: the title, the map */}
-          <div className="cards-top">
-            <Box className="cards-header">
-              <Typography variant="h4" component="h3">
-                {t.finalPhase}
-              </Typography>
-            </Box>
-            {!handAway && (
-              <div className="cards-top__map">
-                <MapPreview session={session} faction={faction} />
-              </div>
-            )}
-            {mapButton && <div className="cards-top__end">{mapButton}</div>}
-          </div>
-          {reinforcementLine}
-        </>
-      ) : (
-        <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
-          <StepHeading title={t.step1} info={<Typography variant="body1">{t.step1Info}</Typography>}>
-            {game.battleEdits > 0 && (
-              <Typography variant="body2" color="text.secondary" data-testid="map-edits">
-                {t.mapEdits(game.battleEdits)}
-              </Typography>
-            )}
-            <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-              {t.updateMap}
-            </Button>
-          </StepHeading>
-          {tableReminders.map((reminder) => (
-            <Alert
-              key={reminder}
-              severity="warning"
-              icon={<GameIcon name="cards" />}
-              sx={{ mt: 1, py: 0 }}
-              data-testid="table-reminder"
-            >
-              {reminder}
-            </Alert>
-          ))}
-          {reinforcementLine}
-        </Paper>
-      )}
-
+  /** The command card and reward steps; in pass and play the map work left comes first */
+  const steps = (
       <div className="end-of-turn__steps" ref={tableRef}>
+        {shared && (mapButton || reinforcementLine) && (
+          <Paper variant="outlined" className="end-of-turn__step">
+            {mapButton}
+            {reinforcementLine}
+          </Paper>
+        )}
         <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-draw">
           <StepHeading
             title={shared ? t.commandCard : t.step2}
@@ -684,6 +643,51 @@ function EndOfTurnView({
           )}
         </Paper>
       </div>
+  );
+
+  return (
+    <div className={`end-of-turn${shared && handAway ? " end-of-turn--away" : ""}`}>
+      {shared && handAway && <LargeMap session={session} faction={faction} />}
+      {!shared && (
+        <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
+          <StepHeading title={t.step1} info={<Typography variant="body1">{t.step1Info}</Typography>}>
+            {game.battleEdits > 0 && (
+              <Typography variant="body2" color="text.secondary" data-testid="map-edits">
+                {t.mapEdits(game.battleEdits)}
+              </Typography>
+            )}
+            <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+              {t.updateMap}
+            </Button>
+          </StepHeading>
+          {tableReminders.map((reminder) => (
+            <Alert
+              key={reminder}
+              severity="warning"
+              icon={<GameIcon name="cards" />}
+              sx={{ mt: 1, py: 0 }}
+              data-testid="table-reminder"
+            >
+              {reminder}
+            </Alert>
+          ))}
+          {reinforcementLine}
+        </Paper>
+      )}
+
+      {shared ? (
+        // Pass and play: the map on the left (no title: the header shows the phase), the steps on its right
+        <div className="end-of-turn__main">
+          {!handAway && (
+            <div className="end-of-turn__map">
+              <LargeMap session={session} faction={faction} />
+            </div>
+          )}
+          {steps}
+        </div>
+      ) : (
+        steps
+      )}
 
       {/* The hand, as in the Command Zone: command cards by section, then the combat cards */}
       <section className="end-of-turn__hand" aria-labelledby="end-hand-title" ref={handRef}>

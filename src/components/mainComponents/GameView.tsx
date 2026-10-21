@@ -29,7 +29,7 @@ import WaitingView from "./GameViews/WaitingView";
 import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
-import MapPreview, { LargeMap } from "./GameViews/MapPreview";
+import LargeMap from "./GameViews/LargeMap";
 import { OpponentContext } from "../OpponentContext";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import { useSettings } from "../../settings";
@@ -341,7 +341,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
               canPlayCombatCards={game.canPlayCombatCards}
               coins={game.coins}
               faction={faction}
-              mapPreview={shared ? <MapPreview session={session} faction={faction} /> : undefined}
               largeMap={shared ? <LargeMap session={session} faction={faction} /> : undefined}
               initialPicks={lastPlay}
             />

@@ -76,7 +76,7 @@ const setup = ({ openMap = true } = {}) => {
 };
 
 describe("EndOfTurnView in pass and play", () => {
-  it("has no retreats step: the title and the map on top, as in the Command Zone", () => {
+  it("has no retreats step: the map, and the steps beside it", () => {
     const session = makeFinalSession();
     const shared = {
       opponent: { faction: "Axis" as const, units: [], orders: [], camouflaged: [], sandbags: [] },
@@ -89,8 +89,8 @@ describe("EndOfTurnView in pass and play", () => {
     );
     expect(screen.queryByText("1. Retiradas y bajas")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Actualizar mapa" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Fase final" })).toBeInTheDocument();
-    expect(screen.getByTestId("map-preview")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Fase final" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("large-map")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Carta de mando" })).toBeInTheDocument();
   });
 });

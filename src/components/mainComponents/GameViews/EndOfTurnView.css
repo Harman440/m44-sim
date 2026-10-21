@@ -1,5 +1,5 @@
 /*
- * The final phase: the map step on top (pass and play: the title and the map, as in the Command Zone), the command card and reward steps,
+ * The final phase: the map step on top (pass and play: no map step, the map on the left and the steps on its right instead), the command card and reward steps,
  * the next turn button, and the hand at the bottom as in the Command Zone.
  * Portrait: one below the other, the page scrolls.
  */
@@ -91,10 +91,6 @@
     min-height: 0;
   }
 
-  .end-of-turn > .cards-top {
-    flex: none;
-  }
-
   .end-of-turn__map-step {
     flex: none;
     max-height: 30%;
@@ -130,4 +126,51 @@
 /* Pass and play, the cards put away: only the large map shows */
 .end-of-turn--away > :not(.large-map, .hand-away-bar) {
   display: none !important;
+}
+
+/* Pass and play: the map as large as the space allows, the steps in a column on its right */
+.end-of-turn__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.end-of-turn__map .large-map {
+  padding-bottom: 0;
+}
+
+@media (orientation: landscape) {
+  .end-of-turn__main {
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: row;
+  }
+
+  .end-of-turn__map {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .end-of-turn__map .large-map__fit {
+    inset: 0;
+    justify-content: flex-start;
+  }
+
+  .end-of-turn__main .end-of-turn__steps {
+    flex: 0 1 440px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .end-of-turn__main .end-of-turn__steps > * {
+    flex: none;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
 }

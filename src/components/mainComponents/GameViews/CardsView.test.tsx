@@ -416,7 +416,7 @@ describe("CardsView back from the orders", () => {
 });
 
 describe("CardsView putting the cards away", () => {
-  it("swaps the table and the hand for the large map and back, keeping the pick", () => {
+  it("shows the map beside the tray, and alone once the cards are put away, keeping the pick", () => {
     const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), orders: 1 });
     const { container } = render(
       <CardsView
@@ -424,20 +424,20 @@ describe("CardsView putting the cards away", () => {
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={() => {}}
-        mapPreview={<div data-testid="small-map" />}
         largeMap={<div data-testid="large-map" />}
       />
     );
+    expect(container.querySelector(".cards-table__map [data-testid=large-map]")).not.toBeNull();
     fireEvent.click(within(container.querySelector(".cards-hands") as HTMLElement).getByText(card.name.es));
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar las cartas y ver el mapa" }));
     expect(screen.getByTestId("large-map")).toBeInTheDocument();
-    expect(screen.queryByTestId("small-map")).not.toBeInTheDocument();
+    expect(container.querySelector(".cards-table")).toBeNull();
     expect(container.querySelector(".cards-hands")).toBeNull();
     expect(screen.queryByRole("region", { name: "Tu jugada" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Volver a las cartas" }));
-    expect(screen.queryByTestId("large-map")).not.toBeInTheDocument();
+    expect(container.querySelector(".cards-table__map [data-testid=large-map]")).not.toBeNull();
     const tray = screen.getByRole("region", { name: "Tu jugada" });
     expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
   });
