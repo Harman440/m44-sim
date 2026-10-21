@@ -352,7 +352,7 @@ describe("CardsView Tactician with a card for several sections", () => {
 });
 
 describe("CardsView looking at a card", () => {
-  it("puts a tapped card straight in its empty slot, flying there, and shows its text, without playing it", () => {
+  it("puts a tapped card straight in its empty slot, flying there, with its text in the tray, without playing it", () => {
     const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), description: same("Texto completo del reconocimiento"), orders: 1 });
     const onCardClick = vi.fn();
     const { container } = render(
@@ -371,10 +371,9 @@ describe("CardsView looking at a card", () => {
     const tray = screen.getByRole("region", { name: "Tu jugada" });
     expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
     expect(screen.getByTestId("flight")).toBeInTheDocument();
-    // Still "clicked": its text on the table, to put it back from there
-    const details = screen.getByTestId("card-details");
-    expect(within(details).getAllByText("Texto completo del reconocimiento").length).toBeGreaterThan(0);
-    expect(within(details).getByRole("button", { name: "Devolver a la mano" })).toBeInTheDocument();
+    // Shown once: its text in the tray, not again on the table
+    expect(within(tray).getByText("Texto completo del reconocimiento")).toBeInTheDocument();
+    expect(screen.queryByTestId("card-details")).not.toBeInTheDocument();
     expect(onCardClick).not.toHaveBeenCalled();
   });
 
@@ -405,7 +404,6 @@ describe("CardsView looking at a card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(screen.queryByTestId("card-details")).not.toBeInTheDocument();
-    expect(screen.getByText("Toca una carta para verla")).toBeInTheDocument();
   });
 });
 

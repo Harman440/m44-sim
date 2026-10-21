@@ -99,7 +99,7 @@ export const DEAL_ANIMATION_MS = 600;
 export const DEAL_GAP_MS = 150;
 
 /** The card looked at on the table: as tall as the table allows, up to 180px wide (see .cards-table) */
-const TABLE_CARD_WIDTH = "min(180px, (100cqh - 40px) * 5 / 7)";
+const TABLE_CARD_WIDTH = "min(160px, (100cqh - 40px) * 5 / 7)";
 
 interface CardsViewProps {
   handCards: readonly CommandCard[];
@@ -224,20 +224,20 @@ function CardsView({
   };
 
   /**
-   * Picking a card puts it in the tray (in place of the one there). Picked from
-   * the table, the table clears; tapped in the hand, its text stays on the table to read
+   * Picking a card puts it in the tray (in place of the one there), where its
+   * text shows, so the table clears: the card isn't shown twice
    */
   const pickCommand = (card: CommandCard, fromHand = false) => {
     if (fromHand) flyToTray(card.id, "command", <CommandCardComponent faction={faction} cardData={card} />);
     setCommandPick(card);
-    setLooking(fromHand ? { command: card } : null);
+    setLooking(null);
     play("cardDeal");
   };
   const pickCombat = (card: CombatCard, fromHand = false) => {
     const slot = combatPicks.length === 0 ? "combat" : "combat-2";
     if (fromHand) flyToTray(`combat-${card.id}`, slot, <CombatCardComponent faction={faction} card={card} />);
     setCombatPicks((picks) => [...picks, card]);
-    setLooking(fromHand ? { combat: card } : null);
+    setLooking(null);
     play("cardDeal");
   };
 
@@ -323,9 +323,15 @@ function CardsView({
           )}
         </Box>
 
-        {mapPreview}
+        {mapPreview && <div className="cards-top__map">{mapPreview}</div>}
 
-        {/* The tray: the cards picked to play, stacked, each with its line */}
+        {/* Deck and discard */}
+        <CardPiles drawPileCount={drawPileCount} discardPileCount={discardPileCount} />
+      </div>
+
+      {/* The table: the tray with the cards picked to play, and beside it the card looked at */}
+      <Box className="cards-table" ref={tableRef}>
+        {/* The tray: the cards picked to play, stacked, each with its line and its text */}
         <section className="cards-tray" ref={trayRef} aria-label={t.yourPlay}>
           <div className="cards-tray__stack">
             {[0, 1].map((i) => {
@@ -369,14 +375,21 @@ function CardsView({
               <Typography variant="overline" className="cards-tray__slot">
                 {t.commandSlot}
               </Typography>
-              <Typography className="cards-tray__name" color={commandPick ? "text.primary" : "text.secondary"}>
-                {commandPick ? tr(commandPick.name) : t.noCommandYet}
-                {commandPick?.choosesSection && (
-                  <Typography component="span" variant="body2" color="text.secondary">
-                    {` · ${t.sectionOnPlay}`}
+              <div className="cards-tray__name">
+                <Typography sx={{ fontWeight: 600 }} color={commandPick ? "text.primary" : "text.secondary"}>
+                  {commandPick ? tr(commandPick.name) : t.noCommandYet}
+                  {commandPick?.choosesSection && (
+                    <Typography component="span" variant="body2" color="text.secondary">
+                      {` · ${t.sectionOnPlay}`}
+                    </Typography>
+                  )}
+                </Typography>
+                {commandPick && (
+                  <Typography variant="body2" color="text.secondary">
+                    {tr(commandPick.description)}
                   </Typography>
                 )}
-              </Typography>
+              </div>
               {commandPick && (
                 <Button variant="text" size="small" aria-label={t.removeCard(tr(commandPick.name))} onClick={() => unpick(commandPick)}>
                   {t.remove}
@@ -395,12 +408,17 @@ function CardsView({
                 <Stack className="cards-tray__name">
                   {combatPicks.map((picked) => (
                     <Stack key={picked.id} direction="row" sx={{ alignItems: "center", gap: 1 }}>
-                      <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 600 }}>
-                        {tr(picked.name)}
-                        <Typography component="span" variant="body2" color="text.secondary">
-                          {` · ${labels.coins(picked.cost)}`}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 600 }}>
+                          {tr(picked.name)}
+                          <Typography component="span" variant="body2" color="text.secondary">
+                            {` · ${labels.coins(picked.cost)}`}
+                          </Typography>
                         </Typography>
-                      </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {tr(picked.description)}
+                        </Typography>
+                      </Box>
                       <Button variant="text" size="small" aria-label={t.removeCard(tr(picked.name))} onClick={() => unpick(picked)}>
                         {t.remove}
                       </Button>
@@ -409,6 +427,11 @@ function CardsView({
                 </Stack>
               )}
             </div>
+            {!commandPick && combatPicks.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                {canPlayCombatCards ? t.howToPick(MAX_COMBAT_CARDS_PER_TURN) : t.tapToSee}
+              </Typography>
+            )}
             {misfit && commandPick && (
               <Typography variant="body2" color="error" role="alert">
                 {misfit.effect?.kind === "changeSection" ? `${t.changeSectionOnly(tr(misfit.name))} ` : ""}
@@ -422,77 +445,65 @@ function CardsView({
           </Button>
         </section>
 
-        {/* Deck and discard */}
-        <CardPiles drawPileCount={drawPileCount} discardPileCount={discardPileCount} />
-      </div>
-
-      {/* The table: the card looked at, picked from there */}
-      <Box className="cards-table" ref={tableRef}>
-        {looking === null ? (
-          <>
-            <Typography variant="h6" component="p" color="text.secondary" sx={{ textAlign: "center" }}>
-              {t.tapToSee}
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ textAlign: "center", maxWidth: 560 }}>
-              {canPlayCombatCards ? t.howToPick(MAX_COMBAT_CARDS_PER_TURN) : t.noCombatInExtraTurn}
-            </Typography>
-          </>
-        ) : "command" in looking ? (
-          <CardDetails
-            card={
-              <CardFlip key={looking.command.id}>
-                <CommandCardComponent faction={faction} cardData={looking.command} />
-              </CardFlip>
-            }
-            cardWidth={TABLE_CARD_WIDTH}
-            name={tr(looking.command.name)}
-            tags={ruleTags(looking.command, lang)}
-            text={tr(looking.command.description)}
-            actionsBeside
-          >
-            {commandPick === looking.command ? (
-              <Button variant="outlined" onClick={() => unpick(looking.command)}>
-                {t.unpick}
-              </Button>
+        {/* Picking a card from here puts it in the tray, and the table clears */}
+        {looking !== null && (
+          <div className="cards-table__look">
+            {"command" in looking ? (
+              <CardDetails
+                card={
+                  <CardFlip key={looking.command.id}>
+                    <CommandCardComponent faction={faction} cardData={looking.command} />
+                  </CardFlip>
+                }
+                cardWidth={TABLE_CARD_WIDTH}
+                name={tr(looking.command.name)}
+                tags={ruleTags(looking.command, lang)}
+                text={tr(looking.command.description)}
+              >
+                {commandPick === looking.command ? (
+                  <Button variant="outlined" onClick={() => unpick(looking.command)}>
+                    {t.unpick}
+                  </Button>
+                ) : (
+                  <Button size="large" onClick={() => pickCommand(looking.command)} startIcon={<GameIcon name="confirm" />}>
+                    {commandPick ? t.swapFor : t.pick}
+                  </Button>
+                )}
+                <Button variant="text" onClick={() => setLooking(null)}>
+                  {t.close}
+                </Button>
+              </CardDetails>
             ) : (
-              <Button size="large" onClick={() => pickCommand(looking.command)} startIcon={<GameIcon name="confirm" />}>
-                {commandPick ? t.swapFor : t.pick}
-              </Button>
+              <CardDetails
+                card={
+                  <CardFlip key={looking.combat.id}>
+                    <CombatCardComponent faction={faction} card={looking.combat} />
+                  </CardFlip>
+                }
+                cardWidth={TABLE_CARD_WIDTH}
+                name={tr(looking.combat.name)}
+                tags={[t.costs(labels.coins(looking.combat.cost))]}
+                text={tr(looking.combat.description)}
+              >
+                {combatPicks.includes(looking.combat) ? (
+                  <Button variant="outlined" onClick={() => unpick(looking.combat)}>
+                    {t.unpick}
+                  </Button>
+                ) : cantPlay(looking.combat) ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
+                    {cantPlay(looking.combat)}
+                  </Typography>
+                ) : (
+                  <Button size="large" onClick={() => pickCombat(looking.combat)} startIcon={<GameIcon name="confirm" />}>
+                    {t.pick}
+                  </Button>
+                )}
+                <Button variant="text" onClick={() => setLooking(null)}>
+                  {t.close}
+                </Button>
+              </CardDetails>
             )}
-            <Button variant="text" onClick={() => setLooking(null)}>
-              {t.close}
-            </Button>
-          </CardDetails>
-        ) : (
-          <CardDetails
-            card={
-              <CardFlip key={looking.combat.id}>
-                <CombatCardComponent faction={faction} card={looking.combat} />
-              </CardFlip>
-            }
-            cardWidth={TABLE_CARD_WIDTH}
-            name={tr(looking.combat.name)}
-            tags={[t.costs(labels.coins(looking.combat.cost))]}
-            text={tr(looking.combat.description)}
-            actionsBeside
-          >
-            {combatPicks.includes(looking.combat) ? (
-              <Button variant="outlined" onClick={() => unpick(looking.combat)}>
-                {t.unpick}
-              </Button>
-            ) : cantPlay(looking.combat) ? (
-              <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
-                {cantPlay(looking.combat)}
-              </Typography>
-            ) : (
-              <Button size="large" onClick={() => pickCombat(looking.combat)} startIcon={<GameIcon name="confirm" />}>
-                {t.pick}
-              </Button>
-            )}
-            <Button variant="text" onClick={() => setLooking(null)}>
-              {t.close}
-            </Button>
-          </CardDetails>
+          </div>
         )}
       </Box>
 
