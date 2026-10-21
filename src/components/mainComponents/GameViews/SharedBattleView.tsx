@@ -240,7 +240,7 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
               {aim.enemy.sandbags && ` · ${t.sandbags}`}
             </Typography>
           </Stack>
-          {game.suppressiveFire && (
+          {session.canSuppress(order) && (
             <FormControlLabel
               control={<Switch checked={suppressive} onChange={(e) => setSuppressive(e.target.checked)} />}
               label={t.suppressive}

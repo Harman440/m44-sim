@@ -203,3 +203,51 @@ describe("a game in the sections variant", () => {
     expect(play.getSnapshot().maxCombatCards).toBe(1);
   });
 });
+
+describe("combat cards in the sections variant", () => {
+  // The Allies defend, so their turn 2 is a whole turn, with combat cards
+  const left = [0, 1, 2, 3].map((col) => ({ row: 8, col }));
+  const right = [9, 10, 11, 12].map((col) => ({ row: 8, col }));
+  const map: Scenario = { ...scenario([...left, ...right]), attacker: "Axis" };
+  const combat = (play: GameSession, id: string) => play.getSnapshot().combatHand.find((card) => card.templateId === id)!;
+  /** Turn 2, with three Attack cards in the hand and every combat card */
+  const turnTwo = () => {
+    const first = new GameSession({ scenario: map, faction: "Allies", initialHandSize: 4, commandCards: [], combatCards: allCombatCards(), sectionOrders: true, testMode: true, figures: true });
+    const attacks = first.commandCards.filter((card) => card.templateId === "attack").slice(0, 3);
+    const saved = first.save();
+    const rest = first.commandCards.filter((card) => !card.reserve && !attacks.includes(card));
+    const play = GameSession.restore({ ...saved, hand: attacks.map((c) => c.id), drawPile: rest.map((c) => c.id), discardPile: [] }, map, [], allCombatCards());
+    play.startFirstTurn();
+    return play;
+  };
+
+  it("marks hexes only in its card's section", () => {
+    const play = turnTwo();
+    expect(play.pickCard(play.getSnapshot().hand[0]!, undefined, combat(play, "barrage"))).toBe(true);
+    const { markable } = play.getSnapshot();
+    expect(markable.length).toBeGreaterThan(0);
+    expect(markable.every((at) => play.board.getHex(at)!.getSections().includes(Side.LEFT))).toBe(true);
+    expect(play.markHex({ row: 2, col: 11 })).toBe(false);
+  });
+
+  it("speeds up only the units of its card's section", () => {
+    const play = turnTwo();
+    expect(play.pickCard(play.getSnapshot().hand[0]!, undefined, combat(play, "motorized"))).toBe(true);
+    expect(play.getMoveOptions(left[0]!)!.canBoost).toBe(true);
+    left.forEach((at) => play.issueOrder(at, at));
+    expect(play.commitOrders()).toBe(true);
+    expect(play.pickCard(play.getSnapshot().hand[0]!)).toBe(true);
+    expect(play.getMoveOptions(right[0]!)!.canBoost).toBe(false);
+  });
+
+  it("gives its dice only to the units its card ordered", () => {
+    const play = turnTwo();
+    expect(play.pickCard(play.getSnapshot().hand[0]!, undefined, combat(play, "heat-of-battle"))).toBe(true);
+    left.forEach((at) => play.issueOrder(at, at));
+    play.commitOrders();
+    play.pickCard(play.getSnapshot().hand[0]!);
+    right.forEach((at) => play.issueOrder(at, at));
+    expect(play.combatBonusesFor(0)).toHaveLength(1);
+    expect(play.combatBonusesFor(4)).toHaveLength(0);
+  });
+});

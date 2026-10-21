@@ -63,10 +63,13 @@ export function summarizeOrders(
   /** The combat cards played this turn, some of which change the firing order */
   combatCards: readonly CombatCard[] = [],
   /** Pass and play: units marked to retreat, which can't battle any more this turn */
-  retreating: ReadonlySet<Unit> = new Set()
+  retreating: ReadonlySet<Unit> = new Set(),
+  /** Whether a combat card works on an order's unit (the sections variant: only in its card's section) */
+  covers: (card: CombatCard, order: Order) => boolean = () => true
 ): OrderSummary[] {
   // ¡Fusiles arriba!: the moved units of its types fire with the units that didn't move
-  const withUnmoved = combatCards.flatMap((card) => (card.effect?.kind === "firesWithUnmoved" ? card.effect.unitTypes : []));
+  const withUnmoved = (order: Order) =>
+    combatCards.some((card) => card.effect?.kind === "firesWithUnmoved" && card.effect.unitTypes.includes(order.unit.getUnitType()) && covers(card, order));
   const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped, retreating, withUnmoved);
   const unmovedLeft = summaries.some((s) => s.unmovedGroup && s.shotsLeft > 0);
   // The unit that used a combat card's movement, when the card makes it fire first (Behind Enemy Lines)
@@ -86,14 +89,14 @@ function summarizeEach(
   shots: readonly Shot[],
   unmovedFireSkipped: boolean,
   retreating: ReadonlySet<Unit>,
-  withUnmoved: readonly UnitType[]
+  withUnmoved: (order: Order) => boolean
 ): Omit<OrderSummary, "waiting" | "firesFirst">[] {
   const unitsOnBoard = new Set(board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : [])));
 
   return orders.map((order, index) => {
     const destination = board.getHex(order.end)!;
     const hold = samePosition(order.start, order.end);
-    const unmovedGroup = hold || withUnmoved.includes(order.unit.getUnitType());
+    const unmovedGroup = hold || withUnmoved(order);
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
     // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)

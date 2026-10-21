@@ -805,6 +805,66 @@ class GameSession {
     };
   }
 
+  /** The section of the command card this combat card was played with; null outside the sections variant */
+  private combatSectionOf(card: CombatCard): Section | null {
+    if (!this.sectionOrders) return null;
+    const index = this.combatCardsPlayed.indexOf(card);
+    let start = 0;
+    for (const play of this.plays) {
+      if (index < start + play.combatCards) return play.section;
+      start += play.combatCards;
+    }
+    return this.chosenSection;
+  }
+
+  /** The section of the command card that gave this order; null outside the sections variant, and for an extra order */
+  private orderSectionOf(order: Order): Section | null {
+    if (!this.sectionOrders || order.extra) return null;
+    if (order.closeAssaultOnly) return this.closeAssaultPlay()?.section ?? null;
+    const index = this.orders.indexOf(order);
+    let start = 0;
+    for (const play of this.plays) {
+      if (index < start + play.orders) return play.section;
+      start += play.orders;
+    }
+    return this.chosenSection;
+  }
+
+  /**
+   * The sections a unit counts for, for the combat cards: the section of the card that ordered
+   * it, or else those of the hex it started the turn on (both, on a line)
+   */
+  private unitSections(unit: Unit): Section[] {
+    const order = this.orders.find((o) => o.unit === unit);
+    const ordered = order && this.orderSectionOf(order);
+    if (ordered) return [ordered];
+    const at = order?.start ?? this.positionOf(unit);
+    return (at && this.board.getHex(at)?.getSections()) || [];
+  }
+
+  /** The combat card works on this unit: in the sections variant, only on units of its section */
+  private cardCovers(card: CombatCard, unit: Unit): boolean {
+    const section = this.combatSectionOf(card);
+    return !section || this.unitSections(unit).includes(section);
+  }
+
+  /** The combat card can mark this hex: in the sections variant, only hexes of its section */
+  private cardCoversHex(card: CombatCard, position: Position): boolean {
+    const section = this.combatSectionOf(card);
+    return !section || (this.board.getHex(position)?.getSections().includes(section) ?? false);
+  }
+
+  /** The effect of a combat card played this turn, of this kind, that works on this unit */
+  private playedEffectFor<K extends CombatEffect["kind"]>(kind: K, unit: Unit | undefined): Extract<CombatEffect, { kind: K }> | null {
+    const card = this.combatCardsPlayed.find((c) => c.effect?.kind === kind && !!unit && this.cardCovers(c, unit));
+    return (card?.effect as Extract<CombatEffect, { kind: K }> | undefined) ?? null;
+  }
+
+  /** Suppressive Fire was played for this order's unit: its shots may roll the suppressive die */
+  canSuppress(orderIndex: number): boolean {
+    return !!this.playedEffectFor("suppressiveFire", this.orders[orderIndex]?.unit);
+  }
+
   /**
    * The sections variant's draw: every card played goes to the discard pile and one card comes
    * for each, straight to the hand (Refuel's is Armor Assault), with no swapping
@@ -892,7 +952,9 @@ class GameSession {
   // Combat cards that change how some ordered units move (Motorized, Armor Forward, Rattenkrieg…)
 
   private moveCards(): { card: CombatCard; effect: MoveEffect }[] {
-    return this.combatCardsPlayed.flatMap((card) => (card.effect?.kind === "move" ? [{ card, effect: card.effect }] : []));
+    // The sections variant: only the combat cards played with the card being played
+    const cards = this.sectionOrders ? this.combatCardsPlayed.slice(this.combatStart()) : this.combatCardsPlayed;
+    return cards.flatMap((card) => (card.effect?.kind === "move" ? [{ card, effect: card.effect }] : []));
   }
 
   /** The move cards the unit on this hex, in this order slot, can still use */
@@ -1095,7 +1157,7 @@ class GameSession {
     const unit = this.board.getHex(position)?.unit;
     if (!this.figures || !unit || hits < 0 || flags < 0) return false;
     // Not One Step Back: this side's infantry ignores every flag this turn
-    if (this.playedEffect("ignoreFlags")?.unitTypes.includes(unit.getUnitType())) flags = 0;
+    if (this.playedEffectFor("ignoreFlags", unit)?.unitTypes.includes(unit.getUnitType())) flags = 0;
     // Personal Armor: the unit it was given to ignores its first hits of one symbol this turn
     const armor = this.assignments.find((a) => a.unit === unit && a.card.effect?.kind === "ignoreHits")?.card.effect;
     if (armor?.kind === "ignoreHits") {
@@ -1367,7 +1429,8 @@ class GameSession {
       this.shots,
       this.unmovedFireSkipped,
       this.combatCardsPlayed,
-      new Set([...this.retreatFlags.keys()].filter((unit) => this.retreated(unit)))
+      new Set([...this.retreatFlags.keys()].filter((unit) => this.retreated(unit))),
+      (card, order) => this.cardCovers(card, order.unit)
     );
   }
 
@@ -1399,7 +1462,7 @@ class GameSession {
     const unitType = order.unit.getUnitType();
     return this.combatCardsPlayed.flatMap((card) => {
       const effect = card.effect;
-      if (effect?.kind !== "diceBonus" || !effect.unitTypes.includes(unitType)) return [];
+      if (effect?.kind !== "diceBonus" || !effect.unitTypes.includes(unitType) || !this.cardCovers(card, order.unit)) return [];
       if (card.assign && !this.assignments.some((a) => a.card === card && a.unit === order.unit)) return [];
       if (effect.near && !this.isNear(summary.firingFrom, effect.near)) return [];
       return [
@@ -1563,7 +1626,7 @@ class GameSession {
    */
   fireAt(orderIndex: number, choice: FireChoice): boolean {
     const suppressive = choice.suppressive ?? false;
-    if (suppressive && !this.playedEffect("suppressiveFire")) return false;
+    if (suppressive && !this.canSuppress(orderIndex)) return false;
     const joined = choice.joined ?? [];
     const aim = this.aimAnswers(orderIndex, choice);
     if (!aim) return false;
@@ -1586,11 +1649,13 @@ class GameSession {
    * with the dice each adds. Only units that didn't move and can fire now, at a hex they reach
    */
   joinable(orderIndex: number, choice: FireChoice): JoinOption[] {
-    if (!this.playedEffect("concentratedFire") || this.phase !== TurnPhase.BATTLE) return [];
+    if (!this.playedEffectFor("concentratedFire", this.orders[orderIndex]?.unit) || this.phase !== TurnPhase.BATTLE) return [];
     const summaries = this.summaries();
     if (!summaries[orderIndex]?.hold || !this.canFireNow(orderIndex)) return [];
     return this.orders.flatMap((_, order) => {
       if (order === orderIndex || !summaries[order]!.hold || !this.canFireNow(order)) return [];
+      // The sections variant: only units of the card's section join in
+      if (!this.playedEffectFor("concentratedFire", this.orders[order]!.unit)) return [];
       const answers = this.aimAnswers(order, { ...choice, joined: [], pinned: false, adjacentEnemy: false })?.answers;
       const part = answers && this.shotPart(order, answers, choice.suppressive ?? false);
       return part && part.dice > 0 ? [{ order, dice: part.dice, eightSided: isEightSided(part.target.die) }] : [];
@@ -1852,8 +1917,8 @@ class GameSession {
 
   /** The unit of this order may fortify now, instead of its next shot (not on a hex that has sandbags) */
   private canFortify(orderIndex: number): boolean {
-    const effect = this.playedEffect("fortify");
     const order = this.orders[orderIndex];
+    const effect = this.playedEffectFor("fortify", order?.unit);
     const summary = this.summaries()[orderIndex];
     if (!effect || !order || !summary || !this.canFireNow(orderIndex)) return false;
     if (!effect.unitTypes.includes(order.unit.getUnitType())) return false;
@@ -2263,7 +2328,7 @@ class GameSession {
   /** Mark a hex for the card being marked; see markerRules.ts for where */
   markHex(position: Position): boolean {
     const span = this.markingSpan();
-    if (!span || !canMark(span.rule, this.board, this.marksOf(span), position)) return false;
+    if (!span || !canMark(span.rule, this.board, this.marksOf(span), position) || !this.cardCoversHex(span.card, position)) return false;
 
     this.markers = [...this.markers, { row: position.row, col: position.col }];
     return this.publish();
@@ -2271,7 +2336,7 @@ class GameSession {
 
   private markableNow(): Position[] {
     const span = this.markingSpan();
-    return span ? markablePositions(span.rule, this.board, this.marksOf(span)) : [];
+    return span ? markablePositions(span.rule, this.board, this.marksOf(span)).filter((position) => this.cardCoversHex(span.card, position)) : [];
   }
 
   undoMarker(): boolean {
@@ -2304,6 +2369,7 @@ class GameSession {
         if (!unit || !rule.unitTypes.includes(unit.getUnitType())) return false;
         // Medic, Mechanic: pass and play knows which units are weakened; own tablets don't
         if (rule.weakened && this.figures && !this.hits.get(unit)) return false;
+        if (!this.cardCovers(card, unit)) return false;
         return !rule.ordered || this.orders.some((order) => order.unit === unit);
       })
       .map((hex) => hex.getPosition());
