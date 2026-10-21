@@ -62,6 +62,8 @@ const TEXT = defineMessages({
     drawCards: (n: number) => `Robar ${n} cartas`,
     drawCard: "Robar carta",
     drew: (card: string) => `Has robado ${card}.`,
+    drewCards: (cards: string) => `Has robado ${cards}.`,
+    drawPerCard: "Al empezar la fase final robas una carta de tu mazo por cada carta de mando jugada, que van directas a tu mano.",
     rewardCardInfo: (card: string) => `${card}: en lugar de robar una carta de tu mazo, recibes la que da la carta.`,
     gotRewardCard: (played: string, card: string) => `${played} te da ${card}.`,
     drewAgain: (card: string) => `Has descartado la primera y robado ${card}: te la quedas.`,
@@ -128,6 +130,8 @@ const TEXT = defineMessages({
     drawCards: (n: number) => `Draw ${n} cards`,
     drawCard: "Draw a card",
     drew: (card: string) => `You drew ${card}.`,
+    drewCards: (cards: string) => `You drew ${cards}.`,
+    drawPerCard: "As the final phase starts you draw a card from your deck for each command card played, straight into your hand.",
     rewardCardInfo: (card: string) => `${card}: instead of drawing a card from your deck, you get the one the card gives.`,
     gotRewardCard: (played: string, card: string) => `${played} gives you ${card}.`,
     drewAgain: (card: string) => `You discarded the first one and drew ${card}: you keep it.`,
@@ -243,8 +247,14 @@ function EndOfTurnView({
   const tr = useTr();
   const play = useSound();
   const { drawnCard, drawOptions, chosenCard } = game;
+  /** The command cards played this turn: one for each section in the sections variant */
+  const played = game.plays.length > 0 ? game.plays.map((p) => p.card) : chosenCard ? [chosenCard] : [];
   const drawChoice = chosenCard?.drawChoice ?? 1;
-  const reward = chosenCard?.endOfTurnReward;
+  /** The card that gives its own reward (Preparations, Refuel), and the one that gives a card kept out of the deck (Refuel) */
+  const rewardSource = played.find((card) => card.endOfTurnReward) ?? chosenCard;
+  const reward = rewardSource?.endOfTurnReward;
+  const rewardCardSource = played.find((card) => card.rewardCard) ?? null;
+  const drawnNames = game.drawnCards.map((card) => tr(card.name)).join(", ");
   const [showMap, setShowMap] = useState(false);
   /** Pass and play: the steps and the hand are put away and the map shows large; they stay mounted, so the flights keep their places */
   const [handAway, setHandAway] = useState(false);
@@ -269,13 +279,11 @@ function EndOfTurnView({
 
   const busy = flights.length > 0;
   const discarding = game.mustDiscardCombatCard;
-  // The sections variant has no command cards: its one card stays in the hand, unseen, and there's nothing to draw
-  const noCommandCards = session.sectionOrders;
-  const handCommand = noCommandCards ? [] : sortCommandHand(game.hand);
+  const handCommand = sortCommandHand(game.hand);
   const handCombat = discarding ? [] : sortCombatHand(game.combatHand, () => true);
   /** Cards in the hand that haven't flown in yet, the drawn card before the extra one */
   const arriving = [
-    ...(noCommandCards ? [] : [drawnCard, game.extraDrawn, ...handCommand])
+    ...[...game.drawnCards, drawnCard, game.extraDrawn, ...handCommand]
       .filter((card, i, all): card is CommandCard => !!card && all.indexOf(card) === i && game.hand.includes(card))
       .filter((card) => !dealtCardIds.has(card.id))
       .map((card) => ({ key: card.id, command: card as CommandCard | null, combat: null as CombatCard | null })),
@@ -492,79 +500,81 @@ function EndOfTurnView({
             {reinforcementLine}
           </Paper>
         )}
-        {!noCommandCards && (
-          <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-draw">
-            <StepHeading
-              title={shared ? t.commandCard : t.step2}
-              info={
-                <Typography variant="body1">
-                  {chosenCard?.rewardCard
-                    ? t.rewardCardInfo(tr(chosenCard.name))
-                    : drawChoice > 1
-                      ? t.drawChoiceInfo(tr(chosenCard!.name), drawChoice)
+        <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-draw">
+          <StepHeading
+            title={shared ? t.commandCard : t.step2}
+            info={
+              <Typography variant="body1">
+                {rewardCardSource
+                  ? t.rewardCardInfo(tr(rewardCardSource.name))
+                  : drawChoice > 1
+                    ? t.drawChoiceInfo(tr(chosenCard!.name), drawChoice)
+                    : game.plays.length > 1
+                      ? t.drawPerCard
                       : t.drawInfo}{" "}
-                  {game.drawsExtra && t.extraDrawInfo(session.scenario.extraDraws!.turns)}
-                  {t.tapCard}
-                </Typography>
-              }
-            >
-            </StepHeading>
-            {drawOptions.length > 0 ? (
-              <>
-                <Typography variant="body2" color="text.secondary">
-                  {t.pickOne}
-                </Typography>
-                <Box className="end-of-turn__cards">
-                  {drawOptions.map((card, i) => (
-                    <motion.div
-                      key={card.id}
-                      data-option-id={card.id}
-                      className="end-of-turn__table-card"
-                      initial={{ y: -40, opacity: 0, rotate: -6 }}
-                      animate={{ y: 0, opacity: 1, rotate: 0 }}
-                      transition={{ delay: i * (STAGGER_MS / 1000) }}
-                    >
-                      <CommandCardComponent faction={faction} cardData={card} onClick={() => setLooking({ command: card })} />
-                      <Button onClick={() => keepCard(card)} disabled={busy} aria-label={t.chooseLabel(tr(card.name))}>
-                        {t.choose}
-                      </Button>
-                    </motion.div>
-                  ))}
-                </Box>
-              </>
-            ) : drawnCard ? (
-              <Stack sx={{ gap: 1, alignItems: "flex-start" }}>
-                <Typography variant="body1" data-testid="drawn-card">
-                  {drawnCard.reserve && chosenCard
-                    ? t.gotRewardCard(tr(chosenCard.name), tr(drawnCard.name))
+                {game.drawsExtra && t.extraDrawInfo(session.scenario.extraDraws!.turns)}
+                {t.tapCard}
+              </Typography>
+            }
+          >
+          </StepHeading>
+          {drawOptions.length > 0 ? (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                {t.pickOne}
+              </Typography>
+              <Box className="end-of-turn__cards">
+                {drawOptions.map((card, i) => (
+                  <motion.div
+                    key={card.id}
+                    data-option-id={card.id}
+                    className="end-of-turn__table-card"
+                    initial={{ y: -40, opacity: 0, rotate: -6 }}
+                    animate={{ y: 0, opacity: 1, rotate: 0 }}
+                    transition={{ delay: i * (STAGGER_MS / 1000) }}
+                  >
+                    <CommandCardComponent faction={faction} cardData={card} onClick={() => setLooking({ command: card })} />
+                    <Button onClick={() => keepCard(card)} disabled={busy} aria-label={t.chooseLabel(tr(card.name))}>
+                      {t.choose}
+                    </Button>
+                  </motion.div>
+                ))}
+              </Box>
+            </>
+          ) : drawnCard ? (
+            <Stack sx={{ gap: 1, alignItems: "flex-start" }}>
+              <Typography variant="body1" data-testid="drawn-card">
+                {game.drawnCards.length > 1
+                  ? t.drewCards(drawnNames)
+                  : drawnCard.reserve && rewardCardSource
+                    ? t.gotRewardCard(tr(rewardCardSource.name), tr(drawnCard.name))
                     : game.drewAgain
                       ? t.drewAgain(tr(drawnCard.name))
                       : t.drew(tr(drawnCard.name))}
-                </Typography>
-                {game.canDrawAgain && (
-                  <Button variant="outlined" onClick={drawAgain} disabled={busy} startIcon={<GameIcon name="cards" />}>
-                    {t.drawAgain}
-                  </Button>
-                )}
-              </Stack>
-            ) : (
-              <Button onClick={onDrawCard} startIcon={<GameIcon name="cards" />} sx={{ alignSelf: "flex-start" }}>
-                {drawChoice > 1 ? t.drawCards(drawChoice) : t.drawCard}
-                {game.drawsExtra && " +1"}
-              </Button>
-            )}
-          </Paper>
-        )}
+              </Typography>
+              {game.canDrawAgain && (
+                <Button variant="outlined" onClick={drawAgain} disabled={busy} startIcon={<GameIcon name="cards" />}>
+                  {t.drawAgain}
+                </Button>
+              )}
+            </Stack>
+          ) : (
+            <Button onClick={onDrawCard} startIcon={<GameIcon name="cards" />} sx={{ alignSelf: "flex-start" }}>
+              {drawChoice > 1 ? t.drawCards(drawChoice) : t.drawCard}
+              {game.drawsExtra && " +1"}
+            </Button>
+          )}
+        </Paper>
 
         <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-reward" ref={rewardRef}>
           <StepHeading
-            title={`${shared ? "" : "3. "}${reward ? tr(chosenCard!.name) : t.rewardTitle}`}
+            title={`${shared ? "" : "3. "}${reward && rewardSource ? tr(rewardSource.name) : t.rewardTitle}`}
             info={
               <Typography variant="body1">
                 {game.extraTurn
                   ? t.noRewardInfo
                   : reward
-                    ? t.cardRewardInfo(tr(chosenCard!.name), reward.coins, !!reward.combatCard)
+                    ? t.cardRewardInfo(tr(rewardSource!.name), reward.coins, !!reward.combatCard)
                     : t.rewardInfo(END_OF_TURN_COINS, MAX_COMBAT_HAND)}
               </Typography>
             }
@@ -722,8 +732,8 @@ function EndOfTurnView({
           cards={[
             ...handCommand.map((card) => ({
               key: card.id,
-              label: card === drawnCard ? t.newCard : card === game.extraDrawn ? t.extraCard : undefined,
-              className: slotClass(card.id, card === drawnCard || card === game.extraDrawn),
+              label: card === drawnCard || game.drawnCards.includes(card) ? t.newCard : card === game.extraDrawn ? t.extraCard : undefined,
+              className: slotClass(card.id, card === drawnCard || game.drawnCards.includes(card) || card === game.extraDrawn),
               node: <CommandCardComponent faction={faction} cardData={card} onClick={(c) => setLooking({ command: c })} />,
             })),
             ...handCombat.map((card, i) => ({

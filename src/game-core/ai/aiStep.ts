@@ -113,6 +113,8 @@ export function aiStep(match: PassAndPlayMatch, side: Faction, brain: Brain, ran
     case TurnPhase.PICK_CARDS: {
       const { card, section, combatCards = [] } = brain.pickCard(view);
       if (combatCards.length > 0 && session.pickCard(card, section, combatCards)) return true;
+      // Fewer combat cards when only one goes with each card (the sections variant)
+      if (combatCards.length > 1 && session.pickCard(card, section, combatCards.slice(0, game.maxCombatCards))) return true;
       if (session.pickCard(card, section)) return true;
       // Whatever the brain wanted, a card is always played
       return game.hand.some((other) => session.pickCard(other, sectionFor(session, other)));

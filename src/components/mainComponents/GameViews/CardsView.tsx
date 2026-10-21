@@ -26,8 +26,11 @@ const TEXT = defineMessages({
     shortOfCoins: (cost: string, have: string) => `Te faltan suministros: cuesta ${cost} y tienes ${have}.`,
     twoAlready: (max: number) => `Ya juegas ${max} cartas de combate: quita una para jugar esta.`,
     sameCard: "Ya juegas esta carta: no se juegan dos copias a la vez.",
+    oneAlready: "Ya juegas una carta de combate con esta carta de mando: quítala para jugar esta.",
     pickCommand: "Elige una carta de mando",
-    addCombat: (max: number) => `Añade hasta ${max} cartas de combate si quieres, y juega`,
+    pickCommandFor: (section: string) => `Elige la carta de mando del ${section}`,
+    sectionPlay: (section: string) => `Carta para el ${section}`,
+    addCombat: (max: number) => (max === 1 ? "Añade una carta de combate si quieres, y juega" : `Añade hasta ${max} cartas de combate si quieres, y juega`),
     readyToPlay: "Listo: pulsa Jugar",
     yourPlay: "Tu jugada",
     commandSlot: "Mando",
@@ -40,7 +43,9 @@ const TEXT = defineMessages({
     removeCard: (name: string) => `Quitar ${name}`,
     play: "Jugar",
     howToPick: (max: number) =>
-      `Elige una carta de mando y, si quieres, hasta ${max} cartas de combate distintas, en el orden que quieras. Todas se juegan ahora, con las órdenes.`,
+      max === 1
+        ? "Elige una carta de mando y, si quieres, una carta de combate. Las dos se juegan ahora, con las órdenes."
+        : `Elige una carta de mando y, si quieres, hasta ${max} cartas de combate distintas, en el orden que quieras. Todas se juegan ahora, con las órdenes.`,
     tapToSee: "Toca una carta para verla",
     pick: "Elegir",
     swapFor: "Cambiar por esta",
@@ -49,8 +54,6 @@ const TEXT = defineMessages({
     costs: (coins: string) => `Cuesta ${coins}`,
     hand: "Tu mano",
     handCount: (command: number, combat: number) => `Cartas de mando (${command}) · Cartas de combate (${combat})`,
-    combatCount: (combat: number) => `Cartas de combate (${combat})`,
-    ordersSlot: "Órdenes",
     changeSectionTitle: (combat: string, command: string) => `${combat}: ¿a qué sección cambias ${command}?`,
     whichSection: (command: string) => `${command}: ¿en qué sección?`,
     cancel: "Cancelar",
@@ -62,8 +65,11 @@ const TEXT = defineMessages({
     shortOfCoins: (cost: string, have: string) => `Not enough supplies: it costs ${cost} and you have ${have}.`,
     twoAlready: (max: number) => `You're already playing ${max} combat cards: remove one to play this one.`,
     sameCard: "You're already playing this card: two copies aren't played together.",
+    oneAlready: "You're already playing a combat card with this command card: remove it to play this one.",
     pickCommand: "Pick a command card",
-    addCombat: (max: number) => `Add up to ${max} combat cards if you like, and play`,
+    pickCommandFor: (section: string) => `Pick the command card for the ${section}`,
+    sectionPlay: (section: string) => `Card for the ${section}`,
+    addCombat: (max: number) => (max === 1 ? "Add a combat card if you like, and play" : `Add up to ${max} combat cards if you like, and play`),
     readyToPlay: "Ready: tap Play",
     yourPlay: "Your play",
     commandSlot: "Command",
@@ -76,7 +82,9 @@ const TEXT = defineMessages({
     removeCard: (name: string) => `Remove ${name}`,
     play: "Play",
     howToPick: (max: number) =>
-      `Pick a command card and, if you like, up to ${max} different combat cards, in any order. They're all played now, with the orders.`,
+      max === 1
+        ? "Pick a command card and, if you like, a combat card. Both are played now, with the orders."
+        : `Pick a command card and, if you like, up to ${max} different combat cards, in any order. They're all played now, with the orders.`,
     tapToSee: "Tap a card to see it",
     pick: "Pick",
     swapFor: "Swap for this one",
@@ -85,8 +93,6 @@ const TEXT = defineMessages({
     costs: (coins: string) => `Costs ${coins}`,
     hand: "Your hand",
     handCount: (command: number, combat: number) => `Command cards (${command}) · Combat cards (${combat})`,
-    combatCount: (combat: number) => `Combat cards (${combat})`,
-    ordersSlot: "Orders",
     changeSectionTitle: (combat: string, command: string) => `${combat}: which section do you move ${command} to?`,
     whichSection: (command: string) => `${command}: in which section?`,
     cancel: "Cancel",
@@ -129,11 +135,12 @@ interface CardsViewProps {
    * start in the tray (flying back from the orders screen) and the hand slides up
    */
   initialPicks?: { command: CommandCard; combat: readonly CombatCard[] } | null;
-  /**
-   * The sections variant: no command cards. This card (the side's only one) is always the one
-   * played, said in words rather than shown, and only combat cards are picked
-   */
-  fixedCommand?: CommandCard | null;
+  /** The most combat cards played with the command card (1 in the sections variant) */
+  maxCombatCards?: number;
+  /** The sections variant: the section the card is picked for */
+  playSection?: Section | null;
+  /** The sections variant: the combat cards the earlier sections' cards played this turn (no second copy) */
+  combatPlayed?: readonly CombatCard[];
 }
 
 function CardsView({
@@ -149,7 +156,9 @@ function CardsView({
   faction = "Allies",
   largeMap,
   initialPicks = null,
-  fixedCommand = null,
+  maxCombatCards = MAX_COMBAT_CARDS_PER_TURN,
+  playSection = null,
+  combatPlayed = [],
 }: CardsViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -157,7 +166,7 @@ function CardsView({
   const lang = useLang();
   /** The command card picked to play; it leaves the hand for the tray */
   const [commandPick, setCommandPick] = useState<CommandCard | null>(() =>
-    fixedCommand ?? (initialPicks && handCards.includes(initialPicks.command) ? initialPicks.command : null)
+    initialPicks && handCards.includes(initialPicks.command) ? initialPicks.command : null
   );
   /** The combat cards picked to play with it, in the order picked (two at most) */
   const [combatPicks, setCombatPicks] = useState<readonly CombatCard[]>(() =>
@@ -185,10 +194,8 @@ function CardsView({
   const trayRef = useRef<HTMLElement>(null);
   const play = useSound();
 
-  // The sections variant's card isn't dealt nor shown in the hand
-  const dealtHand = fixedCommand ? [] : handCards;
-  const visibleHand = dealtHand.filter((card) => dealtCardIds.has(card.id));
-  const nextCardToDeal = dealtHand.find((card) => !dealtCardIds.has(card.id));
+  const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
+  const nextCardToDeal = handCards.find((card) => !dealtCardIds.has(card.id));
   const handCommand = sortCommandHand(visibleHand.filter((card) => card !== commandPick));
 
   // Deal hand cards that haven't been shown yet, one at a time. The dealt ids
@@ -225,8 +232,8 @@ function CardsView({
   /** Why a combat card can't be added to the ones picked now, or null if it can */
   const cantPlay = (card: CombatCard): string | null => {
     if (!canPlayCombatCards) return t.noCombatInExtraTurn;
-    if (combatPicks.length >= MAX_COMBAT_CARDS_PER_TURN) return t.twoAlready(MAX_COMBAT_CARDS_PER_TURN);
-    if (combatPicks.some((picked) => templateOf(picked) === templateOf(card))) return t.sameCard;
+    if (combatPicks.length >= maxCombatCards) return maxCombatCards === 1 ? t.oneAlready : t.twoAlready(maxCombatCards);
+    if ([...combatPlayed, ...combatPicks].some((picked) => templateOf(picked) === templateOf(card))) return t.sameCard;
     const left = coins - pickedCost;
     if (card.cost > left) return t.shortOfCoins(labels.coins(card.cost), labels.coins(left));
     return null;
@@ -270,7 +277,7 @@ function CardsView({
   const tapCombat = (card: CombatCard) => (cantPlay(card) === null ? pickCombat(card, true) : look({ combat: card }));
   const landedInTray = (id: string) => setFlying((current) => (current?.id === id ? null : current));
   const unpick = (card: CommandCard | CombatCard) => {
-    if (card === commandPick && !fixedCommand) setCommandPick(null);
+    if (card === commandPick) setCommandPick(null);
     setCombatPicks((picks) => picks.filter((picked) => picked !== card));
     if (lookingAt(card)) setLooking(null);
   };
@@ -300,7 +307,16 @@ function CardsView({
   };
 
   const canAddCombat = canPlayCombatCards && handCombat.some((card) => cantPlay(card) === null);
-  const prompt = !commandPick ? t.pickCommand : misfit ? null : canAddCombat ? t.addCombat(MAX_COMBAT_CARDS_PER_TURN) : t.readyToPlay;
+  const sectionName = playSection ? labels.sections[playSection] : null;
+  const prompt = !commandPick
+    ? sectionName
+      ? t.pickCommandFor(sectionName)
+      : t.pickCommand
+    : misfit
+      ? null
+      : canAddCombat
+        ? t.addCombat(maxCombatCards)
+        : t.readyToPlay;
   const tactician = combatPicks.find((card) => card.effect?.kind === "changeSection");
 
   return (
@@ -325,8 +341,8 @@ function CardsView({
                 <div className="cards-tray__stack">
                   {[0, 1].map((i) => {
                     const picked = combatPicks[i];
-                    // The second slot shows only once the first is taken
-                    if (i === 1 && !combatPicks[0]) return null;
+                    // The second slot shows only once the first is taken, and only when two can be played
+                    if (i === 1 && (!combatPicks[0] || maxCombatCards < 2)) return null;
                     return (
                       <div
                         key={i}
@@ -347,22 +363,20 @@ function CardsView({
                       </div>
                     );
                   })}
-                  {!fixedCommand && (
-                    <div className={`cards-tray__card cards-tray__card--command${commandPick ? "" : " cards-tray__card--empty"}`}>
-                      {commandPick && (
-                        <motion.div
-                          key={commandPick.id}
-                          layoutId={`${PLAY_LAYOUT_PREFIX}${commandPick.id}`}
-                          initial={returned.has(commandPick) ? false : { y: 24, opacity: 0, scale: 1.2 }}
-                          animate={{ y: 0, opacity: 1, scale: 1 }}
-                          transition={{ layout: PLAY_FLIGHT }}
-                          style={{ visibility: flying?.id === commandPick.id ? "hidden" : undefined }}
-                        >
-                          <CommandCardComponent faction={faction} cardData={commandPick} onClick={(c) => look({ command: c })} />
-                        </motion.div>
-                      )}
-                    </div>
-                  )}
+                  <div className={`cards-tray__card cards-tray__card--command${commandPick ? "" : " cards-tray__card--empty"}`}>
+                    {commandPick && (
+                      <motion.div
+                        key={commandPick.id}
+                        layoutId={`${PLAY_LAYOUT_PREFIX}${commandPick.id}`}
+                        initial={returned.has(commandPick) ? false : { y: 24, opacity: 0, scale: 1.2 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        transition={{ layout: PLAY_FLIGHT }}
+                        style={{ visibility: flying?.id === commandPick.id ? "hidden" : undefined }}
+                      >
+                        <CommandCardComponent faction={faction} cardData={commandPick} onClick={(c) => look({ command: c })} />
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
 
                 <Stack className="cards-tray__lines">
@@ -373,7 +387,7 @@ function CardsView({
                   )}
                   <div className="cards-tray__line">
                     <Typography variant="overline" className="cards-tray__slot">
-                      {fixedCommand ? t.ordersSlot : t.commandSlot}
+                      {sectionName ? t.sectionPlay(sectionName) : t.commandSlot}
                     </Typography>
                     <div className="cards-tray__name">
                       <Typography sx={{ fontWeight: 600 }} color={commandPick ? "text.primary" : "text.secondary"}>
@@ -390,7 +404,7 @@ function CardsView({
                         </Typography>
                       )}
                     </div>
-                    {commandPick && !fixedCommand && (
+                    {commandPick && (
                       <Button variant="text" size="small" aria-label={t.removeCard(tr(commandPick.name))} onClick={() => unpick(commandPick)}>
                         {t.remove}
                       </Button>
@@ -429,7 +443,7 @@ function CardsView({
                   </div>
                   {!commandPick && combatPicks.length === 0 && (
                     <Typography variant="body2" color="text.secondary">
-                      {canPlayCombatCards ? t.howToPick(MAX_COMBAT_CARDS_PER_TURN) : t.tapToSee}
+                      {canPlayCombatCards ? t.howToPick(maxCombatCards) : t.tapToSee}
                     </Typography>
                   )}
                   {misfit && commandPick && (
@@ -518,7 +532,7 @@ function CardsView({
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
           >
             <Typography variant="overline" component="h3" id="hand-title" className="hand-group__title">
-              {fixedCommand ? t.combatCount(combatHand.length) : t.handCount(visibleHand.length, combatHand.length)}
+              {t.handCount(visibleHand.length, combatHand.length)}
             </Typography>
             <CardHand
               label={t.hand}

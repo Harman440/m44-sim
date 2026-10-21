@@ -34,6 +34,8 @@ interface PlayedCardsProps {
   command: CommandCard | null;
   /** The section a command card was played in, when the player chose it */
   section: Section | null;
+  /** The sections variant: every command card played this turn, each with its section; shown instead of `command` */
+  plays?: readonly { card: CommandCard; section: Section }[];
   /** The combat cards played with the orders */
   combat: readonly CombatCard[];
   /** The ones given to a unit, and the unit */
@@ -50,7 +52,7 @@ interface PlayedCardsProps {
  * The cards played this turn side by side, for the opponent to read at the
  * table; tapping one shows its full text. Sized by --card-width (PhaseLayout.css).
  */
-function PlayedCards({ faction, command, section, combat, assignments = [], layoutPrefix, className }: PlayedCardsProps) {
+function PlayedCards({ faction, command, section, plays = [], combat, assignments = [], layoutPrefix, className }: PlayedCardsProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const [looking, setLooking] = useState<ShownCard | null>(null);
@@ -58,15 +60,14 @@ function PlayedCards({ faction, command, section, combat, assignments = [], layo
   return (
     <>
       <Box className={`played-cards${className ? ` ${className}` : ""}`} data-testid="played-cards">
-        {/* The sections variant's orders aren't a card */}
-        {command && !command.unseen && (
-          <Stack sx={{ alignItems: "center", gap: 0.5 }}>
-            <motion.div layoutId={layoutPrefix && `${layoutPrefix}${command.id}`} transition={PLAY_FLIGHT}>
-              <CommandCardComponent faction={faction} cardData={command} onClick={() => setLooking({ command, section })} />
+        {(plays.length > 0 ? plays : command ? [{ card: command, section }] : []).map(({ card, section: played }) => (
+          <Stack key={card.id} sx={{ alignItems: "center", gap: 0.5 }}>
+            <motion.div layoutId={layoutPrefix && `${layoutPrefix}${card.id}`} transition={PLAY_FLIGHT}>
+              <CommandCardComponent faction={faction} cardData={card} onClick={() => setLooking({ command: card, section: played })} />
             </motion.div>
-            {section && <Typography variant="body2">{t.section(labels.sections[section])}</Typography>}
+            {played && <Typography variant="body2">{t.section(labels.sections[played])}</Typography>}
           </Stack>
-        )}
+        ))}
         {combat.map((card) => {
           const given = assignments.find((a) => a.card === card);
           return (

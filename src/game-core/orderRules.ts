@@ -39,6 +39,8 @@ export interface OrderContext {
   chosenSection: Section | null;
   board: BoardManager;
   orders: readonly Order[];
+  /** The sections variant: the orders of the cards played before this one this turn, whose units can't be ordered again */
+  previousOrders?: readonly Order[];
   /** Coins the player can still spend on orders (0: none can be bought) */
   coins: number;
 }
@@ -121,7 +123,7 @@ export function orderSlots(context: OrderContext, unit: Unit, hexSections: reado
   const affordable = context.card.coinCostOf(unit.getUnitType()) <= context.coins;
   if (limits.cardOrders > 0 && affordable && fitsCard(context, unit)) {
     const sections = hexSections.filter((section) => cardSections(context).includes(section));
-    if (!context.card.hasQuotas) {
+    if (context.card.perSection === null) {
       if (sections.length > 0) cardSlots.push({ section: null, onTheMove: false });
     } else {
       sections
@@ -171,7 +173,7 @@ export function ordersLeft(context: OrderContext): number {
     .filter((sections) => sections.length > 0);
 
   let cardOrders = 0;
-  if (card.hasQuotas) {
+  if (card.perSection !== null) {
     cardOrders = Math.min(limits.cardOrders, maxMatching(fitting, limits.quota));
   } else if (!card.paidInCoins) {
     cardOrders = Math.min(limits.cardOrders, fitting.length);
@@ -194,7 +196,7 @@ function cardSections(context: OrderContext): readonly Section[] {
 }
 
 function isOrdered(context: OrderContext, unit: Unit): boolean {
-  return context.orders.some((order) => order.unit === unit);
+  return [...(context.previousOrders ?? []), ...context.orders].some((order) => order.unit === unit);
 }
 
 function fitsCard(context: OrderContext, unit: Unit): boolean {
@@ -209,7 +211,7 @@ function remaining({ card, orders }: OrderContext) {
   return {
     cardOrders: card.orders === "all" ? Infinity : card.orders - cardOrders.length,
     quota: (section: Section) =>
-      card.quotaIn(section) - cardOrders.filter((order) => order.section === section).length,
+      (card.perSection ?? Infinity) - cardOrders.filter((order) => order.section === section).length,
     onTheMove: card.onTheMove - onTheMove.length,
   };
 }

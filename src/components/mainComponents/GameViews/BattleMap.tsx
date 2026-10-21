@@ -83,6 +83,7 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           faction={faction}
           command={game.chosenCard}
           section={game.chosenSection}
+          plays={game.plays}
           combat={game.combatCardsPlayed}
           assignments={game.assignments}
         />

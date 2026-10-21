@@ -97,6 +97,7 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           faction={faction}
           command={game.chosenCard}
           section={game.chosenSection}
+          plays={game.plays}
           combat={game.combatCardsPlayed}
           assignments={game.assignments}
         />

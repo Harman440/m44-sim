@@ -33,6 +33,7 @@ const TEXT = defineMessages({
     noTurns: "Aún no ha terminado ningún turno.",
     turn: (n: number) => `Turno ${n}`,
     card: (name: string) => `Carta: ${name}`,
+    cards: (names: string) => `Cartas: ${names}`,
     exportTurnLabel: (n: number) => `Exportar turno ${n}`,
     exportTurn: "Exportar turno",
     orders: "Órdenes",
@@ -76,6 +77,7 @@ const TEXT = defineMessages({
     noTurns: "No turn has ended yet.",
     turn: (n: number) => `Turn ${n}`,
     card: (name: string) => `Card: ${name}`,
+    cards: (names: string) => `Cards: ${names}`,
     exportTurnLabel: (n: number) => `Export turn ${n}`,
     exportTurn: "Export turn",
     orders: "Orders",
@@ -148,7 +150,9 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     {t.turn(record.turn)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {t.card(tr(record.card.name))}
+                    {record.plays
+                      ? t.cards(record.plays.map((play) => `${tr(play.card.name)} (${labels.sectionsShort[play.section]})`).join(", "))
+                      : t.card(tr(record.card.name))}
                   </Typography>
                 </Box>
                 <Button

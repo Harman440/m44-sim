@@ -52,8 +52,8 @@ describe("the computer against itself", () => {
         for (const side of FACTIONS) {
           const { log } = match.sessions[side].getSnapshot();
           expect(log.length).toBeGreaterThan(0);
-          // Every turn plays the one card, ordering at most 4 units in each section
-          expect(log.every((turn) => turn.orders.length <= 8)).toBe(true);
+          // Every turn plays a card for the left section, then one for the right
+          expect(log.every((turn) => turn.plays?.map((p) => p.section).join() === "left,right")).toBe(true);
         }
       }
     });

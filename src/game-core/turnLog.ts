@@ -1,5 +1,5 @@
 // game-core/turnLog.ts
-import CommandCard from "./commandCard";
+import CommandCard, { Section } from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { DieFace } from "./dice";
@@ -20,6 +20,8 @@ import type { Localized } from "../i18n/lang";
 export interface TurnRecord {
   turn: number;
   card: { id: string; name: Localized };
+  /** The sections variant: each command card played and its section, left to right; left out otherwise */
+  plays?: { card: { id: string; name: Localized }; section: Section }[];
   orders: {
     unit: UnitType;
     elite?: boolean;
@@ -85,6 +87,7 @@ export interface TurnRecord {
 interface TurnState {
   turn: number;
   card: CommandCard;
+  plays?: readonly { card: CommandCard; section: Section }[];
   orders: readonly Order[];
   shots: readonly Shot[];
   battleEdits: readonly BattleEdit[];
@@ -102,6 +105,7 @@ interface TurnState {
 export function recordTurn({
   turn,
   card,
+  plays = [],
   orders,
   shots,
   battleEdits,
@@ -117,6 +121,7 @@ export function recordTurn({
   return {
     turn,
     card: { id: card.id, name: card.name },
+    ...(plays.length > 0 && { plays: plays.map((play) => ({ card: { id: play.card.id, name: play.card.name }, section: play.section })) }),
     orders: orders.map((order) => ({
       unit: order.unit.getUnitType(),
       ...eliteOf(order.unit),

@@ -1,18 +1,14 @@
 // game-core/frontSections.ts
-// The sections variant (pass and play only): no command cards. The board is split into as many
-// sections as it has room for with at least 7 hexes each, counted along a long row; the hexes on
-// the line between two sections are in both. Each turn a side orders up to 4 units in each
-// section, 5 in a section of more than 7 hexes, and may order fewer. The standard board (13
-// hexes across) has two sections of 7, sharing its middle column.
+// The sections variant (pass and play only): the board is split into as many sections as it has
+// room for with at least 7 hexes each, counted along a long row; the hexes on the line between
+// two sections are in both. Each turn a side plays a command card for each section, left to
+// right (GameSession). The standard board (13 hexes across) has two sections of 7, sharing its
+// middle column.
 import { Side } from "../types/hex";
-import { SECTIONS, Section } from "./commandCard";
+import { Section } from "./commandCard";
 
 /** The fewest hexes a section has, along a long row */
 export const MIN_SECTION_HEXES = 7;
-/** The units a side may order in each section */
-export const ORDERS_PER_SECTION = 4;
-/** One more in a section bigger than `MIN_SECTION_HEXES` */
-export const BIG_SECTION_EXTRA_ORDERS = 1;
 
 export interface FrontLayout {
   /** The sections, left to right: one, left and right, or left, center and right */
@@ -64,17 +60,6 @@ export function frontLayout(cols: number): FrontLayout {
   if (cols < 2 * MIN_SECTION_HEXES - 1) return { sections: [Side.CENTER], lines: [], hexes: { [Side.CENTER]: cols } };
   return threeSections(cols) ?? twoSections(cols);
 }
-
-/** The units a side may order in this section each turn (0 for a section the board doesn't have) */
-export function sectionQuota(layout: FrontLayout, section: Section): number {
-  const hexes = layout.hexes[section];
-  if (hexes === undefined) return 0;
-  return ORDERS_PER_SECTION + (hexes > MIN_SECTION_HEXES ? BIG_SECTION_EXTRA_ORDERS : 0);
-}
-
-/** Every section's quota, for the board's card */
-export const sectionQuotas = (layout: FrontLayout): Record<Section, number> =>
-  Object.fromEntries(SECTIONS.map((section) => [section, sectionQuota(layout, section)])) as Record<Section, number>;
 
 /**
  * The side of a hex `x` hexes from the long rows' first hex centre. With two sections the hexes

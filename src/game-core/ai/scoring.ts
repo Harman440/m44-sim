@@ -97,7 +97,9 @@ export function unitWorth(view: AiView, position: Position): number {
 export function orderedBy(view: AiView, card: CommandCard, section: Section | null): Position[] {
   const { board } = view.session;
   const rules = fallbackCard(card, board) ?? card;
-  const context = { card: rules, chosenSection: section, board, orders: [], coins: 0 };
+  // The sections variant: the card orders the section being played, not the units already ordered
+  const { playSection, orders } = view.session.getSnapshot();
+  const context = { card: rules, chosenSection: section ?? playSection, board, orders: [], previousOrders: orders, coins: 0 };
   return orderablePositions(context)
     .sort((a, b) => unitWorth(view, b) - unitWorth(view, a))
     .slice(0, ordersLeft(context));

@@ -218,6 +218,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                           faction={faction}
                           command={side.chosenCard}
                           section={side.chosenSection}
+                          plays={side.plays}
                           combat={side.combatCardsPlayed}
                           assignments={side.assignments}
                         />

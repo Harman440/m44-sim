@@ -28,7 +28,9 @@ function best<T>(options: readonly T[], score: (option: T) => number, random: ()
 function unitsOrdered(view: AiView, card: CommandCard, section: Section | null): number {
   const { board } = view.session;
   const rules = fallbackCard(card, board) ?? card;
-  return ordersLeft({ card: rules, chosenSection: section, board, orders: [], coins: 0 });
+  // The sections variant: the card orders the section being played, not the units already ordered
+  const { playSection, orders } = view.session.getSnapshot();
+  return ordersLeft({ card: rules, chosenSection: section ?? playSection, board, orders: [], previousOrders: orders, coins: 0 });
 }
 
 /** The dice a unit of this type rolls at an enemy this far away (0 out of range) */

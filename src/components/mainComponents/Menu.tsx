@@ -28,7 +28,7 @@ import { Faction, GameSetup, MatchSetup } from "../../types/faction";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import { boardSizeOf, isStandardBoard } from "../../game-core/boardSize";
 import { VISION, VISION_FROM_HILL } from "../../game-core/fogOfWar";
-import { MIN_SECTION_HEXES, ORDERS_PER_SECTION } from "../../game-core/frontSections";
+import { MIN_SECTION_HEXES } from "../../game-core/frontSections";
 
 const TEXT = defineMessages({
   es: {
@@ -63,9 +63,9 @@ const TEXT = defineMessages({
     artilleryCrew: "La artillería destruida queda como infantería",
     fogTitle: "Pasar y jugar y contra el ordenador",
     fogOfWar: "Niebla de guerra",
-    sectionOrders: "Órdenes por sección, sin cartas de mando",
-    sectionOrdersHelp: (hexes: number, orders: number) =>
-      `Variante de prueba. El mapa se divide en tantas secciones como quepan con al menos ${hexes} casillas cada una (dos en el mapa normal, que comparten la columna del medio). Cada turno das órdenes a hasta ${orders} unidades en cada sección, ${orders + 1} si la sección tiene más de ${hexes} casillas; puedes dar menos. Solo se juegan cartas de combate.`,
+    sectionOrders: "Una carta de mando por sección",
+    sectionOrdersHelp: (hexes: number) =>
+      `Variante de prueba. El mapa se divide en tantas secciones como quepan con al menos ${hexes} casillas cada una (dos en el mapa normal, que comparten la columna del medio). Cada turno juegas una carta de mando para cada sección, de izquierda a derecha, con 1 carta de combate como mucho cada una, y das las órdenes de esa sección antes de la siguiente. El mazo cambia: las cartas de sección son todas Ataque (4 órdenes).`,
     fogOfWarHelp: (vision: number, fromHill: number) =>
       `Al empezar la batalla de cada turno solo ves las unidades enemigas a ${vision} casillas o menos de una de las tuyas y en su línea de visión (${fromHill} desde una colina); lo que no ves queda a oscuras, y una unidad oculta que dispara se ve el resto del turno. Contra el ordenador, él juega con la misma niebla; al principio de la partida se ven los dos ejércitos. Entre dos jugadores, en la batalla el mapa oscurece las casillas que algún bando no ve y esconde las unidades que su enemigo no ve.`,
     artilleryCrewHelp:
@@ -129,9 +129,9 @@ const TEXT = defineMessages({
     artilleryCrew: "Destroyed artillery stays as infantry",
     fogTitle: "Pass and play and against the computer",
     fogOfWar: "Fog of war",
-    sectionOrders: "Orders by section, no command cards",
-    sectionOrdersHelp: (hexes: number, orders: number) =>
-      `A variant being tried out. The map is split into as many sections as fit with at least ${hexes} hexes each (two on the standard map, sharing its middle column). Each turn you order up to ${orders} units in each section, ${orders + 1} if the section has more than ${hexes} hexes; you may order fewer. Only combat cards are played.`,
+    sectionOrders: "A command card for each section",
+    sectionOrdersHelp: (hexes: number) =>
+      `A variant being tried out. The map is split into as many sections as fit with at least ${hexes} hexes each (two on the standard map, sharing its middle column). Each turn you play a command card for each section, left to right, with at most 1 combat card each, and give that section's orders before the next. The deck changes: the section cards are all Attack (4 orders).`,
     fogOfWarHelp: (vision: number, fromHill: number) =>
       `When each turn's battle starts you only see the enemy units ${vision} hexes or less from one of yours and in its line of sight (${fromHill} from a hill); what you don't see is darkened, and a hidden unit that fires is seen for the rest of the turn. Against the computer, it plays under the same fog; at the start of the game both armies are known. Between two players, in the battle the map darkens the hexes either side doesn't see and hides the units their enemy doesn't see.`,
     artilleryCrewHelp:
@@ -527,7 +527,7 @@ function Menu({
           sx={{ minHeight: 48 }}
         />
         <Typography variant="body2" color="text.secondary">
-          {t.sectionOrdersHelp(MIN_SECTION_HEXES, ORDERS_PER_SECTION)}
+          {t.sectionOrdersHelp(MIN_SECTION_HEXES)}
         </Typography>
         <Typography variant="h6" component="h3" sx={{ mt: 3, mb: 0.5 }}>
           {t.testRules}

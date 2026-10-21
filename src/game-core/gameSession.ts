@@ -60,7 +60,7 @@ import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
 import { Localized, byLang } from "../i18n/lang";
 import { LABELS } from "../labels";
-import { sectionOrdersCard } from "../data/commandCards";
+import { sectionsVariantDeck } from "../data/commandCards";
 
 export interface GameSnapshot {
   turn: number;
@@ -84,15 +84,25 @@ export interface GameSnapshot {
    * when it's a unit-type card and none of those units are left
    */
   activeCard: CommandCard | null;
-  /** The section picked for a card that orders units in a section of the player's choice */
+  /** The section picked for a card that orders units in a section of the player's choice (the sections variant: the card's section) */
   chosenSection: Section | null;
+  /** The sections variant: every command card played this turn so far, with its section, left to right (empty otherwise) */
+  plays: readonly { card: CommandCard; section: Section }[];
+  /** The sections variant: the section whose card is being picked or whose units are being ordered now */
+  playSection: Section | null;
+  /** The sections variant, giving orders: the section whose card comes next, once these orders are done; null for the last */
+  nextPlaySection: Section | null;
+  /** The most combat cards that can be played with the command card being picked */
+  maxCombatCards: number;
+  /** The command cards drawn in the final phase (the sections variant draws one for each card played) */
+  drawnCards: readonly CommandCard[];
+  /** The last order can be taken back (only this card's orders, in the sections variant) */
+  canUndoOrder: boolean;
   orders: readonly Order[];
   /** The most orders the player can still give with this card */
   ordersLeft: number;
   /** The card's orders still to give, including optional ones paid in coins (Finest Hour) */
   cardOrdersLeft: number;
-  /** The sections variant, giving orders: each section's orders given and allowed, left to right (empty otherwise) */
-  sectionOrdersGiven: readonly { section: Section; given: number; quota: number }[];
   /** Units that the card can still order (empty outside giving orders) */
   orderable: readonly Position[];
   /** Units that can take an extra order bought with coins (empty outside giving orders, or without the coins) */
@@ -180,6 +190,17 @@ export interface GameSnapshot {
   canUnpickCard: boolean;
   /** The Reinforcements card's unit isn't on the map yet: the player taps an empty hex for it (its marked hex was taken) */
   reinforcementToPlace: UnitType | null;
+}
+
+/**
+ * The sections variant: a command card played for one section earlier this turn, and how many of
+ * the turn's orders and combat cards are its (they come before the next card's)
+ */
+export interface SectionPlay {
+  card: CommandCard;
+  section: Section;
+  orders: number;
+  combatCards: number;
 }
 
 /** Pass and play: an enemy unit as this side sees it, from the match (`setEnemyView`) */
@@ -392,9 +413,10 @@ interface GameSessionOptions {
    */
   figures?: boolean;
   /**
-   * The sections variant (pass and play): no command cards. The board is split into sections of
-   * at least 7 hexes (game-core/frontSections.ts) and every turn the side plays the one card of
-   * `sectionOrdersCard`, which orders up to 4 units in each; `commandCards` is ignored
+   * The sections variant (pass and play): the board is split into sections of at least 7 hexes
+   * (game-core/frontSections.ts) and each turn the side plays a command card for each section,
+   * left to right, with at most 1 combat card each, and orders that section's units before the
+   * next card. Its deck is `sectionsVariantDeck`; `commandCards` is ignored
    */
   sectionOrders?: boolean;
   /** Random source for the dice, [0, 1) like Math.random; tests pass a fixed one */
@@ -454,7 +476,7 @@ class GameSession {
   readonly artilleryCrew: boolean;
   /** Pass and play: units have figures and take hits */
   readonly figures: boolean;
-  /** The sections variant: orders by section, no command cards (`GameSessionOptions.sectionOrders`) */
+  /** The sections variant: a command card for each section every turn (`GameSessionOptions.sectionOrders`) */
   readonly sectionOrders: boolean;
   readonly board: BoardManager;
   /** Every command card in this side's deck, wherever it is now */
@@ -466,6 +488,10 @@ class GameSession {
   private phase: TurnPhase;
   private chosenCard: CommandCard | null = null;
   private chosenSection: Section | null = null;
+  /** The sections variant: the cards played for the sections before this one this turn */
+  private plays: SectionPlay[] = [];
+  /** The cards drawn in the final phase */
+  private drawnCards: CommandCard[] = [];
   private drawnCard: CommandCard | null = null;
   private extraDrawn: CommandCard | null = null;
   private drawOptions: CommandCard[] = [];
@@ -538,10 +564,10 @@ class GameSession {
     this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
     this.board = new BoardManager(scenario, faction);
     if (sectionOrders) this.board.useFrontSections();
-    this.commandCards = sectionOrders ? [sectionOrdersCard(scenario)] : commandCards;
+    this.commandCards = sectionOrders ? sectionsVariantDeck(scenario, faction) : commandCards;
     // Cards kept out of the deck (Armor Assault) come only from another card's reward
     this.deck = new Deck(this.commandCards.filter((card) => !card.reserve));
-    this.hand = this.deck.draw(sectionOrders ? 1 : initialHandSize);
+    this.hand = this.deck.draw(initialHandSize);
     // Tactician only changes a command card's section: the sections variant has none to change
     this.combatCards = sectionOrders ? combatCards.filter((card) => card.effect?.kind !== "changeSection") : combatCards;
     this.combatDeck = new Deck([...this.combatCards]);
@@ -664,9 +690,10 @@ class GameSession {
    */
   canPlayTogether(combatCards: readonly CombatCard[]): boolean {
     if (combatCards.length === 0) return true;
-    if (this.extraTurn() || combatCards.length > MAX_COMBAT_CARDS_PER_TURN) return false;
+    if (this.extraTurn() || combatCards.length > this.maxCombatCards()) return false;
     if (combatCards.some((card, i) => !this.combatHand.includes(card) || combatCards.indexOf(card) !== i)) return false;
-    if (new Set(combatCards.map(templateOf)).size < combatCards.length) return false;
+    const all = [...this.combatCardsPlayed, ...combatCards];
+    if (new Set(all.map(templateOf)).size < all.length) return false;
     return combatCards.reduce((sum, card) => sum + card.cost, 0) <= this.coins();
   }
 
@@ -684,16 +711,16 @@ class GameSession {
     if (this.cardNeedsSection(card, played) ? !isSection(section) : section !== undefined) return false;
 
     this.combatHand = this.combatHand.filter((c) => !played.includes(c));
-    this.combatCardsPlayed = [...played];
+    this.combatCardsPlayed = [...this.combatCardsPlayed, ...played];
     this.chosenCard = card;
-    this.chosenSection = section ?? null;
+    this.chosenSection = section ?? this.playSection();
     this.phase = TurnPhase.ORDER_UNITS;
     return this.publish();
   }
 
   /** The card picked can still be taken back: giving orders, none given yet */
   private canUnpickCard(): boolean {
-    return this.phase === TurnPhase.ORDER_UNITS && this.orders.length === 0;
+    return this.phase === TurnPhase.ORDER_UNITS && this.orders.length === this.playStart();
   }
 
   /**
@@ -703,14 +730,101 @@ class GameSession {
   unpickCard(): boolean {
     if (!this.canUnpickCard()) return false;
 
-    this.combatHand = [...this.combatHand, ...this.combatCardsPlayed];
-    this.combatCardsPlayed = [];
-    this.markers = [];
-    this.assignments = [];
+    // Only this card's combat cards come back: the earlier sections' cards stay played
+    const kept = this.combatCardsPlayed.slice(0, this.combatStart());
+    const returned = this.combatCardsPlayed.slice(this.combatStart());
+    this.combatHand = [...this.combatHand, ...returned];
+    this.combatCardsPlayed = kept;
+    this.markers = this.markers.slice(0, kept.reduce((sum, card) => sum + (card.marker?.count ?? 0), 0));
+    this.assignments = this.assignments.filter(({ card }) => kept.includes(card));
     this.chosenCard = null;
     this.chosenSection = null;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
+  }
+
+  // --- The sections variant: a command card for each section, left to right
+
+  /** Where this card's orders start: the earlier sections' cards gave the ones before */
+  private playStart(): number {
+    return this.plays.reduce((sum, play) => sum + play.orders, 0);
+  }
+
+  /** Where this card's combat cards start in `combatCardsPlayed` */
+  private combatStart(): number {
+    return this.plays.reduce((sum, play) => sum + play.combatCards, 0);
+  }
+
+  /** The section whose card is being picked, or whose units are being ordered, now */
+  private playSection(): Section | null {
+    const layout = this.board.frontLayout;
+    if (!this.sectionOrders || !layout) return null;
+    if (this.phase !== TurnPhase.PICK_CARDS && this.phase !== TurnPhase.ORDER_UNITS) return null;
+    return layout.sections[this.plays.length] ?? null;
+  }
+
+  /** Giving orders: the section whose card comes once these are done; null for the last one */
+  private nextPlaySection(): Section | null {
+    const layout = this.board.frontLayout;
+    if (!this.sectionOrders || !layout || this.phase !== TurnPhase.ORDER_UNITS) return null;
+    return layout.sections[this.plays.length + 1] ?? null;
+  }
+
+  /** The most combat cards played with one command card: 1 in the sections variant */
+  private maxCombatCards(): number {
+    return this.sectionOrders ? 1 : MAX_COMBAT_CARDS_PER_TURN;
+  }
+
+  private canUndoOrder(): boolean {
+    return this.phase === TurnPhase.ORDER_UNITS && this.orders.length > this.playStart();
+  }
+
+  /** Every command card played this turn, the one being played last */
+  private playedCards(): CommandCard[] {
+    return [...this.plays.map((play) => play.card), ...(this.chosenCard ? [this.chosenCard] : [])];
+  }
+
+  /** The sections variant's cards played this turn, with their sections */
+  private allPlays(): { card: CommandCard; section: Section }[] {
+    const current = this.chosenCard && this.chosenSection ? [{ card: this.chosenCard, section: this.chosenSection }] : [];
+    return this.sectionOrders ? [...this.plays.map(({ card, section }) => ({ card, section })), ...current] : [];
+  }
+
+  /** A card's rules: 1 unit of any type when it orders unit types that aren't on the board */
+  private rulesOf(card: CommandCard): CommandCard {
+    return fallbackCard(card, this.board) ?? card;
+  }
+
+  /** What the cards played give in the final phase in place of the choice (Preparations, Refuel) */
+  private endOfTurnReward(): { coins: number; combatCard: boolean } | null {
+    const rewards = this.playedCards().flatMap((card) => (card.endOfTurnReward ? [card.endOfTurnReward] : []));
+    if (rewards.length === 0) return null;
+    return {
+      coins: rewards.reduce((sum, reward) => sum + reward.coins, 0),
+      combatCard: rewards.some((reward) => reward.combatCard),
+    };
+  }
+
+  /**
+   * The sections variant's draw: every card played goes to the discard pile and one card comes
+   * for each, straight to the hand (Refuel's is Armor Assault), with no swapping
+   */
+  private drawForPlays() {
+    const played = this.playedCards();
+    played.forEach((card) => {
+      if (!card.reserve) this.deck.discard(card);
+    });
+    this.hand = this.hand.filter((card) => !played.includes(card));
+    const drawn: CommandCard[] = [];
+    for (const card of played) {
+      const reward = this.rewardCardFor(card, drawn);
+      const next = reward ?? this.deck.draw(1)[0];
+      if (next) drawn.push(next);
+    }
+    if (this.drawsExtra()) drawn.push(...this.deck.draw(1));
+    this.hand = [...this.hand, ...drawn];
+    this.drawnCards = drawn;
+    this.drawnCard = drawn.at(-1) ?? null;
   }
 
   // --- ORDER_UNITS
@@ -724,7 +838,15 @@ class GameSession {
   private orderContext(): OrderContext | null {
     const card = this.activeCard();
     if (this.phase !== TurnPhase.ORDER_UNITS || !card) return null;
-    return { card, chosenSection: this.chosenSection, board: this.board, orders: this.orders, coins: this.coins() };
+    const start = this.playStart();
+    return {
+      card,
+      chosenSection: this.chosenSection,
+      board: this.board,
+      orders: this.orders.slice(start),
+      previousOrders: this.orders.slice(0, start),
+      coins: this.coins(),
+    };
   }
 
   private remainingOrders(): number {
@@ -868,24 +990,13 @@ class GameSession {
     return this.canBuyExtraOrders() && canBuyExtraOrder(context, unit) ? [EXTRA_SLOT] : [];
   }
 
-  private sectionOrdersGiven(): GameSnapshot["sectionOrdersGiven"] {
-    const card = this.activeCard();
-    const layout = this.board.frontLayout;
-    if (!this.sectionOrders || !card || !layout || this.phase !== TurnPhase.ORDER_UNITS) return [];
-    return layout.sections.map((section) => ({
-      section,
-      given: this.orders.filter((order) => !order.onTheMove && !order.extra && order.section === section).length,
-      quota: card.quotaIn(section),
-    }));
-  }
-
-  /** Extra orders can be bought with coins: not in the attacker's extra turn, nor in the sections variant (4 orders a section at most) */
+  /** Extra orders can be bought with coins: not in the attacker's extra turn */
   private canBuyExtraOrders(): boolean {
-    return !this.extraTurn() && !this.sectionOrders;
+    return !this.extraTurn();
   }
 
   undoLastOrder(): boolean {
-    if (this.phase !== TurnPhase.ORDER_UNITS) return false;
+    if (!this.canUndoOrder()) return false;
     const lastOrder = this.orders.at(-1);
     if (!lastOrder) return false;
 
@@ -915,10 +1026,28 @@ class GameSession {
   /** Confirm the orders and move on to the movement phase; from here on they can't change */
   commitOrders(): boolean {
     if (this.phase !== TurnPhase.ORDER_UNITS) return false;
-    if (!this.activeCard()?.optionalOrders && this.remainingOrders() > 0) return false;
+    if (this.remainingOrders() > 0) return false;
     if (this.markersLeft() > 0) return false;
     if (this.assignmentDue()) return false;
 
+    // The sections variant: the next section's card, keeping these orders
+    if (this.nextPlaySection() && this.chosenCard && this.chosenSection) {
+      this.plays = [
+        ...this.plays,
+        {
+          card: this.chosenCard,
+          section: this.chosenSection,
+          orders: this.orders.length - this.playStart(),
+          combatCards: this.combatCardsPlayed.length - this.combatStart(),
+        },
+      ];
+      // It leaves the hand, so it can't be picked again for the next section
+      this.hand = this.hand.filter((card) => card !== this.chosenCard);
+      this.chosenCard = null;
+      this.chosenSection = null;
+      this.phase = TurnPhase.PICK_CARDS;
+      return this.publish();
+    }
     this.phase = TurnPhase.MOVEMENT;
     return this.publish();
   }
@@ -1874,22 +2003,40 @@ class GameSession {
 
   /** The card whose bonuses the order gets: none for an extra order bought with coins */
   private cardFor(order: Order): CommandCard | null {
-    return order.extra ? null : this.activeCard();
+    if (order.extra) return null;
+    // The sections variant: the card of the section it was ordered for, or Close Assault's for a unit marked in the battle
+    const index = this.orders.indexOf(order);
+    let start = 0;
+    for (const play of this.plays) {
+      const rules = this.rulesOf(play.card);
+      if (order.closeAssaultOnly ? rules.closeAssaultOnly : index < start + play.orders) return rules;
+      start += play.orders;
+    }
+    return this.activeCard();
   }
 
   // Close Assault card: no orders; in the battle the player marks each unit
   // that is adjacent to an enemy on the table, and it fires in close assault
 
+  /** The card played as Close Assault this turn, and its section in the sections variant (null: the whole board) */
+  private closeAssaultPlay(): { section: Section | null } | null {
+    const play = this.plays.find((p) => this.rulesOf(p.card).closeAssaultOnly);
+    if (play) return { section: play.section };
+    return this.activeCard()?.closeAssaultOnly ? { section: this.chosenSection } : null;
+  }
+
   private canMarkCloseAssault(): boolean {
-    return this.phase === TurnPhase.BATTLE && (this.activeCard()?.closeAssaultOnly ?? false);
+    return this.phase === TurnPhase.BATTLE && this.closeAssaultPlay() !== null;
   }
 
   private closeAssaultMarkable(): Position[] {
     if (!this.canMarkCloseAssault()) return [];
+    const section = this.sectionOrders ? (this.closeAssaultPlay()?.section ?? null) : null;
     const marked = new Set(this.orders.map((order) => order.unit));
     return this.board
       .getAllHexes()
       .filter((hex) => hex.unit && !marked.has(hex.unit) && !hex.getTerrain().noFire)
+      .filter((hex) => !section || hex.getSections().includes(section))
       .map((hex) => hex.getPosition());
   }
 
@@ -1998,7 +2145,7 @@ class GameSession {
       standingCollisions: this.standingCollisions,
       adjustments: this.coinAdjustments,
       reward: this.rewardChoice,
-      cardReward: endOfTurn ? (this.chosenCard?.endOfTurnReward?.coins ?? 0) : 0,
+      cardReward: endOfTurn ? (this.endOfTurnReward()?.coins ?? 0) : 0,
       extraTurn: this.extraTurn(),
     });
   }
@@ -2033,7 +2180,7 @@ class GameSession {
   }
 
   private needsRewardChoice(): boolean {
-    return this.phase === TurnPhase.END_OF_TURN && !this.extraTurn() && !this.chosenCard?.endOfTurnReward;
+    return this.phase === TurnPhase.END_OF_TURN && !this.extraTurn() && !this.endOfTurnReward();
   }
 
   /**
@@ -2215,7 +2362,7 @@ class GameSession {
   private combatCardDue(): boolean {
     if (this.phase !== TurnPhase.END_OF_TURN || this.extraTurn() || this.drawnCombatCard) return false;
     if (!this.hasCombatCards()) return false;
-    return this.rewardChoice === "combatCard" || (this.chosenCard?.endOfTurnReward?.combatCard ?? false);
+    return this.rewardChoice === "combatCard" || (this.endOfTurnReward()?.combatCard ?? false);
   }
 
   private drawCombat() {
@@ -2434,9 +2581,8 @@ class GameSession {
    */
   private draw() {
     if (!this.chosenCard) return;
-    // The sections variant's one card stays in the hand
     if (this.sectionOrders) {
-      this.drawnCard = this.chosenCard;
+      this.drawForPlays();
       return;
     }
     // Discard first so a reshuffle on an empty deck can bring the card back,
@@ -2466,7 +2612,7 @@ class GameSession {
 
   /** The cards kept out of the deck that aren't in the hand, being played or drawn */
   private reserve(): CommandCard[] {
-    const out = new Set([...this.hand, ...this.drawOptions, this.chosenCard, this.drawnCard]);
+    const out = new Set([...this.hand, ...this.drawOptions, ...this.playedCards(), this.drawnCard, ...this.drawnCards]);
     return this.commandCards.filter((card) => card.reserve && !out.has(card));
   }
 
@@ -2474,12 +2620,12 @@ class GameSession {
    * The card a played card gives instead of the draw (Refuel: Armor Assault, or Direct from HQ
    * with no armour left on the board); null to draw as usual, also when it's already in the hand
    */
-  private rewardCardFor(played: CommandCard): CommandCard | null {
+  private rewardCardFor(played: CommandCard, taken: readonly CommandCard[] = []): CommandCard | null {
     const reward = played.rewardCard;
     if (!reward) return null;
     const has = this.board.getAllHexes().some((hex) => hex.unit?.getUnitType() === reward.needs);
     const template = has ? reward.card : reward.otherwise;
-    return this.reserve().find((card) => card.templateId === template) ?? null;
+    return this.reserve().find((card) => card.templateId === template && !taken.includes(card)) ?? null;
   }
 
   /** This side's turns so far, counting this one: the defender's first turn is turn 2 */
@@ -2490,7 +2636,6 @@ class GameSession {
   /** This turn's draw brings a second card (Pegasus Bridge: the Axis, after its first two turns) */
   private drawsExtra(): boolean {
     const rule = this.scenario.extraDraws;
-    if (this.sectionOrders) return false;
     return !!rule && rule.faction === this.faction && this.ownTurn() <= rule.turns;
   }
 
@@ -2542,6 +2687,7 @@ class GameSession {
     const record = recordTurn({
       turn: this.turn,
       card: playedCard,
+      plays: this.allPlays(),
       orders: this.orders,
       shots: this.shots,
       battleEdits: this.battleEdits,
@@ -2572,6 +2718,8 @@ class GameSession {
 
     this.chosenCard = null;
     this.chosenSection = null;
+    this.plays = [];
+    this.drawnCards = [];
     this.drawnCard = null;
     this.extraDrawn = null;
     this.drewAgain = false;
@@ -2601,6 +2749,8 @@ class GameSession {
       hand: this.hand,
       chosenCard: this.chosenCard,
       chosenSection: this.chosenSection,
+      plays: this.plays,
+      drawnCards: this.drawnCards,
       drawnCard: this.drawnCard,
       extraDrawn: this.extraDrawn,
       drawOptions: this.drawOptions,
@@ -2662,6 +2812,8 @@ class GameSession {
     session.hand = state.hand;
     session.chosenCard = state.chosenCard;
     session.chosenSection = state.chosenSection;
+    session.plays = [...state.plays];
+    session.drawnCards = [...state.drawnCards];
     session.drawnCard = state.drawnCard;
     session.extraDrawn = state.extraDrawn;
     session.drawOptions = state.drawOptions;
@@ -2704,6 +2856,12 @@ class GameSession {
       chosenCard: this.chosenCard,
       activeCard: this.activeCard(),
       chosenSection: this.chosenSection,
+      plays: this.allPlays(),
+      playSection: this.playSection(),
+      nextPlaySection: this.nextPlaySection(),
+      maxCombatCards: this.maxCombatCards(),
+      drawnCards: this.drawnCards,
+      canUndoOrder: this.canUndoOrder(),
       drawnCard: this.drawnCard,
       extraDrawn: this.extraDrawn,
       drawsExtra: this.drawsExtra(),
@@ -2714,7 +2872,6 @@ class GameSession {
       ordersLeft: orderContext ? ordersLeft(orderContext) : 0,
       cardOrdersLeft: orderContext ? cardOrdersLeft(orderContext) : 0,
       orderable: orderContext ? orderablePositions(orderContext) : [],
-      sectionOrdersGiven: this.sectionOrdersGiven(),
       extraOrderable: orderContext && this.canBuyExtraOrders() ? extraOrderablePositions(orderContext) : [],
       closeAssaultMarkable: this.closeAssaultMarkable(),
       battleEdits: this.battleEdits.length,

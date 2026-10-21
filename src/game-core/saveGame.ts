@@ -13,13 +13,13 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { Assignment, BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
+import type { Assignment, BattleEdit, CardAttack, SectionPlay, Shot, StandingCollisionRoll } from "./gameSession";
 import { TurnRecord } from "./turnLog";
 import { RewardChoice, isRewardChoice } from "./coins";
 import type { CombatCard } from "./combatCard";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 37;
+export const SAVE_VERSION = 38;
 
 interface SavedUnit {
   type: UnitType;
@@ -62,6 +62,10 @@ export interface SavedGame {
   hand: string[];
   chosenCard: string | null;
   chosenSection: Section | null;
+  /** The sections variant: the cards played for the earlier sections this turn */
+  plays: { card: string; section: Section; orders: number; combatCards: number }[];
+  /** The cards drawn in the final phase */
+  drawnCards: string[];
   drawnCard: string | null;
   extraDrawn: string | null;
   drawOptions: string[];
@@ -124,6 +128,8 @@ export interface SessionState {
   hand: CommandCard[];
   chosenCard: CommandCard | null;
   chosenSection: Section | null;
+  plays: readonly SectionPlay[];
+  drawnCards: readonly CommandCard[];
   drawnCard: CommandCard | null;
   /** The scenario's second card drawn this turn (already in the hand) */
   extraDrawn: CommandCard | null;
@@ -270,6 +276,8 @@ export function writeSave(
     hand: ids(state.hand),
     chosenCard: state.chosenCard?.id ?? null,
     chosenSection: state.chosenSection,
+    plays: state.plays.map((play) => ({ ...play, card: play.card.id })),
+    drawnCards: ids(state.drawnCards),
     drawnCard: state.drawnCard?.id ?? null,
     extraDrawn: state.extraDrawn?.id ?? null,
     drawOptions: ids(state.drawOptions),
@@ -489,6 +497,12 @@ export function readSave(
     hand,
     chosenCard: saved.chosenCard === null ? null : card(saved.chosenCard),
     chosenSection: section(saved.chosenSection),
+    plays: saved.plays.map((play) => {
+      const played = section(play.section);
+      if (!played || !Number.isInteger(play.orders) || !Number.isInteger(play.combatCards)) throw new Error("Unknown section play");
+      return { card: card(play.card), section: played, orders: play.orders, combatCards: play.combatCards };
+    }),
+    drawnCards: cards(saved.drawnCards),
     drawnCard,
     extraDrawn,
     drawOptions: cards(saved.drawOptions),

@@ -9,14 +9,12 @@
 // Not in the deck: Recon, Counter Attack (not in the game) and Behind Enemy
 // Lines, Barrage, Air Power, Dig In and Medics (combat cards, Step 24). Ambush was a
 // combat card too, until the reaction cards were taken out (Step 61).
-import CommandCard, { CommandCardProps, Section } from '../game-core/commandCard';
+import CommandCard, { CommandCardProps, SECTIONS, Section } from '../game-core/commandCard';
 import { UnitType } from '../game-core/unit';
 import { Side } from '../types/hex';
 import { Faction } from '../types/faction';
 import { Scenario } from '../types/scenario';
 import { Localized, byLang } from '../i18n/lang';
-import { boardSizeOf } from '../game-core/boardSize';
-import { MIN_SECTION_HEXES, ORDERS_PER_SECTION, frontLayout, sectionQuotas } from '../game-core/frontSections';
 
 interface CardTemplate {
   count: number;
@@ -328,9 +326,9 @@ export const hasUnits = (scenario: Scenario, faction: Faction, type: UnitType): 
  * The cards a side with armour keeps out of its deck, which only Refuel gives: Armor Assault, and
  * a Direct from HQ for when no armour is left
  */
-const reserveCards = (): CommandCard[] => [
-  new CommandCard({ ...armorAssault, id: 'armor-assault-1', templateId: armorAssault.id }),
-  new CommandCard({ ...directFromHq, id: 'direct-from-hq-reserve-1', templateId: directFromHq.id, reserve: true }),
+const reserveCards = (change = (props: CommandCardProps & { id: string }) => props): CommandCard[] => [
+  new CommandCard({ ...change(armorAssault), id: 'armor-assault-1', templateId: armorAssault.id }),
+  new CommandCard({ ...change(directFromHq), id: 'direct-from-hq-reserve-1', templateId: directFromHq.id, reserve: true }),
 ];
 
 /**
@@ -345,32 +343,94 @@ export function commandDeckFor(scenario: Scenario, faction: Faction): CommandCar
   ];
 }
 
-/** The sections variant's only card, with the same id on every board */
-export const SECTION_ORDERS_CARD_ID = 'section-orders';
+
+// --- The sections variant (game-core/frontSections.ts): a card for each section every turn, so
+// no card picks or spreads over sections. The section cards all become Attack (Ataque), some
+// tactic cards order more units, and no card draws two to keep one.
+
+const attack: CommandCardProps & { id: string } = {
+  id: 'attack',
+  name: { es: 'Ataque', en: 'Attack' },
+  summary: { es: '4 órdenes.', en: '4 orders.' },
+  description: { es: 'Da órdenes a 4 unidades de la sección.', en: 'Order 4 units in the section.' },
+  // Drawn with a painting, not the section arrows
+  tactic: true,
+  orders: 4,
+};
+
+/** The section cards: Batida, Ataque, Asalto, Vanguardia, Avance General and Movimiento en Pinza */
+const isSectionCard = ({ props }: CardTemplate) => !props.tactic;
+
+/** How the variant changes a card, by template id */
+const VARIANT_CHANGES: Record<string, Partial<CommandCardProps>> = {
+  'finest-hour': {
+    orders: 6,
+    summary: { es: 'Hasta 6 órdenes pagadas con suministros. Disparan con +1 dado.', en: 'Up to 6 orders paid with supplies. They fire with +1 die.' },
+    description: {
+      es: 'Da órdenes a hasta 6 unidades de la sección pagando suministros: 1 por infantería y 2 por tanque o artillería. Las unidades con orden disparan con 1 dado más.',
+      en: 'Order up to 6 units in the section by paying supplies: 1 for infantry and 2 for a tank or artillery. Ordered units fire with 1 extra die.',
+    },
+  },
+  'infantry-assault': {
+    sections: SECTIONS,
+    summary: { es: 'Toda la infantería de la sección. Mueve 1 casilla más.', en: 'All infantry in the section. Moves 1 extra hex.' },
+    description: {
+      es: 'Da órdenes a toda la infantería de la sección. Se mueve 1 casilla más, también para mover y disparar.',
+      en: 'Order all infantry in the section. It moves 1 extra hex, also when moving and firing.',
+    },
+  },
+  'close-assault': {
+    summary: { es: 'Sin órdenes. Tus unidades de la sección en asalto cercano tiran +1 dado.', en: 'No orders. Your units in the section roll +1 die in close assault.' },
+    description: {
+      es: 'Sin órdenes. En la batalla, cada unidad tuya de la sección adyacente a una unidad enemiga dispara en asalto cercano con 1 dado más.',
+      en: 'No orders. In the battle, each of your units in the section adjacent to an enemy unit fires in close assault with 1 extra die.',
+    },
+  },
+  firefight: {
+    orders: 6,
+    summary: { es: '6 órdenes sin mover. +1 dado a distancia, −1 en asalto cercano.', en: '6 orders, no moving. +1 die at range, −1 in close assault.' },
+    description: {
+      es: 'Da órdenes a 6 unidades de la sección que no se mueven. Disparan con 1 dado más a distancia y 1 menos en asalto cercano.',
+      en: "Order 6 units in the section that don't move. They fire with 1 extra die at range and 1 fewer in close assault.",
+    },
+  },
+  preparations: {
+    drawChoice: 1,
+    summary: { es: '1 orden. Al final: 3 suministros y 1 de combate.', en: '1 order. At the end: 3 supplies and 1 combat card.' },
+    description: {
+      es: 'Da una orden a 1 unidad de la sección. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir entre ellas.',
+      en: 'Order 1 unit in the section. In the final phase you get 3 supplies and a combat card, instead of choosing between them.',
+    },
+  },
+  'move-out': {
+    orders: 6,
+    summary: { es: '6 órdenes a infantería.', en: '6 infantry orders.' },
+    description: { es: 'Da órdenes a 6 unidades de infantería de la sección.', en: 'Order 6 infantry units in the section.' },
+  },
+  'artillery-bombardment': {
+    summary: { es: 'Toda la artillería de la sección: dispara 2 veces, o mueve 3 sin disparar.', en: 'All artillery in the section: fires twice, or moves 3 without firing.' },
+    description: {
+      es: 'Da órdenes a toda la artillería de la sección: cada una dispara dos veces sin moverse, o se mueve hasta 3 casillas sin disparar.',
+      en: 'Order all artillery in the section: each one fires twice without moving, or moves up to 3 hexes without firing.',
+    },
+  },
+  'direct-from-hq': {
+    orders: 6,
+    summary: { es: '6 órdenes.', en: '6 orders.' },
+    description: { es: 'Da órdenes a 6 unidades de la sección.', en: 'Order 6 units in the section.' },
+  },
+};
+
+const inVariant = <T extends CommandCardProps & { id: string }>(props: T): T => ({ ...props, ...VARIANT_CHANGES[props.id] });
 
 /**
- * The sections variant (game-core/frontSections.ts) has no command cards: every turn the side
- * plays this one, which stays in the hand. It orders up to 4 units in each of the board's
- * sections (5 in a section of more than 7 hexes), fewer if the player wants
+ * A side's deck in the sections variant: the same cards as `commandDeckFor`, the section cards
+ * turned into as many Attack cards and the tactic cards changed as `VARIANT_CHANGES` says
  */
-export function sectionOrdersCard(scenario: Scenario): CommandCard {
-  const layout = frontLayout(boardSizeOf(scenario).cols);
-  const quotas = sectionQuotas(layout);
-  const sections = layout.sections;
-  const total = sections.reduce((sum, section) => sum + quotas[section], 0);
-  const big = sections.some((section) => quotas[section] > ORDERS_PER_SECTION);
-  return new CommandCard({
-    id: SECTION_ORDERS_CARD_ID,
-    name: { es: 'Órdenes por sección', en: 'Orders by section' },
-    title: { es: 'Órdenes', en: 'Orders' },
-    description: {
-      es: `Da órdenes a hasta ${ORDERS_PER_SECTION} unidades en cada sección${big ? ` (${ORDERS_PER_SECTION + 1} en una sección de más de ${MIN_SECTION_HEXES} casillas)` : ''}. Puedes dar menos. Una unidad en la línea entre dos secciones cuenta para la que elijas.`,
-      en: `Order up to ${ORDERS_PER_SECTION} units in each section${big ? ` (${ORDERS_PER_SECTION + 1} in a section of more than ${MIN_SECTION_HEXES} hexes)` : ''}. You may order fewer. A unit on the line between two sections counts for the one you pick.`,
-    },
-    sections,
-    orders: total,
-    sectionQuotas: quotas,
-    optionalOrders: true,
-    unseen: true,
-  });
+export function sectionsVariantDeck(scenario: Scenario, faction: Faction): CommandCard[] {
+  const tanks = hasUnits(scenario, faction, UnitType.TANK);
+  const templates = [...sharedTemplates, ...unitTemplates(tanks, hasUnits(scenario, faction, UnitType.ARTILLERY))];
+  const attacks = templates.filter(isSectionCard).reduce((sum, template) => sum + template.count, 0);
+  const others = templates.filter((template) => !isSectionCard(template)).map((template) => ({ ...template, props: inVariant(template.props) }));
+  return [...buildDeck([{ count: attacks, props: attack }, ...others]), ...(tanks ? reserveCards(inVariant) : [])];
 }

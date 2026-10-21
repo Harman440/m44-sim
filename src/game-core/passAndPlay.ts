@@ -785,7 +785,8 @@ class PassAndPlayMatch {
   /** Close Assault: every unit of the side next to an enemy unit is marked, to fire in close assault */
   private markCloseAssaults(side: Faction) {
     const session = this.sessions[side];
-    if (!session.getSnapshot().activeCard?.closeAssaultOnly) return;
+    // The units it may mark: in the sections variant, only those in the card's section
+    if (session.getSnapshot().closeAssaultMarkable.length === 0) return;
     const enemies = this.enemiesOf(side).map((enemy) => enemy.position);
     for (const { position } of armyOf(session)) {
       if (enemies.some((enemy) => hexDistance(enemy, position) === 1)) session.markCloseAssault(position);
