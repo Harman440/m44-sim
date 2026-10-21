@@ -9,7 +9,7 @@ import { Faction } from "../../../types/faction";
 import CommandCardComponent from "../../CommandCardComponent";
 import CardDialog, { ShownCard } from "../../CardDialog";
 import CardHand from "../../CardHand";
-import CardPiles from "../../CardPiles";
+import { deckPile, discardPile } from "../../CardPiles";
 import Flight, { Box as ScreenBox, boxOf, centredBox } from "../../Flight";
 import GameIcon from "../../GameIcon";
 import InfoButton from "../../InfoButton";
@@ -22,6 +22,7 @@ import { END_OF_TURN_COINS } from "../../../data/coinRules";
 import { MAX_COMBAT_HAND } from "../../../data/combatCards";
 import CombatCardComponent from "../../CombatCardComponent";
 import { useSound } from "../../../sound";
+import "./CardsView.css";
 import "./EndOfTurnView.css";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
@@ -39,8 +40,6 @@ const TEXT = defineMessages({
     step1: "1. Retiradas y bajas",
     step1Info:
       "Haz en la mesa las retiradas marcadas en la batalla. Después, en «Actualizar mapa», refleja en el mapa las unidades eliminadas y las que se han movido (retiradas o terreno tomado), de los dos bandos.",
-    step1InfoShared:
-      "La app ya ha hecho las retiradas y las bajas de la batalla: el mapa está al día. Tócalo para verlo en grande.",
     reinforcementToPlaceShared: (unit: string) =>
       `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en una casilla libre.`,
     placeReinforcement: "Colocar el refuerzo",
@@ -54,6 +53,7 @@ const TEXT = defineMessages({
     reinforcementPlaced: (unit: string) =>
       `llega ${unit.toLowerCase()}, ya en el mapa. Ponla en la mesa en la casilla de la cruz.`,
     step2: "2. Carta de mando",
+    commandCard: "Carta de mando",
     drawChoiceInfo: (card: string, n: number) => `${card}: robas ${n} cartas de tu mazo y te quedas con 1.`,
     drawInfo:
       "Al empezar la fase final robas una carta de tu mazo, que va a tu mano. Puedes descartarla una vez y robar otra, pero entonces te quedas la nueva.",
@@ -106,8 +106,6 @@ const TEXT = defineMessages({
     step1: "1. Retreats and casualties",
     step1Info:
       "Carry out on the table the retreats marked in the battle. Then, in “Update map”, show on the map the units removed and the ones that moved (retreats or ground taken), on both sides.",
-    step1InfoShared:
-      "The app has already carried out the battle's retreats and casualties: the map is up to date. Tap it to see it large.",
     reinforcementToPlaceShared: (unit: string) =>
       `${unit.toLowerCase()} arrives. The cross hex is taken: place it on a free hex.`,
     placeReinforcement: "Place the reinforcement",
@@ -121,6 +119,7 @@ const TEXT = defineMessages({
     reinforcementPlaced: (unit: string) =>
       `${unit.toLowerCase()} arrives, already on the map. Put it on the table on the cross hex.`,
     step2: "2. Command card",
+    commandCard: "Command card",
     drawChoiceInfo: (card: string, n: number) => `${card}: you draw ${n} cards from your deck and keep 1.`,
     drawInfo:
       "As the final phase starts you draw a card from your deck, into your hand. You can discard it once and draw another, but then you keep the new one.",
@@ -194,6 +193,10 @@ function StepHeading({ title, info, children }: { title: string; info: ReactNode
   );
 }
 
+/** The header's deck or discard pile; without the header (a view on its own), the top middle of the screen */
+const pileBox = (pile: HTMLElement | null): ScreenBox =>
+  boxOf(pile) ?? { left: window.innerWidth / 2 - 20, top: 0, width: 40, height: 56 };
+
 /** A supply crate flying to the counter */
 const CRATE_SIZE = 40;
 /** Cards arriving together leave one after the other */
@@ -256,8 +259,6 @@ function EndOfTurnView({
   );
   /** Where a card arriving in the hand starts from, by hand key, when it's not the deck */
   const origins = useRef(new Map<string, ScreenBox>());
-  const deckRef = useRef<HTMLDivElement>(null);
-  const discardRef = useRef<HTMLDivElement>(null);
   const handRef = useRef<HTMLElement>(null);
   // Pass and play: there's no table, the app's map is the game
   const shared = useContext(OpponentContext) !== null;
@@ -314,7 +315,7 @@ function EndOfTurnView({
       const from =
         origins.current.get(key) ??
         // A card kept out of the deck (Refuel's Armor Assault) comes from the reward, not the deck
-      (command && !command.reserve ? boxOf(deckRef.current) : to && rewardBox(to));
+      (command && !command.reserve ? pileBox(deckPile()) : to && rewardBox(to));
       if (!to || !from) {
         land();
         return;
@@ -344,7 +345,7 @@ function EndOfTurnView({
 
   /** A card leaving the hand or the table for the discard pile */
   const sendToDiscard = (id: string, node: ReactNode, from: ScreenBox | null, fade = false) => {
-    const to = boxOf(discardRef.current);
+    const to = pileBox(discardPile());
     if (!from || !to) return;
     const flightId = `out-${id}`;
     addFlight({ id: flightId, node, from, to, delay: 0, fade, onDone: () => removeFlight(flightId) });
@@ -455,70 +456,84 @@ function EndOfTurnView({
   const slotClass = (key: string, isNew: boolean) =>
     [arrivingKeys.has(key) && "card-hand__slot--incoming", isNew && "hand-card--new"].filter(Boolean).join(" ") || undefined;
 
+  /** Pass and play: the map work left after the battle (a reinforcement to place, a card's move) */
+  const mapButton = !shared ? null : game.reinforcementToPlace ? (
+    <Button onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+      {t.placeReinforcement}
+    </Button>
+  ) : game.finalMove ? (
+    game.finalMove.card.effect?.kind === "reposition" ? (
+      <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="artillery" />}>
+        {t.reposition}
+      </Button>
+    ) : (
+      <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+        {t.behindLines}
+      </Button>
+    )
+  ) : null;
+
+  const reinforcementLine = reinforcements && reinforcementUnit && (
+    <Typography variant="body1" sx={{ mt: 1 }} data-testid="reinforcements">
+      {tr(reinforcements.name)}:{" "}
+      {game.reinforcementToPlace
+        ? (shared ? t.reinforcementToPlaceShared : t.reinforcementToPlace)(labels.units[reinforcementUnit])
+        : (shared ? t.reinforcementPlacedShared : t.reinforcementPlaced)(labels.units[reinforcementUnit])}
+    </Typography>
+  );
+
   return (
     <div className={`end-of-turn${shared && handAway ? " end-of-turn--away" : ""}`}>
       {shared && handAway && <LargeMap session={session} faction={faction} />}
-      <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
-        <StepHeading title={t.step1} info={<Typography variant="body1">{shared ? t.step1InfoShared : t.step1Info}</Typography>}>
-          {/* Pass and play: the app keeps the map, so there's nothing to update, only to see */}
-          {shared ? (
-            <>
-              {game.reinforcementToPlace && (
-                <Button onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-                  {t.placeReinforcement}
-                </Button>
-              )}
-              {!game.reinforcementToPlace && game.finalMove && (
-                game.finalMove.card.effect?.kind === "reposition" ? (
-                  <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="artillery" />}>
-                    {t.reposition}
-                  </Button>
-                ) : (
-                  <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-                    {t.behindLines}
-                  </Button>
-                )
-              )}
-              <MapPreview session={session} faction={faction} height={110} />
-            </>
-          ) : (
-            <>
-              {game.battleEdits > 0 && (
-                <Typography variant="body2" color="text.secondary" data-testid="map-edits">
-                  {t.mapEdits(game.battleEdits)}
-                </Typography>
-              )}
-              <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
-                {t.updateMap}
-              </Button>
-            </>
-          )}
-        </StepHeading>
-        {tableReminders.map((reminder) => (
-          <Alert
-            key={reminder}
-            severity="warning"
-            icon={<GameIcon name="cards" />}
-            sx={{ mt: 1, py: 0 }}
-            data-testid="table-reminder"
-          >
-            {reminder}
-          </Alert>
-        ))}
-        {reinforcements && reinforcementUnit && (
-          <Typography variant="body1" sx={{ mt: 1 }} data-testid="reinforcements">
-            {tr(reinforcements.name)}:{" "}
-            {game.reinforcementToPlace
-              ? (shared ? t.reinforcementToPlaceShared : t.reinforcementToPlace)(labels.units[reinforcementUnit])
-              : (shared ? t.reinforcementPlacedShared : t.reinforcementPlaced)(labels.units[reinforcementUnit])}
-          </Typography>
-        )}
-      </Paper>
+      {shared ? (
+        <>
+          {/* Pass and play: the app has done the retreats and casualties, so the top is as in the Command Zone: the title, the map */}
+          <div className="cards-top">
+            <Box className="cards-header">
+              <Typography variant="h4" component="h3">
+                {t.finalPhase}
+              </Typography>
+            </Box>
+            {!handAway && (
+              <div className="cards-top__map">
+                <MapPreview session={session} faction={faction} />
+              </div>
+            )}
+            {mapButton && <div className="cards-top__end">{mapButton}</div>}
+          </div>
+          {reinforcementLine}
+        </>
+      ) : (
+        <Paper variant="outlined" sx={{ px: 2, py: 1 }} className="end-of-turn__map-step">
+          <StepHeading title={t.step1} info={<Typography variant="body1">{t.step1Info}</Typography>}>
+            {game.battleEdits > 0 && (
+              <Typography variant="body2" color="text.secondary" data-testid="map-edits">
+                {t.mapEdits(game.battleEdits)}
+              </Typography>
+            )}
+            <Button variant="outlined" onClick={() => setShowMap(true)} startIcon={<GameIcon name="map" />}>
+              {t.updateMap}
+            </Button>
+          </StepHeading>
+          {tableReminders.map((reminder) => (
+            <Alert
+              key={reminder}
+              severity="warning"
+              icon={<GameIcon name="cards" />}
+              sx={{ mt: 1, py: 0 }}
+              data-testid="table-reminder"
+            >
+              {reminder}
+            </Alert>
+          ))}
+          {reinforcementLine}
+        </Paper>
+      )}
 
       <div className="end-of-turn__steps" ref={tableRef}>
         <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-draw">
           <StepHeading
-            title={t.step2}
+            title={shared ? t.commandCard : t.step2}
             info={
               <Typography variant="body1">
                 {chosenCard?.rewardCard
@@ -531,12 +546,6 @@ function EndOfTurnView({
               </Typography>
             }
           >
-            <CardPiles
-              drawPileCount={game.drawPileCount}
-              discardPileCount={game.discardPileCount}
-              deckRef={deckRef}
-              discardRef={discardRef}
-            />
           </StepHeading>
           {drawOptions.length > 0 ? (
             <>
@@ -586,7 +595,7 @@ function EndOfTurnView({
 
         <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-reward" ref={rewardRef}>
           <StepHeading
-            title={`3. ${reward ? tr(chosenCard!.name) : t.rewardTitle}`}
+            title={`${shared ? "" : "3. "}${reward ? tr(chosenCard!.name) : t.rewardTitle}`}
             info={
               <Typography variant="body1">
                 {game.extraTurn

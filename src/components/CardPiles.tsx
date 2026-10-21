@@ -1,47 +1,48 @@
-import { Ref } from "react";
-import { Stack, Typography } from "@mui/material";
+import { ButtonBase } from "@mui/material";
 import { defineMessages, useMessages } from "../i18n/useI18n";
 import "./CardPiles.css";
 
 const TEXT = defineMessages({
   es: {
-    deck: (n: number) => `Cartas (${n})`,
-    discard: (n: number) => `Descarte (${n})`,
+    piles: (deck: number, discard: number) => `Mazo: ${deck} cartas. Descarte: ${discard}. Ver mazo`,
+    deck: "Mazo",
+    discard: "Descarte",
   },
   en: {
-    deck: (n: number) => `Cards (${n})`,
-    discard: (n: number) => `Discard (${n})`,
+    piles: (deck: number, discard: number) => `Deck: ${deck} cards. Discard: ${discard}. See the deck`,
+    deck: "Deck",
+    discard: "Discard",
   },
 });
 
 interface CardPilesProps {
   drawPileCount: number;
   discardPileCount: number;
-  /** The deck and the discard pile, for cards flying from and to them */
-  deckRef?: Ref<HTMLDivElement>;
-  discardRef?: Ref<HTMLDivElement>;
+  /** Tapping the piles shows the deck */
+  onOpen: () => void;
 }
 
-/** The command deck and its discard pile, small, with their counts */
-function CardPiles({ drawPileCount, discardPileCount, deckRef, discardRef }: CardPilesProps) {
+/**
+ * The command deck and its discard pile, small, in the game header with their
+ * counts on them; a tap shows the deck. Cards fly from and to them
+ * (`deckPile()`/`discardPile()`).
+ */
+function CardPiles({ drawPileCount, discardPileCount, onOpen }: CardPilesProps) {
   const t = useMessages(TEXT);
   return (
-    <div className="top-area">
-      <Stack className="pile" sx={{ alignItems: "center" }}>
-        <Typography className="pile__label">{t.deck(drawPileCount)}</Typography>
-        <div className="deck-pile" ref={deckRef}>
-          <div className="deck-back">M'44</div>
-        </div>
-      </Stack>
-
-      <Stack className="pile" sx={{ alignItems: "center" }}>
-        <Typography className="pile__label">{t.discard(discardPileCount)}</Typography>
-        <div className="discard-pile" ref={discardRef}>
-          {discardPileCount > 0 && <div className="deck-back">M'44</div>}
-        </div>
-      </Stack>
-    </div>
+    <ButtonBase className="card-piles" onClick={onOpen} aria-label={t.piles(drawPileCount, discardPileCount)}>
+      <span className="deck-pile" data-testid="deck-pile" title={t.deck}>
+        <span className="pile__count">{drawPileCount}</span>
+      </span>
+      <span className={`discard-pile${discardPileCount > 0 ? " discard-pile--full" : ""}`} data-testid="discard-pile" title={t.discard}>
+        <span className="pile__count">{discardPileCount}</span>
+      </span>
+    </ButtonBase>
   );
 }
+
+/** The header's deck and discard pile, for cards flying from and to them */
+export const deckPile = () => document.querySelector<HTMLElement>('[data-testid="deck-pile"]');
+export const discardPile = () => document.querySelector<HTMLElement>('[data-testid="discard-pile"]');
 
 export default CardPiles;

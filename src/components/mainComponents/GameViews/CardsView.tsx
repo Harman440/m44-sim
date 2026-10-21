@@ -7,7 +7,6 @@ import { motion } from "motion/react";
 import CommandCardComponent from "../../CommandCardComponent";
 import CombatCardComponent from "../../CombatCardComponent";
 import CardHand from "../../CardHand";
-import CardPiles from "../../CardPiles";
 import Flight, { Box as ScreenBox, boxOf } from "../../Flight";
 import CardDetails from "../../CardDetails";
 import CardFlip from "../../CardFlip";
@@ -103,8 +102,6 @@ const TABLE_CARD_WIDTH = "min(160px, (100cqh - 40px) * 5 / 7)";
 
 interface CardsViewProps {
   handCards: readonly CommandCard[];
-  drawPileCount: number;
-  discardPileCount: number;
   dealtCardIds: ReadonlySet<string>;
   onCardDealt: (card: CommandCard) => void;
   /** Play the card; `section` for a card whose section the player picks, `combatCards` to play with it */
@@ -133,8 +130,6 @@ interface CardsViewProps {
 
 function CardsView({
   handCards,
-  drawPileCount,
-  discardPileCount,
   dealtCardIds,
   onCardDealt,
   onCardClick,
@@ -313,9 +308,6 @@ function CardsView({
         </Box>
 
         {mapPreview && !handAway && <div className="cards-top__map">{mapPreview}</div>}
-
-        {/* Deck and discard */}
-        <CardPiles drawPileCount={drawPileCount} discardPileCount={discardPileCount} />
       </div>
 
       {handAway && largeMap ? (

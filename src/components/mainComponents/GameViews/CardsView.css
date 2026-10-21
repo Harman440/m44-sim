@@ -1,6 +1,6 @@
 /*
- * The command zone: the title, the map (pass and play) in the middle and the
- * deck piles on top; the table in the middle, with the tray of the cards
+ * The command zone: the title and the map (pass and play) in the middle on
+ * top (the deck piles are in the game header); the table in the middle, with the tray of the cards
  * picked to play and beside it the card looked at; and the hand at the
  * bottom. In landscape it is one screen high (see GameView.css).
  */
@@ -22,24 +22,25 @@
   border-bottom: 3px double var(--m44-border);
 }
 
-.cards-top .top-area {
-  grid-column: 3;
-  justify-self: end;
-}
-
 .cards-top__map {
   grid-column: 2;
   display: flex;
   justify-content: center;
 }
 
-/* Narrow: the title and the piles share a row, the map is centred under them */
+/* Whatever the right of the bar holds (the final phase's map buttons) */
+.cards-top__end {
+  grid-column: 3;
+  justify-self: end;
+}
+
+/* Narrow: the map is centred under the title */
 @media (max-width: 720px) {
   .cards-top {
     grid-template-columns: 1fr auto;
   }
 
-  .cards-top .top-area {
+  .cards-top__end {
     grid-column: 2;
     grid-row: 1;
   }

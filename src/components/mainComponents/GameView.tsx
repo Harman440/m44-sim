@@ -41,6 +41,7 @@ import SettingsDialog from "../SettingsDialog";
 import HistoryDialog from "../HistoryDialog";
 import CoinsDialog from "../CoinsDialog";
 import DeckVisualizerDialog from "../DeckVisualizerDialog";
+import CardPiles from "../CardPiles";
 import "./GameView.css";
 import MedalTally from "../MedalTally";
 
@@ -203,6 +204,12 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
             {/* Pass and play: each side's medals */}
             <MedalTally />
+            {/* The command deck and discard pile; a tap shows the deck */}
+            <CardPiles
+              drawPileCount={game.drawPileCount}
+              discardPileCount={game.discardPileCount}
+              onOpen={() => setDeckOpen(true)}
+            />
             {/* The battle shows the coins large in its own screen */}
             {game.phase !== TurnPhase.BATTLE && (
               <Button
@@ -320,8 +327,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
           {game.phase === TurnPhase.PICK_CARDS && (
             <CardsView
               handCards={game.hand}
-              drawPileCount={game.drawPileCount}
-              discardPileCount={game.discardPileCount}
               dealtCardIds={dealtCardIds}
               onCardDealt={handleCardDealt}
               onCardClick={(card, section, combatCards) => {

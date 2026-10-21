@@ -1,5 +1,5 @@
 /*
- * The final phase: the map step on top, the command card and reward steps,
+ * The final phase: the map step on top (pass and play: the title and the map, as in the Command Zone), the command card and reward steps,
  * the next turn button, and the hand at the bottom as in the Command Zone.
  * Portrait: one below the other, the page scrolls.
  */
@@ -89,6 +89,10 @@
 @media (orientation: landscape) {
   .end-of-turn {
     min-height: 0;
+  }
+
+  .end-of-turn > .cards-top {
+    flex: none;
   }
 
   .end-of-turn__map-step {

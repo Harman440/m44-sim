@@ -9,6 +9,7 @@ import { Side } from "../../../types/hex";
 import { Position } from "../../../types/scenario";
 import { UnitType } from "../../../game-core/unit";
 import { same } from "../../../i18n/lang";
+import { OpponentContext } from "../../OpponentContext";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 7, col: 3 };
@@ -73,6 +74,26 @@ const setup = ({ openMap = true } = {}) => {
   const hasUnit = (p: Position) => session.board.getHex(p)!.hasUnit();
   return { session, container, tap, isSelected, hasUnit };
 };
+
+describe("EndOfTurnView in pass and play", () => {
+  it("has no retreats step: the title and the map on top, as in the Command Zone", () => {
+    const session = makeFinalSession();
+    const shared = {
+      opponent: { faction: "Axis" as const, units: [], orders: [], camouflaged: [], sandbags: [] },
+      strength: [],
+    };
+    render(
+      <OpponentContext.Provider value={shared}>
+        <Harness session={session} />
+      </OpponentContext.Provider>
+    );
+    expect(screen.queryByText("1. Retiradas y bajas")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Actualizar mapa" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fase final" })).toBeInTheDocument();
+    expect(screen.getByTestId("map-preview")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Carta de mando" })).toBeInTheDocument();
+  });
+});
 
 describe("EndOfTurnView map", () => {
   it("puts no sandbags on this side's units without Fortify", () => {

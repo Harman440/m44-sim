@@ -46,8 +46,6 @@ function Harness({
   return (
     <CardsView
       handCards={game.hand}
-      drawPileCount={game.drawPileCount}
-      discardPileCount={game.discardPileCount}
       dealtCardIds={dealt}
       onCardDealt={onCardDealt}
       onCardClick={onCardClick ?? ((card) => session.pickCard(card))}
@@ -139,8 +137,6 @@ describe("CardsView playing a card in a section of the player's choice", () => {
     const utils = render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
@@ -183,8 +179,6 @@ describe("CardsView combat cards", () => {
     const utils = render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
@@ -299,8 +293,6 @@ describe("CardsView Tactician", () => {
     const { container } = render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
@@ -328,8 +320,6 @@ describe("CardsView Tactician with a card for several sections", () => {
     const { container } = render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
@@ -358,8 +348,6 @@ describe("CardsView looking at a card", () => {
     const { container } = render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
@@ -384,8 +372,6 @@ describe("CardsView looking at a card", () => {
     const { container } = render(
       <CardsView
         handCards={[first, card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([first.id, card.id])}
         onCardDealt={() => {}}
         onCardClick={onCardClick}
@@ -414,8 +400,6 @@ describe("CardsView back from the orders", () => {
     render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={() => {}}
@@ -437,8 +421,6 @@ describe("CardsView putting the cards away", () => {
     const { container } = render(
       <CardsView
         handCards={[card]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set([card.id])}
         onCardDealt={() => {}}
         onCardClick={() => {}}
@@ -462,7 +444,7 @@ describe("CardsView putting the cards away", () => {
 
   it("has no bar without a map to show (own tablets)", () => {
     render(
-      <CardsView handCards={[]} drawPileCount={0} discardPileCount={0} dealtCardIds={new Set()} onCardDealt={() => {}} onCardClick={() => {}} />
+      <CardsView handCards={[]} dealtCardIds={new Set()} onCardDealt={() => {}} onCardClick={() => {}} />
     );
     expect(screen.queryByTestId("hand-away-bar")).not.toBeInTheDocument();
   });
@@ -478,8 +460,6 @@ describe("CardsView one hand", () => {
     const { container } = render(
       <CardsView
         handCards={[right, tactic, left]}
-        drawPileCount={0}
-        discardPileCount={0}
         dealtCardIds={new Set(["right", "tactic", "left"])}
         onCardDealt={() => {}}
         onCardClick={() => {}}
