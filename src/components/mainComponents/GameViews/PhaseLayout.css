@@ -51,6 +51,10 @@
     overscroll-behavior: contain;
   }
 
+  .phase-layout__controls--arriving {
+    overflow: visible;
+  }
+
   /* Still 48px high for touch, but with smaller type so labels fit on one line */
   .phase-layout__controls .MuiButton-root {
     width: 100%;
@@ -120,6 +124,25 @@
 
   .played-cards:has(> :only-child) {
     --card-width: clamp(110px, (100vh - 300px) * 5 / 7, 200px);
+  }
+}
+
+/* The orders: the cards played at the top of the controls (top right in
+   landscape), small, flown there from the Command Zone's tray */
+.played-cards.played-cards--orders {
+  flex-wrap: wrap;
+  --card-width: 120px;
+}
+
+@media (orientation: landscape) {
+  .played-cards.played-cards--orders {
+    flex-direction: row;
+    justify-content: center;
+    --card-width: 96px;
+  }
+
+  .played-cards.played-cards--orders:has(> :only-child) {
+    --card-width: clamp(96px, (100vh - 420px) * 5 / 7, 150px);
   }
 }
 

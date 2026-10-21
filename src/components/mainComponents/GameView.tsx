@@ -20,6 +20,7 @@ import {
 import { MotionConfig } from "motion/react";
 import { TurnPhase } from "../../types/gameManager";
 import CommandCard from "../../game-core/commandCard";
+import type { CombatCard } from "../../game-core/combatCard";
 import GameSession from "../../game-core/gameSession";
 import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
@@ -129,6 +130,17 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  /**
+   * The cards just played: the orders screen slides the rest of the hand away
+   * (`handLeaving`), and "Cambiar carta" puts them back in the Command Zone's tray
+   */
+  const [lastPlay, setLastPlay] = useState<{ command: CommandCard; combat: readonly CombatCard[] } | null>(null);
+  const [handLeaving, setHandLeaving] = useState(false);
+  const pickingOrOrdering = game.phase === TurnPhase.PICK_CARDS || game.phase === TurnPhase.ORDER_UNITS;
+  useEffect(() => {
+    if (!pickingOrOrdering) setLastPlay(null);
+  }, [pickingOrOrdering]);
+
   // Pass and play: both armies are in the app
   const shared = useContext(OpponentContext) !== null;
 
@@ -312,7 +324,12 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
               discardPileCount={game.discardPileCount}
               dealtCardIds={dealtCardIds}
               onCardDealt={handleCardDealt}
-              onCardClick={(card, section, combatCard) => session.pickCard(card, section, combatCard) && play("cardPlay")}
+              onCardClick={(card, section, combatCards) => {
+                if (!session.pickCard(card, section, combatCards)) return;
+                play("cardPlay");
+                setLastPlay({ command: card, combat: combatCards });
+                setHandLeaving(true);
+              }}
               needsSection={(card, combatCard) => session.cardNeedsSection(card, combatCard)}
               combatCardFits={(card, combatCard) => session.combatCardFits(card, combatCard)}
               combatHand={game.combatHand}
@@ -321,11 +338,18 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
               faction={faction}
               mapPreview={shared ? <MapPreview session={session} faction={faction} /> : undefined}
               largeMap={shared ? <LargeMap session={session} faction={faction} /> : undefined}
+              initialPicks={lastPlay}
             />
           )}
 
           {game.phase === TurnPhase.ORDER_UNITS && (
-            <OrdersView faction={faction} session={session} game={game} />
+            <OrdersView
+              faction={faction}
+              session={session}
+              game={game}
+              handLeaving={handLeaving}
+              onHandGone={() => setHandLeaving(false)}
+            />
           )}
 
           {game.phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}

@@ -229,3 +229,13 @@
   display: flex;
   flex-direction: column;
 }
+
+/* The hand sliding off the screen as the orders begin (LeavingHand), where the Command Zone held it */
+.leaving-hand {
+  position: fixed;
+  z-index: 30;
+  left: var(--app-padding, 8px);
+  right: var(--app-padding, 8px);
+  bottom: 0;
+  pointer-events: none;
+}

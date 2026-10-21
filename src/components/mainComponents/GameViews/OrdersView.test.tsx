@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import OrdersView from "./OrdersView";
 import { INVALID_FLASH_MS } from "../../useHexFlash";
@@ -36,9 +36,9 @@ const makeSession = () => {
   return session;
 };
 
-function Harness({ session }: { session: GameSession }) {
+function Harness({ session, handLeaving = false }: { session: GameSession; handLeaving?: boolean }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  return <OrdersView faction="Allies" session={session} game={game} />;
+  return <OrdersView faction="Allies" session={session} game={game} handLeaving={handLeaving} />;
 }
 
 const setup = () => {
@@ -196,7 +196,7 @@ describe("OrdersView confirming", () => {
 });
 
 describe("OrdersView card rules", () => {
-  const withCard = (props: CommandCardProps) => {
+  const withCard = (props: CommandCardProps, { handLeaving = false } = {}) => {
     const session = new GameSession({
       scenario: {
         id: "test",
@@ -212,18 +212,23 @@ describe("OrdersView card rules", () => {
       commandCards: [new CommandCard({ id: "card", name: same("Carta"), description: same("Texto de la carta."), ...props })],
     });
     session.pickCard(session.getSnapshot().hand[0]!);
-    const { container } = render(<Harness session={session} />);
+    const { container } = render(<Harness session={session} handLeaving={handLeaving} />);
     const tap = (p: Position) =>
       fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`) as SVGGElement);
     return { session, tap };
   };
 
-  it("shows the card being played", () => {
+  it("shows the card being played at the top, its text a tap away", () => {
     withCard({ sections: [Side.LEFT], orders: 2 });
 
-    expect(screen.getByRole("heading", { name: "Carta" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Información: Carta" }));
-    expect(screen.getByRole("dialog", { name: "Carta" })).toHaveTextContent("Texto de la carta.");
+    const played = within(screen.getByTestId("played-cards"));
+    fireEvent.click(played.getByRole("button", { name: /^Carta/ }));
+    expect(screen.getByRole("dialog", { name: "Carta jugada" })).toHaveTextContent("Texto de la carta.");
+  });
+
+  it("slides the rest of the hand away just after the cards were played", () => {
+    withCard({ sections: [Side.LEFT], orders: 2 }, { handLeaving: true });
+    expect(screen.getByTestId("leaving-hand")).toBeInTheDocument();
   });
 
   it("asks which section's order a border unit takes before ordering it", () => {

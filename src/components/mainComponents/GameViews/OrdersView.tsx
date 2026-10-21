@@ -33,6 +33,8 @@ import { CombatCard } from "../../../game-core/combatCard";
 import InfoButton from "../../InfoButton";
 import EndOfTurnMap from "./EndOfTurnMap";
 import SandbagsIcon from "../../SandbagsIcon";
+import PlayedCards, { PLAY_LAYOUT_PREFIX } from "../../PlayedCards";
+import LeavingHand from "./LeavingHand";
 import "./PhaseLayout.css";
 
 const TEXT = defineMessages({
@@ -210,6 +212,9 @@ interface OrdersViewProps {
   faction: Faction;
   session: GameSession;
   game: GameSnapshot;
+  /** The cards were just played: the rest of the hand slides off the screen */
+  handLeaving?: boolean;
+  onHandGone?: () => void;
 }
 
 
@@ -263,7 +268,7 @@ const holdLabel = (shots: number, t: Text) => {
   return shots === 1 ? t.holdAndFire : t.holdAndFireTimes(shots);
 };
 
-function OrdersView({ faction, session, game }: OrdersViewProps) {
+function OrdersView({ faction, session, game, handLeaving = false, onHandGone = () => {} }: OrdersViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -515,8 +520,21 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
         />
       </div>
 
-      <div className="phase-layout__controls">
-        {game.activeCard && (
+      {/* While the cards fly in, the column doesn't clip them (it scrolls the rest of the time) */}
+      <div className={`phase-layout__controls${handLeaving ? " phase-layout__controls--arriving" : ""}`}>
+        {/* The cards played, flown here from the Command Zone's tray; tapping one shows its text */}
+        {game.chosenCard && (
+          <PlayedCards
+            className="played-cards--orders"
+            faction={faction}
+            command={game.chosenCard}
+            section={game.chosenSection}
+            combat={game.combatCardsPlayed}
+            layoutPrefix={PLAY_LAYOUT_PREFIX}
+          />
+        )}
+        {/* A unit-type card with none of its units left gives 1 order of any unit instead: its rules by name */}
+        {game.activeCard && game.activeCard !== game.chosenCard && (
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
             <Typography variant="subtitle1" component="h2" sx={{ flex: 1, fontWeight: 700, lineHeight: 1.25 }}>
               {tr(game.activeCard.name)}
@@ -813,6 +831,15 @@ function OrdersView({ faction, session, game }: OrdersViewProps) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {handLeaving && (
+        <LeavingHand
+          faction={faction}
+          hand={game.hand.filter((card) => card !== game.chosenCard)}
+          combatHand={game.combatHand}
+          onGone={onHandGone}
+        />
+      )}
     </div>
   );
 }

@@ -407,6 +407,30 @@ describe("CardsView looking at a card", () => {
   });
 });
 
+describe("CardsView back from the orders", () => {
+  it("starts with the cards played before still in the tray", () => {
+    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), orders: 1 });
+    const combat: CombatCard = { id: "barrage", name: same("Cortina"), description: same(""), cost: 1 };
+    render(
+      <CardsView
+        handCards={[card]}
+        drawPileCount={0}
+        discardPileCount={0}
+        dealtCardIds={new Set([card.id])}
+        onCardDealt={() => {}}
+        onCardClick={() => {}}
+        combatHand={[combat]}
+        canPlayCombatCards
+        coins={3}
+        initialPicks={{ command: card, combat: [combat] }}
+      />
+    );
+    const tray = screen.getByRole("region", { name: "Tu jugada" });
+    expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
+    expect(within(tray).getByRole("button", { name: "Quitar Cortina" })).toBeInTheDocument();
+  });
+});
+
 describe("CardsView putting the cards away", () => {
   it("swaps the table and the hand for the large map and back, keeping the pick", () => {
     const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), orders: 1 });

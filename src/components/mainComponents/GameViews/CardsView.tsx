@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import { Faction } from "../../../types/faction";
 import CommandCard, { SECTIONS, Section } from "../../../game-core/commandCard";
@@ -11,8 +11,7 @@ import CardPiles from "../../CardPiles";
 import Flight, { Box as ScreenBox, boxOf } from "../../Flight";
 import CardDetails from "../../CardDetails";
 import CardFlip from "../../CardFlip";
-import CardPlay, { canPlayIn3D } from "../../CardPlay";
-import type { PlayedCard3D } from "../../card3d/CardPlay3D";
+import { PLAY_FLIGHT, PLAY_LAYOUT_PREFIX } from "../../PlayedCards";
 import GameIcon from "../../GameIcon";
 import { ruleTags } from "../../CommandCardComponent";
 import { CombatCard, templateOf } from "../../../game-core/combatCard";
@@ -125,6 +124,11 @@ interface CardsViewProps {
   mapPreview?: ReactNode;
   /** Pass and play: the map shown large in place of the table and the hand when the cards are put away */
   largeMap?: ReactNode;
+  /**
+   * The cards played before "Cambiar carta" brought the player back here: they
+   * start in the tray (flying back from the orders screen) and the hand slides up
+   */
+  initialPicks?: { command: CommandCard; combat: readonly CombatCard[] } | null;
 }
 
 function CardsView({
@@ -142,30 +146,31 @@ function CardsView({
   faction = "Allies",
   mapPreview,
   largeMap,
+  initialPicks = null,
 }: CardsViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
   const lang = useLang();
   /** The command card picked to play; it leaves the hand for the tray */
-  const [commandPick, setCommandPick] = useState<CommandCard | null>(null);
+  const [commandPick, setCommandPick] = useState<CommandCard | null>(() =>
+    initialPicks && handCards.includes(initialPicks.command) ? initialPicks.command : null
+  );
   /** The combat cards picked to play with it, in the order picked (two at most) */
-  const [combatPicks, setCombatPicks] = useState<readonly CombatCard[]>([]);
+  const [combatPicks, setCombatPicks] = useState<readonly CombatCard[]>(() =>
+    initialPicks ? initialPicks.combat.filter((card) => combatHand.includes(card)) : []
+  );
+  /** Back from the orders: the cards fly back to the tray on their own (layoutId), with no entrance of their own */
+  const [returned] = useState(() => new Set<unknown>(initialPicks ? [initialPicks.command, ...initialPicks.combat] : []));
   /** The picked card waiting for its section to be picked */
   const [choosingSection, setChoosingSection] = useState<CommandCard | null>(null);
   const [animatingCard, setAnimatingCard] = useState<CommandCard | null>(null);
   /** The card being looked at on the table, from the hand or the tray */
   const [looking, setLooking] = useState<{ command: CommandCard } | { combat: CombatCard } | null>(null);
-  /** The cards being played, flying to the table in 3D before the turn goes on */
-  const [playing, setPlaying] = useState<{
-    cards: PlayedCard3D[];
-    landing: { x: number; y: number };
-    play: () => void;
-  } | null>(null);
   /** Pass and play: the cards are put away and the map shows large (the picks stay) */
   const [handAway, setHandAway] = useState(false);
-  /** The hand slides back in only after it was put away, not when the view opens */
-  const [handMoved, setHandMoved] = useState(false);
+  /** The hand slides (back) in after it was put away, or back from the orders; not when the view opens */
+  const [handMoved, setHandMoved] = useState(initialPicks !== null);
   const toggleHand = () => {
     setLooking(null);
     setHandMoved(true);
@@ -174,10 +179,7 @@ function CardsView({
   /** A card tapped in the hand, flying to its empty slot in the tray */
   const [flying, setFlying] = useState<{ id: string; node: ReactNode; from: ScreenBox; to: ScreenBox } | null>(null);
   const handRef = useRef<HTMLElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLElement>(null);
-  /** The cards in flight have been played: the flight's end and its time limit both try */
-  const played = useRef(false);
   const play = useSound();
 
   const visibleHand = handCards.filter((card) => dealtCardIds.has(card.id));
@@ -271,37 +273,11 @@ function CardsView({
   /** A combat card picked can't be played with the command card (Tactician needs a one-section card) */
   const misfit = (commandPick && combatPicks.find((combat) => !combatCardFits(commandPick, combat))) ?? null;
 
-  /**
-   * Plays the cards: the cards in the tray fly to the middle of the table in
-   * 3D, then the turn goes on. Straight away without WebGL or with reduced motion.
-   */
+  /** Plays the cards: the turn goes on to the orders, where the cards in the tray fly to (their layoutId) */
   const commit = (card: CommandCard, section?: Section) => {
-    const combatCards = combatPicks;
-    const go = () => onCardClick(card, section, combatCards);
-    const table = tableRef.current;
-    const command = trayRef.current?.querySelector<HTMLElement>(".cards-tray__card--command .game-card");
-    if (!table || !command || !canPlayIn3D()) {
-      go();
-      return;
-    }
-    const combat = [...(trayRef.current?.querySelectorAll<HTMLElement>(".cards-tray__card--combat-any .game-card") ?? [])];
-    const box = table.getBoundingClientRect();
-    played.current = false;
     setLooking(null);
-    setPlaying({
-      cards: [{ element: command }, ...combat.map((element) => ({ element }))],
-      landing: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
-      play: go,
-    });
+    onCardClick(card, section, combatPicks);
   };
-
-  const finishPlaying = useCallback(() => {
-    if (played.current || !playing) return;
-    played.current = true;
-    setPlaying(null);
-    playing.play();
-  }, [playing]);
-  const landed = useCallback(() => play("cardDeal"), [play]);
 
   const playPicked = () => {
     if (!commandPick || misfit) return;
@@ -354,7 +330,7 @@ function CardsView({
       ) : (
         <>
           {/* The table: the tray with the cards picked to play, and beside it the card looked at */}
-          <Box className="cards-table" ref={tableRef}>
+          <Box className="cards-table">
             {/* The tray: the cards picked to play, stacked, each with its line and its text */}
             <section className="cards-tray" ref={trayRef} aria-label={t.yourPlay}>
               <div className="cards-tray__stack">
@@ -370,8 +346,10 @@ function CardsView({
                       {picked && (
                         <motion.div
                           key={picked.id}
-                          initial={{ y: 24, opacity: 0, scale: 1.2 }}
+                          layoutId={`${PLAY_LAYOUT_PREFIX}combat-${picked.id}`}
+                          initial={returned.has(picked) ? false : { y: 24, opacity: 0, scale: 1.2 }}
                           animate={{ y: 0, opacity: 1, scale: 1 }}
+                          transition={{ layout: PLAY_FLIGHT }}
                           style={{ visibility: flying?.id === `combat-${picked.id}` ? "hidden" : undefined }}
                         >
                           <CombatCardComponent faction={faction} card={picked} onClick={(c) => look({ combat: c })} />
@@ -384,8 +362,10 @@ function CardsView({
                   {commandPick && (
                     <motion.div
                       key={commandPick.id}
-                      initial={{ y: 24, opacity: 0, scale: 1.2 }}
+                      layoutId={`${PLAY_LAYOUT_PREFIX}${commandPick.id}`}
+                      initial={returned.has(commandPick) ? false : { y: 24, opacity: 0, scale: 1.2 }}
                       animate={{ y: 0, opacity: 1, scale: 1 }}
+                      transition={{ layout: PLAY_FLIGHT }}
                       style={{ visibility: flying?.id === commandPick.id ? "hidden" : undefined }}
                     >
                       <CommandCardComponent faction={faction} cardData={commandPick} onClick={(c) => look({ command: c })} />
@@ -605,8 +585,6 @@ function CardsView({
           {flying.node}
         </Flight>
       )}
-
-      {playing && <CardPlay cards={playing.cards} landing={playing.landing} onLanded={landed} onDone={finishPlaying} />}
 
       {/* Animating Card Overlay */}
       {/* Flies from the deck into the hand; keyed so each card gets its own flight */}
