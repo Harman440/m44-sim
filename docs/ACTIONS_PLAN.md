@@ -59,7 +59,7 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
 - Elite infantry's move goes in R5, and the elite tank's 3 hits a figure in R8
 
 ### R2: The actions as data
-- [ ] `data/unitActions.ts`: each action has an id, its unit type, its name and description (`Localized`), its painting (a card template id), and its cost (energy, fuel or a piece of equipment). It also says how far it moves (and whether it ignores terrain), how it fires, any effect, and whether own tablets offer it:
+- [x] `data/unitActions.ts` (types in `game-core/unitAction.ts`): each action has an id, its unit type, its name and description (`Localized`), its painting (a card template id), and its cost (energy, fuel or a piece of equipment). It also says how far it moves (and whether it ignores terrain), how it fires, any effect, and whether own tablets offer it:
   - **Infantry:**
     - Firefight (firefight): fires, no move, 1 energy
     - Assault (infantry-assault): moves 1 and fires, 1 energy
@@ -86,12 +86,12 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
     - Reposition (reposition): moves up to 2, no fire, 1 fuel
     - Fortify (fortify): sandbags, 1 fuel
     - Reload: +2 shells
-- [ ] Fire options as data:
+- [x] Fire options as data:
   - infantry, each spending 1 ammo: Normal; Explosives (close assault only, +1 die, uses the explosives); Suppressive
   - armour, each spending 1 shell: Normal (+1 die in close assault if it didn't move); Suppressive
   - artillery: Fire, 1 shell per shot
-- [ ] Suppressive dice in `dice.ts`: the 6-sided die is 1 infantry, 1 grenade, 3 flags and 1 supply; the 8-sided die is 4 flags, 2 infantry and 2 supplies (rolled where the 8-sided die is). Faces in `DieFaceIcon`, 2D and 3D, come in R13
-- [ ] Tests: every action has both languages and a painting that exists, and the costs match this list
+- [x] Suppressive dice in `dice.ts`: the 6-sided die is 1 infantry, 1 grenade, 3 flags and 1 supply; the 8-sided die is 4 flags, 2 infantry and 2 supplies (rolled where the 8-sided die is). The card game's Suppressive Fire card already had these dice: they now have the new faces, in its text and the rule book too
+- [x] Tests: every action has both languages and a painting that exists, and the costs match this list
 
 ### R3: The command cards, their cooldown and the scenario's say
 - [ ] `data/actionCards.ts`:

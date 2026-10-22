@@ -58,22 +58,22 @@ export const ATTACK_DIE_SIDES: readonly DieFace[] = [
   DieFace.FLAG,
 ];
 
-/** The battle die with Suppressive Fire: one infantry side is a flag */
+/** The battle die with Suppressive Fire: 1 infantry, 1 grenade, 3 flags and 1 supply */
 export const SUPPRESSIVE_DIE_SIDES: readonly DieFace[] = [
   DieFace.INFANTRY,
-  DieFace.FLAG,
-  DieFace.TANK,
   DieFace.GRENADE,
-  DieFace.SUPPLY,
   DieFace.FLAG,
+  DieFace.FLAG,
+  DieFace.FLAG,
+  DieFace.SUPPLY,
 ];
 
-/** The long-range die with Suppressive Fire: one infantry side is a flag */
+/** The long-range die with Suppressive Fire: 2 infantry, 4 flags and 2 supplies */
 export const LONG_RANGE_SUPPRESSIVE_DIE_SIDES: readonly DieFace[] = [
-  DieFace.TANK,
-  DieFace.TANK,
   DieFace.INFANTRY,
   DieFace.INFANTRY,
+  DieFace.FLAG,
+  DieFace.FLAG,
   DieFace.FLAG,
   DieFace.FLAG,
   DieFace.SUPPLY,
@@ -95,7 +95,7 @@ export const SIDES_OF: Record<DieKind, readonly DieFace[]> = {
 /** The 8-sided dice (an octahedron in 3D) */
 export const isEightSided = (die: DieKind): boolean => SIDES_OF[die].length === 8;
 
-/** The die a shot rolls with Suppressive Fire on: the same shape, one infantry side turned into a flag */
+/** The die a shot rolls with Suppressive Fire on: the suppressive die of the same shape */
 export const suppressed = (die: DieKind): DieKind =>
   die === "battle" ? "suppressive" : die === "longRange" ? "longRangeSuppressive" : die;
 

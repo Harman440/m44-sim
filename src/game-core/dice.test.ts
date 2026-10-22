@@ -81,20 +81,20 @@ describe("the attack cards' die", () => {
 });
 
 describe("Suppressive Fire's dice", () => {
-  it("turn one infantry side of each die into a flag, keeping its shape", () => {
+  it("are mostly flags: 1 infantry, 1 grenade, 3 flags, 1 supply; 8-sided 2 infantry, 4 flags, 2 supplies", () => {
     expect(countFaces(SUPPRESSIVE_DIE_SIDES)).toEqual({
       [DieFace.INFANTRY]: 1,
-      [DieFace.TANK]: 1,
+      [DieFace.TANK]: 0,
       [DieFace.GRENADE]: 1,
       [DieFace.SUPPLY]: 1,
-      [DieFace.FLAG]: 2,
+      [DieFace.FLAG]: 3,
     });
     expect(countFaces(LONG_RANGE_SUPPRESSIVE_DIE_SIDES)).toEqual({
       [DieFace.INFANTRY]: 2,
-      [DieFace.TANK]: 2,
+      [DieFace.TANK]: 0,
       [DieFace.GRENADE]: 0,
       [DieFace.SUPPLY]: 2,
-      [DieFace.FLAG]: 2,
+      [DieFace.FLAG]: 4,
     });
     expect(suppressed("battle")).toBe("suppressive");
     expect(suppressed("longRange")).toBe("longRangeSuppressive");

@@ -300,8 +300,8 @@ const TEMPLATES: CombatCardTemplate[] = [
     { effect: { kind: "concentratedFire" } }),
   card("suppressive-fire", { es: "Fuego de supresión", en: "Suppressive Fire" }, 1, always,
     {
-      es: "Este turno, en cada disparo de tus unidades con orden puedes tirar el dado de supresión: una de sus caras de infantería es una bandera.",
-      en: "This turn, on each shot of your ordered units you may roll the suppressive die: one of its infantry sides is a flag.",
+      es: "Este turno, en cada disparo de tus unidades con orden puedes tirar el dado de supresión: casi todo banderas.",
+      en: "This turn, on each shot of your ordered units you may roll the suppressive die: mostly flags.",
     },
     { effect: { kind: "suppressiveFire" } }),
   card("rifles-up", { es: "¡Fusiles arriba!", en: "Rifles Up!" }, 2, always,
