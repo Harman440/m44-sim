@@ -116,6 +116,16 @@
         "axis": { "type": "integer", "minimum": 0 }
       }
     },
+    "cardCosts": {
+      "description": "The actions mode: a lower cost for some command cards, per side, by card id (finest-hour, resupply, refuel, air-bombardment, reinforcements, barrage, air-power); a card left out costs what the card says",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allies", "axis"],
+      "properties": {
+        "allies": { "$ref": "#/definitions/cardCosts" },
+        "axis": { "$ref": "#/definitions/cardCosts" }
+      }
+    },
     "fordableRivers": {
       "description": "Its rivers can be forded (house rule): a unit wades in and stops, can still fire with a die less, and is fired at as in the open",
       "type": "boolean"
@@ -144,6 +154,11 @@
     }
   },
   "definitions": {
+    "cardCosts": {
+      "description": "A card's id and its cost to the side, a whole number 0 or more",
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
     "localized": {
       "description": "A text in each language; an empty one shows the other",
       "type": "object",

@@ -8,7 +8,7 @@ Work through it one step at a time. Each step is one commit, and you tick items 
 - **Modes:** pass and play, against the computer, and own tablets. Own tablets can't know the flags rolled against their units, so they **don't track morale**: there a flag works as it does today (the first pins, each one after it is a hex of retreat), Morale Up isn't offered, and Medic and Mechanic are carried out at the table (own tablets don't track figures).
 - **Cooldown:** the same for every card, 3 turns. A card played on turn 2 can be played again on turn 5.
 - **Supplies:** as now, 1 for each supply face rolled in battle. A side starts with 0.
-- **Per scenario:** a scenario can leave out a card for a side (no air: no Air Bombardment or Air Power; no big guns: no Barrage), or make it cheaper. Set in the map editor.
+- **Per scenario:** a side with no air sorties has no Air Bombardment or Air Power, and one with no big guns no Barrage (the scenario's existing `airPower` and `bigGuns`). A scenario can also make a card cheaper for a side (`Scenario.cardCosts`). Both are set in the map editor.
 - **Luck:** goes from −3 to +3 and starts at 0. Each point adds or takes away about 5% chance per die of rolling a hit face. It moves on a **streak**: a die that hits is −(1 − p) and a miss is +p, where p is that die's chance to hit. So luck doesn't drift just because a target is hard to hit.
 - **Flags on infantry** (pass and play, computer): −1 morale, *and* the pinned-then-retreat rule applies as now.
 - **Morale 0:** the unit can only be given Morale Up (or rest). Resupply also fills its morale back up.
@@ -94,13 +94,13 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
 - [x] Tests: every action has both languages and a painting that exists, and the costs match this list
 
 ### R3: The command cards, their cooldown and the scenario's say
-- [ ] `data/actionCards.ts`:
+- [x] `data/actionCards.ts` (the type and rules in `game-core/actionCard.ts`):
   - Finest Hour (finest-hour) 15: every unit fires with +1 die this turn, on every shot (limited damage allows one more, as with a card's extra dice)
   - Resupply (preparations) 9: all infantry gets its equipment, ammo and morale back to full, a unit at morale 0 too
   - Refuel (armor-assault) 10: tanks and artillery get their fuel topped up
   - Air Bombardment 8, Reinforcements 10, Barrage 8, Air Power 7: as today's combat cards, with their markers and the attack die
-- [ ] `CARD_COOLDOWN_TURNS = 3`, plus pure functions `isReady(card, playedOn, turn)` and `turnsLeft`. Tests
-- [ ] `Scenario.cards` (optional, per side): the cards the side doesn't have, and a lower cost for any card. In the scenario file, its schema and `validateScenario`. The built-ins set Air Bombardment, Air Power and Barrage from their air and big-gun rules. Tests
+- [x] `CARD_COOLDOWN_TURNS = 3`, plus pure functions `isReady(playedOn, turn)` and `turnsLeft`. Tests
+- [x] Which cards a side has comes from the scenario's air and big guns, which it already sets (`airPower`, `bigGuns`, in the map editor too): the air cards need air sorties, Barrage big guns. `Scenario.cardCosts` (optional, per side, card id → cost) makes cards cheaper, in the scenario file, its schema and `validateScenario`. `cardsOf(scenario, side)` gives a side's cards at its cost. Tests
 
 ### R4: The turn without decks
 - [ ] `GameSession` gets `ruleset`, saved in `SessionState` and `SavedGame` (bump `SAVE_VERSION`). `PassAndPlayMatch` creates both sessions with it, and the match save keeps it
@@ -185,7 +185,7 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
 - [ ] The enemy's supplies and luck are never shown, on any screen, and the shared battle screen shows only the side firing. Test
 
 ### R14: The map editor
-- [ ] In the scenario's settings, for each side, a switch for each card the side has, and its cost (lowered from the default), stored in `Scenario.cards`. Shown in the menu's scenario panel. Test
+- [ ] In the scenario's settings, for each side, the cost of each card it has (from the card's own down to 0), stored in `Scenario.cardCosts`. The air sorties and big guns there already decide which cards a side has. Shown in the menu's scenario panel. Test
 
 ## Part 3: The computer
 

@@ -229,6 +229,18 @@ describe("validateScenario", () => {
     ]);
   });
 
+  it("keeps the cards a scenario makes cheaper for each side, and checks them", () => {
+    const cheaper = json({ cardCosts: { allies: { "air-power": 4 }, axis: {} } });
+
+    expect(matchesSchema(cheaper)).toBe(true);
+    expect(parseScenario(cheaper).cardCosts).toEqual({ allies: { "air-power": 4 }, axis: {} });
+    expect(() => parseScenario(json({ cardCosts: { allies: { "air-power": "4" }, axis: {} } }))).toThrow(ScenarioFileError);
+    expect(messages(problemsWith({ cardCosts: { allies: { nope: 1 }, axis: { barrage: -1 } } }))).toEqual([
+      'There\'s no card "nope" to change the cost of',
+      'The cost of the card "barrage" must be a whole number, 0 or more',
+    ]);
+  });
+
   it("says each problem in Spanish too, with its hexes", () => {
     const [problem] = problemsWith({ sandbags: [{ row: 3, col: 3 }, { row: 2, col: 5 }] });
 

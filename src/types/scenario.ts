@@ -81,6 +81,11 @@ export interface Scenario {
    * scenario gives the side, 0 for a side whose enemy has air superiority. 1 each when omitted
    */
   airPower?: { allies: number; axis: number };
+  /**
+   * The actions mode: a lower cost for some command cards, per side, by card id
+   * (data/actionCards.ts). A card left out costs what the card says
+   */
+  cardCosts?: { allies: Record<string, number>; axis: Record<string, number> };
   /** Its rivers can be forded (house rule, `FORDABLE_RIVER`): a unit wades in and stops, and fires with a die less */
   fordableRivers?: boolean;
   /**

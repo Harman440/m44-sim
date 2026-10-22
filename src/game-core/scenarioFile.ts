@@ -11,6 +11,7 @@ import { Faction, isFaction } from "../types/faction";
 import { isUnitType } from "./unit";
 import { positionKey } from "./position";
 import { TERRAIN } from "../data/terrain";
+import { actionCardById } from "../data/actionCards";
 import { BOARD_LIMITS, BoardSize, boardSizeOf, isBoardSize, isOnBoard, isStandardBoard } from "./boardSize";
 import { Lang, Localized, isLocalized } from "../i18n/lang";
 
@@ -51,6 +52,7 @@ const FILE_FIELDS = {
   extraDraws: true,
   bigGuns: true,
   airPower: true,
+  cardCosts: true,
   fordableRivers: true,
   victory: true,
 } as const satisfies Record<keyof ScenarioFile, true>;
@@ -119,6 +121,14 @@ const MESSAGES = {
   paradropUnits: { es: "El lanzamiento en paracaídas necesita 1 unidad o más", en: "The paradrop needs 1 unit or more" },
   extraDrawTurns: { es: "Los robos extra necesitan 1 turno o más", en: "The extra draws need 1 turn or more" },
   airPower: { es: "Las salidas aéreas deben ser 0 o más", en: "Air sorties must be 0 or more" },
+  unknownCard: (id: string): Localized => ({
+    es: `No hay ninguna carta «${id}» a la que cambiar el coste`,
+    en: `There's no card "${id}" to change the cost of`,
+  }),
+  cardCost: (id: string): Localized => ({
+    es: `El coste de la carta «${id}» debe ser un número entero, 0 o más`,
+    en: `The cost of the card "${id}" must be a whole number, 0 or more`,
+  }),
   victoryMedals: { es: "La victoria necesita 1 medalla o más", en: "Victory needs 1 medal or more" },
   objectiveOnWater: { es: "Un objetivo no puede estar en el agua", en: "An objective can't be on water" },
   objectiveTwice: { es: "Una casilla es objetivo dos veces para el mismo bando", en: "A hex is an objective twice for the same side" },
@@ -213,6 +223,12 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   if (scenario.extraDraws && !isWholeNumber(scenario.extraDraws.turns, 1)) problem(MESSAGES.extraDrawTurns);
   const airPower = scenario.airPower;
   if (airPower && SIDES.some(([side]) => !isWholeNumber(airPower[side], 0))) problem(MESSAGES.airPower);
+  for (const [side] of SIDES) {
+    for (const [id, cost] of Object.entries(scenario.cardCosts?.[side] ?? {})) {
+      if (!actionCardById(id)) problem(MESSAGES.unknownCard(id));
+      else if (!isWholeNumber(cost, 0)) problem(MESSAGES.cardCost(id));
+    }
+  }
   if (scenario.victory && !isWholeNumber(scenario.victory.medals, 1)) problem(MESSAGES.victoryMedals);
 
   return problems;
@@ -228,6 +244,7 @@ const EXPECTED = {
   localized: { es: 'debe ser un texto en cada idioma: { "es": …, "en": … }', en: 'must be a text in each language: { "es": …, "en": … }' },
   wholeNumber: { es: "debe ser un número entero", en: "must be a whole number" },
   boolean: { es: "debe ser true o false", en: "must be true or false" },
+  cardCosts: { es: "debe ser un objeto de id de carta → coste", en: "must be an object of card id → cost" },
   faction: { es: 'debe ser "Allies" o "Axis"', en: 'must be "Allies" or "Axis"' },
   factions: { es: 'debe ser una lista de bandos ("Allies", "Axis")', en: 'must be a list of sides ("Allies", "Axis")' },
   positions: { es: 'debe ser una lista de casillas { "row": …, "col": … }', en: 'must be a list of hexes { "row": …, "col": … }' },
@@ -274,6 +291,9 @@ const isPickedTile = (value: unknown): value is PickedTile =>
   /^[a-z0-9-]+$/.test(value.tile);
 const isPickedTileList = (value: unknown): value is PickedTile[] => Array.isArray(value) && value.every(isPickedTile);
 const isFactionList = (value: unknown): value is Faction[] => Array.isArray(value) && value.every(isFaction);
+
+const isNumberRecord = (value: unknown): value is Record<string, number> =>
+  isRecord(value) && Object.values(value).every((each) => typeof each === "number");
 
 const join = (path: string, key: string) => (path ? `${path}.${key}` : key);
 
@@ -402,6 +422,9 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     extraDraws: optional("extraDraws", (value, path) => reader.extraDraws(value, path)),
     bigGuns: optional("bigGuns", (value, path) => reader.check(value, path, isFactionList, EXPECTED.factions)),
     airPower: optional("airPower", (value, path) => reader.sides(value, path, reader.number)),
+    cardCosts: optional("cardCosts", (value, path) =>
+      reader.sides(value, path, (costs, costsPath) => reader.check(costs, costsPath, isNumberRecord, EXPECTED.cardCosts))
+    ),
     fordableRivers: optional("fordableRivers", (value, path) =>
       reader.check(value, path, (v): v is boolean => typeof v === "boolean", EXPECTED.boolean)
     ),
