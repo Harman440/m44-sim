@@ -49,14 +49,14 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
 ## Part 1: The rules (game-core and data, no UI)
 
 ### R1: Unit supplies
-- [ ] `data/unitSupplies.ts`, all the numbers in one place:
-  - infantry: morale 5, energy 5 (the cap), ammo 2, Reload +2, one of each piece of equipment
+- [x] `data/unitSupplies.ts`, all the numbers in one place (what a unit starts with is also the most it can hold, so Reload never goes past it):
+  - infantry: morale 5, energy 5, ammo 2, Reload +2, one of each piece of equipment
   - elite infantry: morale 10, energy 10, two of each piece of equipment
-  - tanks: fuel 5 (elite 7), shells 2, Reload +2, hits to lose a figure 2 (elite 3)
+  - tanks: fuel 5 (elite 7), shells 2, Reload +2
   - artillery: fuel 1, shells 2, Reload +2
   - energy recovered at the end of the turn: 1, or 2 when resting
-- [ ] `game-core/unitSupplies.ts`, plain functions: a unit's starting supplies (by type and elite), `canPay`, `pay`, `reload`, `refill` (Resupply, Refuel) and `endOfTurn` (energy back, capped), each returning a new value. Tests
-- [ ] Elite: drop the move-2-and-fire rule from `Unit` for this mode. In pass and play, an elite tank's figure goes on its 3rd hit
+- [x] `game-core/unitSupplies.ts`, plain functions: a unit's full supplies (by type and elite), `canPay`, `pay`, `reload`, `refill` (Resupply, Refuel) and `endOfTurn` (energy back, capped), each returning a new value. Tests
+- Elite infantry's move goes in R5, and the elite tank's 3 hits a figure in R8
 
 ### R2: The actions as data
 - [ ] `data/unitActions.ts`: each action has an id, its unit type, its name and description (`Localized`), its painting (a card template id), and its cost (energy, fuel or a piece of equipment). It also says how far it moves (and whether it ignores terrain), how it fires, any effect, and whether own tablets offer it:
@@ -121,6 +121,7 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
   - on own tablets, only the actions they offer
 
   The move targets then come from the action's move, through today's `getMoveOptions`/`issueOrder` (Armour Forward ignores terrain movement limits, as today's card does). Choosing another action replaces the unit's order; undo works as today
+- [ ] Elite infantry no longer moves 2 and fires: its moves come from its actions, as any infantry's
 - [ ] A unit with no order rests. Costs are paid when the orders are carried out, and the session's units carry their supplies (in the save; bump `SAVE_VERSION`)
 - [ ] Tests for every action: allowed, refused for each missing supply, and the moves it offers
 
@@ -150,6 +151,7 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
 
   On own tablets, Medic and Mechanic are a reminder for the table
 - [ ] The cards: Resupply and Refuel take effect as the orders are revealed, and Finest Hour for the turn. Air Bombardment, Barrage, Air Power and Reinforcements use today's markers, attacks and arrival
+- [ ] Elite tanks: a figure goes on its 3rd hit (`data/figures.ts` by unit, not only by type), in the rule book too
 - [ ] New units: Reinforcements arrive with energy 0 and everything else full; an artillery crew left as infantry has everything full
 - [ ] Tests for each one
 
