@@ -4,6 +4,7 @@ import { HexType } from "../types/hex";
 import { scenarios } from "../data/scenarios";
 import { positionKey } from "../game-core/position";
 import { boardKeys } from "./boardPlan.mjs";
+import { boardSizeOf } from "../game-core/boardSize";
 
 // The canvas itself is checked in the browser (jsdom has none); these check what it's asked to draw
 
@@ -32,11 +33,12 @@ describe("the app's board art", () => {
   });
 
   it.each(scenarios.map((s) => [s.id, s] as const))("puts %s's terrain on the same hexes as its painted art", (_id, scenario) => {
-    const plan = planMapArt(scenario.tiles);
+    const size = boardSizeOf(scenario);
+    const plan = planMapArt(scenario.tiles, size);
     const terrainHexes = Object.values(scenario.tiles).flatMap((positions) => positions ?? []).map(positionKey);
 
     // (and the terrain carried on into the half hexes outside the board, on rows or columns -1 and past the last)
-    const board = new Set(boardKeys());
+    const board = new Set(boardKeys(size.cols, size.rows));
     const own = plan.filter((hex) => hex.art !== "spill" && board.has(hex.key));
     expect([...new Set(own.map((hex) => hex.key))].sort()).toEqual([...new Set(terrainHexes)].sort());
   });
