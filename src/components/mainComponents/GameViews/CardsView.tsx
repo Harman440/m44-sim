@@ -17,7 +17,6 @@ import "./CardsView.css";
 
 const TEXT = defineMessages({
   es: {
-    extraTurn: "En el turno extra no se juega ninguna carta.",
     shortOfCoins: (cost: string, have: string) => `Te faltan suministros: cuesta ${cost} y tienes ${have}.`,
     cooldown: (n: number) => (n === 1 ? "Se jugó hace poco: vuelve en 1 turno." : `Se jugó hace poco: vuelve en ${n} turnos.`),
     pickCard: "Elige una carta, o juega sin carta",
@@ -40,7 +39,6 @@ const TEXT = defineMessages({
     handCount: (n: number) => `Cartas de mando (${n})`,
   },
   en: {
-    extraTurn: "No card is played in the extra turn.",
     shortOfCoins: (cost: string, have: string) => `Not enough supplies: it costs ${cost} and you have ${have}.`,
     cooldown: (n: number) => (n === 1 ? "Played recently: back in 1 turn." : `Played recently: back in ${n} turns.`),
     pickCard: "Pick a card, or play without one",
@@ -81,8 +79,6 @@ interface CardsViewProps {
   onPlay: (card: ActionCard | null) => void;
   /** Supplies to pay for a card */
   coins?: number;
-  /** The attacker's extra first turn: no card can be played */
-  extraTurn?: boolean;
   /**
    * Pass and play: the map, zoomable, on the left of the table (the tray beside it), and
    * alone in place of the table and the hand when the cards are put away
@@ -95,7 +91,7 @@ interface CardsViewProps {
   initialPick?: ActionCard | null;
 }
 
-function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, extraTurn = false, largeMap, initialPick = null }: CardsViewProps) {
+function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, largeMap, initialPick = null }: CardsViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -149,7 +145,6 @@ function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, extraT
   /** Why a card can't be played now, or null if it can */
   const cantPlay = (held: HeldCard): string | null => {
     if (held.playable) return null;
-    if (extraTurn) return t.extraTurn;
     if (held.turnsLeft > 0) return t.cooldown(held.turnsLeft);
     return t.shortOfCoins(labels.coins(held.cost), labels.coins(coins));
   };
@@ -233,7 +228,7 @@ function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, extraT
 
                 <Stack className="cards-tray__lines">
                   <Typography variant="body2" color={pick ? "primary" : "text.secondary"} className="cards-tray__prompt">
-                    {extraTurn ? t.extraTurn : pick ? t.readyToPlay : t.pickCard}
+                    {pick ? t.readyToPlay : t.pickCard}
                   </Typography>
                   <div className="cards-tray__line">
                     <Typography variant="overline" className="cards-tray__slot">

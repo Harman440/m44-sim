@@ -238,7 +238,7 @@
   }
 }
 
-/* A combat card that can't be played now (short of supplies, two picked already, the extra turn) is greyed out */
+/* A combat card that can't be played now (short of supplies, or cooling down) is greyed out */
 .hand-card--combat:not(.hand-card--playable) .game-card {
   filter: grayscale(1);
 }

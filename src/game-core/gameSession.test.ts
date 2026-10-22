@@ -14,6 +14,9 @@ import { Position, Scenario } from "../types/scenario";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
 import { same } from "../i18n/lang";
+import { Faction } from "../types/faction";
+import { Supply } from "../data/unitSupplies";
+import { amountOf } from "./unitSupplies";
 
 /** Default target for shots whose reading the test doesn't check */
 const AT_INFANTRY = { infantry: true, closeAssault: false };
@@ -36,7 +39,7 @@ const scenario: Scenario = {
   },
 };
 
-/** The same map with the Axis attacking: the Allies wait out its extra turn and start at turn 2 */
+/** The same map with the Axis attacking: the Allies defend */
 const defending: Scenario = { ...scenario, attacker: "Axis" };
 
 const TANK: Position = { row: 4, col: 6 };
@@ -48,12 +51,8 @@ type SessionOptions = ConstructorParameters<typeof GameSession>[0];
 /** The Allies' session (the attacker unless the scenario says otherwise) */
 const makeSession = (options: Partial<SessionOptions> = {}) => new GameSession({ scenario, faction: "Allies", ...options });
 
-/** The defender (Allies) at the start of turn 2, picking a card: no extra turn, so cards can be played */
-const defenderTurn = (options: Partial<SessionOptions> = {}) => {
-  const session = new GameSession({ scenario: defending, faction: "Allies", ...options });
-  expect(session.startFirstTurn()).toBe(true);
-  return session;
-};
+/** The defender (Allies) at the start of turn 1, picking a card */
+const defenderTurn = (options: Partial<SessionOptions> = {}) => new GameSession({ scenario: defending, faction: "Allies", ...options });
 
 /** An action card by id */
 const card = (id: string): ActionCard => actionCardById(id)!;
@@ -195,24 +194,21 @@ describe("GameSession command cards", () => {
     expect(session.getSnapshot().coins).toBe(7);
   });
 
-  it("plays no card in the attacker's extra turn, whatever the coins", () => {
+  it("lets the attacker play a card on turn 1", () => {
     const session = makeSession({ testMode: true });
-    expect(session.getSnapshot()).toMatchObject({ extraTurn: true, coins: TEST_MODE_COINS });
-
-    expect(session.getSnapshot().cards.every((held) => !held.playable)).toBe(true);
-    expect(session.pickCard(finest)).toBe(false);
-    expect(session.pickCard(null)).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ turn: 1, coins: TEST_MODE_COINS });
+    expect(session.pickCard(finest)).toBe(true);
   });
 
   it("waits out the cooldown after a card is played, also after a reload", () => {
     const session = defenderTurn();
     session.adjustCoins(30);
-    expect(session.pickCard(finest)).toBe(true); // turn 2
+    expect(session.pickCard(finest)).toBe(true); // turn 1
     orderAllAndFight(session);
     finishTurn(session);
 
     const finestNow = (s: GameSession) => s.getSnapshot().cards.find((held) => held.card.id === finest.id)!;
-    expect(session.getSnapshot().turn).toBe(3);
+    expect(session.getSnapshot().turn).toBe(2);
     expect(finestNow(session)).toMatchObject({ turnsLeft: 2, playable: false });
     expect(session.pickCard(finest)).toBe(false);
     expect(session.getSnapshot().cards.find((held) => held.card.id === "resupply")!.playable).toBe(true);
@@ -228,7 +224,7 @@ describe("GameSession command cards", () => {
       orderAllAndFight(restored);
       finishTurn(restored);
     }
-    expect(restored.getSnapshot().turn).toBe(5);
+    expect(restored.getSnapshot().turn).toBe(4);
     expect(finestNow(restored)).toMatchObject({ turnsLeft: 0, playable: true });
     expect(restored.pickCard(finest)).toBe(true);
   });
@@ -723,43 +719,36 @@ describe("GameSession long-range die", () => {
   });
 });
 
-describe("GameSession attacker's extra first turn", () => {
-  const defenderSession = () => new GameSession({ scenario: defending, faction: "Allies" });
+describe("GameSession first turn", () => {
+  const ARTILLERY: Position = { row: 8, col: 5 };
+  const withArtillery = (attacker: Faction): Scenario => ({
+    ...scenario,
+    attacker,
+    units: { ...scenario.units, allies: { ...scenario.units.allies, artillery: [ARTILLERY] } },
+  });
+  const ammoAt = (session: GameSession, at: Position, supply: Supply) =>
+    amountOf(session.getSnapshot().supplies.find(({ position }) => samePosition(position, at))!.supplies, supply);
 
-  it("lets the attacker play turn 1 as an extra turn, and only turn 1", () => {
-    const session = makeSession();
-    expect(session.attacking).toBe(true);
-    expect(session.getSnapshot()).toMatchObject({ turn: 1, phase: TurnPhase.PICK_CARDS, extraTurn: true });
-
-    session.pickCard(null);
-    orderAllAndFight(session);
-    finishTurn(session);
-
-    expect(session.getSnapshot()).toMatchObject({ turn: 2, extraTurn: false });
+  it("has both sides pick a card on turn 1", () => {
+    for (const session of [makeSession({ testMode: true }), defenderTurn({ testMode: true })]) {
+      expect(session.getSnapshot()).toMatchObject({ turn: 1, phase: TurnPhase.PICK_CARDS });
+      expect(session.getSnapshot().cards.some((held) => held.playable)).toBe(true);
+      expect(session.pickCard(card("finest-hour"))).toBe(true);
+    }
   });
 
-  it("makes the defender wait, then start at turn 2", () => {
-    const session = defenderSession();
-    expect(session.attacking).toBe(false);
-    expect(session.getSnapshot()).toMatchObject({ turn: 1, phase: TurnPhase.AWAIT_ATTACKER, extraTurn: false });
-    expect(session.pickCard(null)).toBe(false);
+  it("starts the defender's infantry with 1 ammo and its tanks and artillery with 1 shell, the attacker's with 2", () => {
+    const defender = new GameSession({ scenario: withArtillery("Axis"), faction: "Allies" });
+    expect(defender.attacking).toBe(false);
+    expect(ammoAt(defender, LEFT_INF, Supply.AMMO)).toBe(1);
+    expect(ammoAt(defender, TANK, Supply.SHELLS)).toBe(1);
+    expect(ammoAt(defender, ARTILLERY, Supply.SHELLS)).toBe(1);
+    expect(ammoAt(reload(defender), LEFT_INF, Supply.AMMO)).toBe(1);
 
-    expect(session.startFirstTurn()).toBe(true);
-
-    expect(session.getSnapshot()).toMatchObject({ turn: 2, phase: TurnPhase.PICK_CARDS, extraTurn: false });
-    expect(session.startFirstTurn()).toBe(false);
-    expect(session.pickCard(null)).toBe(true);
-  });
-
-  it("only waits for the defender", () => {
-    expect(makeSession().startFirstTurn()).toBe(false);
-  });
-
-  it("keeps waiting after a reload", () => {
-    const restored = reload(defenderSession());
-
-    expect(restored.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
-    expect(restored.startFirstTurn()).toBe(true);
+    const attacker = new GameSession({ scenario: withArtillery("Allies"), faction: "Allies" });
+    expect(ammoAt(attacker, LEFT_INF, Supply.AMMO)).toBe(2);
+    expect(ammoAt(attacker, TANK, Supply.SHELLS)).toBe(2);
+    expect(ammoAt(attacker, ARTILLERY, Supply.SHELLS)).toBe(2);
   });
 });
 
@@ -1131,7 +1120,7 @@ describe("GameSession saving and restoring", () => {
 });
 
 describe("GameSession coins", () => {
-  /** The defender at turn 2 (no extra turn), with `coins` added by hand and no card played */
+  /** The defender at turn 1, with `coins` added by hand and no card played */
   const turnWithCoins = (coins: number, random = () => 0) => {
     const session = defenderTurn({ random });
     if (coins > 0) expect(session.adjustCoins(coins)).toBe(true);
@@ -1183,9 +1172,8 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coins).toBe(shot!.faces.length);
   });
 
-  it("earns coins for supplies in the attacker's extra turn, but can't spend them there", () => {
+  it("earns coins for supplies on turn 1 and carries them into turn 2", () => {
     const session = makeSession({ random: () => 0.7 });
-    expect(session.adjustCoins(4)).toBe(false);
     session.pickCard(null);
     orderAllAndFight(session);
 
@@ -1195,12 +1183,9 @@ describe("GameSession coins", () => {
     expect(session.getSnapshot().coinEntries.map((entry) => entry.kind)).toEqual(["supplies"]);
     session.endBattle();
 
-    expect(session.getSnapshot()).toMatchObject({ coins: earned, canAdjustCoins: false });
-    expect(session.adjustCoins(-1)).toBe(false);
-
-    // They carry over into the attacker's next turn, where they can be spent
     finishTurn(session);
-    expect(session.getSnapshot()).toMatchObject({ turn: 2, extraTurn: false, coins: earned, canAdjustCoins: true });
+    expect(session.getSnapshot()).toMatchObject({ turn: 2, coins: earned });
+    expect(session.adjustCoins(-1)).toBe(true);
   });
 
   it("lets the player pay and add coins by hand, never below 0, and undo it", () => {
@@ -1406,7 +1391,7 @@ describe("GameSession paradrop", () => {
 
   it("starts the paradrop side placing its paratroopers; the other side starts as usual", () => {
     expect(paradropSession().getSnapshot()).toMatchObject({ phase: TurnPhase.PARADROP, dropsLeft: 2, drops: [] });
-    expect(paradropSession("Axis").getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+    expect(paradropSession("Axis").getSnapshot().phase).toBe(TurnPhase.PICK_CARDS);
   });
 
   it("places a unit on each empty hex tapped, up to the paradrop's size", () => {
@@ -1441,8 +1426,12 @@ describe("GameSession paradrop", () => {
     expect(attacker.undoDrop()).toBe(false);
 
     const defender = paradropSession("Allies", "Axis");
+    defender.dropUnit({ row: 2, col: 2 });
     defender.finishParadrop();
-    expect(defender.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+    expect(defender.getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 1 });
+    // A defender's paratroopers start a shot short too
+    const dropped = defender.getSnapshot().supplies.find(({ position }) => samePosition(position, { row: 2, col: 2 }));
+    expect(amountOf(dropped!.supplies, Supply.AMMO)).toBe(1);
   });
 
   it("keeps the paratroopers through a reload, and can still undo them", () => {

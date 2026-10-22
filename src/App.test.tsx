@@ -137,22 +137,17 @@ describe("App menu and game flow", () => {
 
     expect(screen.getByText("Forêt d'Écouves · Aliados")).toBeInTheDocument();
     expect(screen.queryByText("Atacante")).not.toBeInTheDocument(); // the role is in the menu, not the header
-    expect(screen.getByText("Turno 1 · extra")).toBeInTheDocument();
+    expect(screen.getByText("Turno 1")).toBeInTheDocument();
     expect(screen.getByText("1. Carta").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
   });
 
-  it("shows the defender a waiting screen during the attacker's extra turn, then starts at turn 2", () => {
+  it("starts the defender on turn 1 too, picking its card", () => {
     render(<App />);
     start("Eje");
 
-    expect(screen.queryByText("Defensor")).not.toBeInTheDocument();
-    expect(screen.getByText("Los Aliados atacan primero")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Tu jugada" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Empezar turno 2" }));
-
-    expect(screen.getByText("Turno 2")).toBeInTheDocument();
+    expect(screen.getByText("Turno 1")).toBeInTheDocument();
+    expect(screen.getByText("1. Carta").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("region", { name: "Tu jugada" })).toBeInTheDocument();
   });
 
@@ -190,7 +185,6 @@ describe("App menu and game flow", () => {
     const { unmount } = render(<App />);
     start("Aliados");
     dealHand(7);
-    // The attacker's extra turn: no card is played
     fireEvent.click(screen.getByRole("button", { name: "Sin carta" }));
     expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     unmount();

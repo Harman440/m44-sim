@@ -21,7 +21,7 @@ import type { UnitSupplies } from "./unitSupplies";
 import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 38;
+export const SAVE_VERSION = 39;
 
 interface SavedUnit {
   type: UnitType;

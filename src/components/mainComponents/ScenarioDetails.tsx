@@ -15,8 +15,9 @@ const TEXT = defineMessages({
     role: "Papel",
     roleInfo: (
       <>
-        El bando que <strong>ataca</strong> juega un turno extra al empezar, antes de que el rival pueda
-        responder. El que <strong>defiende</strong> espera ese turno y empieza en el turno 2.
+        Los dos bandos juegan desde el turno 1. El que <strong>ataca</strong> dispara primero en la batalla.
+        Cada unidad del que <strong>defiende</strong> empieza con 1 munición menos (infantería) o 1 proyectil
+        menos (tanques y artillería).
       </>
     ),
     attacks: "Ataca",
@@ -48,8 +49,9 @@ const TEXT = defineMessages({
     role: "Role",
     roleInfo: (
       <>
-        The side that <strong>attacks</strong> plays an extra turn at the start, before the enemy can
-        answer. The side that <strong>defends</strong> waits out that turn and starts on turn 2.
+        Both sides play from turn 1. The side that <strong>attacks</strong> fires first in the battle.
+        Each unit of the side that <strong>defends</strong> starts with 1 ammo less (infantry) or 1 shell
+        less (tanks and artillery).
       </>
     ),
     attacks: "Attacks",

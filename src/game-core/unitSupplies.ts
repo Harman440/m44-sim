@@ -5,6 +5,7 @@
 // data/unitSupplies.ts.
 import { UnitType } from "./unit";
 import {
+  DEFENDER_SHORTFALL,
   ELITE_FULL_SUPPLIES,
   ENERGY_PER_TURN,
   EQUIPMENT,
@@ -41,6 +42,12 @@ export function fullSupplies(unitType: UnitType, elite = false): UnitSupplies {
   const equipment: Partial<Record<Equipment, number>> = {};
   if (carried > 0) for (const kind of EQUIPMENT) equipment[kind] = carried;
   return { amounts, equipment };
+}
+
+/** What a unit starts the game with: full, less the defender's shortfall for the defending side */
+export function startingSupplies(unitType: UnitType, elite: boolean, defending: boolean): UnitSupplies {
+  const full = fullSupplies(unitType, elite);
+  return defending ? withAmounts(full, full, (supply, current) => current - (DEFENDER_SHORTFALL[supply] ?? 0)) : full;
 }
 
 /** Each supply in `amounts` moved by `change(supply, current)`, kept between 0 and `full` */

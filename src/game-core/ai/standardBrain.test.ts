@@ -17,7 +17,6 @@ const scenario: Scenario = {
   name: same("Test"),
   description: same(""),
   initialHandSize: { allies: 2, axis: 2 },
-  // The Allies defend: their turn 2 is a whole turn, with supplies (none in the attacker's extra turn)
   attacker: "Axis",
   tiles: { forest: [{ row: 5, col: 4 }] },
   units: {
@@ -31,7 +30,6 @@ const viewOf = (): AiView => {
   const session = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
   const match = new PassAndPlayMatch(scenario, { Allies: session("Allies"), Axis: session("Axis") }, { computer: "Allies" });
   const allies = match.sessions.Allies;
-  allies.startFirstTurn();
   return { side: "Allies", session: allies, enemies: seenEnemies(match, "Allies"), random: () => 0 };
 };
 

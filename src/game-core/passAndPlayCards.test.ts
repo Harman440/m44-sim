@@ -63,16 +63,8 @@ const play = (
   expect(session.commitOrders()).toBe(true);
 };
 
-/** The Axis' extra turn with hold orders and no battle, then turn 2 played as given, up to its battle */
-const toTurn2Battle = (match: PassAndPlayMatch, axis: Parameters<typeof play>[1] = {}, allies: Parameters<typeof play>[1] = {}) => {
-  play(match);
-  expect(match.moveUnits()).toBe(true);
-  expect(match.finishReveal()).toBe(true);
-  // Nobody fires in turn 1
-  while (match.getSnapshot().battle?.side) match.holdFire(match.getSnapshot().battle!.fireable[0]!);
-  expect(match.endBattle()).toBe(true);
-  match.uncover();
-  expect(match.sessions.Axis.endTurn()).toBe(true);
+/** Turn 1 played as given, up to its battle */
+const toBattle = (match: PassAndPlayMatch, axis: Parameters<typeof play>[1] = {}, allies: Parameters<typeof play>[1] = {}) => {
   play(match, axis);
   play(match, allies);
   expect(match.moveUnits()).toBe(true);
@@ -82,7 +74,7 @@ const toTurn2Battle = (match: PassAndPlayMatch, axis: Parameters<typeof play>[1]
 describe("attack cards and wire in the shared battle", () => {
   it("rolls an attack card on its marked hexes before anyone fires, dealing the hits there", () => {
     const match = newMatch(); // the attack die shows infantry: hits on infantry
-    toTurn2Battle(match, {}, { card: "barrage", marks: [{ row: 4, col: 3 }] });
+    toBattle(match, {}, { card: "barrage", marks: [{ row: 4, col: 3 }] });
 
     const battle = match.getSnapshot().battle!;
     expect(battle).toMatchObject({ attacks: ["Allies"], side: null });
@@ -98,7 +90,7 @@ describe("attack cards and wire in the shared battle", () => {
   it("lets infantry on barbed wire remove it instead of firing, from both sides' boards", () => {
     const wired: Scenario = { ...scenario, wire: [{ row: 4, col: 2 }] };
     const match = newMatch(0, wired);
-    toTurn2Battle(match);
+    toBattle(match);
     const allies = match.sessions.Allies;
     const infantry = allies.getSnapshot().orders.findIndex((o) => samePosition(o.end, { row: 4, col: 2 }));
 
@@ -114,14 +106,7 @@ describe("attack cards and wire in the shared battle", () => {
   it("takes the wire a tank went through off the other side's board once the orders are carried out", () => {
     const wired: Scenario = { ...scenario, wire: [{ row: 5, col: 2 }] };
     const match = newMatch(0, wired);
-    play(match);
-    match.moveUnits();
-    match.finishReveal();
-    while (match.getSnapshot().battle?.side) match.holdFire(match.getSnapshot().battle!.fireable[0]!);
-    match.endBattle();
-    match.uncover();
     const axis = match.sessions.Axis;
-    axis.endTurn();
     play(match);
     play(match, { moves: [[{ row: 6, col: 2 }, { row: 5, col: 2 }]] });
     // Hidden from the Axis until the orders are carried out

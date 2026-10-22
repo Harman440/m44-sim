@@ -3,8 +3,6 @@ export enum TurnPhase {
   PICK_CARDS,
   ORDER_UNITS,
   BATTLE,
-  /** The defender waits while the attacker plays the extra first turn */
-  AWAIT_ATTACKER,
   /** Orders are shown to the opponent and carried out on the table */
   MOVEMENT,
   /** Fase final: retreats, then drawing a command card */

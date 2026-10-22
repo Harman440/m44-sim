@@ -6,7 +6,7 @@ import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
 
-// The Axis attacks, so it plays turn 1 alone. Its unit at 5-11 is 3 hexes from the Allies' unit
+// The Axis attacks. Its unit at 5-11 is 3 hexes from the Allies' unit
 // at 8-11; its unit at 1-3 is far from both Allied units
 const scenario: Scenario = {
   id: "fog",
@@ -35,6 +35,12 @@ const holdAll = (session: GameSession) => {
   expect(session.commitOrders()).toBe(true);
 };
 
+/** A side picks no card and gives no orders: its units rest */
+const restAll = (session: GameSession) => {
+  expect(session.pickCard(null)).toBe(true);
+  expect(session.commitOrders()).toBe(true);
+};
+
 /** The enemy units a side sees, in their own side's view */
 const seenBy = (match: PassAndPlayMatch, viewer: Faction) =>
   match.opponentOf(viewer).units.map(({ position }) => `${position.row}-${position.col}`).sort();
@@ -58,9 +64,10 @@ const spottedMatch = ({ computer }: { computer?: Faction }) => {
   return new PassAndPlayMatch(spotted, { Allies: side("Allies"), Axis: side("Axis") }, { computer: computer ?? null, fog: true });
 };
 
-/** Turn 1: the Axis' orders, the move, into the battle */
+/** Turn 1: the Axis' orders (the Allies rest), the move, into the battle */
 const toBattle = (match: PassAndPlayMatch) => {
   holdAll(match.sessions.Axis);
+  restAll(match.sessions.Allies);
   expect(match.moveUnits()).toBe(true);
   expect(match.finishReveal()).toBe(true);
 };
@@ -93,12 +100,14 @@ describe("fog of war against the computer", () => {
     const match = spottedMatch({ computer: "Axis" });
     // Only the infantry (4-6 in both views) is ordered: the artillery (3-6, which is 5-5 in the Axis' view) is out of sight
     holdOnly(match.sessions.Axis, { row: 4, col: 6 });
+    restAll(match.sessions.Allies);
     expect(match.moveUnits()).toBe(true);
     expect(match.finishReveal()).toBe(true);
     expect(seenBy(match, "Allies")).toEqual(["4-6"]);
 
     const ordered = spottedMatch({ computer: "Axis" });
     holdAll(ordered.sessions.Axis);
+    restAll(ordered.sessions.Allies);
     expect(ordered.moveUnits()).toBe(true);
     expect(ordered.finishReveal()).toBe(true);
     expect(seenBy(ordered, "Allies")).toEqual(["4-6", "5-5"]);
@@ -113,6 +122,7 @@ describe("fog of war against the computer", () => {
     // Before the first battle both armies are known
     expect(match.fogOn("Allies")).toBeNull();
     holdOnly(match.sessions.Axis, { row: 4, col: 6 });
+    restAll(match.sessions.Allies);
     expect(match.moveUnits()).toBe(true);
     expect(match.finishReveal()).toBe(true);
 
@@ -152,8 +162,9 @@ describe("fog of war between two people", () => {
   it("hides, in the battle only, each side's units its enemy doesn't see, and darkens what either side doesn't see", () => {
     const match = spottedMatch({});
     expect(match.fog).toBe(true);
-    // The Axis attacks: it plays turn 1 alone
+    // The Axis orders its infantry only; the Allies rest
     holdOnly(match.sessions.Axis, { row: 4, col: 6 });
+    restAll(match.sessions.Allies);
     expect(match.moveUnits()).toBe(true);
     // The movement isn't fogged
     expect(match.fogOn("Allies")).toBeNull();

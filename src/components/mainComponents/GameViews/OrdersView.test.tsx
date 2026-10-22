@@ -255,7 +255,6 @@ describe("OrdersView the card played", () => {
       faction: "Allies",
       testMode: true,
     });
-    session.startFirstTurn();
     session.pickCard(actionCardById(cardId)!);
     const { container } = render(<Harness session={session} handLeaving={handLeaving} />);
     const tap = (p: Position) => fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`)!);

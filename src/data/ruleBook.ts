@@ -12,7 +12,7 @@ import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
 import { FORD_FIRE_DICE } from "./fireQuestions";
 import { HexType } from "../types/hex";
-import { ELITE_FULL_SUPPLIES, ENERGY_PER_TURN, EQUIPMENT_CARRIED, FULL_SUPPLIES, RESTING_ENERGY_PER_TURN, Supply } from "./unitSupplies";
+import { DEFENDER_SHORTFALL, ELITE_FULL_SUPPLIES, ENERGY_PER_TURN, EQUIPMENT_CARRIED, FULL_SUPPLIES, RESTING_ENERGY_PER_TURN, Supply } from "./unitSupplies";
 
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
@@ -23,6 +23,13 @@ const fullTank = FULL_SUPPLIES[UnitType.TANK];
 const fullArtillery = FULL_SUPPLIES[UnitType.ARTILLERY];
 const eliteInfantry = ELITE_FULL_SUPPLIES[UnitType.INFANTRY] ?? {};
 const eliteEquipment = EQUIPMENT_CARRIED[UnitType.INFANTRY].elite;
+const ammoShort = DEFENDER_SHORTFALL[Supply.AMMO] ?? 0;
+const shellsShort = DEFENDER_SHORTFALL[Supply.SHELLS] ?? 0;
+/** What the defender's units start without, as the rule book says it */
+const defenderShortfall: Localized = {
+  es: `${ammoShort} ${ammoShort === 1 ? "munición" : "municiones"} menos (infantería) o ${shellsShort} ${shellsShort === 1 ? "proyectil" : "proyectiles"} menos (tanques y artillería)`,
+  en: `${ammoShort} ammo less (infantry) or ${shellsShort} ${shellsShort === 1 ? "shell" : "shells"} less (tanks and artillery)`,
+};
 
 export type TutorialStepId = "setup" | "turn" | "card" | "orders" | "movement" | "battle" | "final" | "tips";
 
@@ -84,8 +91,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Both sides play each turn at the same time, in five phases: Card, Orders, Movement, Battle and Final.",
       },
       {
-        es: "El bando atacante del escenario juega el turno 1 él solo, como turno extra. El defensor espera y empieza en el turno 2.",
-        en: "The scenario's attacking side plays turn 1 alone, as an extra turn. The defender waits and starts on turn 2.",
+        es: `Los dos bandos empiezan juntos en el turno 1. El bando atacante del escenario dispara primero en la batalla, y cada unidad del defensor empieza con ${defenderShortfall.es}.`,
+        en: `Both sides start together on turn 1. The scenario's attacking side fires first in the battle, and each of the defender's units starts with ${defenderShortfall.en}.`,
       },
       {
         es: "En un escenario con paracaidistas, antes del primer turno tocas en el mapa dónde ha caído cada uno en la mesa.",
@@ -239,8 +246,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "The side the scenario names goes first, then the players alternate.",
         },
         house: {
-          es: "El bando atacante (el que empezaría) juega un turno extra él solo, sin que el defensor responda. Los suministros que saca cuentan, pero no los puede gastar hasta el turno 2: no juega carta.",
-          en: "The attacking side (the one that would go first) plays an extra turn alone, and the defender can't respond. The supplies it rolls count, but it can't spend them until turn 2: it plays no card.",
+          es: `Los dos bandos juegan desde el turno 1. A cambio, cada unidad del bando defensor empieza con ${defenderShortfall.es}; al recargar se llena del todo. El atacante sigue disparando primero en la batalla.`,
+          en: `Both sides play from turn 1. Instead, each unit of the defending side starts with ${defenderShortfall.en}; reloading fills it up all the way. The attacker still fires first in the battle.`,
         },
       },
       {
@@ -423,8 +430,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Acciones y suministros de cada unidad", en: "Each unit's actions and supplies" },
         house: {
-          es: `Cada unidad lleva sus propios suministros, y empieza con todos: la infantería, moral ${fullInfantry[Supply.MORALE]}, energía ${fullInfantry[Supply.ENERGY]}, munición ${fullInfantry[Supply.AMMO]} y un explosivo, unos sacos terreros, un botiquín y una red de camuflaje; los tanques, combustible ${fullTank[Supply.FUEL]} y proyectiles ${fullTank[Supply.SHELLS]}; la artillería, combustible ${fullArtillery[Supply.FUEL]} y proyectiles ${fullArtillery[Supply.SHELLS]}. Cada acción cuesta energía, combustible o equipo, que se paga al confirmar las órdenes. Una acción que dispara necesita munición o proyectiles. Con la moral a 0, la infantería solo puede subir la moral (o descansar). En tablets propias no se lleva la moral, así que no se ofrece subirla.`,
-          en: `Each unit carries its own supplies, and starts full: infantry, morale ${fullInfantry[Supply.MORALE]}, energy ${fullInfantry[Supply.ENERGY]}, ammo ${fullInfantry[Supply.AMMO]} and one each of explosives, sandbags, medic kit and camouflage net; tanks, fuel ${fullTank[Supply.FUEL]} and shells ${fullTank[Supply.SHELLS]}; artillery, fuel ${fullArtillery[Supply.FUEL]} and shells ${fullArtillery[Supply.SHELLS]}. Each action costs energy, fuel or equipment, paid when the orders are confirmed. An action that fires needs ammo or shells. At morale 0, infantry can only raise its morale (or rest). Own tablets don't track morale, so raising it isn't offered there.`,
+          es: `Cada unidad lleva sus propios suministros, y empieza con todos: la infantería, moral ${fullInfantry[Supply.MORALE]}, energía ${fullInfantry[Supply.ENERGY]}, munición ${fullInfantry[Supply.AMMO]} y un explosivo, unos sacos terreros, un botiquín y una red de camuflaje; los tanques, combustible ${fullTank[Supply.FUEL]} y proyectiles ${fullTank[Supply.SHELLS]}; la artillería, combustible ${fullArtillery[Supply.FUEL]} y proyectiles ${fullArtillery[Supply.SHELLS]}. Las del bando defensor empiezan con ${defenderShortfall.es}. Cada acción cuesta energía, combustible o equipo, que se paga al confirmar las órdenes. Una acción que dispara necesita munición o proyectiles. Con la moral a 0, la infantería solo puede subir la moral (o descansar). En tablets propias no se lleva la moral, así que no se ofrece subirla.`,
+          en: `Each unit carries its own supplies, and starts full: infantry, morale ${fullInfantry[Supply.MORALE]}, energy ${fullInfantry[Supply.ENERGY]}, ammo ${fullInfantry[Supply.AMMO]} and one each of explosives, sandbags, medic kit and camouflage net; tanks, fuel ${fullTank[Supply.FUEL]} and shells ${fullTank[Supply.SHELLS]}; artillery, fuel ${fullArtillery[Supply.FUEL]} and shells ${fullArtillery[Supply.SHELLS]}. The defending side's start with ${defenderShortfall.en}. Each action costs energy, fuel or equipment, paid when the orders are confirmed. An action that fires needs ammo or shells. At morale 0, infantry can only raise its morale (or rest). Own tablets don't track morale, so raising it isn't offered there.`,
         },
       },
       {

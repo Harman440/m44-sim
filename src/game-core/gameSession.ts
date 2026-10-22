@@ -41,7 +41,7 @@ import {
   shotsOf,
 } from "./actionRules";
 import type { UnitAction } from "./unitAction";
-import { UnitSupplies, endOfTurn, fullSupplies, pay } from "./unitSupplies";
+import { UnitSupplies, endOfTurn, fullSupplies, pay, startingSupplies } from "./unitSupplies";
 import { actionById } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
@@ -78,14 +78,10 @@ export interface GameSnapshot {
   unmovedFireSkipped: boolean;
   /** Finished turns, oldest first */
   log: readonly TurnRecord[];
-  /** The attacker's extra first turn, before the defender plays (no card can be played) */
-  extraTurn: boolean;
   /** Coins the player has now */
   coins: number;
   /** How this turn earned and spent coins, in the order of the ledger */
   coinEntries: readonly CoinEntry[];
-  /** Coins can be added or taken by hand now (not in the extra turn, nor while waiting for it) */
-  canAdjustCoins: boolean;
   /** Hexes marked on the map for the card played (Barrage, Air Power…), in the order marked */
   markers: readonly Position[];
   /** What each marked hex is for: a target or a cross */
@@ -318,8 +314,8 @@ export type BattleEdit = (
 
 /**
  * Owns one player's game: board, command cards and the turn flow
- * PICK_CARDS -> ORDER_UNITS -> MOVEMENT -> BATTLE -> END_OF_TURN -> (next turn). The attacking side
- * plays turn 1 alone; the defender waits in AWAIT_ATTACKER and starts at turn 2. A side with a
+ * PICK_CARDS -> ORDER_UNITS -> MOVEMENT -> BATTLE -> END_OF_TURN -> (next turn). Both sides start
+ * on turn 1; the defender's units start a shot short instead (`startingSupplies`). A side with a
  * paradrop starts in PARADROP, placing the units that landed on the table.
  *
  * Game objects are mutable, so instead of a React reducer (which React may run
@@ -330,7 +326,7 @@ export type BattleEdit = (
 class GameSession {
   readonly scenario: Scenario;
   readonly faction: Faction;
-  /** This device's side attacks: it plays the extra first turn */
+  /** This device's side attacks: it fires first, and its units start with all their ammo and shells */
   readonly attacking: boolean;
   /** Shots at range roll the 8-sided long-range die */
   readonly longRangeDie: boolean;
@@ -404,8 +400,9 @@ class GameSession {
     this.attacking = scenario.attacker === faction;
     this.targetKinds = enemyTargetKinds(scenario, faction);
     this.enemyCamouflage = this.targetKinds.infantry;
-    this.phase = this.paradrop() ? TurnPhase.PARADROP : this.firstPhase();
+    this.phase = this.paradrop() ? TurnPhase.PARADROP : TurnPhase.PICK_CARDS;
     this.board = new BoardManager(scenario, faction);
+    for (const hex of this.board.getAllHexes()) if (hex.unit) this.fillSupplies(hex.unit);
     this.cards = cardsOf(scenario, faction);
     if (testMode) this.startCoins = TEST_MODE_COINS;
     this.snapshot = this.createSnapshot();
@@ -419,11 +416,6 @@ class GameSession {
   };
 
   getSnapshot = (): GameSnapshot => this.snapshot;
-
-  /** The phase the game starts in, after any paradrop */
-  private firstPhase(): TurnPhase {
-    return this.attacking ? TurnPhase.PICK_CARDS : TurnPhase.AWAIT_ATTACKER;
-  }
 
   // --- PARADROP
 
@@ -442,8 +434,10 @@ class GameSession {
   dropUnit(position: Position): boolean {
     const paradrop = this.paradrop();
     if (!paradrop || this.dropsLeft() === 0) return false;
-    if (!this.placeNewUnit(position, paradrop.unitType)) return false;
+    const unit = this.placeNewUnit(position, paradrop.unitType);
+    if (!unit) return false;
 
+    this.fillSupplies(unit);
     this.drops = [...this.drops, position];
     return this.publish();
   }
@@ -456,11 +450,17 @@ class GameSession {
     return this.board.placeUnitAt(position, unit) ? unit : null;
   }
 
+  /** A unit that starts the game gets its supplies: the defender's a shot short (`startingSupplies`) */
+  private fillSupplies(unit: Unit) {
+    this.supplies.set(unit, startingSupplies(unit.getUnitType(), unit.elite, !this.attacking));
+  }
+
   undoDrop(): boolean {
     const last = this.drops.at(-1);
     if (this.phase !== TurnPhase.PARADROP || !last) return false;
 
-    this.board.removeUnitAt(last);
+    const unit = this.board.removeUnitAt(last);
+    if (unit) this.supplies.delete(unit);
     this.drops = this.drops.slice(0, -1);
     return this.publish();
   }
@@ -469,19 +469,6 @@ class GameSession {
   finishParadrop(): boolean {
     if (this.phase !== TurnPhase.PARADROP) return false;
 
-    this.phase = this.firstPhase();
-    return this.publish();
-  }
-
-  // --- AWAIT_ATTACKER
-
-  /** The attacker has finished the extra turn at the table: the defender joins in at turn 2 */
-  startFirstTurn(): boolean {
-    if (this.phase !== TurnPhase.AWAIT_ATTACKER) return false;
-
-    // The attacker's extra turn may have hit this side's units (pass and play): that turn is over
-    this.clearTurnDamage();
-    this.turn = 2;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
   }
@@ -501,12 +488,9 @@ class GameSession {
     return this.cards.find((held) => held.card.id === card.id)?.cost ?? card.cost;
   }
 
-  /**
-   * The side holds the card, it's past its cooldown and the side has the coins for it. None in
-   * the attacker's extra first turn
-   */
+  /** The side holds the card, it's past its cooldown and the side has the coins for it */
   private canPlay(card: ActionCard): boolean {
-    if (this.extraTurn() || !this.cards.some((held) => held.card.id === card.id)) return false;
+    if (!this.cards.some((held) => held.card.id === card.id)) return false;
     if (!this.testMode && !isReady(this.cardsPlayedOn[card.id], this.turn)) return false;
     return this.costOf(card) <= this.coins();
   }
@@ -919,12 +903,10 @@ class GameSession {
   /**
    * Pass and play: this side's unit at `position` rolls in a collision against an enemy unit
    * that is or isn't infantry: its close assault dice minus 1, terrain ignored. `order` is its
-   * order's index (the roll is then its shot this turn), or null for a unit without an order,
-   * which can also be hit while its side waits out the attacker's extra turn
+   * order's index (the roll is then its shot this turn), or null for a unit without an order
    */
   rollCollision(position: Position, infantry: boolean, order: number | null): boolean {
-    const waiting = this.phase === TurnPhase.AWAIT_ATTACKER && order === null;
-    if (this.phase !== TurnPhase.MOVEMENT && !waiting) return false;
+    if (this.phase !== TurnPhase.MOVEMENT) return false;
     const unit = this.board.getHex(position)?.unit;
     if (!unit) return false;
     const ordered = order === null ? null : this.orders[order];
@@ -1551,10 +1533,6 @@ class GameSession {
 
   // --- coins: earned and spent through the turn; `turnCoins` works out the ledger
 
-  private extraTurn(): boolean {
-    return this.attacking && this.turn === 1;
-  }
-
   private turnCoinEntries(): CoinEntry[] {
     const card = this.playedCard;
     return turnCoins({
@@ -1571,16 +1549,12 @@ class GameSession {
     return this.startCoins + sumCoins(this.turnCoinEntries());
   }
 
-  private canAdjustCoins(): boolean {
-    return this.phase !== TurnPhase.AWAIT_ATTACKER && !this.extraTurn();
-  }
-
   /**
    * Add (or, negative, take) coins by hand, to match the table. The player
    * can't spend more than they have.
    */
   adjustCoins(amount: number): boolean {
-    if (!Number.isInteger(amount) || amount === 0 || !this.canAdjustCoins()) return false;
+    if (!Number.isInteger(amount) || amount === 0) return false;
     if (amount < 0 && this.coins() + amount < 0) return false;
 
     this.coinAdjustments = [...this.coinAdjustments, amount];
@@ -1589,7 +1563,7 @@ class GameSession {
 
   /** Take back this turn's last change by hand */
   undoCoinAdjustment(): boolean {
-    if (!this.canAdjustCoins() || this.coinAdjustments.length === 0) return false;
+    if (this.coinAdjustments.length === 0) return false;
 
     this.coinAdjustments = this.coinAdjustments.slice(0, -1);
     return this.publish();
@@ -1969,10 +1943,8 @@ class GameSession {
       shots: this.shots,
       unmovedFireSkipped: this.unmovedFireSkipped,
       log: this.log,
-      extraTurn: this.extraTurn(),
       coins: this.coins(),
       coinEntries: this.turnCoinEntries(),
-      canAdjustCoins: this.canAdjustCoins(),
       markers: this.markers,
       markerKinds: this.markerKinds(),
       marking: this.markingSnapshot(),

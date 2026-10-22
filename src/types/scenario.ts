@@ -45,7 +45,7 @@ export interface Scenario {
   board?: BoardSize;
   /** Command cards each side starts with */
   initialHandSize: { allies: number; axis: number };
-  /** The side that normally starts; it plays one extra turn before the defender joins in */
+  /** The side that fires first in the battle; the defender's units start a shot short (`startingSupplies`) */
   attacker: Faction;
   tiles: Tiles;
   /** The painted tiles picked for some hexes (towns) in the map editor; the others are picked by the hex */

@@ -326,7 +326,6 @@ describe("FireDialog", () => {
       random: () => 0.5,
       testMode: true,
     });
-    session.startFirstTurn();
     session.pickCard(actionCardById("finest-hour")!);
     session.issueOrder(UNIT, UNIT);
     session.commitOrders();

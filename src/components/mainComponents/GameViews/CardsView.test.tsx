@@ -2,13 +2,13 @@ import { useCallback, useState, useSyncExternalStore } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CardsView, { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./CardsView";
-import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
+import GameSession from "../../../game-core/gameSession";
 import type { ActionCard } from "../../../game-core/actionCard";
 import { actionCardById } from "../../../data/actionCards";
 import { same } from "../../../i18n/lang";
 import { DEFAULT_SETTINGS, SettingsContext } from "../../../settings";
 
-/** The defender at turn 2 (the attacker would be in its extra turn), with these supplies */
+/** A side at turn 1, with these supplies */
 const makeSession = (coins = 0) => {
   const session = new GameSession({
     scenario: {
@@ -22,7 +22,6 @@ const makeSession = (coins = 0) => {
     },
     faction: "Allies",
   });
-  session.startFirstTurn();
   if (coins > 0) session.adjustCoins(coins);
   return session;
 };
@@ -47,7 +46,6 @@ function Harness({
       onCardDealt={onCardDealt}
       onPlay={onPlay ?? ((card) => session.pickCard(card))}
       coins={game.coins}
-      extraTurn={game.extraTurn}
     />
   );
 }
@@ -176,11 +174,6 @@ describe("CardsView cards that can't be played now", () => {
     expect(screen.getByText("Se jugó hace poco: vuelve en 2 turnos.")).toBeInTheDocument();
   });
 
-  it("plays no card in the attacker's extra turn", () => {
-    const cards: GameSnapshot["cards"] = makeSession(20).getSnapshot().cards.map((held) => ({ ...held, playable: false }));
-    render(<CardsView cards={cards} dealtCardIds={new Set(cards.map(({ card }) => card.id))} onCardDealt={() => {}} onPlay={() => {}} extraTurn />);
-    expect(screen.getAllByText("En el turno extra no se juega ninguna carta.").length).toBeGreaterThan(0);
-  });
 });
 
 describe("CardsView back from the orders", () => {

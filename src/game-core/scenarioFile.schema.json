@@ -42,7 +42,7 @@
         "axis": { "type": "integer", "minimum": 1 }
       }
     },
-    "attacker": { "$ref": "#/definitions/faction", "description": "The side that normally starts; it plays one extra turn before the defender joins in" },
+    "attacker": { "$ref": "#/definitions/faction", "description": "The side that fires first in the battle; the defender's units start with 1 ammo or shell less" },
     "tiles": {
       "description": "The hexes of each terrain; a hex not listed is plains",
       "type": "object",

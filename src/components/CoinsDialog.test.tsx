@@ -20,7 +20,6 @@ const makeSession = () => {
     },
     faction: "Allies",
   });
-  session.startFirstTurn();
   return session;
 };
 

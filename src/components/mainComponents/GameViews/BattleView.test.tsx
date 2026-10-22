@@ -259,7 +259,6 @@ describe("BattleView command card played", () => {
       testMode: true,
       random: () => 0.7, // supplies
     });
-    session.startFirstTurn();
     expect(session.pickCard(cardId ? actionCardById(cardId)! : null)).toBe(true);
     if (session.getSnapshot().marking) session.markHex({ row: 1, col: 10 });
     session.issueOrder(INFANTRY, moveInfantry ? session.getMoveOptions(INFANTRY)!.moveAndFire[0]! : INFANTRY);

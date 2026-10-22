@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Alert,
   Box,
   Button,
   Dialog,
@@ -23,7 +22,6 @@ import { AnimatePresence, motion } from "motion/react";
 const TEXT = defineMessages({
   es: {
     title: "Suministros",
-    extraTurn: "En el turno extra los dados de suministro dan suministros, pero no se gastan hasta el turno siguiente.",
     thisTurn: "Este turno",
     nothingYet: "Nada todavía. Cada dado de suministro que no es impacto da 1 suministro.",
     byHand: "A mano",
@@ -37,7 +35,6 @@ const TEXT = defineMessages({
   },
   en: {
     title: "Supplies",
-    extraTurn: "In the extra turn the supply dice give supplies, but they can't be spent until the next turn.",
     thisTurn: "This turn",
     nothingYet: "Nothing yet. Each supply die that isn't a hit gives 1 supply.",
     byHand: "By hand",
@@ -68,7 +65,7 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const { palette } = useTheme();
-  const { coins, coinEntries, canAdjustCoins } = game;
+  const { coins, coinEntries } = game;
   const lastAdjustment = coinEntries.findLast((entry) => entry.kind === "adjustment");
 
   return (
@@ -81,12 +78,6 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
             <CoinCount coins={coins} />
           </Typography>
         </Stack>
-
-        {game.extraTurn && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {t.extraTurn}
-          </Alert>
-        )}
 
         <Typography variant="subtitle2" component="h3">
           {t.thisTurn}
@@ -119,52 +110,50 @@ function CoinsDialog({ open, onClose, session, game }: CoinsDialogProps) {
           </Box>
         )}
 
-        {canAdjustCoins && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" component="h3">
-              {t.byHand}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle2" component="h3">
+            {t.byHand}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t.byHandHint}
+          </Typography>
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <IconButton
+              aria-label={t.oneLess}
+              onClick={() => setAmount((n) => Math.max(1, n - 1))}
+              disabled={amount <= 1}
+              sx={{ width: 48, height: 48, border: 1, borderColor: "divider" }}
+            >
+              −
+            </IconButton>
+            <Typography variant="h6" component="p" sx={{ minWidth: 32, textAlign: "center" }} aria-live="polite">
+              {amount}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {t.byHandHint}
-            </Typography>
-            <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-              <IconButton
-                aria-label={t.oneLess}
-                onClick={() => setAmount((n) => Math.max(1, n - 1))}
-                disabled={amount <= 1}
-                sx={{ width: 48, height: 48, border: 1, borderColor: "divider" }}
-              >
-                −
-              </IconButton>
-              <Typography variant="h6" component="p" sx={{ minWidth: 32, textAlign: "center" }} aria-live="polite">
-                {amount}
-              </Typography>
-              <IconButton
-                aria-label={t.oneMore}
-                onClick={() => setAmount((n) => n + 1)}
-                sx={{ width: 48, height: 48, border: 1, borderColor: "divider" }}
-              >
-                +
-              </IconButton>
-              <Button color="warning" disabled={amount > coins} onClick={() => session.adjustCoins(-amount)}>
-                {t.pay(amount)}
-              </Button>
-              <Button variant="outlined" onClick={() => session.adjustCoins(amount)}>
-                {t.add(amount)}
-              </Button>
-            </Stack>
-            {lastAdjustment && (
-              <Button
-                variant="text"
-                startIcon={<GameIcon name="undo" />}
-                onClick={() => session.undoCoinAdjustment()}
-                sx={{ mt: 1 }}
-              >
-                {t.undo(signedCoins(lastAdjustment.amount))}
-              </Button>
-            )}
-          </Box>
-        )}
+            <IconButton
+              aria-label={t.oneMore}
+              onClick={() => setAmount((n) => n + 1)}
+              sx={{ width: 48, height: 48, border: 1, borderColor: "divider" }}
+            >
+              +
+            </IconButton>
+            <Button color="warning" disabled={amount > coins} onClick={() => session.adjustCoins(-amount)}>
+              {t.pay(amount)}
+            </Button>
+            <Button variant="outlined" onClick={() => session.adjustCoins(amount)}>
+              {t.add(amount)}
+            </Button>
+          </Stack>
+          {lastAdjustment && (
+            <Button
+              variant="text"
+              startIcon={<GameIcon name="undo" />}
+              onClick={() => session.undoCoinAdjustment()}
+              sx={{ mt: 1 }}
+            >
+              {t.undo(signedCoins(lastAdjustment.amount))}
+            </Button>
+          )}
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t.close}</Button>

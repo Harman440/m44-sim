@@ -90,9 +90,8 @@ describe("settings", () => {
 
 describe("saved game", () => {
   it("saves a game and picks it up again", () => {
-    // The defender, on its first whole turn, with the supplies to play a card
+    // Test mode: the supplies to play a card
     const session = new GameSession({ scenario, faction: "Allies", testMode: true });
-    session.startFirstTurn();
     expect(session.pickCard(session.getSnapshot().cards[0]!.card)).toBe(true);
     saveGame(session);
 
@@ -228,9 +227,7 @@ describe("Mis mapas", () => {
     expect(validateScenario(map!)).toEqual([]);
 
     const session = new GameSession({ scenario: map!, faction: "Allies" });
-    // The Axis attack: the Allies wait out their extra turn and start on turn 2
-    expect(session.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
-    expect(session.startFirstTurn()).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({ turn: 1, phase: TurnPhase.PICK_CARDS });
     expect(session.pickCard(null)).toBe(true);
     while (session.getSnapshot().orderable.length > 0) {
       const position = session.getSnapshot().orderable[0]!;
@@ -276,7 +273,7 @@ describe("saved pass and play match", () => {
 
     expect(restored?.getSnapshot()).toMatchObject({ active: "Axis", covered: true, revealTurn: null });
     expect(restored?.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
-    expect(restored?.sessions.Allies.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
+    expect(restored?.sessions.Allies.getSnapshot().phase).toBe(TurnPhase.PICK_CARDS);
   });
 
   it("is kept apart from the one-side game, and dropped when it can't be read", () => {

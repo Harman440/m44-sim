@@ -24,7 +24,6 @@ import GameSession from "../../game-core/gameSession";
 import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
 import BattleView from "./GameViews/BattleView";
-import WaitingView from "./GameViews/WaitingView";
 import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
@@ -61,7 +60,6 @@ const TEXT = defineMessages({
   es: {
     phases: { card: "Carta", orders: "Órdenes", movement: "Movimiento", battle: "Batalla", final: "Final" },
     testMode: "Modo prueba",
-    extraTurn: "Turno 1 · extra",
     turn: (n: number) => `Turno ${n}`,
     coinsLabel: (coins: string) => `Suministros: ${coins}`,
     mute: "Silenciar sonidos",
@@ -82,7 +80,6 @@ const TEXT = defineMessages({
   en: {
     phases: { card: "Card", orders: "Orders", movement: "Movement", battle: "Battle", final: "Final" },
     testMode: "Test mode",
-    extraTurn: "Turn 1 · extra",
     turn: (n: number) => `Turn ${n}`,
     coinsLabel: (coins: string) => `Supplies: ${coins}`,
     mute: "Mute sounds",
@@ -176,7 +173,7 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
               {tr(scenario.name)} · {labels.factions[faction]}
             </Typography>
             {session.testMode && <Chip label={t.testMode} color="warning" size="small" />}
-            <Chip label={game.extraTurn ? t.extraTurn : t.turn(game.turn)} color="secondary" size="small" />
+            <Chip label={t.turn(game.turn)} color="secondary" size="small" />
             {PHASE_STEPS.map(({ phase, label }, i) => (
               <Chip
                 key={phase}
@@ -290,10 +287,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
         <Box component="main" className="game-screen__main">
           {game.phase === TurnPhase.PARADROP && <ParadropView faction={faction} session={session} game={game} />}
 
-          {game.phase === TurnPhase.AWAIT_ATTACKER && (
-            <WaitingView attacker={scenario.attacker} onStart={() => session.startFirstTurn()} />
-          )}
-
           {game.phase === TurnPhase.PICK_CARDS && (
             <CardsView
               cards={game.cards}
@@ -306,7 +299,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
                 setHandLeaving(card !== null);
               }}
               coins={game.coins}
-              extraTurn={game.extraTurn}
               largeMap={shared ? <LargeMap session={session} faction={faction} /> : undefined}
               initialPick={lastPlay}
             />

@@ -27,7 +27,6 @@ const makeMovementSession = ({ wire, tankTo = TANK }: { wire?: Position[]; tankT
     faction: "Allies",
     testMode: true,
   });
-  session.startFirstTurn();
   session.pickCard(actionCardById("resupply")!);
   session.issueOrder(INFANTRY, { row: 5, col: 1 });
   session.issueOrder(TANK, tankTo);

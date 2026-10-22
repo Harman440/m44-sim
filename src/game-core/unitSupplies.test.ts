@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UnitType } from "./unit";
-import { amountOf, canPay, endOfTurn, equipmentOf, fullSupplies, pay, refill, reload } from "./unitSupplies";
+import { amountOf, canPay, endOfTurn, equipmentOf, fullSupplies, pay, refill, reload, startingSupplies } from "./unitSupplies";
 import { Equipment, Supply } from "../data/unitSupplies";
 
 const infantry = fullSupplies(UnitType.INFANTRY);
@@ -23,6 +23,14 @@ describe("unit supplies", () => {
     expect(fullSupplies(UnitType.TANK, true).amounts).toEqual({ fuel: 7, shells: 2 });
     expect(fullSupplies(UnitType.ARTILLERY).amounts).toEqual({ fuel: 1, shells: 2 });
     expect(tank.equipment).toEqual({});
+  });
+
+  it("starts the defending side with 1 ammo or shell less, and reloads it up to full", () => {
+    expect(startingSupplies(UnitType.INFANTRY, false, true)).toEqual({ ...infantry, amounts: { morale: 5, energy: 5, ammo: 1 } });
+    expect(startingSupplies(UnitType.TANK, true, true).amounts).toEqual({ fuel: 7, shells: 1 });
+    expect(startingSupplies(UnitType.ARTILLERY, false, true).amounts).toEqual({ fuel: 1, shells: 1 });
+    expect(startingSupplies(UnitType.TANK, false, false)).toEqual(tank);
+    expect(amountOf(reload(startingSupplies(UnitType.TANK, false, true), tank), Supply.SHELLS)).toBe(2);
   });
 
   it("pays a cost in supplies and equipment, without changing what it was given", () => {

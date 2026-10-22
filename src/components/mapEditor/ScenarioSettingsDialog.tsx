@@ -65,8 +65,8 @@ const TEXT = defineMessages({
     attacks: "Ataca",
     defends: "Defiende",
     roleInfo:
-      "El bando que ataca juega un turno extra al empezar, antes de que el rival pueda responder; el que defiende espera ese turno y empieza en el turno 2. " +
-      "También cambia sus cartas de combate: el atacante tiene las ofensivas y el defensor las defensivas. Toca «Defiende» para que ataque ese bando.",
+      "Los dos bandos juegan desde el turno 1. El que ataca dispara primero en la batalla; cada unidad del que defiende empieza con 1 munición menos (infantería) o 1 proyectil menos (tanques y artillería). " +
+      "Toca «Defiende» para que ataque ese bando.",
     handSize: "Cartas de mando",
     handSizeInfo:
       "Las cartas de mando que tiene en la mano al empezar. Cada turno juega una y en la fase final roba otra. En los escenarios del juego, entre 2 y 6.",
@@ -127,8 +127,8 @@ const TEXT = defineMessages({
     attacks: "Attacks",
     defends: "Defends",
     roleInfo:
-      "The side that attacks plays an extra turn at the start, before the enemy can answer; the side that defends waits out that turn and starts on turn 2. " +
-      "It also changes their combat cards: the attacker gets the offensive ones and the defender the defensive ones. Tap \"Defends\" to make that side attack.",
+      "Both sides play from turn 1. The side that attacks fires first in the battle; each unit of the side that defends starts with 1 ammo less (infantry) or 1 shell less (tanks and artillery). " +
+      'Tap "Defends" to make that side attack.',
     handSize: "Command cards",
     handSizeInfo:
       "The command cards in its hand at the start. Each turn it plays one and draws another in the final phase. In the game's scenarios, between 2 and 6.",

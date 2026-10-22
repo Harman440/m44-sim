@@ -77,7 +77,7 @@ describe("the computer against itself", () => {
 });
 
 describe("aiStep", () => {
-  it("does nothing on the person's side of the waiting, nor in a phase both players share", () => {
+  it("does nothing while it waits for the other side, nor in a phase both players share", () => {
     const scenario = scenarios[0]!;
     const random = seeded(4);
     const match = new PassAndPlayMatch(
@@ -85,13 +85,13 @@ describe("aiStep", () => {
       { Allies: newSession(scenario, "Allies", random), Axis: newSession(scenario, "Axis", random) },
       { computer: "Axis" }
     );
-    const defender = scenario.attacker === "Axis" ? "Allies" : "Axis";
-    if (match.sessions[defender].getSnapshot().phase === TurnPhase.AWAIT_ATTACKER) {
-      expect(aiStep(match, defender, basicBrain, random)).toBe(false);
-    }
-    // The attacker plays its card, gives its orders and locks them, then waits for the reveal
-    while (aiStep(match, scenario.attacker, basicBrain, random));
-    expect(match.sessions[scenario.attacker].getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
+    // The computer plays its card, gives its orders and locks them, then waits for the person's
+    while (aiStep(match, "Axis", basicBrain, random));
+    expect(match.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
+    expect(match.getSnapshot().revealTurn).toBeNull();
+    // Both locked: the reveal is shared, so the computer has nothing to do
+    while (aiStep(match, "Allies", basicBrain, random));
     expect(match.getSnapshot().revealTurn).toBe(1);
+    expect(aiStep(match, "Axis", basicBrain, random)).toBe(false);
   });
 });

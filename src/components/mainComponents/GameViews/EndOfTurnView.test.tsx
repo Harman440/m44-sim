@@ -183,7 +183,6 @@ describe("EndOfTurnView Reinforcements", () => {
       faction: "Allies",
       testMode: true,
     });
-    session.startFirstTurn();
     session.pickCard(actionCardById("reinforcements")!);
     session.markHex(EMPTY);
     session.issueOrder(INFANTRY, INFANTRY);

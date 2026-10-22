@@ -53,6 +53,12 @@ export const EQUIPMENT_CARRIED: Record<UnitType, { normal: number; elite: number
   [UnitType.ARTILLERY]: { normal: 0, elite: 0 },
 };
 
+/**
+ * What each unit of the scenario's defending side starts the game without (there's no extra turn
+ * for the attacker), never below 0. It still reloads up to full
+ */
+export const DEFENDER_SHORTFALL: Partial<Record<Supply, number>> = { [Supply.AMMO]: 1, [Supply.SHELLS]: 1 };
+
 /** What the Reload action brings back, never past full */
 export const RELOAD: Partial<Record<Supply, number>> = { [Supply.AMMO]: 2, [Supply.SHELLS]: 2 };
 

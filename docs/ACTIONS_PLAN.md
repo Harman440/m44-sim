@@ -135,10 +135,10 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Tests for every action: allowed, refused for each missing supply, and the moves it offers
 
 ### R6b: No extra turn for the attacker
-- [ ] Both sides start on turn 1 together. The attacker's extra first turn goes: `AWAIT_ATTACKER`, `startFirstTurn`, `extraTurn` (and the "no card in the extra turn" rule), `WaitingView`, the match's waiting step, and the "Turno 1 · extra" chip
-- [ ] Every unit of the scenario's defending side starts with 1 ammo less (infantry) or 1 shell less (tanks and artillery) (`data/unitSupplies.ts`: a defender's adjustment, applied when the session fills its units' supplies; never below 0). Reloading still fills up to the full amount
-- [ ] The attacker still fires first in the battle (the firing order is unchanged)
-- [ ] Rule book ("El primer turno") and the menu's scenario panel ("Ataca"/"Defiende" info) say so. `SAVE_VERSION` bumped. Tests: both sides pick a card on turn 1, a defender's infantry starts with 1 ammo and its tanks and artillery with 1 shell, an attacker's with 2
+- [x] Both sides start on turn 1 together. The attacker's extra first turn goes: `AWAIT_ATTACKER`, `startFirstTurn`, `extraTurn` (and the "no card in the extra turn" rule), `WaitingView`, the match's waiting step, and the "Turno 1 · extra" chip
+- [x] Every unit of the scenario's defending side starts with 1 ammo less (infantry) or 1 shell less (tanks and artillery) (`data/unitSupplies.ts`: a defender's adjustment, applied when the session fills its units' supplies; never below 0). Reloading still fills up to the full amount
+- [x] The attacker still fires first in the battle (the firing order is unchanged)
+- [x] Rule book ("El primer turno") and the menu's scenario panel ("Ataca"/"Defiende" info) say so. `SAVE_VERSION` bumped. Tests: both sides pick a card on turn 1, a defender's infantry starts with 1 ammo and its tanks and artillery with 1 shell, an attacker's with 2
 
 ### R7: Firing with actions
 - [ ] When a unit fires:

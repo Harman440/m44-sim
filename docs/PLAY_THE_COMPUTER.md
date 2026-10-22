@@ -25,7 +25,6 @@ PassAndPlayMatch (ai: "Axis")
 | Phase | Actions | Very basic brain (AI2) |
 |---|---|---|
 | PARADROP | `dropUnit` ×N, `finishParadrop` | Random free hexes the scenario allows |
-| AWAIT_ATTACKER | none (`follow()` starts the defender) | — |
 | PICK_CARDS | `pickCard(card, section?)` | The card that orders the most of its units (`orderablePositions`); a "chosen" section: the one with most units. No combat cards |
 | ORDER_UNITS | `issueOrder(from, to, slot?)` ×N, `commitOrders` | Each orderable unit: stay if it already has a target, else move to the reachable hex nearest the closest enemy (`getMoveOptions`, `hexDistance`), preferring one it can still fire from. No coins spent, no extra orders |
 | Reveal / movement | `moveUnits`, `rollCollision`, `finishReveal` | The person taps them, as now (they're shared screens) |

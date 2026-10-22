@@ -17,7 +17,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 17;
+export const MATCH_SAVE_VERSION = 18;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -196,8 +196,7 @@ export const armyOf = (session: GameSession): PlacedUnit[] =>
  * the device and puts a cover screen up whenever it changes hands, so neither player sees the
  * other's cards and orders.
  *
- * The turn: the attacker plays the extra first turn alone, then the defender joins in. Each
- * turn, the side holding the device picks its cards and gives its orders; locking them hands
+ * The turn: both sides play from turn 1. Each turn, the side holding the device picks its cards and gives its orders; locking them hands
  * the device to the other side if it hasn't given its own yet. Once both have, the reveal shows
  * both cards and both armies' orders; then each side plays its movement, battle and final phase.
  */
@@ -311,10 +310,7 @@ class PassAndPlayMatch {
     return this.sessions[this.active];
   }
 
-  /**
-   * The player hands the device to the other side: the cover screen goes up. Not while the
-   * other side waits out the attacker's extra turn, as it has nothing to do yet
-   */
+  /** The player hands the device to the other side: the cover screen goes up */
   pass(): boolean {
     if (!this.canPass()) return false;
     this.handOver();
@@ -1026,17 +1022,13 @@ class PassAndPlayMatch {
     });
   }
 
-  /**
-   * The turn whose orders both sides have locked and that hasn't been carried out yet, if any; in
-   * the extra first turn, the attacker's alone
-   */
+  /** The turn whose orders both sides have locked and that hasn't been carried out yet, if any */
   private revealTurn(): number | null {
     const attacker = this.sessions[this.scenario.attacker].getSnapshot();
     const defender = this.sessions[otherSide(this.scenario.attacker)].getSnapshot();
     const locked = (game: GameSnapshot) => game.phase === TurnPhase.MOVEMENT;
     const both = locked(attacker) && locked(defender) && attacker.turn === defender.turn;
-    const alone = locked(attacker) && attacker.turn === 1 && defender.phase === TurnPhase.AWAIT_ATTACKER;
-    return (both || alone) && attacker.turn > this.revealedTurn ? attacker.turn : null;
+    return both && attacker.turn > this.revealedTurn ? attacker.turn : null;
   }
 
   private movementView(): MatchSnapshot["movement"] {
@@ -1061,8 +1053,7 @@ class PassAndPlayMatch {
   }
 
   private canPass(): boolean {
-    if (this.computer || this.covered || this.revealTurn() !== null || this.battle) return false;
-    return this.sessions[otherSide(this.active)].getSnapshot().phase !== TurnPhase.AWAIT_ATTACKER;
+    return !this.computer && !this.covered && this.revealTurn() === null && !this.battle;
   }
 
   private handOver() {
@@ -1074,34 +1065,16 @@ class PassAndPlayMatch {
 
   /** Move the match along after a side's game changed */
   private follow() {
-    const attacker = this.sessions[this.scenario.attacker];
-    const defender = this.sessions[otherSide(this.scenario.attacker)];
-    // The defender only waited out the attacker's extra turn on its own device; here it joins
-    // in as soon as that turn is over. Holding the device, the attacker picks its cards first
-    if (defender.getSnapshot().phase === TurnPhase.AWAIT_ATTACKER && attacker.getSnapshot().turn > 1) {
-      defender.startFirstTurn();
-    }
-
     // Orders locked: the other side gives its own, out of sight
     const mine = this.activeSession().getSnapshot();
     const theirs = this.sessions[otherSide(this.active)].getSnapshot();
-    const waiting = theirs.phase === TurnPhase.AWAIT_ATTACKER;
-    if (!this.covered && mine.phase === TurnPhase.MOVEMENT && !waiting && !ordersGiven(theirs, mine.turn)) {
+    if (!this.covered && mine.phase === TurnPhase.MOVEMENT && !ordersGiven(theirs, mine.turn)) {
       this.handOver();
     }
   }
 
-  private following = false;
-
   private onSessionChange = () => {
-    // Starting the defender's turn changes a session too: follow it once
-    if (this.following) return;
-    this.following = true;
-    try {
-      this.follow();
-    } finally {
-      this.following = false;
-    }
+    this.follow();
     this.publish();
   };
 
