@@ -5,6 +5,7 @@ import { DieFace, DieKind, countFaces } from "../game-core/dice";
 import { HexType, Side } from "../types/hex";
 import { appliedFaces } from "../game-core/rollResult";
 import type { Labels } from ".";
+import { EQUIPMENT, Equipment, SUPPLIES, Supply } from "../data/unitSupplies";
 
 const UNITS: Labels["units"] = {
   [UnitType.INFANTRY]: "Infantry",
@@ -50,6 +51,21 @@ const DIE_NOTES: Record<DieKind, string> = {
   longRangeSuppressive: " · 8-sided suppressive die",
 };
 
+const SUPPLY_NAMES: Labels["supplies"] = {
+  [Supply.MORALE]: "Morale",
+  [Supply.ENERGY]: "Energy",
+  [Supply.AMMO]: "Ammo",
+  [Supply.FUEL]: "Fuel",
+  [Supply.SHELLS]: "Shells",
+};
+
+const EQUIPMENT_NAMES: Labels["equipment"] = {
+  [Equipment.EXPLOSIVES]: "Explosives",
+  [Equipment.SANDBAGS]: "Sandbags",
+  [Equipment.MEDIC_KIT]: "Medic kit",
+  [Equipment.CAMOUFLAGE_NET]: "Camouflage net",
+};
+
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const hexes = (n: number) => count(n, "hex", "hexes");
 const coins = (n: number) => count(n, "supply", "supplies");
@@ -66,6 +82,18 @@ const describeFaces: Labels["describeFaces"] = (faces) => {
 const unitKind: Labels["unitKind"] = (type, elite = false) => (elite ? `Elite ${UNITS[type].toLowerCase()}` : UNITS[type]);
 
 const unit: Labels["unit"] = (unit) => unitKind(unit.getUnitType(), unit.elite);
+
+const describeCost: Labels["describeCost"] = (cost) =>
+  [
+    ...SUPPLIES.flatMap((supply) => (cost.amounts?.[supply] ? [`${cost.amounts[supply]} ${SUPPLY_NAMES[supply].toLowerCase()}`] : [])),
+    ...(cost.equipment ?? []).map((kind) => EQUIPMENT_NAMES[kind].toLowerCase()),
+  ].join(" + ") || "free";
+
+const describeSupplies: Labels["describeSupplies"] = (supplies) =>
+  [
+    ...SUPPLIES.flatMap((supply) => (supplies.amounts[supply] === undefined ? [] : [`${SUPPLY_NAMES[supply]} ${supplies.amounts[supply]}`])),
+    ...EQUIPMENT.flatMap((kind) => (supplies.equipment[kind] === undefined ? [] : [`${EQUIPMENT_NAMES[kind]} ${supplies.equipment[kind]}`])),
+  ].join(" · ");
 
 const en: Labels = {
   factions: { Allies: "Allies", Axis: "Axis" },
@@ -100,10 +128,24 @@ const en: Labels = {
     return hex.unit ? `${unit(hex.unit)} in ${terrain}` : terrain;
   },
   describeMovement: ({ maxMove, moveAndFire, holdShots }) => {
-    if (maxMove === 0) return "Can't move with this card";
+    if (maxMove === 0) return holdShots === 0 ? "Doesn't move or fire" : "Doesn't move; fires";
     if (holdShots === 0) return `Moves up to ${hexes(maxMove)}; can't fire`;
     const fire = moveAndFire === 0 ? "can't fire if it moves" : `can fire if it moves up to ${hexes(moveAndFire)}`;
     return `Moves up to ${hexes(maxMove)}; ${fire}`;
+  },
+  supplies: SUPPLY_NAMES,
+  equipment: EQUIPMENT_NAMES,
+  describeSupplies,
+  describeCost,
+  actionRefusals: {
+    [Supply.MORALE]: "Morale 0",
+    [Supply.ENERGY]: "No energy",
+    [Supply.AMMO]: "No ammo",
+    [Supply.FUEL]: "No fuel",
+    [Supply.SHELLS]: "No shells",
+    equipment: "No equipment",
+    unitType: "Not this unit's",
+    ownTablets: "Not on own tablets",
   },
   describeFaces,
   describeAppliedFaces: (faces, kept) =>

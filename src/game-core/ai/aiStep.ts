@@ -7,7 +7,7 @@ import PassAndPlayMatch from "../passAndPlay";
 import type { ActionCard } from "../actionCard";
 import { turnedRound } from "../BoardManager";
 import { boardSizeOf } from "../boardSize";
-import { positionKey } from "../position";
+import { positionKey, samePosition } from "../position";
 import { UnitType } from "../unit";
 import { TurnPhase } from "../../types/gameManager";
 import { Faction } from "../../types/faction";
@@ -104,7 +104,9 @@ export function aiStep(match: PassAndPlayMatch, side: Faction, brain: Brain, ran
 
 /**
  * One step of giving orders: a hex marked for the card, an order, or the orders locked once the
- * brain orders no more units (the rest rest). A card whose hexes can't be marked is taken back
+ * brain orders no more units (the rest rest). A card whose hexes can't be marked is taken back.
+ * The move the brain wants turns into the plain action for it (`issueOrder`: Firefight, Assault,
+ * Move Out…), or a hold that fires; a unit that can pay for neither rests
  */
 function orderStep(view: AiView, brain: Brain): boolean {
   const { session } = view;
@@ -114,10 +116,15 @@ function orderStep(view: AiView, brain: Brain): boolean {
     if (at && session.markHex(at)) return true;
     return session.unpickCard();
   }
-  const from = game.orderable.length > 0 ? brain.nextToOrder(view, game.orderable) : null;
-  if (!from) return session.commitOrders();
-  const { to } = brain.moveFor(view, from);
-  return session.issueOrder(from, to) || session.issueOrder(from, from) || session.commitOrders();
+  let candidates = game.orderable;
+  while (candidates.length > 0) {
+    const from = brain.nextToOrder(view, candidates);
+    if (!from) break;
+    const { to } = brain.moveFor(view, from);
+    if (session.issueOrder(from, to) || session.issueOrder(from, from)) return true;
+    candidates = candidates.filter((position) => !samePosition(position, from));
+  }
+  return session.commitOrders();
 }
 
 function battleStep(match: PassAndPlayMatch, view: AiView, brain: Brain): boolean {

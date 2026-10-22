@@ -12,6 +12,9 @@ import type { Faction } from "../types/faction";
 import type { ShotTarget } from "../data/hitRules";
 import type { RollResult } from "../game-core/rollResult";
 import type { MoveLimits } from "../game-core/orderRules";
+import type { ActionRefusal } from "../game-core/actionRules";
+import type { SupplyCost, UnitSupplies } from "../game-core/unitSupplies";
+import type { Equipment, Supply } from "../data/unitSupplies";
 import type { CoinEntry } from "../game-core/coins";
 import type { DeckReason, MarkerRule } from "../game-core/combatCard";
 import type { Lang } from "../i18n/lang";
@@ -40,6 +43,16 @@ export interface Labels {
   describeHex: (hex: Hex) => string;
   /** How far a unit moves with its order, and whether it can still fire */
   describeMovement: (limits: MoveLimits) => string;
+  /** A unit's supplies: morale, energy, ammo, fuel, shells */
+  supplies: Record<Supply, string>;
+  /** The equipment infantry carries */
+  equipment: Record<Equipment, string>;
+  /** "Morale 5 · Energy 3 · Ammo 2 · Explosives 1…": what a unit has left */
+  describeSupplies: (supplies: UnitSupplies) => string;
+  /** "2 energy + sandbags", or "free": what an action costs */
+  describeCost: (cost: SupplyCost) => string;
+  /** Why a unit can't be given an action, in a few words ("No energy", "Morale 0") */
+  actionRefusals: Record<ActionRefusal, string>;
   /** "2 × Infantry · 1 × Grenade", or "no effect" when no dice were rolled */
   describeFaces: (faces: readonly DieFace[]) => string;
   /** The results a shot applies, and how many of the dice rolled they are when some were set aside */

@@ -12,10 +12,17 @@ import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
 import { FORD_FIRE_DICE } from "./fireQuestions";
 import { HexType } from "../types/hex";
+import { ELITE_FULL_SUPPLIES, ENERGY_PER_TURN, EQUIPMENT_CARRIED, FULL_SUPPLIES, RESTING_ENERGY_PER_TURN, Supply } from "./unitSupplies";
 
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
 const artillery = FIGURES[UnitType.ARTILLERY];
+
+const fullInfantry = FULL_SUPPLIES[UnitType.INFANTRY];
+const fullTank = FULL_SUPPLIES[UnitType.TANK];
+const fullArtillery = FULL_SUPPLIES[UnitType.ARTILLERY];
+const eliteInfantry = ELITE_FULL_SUPPLIES[UnitType.INFANTRY] ?? {};
+const eliteEquipment = EQUIPMENT_CARRIED[UnitType.INFANTRY].elite;
 
 export type TutorialStepId = "setup" | "turn" | "card" | "orders" | "movement" | "battle" | "final" | "tips";
 
@@ -111,8 +118,12 @@ export const TUTORIAL: readonly TutorialStep[] = [
     phase: TurnPhase.ORDER_UNITS,
     points: [
       {
-        es: "Toca una unidad y después la casilla adonde va, o mantenla en su casilla. Cualquier unidad puede recibir una orden; la que no la recibe descansa. El mapa marca desde dónde podrá disparar.",
-        en: "Tap a unit, then the hex it goes to, or hold it where it is. Any unit can be ordered; one that isn't rests. The map shows where it can still fire from.",
+        es: "Toca una unidad y elige su acción: cuánto se mueve, si dispara y qué cuesta. Si se mueve, toca después la casilla adonde va; el mapa marca desde dónde podrá disparar. Las acciones que no puede pagar salen en gris.",
+        en: "Tap a unit and pick its action: how far it moves, whether it fires and what it costs. If it moves, then tap the hex it goes to; the map shows where it can still fire from. Actions it can't pay for are greyed out.",
+      },
+      {
+        es: "Cualquier unidad puede recibir una acción; la que no la recibe descansa. A una unidad que se queda en su casilla se le puede cambiar la acción tocándola otra vez.",
+        en: "Any unit can be given an action; one that isn't rests. A unit that stays in its hex can be given another action by tapping it again.",
       },
       {
         es: "Si la carta marca casillas (Cortina de Fuego, Refuerzos…), márcalas en el mapa.",
@@ -405,8 +416,33 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "The card says how many units are ordered, and in which section.",
         },
         house: {
-          es: "No hay secciones: cualquier unidad puede recibir una orden, y la que no la recibe descansa. Cada unidad mueve y dispara como de costumbre.",
-          en: "There are no sections: any unit can be ordered, and one that isn't rests. Each unit moves and fires as usual.",
+          es: "No hay secciones: cualquier unidad puede recibir una orden, y la que no la recibe descansa. La orden es una de las acciones de la unidad, que dice cuánto se mueve y si dispara.",
+          en: "There are no sections: any unit can be ordered, and one that isn't rests. The order is one of the unit's actions, which says how far it moves and whether it fires.",
+        },
+      },
+      {
+        title: { es: "Acciones y suministros de cada unidad", en: "Each unit's actions and supplies" },
+        house: {
+          es: `Cada unidad lleva sus propios suministros, y empieza con todos: la infantería, moral ${fullInfantry[Supply.MORALE]}, energía ${fullInfantry[Supply.ENERGY]}, munición ${fullInfantry[Supply.AMMO]} y un explosivo, unos sacos terreros, un botiquín y una red de camuflaje; los tanques, combustible ${fullTank[Supply.FUEL]} y proyectiles ${fullTank[Supply.SHELLS]}; la artillería, combustible ${fullArtillery[Supply.FUEL]} y proyectiles ${fullArtillery[Supply.SHELLS]}. Cada acción cuesta energía, combustible o equipo, que se paga al confirmar las órdenes. Una acción que dispara necesita munición o proyectiles. Con la moral a 0, la infantería solo puede subir la moral (o descansar). En tablets propias no se lleva la moral, así que no se ofrece subirla.`,
+          en: `Each unit carries its own supplies, and starts full: infantry, morale ${fullInfantry[Supply.MORALE]}, energy ${fullInfantry[Supply.ENERGY]}, ammo ${fullInfantry[Supply.AMMO]} and one each of explosives, sandbags, medic kit and camouflage net; tanks, fuel ${fullTank[Supply.FUEL]} and shells ${fullTank[Supply.SHELLS]}; artillery, fuel ${fullArtillery[Supply.FUEL]} and shells ${fullArtillery[Supply.SHELLS]}. Each action costs energy, fuel or equipment, paid when the orders are confirmed. An action that fires needs ammo or shells. At morale 0, infantry can only raise its morale (or rest). Own tablets don't track morale, so raising it isn't offered there.`,
+        },
+      },
+      {
+        title: { es: "Descanso", en: "Rest" },
+        house: {
+          es: `Al final de cada turno la infantería recupera ${ENERGY_PER_TURN} de energía, o ${RESTING_ENERGY_PER_TURN} si descansó (no recibió acción), sin pasar de la que lleva llena.`,
+          en: `At the end of each turn infantry gets ${ENERGY_PER_TURN} energy back, or ${RESTING_ENERGY_PER_TURN} if it rested (had no action), never past full.`,
+        },
+      },
+      {
+        title: { es: "Unidades de élite", en: "Elite units" },
+        official: {
+          es: "La infantería de élite se mueve 2 casillas y aun así dispara.",
+          en: "Elite infantry moves 2 hexes and still fires.",
+        },
+        house: {
+          es: `Se mueve y dispara como las demás de su tipo, pero lleva más: la infantería de élite, moral ${eliteInfantry[Supply.MORALE]}, energía ${eliteInfantry[Supply.ENERGY]} y ${eliteEquipment} de cada equipo; los tanques de élite, combustible ${ELITE_FULL_SUPPLIES[UnitType.TANK]?.[Supply.FUEL]}.`,
+          en: `It moves and fires as the others of its type, but carries more: elite infantry, morale ${eliteInfantry[Supply.MORALE]}, energy ${eliteInfantry[Supply.ENERGY]} and ${eliteEquipment} of each piece of equipment; elite tanks, fuel ${ELITE_FULL_SUPPLIES[UnitType.TANK]?.[Supply.FUEL]}.`,
         },
       },
     ],

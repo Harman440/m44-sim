@@ -1,0 +1,76 @@
+// game-core/actionRules.ts
+// The actions mode: which actions a unit can be given this turn, and how far each one moves it.
+// Plain functions over the data in data/unitActions.ts and the unit's supplies
+// (game-core/unitSupplies.ts); GameSession gives the orders.
+import { UnitType } from "./unit";
+import type { UnitAction } from "./unitAction";
+import { UnitSupplies, amountOf, canPay } from "./unitSupplies";
+import type { MoveLimits } from "./orderRules";
+import type { MoveRules } from "./BoardManager";
+import { FIRE_OPTIONS, PLAIN_ACTIONS, UNIT_ACTIONS, actionById } from "../data/unitActions";
+import { SUPPLIES, Supply } from "../data/unitSupplies";
+
+/**
+ * Why a unit can't be given an action: the supply it lacks (morale: it's at 0 and can only be
+ * given Morale Up; ammo or shells: the action fires and it has none), a piece of equipment, an
+ * action of another unit type, or one own tablets don't offer
+ */
+export type ActionRefusal = Supply | "equipment" | "unitType" | "ownTablets";
+
+/** What the unit is and has, for checking an action */
+export interface ActionContext {
+  unitType: UnitType;
+  supplies: UnitSupplies;
+  /** Own tablets: only the actions they offer (no morale, so no Morale Up) */
+  ownTablets: boolean;
+}
+
+/** The actions a unit of this type is offered, in their list order */
+export const actionsFor = (unitType: UnitType, ownTablets: boolean): readonly UnitAction[] =>
+  UNIT_ACTIONS[unitType].filter((action) => !ownTablets || action.ownTablets);
+
+/** Why the unit can't be given the action, or null when it can */
+export function actionRefusal(action: UnitAction, { unitType, supplies, ownTablets }: ActionContext): ActionRefusal | null {
+  if (action.unitType !== unitType) return "unitType";
+  if (ownTablets && !action.ownTablets) return "ownTablets";
+  // At morale 0 the unit can only be given Morale Up (a type without morale never is)
+  if (supplies.amounts[Supply.MORALE] === 0 && action.effect !== "moraleUp") return Supply.MORALE;
+  if (!canPay(supplies, action.cost)) {
+    const short = SUPPLIES.find((supply) => amountOf(supplies, supply) < (action.cost.amounts?.[supply] ?? 0));
+    return short ?? "equipment";
+  }
+  // An action that fires needs a shot's worth of ammo or shells
+  if (action.fire) {
+    const options = FIRE_OPTIONS[unitType];
+    if (!options.some((option) => canPay(supplies, option.cost))) {
+      const needs = options.flatMap((option) => SUPPLIES.filter((supply) => (option.cost.amounts?.[supply] ?? 0) > 0));
+      return needs[0] ?? "equipment";
+    }
+  }
+  return null;
+}
+
+/** How far the action moves the unit, how far it may move and still fire, and its shots when it holds */
+export const moveLimitsOf = (action: UnitAction): MoveLimits => ({
+  maxMove: action.move,
+  moveAndFire: action.fire ? action.move : 0,
+  holdShots: action.fire?.shots ?? 0,
+});
+
+/** How the action's move goes over the terrain (Armour Forward, Behind Enemy Lines ignore its limits) */
+export const moveRulesOf = (action: UnitAction): MoveRules => (action.ignoresTerrain ? { ignoreTerrain: true } : {});
+
+/** The shots the order gives the unit once it ends its move: none for an action that doesn't fire */
+export const shotsOf = (action: UnitAction): number => action.fire?.shots ?? 0;
+
+/** The actions a plain move turns into for this unit type, in the order they're tried */
+export const plainActionsFor = (unitType: UnitType): UnitAction[] =>
+  PLAIN_ACTIONS[unitType].flatMap((id) => actionById(id) ?? []);
+
+/**
+ * The plain action for a move: the first one that reaches the hex and can fire from it, or else
+ * the first that reaches it. `options` are the unit's allowed plain actions, in order
+ */
+export function plainActionForMove<T extends { reaches: boolean; fires: boolean }>(options: readonly T[]): T | null {
+  return options.find((option) => option.reaches && option.fires) ?? options.find((option) => option.reaches) ?? null;
+}

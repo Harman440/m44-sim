@@ -37,7 +37,7 @@ const viewOf = (match: PassAndPlayMatch): AiView => ({
 });
 
 describe("basicBrain", () => {
-  it("moves a unit out of range toward the nearest enemy, still able to fire", () => {
+  it("moves a unit out of range toward the nearest enemy", () => {
     const match = newMatch();
     const session = match.sessions.Axis;
     session.pickCard(null);
@@ -49,7 +49,8 @@ describe("basicBrain", () => {
     const { to } = basicBrain.moveFor(view, from);
 
     expect(nearest(to)).toBeLessThan(nearest(from));
-    expect(session.getMoveOptions(from)!.moveAndFire.some((position) => samePosition(position, to))).toBe(true);
+    expect(session.getMoveOptions(from)!.moves.some((position) => samePosition(position, to))).toBe(true);
+    expect(session.issueOrder(from, to)).toBe(true);
   });
 
   it("orders first the unit nearest the enemy", () => {

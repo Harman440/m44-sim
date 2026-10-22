@@ -16,9 +16,12 @@ import type { BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./game
 import { TurnRecord } from "./turnLog";
 import type { ActionCard } from "./actionCard";
 import { actionCardById } from "../data/actionCards";
+import { actionById } from "../data/unitActions";
+import type { UnitSupplies } from "./unitSupplies";
+import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 37;
+export const SAVE_VERSION = 38;
 
 interface SavedUnit {
   type: UnitType;
@@ -50,6 +53,8 @@ export interface SavedGame {
   turnHits?: { unit: number; hits: number }[];
   /** Units with the camouflage badge, by unit index */
   camouflaged: number[];
+  /** What each unit that has spent something has left, by unit index; the others are full */
+  supplies: ({ unit: number } & UnitSupplies)[];
   turn: number;
   phase: TurnPhase;
   /** The command card played this turn, by id, or null for none */
@@ -63,6 +68,8 @@ export interface SavedGame {
   sandbags: Position[];
   orders: {
     unit: number;
+    /** The action's id (data/unitActions.ts) */
+    action: string;
     start: Position;
     end: Position;
     path: Position[] | null;
@@ -120,6 +127,8 @@ export interface SessionState {
   turnHits: ReadonlyMap<Unit, number>;
   /** Units with the camouflage badge, kept from turn to turn */
   camouflaged: ReadonlySet<Unit>;
+  /** What each unit has left, kept from turn to turn; a unit missing is full */
+  supplies: ReadonlyMap<Unit, UnitSupplies>;
   /** Paratroopers placed before the first turn, in order (the units are on the board) */
   drops: Position[];
 }
@@ -167,6 +176,20 @@ function readUnitCounts<K extends "hits" | "flags">(
     entries.map((entry: { unit: number } & Record<K, number>) => {
       if (!Number.isInteger(entry?.[key]) || entry[key] < 0) throw new Error(`Unknown unit ${key}`);
       return [unit(entry.unit), entry[key]] as const;
+    })
+  );
+}
+
+function readSupplies(entries: unknown, unit: (index: number) => Unit): Map<Unit, UnitSupplies> {
+  if (!Array.isArray(entries)) throw new Error("Unit supplies are not a list");
+  const isCounts = (counts: unknown, keys: readonly string[]) =>
+    typeof counts === "object" &&
+    counts !== null &&
+    Object.entries(counts).every(([key, count]) => keys.includes(key) && Number.isInteger(count) && count >= 0);
+  return new Map(
+    entries.map((entry: { unit: number } & UnitSupplies) => {
+      if (!isCounts(entry?.amounts, SUPPLIES) || !isCounts(entry.equipment, EQUIPMENT)) throw new Error("Unknown unit supplies");
+      return [unit(entry.unit), { amounts: { ...entry.amounts }, equipment: { ...entry.equipment } }] as const;
     })
   );
 }
@@ -220,6 +243,7 @@ export function writeSave(
     // Orders and edits first, so units they reference get indexes; the list is read after
     orders: state.orders.map((order) => ({
       unit: unitIndex(order.unit),
+      action: order.action,
       start: order.start,
       end: order.end,
       path: order.path ?? null,
@@ -275,6 +299,11 @@ export function writeSave(
     retreatsDue: [...state.retreatsDue].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     camouflaged: [...state.camouflaged].map(unitIndex),
+    supplies: [...state.supplies].map(([unit, supplies]) => ({
+      unit: unitIndex(unit),
+      amounts: { ...supplies.amounts },
+      equipment: { ...supplies.equipment },
+    })),
     units: savedUnits,
     wire: board.wirePositions(),
     sandbags: board.sandbagPositions(),
@@ -336,18 +365,19 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     hex.setSandbags(true);
   });
 
-  const orders = saved.orders.map(
-    (order) =>
-      new Order({
-        unit: unit(order.unit),
-        start: order.start,
-        end: order.end,
-        path: order.path,
-        shots: order.shots,
-        lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
-        clearedWire: order.clearedWire === true,
-      })
-  );
+  const orders = saved.orders.map((order) => {
+    if (!actionById(order.action)) throw new Error(`Unknown action ${order.action}`);
+    return new Order({
+      unit: unit(order.unit),
+      action: order.action,
+      start: order.start,
+      end: order.end,
+      path: order.path,
+      shots: order.shots,
+      lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
+      clearedWire: order.clearedWire === true,
+    });
+  });
 
   const faces = new Set<string>(Object.values(DieFace));
   const shots = saved.shots.map((shot) => {
@@ -407,6 +437,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     retreatsDue: readUnitCounts(saved.retreatsDue, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
     camouflaged: readUnits(saved.camouflaged, "Camouflaged units", unit),
+    supplies: readSupplies(saved.supplies, unit),
     drops: readPositions(saved.drops, "Paradrops"),
   };
 }

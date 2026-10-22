@@ -3,8 +3,11 @@ import { LABELS } from ".";
 import { DieFace } from "../game-core/dice";
 import Hex from "../game-core/hex";
 import Unit, { UnitType } from "../game-core/unit";
+import { Supply } from "../data/unitSupplies";
+import { fullSupplies } from "../game-core/unitSupplies";
 import { HexType } from "../types/hex";
-import { moveLimits } from "../game-core/orderRules";
+import { moveLimitsOf } from "../game-core/actionRules";
+import { actionById } from "../data/unitActions";
 import { LANGS } from "../i18n/lang";
 
 describe("Spanish descriptions", () => {
@@ -19,16 +22,17 @@ describe("Spanish descriptions", () => {
   });
 
   it.each([
-    [UnitType.INFANTRY, "Mueve hasta 2 casillas; puede disparar si mueve hasta 1 casilla"],
-    [UnitType.TANK, "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
-    [UnitType.ARTILLERY, "Mueve hasta 1 casilla; si se mueve no puede disparar"],
-  ])("explains how %s moves and fires", (unitType, text) => {
-    const limits = moveLimits(new Unit(unitType));
-    expect(describeMovement(limits)).toBe(text);
+    ["infantry:assault", "Mueve hasta 1 casilla; puede disparar si mueve hasta 1 casilla"],
+    ["tank:assault", "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
+    ["artillery:reposition", "Mueve hasta 2 casillas; no puede disparar"],
+    ["artillery:firefight", "No se mueve; dispara"],
+    ["infantry:reload", "No se mueve ni dispara"],
+  ])("explains how %s moves and fires", (id, text) => {
+    expect(describeMovement(moveLimitsOf(actionById(id)!))).toBe(text);
   });
 
   it("explains limits that stop a unit moving, or firing", () => {
-    expect(describeMovement({ maxMove: 0, moveAndFire: 0, holdShots: 1 })).toBe("No puede moverse con esta carta");
+    expect(describeMovement({ maxMove: 2, moveAndFire: 0, holdShots: 1 })).toBe("Mueve hasta 2 casillas; si se mueve no puede disparar");
     expect(describeMovement({ maxMove: 2, moveAndFire: 0, holdShots: 0 })).toBe("Mueve hasta 2 casillas; no puede disparar");
   });
 
@@ -57,8 +61,19 @@ describe("English descriptions", () => {
   });
 
   it("explains how a unit moves and fires", () => {
-    const limits = moveLimits(new Unit(UnitType.INFANTRY));
-    expect(describeMovement(limits)).toBe("Moves up to 2 hexes; can fire if it moves up to 1 hex");
+    expect(describeMovement(moveLimitsOf(actionById("infantry:assault")!))).toBe("Moves up to 1 hex; can fire if it moves up to 1 hex");
+    expect(describeMovement(moveLimitsOf(actionById("tank:firefight")!))).toBe("Doesn't move; fires");
+  });
+
+  it("lists a unit's supplies, and why an action can't be given", () => {
+    expect(LABELS.en.describeSupplies(fullSupplies(UnitType.TANK))).toBe("Fuel 5 · Shells 2");
+    expect(LABELS.es.describeSupplies(fullSupplies(UnitType.INFANTRY))).toBe(
+      "Moral 5 · Energía 5 · Munición 2 · Explosivos 1 · Sacos terreros 1 · Botiquín 1 · Red de camuflaje 1"
+    );
+    expect(LABELS.en.actionRefusals[Supply.ENERGY]).toBe("No energy");
+    expect(LABELS.es.describeCost(actionById("infantry:fortify")!.cost)).toBe("2 energía + sacos terreros");
+    expect(LABELS.en.describeCost(actionById("tank:reload")!.cost)).toBe("free");
+    expect(LABELS.es.actionRefusals[Supply.MORALE]).toBe("Moral 0");
   });
 
   it("counts dice faces, supplies and roll results", () => {

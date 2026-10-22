@@ -120,19 +120,19 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Rule book: the turn, the cards, the cooldown; the combat-card and deck chapters gone. `SAVE_VERSION` 37. Tests adapted, and new ones for the cards (cooldown, cost, extra turn, a card the scenario leaves out, nothing drawn)
 
 ### R6: Giving actions
-- [ ] `Order` gets `action` (an id from R2). `giveAction(position, actionId, to)` checks it in `actionRules.ts`:
+- [x] `Order` gets `action` (an id from R2). `giveAction(position, actionId, to)` checks it in `actionRules.ts`:
   - the unit's type
   - enough energy, fuel or equipment
   - at morale 0, only Morale Up
   - ammo or shells for an action that fires
   - on own tablets, only the actions they offer
 
-  The moves come from the action's move (Armour Forward and Behind Enemy Lines ignore terrain movement limits). Choosing another action replaces the unit's order; undo works as today
-- [ ] Each unit's supplies (`unitSupplies.ts`) live in the session and the save. Costs are paid when the orders are confirmed. A unit with no order rests. The final phase gives energy back (2 if it rested)
-- [ ] Elite infantry no longer moves 2 and fires (`Unit`'s elite move rule goes)
-- [ ] `OrdersView`: tapping a unit lists its actions (a plain list for now, the pop-up comes in R13)
-- [ ] Computer: turns the move it wants into an action (holding: Firefight, a move it fires after: Assault, a longer one: Move Out or Motorized), and rests when it can't pay
-- [ ] Tests for every action: allowed, refused for each missing supply, and the moves it offers
+  The moves come from the action's move (Armour Forward and Behind Enemy Lines ignore terrain movement limits). Choosing another action replaces the unit's order; undo works as today. Only an order that holds is replaced, and it may become a move only when it's the last order (a later order may have moved through the hex it would free); an order that moved is changed with "Volver". A unit with no action it can pay for isn't offered (`orderable`). `issueOrder(from, to)` stays as the plain move: the cheapest plain action that makes it (`PLAIN_ACTIONS`)
+- [x] Each unit's supplies (`unitSupplies.ts`) live in the session and the save. Costs are paid when the orders are confirmed. A unit with no order rests. The final phase gives energy back (2 if it rested)
+- [x] Elite infantry no longer moves 2 and fires (`Unit`'s elite move rule goes)
+- [x] `OrdersView`: tapping a unit lists its actions (a plain list for now, the pop-up comes in R13)
+- [x] Computer: turns the move it wants into an action (holding: Firefight, a move it fires after: Assault, a longer one: Move Out or Motorized), and rests when it can't pay
+- [x] Tests for every action: allowed, refused for each missing supply, and the moves it offers
 
 ### R6b: No extra turn for the attacker
 - [ ] Both sides start on turn 1 together. The attacker's extra first turn goes: `AWAIT_ATTACKER`, `startFirstTurn`, `extraTurn` (and the "no card in the extra turn" rule), `WaitingView`, the match's waiting step, and the "Turno 1 · extra" chip

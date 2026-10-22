@@ -25,10 +25,10 @@ const builtIns: Scenario[] = [
     description: {
       es:
         'Agosto de 1944: la 2.ª División Blindada de Leclerc ataca a los alemanes atrincherados en el bosque de Écouves. ' +
-        'Toda la infantería francesa es de élite: mueve 2 casillas y aún dispara; también las unidades alemanas con distintivo.',
+        'Toda la infantería francesa es de élite: lleva más moral, energía y equipo; también las unidades alemanas con distintivo.',
       en:
         "August 1944: Leclerc's 2nd Armored Division attacks the Germans dug into the Écouves forest. " +
-        'All French infantry is elite: it moves 2 hexes and still fires; so are the German units with a badge.',
+        'All French infantry is elite: it carries more morale, energy and equipment; so are the German units with a badge.',
     },
     image: foretDEcouvesImage,
     initialHandSize: { allies: 6, axis: 5 },

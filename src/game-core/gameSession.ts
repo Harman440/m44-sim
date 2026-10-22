@@ -29,7 +29,20 @@ import { HexType } from "../types/hex";
 import { Faction } from "../types/faction";
 import { fromKey, includesPosition, positionKey, samePosition } from "./position";
 import Hex from "./hex";
-import { MoveLimits, isOrdered, moveLimits, orderablePositions } from "./orderRules";
+import { MoveLimits, orderablePositions } from "./orderRules";
+import {
+  ActionRefusal,
+  actionRefusal,
+  actionsFor,
+  moveLimitsOf,
+  moveRulesOf,
+  plainActionForMove,
+  plainActionsFor,
+  shotsOf,
+} from "./actionRules";
+import type { UnitAction } from "./unitAction";
+import { UnitSupplies, endOfTurn, fullSupplies, pay } from "./unitSupplies";
+import { actionById } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
 import { ARTILLERY_CREW_FIGURES, figureDamaged, figuresLeft, hitsToDestroy } from "../data/figures";
@@ -49,8 +62,10 @@ export interface GameSnapshot {
   /** The command card played this turn, or null for none (or not picked yet) */
   playedCard: ActionCard | null;
   orders: readonly Order[];
-  /** Units that can still be ordered (empty outside giving orders) */
+  /** Units with no order yet that can be given an action (empty outside giving orders) */
   orderable: readonly Position[];
+  /** What each of this side's units has left to spend on its actions, by hex (costs are paid when the orders are confirmed) */
+  supplies: readonly { position: Position; supplies: UnitSupplies }[];
   /** Board changes made to mirror the table: after the battle, or in Órdenes before any order */
   battleEdits: number;
   /** The map can be changed by hand now: in the final phase, or in Órdenes before any order or mark */
@@ -239,6 +254,12 @@ export interface MoveOptions {
   limits: MoveLimits;
 }
 
+/** An action offered to a unit, and why it can't be given it (null when it can) */
+export interface ActionOption {
+  action: UnitAction;
+  refusal: ActionRefusal | null;
+}
+
 /** A hex marked for the attack card, which rolls there before anyone fires */
 export interface AttackMark {
   /** Its index in the turn's markers */
@@ -354,6 +375,8 @@ class GameSession {
   private turnHits = new Map<Unit, number>();
   /** Units with the camouflage badge, kept from turn to turn until they move or battle (`camouflagedUnits`) */
   private camouflaged = new Set<Unit>();
+  /** What each unit has left, kept from turn to turn; a unit missing here is full (`suppliesOf`) */
+  private supplies = new Map<Unit, UnitSupplies>();
   /** Pass and play: where the enemy units are, from the match; null in the one-side game */
   private enemyView: (() => readonly EnemyUnit[]) | null = null;
   private drops: Position[] = [];
@@ -512,58 +535,159 @@ class GameSession {
     return this.publish();
   }
 
-  // --- ORDER_UNITS: any unit can be ordered once; a unit with no order rests
+  // --- ORDER_UNITS: any unit can be given one of its actions; a unit with no order rests
 
-  /** Where the unit at `position` can move, or null if it can't be ordered now */
-  getMoveOptions(position: Position): MoveOptions | null {
-    const hex = this.board.getHex(position);
+  /** Own tablets: no morale is tracked, so only the actions they offer (pass and play has figures) */
+  private get ownTablets(): boolean {
+    return !this.figures;
+  }
+
+  /** What the unit has left: full until it first spends something */
+  private suppliesOf(unit: Unit): UnitSupplies {
+    return this.supplies.get(unit) ?? fullSupplies(unit.getUnitType(), unit.elite);
+  }
+
+  private refusalOf(unit: Unit, action: UnitAction): ActionRefusal | null {
+    return actionRefusal(action, { unitType: unit.getUnitType(), supplies: this.suppliesOf(unit), ownTablets: this.ownTablets });
+  }
+
+  /** The unit has an action it can be given */
+  private canOrder(unit: Unit): boolean {
+    return actionsFor(unit.getUnitType(), this.ownTablets).some((action) => this.refusalOf(unit, action) === null);
+  }
+
+  /** Where the unit's order is in the turn's list, -1 with none */
+  private orderIndexOf(unit: Unit): number {
+    return this.orders.findIndex((order) => order.unit === unit);
+  }
+
+  /**
+   * Whether the unit at `hex` can be given an action now, and whether that action may move it:
+   * no order yet, or an order that holds, which the new one replaces. It may move then only when
+   * that order is the last one, since a later order may have moved through the hex it would leave
+   * free (and undoing that one moves it back there). An order that moved is changed by undoing it
+   */
+  private orderableAt(hex: Hex | null | undefined): { unit: Unit; canMove: boolean } | null {
     const unit = hex?.unit;
-    if (this.phase !== TurnPhase.ORDER_UNITS || !hex || !unit || isOrdered(this.orders, unit)) return null;
+    if (this.phase !== TurnPhase.ORDER_UNITS || !unit) return null;
+    const index = this.orderIndexOf(unit);
+    if (index === -1) return { unit, canMove: true };
+    const order = this.orders[index]!;
+    if (!samePosition(order.start, order.end)) return null;
+    return { unit, canMove: index === this.orders.length - 1 };
+  }
 
-    const plan = this.movePlan(hex, moveLimits(unit));
+  /** The unit's actions and why it can't be given each one, or null if it can't be ordered now */
+  getActions(position: Position): ActionOption[] | null {
+    const found = this.orderableAt(this.board.getHex(position));
+    if (!found) return null;
+    return actionsFor(found.unit.getUnitType(), this.ownTablets).map((action) => ({ action, refusal: this.refusalOf(found.unit, action) }));
+  }
+
+  /**
+   * Where the unit at `position` can move with the action, or null if it can't be given it now.
+   * With no action, the moves of the plain actions it can be given (Firefight, Assault, Move Out…:
+   * the computer's moves, `issueOrder`)
+   */
+  getMoveOptions(position: Position, actionId?: string): MoveOptions | null {
+    const hex = this.board.getHex(position);
+    const found = this.orderableAt(hex);
+    if (!hex || !found) return null;
+    const actions = actionId === undefined ? this.plainActions(found.unit) : [actionById(actionId)];
+    const plans = actions.flatMap((action) =>
+      action && this.refusalOf(found.unit, action) === null ? [this.movePlan(hex, action, found.canMove)] : []
+    );
+    if (plans.length === 0) return null;
+
+    const keys = (range: (plan: (typeof plans)[number]) => Map<string, Position[]>) =>
+      new Set(plans.flatMap((plan) => [...range(plan).keys()]));
     return {
-      moves: [...plan.paths(plan.limits.maxMove).keys()].map(fromKey),
-      moveAndFire: [...plan.paths(plan.limits.moveAndFire, true).keys()].map(fromKey),
-      limits: plan.limits,
+      moves: [...keys((plan) => plan.paths(plan.limits.maxMove))].map(fromKey),
+      moveAndFire: [...keys((plan) => plan.paths(plan.limits.moveAndFire, true))].map(fromKey),
+      limits: {
+        maxMove: Math.max(...plans.map((plan) => plan.limits.maxMove)),
+        moveAndFire: Math.max(...plans.map((plan) => plan.limits.moveAndFire)),
+        holdShots: Math.max(...plans.map((plan) => plan.limits.holdShots)),
+      },
     };
   }
 
-  /** The unit's move limits and paths; it can't end on (or next to) a hex marked for an attack */
-  private movePlan(hex: Hex, limits: MoveLimits) {
+  /** The plain actions the unit can be given, in the order they're tried */
+  private plainActions(unit: Unit): UnitAction[] {
+    return plainActionsFor(unit.getUnitType()).filter((action) => this.refusalOf(unit, action) === null);
+  }
+
+  /**
+   * The action's move limits and paths (none when it may not move); it can't end on (or next to)
+   * a hex marked for an attack
+   */
+  private movePlan(hex: Hex, action: UnitAction, canMove = true) {
+    const limits = canMove ? moveLimitsOf(action) : { ...moveLimitsOf(action), maxMove: 0, moveAndFire: 0 };
+    const rules = moveRulesOf(action);
     const endsOk = (key: string) => !this.breaksMark(fromKey(key));
     return {
       limits,
-      paths: (range: number, forFire = false) => new Map([...this.board.getAllPaths(hex, range, forFire)].filter(([key]) => endsOk(key))),
+      paths: (range: number, forFire = false) =>
+        new Map([...this.board.getAllPaths(hex, range, forFire, rules)].filter(([key]) => endsOk(key))),
     };
   }
 
-  /** Order the unit at `from` to move to `to`, or to hold when `to` equals `from` */
-  issueOrder(from: Position, to: Position): boolean {
+  /**
+   * Give the unit at `from` an action, moving to `to` (holding when `to` equals `from`). A unit
+   * whose order holds gets the new action in its place. Its cost is paid when the orders are
+   * confirmed
+   */
+  giveAction(from: Position, actionId: string, to: Position): boolean {
     const hex = this.board.getHex(from);
-    const unit = hex?.unit;
-    if (this.phase !== TurnPhase.ORDER_UNITS || !hex || !unit || isOrdered(this.orders, unit)) return false;
-    const plan = this.movePlan(hex, moveLimits(unit));
-    const limits = plan.limits;
+    const found = this.orderableAt(hex);
+    const action = actionById(actionId);
+    if (!hex || !found || !action || this.refusalOf(found.unit, action) !== null) return false;
+    const { unit, canMove } = found;
+    const plan = this.movePlan(hex, action, canMove);
 
     let order: Order;
-    const props = { unit, start: from, end: to };
+    const props = { unit, action: action.id, start: from, end: to };
     // A unit in the ocean can't fire (house rule)
     const noFire = !!this.board.getHex(to)?.getTerrain().noFire;
     if (samePosition(from, to)) {
-      order = new Order({ ...props, path: [from], shots: noFire ? 0 : limits.holdShots });
+      order = new Order({ ...props, path: [from], shots: noFire ? 0 : plan.limits.holdShots });
     } else {
       // Paths must be found before moving: afterwards the start hex is empty and the destination taken
-      const path = plan.paths(limits.maxMove).get(positionKey(to));
-      const canFire = !noFire && plan.paths(limits.moveAndFire, true).has(positionKey(to));
+      const path = plan.paths(plan.limits.maxMove).get(positionKey(to));
+      const canFire = !noFire && plan.paths(plan.limits.moveAndFire, true).has(positionKey(to));
       if (!path) return false;
       const lostSandbags = this.moveUnit(from, to);
       if (!lostSandbags) return false;
       const clearedWire = this.clearWire(unit, to);
-      order = new Order({ ...props, path, shots: canFire ? 1 : 0, lostSandbags, clearedWire });
+      order = new Order({ ...props, path, shots: canFire ? shotsOf(action) : 0, lostSandbags, clearedWire });
     }
 
-    this.orders = [...this.orders, order];
+    const index = this.orderIndexOf(unit);
+    this.orders = index === -1 ? [...this.orders, order] : this.orders.map((each, i) => (i === index ? order : each));
     return this.publish();
+  }
+
+  /**
+   * Order the unit at `from` to move to `to`, or to hold when `to` equals `from`, with the plain
+   * action for that move: one that can fire there if any, else the cheapest that gets there
+   * (Firefight to hold; Assault, Move Out, Motorized to move). False when none it can pay for does
+   */
+  issueOrder(from: Position, to: Position): boolean {
+    const hex = this.board.getHex(from);
+    const found = this.orderableAt(hex);
+    if (!hex || !found) return false;
+    const options = this.plainActions(found.unit).map((action) => {
+      const plan = this.movePlan(hex, action, found.canMove);
+      const holds = samePosition(from, to);
+      return {
+        action,
+        // A hold is an action that doesn't move (Firefight), not a move of 0 paid for
+        reaches: holds ? action.move === 0 : plan.paths(plan.limits.maxMove).has(positionKey(to)),
+        fires: holds ? plan.limits.holdShots > 0 : plan.paths(plan.limits.moveAndFire, true).has(positionKey(to)),
+      };
+    });
+    const chosen = plainActionForMove(options);
+    return !!chosen && this.giveAction(from, chosen.action.id, to);
   }
 
   undoLastOrder(): boolean {
@@ -595,6 +719,11 @@ class GameSession {
     if (this.phase !== TurnPhase.ORDER_UNITS) return false;
     if (this.markersLeft() > 0) return false;
 
+    for (const order of this.orders) {
+      const action = actionById(order.action);
+      const paid = action && pay(this.suppliesOf(order.unit), action.cost);
+      if (paid) this.supplies.set(order.unit, paid);
+    }
     this.phase = TurnPhase.MOVEMENT;
     return this.publish();
   }
@@ -1716,6 +1845,7 @@ class GameSession {
     });
     this.log = [...this.log, record];
     this.camouflaged = new Set(this.camouflagedUnits());
+    this.recoverEnergy();
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
     this.coinAdjustments = [];
     if (this.playedCard) this.cardsPlayedOn = { ...this.cardsPlayedOn, [this.playedCard.id]: this.turn };
@@ -1730,6 +1860,16 @@ class GameSession {
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
+  }
+
+  /** The end of the turn: infantry gets energy back, more if it rested (had no order) */
+  private recoverEnergy() {
+    for (const hex of this.board.getAllHexes()) {
+      const unit = hex.unit;
+      if (!unit) continue;
+      const rested = this.orderIndexOf(unit) === -1;
+      this.supplies.set(unit, endOfTurn(this.suppliesOf(unit), fullSupplies(unit.getUnitType(), unit.elite), rested));
+    }
   }
 
   // --- saving
@@ -1760,6 +1900,7 @@ class GameSession {
       retreatsDue: this.retreatsDue,
       turnHits: this.turnHits,
       camouflaged: this.camouflaged,
+      supplies: this.supplies,
       drops: this.drops,
     });
   }
@@ -1797,6 +1938,7 @@ class GameSession {
     session.retreatsDue = new Map(state.retreatsDue);
     session.turnHits = new Map(state.turnHits);
     session.camouflaged = new Set(state.camouflaged);
+    session.supplies = new Map(state.supplies);
     session.drops = state.drops;
     session.snapshot = session.createSnapshot();
     return session;
@@ -1816,7 +1958,11 @@ class GameSession {
       })),
       playedCard: this.playedCard,
       orders: this.orders,
-      orderable: this.phase === TurnPhase.ORDER_UNITS ? orderablePositions(this.board, this.orders) : [],
+      orderable:
+        this.phase === TurnPhase.ORDER_UNITS ? orderablePositions(this.board, this.orders, (unit) => this.canOrder(unit)) : [],
+      supplies: this.board.getAllHexes().flatMap((hex) =>
+        hex.unit ? [{ position: hex.getPosition(), supplies: this.suppliesOf(hex.unit) }] : []
+      ),
       battleEdits: this.battleEdits.length,
       canEditMap: this.canEditMap(),
       canUndoMapEdit: this.canUndoMapEdit(),

@@ -1,7 +1,7 @@
 // game-core/orderRules.ts
-// Which units the player can still order and how far they move. Any unit can be ordered once a
-// turn; a unit with no order rests. Worked out from the orders given so far, so undoing an order
-// frees the unit again.
+// Which units the player can still order. Any unit can be ordered once a turn, given one of its
+// actions (game-core/actionRules.ts); a unit with no order rests. Worked out from the orders given
+// so far, so undoing an order frees the unit again.
 import BoardManager from "./BoardManager";
 import Order from "./order";
 import Unit from "./unit";
@@ -16,19 +16,16 @@ export interface MoveLimits {
   holdShots: number;
 }
 
-/** A unit's own move and fire */
-export const moveLimits = (unit: Unit): MoveLimits => ({
-  maxMove: unit.getMaxMove(),
-  moveAndFire: unit.getMoveAndFire(),
-  holdShots: 1,
-});
-
 export const isOrdered = (orders: readonly Order[], unit: Unit): boolean => orders.some((order) => order.unit === unit);
 
-/** The positions of the units that have no order yet */
-export function orderablePositions(board: BoardManager, orders: readonly Order[]): Position[] {
+/** The positions of the units that have no order yet and can be given one (`canOrder`: some action it can pay for) */
+export function orderablePositions(
+  board: BoardManager,
+  orders: readonly Order[],
+  canOrder: (unit: Unit) => boolean = () => true
+): Position[] {
   return board
     .getAllHexes()
-    .filter((hex) => hex.unit && !isOrdered(orders, hex.unit))
+    .filter((hex) => hex.unit && !isOrdered(orders, hex.unit) && canOrder(hex.unit))
     .map((hex) => hex.getPosition());
 }

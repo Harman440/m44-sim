@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
-import { isOrdered, moveLimits, orderablePositions } from "./orderRules";
+import { isOrdered, orderablePositions } from "./orderRules";
 import { positionKey as key } from "./position";
 import { Side } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
@@ -34,7 +34,7 @@ const orderable = (board: BoardManager, orders: Order[] = []) => orderablePositi
 
 /** A hold order for the unit at `position` */
 const holdAt = (board: BoardManager, position: Position) =>
-  new Order({ unit: board.getHex(position)!.unit!, start: position, end: position, shots: 1 });
+  new Order({ unit: board.getHex(position)!.unit!, action: "infantry:firefight", start: position, end: position, shots: 1 });
 
 describe("sections", () => {
   it("uses the sections the test scenario expects", () => {
@@ -62,12 +62,11 @@ describe("which units can be ordered", () => {
     expect(isOrdered(orders, board.getHex(LEFT)!.unit!)).toBe(true);
     expect(isOrdered(orders, board.getHex(LEFT_CENTER)!.unit!)).toBe(false);
   });
-});
 
-describe("moveLimits", () => {
-  it("uses the unit's own movement, and one shot when it holds", () => {
-    expect(moveLimits(new Unit(UnitType.INFANTRY))).toEqual({ maxMove: 2, moveAndFire: 1, holdShots: 1 });
-    expect(moveLimits(new Unit(UnitType.TANK))).toEqual({ maxMove: 3, moveAndFire: 3, holdShots: 1 });
-    expect(moveLimits(new Unit(UnitType.ARTILLERY))).toEqual({ maxMove: 1, moveAndFire: 0, holdShots: 1 });
+  it("leaves out units that can't be given any action", () => {
+    const board = new BoardManager(scenario);
+    const noTanks = (unit: Unit) => unit.getUnitType() !== UnitType.TANK;
+
+    expect(orderablePositions(board, [], noTanks).map(key).sort()).toEqual(["7-1", "7-3", "7-8", "8-11", "8-6"]);
   });
 });

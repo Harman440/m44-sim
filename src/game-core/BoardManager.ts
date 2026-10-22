@@ -7,9 +7,9 @@ import { PathNode, PathResult } from "../types/boardManager";
 import { includesPosition, positionKey } from "./position";
 import { BoardSize, boardSizeOf } from "./boardSize";
 
-/** Terrain rules a combat card loosens for one unit's move */
+/** Terrain rules an action loosens for one unit's move */
 export interface MoveRules {
-  /** Terrain doesn't stop the move (Armor Forward, Rattenkrieg) */
+  /** Terrain doesn't stop the move (Armour Forward, Behind Enemy Lines) */
   ignoreTerrain?: boolean;
   /** The unit can still fire after moving into these terrains (House to House, Forest, Rattenkrieg) */
   fireInto?: readonly HexType[];

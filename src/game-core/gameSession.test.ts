@@ -306,7 +306,7 @@ describe("GameSession giving orders", () => {
     expect(session.getSnapshot().orders[0]!.canFire).toBe(false);
   });
 
-  it("orders a unit to hold and fire when its own hex is chosen, once", () => {
+  it("orders a unit to hold and fire when its own hex is chosen, and leaves it out of the units to order", () => {
     const session = makeSession();
     session.pickCard(null);
 
@@ -314,8 +314,8 @@ describe("GameSession giving orders", () => {
 
     const [order] = session.getSnapshot().orders;
     expect(order!.canFire).toBe(true);
-    expect(session.getMoveOptions(LEFT_INF)).toBeNull(); // already ordered
-    expect(session.issueOrder(LEFT_INF, LEFT_INF)).toBe(false);
+    expect(order!.action).toBe("infantry:firefight");
+    expect(session.getSnapshot().orderable).not.toContainEqual(LEFT_INF);
   });
 
   it("rejects a destination out of range without changing anything", () => {
@@ -1992,13 +1992,16 @@ describe("GameSession elite units", () => {
     return session;
   };
 
-  it("moves elite infantry 2 hexes and still fires; other infantry only 1", () => {
+  it("moves and fires elite infantry as any infantry, with more supplies", () => {
     const session = leftTurn();
+    const suppliesAt = (position: Position) =>
+      session.getSnapshot().supplies.find((each) => samePosition(each.position, position))!.supplies;
 
-    expect(session.getMoveOptions(LEFT_INF)!.limits).toMatchObject({ maxMove: 2, moveAndFire: 2 });
-    expect(session.getMoveOptions(OTHER_INF)!.limits).toMatchObject({ maxMove: 2, moveAndFire: 1 });
+    expect(session.getMoveOptions(LEFT_INF, "infantry:assault")!.limits).toMatchObject({ maxMove: 1, moveAndFire: 1 });
     expect(session.issueOrder(LEFT_INF, { row: 5, col: 1 })).toBe(true);
-    expect(session.getSnapshot().orders[0]!.canFire).toBe(true);
+    expect(session.getSnapshot().orders[0]!.canFire).toBe(false);
+    expect(suppliesAt({ row: 5, col: 1 }).amounts).toMatchObject({ morale: 10, energy: 10 });
+    expect(suppliesAt(OTHER_INF).amounts).toMatchObject({ morale: 5, energy: 5 });
   });
 
   it("keeps elite units elite in a save", () => {

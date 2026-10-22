@@ -170,3 +170,15 @@ export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
 const ALL_FIRE_OPTIONS = new Map(Object.values(FIRE_OPTIONS).flat().map((each) => [each.id, each]));
 
 export const fireOptionById = (id: string): FireOption | undefined => ALL_FIRE_OPTIONS.get(id);
+
+/**
+ * The actions a plain move turns into, in the order they're tried (cheapest first): the move a
+ * unit is given with no action named (`GameSession.issueOrder`, the computer). A hold is
+ * Firefight; a move it can fire after, Assault; a longer one, Move Out or Motorized (Reposition
+ * for artillery)
+ */
+export const PLAIN_ACTIONS: Record<UnitType, readonly string[]> = {
+  [UnitType.INFANTRY]: ["infantry:firefight", "infantry:assault", "infantry:moveOut", "infantry:motorized"],
+  [UnitType.TANK]: ["tank:firefight", "tank:assault"],
+  [UnitType.ARTILLERY]: ["artillery:firefight", "artillery:reposition"],
+};

@@ -3,6 +3,7 @@ import { HOUSE_RULES, TUTORIAL } from "./ruleBook";
 import { CARD_COOLDOWN_TURNS } from "./actionCards";
 import { TurnPhase } from "../types/gameManager";
 import { FIGURES } from "./figures";
+import { FULL_SUPPLIES, RESTING_ENERGY_PER_TURN } from "./unitSupplies";
 import { UnitType } from "../game-core/unit";
 import { LANGS, Localized } from "../i18n/lang";
 
@@ -37,6 +38,8 @@ describe("rule book", () => {
     const rule = (title: string) => HOUSE_RULES.flatMap((group) => group.rules).find((r) => r.title.en === title)!;
     expect(rule("One card a turn, or none").house.en).toContain(`waits ${CARD_COOLDOWN_TURNS} turns`);
     expect(rule("One card a turn, or none").house.es).toContain(`vuelve en el turno ${2 + CARD_COOLDOWN_TURNS}`);
+    expect(rule("Rest").house.en).toContain(`${RESTING_ENERGY_PER_TURN} if it rested`);
+    expect(rule("Each unit's actions and supplies").house.es).toContain(`energía ${FULL_SUPPLIES[UnitType.INFANTRY].energy}`);
     const figures = FIGURES[UnitType.INFANTRY].figures;
     expect(rule("Figures").house.en).toContain(`Infantry ${figures} figures`);
   });

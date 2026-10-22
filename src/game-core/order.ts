@@ -3,6 +3,8 @@ import Unit from "./unit";
 
 interface OrderProps {
   unit: Unit;
+  /** The action's id (data/unitActions.ts) */
+  action: string;
   start: Position;
   end: Position;
   /** Hexes crossed, start and end included */
@@ -19,6 +21,8 @@ interface OrderProps {
  */
 class Order {
   unit: Unit;
+  /** The action the unit was given, by id (data/unitActions.ts): how it moves and fires, and what it costs */
+  action: string;
   start: Position;
   end: Position;
   path?: Position[] | null;
@@ -28,8 +32,9 @@ class Order {
   lostSandbags: Position[];
   /** A tank removed the barbed wire on the hex it moved to, put back if the order is undone */
   clearedWire: boolean;
-  constructor({ unit, start, end, path = null, shots, lostSandbags = [], clearedWire = false }: OrderProps) {
+  constructor({ unit, action, start, end, path = null, shots, lostSandbags = [], clearedWire = false }: OrderProps) {
     this.unit = unit;
+    this.action = action;
     this.start = start;
     this.end = end;
     this.path = path;

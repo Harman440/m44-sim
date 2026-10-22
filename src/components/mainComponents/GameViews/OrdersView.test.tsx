@@ -36,6 +36,9 @@ function Harness({ session, handLeaving = false }: { session: GameSession; handL
   return <OrdersView faction="Allies" session={session} game={game} handLeaving={handLeaving} />;
 }
 
+/** Pick one of the selected unit's actions from the list, by the start of its name */
+const pickAction = (name: string) => fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
+
 const setup = () => {
   const session = makeSession();
   const { container } = render(<Harness session={session} />);
@@ -61,6 +64,7 @@ describe("OrdersView sandbags", () => {
     session.board.getHex(LEFT_A)!.setSandbags(true);
 
     tap(LEFT_A);
+    pickAction("Asalto de Infantería");
     expect(screen.getByTestId("sandbags-warning")).toHaveTextContent("si se mueve, los pierde");
     tap({ row: 6, col: 1 });
 
@@ -73,7 +77,7 @@ describe("OrdersView sandbags", () => {
     session.board.getHex(LEFT_A)!.setSandbags(true);
 
     tap(LEFT_A);
-    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    pickAction("Escaramuza");
 
     expect(session.board.getHex(LEFT_A)!.sandbags).toBe(true);
     expect(screen.queryByTestId("sandbags-left")).not.toBeInTheDocument();
@@ -86,11 +90,23 @@ describe("OrdersView selecting units", () => {
 
     tap(LEFT_A);
     expect(isSelected(LEFT_A)).toBe(true);
-    expect(screen.getByRole("button", { name: "Mantener y disparar" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Acciones" })).toBeInTheDocument();
 
     tap(LEFT_A);
     expect(isSelected(LEFT_A)).toBe(false);
-    expect(screen.queryByRole("button", { name: "Mantener y disparar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Acciones" })).not.toBeInTheDocument();
+  });
+
+  it("lists the unit's actions with their cost, and its supplies", () => {
+    const { tap } = setup();
+
+    tap(LEFT_A);
+    const actions = within(screen.getByRole("list", { name: "Acciones" }));
+    expect(actions.getByRole("button", { name: /^Fortificar/ })).toHaveTextContent("2 energía + sacos terreros");
+    expect(actions.getByRole("button", { name: /^Recargar/ })).toHaveTextContent("gratis");
+    // Own tablets don't track morale
+    expect(actions.queryByRole("button", { name: /^Subir la moral/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("unit-supplies")).toHaveTextContent("Moral 5 · Energía 5 · Munición 2");
   });
 
   it("switches the selection when another orderable unit is tapped", () => {
@@ -115,22 +131,26 @@ describe("OrdersView selecting units", () => {
 });
 
 describe("OrdersView giving orders", () => {
-  it("moves the selected unit to a highlighted hex and draws its arrow", () => {
+  it("moves the selected unit to a highlighted hex with the action picked, and draws its arrow", () => {
     const { tap, session, container } = setup();
 
     tap(LEFT_A);
+    tap({ row: 6, col: 1 }); // no action picked yet
+    expect(session.getSnapshot().orders).toHaveLength(0);
+    pickAction("Asalto de Infantería");
     tap({ row: 6, col: 1 });
 
     expect(session.getSnapshot().orders).toHaveLength(1);
+    expect(session.getSnapshot().orders[0]!.action).toBe("infantry:assault");
     expect(session.board.getHex({ row: 6, col: 1 })!.hasUnit()).toBe(true);
     expect(container.querySelectorAll("g.order-arrow")).toHaveLength(1);
   });
 
-  it("gives a hold-and-fire order from the button, with no arrow", () => {
+  it("gives an action that doesn't move at once, with no arrow", () => {
     const { tap, session, container } = setup();
 
     tap(LEFT_A);
-    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    pickAction("Escaramuza");
 
     const [order] = session.getSnapshot().orders;
     expect(order!.start).toEqual(LEFT_A);
@@ -139,21 +159,47 @@ describe("OrdersView giving orders", () => {
     expect(container.querySelector('[data-unit-at="7-1"] .unit__badge--fire')).not.toBeNull();
     expect(container.querySelectorAll("g.order-arrow")).toHaveLength(0);
   });
+
+  it("keeps a moving action's unit in its hex from the button, or goes back to the list", () => {
+    const { tap, session } = setup();
+
+    tap(LEFT_A);
+    pickAction("En marcha");
+    fireEvent.click(screen.getByRole("button", { name: "Otra acción" }));
+    pickAction("Asalto de Infantería");
+    fireEvent.click(screen.getByRole("button", { name: "Quedarse en su casilla y disparar" }));
+
+    expect(session.getSnapshot().orders[0]).toMatchObject({ action: "infantry:assault", end: LEFT_A, shots: 1 });
+  });
+
+  it("changes the action of a unit that stays in its hex", () => {
+    const { tap, session } = setup();
+    tap(LEFT_A);
+    pickAction("Escaramuza");
+
+    tap(LEFT_A);
+    expect(screen.getByText("Orden: Escaramuza")).toBeInTheDocument();
+    pickAction("Fortificar");
+
+    expect(session.getSnapshot().orders.map((order) => order.action)).toEqual(["infantry:fortify"]);
+  });
 });
 
 describe("OrdersView invalid taps", () => {
-  it("flashes a unit that can't be ordered (it has its order), then clears the flash", () => {
+  it("flashes a unit that can't be ordered (it moved with its order), then clears the flash", () => {
     const { tap, isFlashing } = setup();
+    const moved = { row: 8, col: 10 };
     tap(RIGHT);
-    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    pickAction("Asalto de Infantería");
+    tap(moved);
 
-    tap(RIGHT);
-    expect(isFlashing(RIGHT)).toBe(true);
+    tap(moved);
+    expect(isFlashing(moved)).toBe(true);
 
     act(() => {
       vi.advanceTimersByTime(INVALID_FLASH_MS);
     });
-    expect(isFlashing(RIGHT)).toBe(false);
+    expect(isFlashing(moved)).toBe(false);
   });
 
   it("flashes a hex the selected unit can't reach and keeps the selection", () => {
@@ -161,6 +207,7 @@ describe("OrdersView invalid taps", () => {
     const outOfRange = { row: 2, col: 1 };
 
     tap(LEFT_A);
+    pickAction("Asalto de Infantería");
     tap(outOfRange);
 
     expect(isFlashing(outOfRange)).toBe(true);
@@ -183,7 +230,7 @@ describe("OrdersView confirming", () => {
     const { session, tap } = setup();
     for (const unit of [LEFT_A, LEFT_B]) {
       tap(unit);
-      fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+      pickAction("Escaramuza");
     }
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar Órdenes" }));
@@ -233,7 +280,7 @@ describe("OrdersView the card played", () => {
     expect(screen.getByText(/3 unidades sin orden \(descansan\)/)).toBeInTheDocument();
 
     tap(RIGHT);
-    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    pickAction("Escaramuza");
     expect(screen.getByText(/2 unidades sin orden \(descansan\)/)).toBeInTheDocument();
   });
 
@@ -266,7 +313,7 @@ describe("OrdersView changing the card", () => {
     expect(screen.getByRole("button", { name: "Cambiar carta" })).toBeInTheDocument();
 
     tap(LEFT_A);
-    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    pickAction("Escaramuza");
     expect(screen.queryByRole("button", { name: "Cambiar carta" })).not.toBeInTheDocument();
 
     act(() => {
@@ -292,7 +339,7 @@ describe("OrdersView fixing the map", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
     tap(LEFT_A);
-    fireEvent.click(screen.getByRole("button", { name: "Mantener y disparar" }));
+    pickAction("Escaramuza");
     expect(screen.queryByRole("button", { name: "Actualizar mapa" })).not.toBeInTheDocument();
   });
 });
