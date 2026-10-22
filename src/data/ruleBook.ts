@@ -8,6 +8,7 @@ import { CARD_COOLDOWN_TURNS } from "./actionCards";
 import { Localized } from "../i18n/lang";
 import { ARTILLERY_CREW_FIGURES, ELITE_HITS_PER_FIGURE, FIGURES } from "./figures";
 import { TAKE_COVER_HITS, actionById } from "./unitActions";
+import { LUCK_LIMIT, LUCK_PER_POINT } from "./luck";
 import { UnitType } from "../game-core/unit";
 import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
@@ -460,6 +461,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: `Al confirmar las órdenes: Recargar, Subir la moral, Fortificar (sacos terreros en su casilla), Médico (recupera una figura perdida) y Mecánico (repara la figura tocada), y las cartas Reabastecimiento (la infantería recupera moral, munición y equipo) y Repostaje (tanques y artillería llenan el combustible). En la batalla, A cubierto ignora los ${TAKE_COVER_HITS} primeros impactos de símbolo de infantería. Tras la batalla, Camuflaje pone la ficha y Tras las líneas enemigas mueve otras ${behindLines} casillas. Médico y Mecánico solo se ofrecen si hay algo que curar o reparar. En tablets propias la app no lleva las figuras: Médico, Mecánico, A cubierto y el movimiento de Tras las líneas enemigas se hacen en la mesa, y la app los recuerda en la fase de movimiento. Los artilleros que deja una artillería destruida empiezan con todo lleno.`,
           en: `When the orders are confirmed: Reload, Morale Up, Fortify (sandbags on its hex), Medic (a lost figure back) and Mechanic (the figure hit is mended), and the Resupply card (infantry gets its morale, ammo and equipment back) and Refuel (tanks and artillery fill up their fuel). In the battle, Take Cover ignores the first ${TAKE_COVER_HITS} infantry-symbol hits. After the battle, Camouflage puts the badge on and Behind Enemy Lines moves ${behindLines} more hexes. Medic and Mechanic are only offered when there's something to heal or mend. On own tablets the app doesn't track figures: Medic, Mechanic, Take Cover and Behind Enemy Lines' move are done on the table, and the app reminds you in the movement phase. The crew a destroyed artillery leaves behind starts with everything full.`,
+        },
+      },
+      {
+        title: { es: "Suerte", en: "Luck" },
+        house: {
+          es: `Cada unidad tiene su suerte, de −${LUCK_LIMIT} a +${LUCK_LIMIT}, y empieza en 0. Cada punto sube (o baja) un ${LUCK_PER_POINT * 100}% la probabilidad de que cada dado saque una cara que impacte al objetivo: su símbolo o una granada; las banderas, los suministros y el símbolo de otra unidad cuentan como fallo. La suerte cambia una cara por otra del mismo dado, así que el dado de supresión sigue siendo el suyo. Tras cada dado la suerte se mueve con la racha: baja con cada impacto y sube con cada fallo, tanto menos cuanto más fácil era, así que no se acumula solo porque el objetivo sea difícil. Cuenta en los disparos y en los choques, no en los ataques de las cartas. La suerte del rival no se ve nunca.`,
+          en: `Each unit has its own luck, from −${LUCK_LIMIT} to +${LUCK_LIMIT}, starting at 0. Each point raises (or lowers) by ${LUCK_PER_POINT * 100}% each die's chance of a face that hits the target: its symbol or a grenade; flags, supplies and another unit's symbol count as misses. Luck swaps a face for another of the same die, so the suppressive die stays its own. After each die luck moves with the streak: down with each hit and up with each miss, less the easier it was, so it doesn't build up just because the target is hard to hit. It counts in shots and collisions, not in the cards' attacks. The enemy's luck is never shown.`,
         },
       },
       {

@@ -58,6 +58,7 @@ import { canMark, firstConflictingMark, markablePositions } from "./markerRules"
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
+import { rollWithLuck } from "./luck";
 import { Localized } from "../i18n/lang";
 
 export interface GameSnapshot {
@@ -252,6 +253,8 @@ export interface Shot extends ShotRoll {
   orderIndex: number;
   /** How it fired: a fire option's id (data/unitActions.ts); left out in a collision or removing wire */
   option?: string;
+  /** The unit's luck before this roll, put back if the shot is taken back */
+  luckBefore?: number;
   /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
   tookGround?: boolean;
   /** Pass and play: infantry took ground by pushing back the unit its close assault made retreat; no more shot */
@@ -416,6 +419,8 @@ class GameSession {
   private coverHits = new Map<Unit, number>();
   /** Units with the camouflage badge, kept from turn to turn until they move or battle (`camouflagedUnits`) */
   private camouflaged = new Set<Unit>();
+  /** Each unit's luck meter (game-core/luck.ts), kept from turn to turn; a unit missing here is at 0 */
+  private luck = new Map<Unit, number>();
   /** What each unit has left, kept from turn to turn; a unit missing here is full (`suppliesOf`) */
   private supplies = new Map<Unit, UnitSupplies>();
   /** Pass and play: where the enemy units are, from the match; null in the one-side game */
@@ -1088,7 +1093,7 @@ class GameSession {
       unitType: unit.getUnitType(),
       steps,
       dice,
-      faces: this.rollFaces(dice, steps, target),
+      faces: this.rollFaces(dice, steps, target, unit),
       notes: [...COLLISION_NOTES],
       collision: true,
       target,
@@ -1696,9 +1701,10 @@ class GameSession {
     const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
     if (index === -1) return false;
 
-    const { removedWire: wire, spent } = this.shots[index]!;
+    const { removedWire: wire, spent, luckBefore } = this.shots[index]!;
     if (wire) this.board.getHex(wire)?.setWire(true);
     const unit = this.orders[orderIndex]!.unit;
+    if (luckBefore !== undefined) this.luck = new Map(this.luck).set(unit, luckBefore);
     if (spent) this.supplies.set(unit, refund(this.suppliesOf(unit), spent));
     this.shots = this.shots.filter((_, i) => i !== index);
     return this.publish();
@@ -1736,11 +1742,13 @@ class GameSession {
     orderIndex: number,
     { dice, steps, notes, target, collision = false, combatBonus = false, targetPosition, option }: ShotRecord
   ): true {
-    const faces = this.rollFaces(dice, steps, target);
-    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null, spent: option.cost };
+    const { unit } = this.orders[orderIndex]!;
+    const luckBefore = this.luckOf(unit);
+    const faces = this.rollFaces(dice, steps, target, unit);
+    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null, spent: option.cost, luckBefore };
     if (!collision) shot.option = option.id;
     if (targetPosition) shot.targetPosition = targetPosition;
-    this.spend(this.orders[orderIndex]!.unit, option.cost);
+    this.spend(unit, option.cost);
     this.shots = [...this.shots, shot];
     return this.publish();
   }
@@ -1752,9 +1760,26 @@ class GameSession {
   }
 
   /** A roll's faces: the dice thrown, then the ones its steps add already showing a face */
-  private rollFaces(dice: number, steps: readonly DiceStep[], target: ShotTarget): DieFace[] {
+  /**
+   * A roll's faces: the dice thrown, nudged by the unit's luck (which moves on the streak), then
+   * the ones its steps add already showing a face
+   */
+  private rollFaces(dice: number, steps: readonly DiceStep[], target: ShotTarget, unit: Unit): DieFace[] {
     const set = setFaces(steps).slice(0, dice);
-    return [...rollDice(dice - set.length, this.random, SIDES_OF[target.die]), ...set];
+    const isHit = (face: DieFace) => faceHits(face, target);
+    const rolled = rollWithLuck(dice - set.length, SIDES_OF[target.die], isHit, this.luckOf(unit), this.random);
+    this.luck = new Map(this.luck).set(unit, rolled.luck);
+    return [...rolled.faces, ...set];
+  }
+
+  private luckOf(unit: Unit): number {
+    return this.luck.get(unit) ?? 0;
+  }
+
+  /** The luck of this side's unit on this hex (−3 to +3), null without one; never shown for the enemy */
+  luckAt(position: Position): number | null {
+    const unit = this.board.getHex(position)?.unit;
+    return unit ? this.luckOf(unit) : null;
   }
 
   // --- coins: earned and spent through the turn; `turnCoins` works out the ledger
@@ -2105,6 +2130,7 @@ class GameSession {
       retreatsDue: this.retreatsDue,
       turnHits: this.turnHits,
       coverHits: this.coverHits,
+      luck: this.luck,
       camouflaged: this.camouflaged,
       supplies: this.supplies,
       drops: this.drops,
@@ -2144,6 +2170,7 @@ class GameSession {
     session.retreatsDue = new Map(state.retreatsDue);
     session.turnHits = new Map(state.turnHits);
     session.coverHits = new Map(state.coverHits);
+    session.luck = new Map(state.luck);
     session.camouflaged = new Set(state.camouflaged);
     session.supplies = new Map(state.supplies);
     session.drops = state.drops;

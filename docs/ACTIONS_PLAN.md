@@ -171,9 +171,10 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Rule book and tests for each one. `SAVE_VERSION` 41
 
 ### R9: The luck meter
-- [ ] `game-core/luck.ts`: each unit's luck from −3 to +3, starting at 0. Each point moves a die's chance of a hit face by 5%: a miss turns into a hit face of the right kind, or a hit into a miss, so the faces stay the die's own. After each die the meter moves on the streak: −(1 − p) for a hit, +p for a miss. The unit's luck is in the save. On own tablets, only the tablet's own rolls count
-- [ ] A hit is a face that hits the target (its symbol or a grenade, as `hitRules.ts` says for that target), and everything else is a miss. Luck also applies to suppressive dice and collisions, but not to the cards' attacks
-- [ ] Tests with a fixed random source: the chance at each level, the meter's steps and limits, and a unit firing at tanks for many turns staying near 0
+- [x] `game-core/luck.ts`: each unit's luck from −3 to +3, starting at 0. Each point moves a die's chance of a hit face by 5%: a miss turns into a hit face of the right kind, or a hit into a miss, so the faces stay the die's own. After each die the meter moves on the streak: −(1 − p) for a hit, +p for a miss. The unit's luck is in the save. On own tablets, only the tablet's own rolls count
+- [x] A hit is a face that hits the target (its symbol or a grenade, as `hitRules.ts` says for that target), and everything else is a miss. Luck also applies to suppressive dice and collisions, but not to the cards' attacks
+- [x] Tests with a fixed random source: the chance at each level, the meter's steps and limits, and a unit firing at tanks for many turns staying near 0
+- [x] Luck uses each die's own draw (where the draw falls within its side decides whether it's turned), so the dice need no extra draws and the tests' fixed dice stay as they were. `luckAt(position)` for the screens of R11; a shot taken back puts the luck back. `SAVE_VERSION` 42
 
 ### R10: Sections and the last of the cards
 - [ ] Sections: the hexes' sides (`hex.ts`), the dashed lines on the board art, `sectionsSeenFrom`, `OrderSummary.section`, `SectionIcon`, the section in place names (`describePlace`)

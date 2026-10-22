@@ -678,7 +678,8 @@ describe("GameSession firing", () => {
 
 describe("GameSession long-range die", () => {
   // The infantry at (7,1) and (7,3) hold and fire (orders 0 and 1)
-  const battle = (longRangeDie: boolean, random = () => 0.99) => {
+  // Low in the last side (a flag, or the 8-sided die's supply), where luck never turns a die
+  const battle = (longRangeDie: boolean, random = () => 0.9) => {
     const session = makeSession({ longRangeDie, random });
     session.pickCard(null);
     hold(session, LEFT_INF, OTHER_INF);

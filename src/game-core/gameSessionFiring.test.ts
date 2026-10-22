@@ -291,3 +291,54 @@ describe("GameSession collisions with supplies", () => {
     expect(empty.fireCollision(0, true)).toBe(false);
   });
 });
+
+describe("GameSession luck", () => {
+  /** Own tablets, every die drawn at `draw` */
+  const firing = (draw: number, actionId = "infantry:firefight") => {
+    const session = new GameSession({ scenario, faction: "Allies", random: () => draw });
+    expect(session.pickCard(null)).toBe(true);
+    expect(session.giveAction(INF, actionId, INF)).toBe(true);
+    return fight(session);
+  };
+
+  it("moves the unit's luck as its dice miss or hit, and keeps it in a save", () => {
+    // The start of the flag side: two misses at infantry, each +0.5
+    const session = firing(5 / 6);
+    expect(session.luckAt(INF)).toBe(0);
+    expect(session.fire(0, at(2))).toBe(true);
+    expect(lastShot(session).faces).toEqual(["flag", "flag"]);
+    expect(session.luckAt(INF)).toBeCloseTo(1);
+    expect(restore(session.save()).luckAt(INF)).toBeCloseTo(1);
+  });
+
+  it("puts the luck back when the shot is taken back", () => {
+    const session = firing(5 / 6);
+    expect(session.fire(0, at(2))).toBe(true);
+    expect(session.undoShot(0)).toBe(true);
+    expect(session.luckAt(INF)).toBe(0);
+  });
+
+  it("turns a die at the top of a miss into a hit once the unit's luck is up", () => {
+    // The first die misses (luck +0.5), and the second, drawn as high, is turned
+    const session = firing(0.999);
+    expect(session.fire(0, at(2))).toBe(true);
+    const [first, second] = lastShot(session).faces;
+    expect(first).toBe("flag");
+    expect(["infantry", "grenade"]).toContain(second);
+  });
+
+  it("moves with a collision roll too", () => {
+    const session = new GameSession({ scenario, faction: "Allies", figures: true, random: () => 5 / 6 });
+    expect(session.pickCard(null)).toBe(true);
+    expect(session.giveAction(INF, "infantry:assault", { row: 6, col: 1 })).toBe(true);
+    expect(session.commitOrders()).toBe(true);
+    expect(session.rollCollision({ row: 6, col: 1 }, true, 0)).toBe(true);
+    expect(session.luckAt({ row: 6, col: 1 })).toBeGreaterThan(0);
+  });
+
+  it("drops a save with luck past its limits", () => {
+    const saved = firing(5 / 6).save();
+    saved.luck = [{ unit: 0, luck: 4 }];
+    expect(() => restore(saved)).toThrow("Unknown unit luck");
+  });
+});
