@@ -198,10 +198,11 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] How it went: `GameViews/ActionPopup.tsx` (MUI `Popper` on the unit's hex, found again each time it's placed; it follows the map's zooms and pans through `Board`'s `onViewChange`, stays inside the drawn map and scrolls when the list is taller) and `GameViews/ActionPanel.tsx` (the card, with the map's legend and the buttons under it). The unit's supplies are only in its row now. The Explosives painting is `npm run mix-paintings -- explosives street-equipment explosives-mix`: the two side by side, each trimmed to its drawing (cutting them in half split both figures). In portrait, picking a unit on the map no longer scrolls the page to its row
 
 ### R13: The battle and the final phase
-- [ ] Show the changes on the unit: morale lost, ammo spent, luck moved (a small number on the unit and in its row). The final phase lists the energy recovered and the cards coming back off cooldown
-- [ ] The history (`turnLog.ts`) records each unit's action and the card played
-- [ ] The enemy's supplies and luck are never shown, on any screen, and the shared battle screen shows only the side firing. Test
-- [ ] Every screen checked at 1280×800, 800×1280 and on desktop, in Spanish and English
+- [x] Show the changes on the unit: morale lost, ammo spent, luck moved (a small number on the unit and in its row). The final phase lists the energy recovered and the cards coming back off cooldown
+- [x] The history (`turnLog.ts`) records each unit's action and the card played
+- [x] The enemy's supplies and luck are never shown, on any screen, and the shared battle screen shows only the side firing. Test
+- [x] Every screen checked at 1280×800, 800×1280 and on desktop, in Spanish and English
+- [x] How it went: `GameSession` keeps each unit's supplies and luck as the orders are confirmed (`turnStart`, in the save) and `snapshot.changes` gives each of this side's units' morale, ammo and shells, and luck moved since then; a pill under the token on the battle and final maps (`UnitComponent`'s `change`) and chips in the battle list's rows (`UnitChangeChips`) and pass and play's firing unit. `snapshot.turnEnd` gives the final phase's energy back and the cards off cooldown next turn ("Al empezar el turno N"). The turn log keeps each order's `action` and each shot's fire `option`, and the history names them. The shared battle draws the changes of the side whose map is shown, never the computer's; `EnemyUnit` carries no supplies or luck (test). `SAVE_VERSION` 43. Checked at 1280×800 and 800×1280 (Spanish and English) and 1440×900
 
 ### R14: The map editor
 - [ ] In the scenario's settings, for each side, the cost of each card it has (from the card's own down to 0), stored in `Scenario.cardCosts`. The air sorties and big guns there already decide which cards a side has. Shown in the menu's scenario panel. Test

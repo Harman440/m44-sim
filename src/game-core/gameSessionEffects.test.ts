@@ -237,3 +237,102 @@ describe("GameSession artillery crews", () => {
     expect(suppliesAt(session, ARTILLERY).amounts).toEqual({ morale: 5, energy: 5, ammo: 2 });
   });
 });
+
+describe("GameSession changes this turn", () => {
+  /** The infantry holds and fires, the tank holds; the battle starts */
+  const inBattle = () => {
+    const session = withNoCard(ordering({ figures: true }));
+    holdWith(session, INF, "infantry:firefight");
+    holdWith(session, TANK, "tank:firefight");
+    commit(session);
+    expect(session.startBattle()).toBe(true);
+    return session;
+  };
+  const changeAt = (session: GameSession, position: Position) =>
+    session.getSnapshot().changes.find((each) => samePosition(each.position, position));
+  const shoot = (session: GameSession, order: number) =>
+    session.fire(order, { distance: "2", lineOfSight: "yes", targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no" });
+
+  it("counts from the orders confirmed: none before, nor for what the orders paid", () => {
+    const session = withNoCard(ordering());
+    expect(session.getSnapshot().changes).toEqual([]);
+    holdWith(session, INF, "infantry:firefight");
+    commit(session);
+    // The action's energy was paid as the orders were confirmed: not a change of the turn
+    expect(session.getSnapshot().changes).toEqual([]);
+  });
+
+  it("shows the ammo spent, the luck moved and the morale lost to flags, and keeps them in a save", () => {
+    const session = inBattle();
+    expect(shoot(session, 0)).toBe(true);
+    expect(session.sufferHits(INF, 0, 1)).toBe(true);
+
+    const change = changeAt(session, INF)!;
+    expect(change).toMatchObject({ morale: -1, ammo: -1 });
+    expect(change.luck).toBeCloseTo(session.luckAt(INF)!);
+    expect(changeAt(session, TANK)).toBeUndefined();
+    expect(changeAt(restore(session.save()), INF)).toEqual(change);
+  });
+
+  it("starts again with each turn", () => {
+    const session = inBattle();
+    expect(shoot(session, 0)).toBe(true);
+    expect(session.endBattle()).toBe(true);
+    expect(session.endTurn()).toBe(true);
+    expect(session.getSnapshot().changes).toEqual([]);
+  });
+});
+
+describe("GameSession final phase summary", () => {
+  it("lists the energy coming back, more for a unit that rested, only in the final phase", () => {
+    let session = withNoCard(ordering());
+    session = withSupplies(session, INF, { [Supply.ENERGY]: 1 });
+    expect(session.getSnapshot().turnEnd).toBeNull();
+    commit(session);
+    expect(session.startBattle()).toBe(true);
+    expect(session.endBattle()).toBe(true);
+
+    expect(session.getSnapshot().turnEnd!.energy).toEqual([{ position: INF, amount: 2, rested: true }]);
+    expect(session.getSnapshot().turnEnd!.cardsBack).toEqual([]);
+  });
+
+  it("names the cards whose cooldown is over next turn", () => {
+    const session = new GameSession({ scenario, faction: "Allies", random: () => 0.5 });
+    const finestHour = actionCardById("finest-hour")!;
+    session.adjustCoins(finestHour.cost);
+    expect(session.pickCard(finestHour)).toBe(true);
+    const playTurn = () => {
+      commit(session);
+      expect(session.startBattle()).toBe(true);
+      expect(session.endBattle()).toBe(true);
+    };
+    playTurn(); // turn 1: played
+    expect(session.getSnapshot().turnEnd!.cardsBack).toEqual([]);
+    expect(session.endTurn()).toBe(true);
+    expect(session.pickCard(null)).toBe(true);
+    playTurn(); // turn 2
+    expect(session.getSnapshot().turnEnd!.cardsBack).toEqual([]);
+    expect(session.endTurn()).toBe(true);
+    expect(session.pickCard(null)).toBe(true);
+    playTurn(); // turn 3: back for turn 4
+    expect(session.getSnapshot().turnEnd!.cardsBack.map((card) => card.id)).toEqual(["finest-hour"]);
+  });
+});
+
+describe("GameSession turn log", () => {
+  it("records each order's action and how each shot fired", () => {
+    const session = withNoCard(ordering({ figures: false }));
+    holdWith(session, INF, "infantry:firefight");
+    commit(session);
+    expect(session.startBattle()).toBe(true);
+    expect(
+      session.fire(0, { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "no", camouflage: "no", pinned: "no" }, "infantry:explosives")
+    ).toBe(true);
+    expect(session.endBattle()).toBe(true);
+    expect(session.endTurn()).toBe(true);
+
+    const [record] = session.getSnapshot().log;
+    expect(record!.orders.map((order) => order.action)).toEqual(["infantry:firefight"]);
+    expect(record!.shots.map((shot) => shot.option)).toEqual(["infantry:explosives"]);
+  });
+});

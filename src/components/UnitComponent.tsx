@@ -10,6 +10,8 @@ import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { FACTION_COLORS } from "../looks/looks";
 import { defineMessages, useMessages } from "../i18n/useI18n";
+import { iconUrl } from "./GameIcon";
+import { signedChange as signed } from "./UnitChangeChips";
 
 const TEXT = defineMessages({
   es: {
@@ -19,6 +21,7 @@ const TEXT = defineMessages({
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     pinned: "Inmovilizada: otra bandera la hace retirarse",
     retreats: (n: number) => (n === 1 ? "Se retira 1 casilla ahora" : `Se retira ${n} casillas ahora`),
+    change: (morale: number, ammo: number, luck: string) => `Este turno: moral ${morale}, munición ${ammo}, suerte ${luck}`,
   },
   en: {
     elite: "Elite",
@@ -27,6 +30,7 @@ const TEXT = defineMessages({
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     pinned: "Pinned: another flag makes it retreat",
     retreats: (n: number) => (n === 1 ? "Retreats 1 hex now" : `Retreats ${n} hexes now`),
+    change: (morale: number, ammo: number, luck: string) => `This turn: morale ${morale}, ammo ${ammo}, luck ${luck}`,
   },
 });
 
@@ -68,9 +72,48 @@ interface UnitProps {
   damaged?: boolean;
   /** Pass and play: hits it took this turn, a red tag over the token until the turn ends */
   hitThisTurn?: number;
+  /** What it lost or gained since the orders were confirmed: a pill under the token (this side's units only) */
+  change?: { morale: number; ammo: number; luck: number };
 }
 
 const TOKEN_RADIUS = 27;
+
+/**
+ * What a unit lost or gained this turn, under its token: each change with its icon (morale lost,
+ * ammo or shells spent, luck moved), on a light pill
+ */
+function ChangePill({ x, y, change }: { x: number; y: number; change: NonNullable<UnitProps["change"]> }) {
+  const t = useMessages(TEXT);
+  const parts = [
+    change.morale !== 0 && { icon: "morale" as const, text: signed(change.morale) },
+    change.ammo !== 0 && { icon: "ammo" as const, text: signed(change.ammo) },
+    Math.abs(change.luck) >= 0.05 && { icon: "luck" as const, text: signed(change.luck, 1) },
+  ].filter((part): part is { icon: "morale" | "ammo" | "luck"; text: string } => !!part);
+  if (parts.length === 0) return null;
+  const ICON = 11;
+  const widths = parts.map((part) => ICON + 2 + part.text.length * 6.2);
+  const gap = 5;
+  const width = widths.reduce((sum, w) => sum + w, 0) + gap * (parts.length - 1) + 10;
+  let left = x - width / 2 + 5;
+  return (
+    <g className="unit__badge unit__badge--change" data-testid="change-pill">
+      <title>{t.change(change.morale, change.ammo, signed(change.luck, 1))}</title>
+      <rect x={x - width / 2} y={y - 8} width={width} height={16} rx={8} fill="#f1ead6" stroke="#2b2418" strokeWidth={1} opacity={0.95} />
+      {parts.map((part, i) => {
+        const at = left;
+        left += widths[i]! + gap;
+        return (
+          <g key={part.icon}>
+            <image href={iconUrl(part.icon)} x={at} y={y - ICON / 2} width={ICON} height={ICON} />
+            <text x={at + ICON + 1.5} y={y} dominantBaseline="central" fontSize={10.5} fontWeight={700} fill="#2b2418">
+              {part.text}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
 
 /** A five-pointed star centred on (cx, cy) */
 const starPath = (cx: number, cy: number, outer: number, inner: number) =>
@@ -115,6 +158,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   retreats = 0,
   damaged = false,
   hitThisTurn = 0,
+  change,
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
@@ -231,6 +275,8 @@ const UnitComponent: React.FC<UnitProps> = ({
           </text>
         </g>
       )}
+
+      {change && <ChangePill x={x} y={y + TOKEN_RADIUS + 4} change={change} />}
 
       {/* Pinned (a flag this turn): a flag bottom left, with the hexes it must retreat now */}
       {(pinned || retreats > 0) && (

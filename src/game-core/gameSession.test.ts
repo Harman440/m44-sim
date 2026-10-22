@@ -921,9 +921,9 @@ describe("GameSession turn log", () => {
     expect(record!.turn).toBe(1);
     expect(record!.card).toBeNull();
     expect(record!.orders).toHaveLength(4);
-    expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true });
+    expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true, action: "tank:firefight" });
     expect(record!.shots).toEqual([
-      { order: tankOrder, unit: "tank", dice: 3, steps: expect.any(Array), faces: expect.any(Array), kept: null, notes: [], collision: false, target: { ...AT_INFANTRY, die: "battle" } },
+      { order: tankOrder, unit: "tank", dice: 3, steps: expect.any(Array), faces: expect.any(Array), kept: null, notes: [], collision: false, target: { ...AT_INFANTRY, die: "battle" }, option: "tank:normal" },
     ]);
     expect(record!.shots[0]!.faces).toHaveLength(3);
     expect(record!.battleEdits).toEqual([

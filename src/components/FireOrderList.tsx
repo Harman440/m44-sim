@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
 import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
-import type { AttackMark, CardAttack } from "../game-core/gameSession";
+import type { AttackMark, CardAttack, UnitChange } from "../game-core/gameSession";
 import { samePosition } from "../game-core/position";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Position } from "../types/scenario";
@@ -12,6 +12,7 @@ import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
 import HexThumbnail from "./HexThumbnail";
 import Stamp from "./Stamp";
+import UnitChangeChips from "./UnitChangeChips";
 
 const TEXT = defineMessages({
   es: {
@@ -123,6 +124,8 @@ interface FireOrderListProps {
   onSkipUnmoved?: () => void;
   /** Shown when no unit has an order */
   emptyText: string;
+  /** What this side's units lost or gained this turn, shown in their rows */
+  changes?: readonly UnitChange[];
 }
 
 type Tone = "go" | "card" | "plain" | "dim";
@@ -239,6 +242,7 @@ function FireOrderList({
   onFire,
   onSkipUnmoved,
   emptyText,
+  changes = [],
 }: FireOrderListProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -344,8 +348,13 @@ function FireOrderList({
             )}
           </>
         }
-        // Where it is now: after taking ground, the hex it took
-        detail={where(summary.firingFrom)}
+        // Where it is now (after taking ground, the hex it took), and what the turn cost it
+        detail={
+          <>
+            {where(summary.firingFrom)}
+            <UnitChangeChips change={changes.find((change) => samePosition(change.position, summary.firingFrom))} />
+          </>
+        }
         result={
           hasShots &&
           (onlyWire

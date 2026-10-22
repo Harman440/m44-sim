@@ -32,6 +32,12 @@ const TEXT = defineMessages({
       `llega ${unit.toLowerCase()}. La casilla de la cruz está ocupada: ponla en la mesa y en «Actualizar mapa», en una casilla libre.`,
     reinforcementPlaced: (unit: string) =>
       `llega ${unit.toLowerCase()}, ya en el mapa. Ponla en la mesa en la casilla de la cruz.`,
+    nextTurnTitle: (n: number) => `Al empezar el turno ${n}`,
+    nextTurnInfo:
+      "La infantería recupera energía al acabar el turno: 2 la que descansó (no recibió acción), 1 la demás, sin pasar de la que lleva llena. Una carta jugada vuelve cuando acaba de esperar sus turnos.",
+    energyBack: (amount: number, units: number) => `+${amount} de energía: ${units === 1 ? "1 unidad" : `${units} unidades`}`,
+    noEnergyBack: "Ninguna unidad recupera energía: todas la tienen llena.",
+    cardsBack: (names: string) => `Vuelven: ${names}`,
     cardsTitle: "Tus cartas",
     cardsInfo: "No se roba ninguna carta: siguen todas en tu mano. Una carta jugada vuelve cuando acaba de esperar sus turnos.",
     startTurn: (n: number) => `Empezar turno ${n}`,
@@ -56,6 +62,12 @@ const TEXT = defineMessages({
       `${unit.toLowerCase()} arrives. The cross hex is taken: put it on the table and, in “Update map”, on a free hex.`,
     reinforcementPlaced: (unit: string) =>
       `${unit.toLowerCase()} arrives, already on the map. Put it on the table on the cross hex.`,
+    nextTurnTitle: (n: number) => `As turn ${n} starts`,
+    nextTurnInfo:
+      "Infantry gets energy back as the turn ends: 2 if it rested (had no action), 1 otherwise, never past full. A card played comes back once it has waited its turns.",
+    energyBack: (amount: number, units: number) => `+${amount} energy: ${units === 1 ? "1 unit" : `${units} units`}`,
+    noEnergyBack: "No unit gets energy back: they're all full.",
+    cardsBack: (names: string) => `Back: ${names}`,
     cardsTitle: "Your cards",
     cardsInfo: "No card is drawn: they all stay in your hand. A card played comes back once it has waited its turns.",
     startTurn: (n: number) => `Start turn ${n}`,
@@ -105,6 +117,11 @@ function EndOfTurnView({ faction, session, game, onEndTurn }: EndOfTurnViewProps
   // Pass and play: there's no table, the app's map is the game
   const shared = useContext(OpponentContext) !== null;
 
+  /** The energy coming back as the turn ends, by how much: the most first, with how many units get it */
+  const energyGroups = [...(game.turnEnd?.energy ?? []).reduce((groups, { amount }) => groups.set(amount, (groups.get(amount) ?? 0) + 1), new Map<number, number>())].sort(
+    ([a], [b]) => b - a
+  );
+
   /** What's still needed before the next turn */
   const pendingStep = game.reinforcementToPlace ? t.pendingPlace : null;
   /** The Reinforcements card played this turn, and the unit it brings */
@@ -141,6 +158,22 @@ function EndOfTurnView({ faction, session, game, onEndTurn }: EndOfTurnViewProps
         <Paper variant="outlined" className="end-of-turn__step">
           {mapButton}
           {reinforcementLine}
+        </Paper>
+      )}
+      {game.turnEnd && (
+        <Paper variant="outlined" className="end-of-turn__step" data-testid="turn-end-summary">
+          <StepHeading title={t.nextTurnTitle(game.turn + 1)} info={<Typography variant="body1">{t.nextTurnInfo}</Typography>} />
+          <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <GameIcon name="energy" size={20} />
+            <Typography variant="body2">
+              {energyGroups.length > 0 ? energyGroups.map(([amount, units]) => t.energyBack(amount, units)).join(" · ") : t.noEnergyBack}
+            </Typography>
+          </Stack>
+          {game.turnEnd.cardsBack.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 0.5 }} data-testid="cards-back">
+              {t.cardsBack(game.turnEnd.cardsBack.map((card) => tr(card.name)).join(", "))}
+            </Typography>
+          )}
         </Paper>
       )}
       <Paper variant="outlined" className="end-of-turn__step" data-testid="end-of-turn-cards">

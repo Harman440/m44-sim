@@ -1,3 +1,4 @@
+import { actionById, fireOptionById } from "../data/unitActions";
 import {
   Box,
   Button,
@@ -170,6 +171,11 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         sx={{ pl: 1, my: 0.5, borderLeft: "4px solid", borderColor: orderColor(i) }}
                       >
                         {labels.unitKind(order.unit, order.elite)} ·{" "}
+                        {actionById(order.action) && (
+                          <Box component="strong" data-testid="turn-order-action">
+                            {tr(actionById(order.action)!.name)} ·{" "}
+                          </Box>
+                        )}
                         {hexesMoved === 0
                           ? t.holds(placeOf(order.end))
                           : t.advances(labels.hexes(hexesMoved), placeOf(order.end))}{" "}
@@ -200,7 +206,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
                       ) : (
                         <>
-                          {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}
+                          {labels.unitKind(shot.unit, shot.elite)}
+                          {shot.option && fireOptionById(shot.option) && ` (${tr(fireOptionById(shot.option)!.name)})`}: {t.dice(shot.dice)}
                           {shot.collision && t.inCollision}
                           {" → "}
                           {labels.describeAppliedFaces(shot.faces, shot.kept)}

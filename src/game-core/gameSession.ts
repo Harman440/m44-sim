@@ -73,6 +73,16 @@ export interface GameSnapshot {
   orderable: readonly Position[];
   /** What each of this side's units has left to spend on its actions, by hex (costs are paid when the orders are confirmed) */
   supplies: readonly { position: Position; supplies: UnitSupplies }[];
+  /**
+   * What this side's units have lost or gained since the orders were confirmed: morale lost to
+   * flags, ammo and shells spent, luck moved. Only units with a change; never the enemy's
+   */
+  changes: readonly UnitChange[];
+  /**
+   * The final phase: the energy each unit gets back when the turn ends (more if it rested), and
+   * the cards whose cooldown is over next turn. Null in the other phases
+   */
+  turnEnd: { energy: readonly { position: Position; amount: number; rested: boolean }[]; cardsBack: readonly ActionCard[] } | null;
   /** Board changes made to mirror the table: after the battle, or in Órdenes before any order */
   battleEdits: number;
   /** The map can be changed by hand now: in the final phase, or in Órdenes before any order or mark */
@@ -141,6 +151,17 @@ export interface EnemyUnit {
    * block the view, but it's still there, so retreats and moves can't end on it
    */
   hidden?: boolean;
+}
+
+/** A unit's changes this turn, since the orders were confirmed (`GameSnapshot.changes`) */
+export interface UnitChange {
+  position: Position;
+  /** Morale gained (negative: lost to flags) */
+  morale: number;
+  /** Ammo and shells gained (negative: spent firing and in collisions) */
+  ammo: number;
+  /** How far its luck moved */
+  luck: number;
 }
 
 /** An action the table carries out on own tablets: the unit's hex and the action */
@@ -421,6 +442,8 @@ class GameSession {
   private camouflaged = new Set<Unit>();
   /** Each unit's luck meter (game-core/luck.ts), kept from turn to turn; a unit missing here is at 0 */
   private luck = new Map<Unit, number>();
+  /** Each unit's supplies and luck as the orders were confirmed, to show what the turn changed; null before */
+  private turnStart: { supplies: Map<Unit, UnitSupplies>; luck: Map<Unit, number> } | null = null;
   /** What each unit has left, kept from turn to turn; a unit missing here is full (`suppliesOf`) */
   private supplies = new Map<Unit, UnitSupplies>();
   /** Pass and play: where the enemy units are, from the match; null in the one-side game */
@@ -779,7 +802,37 @@ class GameSession {
       this.carryOut(order, action);
     }
     this.refillByCard();
+    this.markTurnStart();
     return this.publish();
+  }
+
+  /** Each unit's supplies and luck now, the orders paid: what the turn's changes are counted from */
+  private markTurnStart() {
+    const units = this.board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : []));
+    this.turnStart = {
+      supplies: new Map(units.map((unit) => [unit, this.suppliesOf(unit)])),
+      luck: new Map(units.map((unit) => [unit, this.luckOf(unit)])),
+    };
+  }
+
+  /** What this side's units lost or gained since the orders were confirmed */
+  private turnChanges(): UnitChange[] {
+    const start = this.turnStart;
+    if (!start) return [];
+    return this.board.getAllHexes().flatMap((hex) => {
+      const unit = hex.unit;
+      const before = unit && start.supplies.get(unit);
+      if (!unit || !before) return [];
+      const now = this.suppliesOf(unit);
+      const shots = (supplies: UnitSupplies) => amountOf(supplies, Supply.AMMO) + amountOf(supplies, Supply.SHELLS);
+      const change = {
+        position: hex.getPosition(),
+        morale: amountOf(now, Supply.MORALE) - amountOf(before, Supply.MORALE),
+        ammo: shots(now) - shots(before),
+        luck: this.luckOf(unit) - (start.luck.get(unit) ?? 0),
+      };
+      return change.morale !== 0 || change.ammo !== 0 || Math.abs(change.luck) > 1e-9 ? [change] : [];
+    });
   }
 
   /**
@@ -2071,6 +2124,7 @@ class GameSession {
     const camouflaging = this.orders.filter((order) => actionById(order.action)?.effect === "camouflage").map((order) => order.unit);
     this.camouflaged = new Set([...this.camouflagedUnits(), ...camouflaging.filter((unit) => this.positionOf(unit))]);
     this.recoverEnergy();
+    this.turnStart = null;
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
     this.coinAdjustments = [];
     if (this.playedCard) this.cardsPlayedOn = { ...this.cardsPlayedOn, [this.playedCard.id]: this.turn };
@@ -2085,6 +2139,24 @@ class GameSession {
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
+  }
+
+  /** The final phase: the energy each unit will get back as the turn ends, and the cards back next turn */
+  private turnEnd(): GameSnapshot["turnEnd"] {
+    if (this.phase !== TurnPhase.END_OF_TURN) return null;
+    const energy = this.board.getAllHexes().flatMap((hex) => {
+      const unit = hex.unit;
+      if (!unit) return [];
+      const rested = this.orderIndexOf(unit) === -1;
+      const now = this.suppliesOf(unit);
+      const after = endOfTurn(now, fullSupplies(unit.getUnitType(), unit.elite), rested);
+      const amount = amountOf(after, Supply.ENERGY) - amountOf(now, Supply.ENERGY);
+      return amount > 0 ? [{ position: hex.getPosition(), amount, rested }] : [];
+    });
+    const cardsBack = this.cards
+      .filter(({ card }) => !this.testMode && this.cardsPlayedOn[card.id] !== undefined && turnsLeft(this.cardsPlayedOn[card.id], this.turn) === 1)
+      .map(({ card }) => card);
+    return { energy, cardsBack };
   }
 
   /** The end of the turn: infantry gets energy back, more if it rested (had no order) */
@@ -2126,6 +2198,7 @@ class GameSession {
       turnHits: this.turnHits,
       coverHits: this.coverHits,
       luck: this.luck,
+      turnStart: this.turnStart,
       camouflaged: this.camouflaged,
       supplies: this.supplies,
       drops: this.drops,
@@ -2166,6 +2239,7 @@ class GameSession {
     session.turnHits = new Map(state.turnHits);
     session.coverHits = new Map(state.coverHits);
     session.luck = new Map(state.luck);
+    session.turnStart = state.turnStart && { supplies: new Map(state.turnStart.supplies), luck: new Map(state.turnStart.luck) };
     session.camouflaged = new Set(state.camouflaged);
     session.supplies = new Map(state.supplies);
     session.drops = state.drops;
@@ -2192,6 +2266,8 @@ class GameSession {
       supplies: this.board.getAllHexes().flatMap((hex) =>
         hex.unit ? [{ position: hex.getPosition(), supplies: this.suppliesOf(hex.unit) }] : []
       ),
+      changes: this.turnChanges(),
+      turnEnd: this.turnEnd(),
       battleEdits: this.battleEdits.length,
       canEditMap: this.canEditMap(),
       canUndoMapEdit: this.canUndoMapEdit(),

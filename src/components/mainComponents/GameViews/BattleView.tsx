@@ -164,6 +164,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           <Box className="battle-view__fire">
             <FireOrderList
               summaries={summaries}
+              changes={game.changes}
               board={session.board}
               image={session.scenario.image}
               faction={faction}

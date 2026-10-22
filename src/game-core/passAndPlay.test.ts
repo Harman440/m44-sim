@@ -843,3 +843,21 @@ describe("winning a match", () => {
   });
 });
 
+
+describe("PassAndPlayMatch keeps each side's supplies and luck its own", () => {
+  it("gives the other side the enemy units' places and kind, never their supplies, changes or luck", () => {
+    const match = new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") });
+    const seen = match.opponentOf("Allies", { fogged: false });
+    expect(seen.units.length).toBeGreaterThan(0);
+    for (const unit of seen.units) {
+      expect(unit).not.toHaveProperty("supplies");
+      expect(unit).not.toHaveProperty("luck");
+      expect(unit).not.toHaveProperty("change");
+    }
+    // Each side's snapshot lists only its own units' supplies
+    for (const side of ["Allies", "Axis"] as const) {
+      const own = match.sessions[side].board.getAllHexes().filter((hex) => hex.unit).length;
+      expect(match.sessions[side].getSnapshot().supplies).toHaveLength(own);
+    }
+  });
+});

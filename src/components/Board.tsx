@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef } from 'react';
 import { IconButton } from '@mui/material';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
-import type { UnitStrength } from '../game-core/gameSession';
+import type { UnitChange, UnitStrength } from '../game-core/gameSession';
 import { OpponentContext, ViewSideContext, type BoardFog } from './OpponentContext';
 import { VictoryContext } from './VictoryContext';
 import { iconUrl } from './GameIcon';
@@ -109,6 +109,8 @@ interface BoardProps {
    * the same hex. Needs `zoomable`
    */
   zoomOn?: { position: Position; request: number } | null;
+  /** What this side's units lost or gained this turn (morale, ammo, luck): a pill under each. Never the other army's */
+  changes?: readonly UnitChange[];
   /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
   onViewChange?: () => void;
 }
@@ -128,6 +130,8 @@ interface PlacedToken {
   retreats?: number;
   damaged?: boolean;
   hitThisTurn?: number;
+  /** This side's units only: what it lost or gained this turn */
+  change?: UnitChange;
 }
 
 /** A stable key per unit, so its token is the same element wherever it moves and can glide there */
@@ -171,7 +175,8 @@ function Board({
   atStart = false,
   zoomable = false,
   zoomOn = null,
-  onViewChange
+  onViewChange,
+  changes = []
 }: BoardProps) {
   const t = useMessages(TEXT);
   const shared = useContext(OpponentContext);
@@ -435,6 +440,7 @@ function Board({
         retreats: stands?.retreats,
         damaged: stands?.damaged,
         hitThisTurn: stands?.hitThisTurn,
+        change: changes.find((each) => samePosition(each.position, position)),
       }];
     });
     if (!opponent) return own;
@@ -498,6 +504,7 @@ function Board({
                 retreats={token.retreats}
                 damaged={token.damaged}
                 hitThisTurn={token.hitThisTurn}
+                change={token.change}
               />
             </g>
           </g>

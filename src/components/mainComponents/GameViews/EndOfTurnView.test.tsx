@@ -196,3 +196,14 @@ describe("EndOfTurnView Reinforcements", () => {
     expect(session.board.getHex(EMPTY)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
   });
 });
+
+describe("EndOfTurnView next turn", () => {
+  it("says what comes back as the next turn starts: the energy, by how much", () => {
+    setup({ openMap: false });
+    const summary = screen.getByTestId("turn-end-summary");
+    expect(summary).toHaveTextContent("Al empezar el turno 2");
+    // The infantry was given an action (Firefight, 1 energy): 1 back; the tank has no energy
+    expect(summary).toHaveTextContent("+1 de energía: 1 unidad");
+    expect(within(summary).queryByTestId("cards-back")).not.toBeInTheDocument();
+  });
+});
