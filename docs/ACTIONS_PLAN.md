@@ -19,7 +19,7 @@ Work through it one step at a time. Each step is one commit, and you tick items 
 - **Equipment** (infantry; Resupply gives it all back): Explosives (Explosives fire option), Sandbags (Fortify), Medic kit (Medic), Camouflage net (Camouflage). A unit starts with one of each.
 - **Elite infantry** no longer moves 2 and fires. Instead it has 2 of each piece of equipment, morale 10 and energy 10 (its cap).
 - **Elite tanks:** 3 hits take away a figure, and they start with 7 fuel.
-- **No extra turn for the attacker** (decided 2026-10-22): both sides play from turn 1. Instead, every unit of the defending side starts the game with 1 ammo less.
+- **No extra turn for the attacker** (decided 2026-10-22): both sides play from turn 1. Instead, every unit of the defending side starts the game with 1 ammo less (infantry) or 1 shell less (tanks and artillery).
 - **A unit with no action rests.** It doesn't move or fire, and infantry recovers 2 energy at the end of the turn instead of 1.
 - **Free actions:** infantry Reload, armour Firefight and Mechanic, and artillery Firefight cost nothing.
 - **Mechanic:** the tank clears the damage on a figure that has been hit but not lost (each figure needs 2 hits to go, 3 for elite). A figure already lost doesn't come back.
@@ -136,10 +136,9 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 
 ### R6b: No extra turn for the attacker
 - [ ] Both sides start on turn 1 together. The attacker's extra first turn goes: `AWAIT_ATTACKER`, `startFirstTurn`, `extraTurn` (and the "no card in the extra turn" rule), `WaitingView`, the match's waiting step, and the "Turno 1 · extra" chip
-- [ ] Every unit of the scenario's defending side starts with 1 ammo less (`data/unitSupplies.ts`: a `DEFENDER_AMMO` adjustment, applied when the session fills its units' supplies; never below 0)
+- [ ] Every unit of the scenario's defending side starts with 1 ammo less (infantry) or 1 shell less (tanks and artillery) (`data/unitSupplies.ts`: a defender's adjustment, applied when the session fills its units' supplies; never below 0). Reloading still fills up to the full amount
 - [ ] The attacker still fires first in the battle (the firing order is unchanged)
-- [ ] Rule book ("El primer turno") and the menu's scenario panel ("Ataca"/"Defiende" info) say so. `SAVE_VERSION` bumped. Tests: both sides pick a card on turn 1, a defender's infantry starts with 1 ammo, an attacker's with 2
-- [ ] **Decide:** "ammo" is infantry's. Do the defender's tanks and artillery also start with 1 shell less?
+- [ ] Rule book ("El primer turno") and the menu's scenario panel ("Ataca"/"Defiende" info) say so. `SAVE_VERSION` bumped. Tests: both sides pick a card on turn 1, a defender's infantry starts with 1 ammo and its tanks and artillery with 1 shell, an attacker's with 2
 
 ### R7: Firing with actions
 - [ ] When a unit fires:
