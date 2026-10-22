@@ -30,6 +30,7 @@
     "check": "tsc --noEmit && vitest run",
     "optimize-image": "node scripts/optimize-image.mjs",
     "card-art": "node scripts/card-art.mjs",
+    "mix-paintings": "node scripts/mix-paintings.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "board": "node scripts/compose-board.mjs",
     "add-scenario": "node scripts/add-scenario.mjs",

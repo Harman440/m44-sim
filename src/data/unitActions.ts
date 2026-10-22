@@ -146,7 +146,7 @@ export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
   [UnitType.INFANTRY]: [
     { id: "infantry:normal", unitType: UnitType.INFANTRY, name: NORMAL_NAME, painting: "firefight", cost: ammo,
       description: { es: "Dispara como siempre. Gasta 1 de munición.", en: "Fires as usual. Uses 1 ammo." } },
-    { id: "infantry:explosives", unitType: UnitType.INFANTRY, name: { es: "Explosivos", en: "Explosives" }, painting: "explosives",
+    { id: "infantry:explosives", unitType: UnitType.INFANTRY, name: { es: "Explosivos", en: "Explosives" }, painting: "explosives-mix",
       cost: { ...ammo, equipment: [Equipment.EXPLOSIVES] }, closeAssaultOnly: true, closeAssaultBonus: { dice: 1 },
       description: {
         es: "Solo en asalto cercano: 1 dado más. Gasta 1 de munición y los explosivos.",

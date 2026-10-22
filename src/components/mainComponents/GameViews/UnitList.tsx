@@ -118,11 +118,17 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  // A unit picked on the map: its row comes into sight (the column scrolls)
+  // A unit picked on the map: its row comes into sight when the column scrolls on its own
+  // (landscape). In portrait the list is under the map, and the page stays put
   const selectedRow = useRef<HTMLDivElement>(null);
   const selectedKey = selected && `${selected.row}-${selected.col}`;
   useEffect(() => {
-    selectedRow.current?.scrollIntoView?.({ block: "nearest" });
+    const row = selectedRow.current;
+    const column = row?.closest<HTMLElement>(".phase-layout__controls");
+    if (!row || !column || column.scrollHeight <= column.clientHeight) return;
+    const [rowBox, columnBox] = [row.getBoundingClientRect(), column.getBoundingClientRect()];
+    if (rowBox.bottom > columnBox.bottom) column.scrollTop += rowBox.bottom - columnBox.bottom;
+    else if (rowBox.top < columnBox.top) column.scrollTop -= columnBox.top - rowBox.top;
   }, [selectedKey]);
   // Left to right across the board, then front to back, as the player reads the map
   const units = [...game.supplies].sort((a, b) => a.position.col - b.position.col || a.position.row - b.position.row);

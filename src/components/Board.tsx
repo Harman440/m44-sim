@@ -109,6 +109,8 @@ interface BoardProps {
    * the same hex. Needs `zoomable`
    */
   zoomOn?: { position: Position; request: number } | null;
+  /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
+  onViewChange?: () => void;
 }
 
 /** A unit drawn on the map, where it stands in its own side's view */
@@ -168,7 +170,8 @@ function Board({
   collisions = [],
   atStart = false,
   zoomable = false,
-  zoomOn = null
+  zoomOn = null,
+  onViewChange
 }: BoardProps) {
   const t = useMessages(TEXT);
   const shared = useContext(OpponentContext);
@@ -593,6 +596,9 @@ function Board({
     focusOn(x, y);
     // Only a new request zooms: the board redrawing doesn't
   }, [zoomRequest]);
+  useEffect(() => {
+    onViewChange?.();
+  }, [shown.x, shown.y, shown.width, shown.height]);
 
   return (
     <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.zoomed ? ' board--zoomed' : ''}`} {...zoom.handlers}>
