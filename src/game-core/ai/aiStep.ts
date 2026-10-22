@@ -136,7 +136,8 @@ function orderStep(view: AiView, brain: Brain): boolean {
  */
 function reloadIfEmpty(session: GameSession, from: Position): boolean {
   const actions = session.getActions(from) ?? [];
-  const firing = actions.filter(({ action }) => action.fire);
+  // Its actions that fire where it stands (armour may still move with no shells: those don't count)
+  const firing = actions.filter(({ action }) => action.fire && action.move === 0);
   const empty = firing.length > 0 && firing.every(({ refusal }) => refusal === Supply.AMMO || refusal === Supply.SHELLS);
   const reload = actions.find(({ action, refusal }) => action.effect === "reload" && refusal === null);
   return empty && !!reload && session.giveAction(from, reload.action.id, from);

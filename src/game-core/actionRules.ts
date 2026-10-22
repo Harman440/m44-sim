@@ -7,7 +7,7 @@ import type { FireOption, UnitAction } from "./unitAction";
 import { UnitSupplies, amountOf, canPay } from "./unitSupplies";
 import type { MoveLimits } from "./orderRules";
 import type { MoveRules } from "./BoardManager";
-import { FIRE_OPTIONS, PLAIN_ACTIONS, UNIT_ACTIONS, actionById } from "../data/unitActions";
+import { FIRE_OPTIONS, MOVES_WITHOUT_SHOTS, PLAIN_ACTIONS, UNIT_ACTIONS, actionById } from "../data/unitActions";
 import { SUPPLIES, Supply } from "../data/unitSupplies";
 
 /**
@@ -48,8 +48,10 @@ export function actionRefusal(action: UnitAction, { unitType, supplies, ownTable
     const short = SUPPLIES.find((supply) => amountOf(supplies, supply) < (action.cost.amounts?.[supply] ?? 0));
     return short ?? "equipment";
   }
-  // An action that fires needs a shot's worth of ammo or shells
-  if (action.fire) {
+  // An action that fires needs a shot's worth of ammo or shells, except armour's moves: with no
+  // shells left they move and don't fire
+  const movesDry = action.move > 0 && MOVES_WITHOUT_SHOTS.includes(unitType);
+  if (action.fire && !movesDry) {
     const options = FIRE_OPTIONS[unitType];
     if (!options.some((option) => canPay(supplies, option.cost))) {
       const needs = options.flatMap((option) => SUPPLIES.filter((supply) => (option.cost.amounts?.[supply] ?? 0) > 0));

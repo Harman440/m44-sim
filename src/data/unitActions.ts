@@ -119,6 +119,12 @@ export const ARTILLERY_ACTIONS: readonly UnitAction[] = [
     { painting: "preparations", cost: FREE, move: 0, fire: null, effect: "reload" }),
 ];
 
+/**
+ * Unit types that can still be given an action that moves and fires with nothing left to fire:
+ * they move and don't fire (armour, whose every move fires). Infantry has Move Out instead
+ */
+export const MOVES_WITHOUT_SHOTS: readonly UnitType[] = [UnitType.TANK];
+
 /** Infantry-symbol hits a unit given Take Cover ignores in a turn */
 export const TAKE_COVER_HITS = 2;
 

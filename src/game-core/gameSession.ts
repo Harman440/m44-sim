@@ -666,10 +666,14 @@ class GameSession {
 
   /**
    * The action's move limits and paths (none when it may not move); it can't end on (or next to)
-   * a hex marked for an attack
+   * a hex marked for an attack. A unit with nothing left to fire moves but doesn't fire (armour)
    */
   private movePlan(hex: Hex, action: UnitAction, canMove = true) {
-    const limits = canMove ? moveLimitsOf(action) : { ...moveLimitsOf(action), maxMove: 0, moveAndFire: 0 };
+    const unit = hex.unit;
+    const dry = !!unit && !canFireAShot(unit.getUnitType(), this.suppliesOf(unit));
+    const full = moveLimitsOf(action);
+    const fires = dry ? { ...full, moveAndFire: 0, holdShots: 0 } : full;
+    const limits = canMove ? fires : { ...fires, maxMove: 0, moveAndFire: 0 };
     const rules = moveRulesOf(action);
     const endsOk = (key: string) => !this.breaksMark(fromKey(key));
     return {

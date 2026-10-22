@@ -341,3 +341,18 @@ describe("GameSession luck", () => {
     expect(() => restore(saved)).toThrow("Unknown unit luck");
   });
 });
+
+describe("GameSession armour with no shells", () => {
+  it("moves with Assault but doesn't fire, and can't hold to fire", () => {
+    const session = withAmounts(ordering(), TANK, { [Supply.SHELLS]: 0 });
+    const options = session.getMoveOptions(TANK, "tank:assault")!;
+    expect(options.moves.length).toBeGreaterThan(0);
+    expect(options.moveAndFire).toEqual([]);
+    expect(session.giveAction(TANK, "tank:firefight", TANK)).toBe(false);
+
+    const to = options.moves.find((p) => !samePosition(p, FOREST))!;
+    expect(session.giveAction(TANK, "tank:assault", to)).toBe(true);
+    expect(session.getSnapshot().orders[0]!.shots).toBe(0);
+    expect(fight(session).orderSummaries()[0]!.shotsLeft).toBe(0);
+  });
+});

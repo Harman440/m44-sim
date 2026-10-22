@@ -68,13 +68,20 @@ describe("which actions a unit can be given", () => {
     ["tank:assault", { [Supply.FUEL]: 0 }, Supply.FUEL],
     ["tank:armorForward", { [Supply.FUEL]: 1 }, Supply.FUEL],
     ["tank:firefight", { [Supply.SHELLS]: 0 }, Supply.SHELLS],
-    ["tank:assault", { [Supply.SHELLS]: 0 }, Supply.SHELLS],
     ["artillery:bombardment", { [Supply.FUEL]: 0 }, Supply.FUEL],
     ["artillery:reposition", { [Supply.FUEL]: 0 }, Supply.FUEL],
     ["artillery:fortify", { [Supply.FUEL]: 0 }, Supply.FUEL],
     ["artillery:firefight", { [Supply.SHELLS]: 0 }, Supply.SHELLS],
   ] as const)("refuses %s without enough (%o): %s", (id, amounts, why) => {
     expect(refusal(id, suppliesWith(action(id).unitType, amounts))).toBe(why);
+  });
+
+  it("lets armour with no shells take an action that moves: it moves and doesn't fire; infantry has Move Out", () => {
+    const dry = suppliesWith(UnitType.TANK, { [Supply.SHELLS]: 0 });
+    expect(refusal("tank:assault", dry)).toBeNull();
+    expect(refusal("tank:armorForward", dry)).toBeNull();
+    expect(refusal("tank:firefight", dry)).toBe(Supply.SHELLS);
+    expect(refusal("infantry:assault", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBe(Supply.AMMO);
   });
 
   it.each([
