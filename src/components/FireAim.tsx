@@ -75,6 +75,8 @@ export interface FireAimChoice {
   pinned?: boolean;
   /** An enemy unit is next to the firing unit, which fires in close assault only (own tablets: the player says) */
   adjacentEnemy?: boolean;
+  /** How the unit fires (a fire option's id); left out, its plain fire */
+  option?: string;
 }
 
 interface FireAimProps {

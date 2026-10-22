@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import FireDialog from "./FireDialog";
 import GameSession from "../game-core/gameSession";
 import { actionCardById } from "../data/actionCards";
-import { summarizeOrders } from "../game-core/turnSummary";
 import { UnitType } from "../game-core/unit";
 import { Position, Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
@@ -49,7 +48,7 @@ const makeSession = (
 function Harness({ session }: { session: GameSession }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [open, setOpen] = useState(false);
-  const summary = summarizeOrders(game.orders, session.board, game.shots)[0]!;
+  const summary = session.orderSummaries()[0]!;
   return (
     <>
       <button onClick={() => setOpen(true)}>abrir</button>
@@ -58,12 +57,13 @@ function Harness({ session }: { session: GameSession }) {
         summary={open ? summary : null}
         faction="Allies"
         board={session.board}
-        targets={session.fireTargetsFor(0)}
+        fireOptions={session.fireOptions(0)}
+        targetsFor={(option) => session.fireTargetsFor(0, option)}
+        contextFor={(option) => session.fireContextOf(0, option)}
         onFireAt={(choice) => session.fireAt(0, choice)}
         canTakeGround={session.canTakeGround(0)}
         onTakeGround={() => session.takeGround(0)}
         onUndoTakeGround={() => session.undoTakeGround(0)}
-        combatBonuses={session.combatBonusesFor(0)}
         longRangeDie={session.longRangeDie}
         targetKinds={session.targetKinds}
         canRemoveWire={game.canRemoveWire[0]}
@@ -274,6 +274,36 @@ describe("FireDialog", () => {
     expect(hasBadge({ row: 1, col: 1 })).toBe(true); // 6 hexes up
   });
 
+  it("offers the unit's fire options: Explosives fires only in close assault, with 1 die more", () => {
+    const session = open(UnitType.INFANTRY);
+    const options = within(screen.getByRole("list", { name: "Cómo dispara" })).getAllByRole("button");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Disparo normal1 munición",
+      "Explosivos1 munición + explosivos · Solo en asalto cercano",
+      "Fuego de supresión1 munición",
+    ]);
+    expect(screen.getByTestId("fire-option-text")).toHaveTextContent("Dispara como siempre");
+
+    choose(/^Explosivos/);
+    expect(screen.getByTestId("fire-option-text")).toHaveTextContent("Solo en asalto cercano: 1 dado más");
+    expect(hasBadge(TWO_AWAY)).toBe(false);
+    fireAt(ADJACENT, "Infantería", "4 dados");
+    expect(session.getSnapshot().shots[0]).toMatchObject({ option: "infantry:explosives", dice: 4 });
+  });
+
+  it("rolls the suppressive die with Suppressive Fire", () => {
+    const session = open(UnitType.INFANTRY);
+    choose(/^Fuego de supresión/);
+    fireAt(ADJACENT, "Infantería", "3 dados");
+    expect(session.getSnapshot().shots[0]!.target.die).toBe("suppressive");
+    expect(screen.getByTestId("shot-steps")).toHaveTextContent("Fuego de supresión");
+  });
+
+  it("has no fire options to pick for artillery, which has only one", () => {
+    open(UnitType.ARTILLERY);
+    expect(screen.queryByTestId("fire-options")).not.toBeInTheDocument();
+  });
+
   it("starts with no target every time it is opened", () => {
     open(UnitType.INFANTRY);
     tapHex(ADJACENT);
@@ -286,20 +316,21 @@ describe("FireDialog", () => {
 
   it("applies fewer hits than were rolled, from the figures that fired: the extra hits show as discarded", () => {
     const session = open(UnitType.TANK);
-    fireAt(ADJACENT, "Infantería", "3 dados");
+    fireAt(ADJACENT, "Infantería", "4 dados");
 
     const dieBefore = grenades()[0];
     choose("Aplicar menos impactos");
-    // A unit firing 3 hits can be told it had 1 or 2 figures
+    // A tank firing 4 hits (+1 die: it held, in close assault) can be told it had 1, 2 or 3 figures
     expect(screen.getByRole("button", { name: "1 figura" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "3 figuras" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "3 figuras" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "4 figuras" })).not.toBeInTheDocument();
     choose("2 figuras");
 
     // The dice stay as they are (not remounted, which would roll them again)
     expect(grenades()[0]).toBe(dieBefore);
     expect(session.getSnapshot().shots[0]!.kept).toEqual([0, 1]);
-    expect(grenades()).toHaveLength(3); // the full roll stays on show
-    expect(screen.getByText("(descartado)", { exact: false })).toBeInTheDocument();
+    expect(grenades()).toHaveLength(4); // the full roll stays on show
+    expect(screen.getAllByText("(descartado)", { exact: false })).toHaveLength(2);
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("2impactos");
 
     choose("2 figuras · Cambiar");
@@ -308,7 +339,7 @@ describe("FireDialog", () => {
 
     choose("Aplicar todos");
     expect(session.getSnapshot().shots[0]!.kept).toBeNull();
-    expect(screen.getByTestId("roll-hits")).toHaveTextContent("3impactos");
+    expect(screen.getByTestId("roll-hits")).toHaveTextContent("4impactos");
   });
 
   it("adds Finest Hour's die, played with the orders, with nothing to answer", async () => {
@@ -344,7 +375,7 @@ describe("FireDialog", () => {
 
   it("only undoes a shot after ticking the confirmation", () => {
     const session = open(UnitType.TANK);
-    fireAt(ADJACENT, "Infantería", "3 dados");
+    fireAt(ADJACENT, "Infantería", "4 dados");
 
     choose("Anular disparo");
     const confirm = screen.getByRole("button", { name: "Anular disparo" });
@@ -362,7 +393,7 @@ describe("FireDialog", () => {
 
   it("lets armour take ground after a close assault with a hit or flag: it moves there and fires again, adjacent only", () => {
     const session = open(UnitType.TANK);
-    fireAt(ADJACENT, "Infantería", "3 dados"); // grenades: hits
+    fireAt(ADJACENT, "Infantería", "4 dados"); // grenades: hits (+1 die: armour that held, in close assault)
 
     const takeGround = screen.getByTestId("take-ground");
     // The explanation is behind the info button

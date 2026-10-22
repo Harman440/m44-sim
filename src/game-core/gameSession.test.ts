@@ -1569,7 +1569,8 @@ describe("GameSession firing at a hex on the map", () => {
   it("lists the hexes the unit can fire at, with their dice", () => {
     const session = tankBattle();
 
-    expect(target(session, { row: 4, col: 7 })).toMatchObject({ distance: 1, terrain: HexType.FOREST, dice: 1 });
+    // Close assault 3, −2 for armour firing into a forest, +1 for armour's normal fire when it held
+    expect(target(session, { row: 4, col: 7 })).toMatchObject({ distance: 1, terrain: HexType.FOREST, dice: 2 });
     expect(target(session, { row: 4, col: 3 })).toMatchObject({ distance: 3, terrain: HexType.PLAINS, dice: 3 });
     expect(target(session, { row: 4, col: 2 })).toBeUndefined(); // out of range
     expect(target(session, TANK)).toBeUndefined();
@@ -1581,7 +1582,7 @@ describe("GameSession firing at a hex on the map", () => {
     expect(session.fireAt(0, { position: { row: 4, col: 7 }, infantry: true, sandbags: true })).toBe(true);
 
     const [shot] = session.getSnapshot().shots;
-    expect(shot).toMatchObject({ dice: 1, targetPosition: { row: 4, col: 7 }, target: { infantry: true, closeAssault: true, die: "battle" } });
+    expect(shot).toMatchObject({ dice: 2, targetPosition: { row: 4, col: 7 }, target: { infantry: true, closeAssault: true, die: "battle" } });
     expect(shot!.notes.map((note) => note.es)).toEqual(["Sacos terreros: el objetivo ignora 1 bandera."]);
   });
 

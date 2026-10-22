@@ -9,6 +9,7 @@ import { turnedRound } from "../BoardManager";
 import { boardSizeOf } from "../boardSize";
 import { positionKey, samePosition } from "../position";
 import { UnitType } from "../unit";
+import { Supply } from "../../data/unitSupplies";
 import { TurnPhase } from "../../types/gameManager";
 import { Faction } from "../../types/faction";
 import { Position } from "../../types/scenario";
@@ -106,7 +107,8 @@ export function aiStep(match: PassAndPlayMatch, side: Faction, brain: Brain, ran
  * One step of giving orders: a hex marked for the card, an order, or the orders locked once the
  * brain orders no more units (the rest rest). A card whose hexes can't be marked is taken back.
  * The move the brain wants turns into the plain action for it (`issueOrder`: Firefight, Assault,
- * Move Out…), or a hold that fires; a unit that can pay for neither rests
+ * Move Out…), or a hold that fires; a unit that can pay for neither rests, and one with nothing
+ * left to fire reloads
  */
 function orderStep(view: AiView, brain: Brain): boolean {
   const { session } = view;
@@ -120,11 +122,24 @@ function orderStep(view: AiView, brain: Brain): boolean {
   while (candidates.length > 0) {
     const from = brain.nextToOrder(view, candidates);
     if (!from) break;
+    if (reloadIfEmpty(session, from)) return true;
     const { to } = brain.moveFor(view, from);
     if (session.issueOrder(from, to) || session.issueOrder(from, from)) return true;
     candidates = candidates.filter((position) => !samePosition(position, from));
   }
   return session.commitOrders();
+}
+
+/**
+ * A unit with no ammo or shells for any action that fires is given Reload, when it can be (until
+ * the brains choose actions themselves, docs/ACTIONS_PLAN.md R15)
+ */
+function reloadIfEmpty(session: GameSession, from: Position): boolean {
+  const actions = session.getActions(from) ?? [];
+  const firing = actions.filter(({ action }) => action.fire);
+  const empty = firing.length > 0 && firing.every(({ refusal }) => refusal === Supply.AMMO || refusal === Supply.SHELLS);
+  const reload = actions.find(({ action, refusal }) => action.effect === "reload" && refusal === null);
+  return empty && !!reload && session.giveAction(from, reload.action.id, from);
 }
 
 function battleStep(match: PassAndPlayMatch, view: AiView, brain: Brain): boolean {

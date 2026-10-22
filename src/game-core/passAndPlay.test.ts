@@ -556,10 +556,10 @@ describe("PassAndPlayMatch", () => {
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
 
-      // The Axis tank's close assault: 3 flags on the Allied infantry, pinned and 2 hexes back
+      // The Axis tank's close assault: 4 flags on the Allied infantry (+1 die: it held), pinned and 3 hexes back
       expect(match.fire(0, axisView(4, 2))).toBe(true);
       expect(match.getSnapshot().battle).toMatchObject({ ground: null });
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         const retreat = match.getSnapshot().battle!.retreat!;
         expect(retreat.side).toBe("Allies");
         expect(match.retreat(retreat.options[0]!)).toBe(true);
@@ -574,6 +574,23 @@ describe("PassAndPlayMatch", () => {
       expect(match.holdFire(0)).toBe(true);
       expect(match.endBattle()).toBe(true);
       expect(match.getSnapshot().battle).toBeNull();
+    });
+
+    it("fires the way the unit picks, spending its ammo", () => {
+      const close: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
+      };
+      const side = (faction: Faction) => new GameSession({ scenario: close, faction, figures: true, random: () => 0.5 });
+      const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+
+      const axis = match.sessions.Axis;
+      expect(match.fire(0, axisView(4, 2), "tank:normal")).toBe(false);
+      expect(match.fire(0, axisView(4, 2), "infantry:suppressive")).toBe(true);
+      expect(axis.getSnapshot().shots[0]).toMatchObject({ option: "infantry:suppressive", target: { die: "suppressive" } });
+      const supplies = axis.getSnapshot().supplies.find((each) => samePosition(each.position, axisView(4, 3)))!.supplies;
+      expect(supplies.amounts.ammo).toBe(1);
     });
 
     it("lets infantry move into the hex its close assault made the enemy leave, without firing again", () => {

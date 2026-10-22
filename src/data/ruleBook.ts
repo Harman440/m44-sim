@@ -12,7 +12,16 @@ import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
 import { FORD_FIRE_DICE } from "./fireQuestions";
 import { HexType } from "../types/hex";
-import { DEFENDER_SHORTFALL, ELITE_FULL_SUPPLIES, ENERGY_PER_TURN, EQUIPMENT_CARRIED, FULL_SUPPLIES, RESTING_ENERGY_PER_TURN, Supply } from "./unitSupplies";
+import {
+  DEFENDER_SHORTFALL,
+  ELITE_FULL_SUPPLIES,
+  ENERGY_PER_TURN,
+  EQUIPMENT_CARRIED,
+  FULL_SUPPLIES,
+  RELOAD,
+  RESTING_ENERGY_PER_TURN,
+  Supply,
+} from "./unitSupplies";
 
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
@@ -25,6 +34,8 @@ const eliteInfantry = ELITE_FULL_SUPPLIES[UnitType.INFANTRY] ?? {};
 const eliteEquipment = EQUIPMENT_CARRIED[UnitType.INFANTRY].elite;
 const ammoShort = DEFENDER_SHORTFALL[Supply.AMMO] ?? 0;
 const shellsShort = DEFENDER_SHORTFALL[Supply.SHELLS] ?? 0;
+const reloadAmmo = RELOAD[Supply.AMMO] ?? 0;
+const reloadShells = RELOAD[Supply.SHELLS] ?? 0;
 /** What the defender's units start without, as the rule book says it */
 const defenderShortfall: Localized = {
   es: `${ammoShort} ${ammoShort === 1 ? "munición" : "municiones"} menos (infantería) o ${shellsShort} ${shellsShort === 1 ? "proyectil" : "proyectiles"} menos (tanques y artillería)`,
@@ -264,8 +275,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Choques", en: "Collisions" },
         house: {
-          es: "Si dos unidades enemigas pasan por la misma casilla o acaban en ella, combaten antes que nadie: cada una tira sus dados de asalto cercano menos 1, sin contar el terreno, y las banderas no se pueden ignorar (inmovilizan y hacen retirarse como en la batalla). Si nadie saca bandera, las dos vuelven 1 casilla por donde vinieron. El choque cuenta como el disparo de la unidad.",
-          en: "If two enemy units go through the same hex or end on it, they battle before anyone else: each rolls its close assault dice minus 1, terrain doesn't count, and flags can't be ignored (they pin and push back as in the battle). If neither rolls a flag, both go back 1 hex the way they came. The collision counts as the unit's shot.",
+          es: "Si dos unidades enemigas pasan por la misma casilla o acaban en ella, combaten antes que nadie: cada una tira sus dados de asalto cercano menos 1, sin contar el terreno, y las banderas no se pueden ignorar (inmovilizan y hacen retirarse como en la batalla). Si nadie saca bandera, las dos vuelven 1 casilla por donde vinieron. El choque cuenta como el disparo de la unidad y gasta 1 munición o proyectil; una unidad que no tiene, o con la moral a 0, no tira (solo tira la otra).",
+          en: "If two enemy units go through the same hex or end on it, they battle before anyone else: each rolls its close assault dice minus 1, terrain doesn't count, and flags can't be ignored (they pin and push back as in the battle). If neither rolls a flag, both go back 1 hex the way they came. The collision counts as the unit's shot and uses 1 ammo or shell; a unit with none, or at morale 0, doesn't roll (only the other one does).",
         },
       },
       {
@@ -275,8 +286,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "The player whose turn it is battles with their units in any order.",
         },
         house: {
-          es: "Los dos bandos se alternan, una unidad cada uno, empezando por el atacante: primero los choques, después los ataques de cartas, luego las unidades que no se movieron y, por último, las que se movieron.",
-          en: "The two sides take turns, one unit each, the attacker first: collisions, then card attacks, then units that didn't move and, last, units that moved.",
+          es: "Los dos bandos se alternan, una unidad cada uno, empezando por el atacante: primero los choques, después los ataques de cartas, luego la infantería con Tras las líneas enemigas, después las unidades que no se movieron (y la infantería con Sin tregua, aunque se moviera) y, por último, las que se movieron.",
+          en: "The two sides take turns, one unit each, the attacker first: collisions, then card attacks, then infantry with Behind Enemy Lines, then units that didn't move (and infantry with No Respite, though it moved) and, last, units that moved.",
         },
       },
       {
@@ -435,6 +446,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Disparar", en: "Firing" },
+        house: {
+          es: `Cada disparo gasta 1 munición (infantería) o 1 proyectil (tanques y artillería), y una unidad que se queda sin ellos ya no dispara. Al disparar se elige cómo: la infantería, disparo normal, explosivos (solo en asalto cercano: 1 dado más, y gasta los explosivos) o fuego de supresión; los tanques, disparo normal (con 1 dado más en asalto cercano si no se movieron) o fuego de supresión; la artillería, fuego. El fuego de supresión tira el dado de supresión: el de batalla con 1 infantería, 1 granada, 3 banderas y 1 suministro, o el de 8 caras con 2 infantería, 4 banderas y 2 suministros. Recargar devuelve ${reloadAmmo} de munición o ${reloadShells} proyectiles en cuanto se confirman las órdenes, y la unidad no dispara ese turno.`,
+          en: `Each shot uses 1 ammo (infantry) or 1 shell (tanks and artillery), and a unit that runs out can't fire any more. Each shot picks how it fires: infantry, normal fire, explosives (close assault only: 1 extra die, and it uses up the explosives) or suppressive fire; tanks, normal fire (with 1 extra die in close assault if they didn't move) or suppressive fire; artillery, fire. Suppressive fire rolls the suppressive die: the battle die with 1 infantry, 1 grenade, 3 flags and 1 supply, or the 8-sided one with 2 infantry, 4 flags and 2 supplies. Reload gives back ${reloadAmmo} ammo or ${reloadShells} shells as soon as the orders are confirmed, and the unit doesn't fire that turn.`,
+        },
+      },
+      {
         title: { es: "Descanso", en: "Rest" },
         house: {
           es: `Al final de cada turno la infantería recupera ${ENERGY_PER_TURN} de energía, o ${RESTING_ENERGY_PER_TURN} si descansó (no recibió acción), sin pasar de la que lleva llena.`,
@@ -499,8 +517,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Movimiento a la vez", en: "Moving at once" },
         house: {
-          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar no tira. Si ninguna saca bandera, ninguna se gana la casilla: la que se movió vuelve una casilla atrás por donde vino; la que no se movió se queda. Una unidad que ha combatido en un choque ya no dispara en la batalla. Las unidades de un mismo bando no se estorban al moverse: solo cuenta la casilla en la que acaba cada una.",
-          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire doesn't roll. If neither rolls a flag, neither earns the hex: the one that moved goes one hex back the way it came; one that didn't move stays. A unit that fought in a collision doesn't fire in the battle. Units of the same side don't get in each other's way as they move: only the hex each one ends on counts.",
+          es: "Tras mostrar las órdenes, todas las unidades avanzan casilla a casilla a la vez. Dos enemigas que entran en la misma casilla, se cruzan o una entra en la de otra se paran antes y chocan: tiran las dos sus dados de asalto cercano menos 1, sin terreno. Una unidad cuya orden no le deja disparar, sin munición ni proyectiles o con la moral a 0 no tira; la que tira gasta 1 munición o proyectil. Si ninguna saca bandera, ninguna se gana la casilla: la que se movió vuelve una casilla atrás por donde vino; la que no se movió se queda. Una unidad que ha combatido en un choque ya no dispara en la batalla. Las unidades de un mismo bando no se estorban al moverse: solo cuenta la casilla en la que acaba cada una.",
+          en: "After the orders are shown, every unit moves one hex at a time, all together. Two enemies entering the same hex, crossing, or one entering the other's hex stop short and collide: both roll their close assault dice minus 1, no terrain. A unit whose order doesn't let it fire, with no ammo or shells, or at morale 0 doesn't roll; one that rolls uses 1 ammo or shell. If neither rolls a flag, neither earns the hex: the one that moved goes one hex back the way it came; one that didn't move stays. A unit that fought in a collision doesn't fire in the battle. Units of the same side don't get in each other's way as they move: only the hex each one ends on counts.",
         },
       },
       {
@@ -513,8 +531,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Inmovilizada y retiradas", en: "Pinned and retreats" },
         house: {
-          es: "La primera bandera inmoviliza la unidad (una bandera en su ficha) hasta el final del turno. Cada bandera más la hace retirarse en el acto una casilla hacia su borde, eligiendo su jugador; cada casilla que no puede retirarse (no hay ninguna libre detrás) cuenta como un impacto, y ya no combate más este turno. Una retirada por un choque se hace al empezar la batalla. Si tras un asalto cercano el objetivo se retiró o fue eliminado, los blindados pueden entrar en su casilla y disparar otra vez; la infantería puede entrar, sin volver a disparar.",
-          en: "The first flag pins the unit (a flag on its token) until the turn ends. Each flag after that makes it retreat at once one hex toward its edge, its player choosing; each hex it can't retreat (no free hex behind it) counts as a hit, and it doesn't battle again this turn. A retreat from a collision is made as the battle starts. If after a close assault the target retreated or was eliminated, armor may move into its hex and fire again; infantry may move in, without firing again.",
+          es: "La primera bandera inmoviliza la unidad (una bandera en su ficha) hasta el final del turno. Cada bandera más la hace retirarse en el acto una casilla hacia su borde, eligiendo su jugador; cada casilla que no puede retirarse (no hay ninguna libre detrás) cuenta como un impacto, y ya no combate más este turno. Una retirada por un choque se hace al empezar la batalla. Si tras un asalto cercano el objetivo se retiró o fue eliminado, los blindados pueden entrar en su casilla y disparar otra vez (si les queda un proyectil); la infantería puede entrar, sin volver a disparar.",
+          en: "The first flag pins the unit (a flag on its token) until the turn ends. Each flag after that makes it retreat at once one hex toward its edge, its player choosing; each hex it can't retreat (no free hex behind it) counts as a hit, and it doesn't battle again this turn. A retreat from a collision is made as the battle starts. If after a close assault the target retreated or was eliminated, armor may move into its hex and fire again (if it has a shell left); infantry may move in, without firing again.",
         },
       },
       {

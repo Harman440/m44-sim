@@ -13,7 +13,6 @@ import {
 } from "@mui/material";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import { Faction } from "../../../types/faction";
-import { summarizeOrders } from "../../../game-core/turnSummary";
 import FireOrderList from "../../FireOrderList";
 import BattleReserve from "./BattleReserve";
 import BattleInstructions from "./BattleInstructions";
@@ -103,7 +102,8 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const summaries = summarizeOrders(game.orders, session.board, game.shots, game.unmovedFireSkipped);
+  // The session's own, which knows the units out of ammo
+  const summaries = session.orderSummaries();
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
   const unmovedUnfired = summaries.filter((s) => s.unmovedGroup && s.shotsLeft > 0).length;
@@ -197,11 +197,12 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
       <FireDialog
         key={firingIndex ?? "closed"}
         summary={firing}
-        combatBonuses={firingIndex === null ? undefined : session.combatBonusesFor(firingIndex)}
         faction={faction}
         board={session.board}
         image={session.scenario.image}
-        targets={firingIndex === null ? [] : session.fireTargetsFor(firingIndex)}
+        fireOptions={firingIndex === null ? [] : session.fireOptions(firingIndex)}
+        targetsFor={(option) => (firingIndex === null ? [] : session.fireTargetsFor(firingIndex, option))}
+        contextFor={(option) => (firingIndex === null ? null : session.fireContextOf(firingIndex, option))}
         onFireAt={(choice) => withSound(firingIndex !== null && session.fireAt(firingIndex, choice))}
         canTakeGround={firingIndex !== null && session.canTakeGround(firingIndex)}
         onTakeGround={() => firingIndex !== null && session.takeGround(firingIndex)}

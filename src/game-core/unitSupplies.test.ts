@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UnitType } from "./unit";
-import { amountOf, canPay, endOfTurn, equipmentOf, fullSupplies, pay, refill, reload, startingSupplies } from "./unitSupplies";
+import { amountOf, canPay, endOfTurn, equipmentOf, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
 import { Equipment, Supply } from "../data/unitSupplies";
 
 const infantry = fullSupplies(UnitType.INFANTRY);
@@ -71,5 +71,12 @@ describe("unit supplies", () => {
     expect(amountOf(endOfTurn(tired, infantry, true), Supply.ENERGY)).toBe(3);
     expect(amountOf(endOfTurn(infantry, infantry, true), Supply.ENERGY)).toBe(5);
     expect(endOfTurn(tank, tank, true)).toEqual(tank);
+  });
+
+  it("gives back what a shot paid, amounts and equipment", () => {
+    const cost = { amounts: { [Supply.AMMO]: 1 }, equipment: [Equipment.EXPLOSIVES] };
+    const paid = pay(infantry, cost)!;
+    expect(amountOf(paid, Supply.AMMO)).toBe(1);
+    expect(refund(paid, cost)).toEqual(infantry);
   });
 });

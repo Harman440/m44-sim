@@ -73,6 +73,8 @@ describe("English descriptions", () => {
     expect(LABELS.en.actionRefusals[Supply.ENERGY]).toBe("No energy");
     expect(LABELS.es.describeCost(actionById("infantry:fortify")!.cost)).toBe("2 energía + sacos terreros");
     expect(LABELS.en.describeCost(actionById("tank:reload")!.cost)).toBe("free");
+    expect(LABELS.en.describeCost({ amounts: { [Supply.SHELLS]: 1 } })).toBe("1 shell");
+    expect(LABELS.es.describeCost({ amounts: { [Supply.SHELLS]: 2 } })).toBe("2 proyectiles");
     expect(LABELS.es.actionRefusals[Supply.MORALE]).toBe("Moral 0");
   });
 

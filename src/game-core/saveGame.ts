@@ -16,12 +16,12 @@ import type { BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./game
 import { TurnRecord } from "./turnLog";
 import type { ActionCard } from "./actionCard";
 import { actionCardById } from "../data/actionCards";
-import { actionById } from "../data/unitActions";
-import type { UnitSupplies } from "./unitSupplies";
+import { actionById, fireOptionById } from "../data/unitActions";
+import type { SupplyCost, UnitSupplies } from "./unitSupplies";
 import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 39;
+export const SAVE_VERSION = 40;
 
 interface SavedUnit {
   type: UnitType;
@@ -156,6 +156,7 @@ function readStandingCollisions(rolls: unknown): StandingCollisionRoll[] {
     }
     if (!Array.isArray(roll.faces) || !roll.faces.every((face) => faces.has(face))) throw new Error("Unknown die face");
     if (roll.kept !== null && !isKeptList(roll.kept, roll.faces.length)) throw new Error("Unknown kept dice");
+    if (!isSpent(roll.spent)) throw new Error("Unknown supplies spent");
     return roll;
   });
 }
@@ -180,12 +181,21 @@ function readUnitCounts<K extends "hits" | "flags">(
   );
 }
 
+const isCounts = (counts: unknown, keys: readonly string[]) =>
+  typeof counts === "object" &&
+  counts !== null &&
+  Object.entries(counts).every(([key, count]) => keys.includes(key) && Number.isInteger(count) && count >= 0);
+
+/** What a shot or collision spent: left out, or amounts and pieces of equipment the game knows */
+const isSpent = (spent: SupplyCost | undefined): boolean =>
+  spent === undefined ||
+  (typeof spent === "object" &&
+    spent !== null &&
+    (spent.amounts === undefined || isCounts(spent.amounts, SUPPLIES)) &&
+    (spent.equipment === undefined || (Array.isArray(spent.equipment) && spent.equipment.every((kind) => EQUIPMENT.includes(kind)))));
+
 function readSupplies(entries: unknown, unit: (index: number) => Unit): Map<Unit, UnitSupplies> {
   if (!Array.isArray(entries)) throw new Error("Unit supplies are not a list");
-  const isCounts = (counts: unknown, keys: readonly string[]) =>
-    typeof counts === "object" &&
-    counts !== null &&
-    Object.entries(counts).every(([key, count]) => keys.includes(key) && Number.isInteger(count) && count >= 0);
   return new Map(
     entries.map((entry: { unit: number } & UnitSupplies) => {
       if (!isCounts(entry?.amounts, SUPPLIES) || !isCounts(entry.equipment, EQUIPMENT)) throw new Error("Unknown unit supplies");
@@ -388,6 +398,8 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     if (shot.removedWire !== undefined && !isPosition(shot.removedWire)) throw new Error("Unknown wire removed");
     if (shot.placed !== undefined && !Number.isInteger(shot.placed)) throw new Error("Unknown dice placed");
     if (shot.pushedBack !== undefined && typeof shot.pushedBack !== "boolean") throw new Error("Unknown push back");
+    if (shot.option !== undefined && !fireOptionById(shot.option)) throw new Error("Unknown fire option");
+    if (!isSpent(shot.spent)) throw new Error("Unknown supplies spent");
     return shot;
   });
 

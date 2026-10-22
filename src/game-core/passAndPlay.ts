@@ -528,9 +528,10 @@ class PassAndPlayMatch {
   /**
    * The unit of the side whose turn it is fires at an enemy hex. The hits and flags are dealt at
    * once (no more hits than the unit has figures, limited damage), and an enemy unit given a
-   * second flag retreats now (`retreat`)
+   * second flag retreats now (`retreat`). `option` is how it fires (a fire option's id), its
+   * plain fire when left out
    */
-  fire(order: number, target: Position): boolean {
+  fire(order: number, target: Position, option?: string): boolean {
     const turn = this.battleTurn();
     if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
     const session = this.sessions[turn.side];
@@ -539,7 +540,7 @@ class PassAndPlayMatch {
       session.skipUnmovedFire();
     }
     const shot = session.getSnapshot().shots.length;
-    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false })) return false;
+    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false, option })) return false;
 
     const battle = this.battle!;
     this.battle = {
@@ -614,7 +615,7 @@ class PassAndPlayMatch {
     this.settleRetreats();
   }
 
-  /** The unit takes ground after its close assault (it moves in and, armour, fires once more), or doesn't */
+  /** The unit takes ground after its close assault (it moves in and, armour with a shell left, fires once more), or doesn't */
   decideGround(take: boolean): boolean {
     const ground = this.battle?.ground;
     if (!ground) return false;
@@ -625,9 +626,11 @@ class PassAndPlayMatch {
     const session = this.sessions[ground.side];
     if (!session.takeGround(ground.order)) return false;
     this.settleWire();
-    // Infantry that pushed the enemy back moves in without firing again
+    // Infantry that pushed the enemy back moves in without firing again, and so does armour with
+    // no shell left for its shot more
     const pushedBack = session.getSnapshot().shots.findLast((s) => s.orderIndex === ground.order)?.pushedBack;
-    this.battle = { ...this.battle!, ground: null, bonus: pushedBack ? null : { ...ground } };
+    const canFire = (session.orderSummaries()[ground.order]?.shotsLeft ?? 0) > 0;
+    this.battle = { ...this.battle!, ground: null, bonus: pushedBack || !canFire ? null : { ...ground } };
     return this.publish();
   }
 

@@ -70,7 +70,7 @@ function Pill({ children, testId }: { children: ReactNode; testId?: string }) {
 
 /**
  * How a shot's dice were worked out, as icons: the firing unit and its base
- * dice, then each change (the target's hex, sandbags, cards, a collision),
+ * dice, then each change (the target's hex, sandbags, cards, the action and how it fired, a collision),
  * then who it was fired at and whether it was a close assault.
  */
 function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
@@ -104,6 +104,22 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
             </Typography>
           </>
         );
+      case "action":
+      case "fireOption":
+        // The unit's action (Close Assault) or how it fired (Explosives, Suppressive Fire)
+        return (
+          <>
+            <GameIcon name={step.kind === "action" ? "battle" : "fire"} size={20} />
+            <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
+              {tr(step.label)}
+            </Typography>
+            {step.die && (
+              <Box component="span" sx={{ display: "inline-flex", "& .die": { width: 22, height: 22 } }} aria-hidden>
+                <DieFaceIcon face={DieFace.FLAG} faction={faction} />
+              </Box>
+            )}
+          </>
+        );
       case "collision":
         return <CloseAssaultIcon />;
       case "joined":
@@ -129,7 +145,10 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
     }
   };
 
-  const label = [...shot.steps.map((step) => `${tr(step.label)} ${signed(step.dice)}`), labels.describeTarget(target)].join(" · ");
+  const label = [
+    ...shot.steps.map((step) => (step.dice === 0 && step.kind !== "base" ? tr(step.label) : `${tr(step.label)} ${signed(step.dice)}`)),
+    labels.describeTarget(target),
+  ].join(" · ");
 
   return (
     <Stack
@@ -142,15 +161,18 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
       {shot.steps.map((step, i) => (
         <Pill key={i}>
           {icon(step)}
-          <Typography
-            component="span"
-            sx={{
-              fontWeight: 700,
-              color: step.kind === "base" ? "text.primary" : step.dice < 0 ? "error.main" : "success.main",
-            }}
-          >
-            {step.kind === "base" ? step.dice : signed(step.dice)}
-          </Typography>
+          {/* A step that only changes the die (Suppressive Fire) adds no number */}
+          {(step.kind === "base" || step.dice !== 0) && (
+            <Typography
+              component="span"
+              sx={{
+                fontWeight: 700,
+                color: step.kind === "base" ? "text.primary" : step.dice < 0 ? "error.main" : "success.main",
+              }}
+            >
+              {step.kind === "base" ? step.dice : signed(step.dice)}
+            </Typography>
+          )}
           {/* A die added already showing its face (Heat of Battle's flag) */}
           {step.face && (
             <Box component="span" data-testid="step-face" sx={{ display: "inline-flex", width: 22, height: 22, "& .die": { width: 22, height: 22 } }}>

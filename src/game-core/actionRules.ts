@@ -3,7 +3,7 @@
 // Plain functions over the data in data/unitActions.ts and the unit's supplies
 // (game-core/unitSupplies.ts); GameSession gives the orders.
 import { UnitType } from "./unit";
-import type { UnitAction } from "./unitAction";
+import type { FireOption, UnitAction } from "./unitAction";
 import { UnitSupplies, amountOf, canPay } from "./unitSupplies";
 import type { MoveLimits } from "./orderRules";
 import type { MoveRules } from "./BoardManager";
@@ -62,6 +62,22 @@ export const moveRulesOf = (action: UnitAction): MoveRules => (action.ignoresTer
 
 /** The shots the order gives the unit once it ends its move: none for an action that doesn't fire */
 export const shotsOf = (action: UnitAction): number => action.fire?.shots ?? 0;
+
+/** Why the unit can't fire a shot this way: the supply it lacks, or a piece of equipment; null when it can */
+export function fireOptionRefusal(option: FireOption, supplies: UnitSupplies): Supply | "equipment" | null {
+  if (canPay(supplies, option.cost)) return null;
+  return SUPPLIES.find((supply) => amountOf(supplies, supply) < (option.cost.amounts?.[supply] ?? 0)) ?? "equipment";
+}
+
+/** The fire options of a unit type, the plain one first (the default, and what a collision spends) */
+export const fireOptionsFor = (unitType: UnitType): readonly FireOption[] => FIRE_OPTIONS[unitType];
+
+/** The unit's plain fire option: a shot with nothing chosen, and what a collision spends */
+export const plainFireOption = (unitType: UnitType): FireOption => FIRE_OPTIONS[unitType][0]!;
+
+/** The unit has the ammo or shells for at least one shot */
+export const canFireAShot = (unitType: UnitType, supplies: UnitSupplies): boolean =>
+  FIRE_OPTIONS[unitType].some((option) => canPay(supplies, option.cost));
 
 /** The actions a plain move turns into for this unit type, in the order they're tried */
 export const plainActionsFor = (unitType: UnitType): UnitAction[] =>

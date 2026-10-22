@@ -87,6 +87,18 @@ export function pay(supplies: UnitSupplies, cost: SupplyCost): UnitSupplies | nu
   return { amounts, equipment };
 }
 
+/** What was paid given back (a shot taken back): never past what the unit had, since it came from there */
+export function refund(supplies: UnitSupplies, cost: SupplyCost): UnitSupplies {
+  const amounts = { ...supplies.amounts };
+  for (const supply of SUPPLIES) {
+    const spent = cost.amounts?.[supply] ?? 0;
+    if (spent > 0) amounts[supply] = amountOf(supplies, supply) + spent;
+  }
+  const equipment = { ...supplies.equipment };
+  for (const kind of cost.equipment ?? []) equipment[kind] = equipmentOf(supplies, kind) + 1;
+  return { amounts, equipment };
+}
+
 /** The Reload action: ammo or shells back, never past full */
 export const reload = (supplies: UnitSupplies, full: UnitSupplies): UnitSupplies =>
   withAmounts(supplies, full, (supply, current) => current + (RELOAD[supply] ?? 0));

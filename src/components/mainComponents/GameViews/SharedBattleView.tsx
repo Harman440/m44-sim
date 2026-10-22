@@ -47,6 +47,7 @@ import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/use
 import "../GameView.css";
 import "./PhaseLayout.css";
 import MedalTally from "../../MedalTally";
+import FireOptionPicker from "../../FireOptionPicker";
 
 const TEXT = defineMessages({
   es: {
@@ -177,6 +178,9 @@ interface FiringUnitProps {
   aims: readonly ShotAim[];
   /** The target picked on the map */
   aim: ShotAim | null;
+  /** How it fires, by fire option id (null: its plain fire) */
+  option: string | null;
+  onPickOption: (id: string) => void;
   onFire: () => void;
   onHold: () => void;
   /** Infantry on barbed wire removes it instead of firing */
@@ -186,7 +190,7 @@ interface FiringUnitProps {
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 
 /** The unit picked on the map to fire: where it stands, its target and the dice it rolls */
-function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onRemoveWire }: FiringUnitProps) {
+function FiringUnit({ side, session, order, aims, aim, option, onPickOption, onFire, onHold, onRemoveWire }: FiringUnitProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -195,6 +199,7 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onRemoveW
   const figures = session.figuresAt(summary.firingFrom);
   const range = BASE_DICE_BY_DISTANCE[summary.unitType];
   const game = session.getSnapshot();
+  const fireOptions = session.fireOptions(order);
 
   return (
     <Stack spacing={1} data-testid="firing-unit">
@@ -212,6 +217,13 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onRemoveW
           </Typography>
         </Box>
       </Stack>
+
+      <FireOptionPicker
+        options={fireOptions}
+        selected={option ?? fireOptions[0]?.option.id ?? ""}
+        onSelect={onPickOption}
+        closeAssault={summary.closeAssaultOnly}
+      />
 
       {aim ? (
         <Stack spacing={1} data-testid="fire-target">
@@ -271,7 +283,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const play = useSound();
   const { battle } = useSyncExternalStore(match.subscribe, match.getSnapshot);
   /** The unit picked to fire (an order of the side whose turn it is) and its target, on the map */
-  const [aiming, setAiming] = useState<{ side: Faction; order: number; target: Position | null } | null>(null);
+  const [aiming, setAiming] = useState<{ side: Faction; order: number; target: Position | null; option?: string } | null>(null);
   /** The shot rolled on this screen, whose dice are thrown in: its side and index in that side's shots */
   const [rolled, setRolled] = useState<{ side: Faction; shot: number } | null>(null);
   const [cardsOf, setCardsOf] = useState<Faction | null>(null);
@@ -329,12 +341,17 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     !pick && !retreat && !shownShot && !battle.ground && side && side !== computer && session ? { side, session } : null;
   const picked = fireTurn && aiming?.side === fireTurn.side && battle.fireable.includes(aiming.order) ? aiming : null;
   const pickedSummary = picked ? summaries[picked.order] : undefined;
+  // An option it can't pay for any more falls back to its plain fire
+  const option =
+    picked && fireTurn?.session.fireOptions(picked.order).some((c) => c.option.id === picked.option && c.refusal === null)
+      ? picked.option
+      : undefined;
   const aims: ShotAim[] =
     picked && fireTurn
       ? fireTurn.session
-          .fireTargetsFor(picked.order)
+          .fireTargetsFor(picked.order, option)
           .filter((target) => target.lineOfSight && target.dice > 0)
-          .flatMap((target) => fireTurn.session.aimAt(picked.order, target.position) ?? [])
+          .flatMap((target) => fireTurn.session.aimAt(picked.order, target.position, option) ?? [])
       : [];
   const aim = picked?.target ? (aims.find((a) => samePosition(a.position, picked.target!)) ?? null) : null;
   const fireablePositions = fireTurn ? battle.fireable.map((order) => summaries[order]!.firingFrom) : [];
@@ -372,7 +389,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const fire = () => {
     if (!picked || !aim || !fireTurn) return;
     const shot = fireTurn.session.getSnapshot().shots.length;
-    if (!match.fire(picked.order, aim.position)) return;
+    if (!match.fire(picked.order, aim.position, option)) return;
     play("dice");
     setRolled({ side: fireTurn.side, shot });
   };
@@ -578,6 +595,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                       order={picked.order}
                       aims={aims}
                       aim={aim}
+                      option={option ?? null}
+                      onPickOption={(id) => setAiming({ ...picked, option: id, target: null })}
                       onFire={fire}
                       onHold={() => {
                         if (match.holdFire(picked.order)) setAiming(null);

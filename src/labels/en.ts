@@ -83,9 +83,15 @@ const unitKind: Labels["unitKind"] = (type, elite = false) => (elite ? `Elite ${
 
 const unit: Labels["unit"] = (unit) => unitKind(unit.getUnitType(), unit.elite);
 
+/** A supply counted one, where it differs from its name */
+const ONE_SUPPLY: Partial<Record<Supply, string>> = { [Supply.SHELLS]: "shell" };
+
 const describeCost: Labels["describeCost"] = (cost) =>
   [
-    ...SUPPLIES.flatMap((supply) => (cost.amounts?.[supply] ? [`${cost.amounts[supply]} ${SUPPLY_NAMES[supply].toLowerCase()}`] : [])),
+    ...SUPPLIES.flatMap((supply) => {
+      const amount = cost.amounts?.[supply];
+      return amount ? [`${amount} ${amount === 1 ? (ONE_SUPPLY[supply] ?? SUPPLY_NAMES[supply].toLowerCase()) : SUPPLY_NAMES[supply].toLowerCase()}`] : [];
+    }),
     ...(cost.equipment ?? []).map((kind) => EQUIPMENT_NAMES[kind].toLowerCase()),
   ].join(" + ") || "free";
 

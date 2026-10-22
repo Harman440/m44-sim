@@ -16,7 +16,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { Faction } from "../types/faction";
-import { ShotRoll } from "../game-core/gameSession";
+import { FireOptionChoice, ShotRoll } from "../game-core/gameSession";
 import { Position } from "../types/scenario";
 import { FireContext } from "../game-core/fireRules";
 import { FireTarget } from "../game-core/fireTargets";
@@ -27,6 +27,7 @@ import ShotDice from "./ShotDice";
 import ShotSteps from "./ShotSteps";
 import { UnitType } from "../game-core/unit";
 import FireAim, { FireAimChoice } from "./FireAim";
+import FireOptionPicker from "./FireOptionPicker";
 import { TargetKinds } from "../data/hitRules";
 import HexThumbnail from "./HexThumbnail";
 import GameIcon from "./GameIcon";
@@ -107,15 +108,17 @@ const TEXT = defineMessages({
 interface FireDialogProps {
   /** The firing unit's order; the dialog is closed when null */
   summary: OrderSummary | null;
-  /** The card's extra dice for this unit (Finest Hour) */
-  combatBonuses?: FireContext["combatBonuses"];
   faction: Faction;
   board: BoardManager;
   /** The scenario's board art, for the map */
   image?: string;
-  /** The hexes the unit can fire at from where it stands */
-  targets: readonly FireTarget[];
-  /** Fire at a hex picked on the map; the session works out and rolls the dice */
+  /** How the unit can fire its next shot, and what it lacks for each way; the first is its plain fire */
+  fireOptions?: readonly FireOptionChoice[];
+  /** The hexes the unit can fire at from where it stands, firing with this option (its plain fire when left out) */
+  targetsFor: (option?: string) => readonly FireTarget[];
+  /** What the fire questions know about the shot fired with this option (the card's and action's dice, its hex) */
+  contextFor: (option?: string) => FireContext | null;
+  /** Fire at a hex picked on the map, with the option picked; the session works out and rolls the dice */
   onFireAt: (choice: FireAimChoice) => boolean;
   /** The last shot was a close assault that lets the unit take ground and fire again */
   canTakeGround?: boolean;
@@ -271,11 +274,12 @@ export function ShotResult({ shot, number, unitType, faction, board, image, roll
  */
 function FireDialog({
   summary,
-  combatBonuses,
   faction,
   board,
   image,
-  targets,
+  fireOptions = [],
+  targetsFor,
+  contextFor,
   onFireAt,
   canTakeGround = false,
   onTakeGround,
@@ -302,17 +306,14 @@ function FireDialog({
   const [justFired, setJustFired] = useState(false);
   /** Infantry on barbed wire chose to fire (with a die less) rather than remove it */
   const [firingFromWire, setFiringFromWire] = useState(false);
+  /** How it fires the shot being aimed (a fire option's id); null for its plain fire */
+  const [option, setOption] = useState<string | null>(null);
 
   if (!summary) return null;
 
-  const context: FireContext = {
-    unitType: summary.unitType,
-    closeAssaultOnly: summary.closeAssaultOnly,
-    combatBonuses,
-    fromTerrain: board.getHex(summary.firingFrom)?.getType(),
-    fromWire: board.getHex(summary.firingFrom)?.wire ?? false,
-    enemyCamouflage,
-  };
+  // An option it can no longer pay for (it just fired its explosives) falls back to its plain fire
+  const optionId = fireOptions.find((choice) => choice.option.id === option && choice.refusal === null)?.option.id;
+  const context: FireContext = contextFor(optionId) ?? { unitType: summary.unitType, enemyCamouflage };
   const canFire = summary.shotsLeft > 0 && !summary.waiting;
   // After taking ground the unit fires again, from the hex it took
   const takenGround = summary.tookGround && summary.shots.at(-1)?.tookGround === true;
@@ -324,7 +325,7 @@ function FireDialog({
   };
 
   const handleFire = (choice: FireAimChoice) => {
-    if (!onFireAt(choice)) return;
+    if (!onFireAt({ ...choice, option: optionId })) return;
     resetAim();
     setJustFired(true);
   };
@@ -447,17 +448,26 @@ function FireDialog({
     }
 
     return (
-      <FireAim
-        board={board}
-        image={image}
-        faction={faction}
-        from={summary.firingFrom}
-        targets={targets}
-        context={context}
-        longRangeDie={longRangeDie}
-        targetKinds={targetKinds}
-        onFire={handleFire}
-      />
+      <Stack sx={{ gap: 1 }}>
+        <FireOptionPicker
+          options={fireOptions}
+          selected={optionId ?? fireOptions[0]?.option.id ?? ""}
+          onSelect={(id) => setOption(id)}
+          closeAssault={summary.closeAssaultOnly}
+        />
+        <FireAim
+          key={optionId ?? "plain"}
+          board={board}
+          image={image}
+          faction={faction}
+          from={summary.firingFrom}
+          targets={targetsFor(optionId)}
+          context={context}
+          longRangeDie={longRangeDie}
+          targetKinds={targetKinds}
+          onFire={handleFire}
+        />
+      </Stack>
     );
   };
 

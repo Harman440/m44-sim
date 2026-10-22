@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CombatBonus, FireContext, FireQuestion, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import { UnitType } from "./unit";
+import { fireOptionById } from "../data/unitActions";
 import { same } from "../i18n/lang";
 
 const context = (unitType: UnitType, combatBonuses: readonly CombatBonus[] = []): FireContext => ({ unitType, combatBonuses });
@@ -222,5 +223,22 @@ describe("fire questions (house rules)", () => {
       { label: { es: "Base: Infantería a 2 casillas", en: "Base: Infantry at 2 hexes" }, dice: 2, kind: "base" },
       { label: { es: "Objetivo en bosque", en: "Target in forest" }, dice: -1, kind: "terrain" },
     ]);
+  });
+});
+
+describe("the action's and the fire option's dice", () => {
+  const answers = { distance: "1", targetType: "infantry", targetTerrain: "plains", sandbags: "no" };
+  const steps = (extra: Partial<FireContext>) =>
+    calculateFireDice(FIRE_QUESTIONS, { unitType: UnitType.TANK, ...extra }, answers, fireBonusSteps).steps;
+
+  it("adds the action's dice, and the option's in close assault unless it says only when the unit didn't move", () => {
+    const tankNormal = fireOptionById("tank:normal")!;
+    expect(steps({ actionBonus: { name: same("Asalto"), dice: 1 } }).map((step) => step.kind)).toEqual(["base", "action"]);
+    expect(steps({ fireOption: tankNormal }).map((step) => step.kind)).toEqual(["base", "fireOption"]);
+    expect(steps({ fireOption: tankNormal, moved: true }).map((step) => step.kind)).toEqual(["base"]);
+  });
+
+  it("keeps a step that changes the die thrown, though it adds no dice", () => {
+    expect(steps({ fireOption: fireOptionById("tank:suppressive")! }).at(-1)).toMatchObject({ kind: "fireOption", dice: 0, die: "suppressive" });
   });
 });

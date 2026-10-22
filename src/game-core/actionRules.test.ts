@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { UnitType } from "./unit";
-import { actionRefusal, actionsFor, moveLimitsOf, moveRulesOf, plainActionForMove, plainActionsFor, shotsOf } from "./actionRules";
+import {
+  actionRefusal,
+  actionsFor,
+  canFireAShot,
+  fireOptionRefusal,
+  moveLimitsOf,
+  moveRulesOf,
+  plainActionForMove,
+  plainActionsFor,
+  plainFireOption,
+  shotsOf,
+} from "./actionRules";
 import { UnitSupplies, fullSupplies } from "./unitSupplies";
-import { UNIT_ACTIONS, actionById } from "../data/unitActions";
+import { UNIT_ACTIONS, actionById, fireOptionById } from "../data/unitActions";
 import { Equipment, Supply } from "../data/unitSupplies";
 import type { UnitAction } from "./unitAction";
 
@@ -123,5 +134,26 @@ describe("the plain action for a move", () => {
     expect(plainActionForMove(options)?.id).toBe("c");
     expect(plainActionForMove(options.slice(0, 2))?.id).toBe("b");
     expect(plainActionForMove(options.slice(0, 1))).toBeNull();
+  });
+});
+
+describe("how a unit fires a shot", () => {
+  it("fires plainly by default, and a collision spends that", () => {
+    expect(plainFireOption(UnitType.INFANTRY).id).toBe("infantry:normal");
+    expect(plainFireOption(UnitType.TANK).id).toBe("tank:normal");
+    expect(plainFireOption(UnitType.ARTILLERY).id).toBe("artillery:fire");
+  });
+
+  it("refuses an option the unit can't pay for: the ammo or shell, or the explosives", () => {
+    const explosives = fireOptionById("infantry:explosives")!;
+    expect(fireOptionRefusal(explosives, fullSupplies(UnitType.INFANTRY))).toBeNull();
+    expect(fireOptionRefusal(explosives, suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBe(Supply.AMMO);
+    expect(fireOptionRefusal(explosives, suppliesWith(UnitType.INFANTRY, {}, { [Equipment.EXPLOSIVES]: 0 }))).toBe("equipment");
+    expect(fireOptionRefusal(fireOptionById("tank:normal")!, suppliesWith(UnitType.TANK, { [Supply.SHELLS]: 0 }))).toBe(Supply.SHELLS);
+  });
+
+  it("knows whether the unit has anything left to fire", () => {
+    expect(canFireAShot(UnitType.ARTILLERY, fullSupplies(UnitType.ARTILLERY))).toBe(true);
+    expect(canFireAShot(UnitType.ARTILLERY, suppliesWith(UnitType.ARTILLERY, { [Supply.SHELLS]: 0 }))).toBe(false);
   });
 });

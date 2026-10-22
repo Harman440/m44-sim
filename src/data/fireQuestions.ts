@@ -302,11 +302,30 @@ const pinnedSteps = ({ unitType, pinned }: FireContext, answers: FireAnswers): D
     ? [{ label: { es: "Inmovilizada", en: "Pinned" }, dice: PINNED_FIRE_DICE[unitType], kind: "pinned" }]
     : [];
 
-/** Extra dice that don't need a question: the card's bonuses, and the firing unit's own hex (barbed wire, a town, a ford) */
+/**
+ * The action's extra dice (Close Assault) and the fire option's: its close assault dice
+ * (Explosives; armour's normal fire, only if it didn't move) and its die (Suppressive Fire)
+ */
+const actionSteps = ({ actionBonus, fireOption, moved = false }: FireContext, closeAssault: boolean): DiceStep[] => {
+  const steps: DiceStep[] = [];
+  if (actionBonus) steps.push({ label: actionBonus.name, dice: actionBonus.dice, kind: "action" });
+  const bonus = fireOption?.closeAssaultBonus;
+  if (fireOption && bonus && closeAssault && !(bonus.unmoved && moved)) {
+    steps.push({ label: fireOption.name, dice: bonus.dice, kind: "fireOption" });
+  }
+  if (fireOption?.die) steps.push({ label: fireOption.name, dice: 0, kind: "fireOption", die: fireOption.die });
+  return steps;
+};
+
+/**
+ * Extra dice that don't need a question: the card's bonuses, the action's and the fire option's,
+ * and the firing unit's own hex (barbed wire, a town, a ford)
+ */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
   answers.distance
     ? [
         ...combatSteps(context, answers.distance === "1"),
+        ...actionSteps(context, answers.distance === "1"),
         ...wireSteps(context),
         ...fromTownSteps(context),
         ...fordSteps(context),

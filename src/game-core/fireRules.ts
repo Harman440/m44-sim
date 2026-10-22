@@ -4,7 +4,8 @@
 import { UnitType } from "./unit";
 import { HexType } from "../types/hex";
 import type { Localized } from "../i18n/lang";
-import type { DieFace } from "./dice";
+import type { DieFace, DieKind } from "./dice";
+import type { FireOption as UnitFireOption } from "./unitAction";
 
 /** Extra dice the card played this turn gives a unit, every time it fires (Finest Hour) */
 export interface CombatBonus {
@@ -23,6 +24,12 @@ export interface FireContext {
   closeAssaultOnly?: boolean;
   /** Extra dice from the card played this turn (Finest Hour) */
   combatBonuses?: readonly CombatBonus[];
+  /** Extra dice the unit's action gives every shot (Close Assault) */
+  actionBonus?: { name: Localized; dice: number };
+  /** How the unit fires this shot (data/unitActions.ts FIRE_OPTIONS): its dice and its die */
+  fireOption?: UnitFireOption;
+  /** The unit moved this turn (its order, or taking ground): armour's normal fire loses its close assault die */
+  moved?: boolean;
   /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground; armour in a town loses dice) */
   fromTerrain?: HexType;
   /** The unit fires from a hex with barbed wire (infantry loses a die) */
@@ -52,7 +59,19 @@ export interface FireOption {
 }
 
 /** What a line of the dice calculation is about, to draw it as an icon */
-export type DiceStepKind = "base" | "terrain" | "sandbags" | "card" | "collision" | "wire" | "fromTown" | "ford" | "joined" | "pinned";
+export type DiceStepKind =
+  | "base"
+  | "terrain"
+  | "sandbags"
+  | "card"
+  | "collision"
+  | "wire"
+  | "fromTown"
+  | "ford"
+  | "joined"
+  | "pinned"
+  | "action"
+  | "fireOption";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */
 export interface DiceStep {
@@ -66,6 +85,8 @@ export interface DiceStep {
   face?: DieFace;
   /** A "joined" step's unit: it rolled its dice with the shot's unit (Concentrated Fire) */
   unit?: UnitType;
+  /** The step changes the die thrown rather than how many (Suppressive Fire), so it's kept with 0 dice */
+  die?: DieKind;
 }
 
 /** The faces a roll's steps add without throwing them (Heat of Battle's flag), in step order */
@@ -129,6 +150,9 @@ export function nextFireQuestion(
   );
 }
 
+/** A step that changes nothing is left out: no dice, and the same die */
+const kept = (step: DiceStep) => step.dice !== 0 || step.die !== undefined;
+
 /**
  * Add up the dice from every answered question that applies, plus any extra
  * dice from `extraSteps` (e.g. command card bonuses). Never below 0.
@@ -145,8 +169,8 @@ export function calculateFireDice(
   const relevant = answered(questions, context, answers);
   const steps = relevant
     .map((q) => q.effect(context, answers[q.id]!, answers))
-    .filter((step): step is DiceStep => step !== null && step.dice !== 0)
-    .concat(extraSteps(context, answers).filter((step) => step.dice !== 0));
+    .filter((step): step is DiceStep => step !== null && kept(step))
+    .concat(extraSteps(context, answers).filter(kept));
   const notes = relevant
     .map((q) => q.note?.(context, answers[q.id]!) ?? null)
     .filter((note): note is Localized => note !== null);

@@ -141,14 +141,15 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Rule book ("El primer turno") and the menu's scenario panel ("Ataca"/"Defiende" info) say so. `SAVE_VERSION` bumped. Tests: both sides pick a card on turn 1, a defender's infantry starts with 1 ammo and its tanks and artillery with 1 shell, an attacker's with 2
 
 ### R7: Firing with actions
-- [ ] When a unit fires:
+- [x] When a unit fires:
   - No Respite fires with the units that didn't move, and Behind Enemy Lines fires before anyone
   - Artillery Bombardment fires twice (a second shot only with a shell left)
   - Armour Forward can't fire from a hex whose terrain forbids it
   - an action without fire can't fire
-- [ ] Each shot picks a fire option (R2), which spends ammo or shells, and a unit with none left can't fire. Close Assault +1 die, armour's +1 die if it didn't move, Explosives, Suppressive and Finest Hour go through the dice steps, so `ShotSteps` explains them. `FireDialog` offers the options
-- [ ] Collisions spend 1 ammo or shell. A unit with none left, or at morale 0, doesn't roll in a collision (only the other side does)
-- [ ] Tests: each option's dice, what it spends, refused when empty, collisions, and the firing round of No Respite and Behind Enemy Lines
+- [x] Each shot picks a fire option (R2), which spends ammo or shells, and a unit with none left can't fire. Close Assault +1 die, armour's +1 die if it didn't move, Explosives, Suppressive and Finest Hour go through the dice steps, so `ShotSteps` explains them. `FireDialog` offers the options (and so does pass and play's battle screen, `FireOptionPicker`). Taking a shot back gives its ammo or shells back. Armour that takes ground with no shell left moves in without its shot more
+- [x] Collisions spend 1 ammo or shell. A unit with none left, or at morale 0, doesn't roll in a collision (only the other side does)
+- [x] Tests: each option's dice, what it spends, refused when empty, collisions, and the firing round of No Respite and Behind Enemy Lines
+- [x] Brought forward from R8 so the computer's games still end: Reload's ammo or shells come back when the orders are confirmed, and the computer reloads a unit with nothing left to fire (R15 teaches it the rest). `SAVE_VERSION` 40
 
 ### R8: Morale, and the other actions and cards
 - [ ] Pass and play and computer: each flag on infantry is −1 morale (down to 0), on top of the pinned and retreat rule. Own tablets: flags as today, no morale
@@ -161,7 +162,7 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
   - Take Cover: the infantry hits ignored
   - Reposition: moves after the battle
   - Behind Enemy Lines: the 3-hex move after the battle
-  - Reload
+  - ~~Reload~~ (done in R7)
 
   On own tablets, Medic and Mechanic are a reminder for the table
 - [ ] Resupply and Refuel take effect as the orders are revealed

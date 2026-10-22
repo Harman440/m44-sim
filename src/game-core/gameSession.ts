@@ -3,7 +3,7 @@ import BoardManager from "./BoardManager";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds, faceHits } from "../data/hitRules";
-import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice } from "./dice";
+import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
 import { FireTarget, fireTargets, hexDistance, mapAnswers } from "./fireTargets";
@@ -34,15 +34,20 @@ import {
   ActionRefusal,
   actionRefusal,
   actionsFor,
+  canFireAShot,
+  fireOptionRefusal,
+  fireOptionsFor,
   moveLimitsOf,
   moveRulesOf,
   plainActionForMove,
   plainActionsFor,
+  plainFireOption,
   shotsOf,
 } from "./actionRules";
-import type { UnitAction } from "./unitAction";
-import { UnitSupplies, endOfTurn, fullSupplies, pay, startingSupplies } from "./unitSupplies";
-import { actionById } from "../data/unitActions";
+import type { FireOption, UnitAction } from "./unitAction";
+import { SupplyCost, UnitSupplies, endOfTurn, fullSupplies, pay, refund, reload, startingSupplies } from "./unitSupplies";
+import { actionById, fireOptionById } from "../data/unitActions";
+import { Supply } from "../data/unitSupplies";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
 import { ARTILLERY_CREW_FIGURES, figureDamaged, figuresLeft, hitsToDestroy } from "../data/figures";
@@ -181,6 +186,8 @@ export interface ShotRoll {
   targetPosition?: Position;
   /** How many of the last dice were added already showing their face, when the steps don't say */
   placed?: number;
+  /** The ammo or shells (and equipment) it spent, given back if it's taken back */
+  spent?: SupplyCost;
 }
 
 /** What the player says about the hex fired at (pass and play knows it from the enemy unit there) */
@@ -194,21 +201,45 @@ export interface FireChoice {
   pinned?: boolean;
   /** Own tablets: an enemy unit is next to the firing unit, so it can't fire at range; pass and play knows */
   adjacentEnemy?: boolean;
+  /** How the unit fires (a fire option's id, data/unitActions.ts); left out, its plain fire */
+  option?: string;
 }
 
-/** One unit's part of a shot: its dice, how they add up and the die it throws */
+/** One unit's part of a shot: its dice, how they add up, the die it throws and how it fires */
 interface ShotPart {
   dice: number;
   steps: DiceStep[];
   notes: Localized[];
   target: ShotTarget;
   usedBonus: boolean;
+  option: FireOption;
+}
+
+/** A fire option offered to a unit, and what it lacks for it (null when it can fire so) */
+export interface FireOptionChoice {
+  option: FireOption;
+  refusal: Supply | "equipment" | null;
+}
+
+/** What a shot is, for recording it */
+interface ShotRecord {
+  dice: number;
+  steps: DiceStep[];
+  notes: Localized[];
+  target: ShotTarget;
+  collision?: boolean;
+  combatBonus?: boolean;
+  targetPosition?: Position;
+  /** How it fired; a collision fires plainly */
+  option: FireOption;
 }
 
 /** A unit's shot this turn. Once rolled it stands; only a deliberate undo removes it. */
 export interface Shot extends ShotRoll {
   /** Index of the firing unit's order in this turn's orders */
   orderIndex: number;
+  /** How it fired: a fire option's id (data/unitActions.ts); left out in a collision or removing wire */
+  option?: string;
   /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
   tookGround?: boolean;
   /** Pass and play: infantry took ground by pushing back the unit its close assault made retreat; no more shot */
@@ -698,7 +729,7 @@ class GameSession {
 
   // --- MOVEMENT: the orders are shown to the opponent and carried out on the table
 
-  /** Confirm the orders and move on to the movement phase; from here on they can't change */
+  /** Confirm the orders and move on to the movement phase; from here on they can't change. Each action is paid now */
   commitOrders(): boolean {
     if (this.phase !== TurnPhase.ORDER_UNITS) return false;
     if (this.markersLeft() > 0) return false;
@@ -706,7 +737,10 @@ class GameSession {
     for (const order of this.orders) {
       const action = actionById(order.action);
       const paid = action && pay(this.suppliesOf(order.unit), action.cost);
-      if (paid) this.supplies.set(order.unit, paid);
+      if (!paid) continue;
+      // Reload: the ammo or shells come back at once (the unit doesn't fire this turn)
+      const full = fullSupplies(order.unit.getUnitType(), order.unit.elite);
+      this.supplies.set(order.unit, action.effect === "reload" ? reload(paid, full) : paid);
     }
     this.phase = TurnPhase.MOVEMENT;
     return this.publish();
@@ -893,11 +927,21 @@ class GameSession {
 
   /**
    * Whether this side's unit can battle in a collision: not when its order doesn't let it fire
-   * (it moved too far, or into terrain it can't fire from), nor once it's been made to retreat
+   * (it moved too far, or into terrain it can't fire from), nor once it's been made to retreat,
+   * nor with no ammo or shells left for the roll, nor at morale 0
    */
   canRollCollision(position: Position, order: number | null): boolean {
     if (order !== null && !this.orders[order]?.canFire) return false;
+    const unit = this.board.getHex(position)?.unit;
+    if (unit && !this.canPayCollision(unit)) return false;
     return !this.hasRetreated(position);
+  }
+
+  /** The unit has the ammo or shell a collision spends, and some morale (a type without morale always does) */
+  private canPayCollision(unit: Unit): boolean {
+    const supplies = this.suppliesOf(unit);
+    if (supplies.amounts[Supply.MORALE] === 0) return false;
+    return pay(supplies, plainFireOption(unit.getUnitType()).cost) !== null;
   }
 
   /**
@@ -922,10 +966,13 @@ class GameSession {
     const steps = collisionSteps(context);
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     const target: ShotTarget = { infantry, closeAssault: true, die: "battle" };
+    const option = plainFireOption(unit.getUnitType());
     if (ordered) {
-      return this.recordShot(order!, dice, steps, [...COLLISION_NOTES], target, true, combatBonusDice(context, true) > 0);
+      const combatBonus = combatBonusDice(context, true) > 0;
+      return this.recordShot(order!, { dice, steps, notes: [...COLLISION_NOTES], target, collision: true, combatBonus, option });
     }
 
+    this.spend(unit, option.cost);
     const roll: StandingCollisionRoll = {
       from: { ...position },
       unitType: unit.getUnitType(),
@@ -937,6 +984,7 @@ class GameSession {
       target,
       combatBonus: false,
       kept: null,
+      spent: option.cost,
     };
     this.standingCollisions = [...this.standingCollisions, roll];
     return this.publish();
@@ -984,7 +1032,8 @@ class GameSession {
       this.board,
       this.shots,
       this.unmovedFireSkipped,
-      new Set([...this.retreatFlags.keys()].filter((unit) => this.retreated(unit)))
+      new Set([...this.retreatFlags.keys()].filter((unit) => this.retreated(unit))),
+      new Set(this.orders.flatMap((order) => (canFireAShot(order.unit.getUnitType(), this.suppliesOf(order.unit)) ? [] : [order.unit])))
     );
   }
 
@@ -1076,15 +1125,20 @@ class GameSession {
    * to work out the dice. The questionnaire must be complete. A shot worth 0
    * dice is still recorded: the unit has used its fire.
    */
-  /** What the fire questions need to know about this unit's next shot */
-  private fireContextFor(orderIndex: number): FireContext | null {
+  /** What the fire questions need to know about this unit's next shot, fired with this option */
+  private fireContextFor(orderIndex: number, option?: FireOption): FireContext | null {
     const order = this.orders[orderIndex];
     const summary = this.summaries()[orderIndex];
     if (!order || !summary) return null;
+    const action = actionById(order.action);
+    const bonusDice = action?.fire?.bonusDice ?? 0;
     return {
       unitType: order.unit.getUnitType(),
-      closeAssaultOnly: summary.closeAssaultOnly,
+      closeAssaultOnly: summary.closeAssaultOnly || !!option?.closeAssaultOnly,
       combatBonuses: this.combatBonusesFor(orderIndex),
+      ...(action && bonusDice !== 0 && { actionBonus: { name: action.name, dice: bonusDice } }),
+      ...(option && { fireOption: option }),
+      moved: !samePosition(order.start, order.end) || summary.tookGround,
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
       fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
       fromFord: !!this.board.getHex(summary.firingFrom)?.getTerrain().ford,
@@ -1100,11 +1154,44 @@ class GameSession {
   }
 
   /**
+   * How the unit of this order may fire its next shot: each of its type's fire options, and what
+   * it lacks for it. Empty when it can't fire now
+   */
+  fireOptions(orderIndex: number): FireOptionChoice[] {
+    const order = this.orders[orderIndex];
+    if (!order || this.shotsLeft(orderIndex) <= 0) return [];
+    const supplies = this.suppliesOf(order.unit);
+    return fireOptionsFor(order.unit.getUnitType()).map((option) => ({ option, refusal: fireOptionRefusal(option, supplies) }));
+  }
+
+  /**
+   * What the fire questions know about this unit's next shot fired with this option (its plain
+   * one when left out), for the dialog to work out the dice as the session will; null when it
+   * can't fire so
+   */
+  fireContextOf(orderIndex: number, optionId?: string): FireContext | null {
+    const option = this.fireOptionFor(orderIndex, optionId);
+    return option && this.fireContextFor(orderIndex, option);
+  }
+
+  /** The fire option named for this order's next shot (its plain one when left out), or null when it can't fire so */
+  private fireOptionFor(orderIndex: number, optionId?: string): FireOption | null {
+    const order = this.orders[orderIndex];
+    if (!order) return null;
+    const unitType = order.unit.getUnitType();
+    const option = optionId === undefined ? plainFireOption(unitType) : fireOptionById(optionId);
+    if (!option || option.unitType !== unitType) return null;
+    return fireOptionRefusal(option, this.suppliesOf(order.unit)) === null ? option : null;
+  }
+
+  /**
    * The hexes this unit can fire at from where it stands (or the hex it took
    * ground on): in range, and whether each is in sight and how many dice it gets.
+   * With a fire option, as it fires so (Explosives: only in close assault)
    */
-  fireTargetsFor(orderIndex: number): FireTarget[] {
-    const context = this.fireContextFor(orderIndex);
+  fireTargetsFor(orderIndex: number, optionId?: string): FireTarget[] {
+    const option = this.fireOptionFor(orderIndex, optionId);
+    const context = option && this.fireContextFor(orderIndex, option);
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
     const enemies = this.seenEnemies()?.map((enemy) => enemy.position);
     return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, enemies);
@@ -1156,8 +1243,8 @@ class GameSession {
    * Fire answering the questionnaire by hand (the answers include the distance and the target's
    * terrain). Left out, the answer about an enemy next to the unit is no
    */
-  fire(orderIndex: number, answers: FireAnswers): boolean {
-    return this.fireWith(orderIndex, { [ADJACENT_ENEMY_ANSWER]: "no", ...answers });
+  fire(orderIndex: number, answers: FireAnswers, optionId?: string): boolean {
+    return this.fireWith(orderIndex, { [ADJACENT_ENEMY_ANSWER]: "no", ...answers }, optionId);
   }
 
   /**
@@ -1168,7 +1255,7 @@ class GameSession {
   fireAt(orderIndex: number, choice: FireChoice): boolean {
     const aim = this.aimAnswers(orderIndex, choice);
     if (!aim) return false;
-    return this.fireWith(orderIndex, aim.answers, choice.position);
+    return this.fireWith(orderIndex, aim.answers, choice.option, choice.position);
   }
 
   /** The fire answers for a shot at a hex picked on the map; null when the hex can't be fired at */
@@ -1179,9 +1266,9 @@ class GameSession {
     const { position } = choice;
     let { infantry, sandbags } = choice;
     let camouflaged = choice.camouflaged ?? false;
-    const target = this.fireTargetsFor(orderIndex).find((t) => samePosition(t.position, position));
+    const target = this.fireTargetsFor(orderIndex, choice.option).find((t) => samePosition(t.position, position));
     if (!target || !target.lineOfSight || target.dice <= 0) return null;
-    const context = this.fireContextFor(orderIndex)!;
+    const context = this.fireContextFor(orderIndex, this.fireOptionFor(orderIndex, choice.option)!)!;
     // Pass and play: the enemy unit there is known
     const enemy = this.enemyAt(position);
     if (enemy) {
@@ -1204,10 +1291,10 @@ class GameSession {
    * Pass and play: the shot this unit would fire at the enemy unit on this hex, before it's
    * rolled: its dice and where they come from, and the die thrown. Null when it can't fire there.
    */
-  aimAt(orderIndex: number, position: Position): ShotAim | null {
+  aimAt(orderIndex: number, position: Position, optionId?: string): ShotAim | null {
     const enemy = this.enemyAt(position);
     if (!enemy || this.shotsLeft(orderIndex) <= 0) return null;
-    const aim = this.aimAnswers(orderIndex, { position, infantry: true, sandbags: false });
+    const aim = this.aimAnswers(orderIndex, { position, infantry: true, sandbags: false, option: optionId });
     if (!aim) return null;
     const { dice, steps, blocked } = calculateFireDice(FIRE_QUESTIONS, aim.context, aim.answers, fireBonusSteps);
     if (blocked || (aim.context.closeAssaultOnly && aim.target.distance !== 1)) return null;
@@ -1222,16 +1309,19 @@ class GameSession {
     };
   }
 
-  private fireWith(orderIndex: number, answers: FireAnswers, targetPosition?: Position): boolean {
-    const part = this.shotPart(orderIndex, answers);
+  private fireWith(orderIndex: number, answers: FireAnswers, optionId?: string, targetPosition?: Position): boolean {
+    const part = this.shotPart(orderIndex, answers, optionId);
     if (!part) return false;
-    return this.recordShot(orderIndex, part.dice, part.steps, part.notes, part.target, false, part.usedBonus, targetPosition);
+    const { usedBonus, ...shot } = part;
+    return this.recordShot(orderIndex, { ...shot, combatBonus: usedBonus, targetPosition });
   }
 
-  /** The unit's part of a shot with these answers, or null when it can't fire so now */
-  private shotPart(orderIndex: number, answers: FireAnswers): ShotPart | null {
+  /** The unit's part of a shot with these answers and fire option, or null when it can't fire so now */
+  private shotPart(orderIndex: number, answers: FireAnswers, optionId?: string): ShotPart | null {
     if (!this.canFireNow(orderIndex)) return null;
-    const context = this.fireContextFor(orderIndex)!;
+    const option = this.fireOptionFor(orderIndex, optionId);
+    if (!option) return null;
+    const context = this.fireContextFor(orderIndex, option)!;
     if (nextFireQuestion(FIRE_QUESTIONS, context, answers)) return null;
     if (context.closeAssaultOnly && answers.distance !== "1") return null;
 
@@ -1239,9 +1329,11 @@ class GameSession {
     if (blocked) return null;
     const infantry = targetAnswer(answers.targetType);
     if (infantry === null || !this.canBeTarget(infantry)) return null;
-    const target = this.targetFor(infantry, answers.distance === "1");
+    const plain = this.targetFor(infantry, answers.distance === "1");
+    // Suppressive Fire rolls the suppressive die of the same shape
+    const target = option.die ? { ...plain, die: suppressed(plain.die) } : plain;
     const usedBonus = combatBonusDice(context, answers.distance === "1") > 0;
-    return { dice, steps, notes, target, usedBonus };
+    return { dice, steps, notes, target, usedBonus, option };
   }
 
   /**
@@ -1459,6 +1551,7 @@ class GameSession {
     const order = this.orders[orderIndex]!;
     if (samePosition(order.start, order.end)) return false;
     if (this.shots.some((shot) => shot.orderIndex === orderIndex)) return false;
+    if (!this.canPayCollision(order.unit)) return false;
 
     const context: FireContext = {
       unitType: order.unit.getUnitType(),
@@ -1467,7 +1560,9 @@ class GameSession {
     const steps = collisionSteps(context);
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     const target: ShotTarget = { infantry, closeAssault: true, die: "battle" };
-    return this.recordShot(orderIndex, dice, steps, [...COLLISION_NOTES], target, true, combatBonusDice(context, true) > 0);
+    const option = plainFireOption(order.unit.getUnitType());
+    const combatBonus = combatBonusDice(context, true) > 0;
+    return this.recordShot(orderIndex, { dice, steps, notes: [...COLLISION_NOTES], target, collision: true, combatBonus, option });
   }
 
   /** Take back this unit's last shot, for a shot recorded by mistake */
@@ -1476,8 +1571,10 @@ class GameSession {
     const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
     if (index === -1) return false;
 
-    const { removedWire: wire } = this.shots[index]!;
+    const { removedWire: wire, spent } = this.shots[index]!;
     if (wire) this.board.getHex(wire)?.setWire(true);
+    const unit = this.orders[orderIndex]!.unit;
+    if (spent) this.supplies.set(unit, refund(this.suppliesOf(unit), spent));
     this.shots = this.shots.filter((_, i) => i !== index);
     return this.publish();
   }
@@ -1509,20 +1606,24 @@ class GameSession {
     return this.publish();
   }
 
+  /** Roll a shot of this order's unit, which pays its fire option's ammo or shells */
   private recordShot(
     orderIndex: number,
-    dice: number,
-    steps: DiceStep[],
-    notes: Localized[],
-    target: ShotTarget,
-    collision = false,
-    combatBonus = false,
-    targetPosition?: Position
+    { dice, steps, notes, target, collision = false, combatBonus = false, targetPosition, option }: ShotRecord
   ): true {
-    const shot: Shot = { orderIndex, steps, dice, faces: this.rollFaces(dice, steps, target), notes, collision, target, combatBonus, kept: null };
+    const faces = this.rollFaces(dice, steps, target);
+    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null, spent: option.cost };
+    if (!collision) shot.option = option.id;
     if (targetPosition) shot.targetPosition = targetPosition;
+    this.spend(this.orders[orderIndex]!.unit, option.cost);
     this.shots = [...this.shots, shot];
     return this.publish();
+  }
+
+  /** The unit pays for a shot (checked before) */
+  private spend(unit: Unit, cost: SupplyCost) {
+    const paid = pay(this.suppliesOf(unit), cost);
+    if (paid) this.supplies.set(unit, paid);
   }
 
   /** A roll's faces: the dice thrown, then the ones its steps add already showing a face */
