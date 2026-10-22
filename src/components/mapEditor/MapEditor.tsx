@@ -24,7 +24,6 @@ import { validateScenario } from "../../game-core/scenarioFile";
 import { countMedals } from "../../game-core/victory";
 import { VictoryContext, VictoryInfo } from "../VictoryContext";
 import { drawBoardArt } from "../../boardArt/drawBoard";
-import { RATTENKRIEG_MIN_TOWNS } from "../../data/combatCards";
 import { loadCustomMaps, saveCustomMap } from "../../storage";
 import { useHexFlash } from "../useHexFlash";
 import GameIcon from "../GameIcon";
@@ -55,7 +54,6 @@ const TEXT = defineMessages({
     side: (side: string, infantry: number, tanks: number, artillery: number) =>
       `${side}: ${infantry} inf., ${tanks} tanq., ${artillery} art.`,
     towns: (towns: number) => `Pueblos: ${towns}`,
-    rattenkrieg: `Más de ${RATTENKRIEG_MIN_TOWNS}: se reparte Rattenkrieg`,
     settings: "Datos del escenario",
     boardSize: (cols: number, rows: number) => `Tamaño del mapa: ${cols} × ${rows}`,
     instructions: "Instrucciones",
@@ -86,7 +84,6 @@ const TEXT = defineMessages({
     side: (side: string, infantry: number, tanks: number, artillery: number) =>
       `${side}: ${infantry} inf., ${tanks} tanks, ${artillery} art.`,
     towns: (towns: number) => `Towns: ${towns}`,
-    rattenkrieg: `More than ${RATTENKRIEG_MIN_TOWNS}: Rattenkrieg is dealt`,
     settings: "Scenario details",
     boardSize: (cols: number, rows: number) => `Map size: ${cols} × ${rows}`,
     instructions: "Instructions",
@@ -364,7 +361,6 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
             <Typography variant="body2">{sideLine("Axis")}</Typography>
             <Typography variant="body2">
               {t.towns(counts.towns)}
-              {counts.towns > RATTENKRIEG_MIN_TOWNS && ` · ${t.rattenkrieg}`}
             </Typography>
           </Box>
           <Button variant="outlined" onClick={openSettings} startIcon={<GameIcon name="history" />}>

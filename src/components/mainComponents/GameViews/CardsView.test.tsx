@@ -15,7 +15,6 @@ const makeSession = (coins = 0) => {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 3, axis: 3 },
       attacker: "Axis",
       tiles: {},
       units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },

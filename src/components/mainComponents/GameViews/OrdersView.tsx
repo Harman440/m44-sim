@@ -328,7 +328,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
       {/* While the card flies in, the column doesn't clip it (it scrolls the rest of the time) */}
       <div className={`phase-layout__controls${handLeaving ? " phase-layout__controls--arriving" : ""}`}>
         {/* The card played, flown here from the Command Zone's tray; tapping it shows its text */}
-        <PlayedCards className="played-cards--orders" faction={faction} {...playedCardOf(game)} layoutPrefix={PLAY_LAYOUT_PREFIX} />
+        <PlayedCards className="played-cards--orders" {...playedCardOf(game)} layoutPrefix={PLAY_LAYOUT_PREFIX} />
         {game.canUnpickCard && (
           <Button variant="outlined" onClick={() => session.unpickCard()} startIcon={<GameIcon name="undo" />}>
             {t.changeCard}

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Box, ButtonBase, Stack, Typography } from "@mui/material";
 import type { ActionCard } from "../../../game-core/actionCard";
-import { Faction } from "../../../types/faction";
 import ActionCardComponent from "../../ActionCardComponent";
 import CardDialog, { ShownCard } from "../../CardDialog";
 import GameIcon from "../../GameIcon";
@@ -26,7 +25,6 @@ const TEXT = defineMessages({
 });
 
 interface BattleReserveProps {
-  faction: Faction;
   coins: number;
   /** Open the coin ledger */
   onShowCoins: () => void;
@@ -40,7 +38,7 @@ interface BattleReserveProps {
  * The battle's side panel: the coins, large, and the card played with the orders. Tapping the
  * card shows it in full.
  */
-function BattleReserve({ faction, coins, onShowCoins, card, cost }: BattleReserveProps) {
+function BattleReserve({ coins, onShowCoins, card, cost }: BattleReserveProps) {
   const [looking, setLooking] = useState(false);
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -97,7 +95,7 @@ function BattleReserve({ faction, coins, onShowCoins, card, cost }: BattleReserv
         )}
       </Box>
 
-      <CardDialog card={shown} faction={faction} onClose={() => setLooking(false)} label={t.cardPlayed} />
+      <CardDialog card={shown} onClose={() => setLooking(false)} label={t.cardPlayed} />
     </Box>
   );
 }

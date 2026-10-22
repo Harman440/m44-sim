@@ -12,7 +12,6 @@ import { TurnPhase } from "../types/gameManager";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
 import { samePosition } from "./position";
-import { Side } from "../types/hex";
 
 const INFANTRY_FIGURES = FIGURES[UnitType.INFANTRY].figures;
 
@@ -21,7 +20,6 @@ const scenario: Scenario = {
   id: "test",
   name: same("Test"),
   description: same(""),
-  initialHandSize: { allies: 2, axis: 2 },
   attacker: "Axis",
   tiles: {},
   units: {
@@ -845,21 +843,3 @@ describe("winning a match", () => {
   });
 });
 
-describe("sections in pass and play", () => {
-  it("follow the main side's left and right for both sides", () => {
-    // Allies at the device: a hex on the Allies' left is the left for the Axis too
-    const match = new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { mainSide: "Allies" });
-    const alliesLeft = { row: 4, col: 0 };
-    const hex = (side: Faction, position: { row: number; col: number }) =>
-      match.sessions[side].board.getHex(position)!;
-    expect(hex("Allies", alliesLeft).getSide()).toBe(Side.LEFT);
-    expect(hex("Axis", turnedRound(alliesLeft, STANDARD_BOARD)).getSide()).toBe(Side.LEFT);
-    expect(hex("Axis", turnedRound({ row: 3, col: 8 }, STANDARD_BOARD)).getSide()).toBe(Side.RIGHT_CENTER);
-  });
-
-  it("keep the main side's own sections", () => {
-    const match = new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { mainSide: "Axis" });
-    expect(match.sessions.Axis.board.getHex({ row: 4, col: 0 })!.getSide()).toBe(Side.LEFT);
-    expect(match.sessions.Allies.board.getHex({ row: 4, col: 0 })!.getSide()).toBe(Side.RIGHT);
-  });
-});

@@ -4,12 +4,29 @@
 // has (air, big guns) and can make some cheaper (`Scenario.cardCosts`). The cards are in
 // data/actionCards.ts.
 import type { UnitType } from "./unit";
-import type { AttackEffect, MarkerRule } from "./combatCard";
 import type { Faction } from "../types/faction";
 import type { Scenario } from "../types/scenario";
 import type { Localized } from "../i18n/lang";
 import { ACTION_CARDS, CARD_COOLDOWN_TURNS } from "../data/actionCards";
 import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
+
+/** A card that attacks the marked hexes in the battle, with its own roll per hex (Barrage, Air Power…) */
+export interface AttackEffect {
+  kind: "attack";
+  dicePerHex: number;
+}
+
+/** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */
+export interface MarkerRule {
+  /** "target": hexes it attacks (not on your own units); "cross": where a new unit appears (an empty hex) */
+  kind: "target" | "cross";
+  /** How many hexes; all of them must be marked before the orders are confirmed */
+  count: number;
+  /** Each hex touches the one marked before it (Air Power) */
+  chain?: boolean;
+  /** Not on or next to your own units (Air Bombardment) */
+  awayFromOwnUnits?: boolean;
+}
 
 /** What a card does */
 export type ActionCardEffect =

@@ -18,7 +18,7 @@ import OrderComponent from './OrderComponent';
 import Order from '../game-core/order';
 import { createBoardGeometry } from './boardGeometry';
 import Unit from '../game-core/unit';
-import type { MarkerRule } from '../game-core/combatCard';
+import type { MarkerRule } from '../game-core/actionCard';
 import { SandbagsArt } from './SandbagsIcon';
 import { CamouflageBadge } from './CamouflageIcon';
 import { useBoardZoom } from './boardZoom';

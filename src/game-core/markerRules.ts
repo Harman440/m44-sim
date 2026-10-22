@@ -3,7 +3,7 @@
 // Bombardment, Reinforcements). The map only has this side's units,
 // so the rules can only look at those.
 import BoardManager from "./BoardManager";
-import { MarkerRule } from "./combatCard";
+import type { MarkerRule } from "./actionCard";
 import { includesPosition, samePosition } from "./position";
 import { Position } from "../types/scenario";
 

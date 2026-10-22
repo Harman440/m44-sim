@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
-import { MarkerRule } from "./combatCard";
+import type { MarkerRule } from "./actionCard";
 import { canMark, conflictsWithMark, markablePositions } from "./markerRules";
 import { includesPosition } from "./position";
 import { Position, Scenario } from "../types/scenario";
@@ -16,7 +16,6 @@ const board = new BoardManager(
     id: "test",
     name: { es: "Test", en: "Test" },
     description: same(""),
-    initialHandSize: { allies: 1, axis: 1 },
     attacker: "Allies",
     tiles: { river: [RIVER] },
     units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },

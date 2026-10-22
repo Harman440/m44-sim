@@ -35,14 +35,3 @@ export const isOnBoard = ({ row, col }: Position, { cols, rows }: BoardSize): bo
 /** Every hex of a board, row by row */
 export const boardPositions = ({ cols, rows }: BoardSize): Position[] =>
   [...Array(rows).keys()].flatMap((row) => [...Array(cols - (row % 2)).keys()].map((col) => ({ row, col })));
-
-/**
- * Where the sections meet, in hexes from the left edge of the long rows' first hex centre: the
- * left and right sections are each about a third of the board, as on the official boards (4, 5
- * and 4 hexes on the standard one). The lines run along the long rows' hex sides and through the
- * middle of the short rows' hexes, which are the border hexes shared by two sections
- */
-export function sectionLines(cols: number): { left: number; right: number } {
-  const outer = Math.round(cols / 3);
-  return { left: outer - 0.5, right: cols - outer - 0.5 };
-}

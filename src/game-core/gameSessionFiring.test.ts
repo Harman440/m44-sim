@@ -26,7 +26,6 @@ const scenario: Scenario = {
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: { forest: [FOREST] },
   units: {

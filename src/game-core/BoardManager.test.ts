@@ -11,7 +11,6 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: {},
   units: { allies: {}, axis: {} },

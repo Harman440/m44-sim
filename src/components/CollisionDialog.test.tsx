@@ -3,7 +3,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import BattleView from "./mainComponents/GameViews/BattleView";
 import GameSession from "../game-core/gameSession";
-import CommandCard from "../game-core/commandCard";
 import { Position } from "../types/scenario";
 import { samePosition } from "../game-core/position";
 import { same } from "../i18n/lang";
@@ -19,7 +18,6 @@ const makeSession = ({ tankHolds = false } = {}) => {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },

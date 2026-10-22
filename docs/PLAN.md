@@ -19,7 +19,7 @@ Four built-in scenarios, all settled: Forêt d'Écouves, Arracourt, Sainte-Mère
 
 ### Step 66: A test game
 Skipped in part 2 (the player's call, 2026-10-16); the rest of Part J is built.
-- [ ] With "Modo prueba": a whole game on own tablets and a pass and play match using every changed card, at 1280×800 and 800×1280 with touch, in Spanish and English
+- [ ] ~~With "Modo prueba": a whole game on own tablets and a pass and play match using every changed card, at 1280×800 and 800×1280 with touch, in Spanish and English~~ (the card game was replaced by the actions mode, docs/ACTIONS_PLAN.md)
 
 ## Part B: Map editor, the rest
 
@@ -41,7 +41,7 @@ Steps 49–53 are built (the scenario file, board art in the browser, the editor
 ### Step 56: Maps made by Claude Code
 - [ ] **Decided:** for now Claude Code makes the maps, not the app (no API key or network in the app). The player asks for a battle, or for a made-up map; Claude Code writes the scenario file, the player looks at it on the tablet (Importar, Step 54), and it goes into the catalog (Step 55)
 - [ ] **Decided:** the historical background comes first: a real battle keeps its historical forces, ground and situation, even when one side is weaker. No fairness score
-- [ ] A project skill, `.claude/skills/new-scenario/`, so every session makes them the same way: the sources (the official scenario if there is one, orders of battle, maps of the ground), the ground laid on the 13×9 board and its sections, the units, elite units, wire and sandbags, hands and attacker, air and big guns (the rules the built-ins follow), the texts in both languages, and every source and guess in `notes`
+- [ ] A project skill, `.claude/skills/new-scenario/`, so every session makes them the same way: the sources (the official scenario if there is one, orders of battle, maps of the ground), the ground laid on the 13×9 board, the units, elite units, wire and sandbags, the attacker, air and big guns (the rules the built-ins follow), the texts in both languages, and every source and guess in `notes`
 - [ ] `Scenario.history` (optional, `Localized`): the historical background (the date, the units, what happened and how it ended), a few paragraphs in the menu's scenario panel under the description. The built-ins get theirs, and "Datos del escenario" a field per language
 - [ ] A made-up map says so in its description, and is still set in a real theatre and year
 - [ ] Checked with `parseScenario` before the player sees it (`npm run add-scenario -- --check <file>`)
@@ -101,12 +101,12 @@ Step 70 already did the rectangle part of what the 13×9 grid assumed. What stil
 - the board art: `boardKeys(cols, rows)`; a bigger board's art is the empty board's hexes with its frame filled in
 
 ### Step 71: The board's shape in game-core
-- [ ] `game-core/boardShape.ts` (or `boardSize.ts` grown into it): `BoardShape`, the set of hexes, with its box (rows, and columns counted in half hexes so odd rows line up), `has`, `turnedRound` and `sectionOf`. `standardShape` is 13×9, and a `BoardSize` is a full rectangle shape. A scenario's shape comes from `Scenario.hexes`, or from `Scenario.board` when it has none
+- [ ] `game-core/boardShape.ts` (or `boardSize.ts` grown into it): `BoardShape`, the set of hexes, with its box (rows, and columns counted in half hexes so odd rows line up), `has` and `turnedRound`. `standardShape` is 13×9, and a `BoardSize` is a full rectangle shape. A scenario's shape comes from `Scenario.hexes`, or from `Scenario.board` when it has none
 - [x] ~~`turnedRound` with no default size~~: done in Step 70 (it takes a `BoardSize`)
 - [ ] `turnedRound` on a shape: it turns the board about the box's centre, with the box widened half a hex when that's needed to land on whole hexes, and it works with an even number of rows too
   - Tests: turning twice gives the position back; the standard board and Step 70's sizes give what they give today; and a hex's centre turned is its centre reflected through the middle of the box, for any shape
-- [x] Sections in thirds for rectangles: done in Step 70 (`sectionLines`, the standard board unchanged)
-- [ ] Sections on a shape's box, symmetric when turned, so pass and play's mirrored sections still hold. Tests on 26×9 and a board with an even number of rows
+- [x] Sections in thirds for rectangles: done in Step 70 (`sectionLines`, the standard board unchanged). The actions mode removed sections (ACTIONS_PLAN.md R10)
+- [ ] ~~Sections on a shape's box, symmetric when turned, so pass and play's mirrored sections still hold. Tests on 26×9 and a board with an even number of rows~~ No sections any more
 - [ ] `BoardManager` builds only the shape's hexes: `isValidPosition` is `shape.has`
 - [ ] **Decide** with the player: a missing hex behind a unit counts as the board's edge (a hex it can't retreat is a hit). That's what `retreatOptions` does today without a change, so a hole or a notch blocks retreats
 - [x] Moving every position when the board grows up or left: done for whole rows and columns in Step 70 (`resizeBoard`)
@@ -141,12 +141,11 @@ Step 70 already did the rectangle part of what the 13×9 grid assumed. What stil
 
 ### Step 75: Playing on a big board
 - [ ] A whole game on own tablets (after Step 70's last item) and a pass and play match on a 26×9 map and a 13×17 map, at 1280×800 and 800×1280 with touch. Check:
-  - the sections
   - retreats on a ragged edge
   - FireAim's crop
   - the Axis turned round
   - the reveal and the shared battle
-- [ ] **Decide** after seeing it: in portrait a 26-wide board's hexes are about 30px, under the 48px tap target (21 wide, today's limit, is already about 37px). Possible answers are "+"/"−" zoom buttons with dragging the map, or showing one section at a time while giving orders
+- [ ] **Decide** after seeing it: in portrait a 26-wide board's hexes are about 30px, under the 48px tap target (21 wide, today's limit, is already about 37px). Possible answers are "+"/"−" zoom buttons with dragging the map, or showing one part of the board at a time while giving orders
 
 ## Later
 
@@ -158,12 +157,11 @@ Step 70 already did the rectangle part of what the 13×9 grid assumed. What stil
 ## Checks for every step
 - `npm run typecheck` reports 0 errors, and `npx vitest run` passes.
 - `npm run dev` (port 3000), then check the flow by hand or with Playwright, at 1280×800 and 800×1280 with touch, and on desktop, in at least one look:
-  1. Menu → start a game; the initial hand deals in.
-  2. Picking a card highlights the right units.
-  3. Issue orders, then undo, then commit, then movement (the cards played show above the instructions), then battle.
+  1. Menu → start a game.
+  2. Pick a card (or none), then give units their actions.
+  3. Undo an order, then commit, then movement (the card played shows above the instructions), then battle.
   4. Fire with a unit: the dice roll once, the unit shows as fired, and a reload doesn't bring the roll back.
-  5. Sync a casualty on the map, end the battle, draw a card and start the next turn.
-  6. Only the one new card animates in, and the deck and discard counts add up.
-  7. Reload in each phase: the game resumes where it was.
+  5. Sync a casualty on the map, end the battle and start the next turn.
+  6. Reload in each phase: the game resumes where it was.
 - For changes that touch pass and play, play a turn in "Pasar y jugar" as well: cover screen, reveal, movement, shared battle, final phase.
 - New UI text is in both languages, and the screens changed are checked in English as well as Spanish.

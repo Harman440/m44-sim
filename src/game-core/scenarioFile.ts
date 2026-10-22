@@ -28,6 +28,9 @@ export interface ScenarioFile extends Omit<Scenario, "image" | "board"> {
    * always brought infantry. Older files (and maps kept on a device) still have it; it's dropped
    */
   reinforcements?: unknown;
+  /** No longer used: the old card game's hands and extra draws. Older files still have them; they're dropped */
+  initialHandSize?: unknown;
+  extraDraws?: unknown;
 }
 
 // Every field a file can have; the compiler keeps it in step with ScenarioFile
@@ -99,10 +102,6 @@ const MESSAGES = {
     en: `The id "${id}" must be lower-case words joined by hyphens`,
   }),
   noName: { es: "El escenario no tiene nombre", en: "The scenario has no name" },
-  handSize: {
-    Allies: { es: "Los Aliados deben empezar con 1 carta de mando o más", en: "The Allies must start with 1 command card or more" },
-    Axis: { es: "El Eje debe empezar con 1 carta de mando o más", en: "The Axis must start with 1 command card or more" },
-  },
   noUnits: {
     Allies: { es: "Los Aliados no tienen unidades", en: "The Allies have no units" },
     Axis: { es: "El Eje no tiene unidades", en: "The Axis has no units" },
@@ -119,7 +118,6 @@ const MESSAGES = {
   sandbagsWithoutUnit: { es: "Hay sacos terreros donde no empieza ninguna unidad", en: "Some sandbags are where no unit starts" },
   eliteWithoutUnit: { es: "Hay distintivos de élite donde no empieza ninguna unidad", en: "Some elite badges are where no unit starts" },
   paradropUnits: { es: "El lanzamiento en paracaídas necesita 1 unidad o más", en: "The paradrop needs 1 unit or more" },
-  extraDrawTurns: { es: "Los robos extra necesitan 1 turno o más", en: "The extra draws need 1 turn or more" },
   airPower: { es: "Las salidas aéreas deben ser 0 o más", en: "Air sorties must be 0 or more" },
   unknownCard: (id: string): Localized => ({
     es: `No hay ninguna carta «${id}» a la que cambiar el coste`,
@@ -155,9 +153,6 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
 
   if (!ID_PATTERN.test(scenario.id)) problem(MESSAGES.badId(scenario.id));
   if (!scenario.name.es.trim() && !scenario.name.en.trim()) problem(MESSAGES.noName);
-  for (const [side, faction] of SIDES) {
-    if (!isWholeNumber(scenario.initialHandSize[side], 1)) problem(MESSAGES.handSize[faction]);
-  }
 
   const terrain = new Map<string, HexType>();
   const twoTerrains: Position[] = [];
@@ -220,7 +215,6 @@ export function validateScenario(scenario: Scenario): ScenarioProblem[] {
   }
 
   if (scenario.paradrop && !isWholeNumber(scenario.paradrop.units, 1)) problem(MESSAGES.paradropUnits);
-  if (scenario.extraDraws && !isWholeNumber(scenario.extraDraws.turns, 1)) problem(MESSAGES.extraDrawTurns);
   const airPower = scenario.airPower;
   if (airPower && SIDES.some(([side]) => !isWholeNumber(airPower[side], 0))) problem(MESSAGES.airPower);
   for (const [side] of SIDES) {
@@ -376,14 +370,6 @@ class FileReader {
     }
     return victory;
   }
-
-  extraDraws(value: unknown, path: string) {
-    const draws = this.object(value, path, ["faction", "turns"]);
-    if (!draws) return undefined;
-    this.faction(draws.faction, join(path, "faction"));
-    this.number(draws.turns, join(path, "turns"));
-    return draws;
-  }
 }
 
 /**
@@ -410,7 +396,6 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     name: reader.check(file.name, "name", isLocalized, EXPECTED.localized),
     description: reader.check(file.description, "description", isLocalized, EXPECTED.localized),
     notes: optional("notes", (value, path) => reader.check(value, path, isText, EXPECTED.text)),
-    initialHandSize: reader.sides(file.initialHandSize, "initialHandSize", reader.number),
     attacker: reader.faction(file.attacker, "attacker"),
     tiles: reader.groups(file.tiles, "tiles", isHexType, EXPECTED.hexType),
     pickedTiles: optional("pickedTiles", (value, path) => reader.check(value, path, isPickedTileList, EXPECTED.pickedTiles)),
@@ -419,7 +404,6 @@ export function parseScenario(json: unknown, { rules = true }: { rules?: boolean
     wire: optional("wire", reader.positions),
     sandbags: optional("sandbags", reader.positions),
     elite: optional("elite", reader.positions),
-    extraDraws: optional("extraDraws", (value, path) => reader.extraDraws(value, path)),
     bigGuns: optional("bigGuns", (value, path) => reader.check(value, path, isFactionList, EXPECTED.factions)),
     airPower: optional("airPower", (value, path) => reader.sides(value, path, reader.number)),
     cardCosts: optional("cardCosts", (value, path) =>

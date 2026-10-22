@@ -220,7 +220,7 @@ function EndOfTurnView({ faction, session, game, onEndTurn }: EndOfTurnViewProps
         />
       </section>
 
-      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label={t.card} />
+      <CardDialog card={looking} onClose={() => setLooking(null)} label={t.card} />
       {shared && <HandAwayBar away={handAway} onToggle={() => setHandAway((away) => !away)} />}
     </div>
   );

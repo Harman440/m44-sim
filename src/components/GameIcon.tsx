@@ -28,7 +28,6 @@ import village from "../assets/icons/village.svg";
 import openBook from "../assets/icons/open-book.svg";
 import backForth from "../assets/icons/back-forth.svg";
 import medal from "../assets/icons/medal.svg";
-import type { DeckReason } from "../game-core/combatCard";
 
 const ICONS = {
   settings: cog,
@@ -69,17 +68,6 @@ const ICONS = {
 } as const;
 
 export type GameIconName = keyof typeof ICONS;
-
-/** The icon for why a combat card is in the deck, on the card and on its group in the deck; the shared cards have none */
-export const DECK_REASON_ICONS: Partial<Record<DeckReason, GameIconName>> = {
-  attacker: "offensive",
-  defender: "defensive",
-  tanks: "tank",
-  artillery: "artillery",
-  towns: "town",
-  bigGuns: "bigGuns",
-  air: "strafe",
-};
 
 /** The icon's image, for drawing it inside an SVG (as a mask, so it takes a fill colour) */
 export const iconUrl = (name: GameIconName): string => ICONS[name];

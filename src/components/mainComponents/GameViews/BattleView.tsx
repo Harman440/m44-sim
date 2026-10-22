@@ -182,7 +182,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           </Box>
 
           <Box className="battle-view__reserve">
-            <BattleReserve faction={faction} coins={game.coins} onShowCoins={onShowCoins} {...playedCardOf(game)} />
+            <BattleReserve coins={game.coins} onShowCoins={onShowCoins} {...playedCardOf(game)} />
           </Box>
         </Box>
       )}

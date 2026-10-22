@@ -209,7 +209,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                           </Typography>
                         </Stack>
                         {side.playedCard ? (
-                          <PlayedCards faction={faction} {...playedCardOf(side)} />
+                          <PlayedCards {...playedCardOf(side)} />
                         ) : (
                           <Typography variant="body2" color="text.secondary">
                             {t.noCard}

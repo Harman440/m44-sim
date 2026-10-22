@@ -12,7 +12,6 @@ const scenario: Scenario = {
   id: "sandbags",
   name: same("Sandbags"),
   description: same(""),
-  initialHandSize: { allies: 2, axis: 2 },
   attacker: "Allies",
   tiles: {},
   units: { allies: { infantry: [{ row: 6, col: 2 }] }, axis: { infantry: [{ row: 2, col: 4 }] } },

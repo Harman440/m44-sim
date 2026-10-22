@@ -691,7 +691,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 const owner = match.sessions[cardsOf];
                 const game = owner.getSnapshot();
                 return (
-                  <BattleReserve faction={cardsOf} coins={game.coins} onShowCoins={() => setCoinsOf(cardsOf)} {...playedCardOf(game)} />
+                  <BattleReserve coins={game.coins} onShowCoins={() => setCoinsOf(cardsOf)} {...playedCardOf(game)} />
                 );
               })()}
             </DialogContent>

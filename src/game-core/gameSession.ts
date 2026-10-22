@@ -52,7 +52,7 @@ import { TAKE_COVER_HITS } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
 import { ARTILLERY_CREW_FIGURES, figureDamaged, figuresLeft, hitsPerFigure, hitsToDestroy } from "../data/figures";
-import type { MarkerRule } from "./combatCard";
+import type { MarkerRule } from "./actionCard";
 import { ActionCard, ActionCardEffect, HeldCard, cardsOf, isReady, turnsLeft } from "./actionCard";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
@@ -1310,15 +1310,6 @@ class GameSession {
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
     const enemies = this.seenEnemies()?.map((enemy) => enemy.position);
     return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, enemies);
-  }
-
-  /**
-   * Pass and play: both sides use the sections as `viewSide` (the main side, where the device
-   * sits) sees them, so both armies agree on left and right
-   */
-  sectionsSeenFrom(viewSide: Faction) {
-    this.board.sectionsSeenFrom(this.faction, viewSide);
-    this.publish();
   }
 
   /**

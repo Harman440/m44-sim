@@ -94,7 +94,7 @@ function MovementView({ faction, session, game }: MovementViewProps) {
         <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
           {t.title}
         </Typography>
-        <PlayedCards faction={faction} {...playedCardOf(game)} />
+        <PlayedCards {...playedCardOf(game)} />
         {clearedWire > 0 && (
           // Something to do on the table, so it isn't tucked away in the instructions
           <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1 }} data-testid="cleared-wire">

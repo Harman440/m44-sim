@@ -11,7 +11,6 @@ import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
 import HexThumbnail from "./HexThumbnail";
-import SectionIcon from "./SectionIcon";
 import Stamp from "./Stamp";
 
 const TEXT = defineMessages({
@@ -227,8 +226,8 @@ const StatusText = ({ children, color = "text.secondary" }: { children: ReactNod
 /**
  * The battle in the order it's fought: collisions, an attack combat card, a
  * unit that fires first (Tras las líneas enemigas), the units that didn't
- * move, then the units that moved. Each unit shows its hex
- * and section; tapping it opens the fire dialog.
+ * move, then the units that moved. Each unit shows its hex; tapping it opens
+ * the fire dialog.
  */
 function FireOrderList({
   summaries,
@@ -253,7 +252,7 @@ function FireOrderList({
   const where = (position: Position) => {
     const hex = board.getHex(position);
     if (!hex) return null;
-    // Icons only: the hex's own art and the lit section say it without words
+    // An icon only: the hex's own art says it without words
     return (
       <>
         <HexThumbnail
@@ -264,7 +263,6 @@ function FireOrderList({
           size={34}
           label={capitalize(labels.terrain[hex.getType()])}
         />
-        <SectionIcon side={hex.getSide()} label={labels.sectionsShort[hex.getSide()]} />
       </>
     );
   };

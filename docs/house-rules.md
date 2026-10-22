@@ -2,6 +2,8 @@
 
 These are the player's house rules for Memoir '44 with simultaneous turns, kept here as the source for the roadmap in [PLAN.md](PLAN.md). They were written a long time ago for pen and paper, not for an app, and may change. When a rule here is unclear or conflicts with another, **ask the player** before building it.
 
+> **The card rules here are history** (2026-10-22): the app replaced the command and combat cards, their decks, the draw and the sections with the actions mode ([ACTIONS_PLAN.md](ACTIONS_PLAN.md)). The rules about cards below are kept as the player wrote them, but the app no longer follows them.
+
 ---
 
 ## General rules

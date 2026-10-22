@@ -7,7 +7,7 @@ import type Hex from "../game-core/hex";
 import type Unit from "../game-core/unit";
 import type { UnitType } from "../game-core/unit";
 import type { DieFace } from "../game-core/dice";
-import type { HexType, Side } from "../types/hex";
+import type { HexType } from "../types/hex";
 import type { Faction } from "../types/faction";
 import type { ShotTarget } from "../data/hitRules";
 import type { RollResult } from "../game-core/rollResult";
@@ -16,7 +16,7 @@ import type { ActionRefusal } from "../game-core/actionRules";
 import type { SupplyCost, UnitSupplies } from "../game-core/unitSupplies";
 import type { Equipment, Supply } from "../data/unitSupplies";
 import type { CoinEntry } from "../game-core/coins";
-import type { DeckReason, MarkerRule } from "../game-core/combatCard";
+import type { MarkerRule } from "../game-core/actionCard";
 import type { Lang } from "../i18n/lang";
 import es from "./es";
 import en from "./en";
@@ -25,15 +25,10 @@ export interface Labels {
   factions: Record<Faction, string>;
   units: Record<UnitType, string>;
   terrain: Record<HexType, string>;
-  sections: Record<Side, string>;
-  /** Section names short enough for a row of the fire order */
-  sectionsShort: Record<Side, string>;
   dieFaces: Record<DieFace, string>;
-  /** Why a side gets a combat card: a short name for the group */
-  deckReasons: Record<DeckReason, string>;
   /** What a shot's target is: infantry, or any other unit (the tank face hits both armour and artillery) */
   target: (infantry: boolean) => string;
-  /** "forest, center": where a hex is, without its unit */
+  /** "Forest": where a hex is, without its unit */
   describePlace: (hex: Hex | null) => string;
   /** "Infantry", or "Elite infantry" for a unit with the scenario's badge */
   unit: (unit: Unit) => string;

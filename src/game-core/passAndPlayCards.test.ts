@@ -18,7 +18,6 @@ const scenario: Scenario = {
   id: "cards",
   name: same("Cards"),
   description: same(""),
-  initialHandSize: { allies: 2, axis: 2 },
   attacker: "Axis",
   tiles: {},
   units: {

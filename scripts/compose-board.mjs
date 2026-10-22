@@ -79,6 +79,36 @@ const hexPath = ({ x, y }, r) =>
 const svg = (width, height, body) =>
   Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${body}</svg>`);
 
+// Where the printed board's dashed section lines run, in hex widths from the grid's left edge:
+// along the long rows' hex edges and through the short rows' hexes
+const SECTION_LINES = [4, 9];
+// How far either side of a line its dashes reach, and the feathered strip beyond, in hex widths
+const LINE_HALF_WIDTH = 0.035;
+const LINE_FEATHER = 0.02;
+
+/**
+ * Paint the section lines over with the strip one hex to their left: the hex grid repeats every
+ * hex width in both kinds of row, so the hex edges and grass carry on. Feathered at the sides
+ */
+function eraseSectionLines({ data, width, height, channels }) {
+  const reach = (LINE_HALF_WIDTH + LINE_FEATHER) * hexWidth;
+  for (const line of SECTION_LINES) {
+    const at = line * hexWidth;
+    for (let x = Math.floor(at - reach); x <= Math.ceil(at + reach); x++) {
+      const off = Math.abs(x - at) / hexWidth;
+      // 1 inside the line, fading to 0 across the feather
+      const weight = off <= LINE_HALF_WIDTH ? 1 : Math.max(0, 1 - (off - LINE_HALF_WIDTH) / LINE_FEATHER);
+      const from = x - Math.round(hexWidth);
+      if (weight === 0 || x < 0 || x >= width || from < 0) continue;
+      for (let y = 0; y < height; y++) {
+        const to = (y * width + x) * channels;
+        const src = (y * width + from) * channels;
+        for (let c = 0; c < 3; c++) data[to + c] = Math.round(data[to + c] * (1 - weight) + data[src + c] * weight);
+      }
+    }
+  }
+}
+
 const printed = await sharp(EMPTY_BOARD.file)
   .extract({
     left: Math.round(EMPTY_BOARD.x0 - EMPTY_BOARD.width / 2),
@@ -90,6 +120,8 @@ const printed = await sharp(EMPTY_BOARD.file)
   .ensureAlpha()
   .raw()
   .toBuffer();
+// The printed board's section lines go: the game has no sections
+eraseSectionLines({ data: printed, width: W, height: H, channels: 4 });
 // Its pale grass made a darker, fuller green, then its dark frame round the grid filled with the countryside beside it, so a map ends in countryside
 gradeCountryside({ data: printed, width: W, height: H, channels: 4 });
 fillFrame({ data: printed, width: W, height: H, channels: 4 }, BOARD_KEYS, center, radius);

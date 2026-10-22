@@ -2,7 +2,7 @@
 // English UI text for game enums
 import { UnitType } from "../game-core/unit";
 import { DieFace, DieKind, countFaces } from "../game-core/dice";
-import { HexType, Side } from "../types/hex";
+import { HexType } from "../types/hex";
 import { appliedFaces } from "../game-core/rollResult";
 import type { Labels } from ".";
 import { EQUIPMENT, Equipment, SUPPLIES, Supply } from "../data/unitSupplies";
@@ -27,13 +27,7 @@ const TERRAIN: Labels["terrain"] = {
   [HexType.OCEAN]: "ocean",
 };
 
-const SECTIONS: Labels["sections"] = {
-  [Side.LEFT]: "left flank",
-  [Side.LEFT_CENTER]: "between left and center",
-  [Side.CENTER]: "center",
-  [Side.RIGHT_CENTER]: "between center and right",
-  [Side.RIGHT]: "right flank",
-};
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const DIE_FACES: Labels["dieFaces"] = {
   [DieFace.INFANTRY]: "Infantry",
@@ -105,27 +99,9 @@ const en: Labels = {
   factions: { Allies: "Allies", Axis: "Axis" },
   units: UNITS,
   terrain: TERRAIN,
-  sections: SECTIONS,
-  sectionsShort: {
-    [Side.LEFT]: "Left",
-    [Side.LEFT_CENTER]: "Left–center",
-    [Side.CENTER]: "Center",
-    [Side.RIGHT_CENTER]: "Center–right",
-    [Side.RIGHT]: "Right",
-  },
   dieFaces: DIE_FACES,
-  deckReasons: {
-    shared: "For everyone",
-    attacker: "Attacks",
-    defender: "Defends",
-    tanks: "Armor",
-    artillery: "Artillery",
-    towns: "Street fighting",
-    bigGuns: "Heavy guns",
-    air: "Air power",
-  },
   target,
-  describePlace: (hex) => (hex ? `${TERRAIN[hex.getType()]}, ${SECTIONS[hex.getSide()]}` : "off the map"),
+  describePlace: (hex) => (hex ? capitalize(TERRAIN[hex.getType()]) : "off the map"),
   unit,
   unitKind,
   describeHex: (hex) => {

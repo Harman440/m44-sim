@@ -177,9 +177,10 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Luck uses each die's own draw (where the draw falls within its side decides whether it's turned), so the dice need no extra draws and the tests' fixed dice stay as they were. `luckAt(position)` for the screens of R11; a shot taken back puts the luck back. `SAVE_VERSION` 42
 
 ### R10: Sections and the last of the cards
-- [ ] Sections: the hexes' sides (`hex.ts`), the dashed lines on the board art, `sectionsSeenFrom`, `OrderSummary.section`, `SectionIcon`, the section in place names (`describePlace`)
-- [ ] The scenario's card fields: `initialHandSize` and `extraDraws` stop being required (old files still read), and go from the editor, the menu's scenario panel and the built-ins
-- [ ] `commandCard.ts`, `data/commandCards.ts`, `combatCard.ts` and `data/combatCards.ts` go, with whatever still pointed at them. The rule book's last card text goes too. `house-rules.md` gets a note that its card rules are history, and the card items in `PLAN.md`, `PASS_AND_PLAY_NEXT.md` and `PLAY_THE_COMPUTER.md` are struck through
+- [x] Sections: the hexes' sides (`hex.ts`), the dashed lines on the board art, `sectionsSeenFrom`, `OrderSummary.section`, `SectionIcon`, the section in place names (`describePlace`)
+- [x] The scenario's card fields: `initialHandSize` and `extraDraws` stop being required (old files still read), and go from the editor, the menu's scenario panel and the built-ins
+- [x] `commandCard.ts`, `data/commandCards.ts`, `combatCard.ts` and `data/combatCards.ts` go, with whatever still pointed at them. The rule book's last card text goes too. `house-rules.md` gets a note that its card rules are history, and the card items in `PLAN.md`, `PASS_AND_PLAY_NEXT.md` and `PLAY_THE_COMPUTER.md` are struck through
+- [x] How it went: the dashed lines are painted over in `compose-board.mjs` (`eraseSectionLines`: the strip one hex to the left, feathered), so the empty board and the four built-ins' art were rebuilt; a bigger board drawn in the app has no lines either. A place is now just its terrain (`describePlace`). `MarkerRule` and `AttackEffect` moved to `actionCard.ts`, and the paintings' list to `components/cardPaintings.ts`; `CardArt`, `CommandCardComponent`, `CombatCardComponent` and `SectionIcon` went. Old scenario files with `initialHandSize` or `extraDraws` still load (the schema marks them as no longer used). The map editor lost its hand sizes, extra draws and Rattenkrieg note. ARCHITECTURE.md and CLAUDE.md's code map still name the old card modules: R16
 
 ## Part 3: The screens
 

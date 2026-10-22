@@ -78,7 +78,7 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
         <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
           {t.title}
         </Typography>
-        <PlayedCards faction={faction} {...playedCardOf(game)} />
+        <PlayedCards {...playedCardOf(game)} />
 
         <Stack sx={{ gap: 1, width: "100%" }}>
           <Button variant="outlined" onClick={onShowSummary} startIcon={<GameIcon name="battle" />}>

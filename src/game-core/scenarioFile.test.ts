@@ -24,7 +24,6 @@ const testFile = (): ScenarioFile => ({
   id: "test-map",
   name: { es: "Prueba", en: "Test" },
   description: { es: "Un mapa de prueba.", en: "A test map." },
-  initialHandSize: { allies: 5, axis: 4 },
   attacker: "Allies",
   tiles: { [HexType.FOREST]: [{ row: 4, col: 4 }], [HexType.RIVER]: [{ row: 4, col: 6 }], [HexType.LAKE]: [{ row: 5, col: 6 }] },
   units: {
@@ -122,7 +121,6 @@ describe("parseScenario refuses a file of the wrong shape", () => {
     ["a terrain it doesn't know", json({ tiles: { desert: [{ row: 0, col: 0 }] } }), '"tiles.desert" isn\'t a terrain'],
     ["a unit type it doesn't know", json({ units: { allies: { jeep: [{ row: 8, col: 0 }] }, axis: {} } }), '"units.allies.jeep" isn\'t a unit type'],
     ["a hex with something else in it", json({ wire: [{ row: 1, col: 1, kind: "wire" }] }), '"wire" must be a list of hexes'],
-    ["half a hand size", json({ initialHandSize: { allies: 4.5, axis: 4 } }), '"initialHandSize.allies" must be a whole number'],
     ["a side that isn't one", json({ attacker: "Soviets" }), '"attacker" must be "Allies" or "Axis"'],
   ])("%s", (_case, file, message) => {
     expect(() => parseScenario(file)).toThrow(ScenarioFileError);
@@ -211,20 +209,23 @@ describe("validateScenario", () => {
     expect(problemsWith({ name: { es: "Prueba", en: "" } })).toEqual([]);
   });
 
-  it("checks the id, the hands and the numbers", () => {
+  it("reads an older file with the card game's hands and extra draws, and drops them", () => {
+    const old = { ...json(), initialHandSize: { allies: 4.5, axis: 4 }, extraDraws: { faction: "Axis", turns: 2 } };
+    const scenario = parseScenario(old) as unknown as Record<string, unknown>;
+    expect(scenario.initialHandSize).toBeUndefined();
+    expect(scenario.extraDraws).toBeUndefined();
+  });
+
+  it("checks the id and the numbers", () => {
     const problems = problemsWith({
       id: "Test Map",
-      initialHandSize: { allies: 0, axis: 4 },
       paradrop: { faction: "Allies", unitType: UnitType.INFANTRY, units: 0 },
-      extraDraws: { faction: "Axis", turns: 0 },
       airPower: { allies: -1, axis: 0 },
     });
 
     expect(messages(problems)).toEqual([
       'The id "Test Map" must be lower-case words joined by hyphens',
-      "The Allies must start with 1 command card or more",
       "The paradrop needs 1 unit or more",
-      "The extra draws need 1 turn or more",
       "Air sorties must be 0 or more",
     ]);
   });
