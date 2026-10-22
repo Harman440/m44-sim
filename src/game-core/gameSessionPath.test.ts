@@ -17,7 +17,6 @@ const scenario: Scenario = {
   id: "path",
   name: same("Path"),
   description: same(""),
-  initialHandSize: { allies: 2, axis: 2 },
   attacker: "Allies",
   tiles: {},
   units: { allies: { infantry: [INF] }, axis: {} },

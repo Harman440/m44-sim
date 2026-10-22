@@ -664,7 +664,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   // Compact in the narrow column, so the button below stays in sight
                   <Box sx={{ "& .battle-reserve": { flex: "none", p: 1, gap: 1 } }}>
                     <BattleReserve
-                      faction={otherSide(computer)}
                       coins={match.sessions[otherSide(computer)].getSnapshot().coins}
                       onShowCoins={() => setCoinsOf(otherSide(computer))}
                       {...playedCardOf(match.sessions[otherSide(computer)].getSnapshot())}
