@@ -4,9 +4,11 @@ import UnitComponent from "./UnitComponent";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import alliedInfantry from "../assets/units/allies/infantry.webp";
+import alliedInfantryBack from "../assets/units/allies/infantry-back.webp";
 import alliedTank from "../assets/units/allies/tank.svg";
 import alliedArtillery from "../assets/units/allies/artillery.svg";
 import axisInfantry from "../assets/units/axis/infantry.webp";
+import axisInfantryBack from "../assets/units/axis/infantry-back.webp";
 import axisTank from "../assets/units/axis/tank.svg";
 import axisArtillery from "../assets/units/axis/artillery.svg";
 
@@ -39,6 +41,36 @@ describe("UnitComponent", () => {
 
     expect(image.getAttribute("href")).toBe(asset);
     expect(image.getAttribute("data-unit-type")).toBe(unitType);
+  });
+
+  it("draws its own side's infantry from behind, and the front for a unit type with no back view", () => {
+    const sprite = (faction: Faction, unitType: UnitType) =>
+      render(
+        <svg>
+          <UnitComponent x={0} y={0} faction={faction} unitData={new Unit(unitType)} fromBehind />
+        </svg>
+      ).container.querySelector("image")!.getAttribute("href");
+
+    expect(sprite("Allies", UnitType.INFANTRY)).toBe(alliedInfantryBack);
+    expect(sprite("Allies", UnitType.TANK)).toBe(alliedTank);
+    expect(sprite("Axis", UnitType.INFANTRY)).toBe(axisInfantryBack);
+    expect(sprite("Axis", UnitType.TANK)).toBe(axisTank);
+  });
+
+  it.each([
+    [UnitType.INFANTRY, 6],
+    [UnitType.TANK, 3],
+    [UnitType.ARTILLERY, 3],
+  ] as const)("draws a %s as %i figures, and only the figures it has left", (unitType, all) => {
+    const drawn = (figures?: number) =>
+      render(
+        <svg>
+          <UnitComponent x={0} y={0} faction="Axis" unitData={new Unit(unitType)} figures={figures} />
+        </svg>
+      ).container.querySelectorAll("image").length;
+
+    expect(drawn()).toBe(all);
+    expect(drawn(1)).toBe(1);
   });
 
   it("falls back to infantry without unit data", () => {

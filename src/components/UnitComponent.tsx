@@ -1,14 +1,17 @@
 // Unit.tsx
 import React from "react";
 import alliedInfantry from "../assets/units/allies/infantry.webp";
+import alliedInfantryBack from "../assets/units/allies/infantry-back.webp";
 import alliedTank from "../assets/units/allies/tank.svg";
 import alliedArtillery from "../assets/units/allies/artillery.svg";
 import axisInfantry from "../assets/units/axis/infantry.webp";
+import axisInfantryBack from "../assets/units/axis/infantry-back.webp";
 import axisTank from "../assets/units/axis/tank.svg";
 import axisArtillery from "../assets/units/axis/artillery.svg";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { FACTION_COLORS } from "../looks/looks";
+import { FIGURES } from "../data/figures";
 import { defineMessages, useMessages } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
@@ -44,6 +47,12 @@ const SPRITES: Record<Faction, Record<UnitType, string>> = {
   },
 };
 
+/** Seen from behind, facing the enemy: a unit type without one shows its front */
+const BACK_SPRITES: Record<Faction, Partial<Record<UnitType, string>>> = {
+  Allies: { [UnitType.INFANTRY]: alliedInfantryBack },
+  Axis: { [UnitType.INFANTRY]: axisInfantryBack },
+};
+
 export const unitSprite = (faction: Faction, unitType: UnitType): string => SPRITES[faction][unitType];
 
 interface UnitProps {
@@ -52,13 +61,15 @@ interface UnitProps {
   y: number;
   faction: Faction;
   unitData?: Unit; // without data, an infantry sprite is drawn
+  /** It belongs to the side the board is seen from, so it faces away towards the enemy: drawn from behind */
+  fromBehind?: boolean;
   /** Its order lets it fire this turn */
   readyToFire?: boolean;
   /** It has used its shots this turn */
   fired?: boolean;
   /** It can be ordered */
   orderable?: boolean;
-  /** Pass and play: its figures left, shown bottom right */
+  /** Pass and play: its figures left, the sprites drawn and a number bottom right; by default all of them */
   figures?: number;
   /** Pass and play: it took a flag this turn (pinned), a flag bottom left */
   pinned?: boolean;
@@ -81,24 +92,44 @@ const starPath = (cx: number, cy: number, outer: number, inner: number) =>
     return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
   }).join("L") +
   "Z";
-const SPRITE_SIZE = 44;
 const BADGE_RADIUS = 10;
 
-// Preview: infantry stands in the hex as this many figures
-const INFANTRY_FIGURES = 6;
-const FIGURE_SIZE = 30;
-/** Where each figure stands, from the centre: back row first, so the front row overlaps it */
-const FIGURE_SPOTS: ReadonlyArray<readonly [number, number]> = [
-  [-20, -14],
-  [0, -16],
-  [20, -14],
-  [-20, 12],
-  [0, 14],
-  [20, 12],
-];
+/**
+ * Each figure's sprite size and where it stands, from the centre: back row first, so the front row
+ * overlaps it. A unit that has lost figures shows the first ones, losing its front row first
+ */
+const FIGURE_LAYOUT: Record<UnitType, { size: number; spots: ReadonlyArray<readonly [number, number]> }> = {
+  [UnitType.INFANTRY]: {
+    size: 30,
+    spots: [
+      [-20, -14],
+      [0, -16],
+      [20, -14],
+      [-20, 12],
+      [0, 14],
+      [20, 12],
+    ],
+  },
+  [UnitType.TANK]: {
+    size: 30,
+    spots: [
+      [-15, -12],
+      [15, -12],
+      [0, 10],
+    ],
+  },
+  [UnitType.ARTILLERY]: {
+    size: 30,
+    spots: [
+      [-15, -12],
+      [15, -12],
+      [0, 10],
+    ],
+  },
+};
 
 /**
- * A unit as its side's sprite, with no token behind it. A dashed gold ring marks a
+ * A unit as one of its side's sprites per figure, with no token behind it. A dashed gold ring marks a
  * unit that can be ordered; a badge shows it will fire (crosshair) or has
  * fired (check).
  */
@@ -107,6 +138,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   y,
   faction,
   unitData,
+  fromBehind = false,
   readyToFire = false,
   fired = false,
   orderable = false,
@@ -118,7 +150,10 @@ const UnitComponent: React.FC<UnitProps> = ({
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
-  const href = unitSprite(faction, unitType);
+  const href = (fromBehind && BACK_SPRITES[faction][unitType]) || unitSprite(faction, unitType);
+  const layout = FIGURE_LAYOUT[unitType];
+  // Own tablets don't count figures: a unit stands at full strength
+  const figuresShown = figures ?? FIGURES[unitType].figures;
   const badgeX = x + TOKEN_RADIUS * 0.72;
   const badgeY = y - TOKEN_RADIUS * 0.72;
 
@@ -137,30 +172,18 @@ const UnitComponent: React.FC<UnitProps> = ({
         />
       )}
 
-      {unitType === UnitType.INFANTRY ? (
-        FIGURE_SPOTS.slice(0, INFANTRY_FIGURES).map(([dx, dy], i) => (
-          <image
-            key={i}
-            href={href}
-            data-unit-type={unitType}
-            x={x + dx - FIGURE_SIZE / 2}
-            y={y + dy - FIGURE_SIZE / 2}
-            width={FIGURE_SIZE}
-            height={FIGURE_SIZE}
-            preserveAspectRatio="xMidYMid meet"
-          />
-        ))
-      ) : (
+      {layout.spots.slice(0, figuresShown).map(([dx, dy], i) => (
         <image
+          key={i}
           href={href}
           data-unit-type={unitType}
-          x={x - SPRITE_SIZE / 2}
-          y={y - SPRITE_SIZE / 2}
-          width={SPRITE_SIZE}
-          height={SPRITE_SIZE}
+          x={x + dx - layout.size / 2}
+          y={y + dy - layout.size / 2}
+          width={layout.size}
+          height={layout.size}
           preserveAspectRatio="xMidYMid meet"
         />
-      )}
+      ))}
 
       {/* The scenario's elite badge (moves its whole move and fires), top left */}
       {unitData?.elite && (

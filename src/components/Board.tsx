@@ -480,6 +480,7 @@ function Board({
                 x={0}
                 y={0}
                 faction={token.faction}
+                fromBehind={token.faction === viewSide}
                 unitData={token.unit}
                 readyToFire={token.readyToFire}
                 fired={token.fired}
