@@ -34,6 +34,7 @@
 - can reinforcents appear wherever: fix only end hexes
 - I am too free to order units: check Moral, ammo, etc.. everything must feel more
 - add condition of rest if not next to enemy unit
+- some times the fire is obvious as there is nothing to fire and no units will retreat into range and/or there is only one obvious target. make these decisions faster for the player
 
 - New Rework: Officer
    - Each units last figure is a serageant and can recruit other troops from other units. It spends maybe moral and energy and must be near to other weakend unit
