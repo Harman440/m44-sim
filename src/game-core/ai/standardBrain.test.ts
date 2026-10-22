@@ -76,5 +76,6 @@ describe("standardBrain", () => {
       }
     }
     expect(won).toBeGreaterThan(lost);
-  });
+    // (it plays every catalog map too, some on boards bigger than the standard one)
+  }, 60_000);
 });

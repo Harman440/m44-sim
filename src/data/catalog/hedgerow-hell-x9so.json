@@ -1,7 +1,7 @@
 {
   "$schema": "../../game-core/scenarioFile.schema.json",
   "version": 1,
-  "board": { "cols": 21, "rows": 9 },
+  "board": { "cols": 21, "rows": 15 },
   "id": "hedgerow-hell-x9so",
   "name": { "es": "Hedgerow Hell", "en": "Hedgerow Hell" },
   "description": { "es": "", "en": "" },
@@ -9,189 +9,234 @@
   "attacker": "Allies",
   "tiles": {
     "hedgerow": [
-      { "row": 3, "col": 0 },
-      { "row": 4, "col": 0 },
-      { "row": 6, "col": 1 },
+      { "row": 7, "col": 0 },
+      { "row": 8, "col": 0 },
+      { "row": 10, "col": 1 },
+      { "row": 11, "col": 2 },
+      { "row": 10, "col": 4 },
+      { "row": 8, "col": 3 },
       { "row": 7, "col": 2 },
-      { "row": 6, "col": 4 },
-      { "row": 4, "col": 3 },
-      { "row": 3, "col": 2 },
-      { "row": 3, "col": 3 },
-      { "row": 1, "col": 8 },
-      { "row": 7, "col": 14 },
-      { "row": 7, "col": 15 },
-      { "row": 6, "col": 16 },
-      { "row": 6, "col": 19 },
-      { "row": 2, "col": 6 },
-      { "row": 1, "col": 3 },
-      { "row": 2, "col": 8 },
-      { "row": 1, "col": 7 },
-      { "row": 5, "col": 6 },
+      { "row": 7, "col": 3 },
+      { "row": 5, "col": 8 },
+      { "row": 11, "col": 14 },
+      { "row": 11, "col": 15 },
+      { "row": 10, "col": 16 },
+      { "row": 10, "col": 19 },
       { "row": 6, "col": 6 },
-      { "row": 6, "col": 10 },
-      { "row": 3, "col": 10 },
-      { "row": 2, "col": 14 },
-      { "row": 5, "col": 12 },
-      { "row": 4, "col": 13 },
-      { "row": 4, "col": 14 },
-      { "row": 3, "col": 16 },
-      { "row": 7, "col": 13 },
-      { "row": 6, "col": 15 },
-      { "row": 5, "col": 17 },
-      { "row": 6, "col": 18 },
-      { "row": 1, "col": 18 }
+      { "row": 5, "col": 3 },
+      { "row": 6, "col": 8 },
+      { "row": 5, "col": 7 },
+      { "row": 9, "col": 6 },
+      { "row": 10, "col": 6 },
+      { "row": 10, "col": 10 },
+      { "row": 7, "col": 10 },
+      { "row": 6, "col": 14 },
+      { "row": 9, "col": 12 },
+      { "row": 8, "col": 13 },
+      { "row": 8, "col": 14 },
+      { "row": 7, "col": 16 },
+      { "row": 11, "col": 13 },
+      { "row": 10, "col": 15 },
+      { "row": 9, "col": 17 },
+      { "row": 10, "col": 18 },
+      { "row": 5, "col": 18 },
+      { "row": 3, "col": 18 },
+      { "row": 3, "col": 17 },
+      { "row": 3, "col": 7 },
+      { "row": 3, "col": 2 },
+      { "row": 3, "col": 1 },
+      { "row": 2, "col": 2 },
+      { "row": 13, "col": 17 },
+      { "row": 13, "col": 14 },
+      { "row": 13, "col": 9 },
+      { "row": 13, "col": 3 },
+      { "row": 13, "col": 2 },
+      { "row": 14, "col": 4 },
+      { "row": 14, "col": 9 },
+      { "row": 14, "col": 19 }
     ],
     "forest": [
-      { "row": 7, "col": 3 },
-      { "row": 4, "col": 5 },
-      { "row": 3, "col": 7 },
-      { "row": 4, "col": 10 },
-      { "row": 3, "col": 12 },
-      { "row": 1, "col": 14 },
-      { "row": 2, "col": 16 },
-      { "row": 1, "col": 16 },
-      { "row": 2, "col": 18 },
-      { "row": 7, "col": 18 },
-      { "row": 7, "col": 11 }
+      { "row": 11, "col": 3 },
+      { "row": 8, "col": 5 },
+      { "row": 7, "col": 7 },
+      { "row": 8, "col": 10 },
+      { "row": 7, "col": 12 },
+      { "row": 5, "col": 14 },
+      { "row": 6, "col": 16 },
+      { "row": 5, "col": 16 },
+      { "row": 6, "col": 18 },
+      { "row": 11, "col": 18 },
+      { "row": 11, "col": 11 }
     ],
     "town": [
-      { "row": 2, "col": 1 },
-      { "row": 1, "col": 9 },
-      { "row": 4, "col": 15 },
-      { "row": 3, "col": 18 },
-      { "row": 8, "col": 12 }
+      { "row": 6, "col": 1 },
+      { "row": 5, "col": 9 },
+      { "row": 8, "col": 15 },
+      { "row": 7, "col": 18 },
+      { "row": 12, "col": 12 },
+      { "row": 1, "col": 4 },
+      { "row": 0, "col": 4 },
+      { "row": 0, "col": 6 },
+      { "row": 1, "col": 8 },
+      { "row": 0, "col": 8 },
+      { "row": 1, "col": 12 },
+      { "row": 0, "col": 13 },
+      { "row": 1, "col": 14 },
+      { "row": 0, "col": 15 },
+      { "row": 1, "col": 18 },
+      { "row": 0, "col": 19 },
+      { "row": 0, "col": 18 },
+      { "row": 0, "col": 1 }
     ],
     "river": [
-      { "row": 8, "col": 11 },
-      { "row": 7, "col": 10 },
-      { "row": 6, "col": 11 },
-      { "row": 5, "col": 11 },
-      { "row": 4, "col": 12 },
-      { "row": 3, "col": 11 },
-      { "row": 2, "col": 12 },
-      { "row": 1, "col": 12 },
-      { "row": 0, "col": 5 },
-      { "row": 1, "col": 5 },
-      { "row": 2, "col": 5 },
+      { "row": 11, "col": 10 },
+      { "row": 10, "col": 11 },
+      { "row": 9, "col": 11 },
+      { "row": 8, "col": 12 },
+      { "row": 7, "col": 11 },
+      { "row": 6, "col": 12 },
+      { "row": 5, "col": 12 },
+      { "row": 4, "col": 5 },
+      { "row": 5, "col": 5 },
+      { "row": 6, "col": 5 },
+      { "row": 7, "col": 4 },
+      { "row": 8, "col": 4 },
+      { "row": 9, "col": 3 },
+      { "row": 8, "col": 17 },
+      { "row": 8, "col": 18 },
+      { "row": 9, "col": 18 },
+      { "row": 3, "col": 13 },
+      { "row": 2, "col": 14 },
+      { "row": 1, "col": 13 },
+      { "row": 0, "col": 14 },
       { "row": 3, "col": 4 },
-      { "row": 4, "col": 4 },
-      { "row": 5, "col": 3 },
-      { "row": 4, "col": 17 },
-      { "row": 4, "col": 18 },
-      { "row": 5, "col": 18 }
+      { "row": 2, "col": 5 },
+      { "row": 1, "col": 5 },
+      { "row": 0, "col": 5 },
+      { "row": 2, "col": 0 },
+      { "row": 1, "col": 0 },
+      { "row": 0, "col": 0 },
+      { "row": 12, "col": 11 },
+      { "row": 14, "col": 11 },
+      { "row": 13, "col": 10 }
     ],
     "bridge": [
-      { "row": 0, "col": 13 },
-      { "row": 5, "col": 19 }
+      { "row": 4, "col": 13 },
+      { "row": 9, "col": 19 }
     ],
     "hill": [
-      { "row": 6, "col": 7 },
-      { "row": 7, "col": 6 },
-      { "row": 8, "col": 6 },
-      { "row": 8, "col": 7 },
+      { "row": 10, "col": 7 },
+      { "row": 11, "col": 6 },
+      { "row": 12, "col": 6 },
+      { "row": 12, "col": 7 },
+      { "row": 12, "col": 8 },
+      { "row": 11, "col": 8 },
+      { "row": 10, "col": 9 },
+      { "row": 10, "col": 8 },
+      { "row": 11, "col": 7 },
+      { "row": 9, "col": 7 },
+      { "row": 9, "col": 8 },
+      { "row": 9, "col": 9 },
+      { "row": 8, "col": 9 },
       { "row": 8, "col": 8 },
+      { "row": 8, "col": 7 },
       { "row": 7, "col": 8 },
+      { "row": 7, "col": 9 },
       { "row": 6, "col": 9 },
-      { "row": 6, "col": 8 },
-      { "row": 7, "col": 7 },
-      { "row": 5, "col": 7 },
-      { "row": 5, "col": 8 },
-      { "row": 5, "col": 9 },
-      { "row": 4, "col": 9 },
-      { "row": 4, "col": 8 },
-      { "row": 4, "col": 7 },
-      { "row": 3, "col": 8 },
+      { "row": 6, "col": 10 },
+      { "row": 5, "col": 10 },
+      { "row": 4, "col": 10 },
       { "row": 3, "col": 9 },
-      { "row": 2, "col": 9 },
-      { "row": 2, "col": 10 },
-      { "row": 1, "col": 10 },
-      { "row": 0, "col": 10 }
+      { "row": 3, "col": 10 },
+      { "row": 13, "col": 6 },
+      { "row": 13, "col": 7 }
     ]
   },
   "pickedTiles": [
-    { "row": 2, "col": 1, "tile": "official" },
-    { "row": 1, "col": 9, "tile": "official" },
-    { "row": 4, "col": 15, "tile": "official" },
-    { "row": 3, "col": 18, "tile": "official" },
-    { "row": 8, "col": 12, "tile": "official" }
+    { "row": 6, "col": 1, "tile": "official" },
+    { "row": 5, "col": 9, "tile": "official" },
+    { "row": 8, "col": 15, "tile": "official" },
+    { "row": 7, "col": 18, "tile": "official" },
+    { "row": 12, "col": 12, "tile": "official" }
   ],
   "units": {
     "allies": {
       "infantry": [
-        { "row": 6, "col": 0 },
-        { "row": 7, "col": 0 },
-        { "row": 8, "col": 1 },
-        { "row": 7, "col": 2 },
-        { "row": 8, "col": 4 },
-        { "row": 8, "col": 5 },
-        { "row": 7, "col": 7 },
-        { "row": 6, "col": 7 },
-        { "row": 6, "col": 8 },
-        { "row": 8, "col": 10 },
-        { "row": 7, "col": 11 },
-        { "row": 8, "col": 12 },
-        { "row": 8, "col": 14 },
-        { "row": 8, "col": 15 },
-        { "row": 7, "col": 16 },
-        { "row": 7, "col": 19 },
-        { "row": 8, "col": 19 }
+        { "row": 10, "col": 0 },
+        { "row": 11, "col": 0 },
+        { "row": 12, "col": 1 },
+        { "row": 11, "col": 2 },
+        { "row": 12, "col": 4 },
+        { "row": 12, "col": 5 },
+        { "row": 11, "col": 7 },
+        { "row": 10, "col": 7 },
+        { "row": 10, "col": 8 },
+        { "row": 12, "col": 10 },
+        { "row": 11, "col": 11 },
+        { "row": 12, "col": 12 },
+        { "row": 12, "col": 14 },
+        { "row": 12, "col": 15 },
+        { "row": 11, "col": 16 },
+        { "row": 11, "col": 19 },
+        { "row": 12, "col": 19 }
       ],
       "tank": [
-        { "row": 8, "col": 16 },
-        { "row": 8, "col": 20 },
-        { "row": 8, "col": 13 },
-        { "row": 8, "col": 7 },
-        { "row": 8, "col": 6 },
-        { "row": 8, "col": 0 }
+        { "row": 12, "col": 16 },
+        { "row": 12, "col": 20 },
+        { "row": 12, "col": 13 },
+        { "row": 12, "col": 7 },
+        { "row": 12, "col": 6 },
+        { "row": 12, "col": 0 },
+        { "row": 13, "col": 0 }
       ],
       "artillery": [
-        { "row": 8, "col": 18 },
-        { "row": 8, "col": 9 },
-        { "row": 8, "col": 2 }
+        { "row": 12, "col": 18 },
+        { "row": 12, "col": 9 },
+        { "row": 12, "col": 2 }
       ]
     },
     "axis": {
       "tank": [
-        { "row": 0, "col": 1 },
-        { "row": 0, "col": 4 },
-        { "row": 0, "col": 8 },
-        { "row": 0, "col": 12 },
-        { "row": 0, "col": 19 }
+        { "row": 4, "col": 1 },
+        { "row": 4, "col": 4 },
+        { "row": 4, "col": 8 },
+        { "row": 4, "col": 12 },
+        { "row": 4, "col": 19 }
       ],
       "artillery": [
-        { "row": 1, "col": 3 },
-        { "row": 2, "col": 8 },
-        { "row": 1, "col": 18 }
+        { "row": 5, "col": 3 },
+        { "row": 6, "col": 8 },
+        { "row": 5, "col": 18 }
       ],
       "infantry": [
-        { "row": 2, "col": 1 },
-        { "row": 4, "col": 7 },
-        { "row": 4, "col": 8 },
-        { "row": 4, "col": 9 },
-        { "row": 1, "col": 9 },
-        { "row": 2, "col": 16 },
-        { "row": 3, "col": 18 },
-        { "row": 4, "col": 13 },
-        { "row": 6, "col": 15 },
-        { "row": 2, "col": 6 },
-        { "row": 3, "col": 2 },
-        { "row": 3, "col": 0 }
+        { "row": 6, "col": 1 },
+        { "row": 8, "col": 7 },
+        { "row": 8, "col": 8 },
+        { "row": 8, "col": 9 },
+        { "row": 5, "col": 9 },
+        { "row": 6, "col": 16 },
+        { "row": 7, "col": 18 },
+        { "row": 8, "col": 13 },
+        { "row": 10, "col": 15 },
+        { "row": 6, "col": 6 },
+        { "row": 7, "col": 2 },
+        { "row": 7, "col": 0 }
       ]
     }
   },
   "sandbags": [
-    { "row": 2, "col": 1 },
-    { "row": 4, "col": 7 },
-    { "row": 4, "col": 8 },
-    { "row": 4, "col": 9 },
-    { "row": 3, "col": 18 },
-    { "row": 1, "col": 18 }
+    { "row": 6, "col": 1 },
+    { "row": 8, "col": 7 },
+    { "row": 8, "col": 8 },
+    { "row": 8, "col": 9 },
+    { "row": 7, "col": 18 },
+    { "row": 5, "col": 18 }
   ],
   "elite": [
-    { "row": 3, "col": 0 },
-    { "row": 3, "col": 2 },
-    { "row": 2, "col": 6 },
-    { "row": 1, "col": 9 }
+    { "row": 7, "col": 0 },
+    { "row": 7, "col": 2 },
+    { "row": 6, "col": 6 },
+    { "row": 5, "col": 9 }
   ],
   "airPower": { "allies": 0, "axis": 0 },
   "fordableRivers": true,
@@ -202,42 +247,77 @@
         "faction": "Allies",
         "name": { "es": "Objetivo 1", "en": "Objective 1" },
         "hexes": [
-          { "row": 2, "col": 1 }
+          { "row": 6, "col": 1 }
         ]
       },
       {
         "faction": "Allies",
         "name": { "es": "Objetivo 2", "en": "Objective 2" },
         "hexes": [
-          { "row": 1, "col": 9 }
+          { "row": 5, "col": 9 }
         ]
       },
       {
         "faction": "Allies",
         "name": { "es": "Objetivo 3", "en": "Objective 3" },
         "hexes": [
-          { "row": 3, "col": 18 }
+          { "row": 7, "col": 18 }
         ]
       },
       {
         "faction": "Axis",
         "name": { "es": "Objetivo 1", "en": "Objective 1" },
         "hexes": [
-          { "row": 2, "col": 1 }
+          { "row": 6, "col": 1 }
         ]
       },
       {
         "faction": "Axis",
         "name": { "es": "Objetivo 2", "en": "Objective 2" },
         "hexes": [
-          { "row": 1, "col": 9 }
+          { "row": 5, "col": 9 }
         ]
       },
       {
         "faction": "Axis",
         "name": { "es": "Objetivo 3", "en": "Objective 3" },
         "hexes": [
-          { "row": 3, "col": 18 }
+          { "row": 7, "col": 18 }
+        ]
+      },
+      {
+        "faction": "Allies",
+        "name": { "es": "Objetivo 4", "en": "Objective 4" },
+        "hexes": [
+          { "row": 1, "col": 14 }
+        ]
+      },
+      {
+        "faction": "Allies",
+        "name": { "es": "Objetivo 5", "en": "Objective 5" },
+        "hexes": [
+          { "row": 1, "col": 18 }
+        ]
+      },
+      {
+        "faction": "Allies",
+        "name": { "es": "Objetivo 6", "en": "Objective 6" },
+        "hexes": [
+          { "row": 1, "col": 12 }
+        ]
+      },
+      {
+        "faction": "Allies",
+        "name": { "es": "Objetivo 7", "en": "Objective 7" },
+        "hexes": [
+          { "row": 1, "col": 8 }
+        ]
+      },
+      {
+        "faction": "Allies",
+        "name": { "es": "Objetivo 8", "en": "Objective 8" },
+        "hexes": [
+          { "row": 1, "col": 4 }
         ]
       }
     ]
