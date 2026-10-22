@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Box, ButtonBase, Stack, Typography } from "@mui/material";
-import { CombatCard } from "../../../game-core/combatCard";
-import { UnitType } from "../../../game-core/unit";
+import type { ActionCard } from "../../../game-core/actionCard";
 import { Faction } from "../../../types/faction";
-import CombatCardComponent from "../../CombatCardComponent";
+import ActionCardComponent from "../../ActionCardComponent";
 import CardDialog, { ShownCard } from "../../CardDialog";
 import GameIcon from "../../GameIcon";
 import CoinCount from "../../CoinCount";
@@ -13,20 +12,16 @@ const TEXT = defineMessages({
   es: {
     coinsLabel: (coins: string) => `Suministros: ${coins}`,
     coinsUnit: (n: number) => `${n === 1 ? "suministro" : "suministros"} · ver cuentas`,
-    combatCards: "Cartas de combate jugadas",
-    playedWithOrders: "Se jugaron con las órdenes · toca una para verla",
-    noCardsPlayed: "No jugaste cartas de combate este turno.",
-    givenTo: (unit: string) => `A: ${unit}`,
-    combatCard: "Carta de combate",
+    cardPlayed: "Carta jugada",
+    tapToSee: "Toca la carta para verla",
+    noCardPlayed: "No jugaste carta este turno.",
   },
   en: {
     coinsLabel: (coins: string) => `Supplies: ${coins}`,
     coinsUnit: (n: number) => `${n === 1 ? "supply" : "supplies"} · see ledger`,
-    combatCards: "Combat cards played",
-    playedWithOrders: "Played with the orders · tap one to see it",
-    noCardsPlayed: "You played no combat cards this turn.",
-    givenTo: (unit: string) => `To: ${unit}`,
-    combatCard: "Combat card",
+    cardPlayed: "Card played",
+    tapToSee: "Tap the card to see it",
+    noCardPlayed: "You played no card this turn.",
   },
 });
 
@@ -35,21 +30,21 @@ interface BattleReserveProps {
   coins: number;
   /** Open the coin ledger */
   onShowCoins: () => void;
-  /** The combat cards played with the orders this turn */
-  played: readonly CombatCard[];
-  /** The ones given to a unit, and the unit */
-  assignments?: readonly { card: CombatCard; unitType: UnitType }[];
+  /** The card played this turn, if any */
+  card: ActionCard | null;
+  /** What it cost the side */
+  cost?: number;
 }
 
 /**
- * The battle's side panel: the coins, large, and the combat cards played with
- * the orders (none is played in the battle). Tapping a card shows it in full.
+ * The battle's side panel: the coins, large, and the card played with the orders. Tapping the
+ * card shows it in full.
  */
-function BattleReserve({ faction, coins, onShowCoins, played, assignments = [] }: BattleReserveProps) {
-  const [looking, setLooking] = useState<CombatCard | null>(null);
+function BattleReserve({ faction, coins, onShowCoins, card, cost }: BattleReserveProps) {
+  const [looking, setLooking] = useState(false);
   const t = useMessages(TEXT);
   const labels = useLabels();
-  const shown: ShownCard | null = looking && { combat: looking };
+  const shown: ShownCard | null = looking && card ? { action: card, cost } : null;
 
   return (
     <Box className="battle-reserve">
@@ -79,38 +74,30 @@ function BattleReserve({ faction, coins, onShowCoins, played, assignments = [] }
         </Stack>
       </ButtonBase>
 
-      <Box component="section" aria-labelledby="battle-combat-title" data-testid="battle-combat-cards" className="battle-reserve__cards">
+      <Box component="section" aria-labelledby="battle-card-title" data-testid="battle-card" className="battle-reserve__cards">
         <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "center", gap: 1, flexWrap: "wrap" }}>
-          <Typography variant="h6" component="h3" id="battle-combat-title">
-            {t.combatCards}
+          <Typography variant="h6" component="h3" id="battle-card-title">
+            {t.cardPlayed}
           </Typography>
-          {played.length > 0 && (
+          {card && (
             <Typography variant="body2" color="text.secondary">
-              {t.playedWithOrders}
+              {t.tapToSee}
             </Typography>
           )}
         </Stack>
 
-        {played.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-            {t.noCardsPlayed}
-          </Typography>
-        ) : (
+        {card ? (
           <Box className="battle-reserve__hand">
-            {played.map((card) => {
-              const given = assignments.find((a) => a.card === card);
-              return (
-                <Stack key={card.id} sx={{ alignItems: "center", gap: 0.5 }}>
-                  <CombatCardComponent faction={faction} card={card} onClick={setLooking} />
-                  {given && <Typography variant="caption">{t.givenTo(labels.units[given.unitType])}</Typography>}
-                </Stack>
-              );
-            })}
+            <ActionCardComponent card={card} cost={cost} onClick={() => setLooking(true)} />
           </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            {t.noCardPlayed}
+          </Typography>
         )}
       </Box>
 
-      <CardDialog card={shown} faction={faction} onClose={() => setLooking(null)} label={t.combatCard} />
+      <CardDialog card={shown} faction={faction} onClose={() => setLooking(false)} label={t.cardPlayed} />
     </Box>
   );
 }

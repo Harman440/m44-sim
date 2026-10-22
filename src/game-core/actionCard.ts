@@ -9,7 +9,7 @@ import type { Faction } from "../types/faction";
 import type { Scenario } from "../types/scenario";
 import type { Localized } from "../i18n/lang";
 import { ACTION_CARDS, CARD_COOLDOWN_TURNS } from "../data/actionCards";
-import { airSortiesOf, hasBigGuns } from "../data/combatCards";
+import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
 
 /** What a card does */
 export type ActionCardEffect =

@@ -2,10 +2,12 @@ import { ReactNode, useState } from "react";
 import { Button, Dialog, DialogActions, DialogContent } from "@mui/material";
 import CommandCard, { Section } from "../game-core/commandCard";
 import { CombatCard } from "../game-core/combatCard";
+import type { ActionCard } from "../game-core/actionCard";
 import { Faction } from "../types/faction";
 import { defineMessages, useLabels, useLang, useMessages, useTr } from "../i18n/useI18n";
 import CommandCardComponent, { ruleTags } from "./CommandCardComponent";
 import CombatCardComponent from "./CombatCardComponent";
+import ActionCardComponent from "./ActionCardComponent";
 import CardDetails from "./CardDetails";
 import GameIcon from "./GameIcon";
 
@@ -22,8 +24,11 @@ const TEXT = defineMessages({
   },
 });
 
-/** A card to look at: a command card (with the section it was played in) or a combat card */
-export type ShownCard = { command: CommandCard; section?: Section | null } | { combat: CombatCard };
+/** A card to look at: an action card (at the side's cost), or one of the old command or combat cards */
+export type ShownCard =
+  | { action: ActionCard; cost?: number; turnsLeft?: number }
+  | { command: CommandCard; section?: Section | null }
+  | { combat: CombatCard };
 
 interface CardDialogProps {
   /** The card shown; null closes the dialog */
@@ -49,6 +54,15 @@ function CardDialog({ card, faction, onClose, label, children }: CardDialogProps
   return (
     <Dialog open={card !== null} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { "aria-label": label } }}>
       <DialogContent>
+        {shown && "action" in shown && (
+          <CardDetails
+            card={<ActionCardComponent card={shown.action} cost={shown.cost} turnsLeft={shown.turnsLeft} />}
+            cardWidth={220}
+            name={tr(shown.action.name)}
+            tags={[t.costs(labels.coins(shown.cost ?? shown.action.cost))]}
+            text={tr(shown.action.description)}
+          />
+        )}
         {shown && "command" in shown && (
           <CardDetails
             card={<CommandCardComponent faction={faction} cardData={shown.command} />}

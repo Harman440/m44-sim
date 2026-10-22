@@ -10,7 +10,7 @@ import { Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
-import PlayedCards from "../../PlayedCards";
+import PlayedCards, { playedCardOf } from "../../PlayedCards";
 import ShotDice from "../../ShotDice";
 import FactionInsignia from "../../FactionInsignia";
 import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
@@ -21,6 +21,7 @@ import MedalTally from "../../MedalTally";
 const TEXT = defineMessages({
   es: {
     title: (turn: number) => `Turno ${turn}: las órdenes`,
+    noCard: "Sin carta",
     help: "Las cartas jugadas y las órdenes de los dos bandos. Toca una carta para leerla entera.",
     move: "Mover las unidades",
     moveHelp: "Todas las unidades avanzan a la vez, casilla a casilla. Las que se encuentran con el enemigo se paran y chocan.",
@@ -44,6 +45,7 @@ const TEXT = defineMessages({
   },
   en: {
     title: (turn: number) => `Turn ${turn}: the orders`,
+    noCard: "No card",
     help: "The cards played and both sides' orders. Tap a card to read all of it.",
     move: "Move the units",
     moveHelp: "Every unit moves at once, one hex at a time. Units that run into the enemy stop and collide.",
@@ -98,12 +100,6 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
   const session = match.sessions[viewer];
   const game = session.getSnapshot();
   const moved = movement?.turn === turn ? movement : null;
-  // The units each side gave a combat card to, seen from the viewer
-  const cardBadges = [viewer, otherSide(viewer)].flatMap((faction) =>
-    match.sessions[faction]
-      .getSnapshot()
-      .assignments.map((a) => ({ position: a.position && (faction === viewer ? a.position : turnedRound(a.position, boardSizeOf(match.scenario))) }))
-  );
 
   const roll = (index: number) => {
     if (!match.rollCollision(index)) return;
@@ -127,7 +123,6 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 orders={game.orders}
                 markers={game.markers}
                 markerKind={game.markerKinds}
-                cardBadges={cardBadges}
                 camouflaged={game.camouflaged}
                 backgroundImage={session.scenario.image}
                 faction={viewer}
@@ -205,7 +200,6 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                   </Typography>
                   {[viewer, otherSide(viewer)].map((faction) => {
                     const side = match.sessions[faction].getSnapshot();
-                    if (!side.chosenCard) return null;
                     return (
                       <Stack key={faction} component="section" className="reveal-side" aria-label={labels.factions[faction]} spacing={0.5}>
                         <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
@@ -214,13 +208,13 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                             {labels.factions[faction]}
                           </Typography>
                         </Stack>
-                        <PlayedCards
-                          faction={faction}
-                          command={side.chosenCard}
-                          section={side.chosenSection}
-                          combat={side.combatCardsPlayed}
-                          assignments={side.assignments}
-                        />
+                        {side.playedCard ? (
+                          <PlayedCards faction={faction} {...playedCardOf(side)} />
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            {t.noCard}
+                          </Typography>
+                        )}
                       </Stack>
                     );
                   })}

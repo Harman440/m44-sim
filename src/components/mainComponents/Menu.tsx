@@ -68,10 +68,9 @@ const TEXT = defineMessages({
       "Cuando destruyen una de tus artillerías, sus artilleros siguen luchando: en la fase final, al " +
       "eliminarla del mapa, en su casilla queda una unidad de infantería. Pon en la mesa una figura de " +
       "infantería en su lugar.",
-    testMode: "Modo prueba: todas las cartas de combate",
+    testMode: "Modo prueba: todas las cartas",
     testModeHelp: (coins: number) =>
-      "Para probar las cartas: empiezas con una de cada carta de combate en la mano, sin límite, las " +
-      `que juegas vuelven a la mano al acabar el turno y cada turno empieza con al menos ${coins} suministros.`,
+      `Para probar las cartas: cada turno empieza con al menos ${coins} suministros y las cartas jugadas vuelven a la mano sin esperar.`,
     myMaps: "Mis mapas",
     noMaps: "Los mapas que hagas en el editor aparecen aquí.",
     newMap: "Nuevo mapa",
@@ -131,10 +130,9 @@ const TEXT = defineMessages({
       "When one of your artillery units is destroyed, its crew keeps fighting: in the final phase, when " +
       "you remove it from the map, an infantry unit stays on its hex. Put an infantry figure in its " +
       "place on the table.",
-    testMode: "Test mode: every combat card",
+    testMode: "Test mode: every card",
     testModeHelp: (coins: number) =>
-      "To try out the cards: you start with one of each combat card in your hand, with no limit, the " +
-      `ones you play come back to your hand at the end of the turn and each turn starts with at least ${coins} supplies.`,
+      `To try out the cards: each turn starts with at least ${coins} supplies, and cards played come back to the hand without waiting.`,
     myMaps: "My maps",
     noMaps: "The maps you make in the editor show up here.",
     newMap: "New map",

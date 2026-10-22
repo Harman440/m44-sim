@@ -123,18 +123,10 @@ const es: Labels = {
   hexes,
   describeCoinEntry: (entry) => {
     switch (entry.kind) {
-      case "extraOrder":
-        return `Orden extra: ${UNITS[entry.unit].toLowerCase()}`;
-      case "cardOrder":
-        return `Orden de la carta: ${UNITS[entry.unit].toLowerCase()}`;
       case "supplies":
         return `Suministros: ${UNITS[entry.unit].toLowerCase()}`;
-      case "endOfTurn":
-        return "Fase final: suministros";
-      case "cardReward":
-        return "Fase final: recompensa de la carta";
-      case "combatCard":
-        return `Carta de combate: ${entry.card.es}`;
+      case "card":
+        return `Carta: ${entry.card.es}`;
       case "adjustment":
         return entry.amount < 0 ? "Pago a mano" : "Ingreso a mano";
     }

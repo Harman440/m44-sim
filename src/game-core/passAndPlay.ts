@@ -336,9 +336,6 @@ class PassAndPlayMatch {
     const turn = this.revealTurn();
     if (turn === null || this.movement?.turn === turn) return false;
 
-    // Medic, Mechanic: the units given them get their figures back before anything moves
-    for (const side of FACTIONS) this.sessions[side].heal();
-
     const movers: Mover[] = [];
     const standers: Stander[] = [];
     for (const side of FACTIONS) {
@@ -485,10 +482,7 @@ class PassAndPlayMatch {
     this.movement = null;
     // The battle, on one screen for both players
     this.battle = { turn, fired: [], assault: null, ground: null, bonus: null };
-    for (const side of FACTIONS) {
-      this.sessions[side].startBattle();
-      this.markCloseAssaults(side);
-    }
+    for (const side of FACTIONS) this.sessions[side].startBattle();
     // A unit given a second flag in a collision retreats now, before anyone fires
     this.settleRetreats();
     this.active = this.person() ?? this.scenario.attacker;
@@ -540,18 +534,16 @@ class PassAndPlayMatch {
    * once (no more hits than the unit has figures, limited damage), and an enemy unit given a
    * second flag retreats now (`retreat`)
    */
-  fire(order: number, target: Position, { joined = [], suppressive = false }: { joined?: readonly number[]; suppressive?: boolean } = {}): boolean {
+  fire(order: number, target: Position): boolean {
     const turn = this.battleTurn();
-    const fireable = turn ? this.fireable(turn.side, turn.group) : [];
-    // Concentrated Fire: the units that roll with it fire in the same go, before the enemy answers
-    if (!turn || ![order, ...joined].every((unit) => fireable.includes(unit))) return false;
+    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
     const session = this.sessions[turn.side];
     // The units that moved fire once every unit that didn't move has fired, on either side
     if (turn.group === "moved" && session.orderSummaries().some((s) => s.unmovedGroup && s.shotsLeft > 0)) {
       session.skipUnmovedFire();
     }
     const shot = session.getSnapshot().shots.length;
-    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false, joined, suppressive })) return false;
+    if (!session.fireAt(order, { position: target, infantry: true, sandbags: false })) return false;
 
     const battle = this.battle!;
     this.battle = {
@@ -561,22 +553,6 @@ class PassAndPlayMatch {
     };
     this.limitDamage(turn.side, { kind: "shot", index: shot }, this.shotLimit(turn.side, shot));
     this.applyShot(turn.side, shot);
-    return this.publish();
-  }
-
-  /** Fortify: the unit whose turn it is puts sandbags on its hex instead of firing; they count at once */
-  fortify(order: number): boolean {
-    const turn = this.battleTurn();
-    if (!turn || !this.fireable(turn.side, turn.group).includes(order)) return false;
-    const session = this.sessions[turn.side];
-    const shot = session.getSnapshot().shots.length;
-    if (!session.fortify(order)) return false;
-    const battle = this.battle!;
-    this.battle = {
-      ...battle,
-      fired: [...battle.fired, { side: turn.side, group: turn.group, order, shot }],
-      bonus: null,
-    };
     return this.publish();
   }
 
@@ -754,18 +730,11 @@ class PassAndPlayMatch {
     return this.computer ? otherSide(this.computer) : null;
   }
 
-  /**
-   * Hits the shot may deal: as many as its unit's figures (all its units' with Concentrated
-   * Fire), one more with a card's dice
-   */
+  /** Hits the shot may deal: as many as its unit's figures, one more with a card's dice */
   private shotLimit(side: Faction, index: number): number {
     const session = this.sessions[side];
     const shot = session.getSnapshot().shots[index]!;
-    const summaries = session.orderSummaries();
-    const figures = [shot.orderIndex, ...(shot.joined ?? [])].reduce(
-      (sum, order) => sum + (session.figuresAt(summaries[order]!.firingFrom) ?? 0),
-      0
-    );
+    const figures = session.figuresAt(session.orderSummaries()[shot.orderIndex]!.firingFrom) ?? 0;
     return resultLimit(figures, shot.combatBonus);
   }
 
@@ -780,20 +749,10 @@ class PassAndPlayMatch {
     );
   }
 
-  // --- Combat cards in the shared battle
-
-  /** Close Assault: every unit of the side next to an enemy unit is marked, to fire in close assault */
-  private markCloseAssaults(side: Faction) {
-    const session = this.sessions[side];
-    if (!session.getSnapshot().activeCard?.closeAssaultOnly) return;
-    const enemies = this.enemiesOf(side).map((enemy) => enemy.position);
-    for (const { position } of armyOf(session)) {
-      if (enemies.some((enemy) => hexDistance(enemy, position) === 1)) session.markCloseAssault(position);
-    }
-  }
+  // --- Attack cards in the shared battle
 
   /**
-   * The side's attack combat cards (Barrage, Air Power…): every hex they marked is rolled, and the
+   * The side's attack card (Barrage, Air Power…): every hex they marked is rolled, and the
    * hits and flags dealt to the enemy unit standing there now (retreats can't be ignored)
    */
   rollAttacks(side: Faction): boolean {

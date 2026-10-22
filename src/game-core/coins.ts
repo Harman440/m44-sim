@@ -1,62 +1,34 @@
 // game-core/coins.ts
-// The coins a turn earns and spends, worked out from the turn's orders, shots
-// and choices, so undoing an order or a shot gives its coins back. The numbers
-// are in data/coinRules.ts; which supply faces earn a coin in data/hitRules.ts.
+// The coins (supplies, in the UI) a turn earns and spends, worked out from the turn's card and
+// shots, so undoing a shot gives its coins back. Which supply faces earn a coin is in
+// data/hitRules.ts.
 import Order from "./order";
 import { UnitType } from "./unit";
 import { appliedFaces, readRoll } from "./rollResult";
-import { END_OF_TURN_COINS } from "../data/coinRules";
 import type { Shot, StandingCollisionRoll } from "./gameSession";
-import type { CombatCard } from "./combatCard";
 import type { Localized } from "../i18n/lang";
-
-/** Final phase: 2 coins, or a combat card from the combat deck */
-export type RewardChoice = "coins" | "combatCard";
-
-export const isRewardChoice = (value: unknown): value is RewardChoice => value === "coins" || value === "combatCard";
 
 /** One line of the coin ledger: positive earns, negative spends */
 export type CoinEntry =
-  | { kind: "extraOrder" | "cardOrder"; amount: number; unit: UnitType }
   | { kind: "supplies"; amount: number; unit: UnitType }
-  | { kind: "endOfTurn" | "cardReward"; amount: number }
-  | { kind: "combatCard"; amount: number; card: Localized }
+  | { kind: "card"; amount: number; card: Localized }
   | { kind: "adjustment"; amount: number };
 
 export interface TurnCoinsState {
+  /** The command card played this turn, paid when played, at the side's cost */
+  card: { name: Localized; cost: number } | null;
   orders: readonly Order[];
-  /** Combat cards played this turn, paid when played */
-  combatCards: readonly CombatCard[];
   shots: readonly Shot[];
   /** Pass and play: collision rolls of units without an order, whose supply faces earn coins too */
   standingCollisions?: readonly StandingCollisionRoll[];
   /** Coins added or taken by hand (to match the table) */
   adjustments: readonly number[];
-  reward: RewardChoice | null;
-  /** Coins the played card gives in the final phase instead of the choice (Preparations); 0 before then */
-  cardReward: number;
-  /** The attacker's extra first turn: supply faces earn coins, but there is no final-phase reward */
-  extraTurn: boolean;
 }
 
-/** This turn's ledger: combat cards and orders paid, supply faces rolled, the final phase's coins and changes by hand */
-export function turnCoins({
-  orders,
-  combatCards,
-  shots,
-  standingCollisions = [],
-  adjustments,
-  reward,
-  cardReward,
-  extraTurn,
-}: TurnCoinsState): CoinEntry[] {
+/** This turn's ledger: the card paid, supply faces rolled and changes by hand */
+export function turnCoins({ card, orders, shots, standingCollisions = [], adjustments }: TurnCoinsState): CoinEntry[] {
   const entries: CoinEntry[] = [];
-  combatCards.forEach((card) => entries.push({ kind: "combatCard", amount: -card.cost, card: card.name }));
-  orders.forEach((order) => {
-    if (order.cost > 0) {
-      entries.push({ kind: order.extra ? "extraOrder" : "cardOrder", amount: -order.cost, unit: order.unit.getUnitType() });
-    }
-  });
+  if (card && card.cost > 0) entries.push({ kind: "card", amount: -card.cost, card: card.name });
   // Supply faces earn coins in every turn, the attacker's extra first turn included
   shots.forEach((shot) => {
     const coins = readRoll(appliedFaces(shot.faces, shot.kept), shot.target).coins;
@@ -66,11 +38,6 @@ export function turnCoins({
     const coins = readRoll(appliedFaces(roll.faces, roll.kept), roll.target).coins;
     if (coins > 0) entries.push({ kind: "supplies", amount: coins, unit: roll.unitType });
   });
-  // The extra first turn has no final-phase reward (nor Preparations' coins)
-  if (!extraTurn) {
-    if (reward === "coins") entries.push({ kind: "endOfTurn", amount: END_OF_TURN_COINS });
-    if (cardReward > 0) entries.push({ kind: "cardReward", amount: cardReward });
-  }
   adjustments.forEach((amount) => entries.push({ kind: "adjustment", amount }));
   return entries;
 }

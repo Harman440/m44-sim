@@ -11,7 +11,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import CommandCard from "../game-core/commandCard";
+import type { CombatBonus } from "../game-core/fireRules";
 import { OrderSummary } from "../game-core/turnSummary";
 import { COLLISION_NOTES, collisionSteps } from "../data/fireQuestions";
 import { Faction } from "../types/faction";
@@ -77,7 +77,8 @@ interface CollisionDialogProps {
   open: boolean;
   /** This turn's orders; only units that moved can have collided */
   summaries: readonly OrderSummary[];
-  card: CommandCard | null;
+  /** The extra dice the card played gives the order's unit (Finest Hour) */
+  bonusesFor: (orderIndex: number) => CombatBonus[];
   faction: Faction;
   /** Roll the collision for this order's unit against the unit it met; the session rolls the dice */
   /** What the enemy can have in the scenario */
@@ -116,7 +117,7 @@ function Outcome() {
 function CollisionDialog({
   open,
   summaries,
-  card,
+  bonusesFor,
   faction,
   targetKinds,
   onRoll,
@@ -162,13 +163,13 @@ function CollisionDialog({
                 variant="outlined"
                 size="large"
                 onClick={() => select(s.index)}
-                aria-label={`${labels.unitKind(s.unitType, s.elite)} · ${labels.sections[s.section]} · ${describeMove(s, t, labels)}`}
+                aria-label={`${labels.unitKind(s.unitType, s.elite)} · ${describeMove(s, t, labels)}`}
                 sx={{ justifyContent: "flex-start", textAlign: "left", textTransform: "none", gap: 1.5, py: 1 }}
               >
                 <OrderToken orderIndex={s.index} unitType={s.unitType} faction={faction} size={44} />
                 <Box>
                   <Typography variant="body1" component="span" sx={{ display: "block" }}>
-                    {labels.unitKind(s.unitType, s.elite)} · {labels.sections[s.section]}
+                    {labels.unitKind(s.unitType, s.elite)}
                   </Typography>
                   <Typography variant="body2" component="span" color="text.secondary" sx={{ display: "block" }}>
                     {describeMove(s, t, labels)}
@@ -228,8 +229,7 @@ function CollisionDialog({
       );
     }
 
-    // An extra order bought with coins gets none of the card's bonuses
-    const steps = collisionSteps({ unitType: summary.unitType, card: summary.extra ? null : card });
+    const steps = collisionSteps({ unitType: summary.unitType, combatBonuses: bonusesFor(summary.index) });
     const dice = Math.max(0, steps.reduce((sum, step) => sum + step.dice, 0));
     return (
       <>
@@ -274,7 +274,7 @@ function CollisionDialog({
   return (
     <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
       <DialogTitle>
-        {t.title(summary ? `${labels.unitKind(summary.unitType, summary.elite)} · ${labels.sections[summary.section]}` : null)}
+        {t.title(summary ? labels.unitKind(summary.unitType, summary.elite) : null)}
       </DialogTitle>
       <DialogContent>{content()}</DialogContent>
       <DialogActions>

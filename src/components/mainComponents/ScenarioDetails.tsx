@@ -1,12 +1,12 @@
-import { lazy, ReactNode, Suspense, useState } from "react";
-import { Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, ToggleButton, Typography } from "@mui/material";
+import { ReactNode } from "react";
+import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, ToggleButton, Typography } from "@mui/material";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon, { GameIconName } from "../GameIcon";
 import InfoButton from "../InfoButton";
 import { Scenario } from "../../types/scenario";
 import type { Localized } from "../../i18n/lang";
 import { FACTIONS, Faction } from "../../types/faction";
-import { STARTING_COMBAT_CARDS, combatDeckEntries } from "../../data/combatCards";
+import { cardsOf } from "../../game-core/actionCard";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import type { Labels } from "../../labels";
 
@@ -22,24 +22,15 @@ const TEXT = defineMessages({
     attacks: "Ataca",
     defends: "Defiende",
     commandCards: "Cartas de mando",
-    commandCardsInfo: "Las cartas de mando que tiene en la mano al empezar. Cada turno juega una y en la fase final roba otra.",
-    extraDrawsInfo: (faction: string, turns: number) =>
-      ` En este escenario, ${faction} roba 2 en vez de 1 en sus ${turns} primeros turnos.`,
-    cards: (count: number) => `${count} cartas`,
-    extraDraws: (turns: number) => `roba 2 en sus ${turns} primeros turnos`,
-    combatCards: "Cartas de combate",
-    combatCardsInfo: (starting: number) =>
-      `Cada bando tiene su mazo de cartas de combate, que se pagan con suministros, y empieza con ${starting} en la mano. ` +
-      "Unas cartas las tienen los dos bandos; otras dependen del escenario: de si ataca o defiende, de sus unidades " +
-      "y las del enemigo, del mapa, de su artillería pesada y de su aviación. Toca el número de un bando para ver " +
-      "sus cartas y por qué las tiene.",
+    commandCardsInfo:
+      "Cada bando tiene todas sus cartas de mando desde el principio y no roba ninguna: juega una por turno, o ninguna, " +
+      "pagándola con suministros. Unas las tienen los dos bandos; las de la artillería pesada y la aviación dependen del escenario.",
     bigGunsInfo: "Tiene artillería pesada: la carta Cortina de Fuego.",
     airInfo: "Tiene aviación: Poder aéreo y Bombardeo aéreo.",
+    cards: (count: number, extras: string) => `${count} cartas${extras && `, con ${extras}`}`,
     bigGuns: "artillería pesada",
     air: "aviación",
     and: " y ",
-    seeDeck: (count: number, faction: string, extras: string) =>
-      `Ver las ${count} cartas de combate de ${faction}${extras && `, con ${extras}`}`,
     sides: (scenario: string) => (scenario ? `Bandos de ${scenario}` : "Bandos"),
     victory: (medals: number) => `Victoria: ${medals} medallas`,
     victoryInfo: (medals: number) =>
@@ -64,23 +55,15 @@ const TEXT = defineMessages({
     attacks: "Attacks",
     defends: "Defends",
     commandCards: "Command cards",
-    commandCardsInfo: "The command cards in its hand at the start. Each turn it plays one and draws another in the final phase.",
-    extraDrawsInfo: (faction: string, turns: number) =>
-      ` In this scenario, the ${faction} draw 2 instead of 1 in their first ${turns} turns.`,
-    cards: (count: number) => (count === 1 ? "1 card" : `${count} cards`),
-    extraDraws: (turns: number) => `draws 2 in its first ${turns} turns`,
-    combatCards: "Combat cards",
-    combatCardsInfo: (starting: number) =>
-      `Each side has its own deck of combat cards, paid for with supplies, and starts with ${starting} in its hand. ` +
-      "Some cards both sides have; others depend on the scenario: whether the side attacks or defends, its units " +
-      "and the enemy's, the map, its heavy guns and its air power. Tap a side's number to see its cards and why it has them.",
+    commandCardsInfo:
+      "Each side holds all its command cards from the start and never draws: it plays one a turn, or none, " +
+      "paying for it with supplies. Some both sides have; the heavy guns' and the air cards depend on the scenario.",
     bigGunsInfo: "Has heavy guns: the Barrage card.",
     airInfo: "Has air power: Air Power and Air Bombardment.",
+    cards: (count: number, extras: string) => `${count === 1 ? "1 card" : `${count} cards`}${extras && `, with ${extras}`}`,
     bigGuns: "heavy guns",
     air: "air power",
     and: " and ",
-    seeDeck: (count: number, faction: string, extras: string) =>
-      `See the ${count} combat cards of the ${faction}${extras && `, with ${extras}`}`,
     sides: (scenario: string) => (scenario ? `Sides in ${scenario}` : "Sides"),
     victory: (medals: number) => `Victory: ${medals} medals`,
     victoryInfo: (medals: number) =>
@@ -98,11 +81,6 @@ const TEXT = defineMessages({
 
 type Text = (typeof TEXT)["es"];
 
-// The card art is the game screen's code, left out of the menu's first download
-const CombatDeckDialog = lazy(() => import("./CombatDeckDialog"));
-
-const sideKey = (faction: Faction) => (faction === "Axis" ? "axis" : "allies");
-
 interface ScenarioDetailsProps {
   scenario: Scenario;
   /** The side this device plays, or null before one is picked */
@@ -111,7 +89,7 @@ interface ScenarioDetailsProps {
   onPickFaction?: (faction: Faction) => void;
 }
 
-/** An icon with a count beside it, e.g. the cards in the starting hand */
+/** An icon with a count beside it, e.g. the cards a side holds */
 function IconCount({ icon, count, label, size = 26 }: { icon: GameIconName; count: number; label?: string; size?: number }) {
   return (
     <Box component="span" aria-label={label} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, whiteSpace: "nowrap" }}>
@@ -132,7 +110,6 @@ interface DetailRow {
 
 function detailRows(
   scenario: Scenario,
-  onShowDeck: (faction: Faction) => void,
   t: Text,
   labels: Labels,
   tr: (text: Localized) => string
@@ -193,31 +170,8 @@ function detailRows(
     {
       label: t.commandCards,
       info: (
-        <Typography variant="body1">
-          {t.commandCardsInfo}
-          {scenario.extraDraws && t.extraDrawsInfo(labels.factions[scenario.extraDraws.faction], scenario.extraDraws.turns)}
-        </Typography>
-      ),
-      value: (faction) => {
-        const count = scenario.initialHandSize[sideKey(faction)];
-        const extra = scenario.extraDraws?.faction === faction ? scenario.extraDraws : null;
-        return (
-          <Stack spacing={0.25} sx={{ alignItems: "center" }}>
-            <IconCount icon="cards" count={count} label={t.cards(count)} />
-            {extra && (
-              <Typography variant="caption" color="text.secondary">
-                {t.extraDraws(extra.turns)}
-              </Typography>
-            )}
-          </Stack>
-        );
-      },
-    },
-    {
-      label: t.combatCards,
-      info: (
         <Stack spacing={1}>
-          <Typography variant="body1">{t.combatCardsInfo(STARTING_COMBAT_CARDS)}</Typography>
+          <Typography variant="body1">{t.commandCardsInfo}</Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <GameIcon name="bigGuns" size={32} />
             <Typography variant="body1">{t.bigGunsInfo}</Typography>
@@ -229,24 +183,21 @@ function detailRows(
         </Stack>
       ),
       value: (faction) => {
-        const entries = combatDeckEntries(scenario, faction);
-        const count = entries.reduce((sum, { copies }) => sum + copies, 0);
-        // At a glance: whether the deck has the big guns' and the air cards
-        const bigGuns = entries.some(({ reason }) => reason === "bigGuns");
-        const air = entries.some(({ reason }) => reason === "air");
+        const held = cardsOf(scenario, faction);
+        // At a glance: whether the side has the big guns' and the air cards
+        const bigGuns = held.some(({ card }) => card.needs === "bigGuns");
+        const air = held.some(({ card }) => card.needs === "air");
         const extras = [bigGuns && t.bigGuns, air && t.air].filter(Boolean).join(t.and);
         return (
-          <Button
-            variant="outlined"
-            color="inherit"
-            onClick={() => onShowDeck(faction)}
-            aria-label={t.seeDeck(count, labels.factions[faction], extras)}
-            sx={{ minWidth: 0, px: 1.5, gap: 1, flexWrap: "wrap" }}
+          <Stack
+            direction="row"
+            aria-label={t.cards(held.length, extras)}
+            sx={{ justifyContent: "center", alignItems: "center", gap: 1, flexWrap: "wrap" }}
           >
-            <IconCount icon="cards" count={count} />
+            <IconCount icon="cards" count={held.length} />
             {bigGuns && <GameIcon name="bigGuns" size={34} />}
             {air && <GameIcon name="strafe" size={34} />}
-          </Button>
+          </Stack>
         );
       },
     },
@@ -263,7 +214,6 @@ function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsPr
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const [deckShown, setDeckShown] = useState<Faction | null>(null);
   const picked = (f: Faction) => (f === faction ? { bgcolor: "action.selected" } : {});
   return (
     <>
@@ -296,7 +246,7 @@ function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsPr
           </TableRow>
         </TableHead>
         <TableBody>
-          {detailRows(scenario, setDeckShown, t, labels, tr).map((row) => (
+          {detailRows(scenario, t, labels, tr).map((row) => (
             <TableRow key={row.label}>
               <TableCell component="th" scope="row">
                 <Stack direction="row" sx={{ alignItems: "center" }}>
@@ -315,16 +265,6 @@ function ScenarioDetails({ scenario, faction, onPickFaction }: ScenarioDetailsPr
           ))}
         </TableBody>
       </Table>
-      {deckShown && (
-        <Suspense fallback={null}>
-          <CombatDeckDialog
-            open
-            onClose={() => setDeckShown(null)}
-            faction={deckShown}
-            entries={combatDeckEntries(scenario, deckShown)}
-          />
-        </Suspense>
-      )}
     </>
   );
 }

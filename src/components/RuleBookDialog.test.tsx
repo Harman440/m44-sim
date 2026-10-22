@@ -66,6 +66,6 @@ describe("RuleBookDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Step 2 of 8")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "House rules" }));
-    expect(screen.getByRole("article", { name: "Their Finest Hour" })).toHaveTextContent(/Up to 4 orders paid with supplies/);
+    expect(screen.getByRole("article", { name: "One card a turn, or none" })).toHaveTextContent(/You play one card at most/);
   });
 });

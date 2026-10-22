@@ -4,8 +4,7 @@
 // (Days of Wonder's 2004 rulebook and the base game's cards). The numbers come
 // from the data files; when a rule changes, change its text here too.
 import { TurnPhase } from "../types/gameManager";
-import { END_OF_TURN_COINS, EXTRA_ORDER_COST } from "./coinRules";
-import { MAX_COMBAT_CARDS_PER_TURN, MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "./combatCards";
+import { CARD_COOLDOWN_TURNS } from "./actionCards";
 import { Localized } from "../i18n/lang";
 import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
 import { UnitType } from "../game-core/unit";
@@ -17,9 +16,6 @@ import { HexType } from "../types/hex";
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
 const artillery = FIGURES[UnitType.ARTILLERY];
-const EXTRA_INFANTRY = EXTRA_ORDER_COST[UnitType.INFANTRY];
-// The texts give tanks and artillery one cost (ruleBook.test.ts checks they're the same)
-const EXTRA_ARMOUR = EXTRA_ORDER_COST[UnitType.TANK];
 
 export type TutorialStepId = "setup" | "turn" | "card" | "orders" | "movement" | "battle" | "final" | "tips";
 
@@ -100,16 +96,12 @@ export const TUTORIAL: readonly TutorialStep[] = [
     phase: TurnPhase.PICK_CARDS,
     points: [
       {
-        es: "Elige en secreto una carta de mando: al tocarla pasa a «Tu jugada», donde puedes tocarla para leerla o quitarla.",
-        en: "Pick a command card in secret: tapping it moves it to \"Your play\", where you can tap it to read it or remove it.",
+        es: `Elige en secreto una carta de mando, o ninguna. Tienes todas desde el principio; cada una cuesta suministros, que se pagan al jugarla, y después espera ${CARD_COOLDOWN_TURNS} turnos para volver a jugarse.`,
+        en: `Pick a command card in secret, or none. You hold them all from the start; each costs supplies, paid when you play it, and then waits ${CARD_COOLDOWN_TURNS} turns before it can be played again.`,
       },
       {
-        es: `Si quieres, añade hasta ${MAX_COMBAT_CARDS_PER_TURN} cartas de combate distintas. Cuestan suministros, que se pagan al jugarlas.`,
-        en: `If you like, add up to ${MAX_COMBAT_CARDS_PER_TURN} different combat cards. They cost supplies, paid when you play them.`,
-      },
-      {
-        es: "Pulsa «Jugar». Mientras no des ninguna orden, «Cambiar carta» te devuelve aquí.",
-        en: "Press \"Play\". Until you give an order, \"Change card\" brings you back here.",
+        es: "Pulsa «Jugar», o «Sin carta». Mientras no des ninguna orden, «Cambiar carta» te devuelve aquí.",
+        en: "Press \"Play\", or \"No card\". Until you give an order, \"Change card\" brings you back here.",
       },
     ],
   },
@@ -119,16 +111,12 @@ export const TUTORIAL: readonly TutorialStep[] = [
     phase: TurnPhase.ORDER_UNITS,
     points: [
       {
-        es: "Toca una unidad resaltada y después la casilla adonde va, o mantenla en su casilla. El mapa marca desde dónde podrá disparar.",
-        en: "Tap a highlighted unit, then the hex it goes to, or hold it where it is. The map shows where it can still fire from.",
+        es: "Toca una unidad y después la casilla adonde va, o mantenla en su casilla. Cualquier unidad puede recibir una orden; la que no la recibe descansa. El mapa marca desde dónde podrá disparar.",
+        en: "Tap a unit, then the hex it goes to, or hold it where it is. Any unit can be ordered; one that isn't rests. The map shows where it can still fire from.",
       },
       {
-        es: `Una orden extra cuesta ${EXTRA_INFANTRY} suministros por una infantería y ${EXTRA_ARMOUR} por un tanque o una artillería: cualquier unidad, sin las ventajas de la carta.`,
-        en: `An extra order costs ${EXTRA_INFANTRY} supplies for infantry and ${EXTRA_ARMOUR} for a tank or artillery: any unit, without the card's benefits.`,
-      },
-      {
-        es: "Si una carta de combate marca casillas (Cortina de Fuego, Refuerzos…), márcalas en el mapa; si se da a una unidad (Explosivos…), tócala en el mapa.",
-        en: "If a combat card marks hexes (Barrage, Reinforcements…), mark them on the map; if it's given to a unit (Explosives…), tap the unit on the map.",
+        es: "Si la carta marca casillas (Cortina de Fuego, Refuerzos…), márcalas en el mapa.",
+        en: "If the card marks hexes (Barrage, Reinforcements…), mark them on the map.",
       },
       {
         es: "«Confirmar órdenes» las fija: ya no se pueden cambiar. Dalas sin mirar la pantalla del rival.",
@@ -142,8 +130,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
     phase: TurnPhase.MOVEMENT,
     points: [
       {
-        es: "Enseñaos las pantallas: cada uno ve el mapa y las cartas que juega el otro.",
-        en: "Show each other your screens: each of you sees the other's map and the cards played.",
+        es: "Enseñaos las pantallas: cada uno ve el mapa y la carta que juega el otro.",
+        en: "Show each other your screens: each of you sees the other's map and the card played.",
       },
       {
         es: "Mueve en la mesa las unidades con flecha y pon un marcador de batalla en las que disparan.",
@@ -173,8 +161,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Remove the casualties on the table. A unit's first flag pins it (mark it); each flag after that makes it retreat 1 hex at once.",
       },
       {
-        es: "Las cartas de combate se jugaron con las órdenes: sus dados se suman solos al disparar.",
-        en: "The combat cards were played with the orders: their dice are added by themselves when firing.",
+        es: "Los dados de más de la carta jugada (La Hora de la Verdad) se suman solos al disparar.",
+        en: "The card played adds its extra dice by itself when firing (Their Finest Hour).",
       },
     ],
   },
@@ -188,12 +176,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
         en: "Take off the pinned markers, and mirror both sides' casualties and retreats in \"Update map\".",
       },
       {
-        es: "Robas una carta de mando. Puedes descartarla una vez y robar otra, pero te quedas la segunda.",
-        en: "You draw a command card. You may discard it once and draw another, but you keep the second.",
-      },
-      {
-        es: `Elige ${END_OF_TURN_COINS} suministros o una carta de combate y pulsa «Empezar turno».`,
-        en: `Pick ${END_OF_TURN_COINS} supplies or a combat card, and press "Start turn".`,
+        es: "No se roba ni se recibe nada: pulsa «Empezar turno».",
+        en: "Nothing is drawn or handed out: press \"Start turn\".",
       },
     ],
   },
@@ -202,8 +186,8 @@ export const TUTORIAL: readonly TutorialStep[] = [
     title: { es: "Consejos", en: "Tips" },
     points: [
       {
-        es: "En la partida, «Menú» tiene tu mazo, el historial de turnos, los ajustes y este reglamento.",
-        en: "In the game, \"Menu\" has your deck, the turn history, the settings and this rule book.",
+        es: "En la partida, «Menú» tiene el historial de turnos, los ajustes y este reglamento.",
+        en: "In the game, \"Menu\" has the turn history, the settings and this rule book.",
       },
       {
         es: "Toca cualquier carta para leer su texto entero. Los botones «i» e «Instrucciones» explican cada paso.",
@@ -244,8 +228,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "The side the scenario names goes first, then the players alternate.",
         },
         house: {
-          es: "El bando atacante (el que empezaría) juega un turno extra él solo, sin que el defensor responda. Los suministros que saca cuentan, pero no los puede gastar hasta el turno 2 (ni órdenes extra ni cartas de combate), y no hay recompensa final.",
-          en: "The attacking side (the one that would go first) plays an extra turn alone, and the defender can't respond. The supplies it rolls count, but it can't spend them until turn 2 (no extra orders or combat cards), and there's no final reward.",
+          es: "El bando atacante (el que empezaría) juega un turno extra él solo, sin que el defensor responda. Los suministros que saca cuentan, pero no los puede gastar hasta el turno 2: no juega carta.",
+          en: "The attacking side (the one that would go first) plays an extra turn alone, and the defender can't respond. The supplies it rolls count, but it can't spend them until turn 2: it plays no card.",
         },
       },
       {
@@ -273,8 +257,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "The player whose turn it is battles with their units in any order.",
         },
         house: {
-          es: "Los dos bandos se alternan, una unidad cada uno, empezando por el atacante: primero los choques, después los ataques de cartas de combate, luego las unidades que no se movieron y, por último, las que se movieron. Con ¡Fusiles arriba!, la infantería que se movió dispara junto a las que no se movieron.",
-          en: "The two sides take turns, one unit each, the attacker first: collisions, then combat card attacks, then units that didn't move and, last, units that moved. With Rifles Up!, infantry that moved fires with the units that didn't move.",
+          es: "Los dos bandos se alternan, una unidad cada uno, empezando por el atacante: primero los choques, después los ataques de cartas, luego las unidades que no se movieron y, por último, las que se movieron.",
+          en: "The two sides take turns, one unit each, the attacker first: collisions, then card attacks, then units that didn't move and, last, units that moved.",
         },
       },
       {
@@ -394,139 +378,48 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
   },
   {
     id: "commandCards",
-    title: { es: "Cartas de mando", en: "Command cards" },
+    title: { es: "Cartas de mando y órdenes", en: "Command cards and orders" },
     rules: [
       {
-        title: { es: "Un mazo por bando", en: "A deck per side" },
+        title: { es: "Todas las cartas en la mano", en: "Every card in your hand" },
         official: {
-          es: "Un mazo de 60 cartas compartido por los dos jugadores.",
-          en: "One 60-card deck shared by both players.",
+          es: "Un mazo de 60 cartas compartido: cada jugador tiene unas pocas en la mano y roba una al final de su turno.",
+          en: "One 60-card deck, shared: each player holds a few and draws one at the end of their turn.",
         },
         house: {
-          es: "Cada bando tiene su mazo de 24 cartas: 19 comunes y 5 según sus unidades. No hay Reconocimiento ni Contraataque. Cortina de Fuego, Poder aéreo y Tras las líneas enemigas pasan a ser cartas de combate; Médicos y Mecánicos se divide en Médico y Mecánico, y Atrincherarse pasa a ser Fortificar.",
-          en: "Each side has its own 24-card deck: 19 shared cards and 5 by its units. There's no Recon or Counter-Attack. Barrage, Air Power and Behind Enemy Lines become combat cards; Medics & Mechanics splits into Medic and Mechanic, and Dig-In becomes Fortify.",
+          es: `Cada bando tiene todas sus cartas desde el principio y no roba nunca: La Hora de la Verdad, Reabastecimiento, Repostaje, Refuerzos y, según el escenario, Bombardeo aéreo, Poder aéreo (con salidas aéreas) y Cortina de Fuego (con artillería pesada). Cada una cuesta suministros, que se pagan al jugarla; el escenario puede abaratar alguna.`,
+          en: `Each side holds all its cards from the start and never draws: Their Finest Hour, Resupply, Refuel, Reinforcements and, by scenario, Air Bombardment, Air Power (with air sorties) and Barrage (with heavy guns). Each costs supplies, paid when you play it; the scenario may make some cheaper.`,
         },
       },
       {
-        title: { es: "Robar carta", en: "Drawing a card" },
+        title: { es: "Una carta por turno, o ninguna", en: "One card a turn, or none" },
+        house: {
+          es: `Juegas una carta como mucho, y no hace falta jugar ninguna. Una carta jugada espera ${CARD_COOLDOWN_TURNS} turnos para volver a jugarse: la del turno 2 vuelve en el turno ${2 + CARD_COOLDOWN_TURNS}.`,
+          en: `You play one card at most, and you don't have to play any. A card played waits ${CARD_COOLDOWN_TURNS} turns before it can be played again: one played on turn 2 is back on turn ${2 + CARD_COOLDOWN_TURNS}.`,
+        },
+      },
+      {
+        title: { es: "Órdenes", en: "Orders" },
         official: {
-          es: "Al final del turno robas 1 carta.",
-          en: "At the end of your turn you draw 1 card.",
+          es: "La carta dice cuántas unidades se ordenan y en qué sección.",
+          en: "The card says how many units are ordered, and in which section.",
         },
         house: {
-          es: "Robas 1 carta y puedes descartarla una vez para robar otra, que te quedas.",
-          en: "You draw 1 card, and may discard it once to draw another, which you keep.",
-        },
-      },
-      {
-        title: { es: "Batida", en: "Probe" },
-        official: { es: "Órdenes a 2 unidades de la sección.", en: "Order 2 units in the section." },
-        house: {
-          es: "Órdenes a 2 unidades de la sección y, además, 1 unidad en cualquier lugar se mueve sin disparar. Solo 1 por sección en el mazo.",
-          en: "Order 2 units in the section, and 1 more unit anywhere may move but not fire. Only 1 per section in the deck.",
-        },
-      },
-      {
-        title: { es: "Asalto cercano", en: "Close Assault" },
-        official: {
-          es: "Ordena a todas las unidades adyacentes a un enemigo, que no mueven y combaten con 1 dado más.",
-          en: "Order all units adjacent to an enemy; they don't move and battle with 1 extra die.",
-        },
-        house: {
-          es: "No se dan órdenes: en la batalla, cuando ya se ha movido todo, marcas cada unidad tuya adyacente a un enemigo y dispara en asalto cercano con 1 dado más.",
-          en: "No orders are given: in the battle, once everything has moved, you mark each of your units adjacent to an enemy, and it fires in close assault with 1 extra die.",
-        },
-      },
-      {
-        title: { es: "Escaramuza", en: "Firefight" },
-        official: {
-          es: "4 unidades que no estén adyacentes a un enemigo disparan sin mover, con 1 dado más.",
-          en: "4 units not adjacent to an enemy fire without moving, with 1 extra die.",
-        },
-        house: {
-          es: "4 unidades disparan sin mover: 1 dado más a distancia y 1 menos en asalto cercano.",
-          en: "4 units fire without moving: 1 extra die at range and 1 fewer in close assault.",
-        },
-      },
-      {
-        title: { es: "La Hora de la Verdad", en: "Their Finest Hour" },
-        official: {
-          es: "Tiras 1 dado por carta en tu mano: cada símbolo ordena una unidad de ese tipo y cada estrella una cualquiera, con 1 dado más. Después se baraja el mazo.",
-          en: "Roll 1 die per card in your hand: each symbol orders a unit of that type and each star any unit, with 1 extra die. Then the deck is reshuffled.",
-        },
-        house: {
-          es: "Hasta 4 órdenes pagadas con suministros: 1 por infantería y 2 por tanque o artillería. Disparan con 1 dado más.",
-          en: "Up to 4 orders paid with supplies: 1 for infantry and 2 for a tank or artillery. They fire with 1 extra die.",
-        },
-      },
-      {
-        title: { es: "Preparativos", en: "Preparations" },
-        house: {
-          es: "Una carta táctica nueva: orden a 1 unidad. En la fase final recibes 3 suministros y una carta de combate, en lugar de elegir, y robas 2 cartas de mando y te quedas 1.",
-          en: "A new tactic card: order 1 unit. In the final phase you get 3 supplies and a combat card, instead of choosing, and you draw 2 command cards and keep 1.",
-        },
-      },
-      {
-        title: { es: "Repostaje y Asalto de Blindados", en: "Refuel and Armor Assault" },
-        official: {
-          es: "Asalto de Blindados está en el mazo como cualquier carta.",
-          en: "Armor Assault is in the deck like any other card.",
-        },
-        house: {
-          es: "Asalto de Blindados no está en el mazo: solo llega con Repostaje, una carta táctica nueva para los bandos con blindados. Repostaje da una orden a 1 unidad; en la fase final recibes 3 suministros y una carta de combate y, en lugar de robar, Asalto de Blindados (Directo del Cuartel General si ya no te quedan blindados). Al jugarla, Asalto de Blindados vuelve fuera del mazo.",
-          en: "Armor Assault isn't in the deck: only Refuel gives it, a new tactic card for sides with armor. Refuel orders 1 unit; in the final phase you get 3 supplies and a combat card and, instead of drawing, Armor Assault (Direct from HQ if you have no armor left). Once played, Armor Assault goes back out of the deck.",
+          es: "No hay secciones: cualquier unidad puede recibir una orden, y la que no la recibe descansa. Cada unidad mueve y dispara como de costumbre.",
+          en: "There are no sections: any unit can be ordered, and one that isn't rests. Each unit moves and fires as usual.",
         },
       },
     ],
   },
   {
     id: "supplies",
-    title: { es: "Suministros y cartas de combate", en: "Supplies and combat cards" },
+    title: { es: "Suministros", en: "Supplies" },
     rules: [
       {
         title: { es: "Suministros", en: "Supplies" },
         house: {
-          es: `Empiezas sin suministros. Ganas 1 por cada estrella que sacan tus unidades al disparar y, en la fase final, eliges ${END_OF_TURN_COINS} suministros o una carta de combate.`,
-          en: `You start with no supplies. You earn 1 for each star your units roll when firing and, in the final phase, you pick ${END_OF_TURN_COINS} supplies or a combat card.`,
-        },
-      },
-      {
-        title: { es: "Órdenes extra", en: "Extra orders" },
-        house: {
-          es: `Por ${EXTRA_INFANTRY} suministros (infantería) o ${EXTRA_ARMOUR} (tanque o artillería) das una orden a cualquier unidad, en cualquier sección, sin las ventajas de la carta de mando. Tantas como puedas pagar.`,
-          en: `For ${EXTRA_INFANTRY} supplies (infantry) or ${EXTRA_ARMOUR} (tank or artillery) you order any unit, in any section, without the command card's benefits. As many as you can pay for.`,
-        },
-      },
-      {
-        title: { es: "Cartas de combate", en: "Combat cards" },
-        house: {
-          es: `Un mazo aparte que depende del escenario y del bando (míralo en el menú, en la tabla del escenario). Empiezas con ${STARTING_COMBAT_CARDS} y tienes ${MAX_COMBAT_HAND} como máximo. Cada una cuesta suministros, que se pagan al jugarla.`,
-          en: `A separate deck that depends on the scenario and the side (see it in the menu, in the scenario's table). You start with ${STARTING_COMBAT_CARDS} and hold ${MAX_COMBAT_HAND} at most. Each one costs supplies, paid when you play it.`,
-        },
-      },
-      {
-        title: { es: "Cuándo se juegan", en: "When they're played" },
-        house: {
-          es: `Todas con la carta de mando, hasta ${MAX_COMBAT_CARDS_PER_TURN} por turno y nunca dos copias de la misma. Ninguna se juega en la batalla como reacción. Las que se dan a una unidad (Equipo urbano, Explosivos…) se le dan al dar las órdenes.`,
-          en: `All with the command card, up to ${MAX_COMBAT_CARDS_PER_TURN} a turn and never two copies of one. None is played in the battle as a reaction. The ones given to a unit (Street Equipment, Explosives…) are given while ordering.`,
-        },
-      },
-      {
-        title: { es: "Camuflaje", en: "Camouflage" },
-        official: {
-          es: "Una unidad con la ficha de camuflaje solo puede ser atacada en asalto cercano. La ficha se quita si la unidad se mueve o combate.",
-          en: "A unit with a camouflage badge can only be battled in close assault. The badge is removed if the unit moves or battles.",
-        },
-        house: {
-          es: "La carta Camuflaje se da a una infantería con orden, que recibe la ficha tras la batalla. La app la muestra en el mapa y, si el rival puede tenerla, pregunta al disparar a distancia si el objetivo está camuflado.",
-          en: "The Camouflage card goes to an ordered infantry unit, which gets the badge after the battle. The app shows it on the map and, when the opponent may have it, asks when firing at range whether the target is camouflaged.",
-        },
-      },
-      {
-        title: { es: "Fuego concentrado y de supresión", en: "Concentrated and Suppressive Fire" },
-        house: {
-          es: "Con Fuego concentrado, tus unidades que no se movieron y disparan a la misma unidad enemiga tiran juntas: una sola tirada, cada una con su dado (la que está en asalto cercano, el de batalla; la que dispara a distancia, el de 8 caras si se juega con él), y los sacos terreros ignoran 1 bandera de toda la tirada. Con Fuego de supresión eliges en cada disparo con orden si tiras el dado de supresión: el de batalla con 1 infantería, 1 granada, 3 banderas y 1 suministro, o el de 8 caras con 2 infantería, 4 banderas y 2 suministros.",
-          en: "With Concentrated Fire, your units that didn't move and fire at the same enemy unit roll together: one roll, each with its own die (one in close assault the battle die, one firing from range the 8-sided die when the game uses it), and sandbags ignore 1 flag of the whole roll. With Suppressive Fire you choose on each ordered shot whether to roll the suppressive die: the battle die with 1 infantry, 1 grenade, 3 flags and 1 supply, or the 8-sided one with 2 infantry, 4 flags and 2 supplies.",
+          es: "Empiezas sin suministros. Ganas 1 por cada estrella que sacan tus unidades al disparar, y los gastas en cartas de mando. Al final del turno no se recibe nada.",
+          en: "You start with no supplies. You earn 1 for each star your units roll when firing, and spend them on command cards. Nothing is handed out at the end of the turn.",
         },
       },
       {
@@ -545,8 +438,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Todo en la app", en: "Everything in the app" },
         house: {
-          es: "Sin tablero: la app conoce los dos ejércitos, mueve las unidades, tira los dados y aplica los impactos y las retiradas. Cada jugador elige carta y da órdenes en secreto; una pantalla tapa el juego cada vez que el dispositivo cambia de manos. El mapa se ve siempre desde el lado del bando elegido en el menú, sin girar al pasar el dispositivo, y las secciones también: la izquierda es la izquierda de la pantalla para los dos bandos, así que una carta de la derecha da órdenes en las mismas casillas a cualquiera de los dos. Un mapa más grande que el estándar, hecho en el editor de mapas, se juega así o contra el ordenador; sus secciones izquierda y derecha son cada una un tercio del tablero, más o menos, como en los tableros oficiales grandes.",
-          en: "No board: the app knows both armies, moves the units, rolls the dice and deals the hits and retreats. Each player picks a card and gives orders in secret; a screen covers the game every time the device changes hands. The map is always seen from the side picked in the menu, without turning round as the device is passed, and so are the sections: left is the screen's left for both sides, so a card for the right orders units on the same hexes for either side. A map bigger than the standard one, made in the map editor, is played this way or against the computer; its left and right sections are each about a third of the board, as on the official big boards.",
+          es: "Sin tablero: la app conoce los dos ejércitos, mueve las unidades, tira los dados y aplica los impactos y las retiradas. Cada jugador elige carta y da órdenes en secreto; una pantalla tapa el juego cada vez que el dispositivo cambia de manos. El mapa se ve siempre desde el lado del bando elegido en el menú, sin girar al pasar el dispositivo. Un mapa más grande que el estándar, hecho en el editor de mapas, se juega así o contra el ordenador.",
+          en: "No board: the app knows both armies, moves the units, rolls the dice and deals the hits and retreats. Each player picks a card and gives orders in secret; a screen covers the game every time the device changes hands. The map is always seen from the side picked in the menu, without turning round as the device is passed. A map bigger than the standard one, made in the map editor, is played this way or against the computer.",
         },
       },
       {
@@ -582,17 +475,17 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
-        title: { es: "Cartas de combate en el mapa", en: "Combat cards on the map" },
+        title: { es: "Cartas de ataque en el mapa", en: "Attack cards on the map" },
         house: {
-          es: "Las cartas de ataque se tiran antes de que nadie dispare, y Asalto cercano marca solo las unidades junto a un enemigo.",
-          en: "Attack cards are rolled before anyone fires, and Close Assault marks the units next to an enemy by itself.",
+          es: "Las cartas de ataque se tiran antes de que nadie dispare.",
+          en: "Attack cards are rolled before anyone fires.",
         },
       },
       {
         title: { es: "Contra el ordenador", en: "Against the computer" },
         house: {
-          es: "Con «Contra el ordenador» juegas un bando y el ordenador el otro, en tu dispositivo y sin pantalla que tape el juego. Solo ve lo que vería un jugador: tus órdenes no, hasta que se muestran. Elige su carta y da sus órdenes a la vez que tú; en la batalla dispara tras una pausa, y sus dados quedan sobre el mapa hasta que tocas «Seguir». Busca casillas desde las que disparar con buena cobertura, dispara donde más daño hace (rematando unidades tocadas) y gasta sus suministros en órdenes extra y en cartas de combate: por ahora juega las de dados, las de ataque (marca las casillas con más enemigos), las que se dan a una unidad, Ni un paso atrás, Fortificar y Fuego concentrado; aún no las de movimiento, Táctico, Refuerzos, Reposicionamiento, Fuego de supresión ni ¡Fusiles arriba!.",
-          en: "With \"Against the computer\" you play one side and the computer the other, on your device and with no screen covering the game. It sees only what a player would: not your orders, until they're shown. It picks its card and gives its orders as you give yours; in the battle it fires after a pause, and its dice stay on the map until you tap \"Continue\". It looks for hexes to fire from with good cover, fires where it does most damage (finishing off weakened units) and spends its supplies on extra orders and combat cards: for now it plays the dice cards, the attack cards (marking the hexes with the most enemies), the cards given to a unit, Not One Step Back, Fortify and Concentrated Fire; not yet the movement cards, Tactician, Reinforcements, Reposition, Suppressive Fire or Rifles Up!.",
+          es: "Con «Contra el ordenador» juegas un bando y el ordenador el otro, en tu dispositivo y sin pantalla que tape el juego. Solo ve lo que vería un jugador: tus órdenes no, hasta que se muestran. Elige su carta y da sus órdenes a la vez que tú; en la batalla dispara tras una pausa, y sus dados quedan sobre el mapa hasta que tocas «Seguir». Busca casillas desde las que disparar con buena cobertura y dispara donde más daño hace (rematando unidades tocadas). Por ahora no juega cartas de mando.",
+          en: "With \"Against the computer\" you play one side and the computer the other, on your device and with no screen covering the game. It sees only what a player would: not your orders, until they're shown. It picks its card and gives its orders as you give yours; in the battle it fires after a pause, and its dice stay on the map until you tap \"Continue\". It looks for hexes to fire from with good cover and fires where it does most damage (finishing off weakened units). For now it plays no command cards.",
         },
       },
       {

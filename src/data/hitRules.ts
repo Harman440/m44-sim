@@ -5,7 +5,7 @@ import { DieFace, DieKind } from "../game-core/dice";
 import { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
-import { hasUnits } from "./commandCards";
+import { hasUnits } from "./scenarioRules";
 
 /**
  * What the dice were rolled against. Only whether the target is infantry

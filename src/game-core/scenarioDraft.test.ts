@@ -50,7 +50,8 @@ import { Scenario } from "../types/scenario";
 import { HexType } from "../types/hex";
 import { UnitType } from "./unit";
 import { scenarios } from "../data/scenarios";
-import { airSortiesOf, combatDeckEntries, hasBigGuns } from "../data/combatCards";
+import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
+import { cardsOf } from "./actionCard";
 import { same } from "../i18n/lang";
 
 const A = { row: 4, col: 4 };
@@ -274,8 +275,8 @@ describe("the scenario's settings", () => {
     expect(noAir.airPower).toEqual({ allies: 1, axis: 0 });
     expect(noGuns.bigGuns).toEqual(["Axis"]);
     expect([airSortiesOf(noGuns, "Axis"), hasBigGuns(noGuns, "Allies")]).toEqual([0, false]);
-    expect(combatDeckEntries(noGuns, "Axis").some((e) => e.reason === "air")).toBe(false);
-    expect(combatDeckEntries(noGuns, "Allies").some((e) => e.reason === "bigGuns")).toBe(false);
+    expect(cardsOf(noGuns, "Axis").some(({ card }) => card.needs === "air")).toBe(false);
+    expect(cardsOf(noGuns, "Allies").some(({ card }) => card.needs === "bigGuns")).toBe(false);
 
     const back = setBigGuns(edit(noGuns, (d) => setAirSorties(d, "Axis", 1)), "Allies", true);
     expect(back).toEqual(draft);

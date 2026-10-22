@@ -1,14 +1,12 @@
 // game-core/fireRules.ts
 // Engine for the "how many dice?" questionnaire shown when a unit fires.
 // The questions themselves (and their dice effects) live in data/fireQuestions.ts.
-import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { HexType } from "../types/hex";
 import type { Localized } from "../i18n/lang";
 import type { DieFace } from "./dice";
 
-/** What we know about the shot before asking anything */
-/** Extra dice a combat card played this turn gives a unit, every time it fires */
+/** Extra dice the card played this turn gives a unit, every time it fires (Finest Hour) */
 export interface CombatBonus {
   name: Localized;
   dice: number;
@@ -18,13 +16,12 @@ export interface CombatBonus {
   face?: DieFace;
 }
 
+/** What we know about the shot before asking anything */
 export interface FireContext {
   unitType: UnitType;
-  /** The command card played this turn (may add dice) */
-  card: CommandCard | null;
-  /** The unit may only fire at an adjacent enemy (Close Assault card) */
+  /** The unit may only fire at an adjacent enemy (its shot after taking ground) */
   closeAssaultOnly?: boolean;
-  /** Extra dice from the combat cards played this turn, for this unit where it fires from (Spotter, Explosives…) */
+  /** Extra dice from the card played this turn (Finest Hour) */
   combatBonuses?: readonly CombatBonus[];
   /** The terrain the unit fires from (a unit on a hill fires at another hill as if it were open ground; armour in a town loses dice) */
   fromTerrain?: HexType;
@@ -32,7 +29,7 @@ export interface FireContext {
   fromWire?: boolean;
   /** The unit fires from a river it's fording (it loses a die) */
   fromFord?: boolean;
-  /** The enemy may have camouflaged units (the Camouflage card): a shot at range asks about its target */
+  /** The enemy may have camouflaged units (the Camouflage action): a shot at range asks about its target */
   enemyCamouflage?: boolean;
   /**
    * Pass and play: the unit took a flag this turn and is pinned (infantry loses a die). Left out on

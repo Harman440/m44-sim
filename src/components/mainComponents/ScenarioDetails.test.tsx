@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import ScenarioDetails from "./ScenarioDetails";
 import { scenarios } from "../../data/scenarios";
-import { combatDeckFor } from "../../data/combatCards";
+import { cardsOf } from "../../game-core/actionCard";
 import { same } from "../../i18n/lang";
 import { DEFAULT_SETTINGS, SettingsContext } from "../../settings";
 
@@ -22,21 +22,23 @@ describe("ScenarioDetails", () => {
     expect(screen.queryByText(/al empezar/)).not.toBeInTheDocument();
   });
 
-  it("opens a side's combat deck, grouped by why the side gets each card", async () => {
+  it("counts the command cards each side holds, showing its heavy guns and air", () => {
     const arracourt = scenario("arracourt");
     render(<ScenarioDetails scenario={arracourt} faction={null} onPickFaction={() => {}} />);
-    const size = combatDeckFor(arracourt, "Allies").length;
 
-    expect(screen.getByRole("button", { name: /de Eje, con artillería pesada y aviación$/ })).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: `Ver las ${size} cartas de combate de Aliados, con artillería pesada` })
-    );
-
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText(`Cartas de combate · Aliados (${size})`)).toBeInTheDocument();
-    expect(dialog.getByRole("region", { name: "Defiende" })).toBeInTheDocument();
-    expect(dialog.queryByRole("region", { name: "Ataca" })).not.toBeInTheDocument();
-    expect(within(dialog.getByRole("region", { name: "Artillería pesada" })).getByText("Cortina de Fuego")).toBeInTheDocument();
+    const [allies, axis] = cells("Cartas de mando");
+    expect(allies).toHaveTextContent(String(cardsOf(arracourt, "Allies").length));
+    expect(axis).toHaveTextContent(String(cardsOf(arracourt, "Axis").length));
+    const label = (faction: "Allies" | "Axis") => {
+      const held = cardsOf(arracourt, faction);
+      const extras = [
+        held.some(({ card }) => card.needs === "bigGuns") && "artillería pesada",
+        held.some(({ card }) => card.needs === "air") && "aviación",
+      ].filter(Boolean);
+      return `${held.length} cartas${extras.length ? `, con ${extras.join(" y ")}` : ""}`;
+    };
+    expect(within(allies!).getByLabelText(label("Allies"))).toBeInTheDocument();
+    expect(within(axis!).getByLabelText(label("Axis"))).toBeInTheDocument();
   });
 
   it("picks the side from the column headers", () => {
@@ -64,6 +66,6 @@ describe("ScenarioDetails", () => {
     const [alliesRole, axisRole] = cells("Role");
     expect(alliesRole).toHaveTextContent("Defends");
     expect(axisRole).toHaveTextContent("Attacks");
-    expect(screen.getByRole("button", { name: /of the Axis, with heavy guns and air power$/ })).toBeInTheDocument();
+    expect(cells("Command cards")[0]!).toHaveTextContent(String(cardsOf(scenario("arracourt"), "Allies").length));
   });
 });

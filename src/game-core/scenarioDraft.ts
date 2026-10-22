@@ -10,7 +10,7 @@ import { UnitType } from "./unit";
 import { samePosition } from "./position";
 import { BoardSize, boardPositions, boardSizeOf, isBoardSize, isOnBoard as isOnSize, isStandardBoard } from "./boardSize";
 import { TERRAIN } from "../data/terrain";
-import { airSortiesOf, hasBigGuns } from "../data/combatCards";
+import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
 import type { Lang, Localized } from "../i18n/lang";
 
 const SIDE = { Allies: "allies", Axis: "axis" } as const;

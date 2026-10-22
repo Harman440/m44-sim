@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import GameSession from "./gameSession";
 import PassAndPlayMatch from "./passAndPlay";
 import { SavedGame } from "./saveGame";
-import CommandCard from "./commandCard";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
@@ -21,16 +20,15 @@ const scenario: Scenario = {
     axis: { infantry: [{ row: 1, col: 3 }, { row: 5, col: 11 }] },
   },
 };
-const cards = (orders = 6) => Array.from({ length: 8 }, (_, i) => new CommandCard({ id: `all-${i}`, orders }));
-const newSession = (faction: Faction) => new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards(), figures: true });
-const restoreSide = (saved: SavedGame) => GameSession.restore(saved, scenario, cards());
+const newSession = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
+const restoreSide = (saved: SavedGame) => GameSession.restore(saved, scenario);
 const newMatch = (fog: boolean) =>
   new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { computer: "Axis", fog });
 
 /** A side's units hold, every one ordered */
 const holdAll = (session: GameSession) => {
-  expect(session.pickCard(session.getSnapshot().hand[0]!)).toBe(true);
-  while (session.getSnapshot().ordersLeft > 0) {
+  expect(session.pickCard(null)).toBe(true);
+  while (session.getSnapshot().orderable.length > 0) {
     const position = session.getSnapshot().orderable[0]!;
     expect(session.issueOrder(position, position)).toBe(true);
   }
@@ -41,9 +39,9 @@ const holdAll = (session: GameSession) => {
 const seenBy = (match: PassAndPlayMatch, viewer: Faction) =>
   match.opponentOf(viewer).units.map(({ position }) => `${position.row}-${position.col}`).sort();
 
-/** A side orders only the unit on this hex to hold (with a card of one order) */
+/** A side orders only the unit on this hex to hold; the others rest */
 const holdOnly = (session: GameSession, position: { row: number; col: number }) => {
-  expect(session.pickCard(session.getSnapshot().hand[0]!)).toBe(true);
+  expect(session.pickCard(null)).toBe(true);
   expect(session.issueOrder(position, position)).toBe(true);
   expect(session.commitOrders()).toBe(true);
 };
@@ -55,9 +53,8 @@ const spotted: Scenario = {
   ...scenario,
   units: { allies: { infantry: [{ row: 8, col: 6 }] }, axis: { infantry: [{ row: 4, col: 6 }], artillery: [{ row: 3, col: 6 }] } },
 };
-const spottedMatch = ({ computer, orders = 1 }: { computer?: Faction; orders?: number }) => {
-  const side = (faction: Faction) =>
-    new GameSession({ scenario: spotted, faction, initialHandSize: 2, commandCards: cards(orders), figures: true });
+const spottedMatch = ({ computer }: { computer?: Faction }) => {
+  const side = (faction: Faction) => new GameSession({ scenario: spotted, faction, figures: true });
   return new PassAndPlayMatch(spotted, { Allies: side("Allies"), Axis: side("Axis") }, { computer: computer ?? null, fog: true });
 };
 
@@ -100,7 +97,7 @@ describe("fog of war against the computer", () => {
     expect(match.finishReveal()).toBe(true);
     expect(seenBy(match, "Allies")).toEqual(["4-6"]);
 
-    const ordered = spottedMatch({ computer: "Axis", orders: 2 });
+    const ordered = spottedMatch({ computer: "Axis" });
     holdAll(ordered.sessions.Axis);
     expect(ordered.moveUnits()).toBe(true);
     expect(ordered.finishReveal()).toBe(true);

@@ -21,7 +21,7 @@ import "./BattleView.css";
 import FireDialog from "../../FireDialog";
 import CollisionDialog from "../../CollisionDialog";
 import BattleMap from "./BattleMap";
-import CloseAssaultMap from "./CloseAssaultMap";
+import { playedCardOf } from "../../PlayedCards";
 import GameIcon from "../../GameIcon";
 import CardAttackDialog from "../../CardAttackDialog";
 import { useSound } from "../../../sound";
@@ -35,7 +35,6 @@ const TEXT = defineMessages({
     instructions: "Instrucciones",
     seeMap: "Ver mapa",
     endBattle: "Terminar batalla",
-    emptyCloseAssault: "Marca las unidades en asalto cercano para que disparen.",
     emptyNoOrders: "No se dieron órdenes este turno.",
     skipTitle: "¿Pasar a las unidades movidas?",
     skipText: (n: number) =>
@@ -60,7 +59,6 @@ const TEXT = defineMessages({
     instructions: "Instructions",
     seeMap: "See map",
     endBattle: "End battle",
-    emptyCloseAssault: "Mark the units in close assault so they fire.",
     emptyNoOrders: "No orders were given this turn.",
     skipTitle: "On to the moved units?",
     skipText: (n: number) =>
@@ -102,18 +100,10 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [collisionOpen, setCollisionOpen] = useState(false);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
-  const [markingCloseAssault, setMarkingCloseAssault] = useState(false);
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
-  const closeAssaultCard = game.activeCard?.closeAssaultOnly ?? false;
-  const summaries = summarizeOrders(
-    game.orders,
-    session.board,
-    game.shots,
-    game.unmovedFireSkipped,
-    game.combatCardsPlayed
-  );
+  const summaries = summarizeOrders(game.orders, session.board, game.shots, game.unmovedFireSkipped);
   const firing = firingIndex === null ? null : (summaries[firingIndex] ?? null);
   const unfired = summaries.filter((s) => s.shotsLeft > 0).length;
   const unmovedUnfired = summaries.filter((s) => s.unmovedGroup && s.shotsLeft > 0).length;
@@ -134,16 +124,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
 
   return (
     <>
-      {markingCloseAssault && (
-        <CloseAssaultMap
-          faction={faction}
-          session={session}
-          game={game}
-          onDone={() => setMarkingCloseAssault(false)}
-        />
-      )}
-
-      {showMap && !markingCloseAssault && (
+      {showMap && (
         <BattleMap
           faction={faction}
           session={session}
@@ -153,7 +134,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         />
       )}
 
-      {!showMap && !markingCloseAssault && (
+      {!showMap && (
         // Landscape: the fire order on the left, the reserve (coins and battle
         // combat cards) filling the rest. Portrait: the reserve first.
         <Box className="battle-view">
@@ -193,23 +174,15 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
                 pending: game.attacksPending,
                 onOpen: setAttackingHex,
               }}
-              onMarkCloseAssault={closeAssaultCard ? () => setMarkingCloseAssault(true) : undefined}
-              assignments={game.assignments}
-              // Units wait for the attack combat card's rolls
+              // Units wait for the attack card's rolls
               onFire={game.attacksPending ? undefined : (summary) => setFiringIndex(summary.index)}
               onSkipUnmoved={() => setConfirmingSkip(true)}
-              emptyText={closeAssaultCard ? t.emptyCloseAssault : t.emptyNoOrders}
+              emptyText={t.emptyNoOrders}
             />
           </Box>
 
           <Box className="battle-view__reserve">
-            <BattleReserve
-              faction={faction}
-              coins={game.coins}
-              onShowCoins={onShowCoins}
-              played={game.combatCardsPlayed}
-              assignments={game.assignments}
-            />
+            <BattleReserve faction={faction} coins={game.coins} onShowCoins={onShowCoins} {...playedCardOf(game)} />
           </Box>
         </Box>
       )}
@@ -218,15 +191,12 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         open={showInstructions}
         onClose={() => setShowInstructions(false)}
         attacking={session.attacking}
-        reminders={game.combatCardsPlayed.flatMap((card) => (card.battleReminder ? [tr(card.battleReminder)] : []))}
       />
 
       {/* Keyed by unit so every unit starts a fresh questionnaire */}
       <FireDialog
         key={firingIndex ?? "closed"}
         summary={firing}
-        // An extra order bought with coins gets none of the card's bonuses
-        card={firing?.extra ? null : game.activeCard}
         combatBonuses={firingIndex === null ? undefined : session.combatBonusesFor(firingIndex)}
         faction={faction}
         board={session.board}
@@ -240,22 +210,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
         targetKinds={session.targetKinds}
         canRemoveWire={firingIndex !== null && (game.canRemoveWire[firingIndex] ?? false)}
         onRemoveWire={() => withSound(firingIndex !== null && session.removeWire(firingIndex))}
-        canFortify={firingIndex !== null && (game.canFortify[firingIndex] ?? false)}
-        onFortify={() => withSound(firingIndex !== null && session.fortify(firingIndex))}
         enemyCamouflage={session.enemyCamouflage}
-        suppressiveFire={game.suppressiveFire}
-        joinable={(choice) =>
-          firingIndex === null
-            ? []
-            : session.joinable(firingIndex, choice).map(({ order, dice, eightSided }) => ({
-                order,
-                dice,
-                eightSided,
-                label: labels.unitKind(summaries[order]!.unitType, summaries[order]!.elite),
-                position: summaries[order]!.firingFrom,
-              }))
-        }
-        orderUnit={(order) => (summaries[order] ? labels.unitKind(summaries[order]!.unitType, summaries[order]!.elite) : "")}
         onUndoShot={() => firingIndex !== null && session.undoShot(firingIndex)}
         onKeepResults={(shotNumber, kept) => firingIndex !== null && session.keepResults(firingIndex, shotNumber, kept)}
         onClose={() => setFiringIndex(null)}
@@ -287,7 +242,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
       <CollisionDialog
         open={collisionOpen}
         summaries={summaries}
-        card={game.activeCard}
+        bonusesFor={(orderIndex) => session.combatBonusesFor(orderIndex)}
         faction={faction}
         targetKinds={session.targetKinds}
         onRoll={(orderIndex, infantry) => withSound(session.fireCollision(orderIndex, infantry))}

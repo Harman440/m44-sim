@@ -31,8 +31,8 @@ const openExitDialog = () => {
   fireEvent.click(screen.getByRole("menuitem", { name: "Salir al menú" }));
 };
 
-const handTitles = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll(".cards-hands .card-title"));
+/** The cards in the Command Zone's hand */
+const handCards = (container: HTMLElement) => Array.from(container.querySelectorAll(".cards-hands [data-card-key]"));
 
 // Each step's timer is only scheduled after React re-renders, so advance them separately
 const dealHand = (cards: number) => {
@@ -175,23 +175,23 @@ describe("App menu and game flow", () => {
     vi.useFakeTimers();
     const first = render(<App />);
     start("Aliados");
-    dealHand(6);
-    const hand = handTitles(first.container).map((el) => el.textContent);
-    expect(hand).toHaveLength(6);
+    dealHand(7);
+    const hand = handCards(first.container).map((el) => el.getAttribute("data-card-key"));
+    expect(hand).toHaveLength(7);
     first.unmount();
 
     const { container } = render(<App />);
 
-    expect(handTitles(container).map((el) => el.textContent)).toEqual(hand);
+    expect(handCards(container).map((el) => el.getAttribute("data-card-key"))).toEqual(hand);
   });
 
   it("picks the game back up after a reload, at the same turn and phase", () => {
     vi.useFakeTimers();
-    const { container, unmount } = render(<App />);
+    const { unmount } = render(<App />);
     start("Aliados");
-    dealHand(6);
-    fireEvent.click(handTitles(container)[0]!); // straight into the empty slot
-    fireEvent.click(screen.getByRole("button", { name: "Jugar" }));
+    dealHand(7);
+    // The attacker's extra turn: no card is played
+    fireEvent.click(screen.getByRole("button", { name: "Sin carta" }));
     expect(screen.getByText("2. Órdenes").closest(".MuiChip-root")).toHaveAttribute("aria-current", "step");
     unmount();
 

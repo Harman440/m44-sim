@@ -4,7 +4,7 @@ import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import { Faction } from "../../../types/faction";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
-import PlayedCards from "../../PlayedCards";
+import PlayedCards, { playedCardOf } from "../../PlayedCards";
 import InfoButton from "../../InfoButton";
 import { BarbedWireIcon } from "../../BarbedWire";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
@@ -14,7 +14,7 @@ const TEXT = defineMessages({
     title: "Fase Movimiento",
     battle: "Fase Batalla",
     instructions: "Instrucciones",
-    show: "Enseña esta pantalla al rival, con el mapa y las cartas, y mira la suya. Toca una carta para leerla entera.",
+    show: "Enseña esta pantalla al rival, con el mapa y la carta, y mira la suya. Toca la carta para leerla entera.",
     playing: (name: string, cost: string, description: string): ReactNode => (
       <>
         Juegas <strong>{name}</strong> (coste: {cost}, ya restado del contador): {description}
@@ -32,7 +32,7 @@ const TEXT = defineMessages({
     title: "Movement phase",
     battle: "Battle phase",
     instructions: "Instructions",
-    show: "Show this screen to your opponent, with the map and the cards, and look at theirs. Tap a card to read all of it.",
+    show: "Show this screen to your opponent, with the map and the card, and look at theirs. Tap the card to read all of it.",
     playing: (name: string, cost: string, description: string): ReactNode => (
       <>
         You play <strong>{name}</strong> (cost: {cost}, already taken off the counter): {description}
@@ -82,7 +82,6 @@ function MovementView({ faction, session, game }: MovementViewProps) {
           orders={game.orders}
           markers={game.markers}
           markerKind={game.markerKinds}
-          cardBadges={game.assignments}
           camouflaged={game.camouflaged}
           backgroundImage={session.scenario.image}
           faction={faction}
@@ -93,13 +92,7 @@ function MovementView({ faction, session, game }: MovementViewProps) {
         <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
           {t.title}
         </Typography>
-        <PlayedCards
-          faction={faction}
-          command={game.chosenCard}
-          section={game.chosenSection}
-          combat={game.combatCardsPlayed}
-          assignments={game.assignments}
-        />
+        <PlayedCards faction={faction} {...playedCardOf(game)} />
         {clearedWire > 0 && (
           // Something to do on the table, so it isn't tucked away in the instructions
           <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1 }} data-testid="cleared-wire">
@@ -116,11 +109,11 @@ function MovementView({ faction, session, game }: MovementViewProps) {
               <Typography component="li" variant="body1">
                 {t.show}
               </Typography>
-              {game.combatCardsPlayed.map((card) => (
-                <Typography key={card.id} component="li" variant="body1" data-testid="order-combat-card">
-                  {t.playing(tr(card.name), labels.coins(card.cost), tr(card.description))}
+              {game.playedCard && (
+                <Typography component="li" variant="body1" data-testid="order-played-card">
+                  {t.playing(tr(game.playedCard.name), labels.coins(playedCardOf(game).cost ?? game.playedCard.cost), tr(game.playedCard.description))}
                 </Typography>
-              ))}
+              )}
               <Typography component="li" variant="body1">
                 {t.move}
               </Typography>

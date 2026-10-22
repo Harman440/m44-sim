@@ -3,7 +3,6 @@ import { enemyTargetKinds, onlyTargetKind } from "./hitRules";
 import { UnitType } from "../game-core/unit";
 import { Scenario } from "../types/scenario";
 import GameSession from "../game-core/gameSession";
-import CommandCard from "../game-core/commandCard";
 import { TurnPhase } from "../types/gameManager";
 import { same } from "../i18n/lang";
 
@@ -52,16 +51,13 @@ describe("onlyTargetKind", () => {
 
 describe("GameSession target kinds", () => {
   it("knows what the enemy started with, but fires at either kind (reinforcements can bring a new one)", () => {
-    const card = new CommandCard({ id: "all", orders: 6 });
     const session = new GameSession({
       scenario: scenario({ infantry: [{ row: 1, col: 1 }] }),
       faction: "Allies",
-      initialHandSize: 1,
-      commandCards: [card],
     });
     expect(session.targetKinds).toEqual({ infantry: true, other: false });
 
-    session.pickCard(card);
+    session.pickCard(null);
     session.issueOrder({ row: 7, col: 1 }, { row: 7, col: 1 });
     session.commitOrders();
     session.startBattle();

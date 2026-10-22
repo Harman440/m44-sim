@@ -106,21 +106,17 @@ The three commits on `sections-variant` (8e580d4 orders by section with no comma
 
 Command cards, combat cards and sections reach far beyond `GameSession`: about 15 views, the computer, the fire rules (`FireContext.card` gives the card's bonus dice) and some 20 test files (map of 2026-10-22). Each step below changes the rules together with their callers and tests, so every commit passes `npm run check`. The views get only what they need to keep working here. Part 3 gives them the new layout.
 
-### R4: Combat cards out
-- [ ] The combat deck, hand, playing them with the command card, their coins, the final phase's "2 coins or a combat card", drawing and discarding them, cards given to a unit (`assignments`), and the effects only they had: Concentrated Fire, Suppressive Fire as a card, Rifles Up!, Not One Step Back, Heat of Battle, Spotter, Street Equipment, Explosives as a card, Tactician, the movement cards. Also their views (`CardsView`'s combat part, `CombatDeckDialog`, `BattleReserve`'s cards, `PlayedCards`), the computer's `combatCardChoice.ts`, test mode's combat hand, and their tests
-- [ ] Kept, because the actions and the new cards use them, typed against a small "card with a marker and an effect" in place of `CombatCard`: markers, the attack rolls (Barrage, Air Power, Air Bombardment) and the Reinforcements cross. Until R5 nothing marks them
-- [ ] Also kept, idle until R8 gives them to actions: the camouflage badge, the infantry hits ignored (Personal Armor), Fortify in the battle, healing figures, the moves after the battle (Reposition, Behind Enemy Lines)
-- [ ] `airSortiesOf`, `hasBigGuns` and `hasUnits` move out of the card data files (to `data/scenarioRules.ts`)
-- [ ] Rule book: the combat card chapters go. `SAVE_VERSION` bumped
-
-### R5: Action cards replace the command deck
-- [ ] `GameSession`'s hand is the side's action cards (`cardsOf`). `pickCard(card | null)`: none or one that is ready and affordable; its cost goes on the supply ledger (today's coins, called supplies in the UI), and the turn it was played is kept for the cooldown (in the save)
-- [ ] Gone: the command deck, the draw in the final phase (Recon's choice, draw again, the scenario's `extraDraws`), the end-of-turn reward, extra orders bought with coins, order slots and sections in orders, the fallback card, the Close Assault card's marking in the battle, Firefight's and the other cards' fire bonuses (`cardSteps`), `deck.ts` and `handOrder.ts`
-- [ ] Until R6 gives actions, every unit can be ordered, moving and firing as a unit does with no card
-- [ ] The new cards' markers and effects: Air Bombardment, Barrage and Air Power mark and attack, Reinforcements marks its cross, Finest Hour adds a die to every shot (and one more result for limited damage). Resupply and Refuel come in R8
-- [ ] Views: `CardsView` shows the action cards with their cost and cooldown, greyed when not ready or affordable, plus "Sin carta". `EndOfTurnView` keeps only the map changes, the reinforcement and the moves after the battle. `OrdersView` has no slots. The header's deck piles and the deck dialog go
-- [ ] Computer: plays no card for now (R16 teaches it), and orders its units as today
-- [ ] Rule book: the turn, the cards, the cooldown. `SAVE_VERSION` bumped. Tests: a card twice within 3 turns, a card it can't afford, a card the scenario leaves out, two cards in one turn, nothing drawn at the end of the turn
+### R4–R5: The card game out, the action cards in
+Done as one commit: the hand, card picking, coins, markers and the end of the turn were too tangled to take the combat cards out first and swap the command deck after.
+- [x] Out: the command and combat decks and hands, the draw in the final phase (Recon's choice, draw again, `extraDraws`), the end-of-turn reward, order slots and sections in orders, extra orders bought with coins, the fallback card, the Close Assault card's marking, the cards' fire bonuses (`FireContext.card`), cards given to a unit, Concentrated Fire, Suppressive Fire as a card, Rifles Up!, Not One Step Back, Heat of Battle, Spotter, Street Equipment, Explosives as a card, Tactician, the movement cards, Fortify in the battle, card healing. Also `deck.ts`, `handOrder.ts`, `ai/combatCardChoice.ts`, `CardPiles`, the deck dialogs, `CloseAssaultMap`, and their tests
+- [x] In: `GameSession`'s hand is the side's action cards (`cardsOf`, `snapshot.cards` with cost, cooldown and whether playable). `pickCard(card | null)`: none, or one that's ready and affordable, never in the attacker's extra turn; its cost goes on the supply ledger at once, and the turn it was played is kept for the cooldown (`cardsPlayedOn`, in the save). Test mode: plenty of supplies, no cooldown
+- [x] The new cards' markers and effects: Air Bombardment, Barrage and Air Power mark and attack, Reinforcements marks its cross, Finest Hour adds a die to every shot (and one more result for limited damage). Resupply and Refuel come in R8
+- [x] Until R6 gives actions, every unit can be ordered (once), moving and firing as a unit does with no card; a unit with no order rests
+- [x] Kept, idle until R8 gives them to actions: the camouflage badge (kept from turn to turn) and the moves after the battle (`finalMove`, fed by an empty `movesAfterBattle`)
+- [x] `airSortiesOf`, `hasBigGuns` and `hasUnits` moved to `data/scenarioRules.ts`
+- [x] Views: `CardsView` shows the action cards (`ActionCardComponent`: cost crate, painting, cooldown badge), greyed when not playable, plus "Sin carta". `OrdersView` has no slots. `EndOfTurnView` keeps the map changes, the reinforcement and the moves after the battle, and shows the hand. The battle's side panel, the reveal and the history show the card played. The scenario panel counts each side's command cards. The header's deck piles and the deck dialog are gone
+- [x] Computer: plays no card for now (R15 teaches it), and orders every unit
+- [x] Rule book: the turn, the cards, the cooldown; the combat-card and deck chapters gone. `SAVE_VERSION` 37. Tests adapted, and new ones for the cards (cooldown, cost, extra turn, a card the scenario leaves out, nothing drawn)
 
 ### R6: Giving actions
 - [ ] `Order` gets `action` (an id from R2). `giveAction(position, actionId, to)` checks it in `actionRules.ts`:

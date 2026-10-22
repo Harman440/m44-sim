@@ -19,8 +19,7 @@ import {
 } from "@mui/material";
 import { MotionConfig } from "motion/react";
 import { TurnPhase } from "../../types/gameManager";
-import CommandCard from "../../game-core/commandCard";
-import type { CombatCard } from "../../game-core/combatCard";
+import type { ActionCard } from "../../game-core/actionCard";
 import GameSession from "../../game-core/gameSession";
 import CardsView from "./GameViews/CardsView";
 import OrdersView from "./GameViews/OrdersView";
@@ -40,8 +39,6 @@ import CoinCount from "../CoinCount";
 import SettingsDialog from "../SettingsDialog";
 import HistoryDialog from "../HistoryDialog";
 import CoinsDialog from "../CoinsDialog";
-import DeckVisualizerDialog from "../DeckVisualizerDialog";
-import CardPiles from "../CardPiles";
 import "./GameView.css";
 import MedalTally from "../MedalTally";
 
@@ -70,7 +67,6 @@ const TEXT = defineMessages({
     mute: "Silenciar sonidos",
     unmute: "Activar sonidos",
     menu: "Menú",
-    deck: "Ver mazo",
     history: "Historial",
     ruleBook: "Reglamento",
     settings: "Ajustes",
@@ -92,7 +88,6 @@ const TEXT = defineMessages({
     mute: "Mute sounds",
     unmute: "Turn sounds on",
     menu: "Menu",
-    deck: "See deck",
     history: "History",
     ruleBook: "Rule book",
     settings: "Settings",
@@ -126,16 +121,15 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [coinsOpen, setCoinsOpen] = useState(false);
-  const [deckOpen, setDeckOpen] = useState(false);
   const [ruleBookOpen, setRuleBookOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   /**
-   * The cards just played: the orders screen slides the rest of the hand away
-   * (`handLeaving`), and "Cambiar carta" puts them back in the Command Zone's tray
+   * The card just played: the orders screen slides the rest of the hand away
+   * (`handLeaving`), and "Cambiar carta" puts it back in the Command Zone's tray
    */
-  const [lastPlay, setLastPlay] = useState<{ command: CommandCard; combat: readonly CombatCard[] } | null>(null);
+  const [lastPlay, setLastPlay] = useState<ActionCard | null>(null);
   const [handLeaving, setHandLeaving] = useState(false);
   const pickingOrOrdering = game.phase === TurnPhase.PICK_CARDS || game.phase === TurnPhase.ORDER_UNITS;
   useEffect(() => {
@@ -149,18 +143,12 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
   // so it survives CardsView unmounting during the other phases.
   // A resumed game's hand was already dealt before the reload.
   const [dealtCardIds, setDealtCardIds] = useState<ReadonlySet<string>>(
-    () => new Set(resumed || handDealt ? session.getSnapshot().hand.map((card) => card.id) : [])
+    () => new Set(resumed || handDealt ? session.getSnapshot().cards.map(({ card }) => card.id) : [])
   );
 
-  const handleCardDealt = useCallback((card: CommandCard) => {
+  const handleCardDealt = useCallback((card: ActionCard) => {
     setDealtCardIds((prev) => new Set(prev).add(card.id));
   }, []);
-
-  // A card that leaves the hand (played, discarded) animates in again if it comes back
-  useEffect(() => {
-    const inHand = new Set(game.hand.map((card) => card.id));
-    setDealtCardIds((prev) => ([...prev].every((id) => inHand.has(id)) ? prev : new Set([...prev].filter((id) => inHand.has(id)))));
-  }, [game.hand]);
 
   return (
     // Animations follow the device's "reduce motion" setting. Only the game
@@ -204,12 +192,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
             {/* Pass and play: each side's medals */}
             <MedalTally />
-            {/* The command deck and discard pile; a tap shows the deck */}
-            <CardPiles
-              drawPileCount={game.drawPileCount}
-              discardPileCount={game.discardPileCount}
-              onOpen={() => setDeckOpen(true)}
-            />
             {/* The battle shows the coins large in its own screen */}
             {game.phase !== TurnPhase.BATTLE && (
               <Button
@@ -254,18 +236,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             onClose={() => setMenuAnchor(null)}
             slotProps={{ list: { "aria-labelledby": "game-menu-button" } }}
           >
-            <MenuItem
-              onClick={() => {
-                setMenuAnchor(null);
-                setDeckOpen(true);
-              }}
-              sx={{ minHeight: 48 }}
-            >
-              <ListItemIcon sx={{ color: "inherit" }}>
-                <GameIcon name="cards" />
-              </ListItemIcon>
-              <ListItemText>{t.deck}</ListItemText>
-            </MenuItem>
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);
@@ -326,23 +296,19 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
 
           {game.phase === TurnPhase.PICK_CARDS && (
             <CardsView
-              handCards={game.hand}
+              cards={game.cards}
               dealtCardIds={dealtCardIds}
               onCardDealt={handleCardDealt}
-              onCardClick={(card, section, combatCards) => {
-                if (!session.pickCard(card, section, combatCards)) return;
-                play("cardPlay");
-                setLastPlay({ command: card, combat: combatCards });
-                setHandLeaving(true);
+              onPlay={(card) => {
+                if (!session.pickCard(card)) return;
+                if (card) play("cardPlay");
+                setLastPlay(card);
+                setHandLeaving(card !== null);
               }}
-              needsSection={(card, combatCard) => session.cardNeedsSection(card, combatCard)}
-              combatCardFits={(card, combatCard) => session.combatCardFits(card, combatCard)}
-              combatHand={game.combatHand}
-              canPlayCombatCards={game.canPlayCombatCards}
               coins={game.coins}
-              faction={faction}
+              extraTurn={game.extraTurn}
               largeMap={shared ? <LargeMap session={session} faction={faction} /> : undefined}
-              initialPicks={lastPlay}
+              initialPick={lastPlay}
             />
           )}
 
@@ -369,18 +335,7 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
           )}
 
           {game.phase === TurnPhase.END_OF_TURN && (
-            <EndOfTurnView
-              faction={faction}
-              session={session}
-              game={game}
-              dealtCardIds={dealtCardIds}
-              onCardDealt={handleCardDealt}
-              onDrawCard={() => session.drawCard() && play("cardPlay")}
-              onKeepCard={(card) => session.keepCard(card)}
-              onDrawAgain={() => session.drawAgain() && play("cardPlay")}
-              onChooseReward={(choice) => session.chooseReward(choice)}
-              onEndTurn={() => session.endTurn()}
-            />
+            <EndOfTurnView faction={faction} session={session} game={game} onEndTurn={() => session.endTurn()} />
           )}
         </Box>
 
@@ -394,13 +349,6 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
 
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <CoinsDialog open={coinsOpen} onClose={() => setCoinsOpen(false)} session={session} game={game} />
-        <DeckVisualizerDialog
-          open={deckOpen}
-          onClose={() => setDeckOpen(false)}
-          faction={faction}
-          commandCards={session.commandCards}
-          combatCards={session.combatCards}
-        />
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />
         {ruleBookOpen && (
           <Suspense fallback={null}>

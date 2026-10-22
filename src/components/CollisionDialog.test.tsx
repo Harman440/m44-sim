@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import BattleView from "./mainComponents/GameViews/BattleView";
 import GameSession from "../game-core/gameSession";
 import CommandCard from "../game-core/commandCard";
-import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { samePosition } from "../game-core/position";
 import { same } from "../i18n/lang";
@@ -26,11 +25,9 @@ const makeSession = ({ tankHolds = false } = {}) => {
       units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
     },
     faction: "Allies",
-    initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 })],
     random: () => 0.5,
   });
-  session.pickCard(session.getSnapshot().hand[0]!);
+  session.pickCard(null);
   const infantryMoves = session.getMoveOptions(INFANTRY)!;
   const tooFar = infantryMoves.moves.find((p) => !infantryMoves.moveAndFire.some((q) => samePosition(p, q)))!;
   session.issueOrder(INFANTRY, tooFar);
@@ -92,9 +89,7 @@ describe("Collisions in the battle phase", () => {
     const saved = played.save();
     const moved = played.getSnapshot().orders[0]!.end;
     saved.units = saved.units.map((u) => (u.position && samePosition(u.position, moved) ? { ...u, position: null } : u));
-    const session = GameSession.restore(saved, played.scenario, [
-      new CommandCard({ id: "left", sections: [Side.LEFT], orders: 2 }),
-    ]);
+    const session = GameSession.restore(saved, played.scenario);
     render(<Harness session={session} />);
 
     expect(screen.queryByRole("button", { name: "¿Ha habido un choque?" })).not.toBeInTheDocument();

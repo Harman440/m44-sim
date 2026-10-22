@@ -1,15 +1,14 @@
 import { HexType } from "../types/hex";
 import { describe, expect, it } from "vitest";
-import { FireContext, FireQuestion, calculateFireDice, nextFireQuestion } from "./fireRules";
+import { CombatBonus, FireContext, FireQuestion, calculateFireDice, nextFireQuestion } from "./fireRules";
 import { FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
-import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { same } from "../i18n/lang";
 
-const context = (unitType: UnitType, card: CommandCard | null = null): FireContext => ({ unitType, card });
+const context = (unitType: UnitType, combatBonuses: readonly CombatBonus[] = []): FireContext => ({ unitType, combatBonuses });
 
-const dice = (unitType: UnitType, answers: Record<string, string>, card: CommandCard | null = null) =>
-  calculateFireDice(FIRE_QUESTIONS, context(unitType, card), answers, fireBonusSteps).dice;
+const dice = (unitType: UnitType, answers: Record<string, string>, combatBonuses: readonly CombatBonus[] = []) =>
+  calculateFireDice(FIRE_QUESTIONS, context(unitType, combatBonuses), answers, fireBonusSteps).dice;
 
 describe("fire questionnaire engine", () => {
   const questions: FireQuestion[] = [
@@ -192,29 +191,23 @@ describe("fire questions (house rules)", () => {
   });
 
   it("adds the command card's close assault or ranged bonus", () => {
-    const card = new CommandCard({
-      name: same("Test"),
-      fireBonus: [
-        { dice: 1, closeAssault: true },
-        { dice: 2, closeAssault: false },
-      ],
-    });
+    const bonuses: CombatBonus[] = [
+      { name: same("Test"), dice: 1, closeAssault: true },
+      { name: same("Test"), dice: 2, closeAssault: false },
+    ];
 
-    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, card)).toBe(4);
-    expect(dice(UnitType.INFANTRY, { distance: "2", targetTerrain: "plains" }, card)).toBe(4);
+    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, bonuses)).toBe(4);
+    expect(dice(UnitType.INFANTRY, { distance: "2", targetTerrain: "plains" }, bonuses)).toBe(4);
   });
 
-  it("adds a card bonus only for the unit types it names, and takes dice away too", () => {
-    const card = new CommandCard({
-      name: same("Test"),
-      fireBonus: [
-        { dice: 1, closeAssault: true, unitTypes: [UnitType.TANK] },
-        { dice: -1, closeAssault: true },
-      ],
-    });
+  it("adds a card bonus at any distance when it doesn't say, and takes dice away too", () => {
+    const bonuses: CombatBonus[] = [
+      { name: same("Test"), dice: 1 },
+      { name: same("Test"), dice: -2, closeAssault: true },
+    ];
 
-    expect(dice(UnitType.TANK, { distance: "1", targetTerrain: "plains" }, card)).toBe(3);
-    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, card)).toBe(2);
+    expect(dice(UnitType.INFANTRY, { distance: "1", targetTerrain: "plains" }, bonuses)).toBe(2);
+    expect(dice(UnitType.INFANTRY, { distance: "2", targetTerrain: "plains" }, bonuses)).toBe(3);
   });
 
   it("explains the calculation step by step, leaving out zero changes", () => {

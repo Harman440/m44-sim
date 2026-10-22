@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import GameSession from "./gameSession";
 import PassAndPlayMatch, { armyOf, otherSide } from "./passAndPlay";
 import { SavedGame } from "./saveGame";
-import CommandCard from "./commandCard";
 import { UnitType } from "./unit";
 import { FIGURES } from "../data/figures";
 import { turnedRound } from "./BoardManager";
@@ -31,21 +30,18 @@ const scenario: Scenario = {
   },
 };
 
-// Cards that order every unit, so a turn needs no section
-const cards = () => Array.from({ length: 8 }, (_, i) => new CommandCard({ id: `all-${i}`, orders: 6 }));
+const newSession = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
 
-const newSession = (faction: Faction) => new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards(), figures: true });
-
-const restoreSide = (saved: SavedGame) => GameSession.restore(saved, scenario, cards());
+const restoreSide = (saved: SavedGame) => GameSession.restore(saved, scenario);
 
 const newMatch = () => new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") });
 
-/** The side holding the device picks a card and gives hold orders to every unit, then locks them */
+/** The side holding the device picks no card and gives hold orders to every unit, then locks them */
 const giveOrders = (match: PassAndPlayMatch) => {
   match.uncover();
   const session = match.activeSession();
-  expect(session.pickCard(session.getSnapshot().hand[0]!)).toBe(true);
-  while (session.getSnapshot().ordersLeft > 0) {
+  expect(session.pickCard(null)).toBe(true);
+  while (session.getSnapshot().orderable.length > 0) {
     const position = session.getSnapshot().orderable[0]!;
     expect(session.issueOrder(position, position)).toBe(true);
   }
@@ -65,7 +61,6 @@ const finishTurn = (match: PassAndPlayMatch) => {
   match.uncover();
   const session = match.activeSession();
   expect(session.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
-  if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("coins")).toBe(true);
   expect(session.endTurn()).toBe(true);
 };
 
@@ -160,7 +155,7 @@ describe("PassAndPlayMatch", () => {
 
     match.uncover();
     expect(listener).toHaveBeenCalledTimes(1);
-    match.activeSession().pickCard(match.activeSession().getSnapshot().hand[0]!);
+    match.activeSession().pickCard(null);
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
@@ -189,7 +184,7 @@ describe("PassAndPlayMatch", () => {
     // The Axis moves its infantry one hex, still in secret
     match.uncover();
     const axis = match.activeSession();
-    axis.pickCard(axis.getSnapshot().hand[0]!);
+    axis.pickCard(null);
     const from = axis.getSnapshot().orderable[0]!;
     const to = { row: from.row, col: from.col - 1 }; // the next hex in the row
     expect(axis.issueOrder(from, to)).toBe(true);
@@ -216,13 +211,13 @@ describe("PassAndPlayMatch", () => {
       ...scenario,
       units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
     };
-    const side = (faction: Faction) => new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+    const side = (faction: Faction) => new GameSession({ scenario: close, faction, figures: true });
     const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
 
     // The Axis' extra turn: its infantry heads 2 hexes west, into the Allied unit
     match.uncover();
     const axis = match.activeSession();
-    axis.pickCard(axis.getSnapshot().hand[0]!);
+    axis.pickCard(null);
     expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
     expect(axis.commitOrders()).toBe(true);
     expect(match.rollCollision(0)).toBe(false); // nothing has moved yet
@@ -248,7 +243,7 @@ describe("PassAndPlayMatch", () => {
 
     // Saved and restored mid-movement
     const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), close, (saved) =>
-      GameSession.restore(saved, close, cards())
+      GameSession.restore(saved, close)
     );
     expect(restored.getSnapshot().movement).toEqual(movement);
 
@@ -290,11 +285,11 @@ describe("PassAndPlayMatch", () => {
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
       };
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => face / 6 });
+        new GameSession({ scenario: close, faction, figures: true, random: () => face / 6 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       match.uncover();
       const axis = match.activeSession();
-      axis.pickCard(axis.getSnapshot().hand[0]!);
+      axis.pickCard(null);
       expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
       expect(axis.commitOrders()).toBe(true);
       expect(match.moveUnits()).toBe(true);
@@ -325,13 +320,13 @@ describe("PassAndPlayMatch", () => {
     };
     // Every die shows infantry: a hit on infantry
     const side = (faction: Faction) =>
-      new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 0 });
+      new GameSession({ scenario: close, faction, figures: true, random: () => 0 });
     const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
     match.sessions.Allies.sufferHits({ row: 4, col: 2 }, INFANTRY_FIGURES - 1, 0); // 1 figure left
 
     match.uncover();
     const axis = match.activeSession();
-    axis.pickCard(axis.getSnapshot().hand[0]!);
+    axis.pickCard(null);
     axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD));
     axis.commitOrders();
     match.moveUnits();
@@ -362,8 +357,6 @@ describe("PassAndPlayMatch", () => {
         new GameSession({
           scenario: front,
           faction,
-          initialHandSize: 2,
-          commandCards: cards(),
           figures: true,
           random: () => face / 6,
         });
@@ -410,7 +403,7 @@ describe("PassAndPlayMatch", () => {
         units: { allies: { infantry: [{ row: 4, col: 3 }], tank: [{ row: 2, col: 4 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
       };
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+        new GameSession({ scenario: close, faction, figures: true });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
 
@@ -580,7 +573,7 @@ describe("PassAndPlayMatch", () => {
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
       };
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 5 / 6 });
+        new GameSession({ scenario: close, faction, figures: true, random: () => 5 / 6 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
 
@@ -610,7 +603,7 @@ describe("PassAndPlayMatch", () => {
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
       };
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 5 / 6 });
+        new GameSession({ scenario: close, faction, figures: true, random: () => 5 / 6 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
 
@@ -638,7 +631,7 @@ describe("PassAndPlayMatch", () => {
       // Dealing shuffles with 0; then the Axis close assault rolls a flag and two infantry
       let faces: number[] = [];
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => faces.shift() ?? 0 });
+        new GameSession({ scenario: close, faction, figures: true, random: () => faces.shift() ?? 0 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
       faces = [5 / 6, 0, 0];
@@ -653,7 +646,7 @@ describe("PassAndPlayMatch", () => {
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 3 }] } },
       };
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 0 });
+        new GameSession({ scenario: close, faction, figures: true, random: () => 0 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
       expect(match.fire(0, axisView(4, 2))).toBe(true); // hits only
@@ -678,7 +671,7 @@ describe("PassAndPlayMatch", () => {
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
       };
       const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, initialHandSize: 2, commandCards: cards(), figures: true, random: () => 5 / 6 });
+        new GameSession({ scenario: close, faction, figures: true, random: () => 5 / 6 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
       allHold(match);
       match.fire(0, axisView(4, 2));
@@ -754,10 +747,10 @@ describe("a match against the computer", () => {
   const newComputerMatch = () =>
     new PassAndPlayMatch(scenario, { Allies: newSession("Allies"), Axis: newSession("Axis") }, { computer: "Axis" });
 
-  /** A side's card and hold orders, given straight on its session */
+  /** No card and hold orders for every unit of a side, given straight on its session */
   const holdAll = (session: GameSession) => {
-    expect(session.pickCard(session.getSnapshot().hand[0]!)).toBe(true);
-    while (session.getSnapshot().ordersLeft > 0) {
+    expect(session.pickCard(null)).toBe(true);
+    while (session.getSnapshot().orderable.length > 0) {
       const position = session.getSnapshot().orderable[0]!;
       expect(session.issueOrder(position, position)).toBe(true);
     }
@@ -765,7 +758,6 @@ describe("a match against the computer", () => {
   };
 
   const endTurn = (session: GameSession) => {
-    if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("coins")).toBe(true);
     expect(session.endTurn()).toBe(true);
   };
 
@@ -820,7 +812,7 @@ describe("winning a match", () => {
   const withVictory = (victory: Scenario["victory"]): Scenario => ({ ...scenario, victory });
   const matchOn = (map: Scenario) => {
     const side = (faction: Faction) =>
-      new GameSession({ scenario: map, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+      new GameSession({ scenario: map, faction, figures: true });
     return new PassAndPlayMatch(map, { Allies: side("Allies"), Axis: side("Axis") });
   };
   const allied = { faction: "Allies" as const, name: same("Hill"), hexes: [{ row: 7, col: 1 }] };
@@ -846,7 +838,7 @@ describe("winning a match", () => {
     expect(result!.medals.Allies).toEqual({ destroyed: 0, objectives: 1, total: 1 });
 
     const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), map, (saved) =>
-      GameSession.restore(saved, map, cards())
+      GameSession.restore(saved, map)
     );
     expect(restored.getSnapshot().result).toEqual(result);
   });

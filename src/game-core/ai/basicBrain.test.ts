@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import GameSession from "../gameSession";
 import PassAndPlayMatch from "../passAndPlay";
-import CommandCard from "../commandCard";
 import { AiView, seenEnemies } from "./aiStep";
 import { basicBrain } from "./basicBrain";
 import { hexDistance } from "../fireTargets";
@@ -25,8 +24,8 @@ const scenario: Scenario = {
   },
 };
 
-const newMatch = (cards: () => CommandCard[]) => {
-  const session = (faction: Faction) => new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+const newMatch = () => {
+  const session = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
   return new PassAndPlayMatch(scenario, { Allies: session("Allies"), Axis: session("Axis") }, { computer: "Axis" });
 };
 
@@ -38,15 +37,10 @@ const viewOf = (match: PassAndPlayMatch): AiView => ({
 });
 
 describe("basicBrain", () => {
-  it("plays the card that orders the most units", () => {
-    const match = newMatch(() => [new CommandCard({ id: "one", orders: 1 }), new CommandCard({ id: "all", orders: 6 })]);
-    expect(basicBrain.pickCard(viewOf(match)).card.id).toBe("all");
-  });
-
   it("moves a unit out of range toward the nearest enemy, still able to fire", () => {
-    const match = newMatch(() => Array.from({ length: 4 }, (_, i) => new CommandCard({ id: `all-${i}`, orders: 6 })));
+    const match = newMatch();
     const session = match.sessions.Axis;
-    session.pickCard(session.getSnapshot().hand[0]!);
+    session.pickCard(null);
     const view = viewOf(match);
     const from = view.session.getSnapshot().orderable[0]!;
     const nearest = (position: { row: number; col: number }) =>
@@ -59,7 +53,7 @@ describe("basicBrain", () => {
   });
 
   it("orders first the unit nearest the enemy", () => {
-    const match = newMatch(() => Array.from({ length: 4 }, (_, i) => new CommandCard({ id: `all-${i}`, orders: 6 })));
+    const match = newMatch();
     const view = viewOf(match);
     const units = [{ row: 1, col: 3 }, { row: 1, col: 9 }];
     const nearest = (position: { row: number; col: number }) =>
@@ -70,15 +64,14 @@ describe("basicBrain", () => {
 
   it("retreats to the hex farthest from the enemy", () => {
     const view: AiView = {
-      ...viewOf(newMatch(() => [new CommandCard({ id: "a", orders: 1 }), new CommandCard({ id: "b", orders: 1 })])),
+      ...viewOf(newMatch()),
       enemies: [{ position: { row: 3, col: 3 }, unitType: UnitType.INFANTRY, figures: 4 }],
     };
     expect(basicBrain.retreatTo(view, { row: 4, col: 3 }, [{ row: 5, col: 3 }, { row: 6, col: 3 }])).toEqual({ row: 6, col: 3 });
   });
 
-  it("takes supplies, and always takes ground", () => {
-    const view = viewOf(newMatch(() => [new CommandCard({ id: "a", orders: 1 }), new CommandCard({ id: "b", orders: 1 })]));
-    expect(basicBrain.reward(view)).toBe("coins");
+  it("always takes ground", () => {
+    const view = viewOf(newMatch());
     expect(basicBrain.takeGround(view, 0)).toBe(true);
   });
 });

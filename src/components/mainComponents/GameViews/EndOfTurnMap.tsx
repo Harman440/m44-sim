@@ -6,7 +6,7 @@ import { Faction } from "../../../types/faction";
 import { samePosition } from "../../../game-core/position";
 import Board from "../../Board";
 import { useHexFlash } from "../../useHexFlash";
-import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
 import GameIcon from "../../GameIcon";
 import { BarbedWireIcon } from "../../BarbedWire";
@@ -20,8 +20,7 @@ const TEXT = defineMessages({
     wireSelected: "Alambrada: quítala si ya no está en la mesa",
     unitSelected: "Toca una casilla vacía para mover la unidad (retirada o avance), o elimínala",
     placeReinforcement: (unit: string) => `Refuerzo (${unit.toLowerCase()}): toca la casilla libre donde lo pones`,
-    repositioning: "Reposicionamiento: toca la casilla resaltada a la que va tu artillería, hasta 2 casillas",
-    behindLines: "Tras las líneas enemigas: toca la casilla resaltada a la que va tu infantería, hasta 3 casillas",
+    movingAfterBattle: (name: string) => `${name}: toca la casilla resaltada a la que va tu unidad`,
     selected: (hex: string) => `Seleccionado: ${hex}`,
     removeLeavesCrew: "Eliminar: queda infantería",
     remove: "Eliminar unidad",
@@ -37,8 +36,7 @@ const TEXT = defineMessages({
     wireSelected: "Barbed wire: remove it if it's no longer on the table",
     unitSelected: "Tap an empty hex to move the unit (retreat or advance), or remove it",
     placeReinforcement: (unit: string) => `Reinforcement (${unit.toLowerCase()}): tap the free hex where you put it`,
-    repositioning: "Reposition: tap the highlighted hex your artillery moves to, up to 2 hexes away",
-    behindLines: "Behind Enemy Lines: tap the highlighted hex your infantry moves to, up to 3 hexes away",
+    movingAfterBattle: (name: string) => `${name}: tap the highlighted hex your unit moves to`,
     selected: (hex: string) => `Selected: ${hex}`,
     removeLeavesCrew: "Remove: infantry stays",
     remove: "Remove unit",
@@ -81,6 +79,7 @@ function EndOfTurnMap({
   // Pass and play: there's no table, the app's map is the game
   const shared = useContext(OpponentContext) !== null;
   const labels = useLabels();
+  const tr = useTr();
   const boardManager = session.board;
   const [selected, setSelected] = useState<Position | null>(null);
   const { flash, flashInvalid } = useHexFlash();
@@ -167,9 +166,7 @@ function EndOfTurnMap({
             : game.reinforcementToPlace
               ? t.placeReinforcement(labels.units[game.reinforcementToPlace])
               : finalMove
-                ? finalMove.card.effect?.kind === "reposition"
-                  ? t.repositioning
-                  : t.behindLines
+                ? t.movingAfterBattle(tr(finalMove.name))
                 : (hint ?? (shared ? t.hintShared : t.hint))}
         </Typography>
 

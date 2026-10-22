@@ -9,8 +9,6 @@ import { GameSetup } from "./types/faction";
 import { Scenario } from "./types/scenario";
 import { parseScenario, toScenarioFile } from "./game-core/scenarioFile";
 import { hasName, isBlank, isProvisionalId, mapIdFor } from "./game-core/scenarioDraft";
-import { allCombatCards, combatDeckFor } from "./data/combatCards";
-import { commandDeckFor } from "./data/commandCards";
 import { Settings, normalizeSettings } from "./settings";
 
 const LAST_SETUP_KEY = "m44-sim:last-setup";
@@ -68,12 +66,11 @@ export const savedGameScenarioId = (): string | null => {
   }
 };
 
-/** One side's game, with its decks. Throws if the save doesn't fit */
+/** One side's game. Throws if the save doesn't fit */
 const restoreSide = (saved: SavedGame, scenarios: readonly Scenario[]): GameSession => {
   const scenario = scenarios.find((s) => s.id === saved.scenarioId);
   if (!scenario) throw new Error(`Unknown scenario ${saved.scenarioId}`);
-  const combatCards = saved.testMode ? allCombatCards() : combatDeckFor(scenario, saved.faction);
-  return GameSession.restore(saved, scenario, commandDeckFor(scenario, saved.faction), combatCards);
+  return GameSession.restore(saved, scenario);
 };
 
 /** The game in progress, so a reload or the tablet sleeping doesn't lose it */

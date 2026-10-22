@@ -2,59 +2,62 @@ import { useCallback, useState, useSyncExternalStore } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CardsView, { DEAL_ANIMATION_MS, DEAL_GAP_MS } from "./CardsView";
-import CommandCard from "../../../game-core/commandCard";
-import { Side } from "../../../types/hex";
-import { CombatCard } from "../../../game-core/combatCard";
-import GameSession from "../../../game-core/gameSession";
+import GameSession, { GameSnapshot } from "../../../game-core/gameSession";
+import type { ActionCard } from "../../../game-core/actionCard";
+import { actionCardById } from "../../../data/actionCards";
 import { same } from "../../../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../../../settings";
 
-const makeSession = (cardNames: string[], initialHandSize: number) =>
-  new GameSession({
+/** The defender at turn 2 (the attacker would be in its extra turn), with these supplies */
+const makeSession = (coins = 0) => {
+  const session = new GameSession({
     scenario: {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
       initialHandSize: { allies: 3, axis: 3 },
-      attacker: "Allies",
+      attacker: "Axis",
       tiles: {},
-      units: { allies: {}, axis: {} },
+      units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },
     },
     faction: "Allies",
-    initialHandSize,
-    commandCards: cardNames.map((name) => new CommandCard({ id: name, name: same(name) })),
   });
-
-const nameOf = (card: CommandCard) => card.name.es;
+  session.startFirstTurn();
+  if (coins > 0) session.adjustCoins(coins);
+  return session;
+};
 
 // Wires CardsView to a real session the way GameView does
 function Harness({
   session,
-  initialDealt = [],
-  onCardClick,
+  initialDealt,
+  onPlay,
 }: {
   session: GameSession;
   initialDealt?: string[];
-  onCardClick?: (card: CommandCard) => void;
+  onPlay?: (card: ActionCard | null) => void;
 }) {
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const [dealt, setDealt] = useState<ReadonlySet<string>>(() => new Set(initialDealt));
-  const onCardDealt = useCallback(
-    (c: CommandCard) => setDealt((prev) => new Set(prev).add(c.id)),
-    []
-  );
-
+  const [dealt, setDealt] = useState<ReadonlySet<string>>(() => new Set(initialDealt ?? game.cards.map(({ card }) => card.id)));
+  const onCardDealt = useCallback((c: ActionCard) => setDealt((prev) => new Set(prev).add(c.id)), []);
   return (
     <CardsView
-      handCards={game.hand}
+      cards={game.cards}
       dealtCardIds={dealt}
       onCardDealt={onCardDealt}
-      onCardClick={onCardClick ?? ((card) => session.pickCard(card))}
+      onPlay={onPlay ?? ((card) => session.pickCard(card))}
+      coins={game.coins}
+      extraTurn={game.extraTurn}
     />
   );
 }
 
-const handNames = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll(".cards-hands .card-title")).map((el) => el.textContent);
+const handKeys = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll(".cards-hands [data-card-key]")).map((el) => el.getAttribute("data-card-key"));
+
+/** A card in the hand, by its id */
+const handCard = (container: HTMLElement, id: string) =>
+  container.querySelector(`.cards-hands [data-card-key="${id}"] .game-card`) as HTMLElement;
 
 // Each step's timer is only scheduled after React re-renders, so advance them separately
 const dealOneCard = () => {
@@ -74,404 +77,173 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Tap a command card in the hand: into the empty slot, or onto the table to swap it from there */
-const pickFromHand = (container: HTMLElement, name: string) => {
-  fireEvent.click(within(container.querySelector(".cards-hands") as HTMLElement).getByText(name));
-  const pick = screen.queryByRole("button", { name: /^(Elegir|Cambiar por esta)$/ });
-  if (pick) fireEvent.click(pick);
-};
-
-/** Pick a combat card from the hand by its button name (straight into the empty slot) */
-const pickCombat = (name: string) => {
-  fireEvent.click(screen.getByRole("button", { name }));
-};
-
-const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Jugar" }));
-
-/** Pick a command card, then play what the tray holds */
-const playFromHand = (container: HTMLElement, name: string) => {
-  pickFromHand(container, name);
-  pressPlay();
-};
-
 describe("CardsView dealing", () => {
-  it("deals cards that haven't been shown yet, one at a time", () => {
-    const session = makeSession(["A", "B"], 2);
-    const [first, second] = session.getSnapshot().hand.map(nameOf);
-    const { container } = render(<Harness session={session} />);
+  it("deals the cards that haven't been shown yet, one at a time", () => {
+    const session = makeSession();
+    const ids = session.getSnapshot().cards.map(({ card }) => card.id);
+    const { container } = render(<Harness session={session} initialDealt={ids.slice(0, -2)} />);
 
-    expect(handNames(container)).toEqual([]);
-
+    expect(handKeys(container)).toEqual(ids.slice(0, -2));
     act(() => {
       vi.advanceTimersByTime(DEAL_GAP_MS);
     });
-    expect(screen.getByTestId("animating-card")).toHaveTextContent(first!);
-
+    expect(screen.getByTestId("animating-card")).toBeInTheDocument();
     act(() => {
       vi.advanceTimersByTime(DEAL_ANIMATION_MS);
     });
-    expect(handNames(container)).toEqual([first]);
+    expect(handKeys(container)).toEqual(ids.slice(0, -1));
 
     dealOneCard();
-    expect(handNames(container)).toEqual([first, second]);
+    expect(handKeys(container)).toEqual(ids);
     expect(screen.queryByTestId("animating-card")).not.toBeInTheDocument();
   });
-
-  it("shows already dealt cards straight away and only animates the new one", () => {
-    const session = makeSession(["A", "B", "C"], 3);
-    const hand = session.getSnapshot().hand.map(nameOf);
-    const { container } = render(
-      <Harness session={session} initialDealt={hand.slice(0, 2)} />
-    );
-
-    expect(handNames(container)).toEqual(hand.slice(0, 2));
-
-    dealOneCard();
-    expect(handNames(container)).toEqual(hand);
-  });
 });
 
-describe("CardsView playing a card in a section of the player's choice", () => {
-  const render1 = (onCardClick = vi.fn()) => {
-    const card = new CommandCard({ id: "assault", name: same("Asalto de infantería"), sections: "chosen", orders: "all" });
-    const utils = render(
-      <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
-        onCardDealt={() => {}}
-        onCardClick={onCardClick}
-        needsSection={(c) => c.choosesSection}
-      />
-    );
-    playFromHand(utils.container, card.name.es);
-    return { card, onCardClick };
-  };
+describe("CardsView picking a card", () => {
+  it("puts a card it can pay for in the tray, and plays it", () => {
+    const session = makeSession(20);
+    const onPlay = vi.fn();
+    const { container } = render(<Harness session={session} onPlay={onPlay} />);
 
-  it("asks for the section, then plays the card in it", () => {
-    const { card, onCardClick } = render1();
-
-    expect(onCardClick).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "centro" }));
-
-    expect(onCardClick).toHaveBeenCalledWith(card, "center", []);
-  });
-
-  it("can be cancelled", () => {
-    const { onCardClick } = render1();
-
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-
-    expect(onCardClick).not.toHaveBeenCalled();
-  });
-});
-
-describe("CardsView combat cards", () => {
-  const combat = (id: string, cost: number): CombatCard => ({
-    id,
-    name: same(id),
-    description: same(`Texto de ${id}`),
-    cost,
-  });
-
-  const renderWith = (props: Partial<Parameters<typeof CardsView>[0]> = {}) => {
-    const card = new CommandCard({ id: "attack", name: same("Ataque"), orders: 2 });
-    const onCardClick = vi.fn();
-    const utils = render(
-      <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
-        onCardDealt={() => {}}
-        onCardClick={onCardClick}
-        combatHand={[combat("Cortina de Fuego", 4), combat("Explosivos", 1), combat("Refuerzos", 6)]}
-        canPlayCombatCards
-        coins={5}
-        {...props}
-      />
-    );
-    const playCommandCard = () => playFromHand(utils.container, card.name.es);
-    return { card, onCardClick, playCommandCard };
-  };
-
-  it("plays the order card picked with the command card", () => {
-    const { card, onCardClick, playCommandCard } = renderWith();
-
-    pickCombat("Cortina de Fuego, 4 suministros");
+    fireEvent.click(handCard(container, "resupply"));
     const tray = screen.getByRole("region", { name: "Tu jugada" });
-    expect(within(tray).getByRole("button", { name: "Quitar Cortina de Fuego" })).toBeInTheDocument();
-    playCommandCard();
+    expect(within(tray).getByRole("button", { name: "Quitar Reabastecimiento" })).toBeInTheDocument();
+    expect(handKeys(container)).not.toContain("resupply");
+    expect(screen.getByRole("button", { name: "Sin carta" })).toBeDisabled();
 
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, [expect.objectContaining({ id: "Cortina de Fuego" })]);
+    fireEvent.click(screen.getByRole("button", { name: "Jugar" }));
+    expect(onPlay).toHaveBeenCalledWith(actionCardById("resupply"));
   });
 
-  it("picks the cards in any order, and plays only when Jugar is pressed", () => {
-    const { card, onCardClick } = renderWith();
+  it("plays no card with Sin carta", () => {
+    const session = makeSession();
+    const onPlay = vi.fn();
+    render(<Harness session={session} onPlay={onPlay} />);
 
     expect(screen.getByRole("button", { name: "Jugar" })).toBeDisabled();
-    pickFromHand(document.body, card.name.es);
-    pickCombat("Cortina de Fuego, 4 suministros");
-    expect(onCardClick).not.toHaveBeenCalled();
-
-    pressPlay();
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, [expect.objectContaining({ id: "Cortina de Fuego" })]);
+    fireEvent.click(screen.getByRole("button", { name: "Sin carta" }));
+    expect(onPlay).toHaveBeenCalledWith(null);
   });
 
-  it("keeps the picked cards in the tray, out of the hand, until removed", () => {
-    const { card, onCardClick } = renderWith();
+  it("puts the card back in the hand from the tray", () => {
+    const session = makeSession(20);
+    const { container } = render(<Harness session={session} />);
 
-    pickFromHand(document.body, card.name.es);
-    pickCombat("Cortina de Fuego, 4 suministros");
-    const hands = document.querySelector(".cards-hands") as HTMLElement;
-    expect(within(hands).queryByText(card.name.es)).not.toBeInTheDocument();
-    expect(within(hands).queryByRole("button", { name: "Cortina de Fuego, 4 suministros" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Quitar Cortina de Fuego" }));
-    expect(within(hands).getByRole("button", { name: "Cortina de Fuego, 4 suministros" })).toBeInTheDocument();
-
-    pressPlay();
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, []);
+    fireEvent.click(handCard(container, "refuel"));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Repostaje" }));
+    expect(handKeys(container)).toContain("refuel");
+    expect(screen.getByRole("button", { name: "Jugar" })).toBeDisabled();
   });
 
-  it("offers only the cards the player can pay for, but shows them all", () => {
-    renderWith();
+  it("swaps the card in the tray for another from the table", () => {
+    const session = makeSession(20);
+    const { container } = render(<Harness session={session} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Refuerzos, 6 suministros" }));
-    expect(screen.getByText("Te faltan suministros: cuesta 6 suministros y tienes 5 suministros.")).toBeInTheDocument();
-    expect(within(screen.getByTestId("card-details")).getAllByText("Texto de Refuerzos").length).toBeGreaterThan(0);
+    fireEvent.click(handCard(container, "refuel"));
+    fireEvent.click(handCard(container, "resupply"));
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar por esta" }));
+    const tray = screen.getByRole("region", { name: "Tu jugada" });
+    expect(within(tray).getByRole("button", { name: "Quitar Reabastecimiento" })).toBeInTheDocument();
+    expect(handKeys(container)).toContain("refuel");
+  });
+});
+
+describe("CardsView cards that can't be played now", () => {
+  it("fades a card the side can't pay for, and says why on the table", () => {
+    const session = makeSession(9);
+    const { container } = render(<Harness session={session} />);
+
+    expect(container.querySelector('[data-card-key="resupply"]')).toHaveClass("hand-card--playable");
+    expect(container.querySelector('[data-card-key="finest-hour"]')).not.toHaveClass("hand-card--playable");
+    fireEvent.click(handCard(container, "finest-hour"));
+    expect(screen.getByText("Te faltan suministros: cuesta 15 suministros y tienes 9 suministros.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Elegir" })).not.toBeInTheDocument();
   });
 
-  it("plays two combat cards with the command card, paid together, but not a third", () => {
-    const { card, onCardClick, playCommandCard } = renderWith({ coins: 6 });
+  it("shows a card's cooldown on it and says when it comes back", () => {
+    const session = makeSession(20);
+    // Played on turn 2: it waits until turn 5
+    session.pickCard(actionCardById("refuel")!);
+    session.commitOrders();
+    session.startBattle();
+    session.endBattle();
+    session.endTurn();
+    const { container } = render(<Harness session={session} />);
 
-    pickCombat("Cortina de Fuego, 4 suministros");
-    // 2 supplies left: Refuerzos can't be added
-    fireEvent.click(screen.getByRole("button", { name: "Refuerzos, 6 suministros" }));
-    expect(screen.getByText("Te faltan suministros: cuesta 6 suministros y tienes 2 suministros.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
-    pickCombat("Explosivos, 1 suministro");
-    const tray = screen.getByRole("region", { name: "Tu jugada" });
-    expect(within(tray).getByRole("button", { name: "Quitar Cortina de Fuego" })).toBeInTheDocument();
-    expect(within(tray).getByRole("button", { name: "Quitar Explosivos" })).toBeInTheDocument();
-
-    playCommandCard();
-
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, [
-      expect.objectContaining({ id: "Cortina de Fuego" }),
-      expect.objectContaining({ id: "Explosivos" }),
-    ]);
+    const refuel = container.querySelector('[data-card-key="refuel"]')!;
+    expect(within(refuel as HTMLElement).getByTestId("card-cooldown")).toHaveTextContent("2");
+    fireEvent.click(handCard(container, "refuel"));
+    expect(screen.getByText("Se jugó hace poco: vuelve en 2 turnos.")).toBeInTheDocument();
   });
 
-  it("won't add a second copy of a card, nor a third card", () => {
-    const copy = (n: number): CombatCard => ({ ...combat(`Médico ${n}`, 1), templateId: "medic" });
-    renderWith({ combatHand: [copy(1), copy(2), combat("Explosivos", 1), combat("Táctico", 1)] });
-
-    pickCombat("Médico 1, 1 suministro");
-    fireEvent.click(screen.getByRole("button", { name: "Médico 2, 1 suministro" }));
-    expect(screen.getByText("Ya juegas esta carta: no se juegan dos copias a la vez.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
-    pickCombat("Explosivos, 1 suministro");
-    fireEvent.click(screen.getByRole("button", { name: "Táctico, 1 suministro" }));
-    expect(screen.getByText("Ya juegas 2 cartas de combate: quita una para jugar esta.")).toBeInTheDocument();
-  });
-
-  it("plays none in the attacker's extra turn", () => {
-    const { card, onCardClick, playCommandCard } = renderWith({ canPlayCombatCards: false });
-
-    expect(screen.getAllByText("En el turno extra no se juegan cartas de combate.").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "Cortina de Fuego, 4 suministros" }));
-    expect(screen.queryByRole("button", { name: "Elegir" })).not.toBeInTheDocument();
-    playCommandCard();
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, []);
-  });
-});
-
-describe("CardsView Tactician", () => {
-  it("asks for the new section when Tactician is played with a one-section card", () => {
-    const card = new CommandCard({ id: "attack-left", name: same("Ataque en el flanco izquierdo"), sections: [Side.LEFT], orders: 3 });
-    const tactician: CombatCard = { id: "tactician", name: same("Táctico"), description: same(""), cost: 0, effect: { kind: "changeSection" } };
-    const onCardClick = vi.fn();
-    const { container } = render(
-      <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
-        onCardDealt={() => {}}
-        onCardClick={onCardClick}
-        needsSection={(c, combat) => combat.some((cc) => cc.effect?.kind === "changeSection") && c.sections !== "chosen" && c.sections.length === 1}
-        combatHand={[tactician]}
-        canPlayCombatCards
-        coins={0}
-      />
-    );
-
-    pickCombat("Táctico, 0 suministros");
-    playFromHand(container, card.name.es);
-    expect(screen.getByText("Táctico: ¿a qué sección cambias Ataque en el flanco izquierdo?")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "flanco derecho" }));
-
-    expect(onCardClick).toHaveBeenCalledWith(card, Side.RIGHT, [tactician]);
-  });
-});
-
-describe("CardsView Tactician with a card for several sections", () => {
-  it("warns and won't play until one of the two is removed", () => {
-    const card = new CommandCard({ id: "general-advance", name: same("Avance general"), orders: 6, perSection: 2 });
-    const tactician: CombatCard = { id: "tactician", name: same("Táctico"), description: same(""), cost: 0, effect: { kind: "changeSection" } };
-    const onCardClick = vi.fn();
-    const { container } = render(
-      <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
-        onCardDealt={() => {}}
-        onCardClick={onCardClick}
-        combatCardFits={(c, combat) => combat.effect?.kind !== "changeSection" || (c.sections !== "chosen" && c.sections.length === 1)}
-        combatHand={[tactician]}
-        canPlayCombatCards
-        coins={0}
-      />
-    );
-
-    pickCombat("Táctico, 0 suministros");
-    pickFromHand(container, card.name.es);
-    expect(screen.getByRole("alert")).toHaveTextContent("Táctico no sirve con Avance general");
-    expect(screen.getByRole("button", { name: "Jugar" })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Quitar Táctico" }));
-    pressPlay();
-    expect(onCardClick).toHaveBeenCalledWith(card, undefined, []);
-  });
-});
-
-describe("CardsView looking at a card", () => {
-  it("puts a tapped card straight in its empty slot, flying there, with its text in the tray, without playing it", () => {
-    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), description: same("Texto completo del reconocimiento"), orders: 1 });
-    const onCardClick = vi.fn();
-    const { container } = render(
-      <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
-        onCardDealt={() => {}}
-        onCardClick={onCardClick}
-      />
-    );
-
-    fireEvent.click(within(container.querySelector(".cards-hands") as HTMLElement).getByText(card.name.es));
-
-    const tray = screen.getByRole("region", { name: "Tu jugada" });
-    expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
-    expect(screen.getByTestId("flight")).toBeInTheDocument();
-    // Shown once: its text in the tray, not again on the table
-    expect(within(tray).getByText("Texto completo del reconocimiento")).toBeInTheDocument();
-    expect(screen.queryByTestId("card-details")).not.toBeInTheDocument();
-    expect(onCardClick).not.toHaveBeenCalled();
-  });
-
-  it("puts a tapped card on the table with its full text when its slot is taken, to swap it from there", () => {
-    const first = new CommandCard({ id: "left", name: same("Ataque"), sections: [Side.LEFT], orders: 1 });
-    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), description: same("Texto completo del reconocimiento"), orders: 1 });
-    const onCardClick = vi.fn();
-    const { container } = render(
-      <CardsView
-        handCards={[first, card]}
-        dealtCardIds={new Set([first.id, card.id])}
-        onCardDealt={() => {}}
-        onCardClick={onCardClick}
-      />
-    );
-    const hands = container.querySelector(".cards-hands") as HTMLElement;
-    fireEvent.click(within(hands).getByText(first.name.es));
-
-    fireEvent.click(within(hands).getByText(card.name.es));
-
-    const details = screen.getByTestId("card-details");
-    expect(within(details).getByRole("button", { name: "Cambiar por esta" })).toBeInTheDocument();
-    expect(within(details).getAllByRole("heading", { name: "Reconocimiento" }).length).toBeGreaterThan(0);
-    expect(within(details).getAllByText("Texto completo del reconocimiento").length).toBeGreaterThan(0);
-    expect(onCardClick).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
-    expect(screen.queryByTestId("card-details")).not.toBeInTheDocument();
+  it("plays no card in the attacker's extra turn", () => {
+    const cards: GameSnapshot["cards"] = makeSession(20).getSnapshot().cards.map((held) => ({ ...held, playable: false }));
+    render(<CardsView cards={cards} dealtCardIds={new Set(cards.map(({ card }) => card.id))} onCardDealt={() => {}} onPlay={() => {}} extraTurn />);
+    expect(screen.getAllByText("En el turno extra no se juega ninguna carta.").length).toBeGreaterThan(0);
   });
 });
 
 describe("CardsView back from the orders", () => {
-  it("starts with the cards played before still in the tray", () => {
-    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), orders: 1 });
-    const combat: CombatCard = { id: "barrage", name: same("Cortina"), description: same(""), cost: 1 };
+  it("starts with the card played in the tray", () => {
+    const session = makeSession(20);
+    const cards = session.getSnapshot().cards;
     render(
       <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
+        cards={cards}
+        dealtCardIds={new Set(cards.map(({ card }) => card.id))}
         onCardDealt={() => {}}
-        onCardClick={() => {}}
-        combatHand={[combat]}
-        canPlayCombatCards
-        coins={3}
-        initialPicks={{ command: card, combat: [combat] }}
+        onPlay={() => {}}
+        coins={20}
+        initialPick={actionCardById("resupply")!}
       />
     );
     const tray = screen.getByRole("region", { name: "Tu jugada" });
-    expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
-    expect(within(tray).getByRole("button", { name: "Quitar Cortina" })).toBeInTheDocument();
+    expect(within(tray).getByRole("button", { name: "Quitar Reabastecimiento" })).toBeInTheDocument();
   });
 });
 
 describe("CardsView putting the cards away", () => {
   it("shows the map beside the tray, and alone once the cards are put away, keeping the pick", () => {
-    const card = new CommandCard({ id: "recon", name: same("Reconocimiento"), orders: 1 });
+    const session = makeSession(20);
+    const cards = session.getSnapshot().cards;
     const { container } = render(
       <CardsView
-        handCards={[card]}
-        dealtCardIds={new Set([card.id])}
+        cards={cards}
+        dealtCardIds={new Set(cards.map(({ card }) => card.id))}
         onCardDealt={() => {}}
-        onCardClick={() => {}}
+        onPlay={() => {}}
+        coins={20}
         largeMap={<div data-testid="large-map" />}
       />
     );
     expect(container.querySelector(".cards-table__map [data-testid=large-map]")).not.toBeNull();
-    fireEvent.click(within(container.querySelector(".cards-hands") as HTMLElement).getByText(card.name.es));
+    fireEvent.click(handCard(container, "resupply"));
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar las cartas y ver el mapa" }));
     expect(screen.getByTestId("large-map")).toBeInTheDocument();
     expect(container.querySelector(".cards-table")).toBeNull();
     expect(container.querySelector(".cards-hands")).toBeNull();
-    expect(screen.queryByRole("region", { name: "Tu jugada" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Volver a las cartas" }));
-    expect(container.querySelector(".cards-table__map [data-testid=large-map]")).not.toBeNull();
     const tray = screen.getByRole("region", { name: "Tu jugada" });
-    expect(within(tray).getByRole("button", { name: "Quitar Reconocimiento" })).toBeInTheDocument();
+    expect(within(tray).getByRole("button", { name: "Quitar Reabastecimiento" })).toBeInTheDocument();
   });
 
   it("has no bar without a map to show (own tablets)", () => {
-    render(
-      <CardsView handCards={[]} dealtCardIds={new Set()} onCardDealt={() => {}} onCardClick={() => {}} />
-    );
+    render(<CardsView cards={[]} dealtCardIds={new Set()} onCardDealt={() => {}} onPlay={() => {}} />);
     expect(screen.queryByTestId("hand-away-bar")).not.toBeInTheDocument();
   });
 });
 
-describe("CardsView one hand", () => {
-  it("holds the command cards by section, then the combat cards, playable ones first", () => {
-    const right = new CommandCard({ id: "right", name: same("Derecha"), sections: [Side.RIGHT], orders: 2 });
-    const tactic = new CommandCard({ id: "tactic", name: same("Táctica"), tactic: true, orders: 1 });
-    const left = new CommandCard({ id: "left", name: same("Izquierda"), sections: [Side.LEFT], orders: 2 });
-    const pricey: CombatCard = { id: "reinforcements", name: same("Refuerzos"), description: same(""), cost: 6 };
-    const order: CombatCard = { id: "barrage", name: same("Cortina"), description: same(""), cost: 2 };
-    const { container } = render(
-      <CardsView
-        handCards={[right, tactic, left]}
-        dealtCardIds={new Set(["right", "tactic", "left"])}
-        onCardDealt={() => {}}
-        onCardClick={() => {}}
-        combatHand={[pricey, order]}
-        canPlayCombatCards
-        coins={5}
-      />
+describe("CardsView in English", () => {
+  it("speaks English when the player picked it", () => {
+    const session = makeSession(20);
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={session} />
+      </SettingsContext.Provider>
     );
-
-    const keys = Array.from(container.querySelectorAll(".cards-hands [data-card-key]")).map((el) => el.getAttribute("data-card-key"));
-    expect(keys).toEqual(["left", "tactic", "right", "combat-barrage", "combat-reinforcements"]);
-    expect(container.querySelector('[data-card-key="combat-barrage"]')).toHaveClass("hand-card--playable");
-    expect(container.querySelector('[data-card-key="combat-reinforcements"]')).not.toHaveClass("hand-card--playable");
+    expect(screen.getByRole("button", { name: "No card" })).toBeInTheDocument();
+    expect(screen.getByText("Pick a card, or play without one")).toBeInTheDocument();
   });
 });

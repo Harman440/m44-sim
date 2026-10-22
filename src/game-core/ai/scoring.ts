@@ -1,10 +1,7 @@
 // game-core/ai/scoring.ts
 // What the computer's choices are worth, on one scale: the share of a unit
-// destroyed (or kept), by how much the unit matters. Shared by the brains and
-// the combat cards they play.
+// destroyed (or kept), by how much the unit matters. Shared by the brains.
 import { AiView, SeenEnemy } from "./aiStep";
-import CommandCard, { Section } from "../commandCard";
-import { fallbackCard, orderablePositions, ordersLeft } from "../orderRules";
 import { hasLineOfSight, hexDistance } from "../fireTargets";
 import { positionKey } from "../position";
 import BoardManager from "../BoardManager";
@@ -92,18 +89,4 @@ export function unitWorth(view: AiView, position: Position): number {
   const reach = BASE_DICE_BY_DISTANCE[unitType].length + (unitType === UnitType.ARTILLERY ? 0 : 1);
   return 1 + (nearestEnemy(view.enemies, position) <= reach ? 1 : 0);
 }
-
-/** The units a card would order (in this section, for a card whose section is picked): the most worthwhile first, as many as its orders */
-export function orderedBy(view: AiView, card: CommandCard, section: Section | null): Position[] {
-  const { board } = view.session;
-  const rules = fallbackCard(card, board) ?? card;
-  const context = { card: rules, chosenSection: section, board, orders: [], coins: 0 };
-  return orderablePositions(context)
-    .sort((a, b) => unitWorth(view, b) - unitWorth(view, a))
-    .slice(0, ordersLeft(context));
-}
-
-/** A card's worth: the worth of the units it orders */
-export const cardWorth = (view: AiView, card: CommandCard, section: Section | null): number =>
-  orderedBy(view, card, section).reduce((sum, position) => sum + unitWorth(view, position), 0);
 

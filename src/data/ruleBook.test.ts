@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HOUSE_RULES, TUTORIAL } from "./ruleBook";
-import { END_OF_TURN_COINS, EXTRA_ORDER_COST } from "./coinRules";
-import { MAX_COMBAT_HAND, STARTING_COMBAT_CARDS } from "./combatCards";
+import { CARD_COOLDOWN_TURNS } from "./actionCards";
 import { TurnPhase } from "../types/gameManager";
 import { FIGURES } from "./figures";
 import { UnitType } from "../game-core/unit";
@@ -36,10 +35,8 @@ describe("rule book", () => {
 
   it("takes its numbers from the rules' data", () => {
     const rule = (title: string) => HOUSE_RULES.flatMap((group) => group.rules).find((r) => r.title.en === title)!;
-    expect(rule("Extra orders").house.es).toContain(`Por ${EXTRA_ORDER_COST[UnitType.INFANTRY]} suministros (infantería)`);
-    expect(EXTRA_ORDER_COST[UnitType.ARTILLERY]).toBe(EXTRA_ORDER_COST[UnitType.TANK]);
-    expect(rule("Supplies").house.en).toContain(`pick ${END_OF_TURN_COINS} supplies`);
-    expect(rule("Combat cards").house.en).toContain(`start with ${STARTING_COMBAT_CARDS} and hold ${MAX_COMBAT_HAND} at most`);
+    expect(rule("One card a turn, or none").house.en).toContain(`waits ${CARD_COOLDOWN_TURNS} turns`);
+    expect(rule("One card a turn, or none").house.es).toContain(`vuelve en el turno ${2 + CARD_COOLDOWN_TURNS}`);
     const figures = FIGURES[UnitType.INFANTRY].figures;
     expect(rule("Figures").house.en).toContain(`Infantry ${figures} figures`);
   });

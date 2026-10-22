@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import ParadropView from "./ParadropView";
 import GameSession from "../../../game-core/gameSession";
-import CommandCard from "../../../game-core/commandCard";
 import { UnitType } from "../../../game-core/unit";
 import { TurnPhase } from "../../../types/gameManager";
 import { Position } from "../../../types/scenario";
@@ -24,8 +23,6 @@ const makeSession = () =>
       paradrop: { faction: "Allies", unitType: UnitType.INFANTRY, units: 2 },
     },
     faction: "Allies",
-    initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "all", name: same("Todas"), orders: 6 })],
   });
 
 function Harness({ session }: { session: GameSession }) {

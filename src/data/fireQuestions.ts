@@ -181,7 +181,7 @@ const sandbagsQuestion: FireQuestion = {
   note: (_, answer) => (answer === "yes" ? SANDBAGS_NOTE : null),
 };
 
-/** A unit with the camouflage badge (the Camouflage card) can only be fired at in close assault */
+/** A unit with the camouflage badge (the Camouflage action) can only be fired at in close assault */
 const camouflageQuestion: FireQuestion = {
   id: "camouflage",
   text: { es: "¿El objetivo está camuflado?", en: "Is the target camouflaged?" },
@@ -231,19 +231,13 @@ export const FIRE_QUESTIONS: readonly FireQuestion[] = [
   camouflageQuestion,
 ];
 
-/** The command card's dice, when it changes them in this situation */
-const cardSteps = ({ unitType, card }: FireContext, closeAssault: boolean): DiceStep[] => {
-  const dice = card?.fireBonusFor(unitType, closeAssault) ?? 0;
-  return card && dice !== 0 ? [{ label: cardLabel(card.name), dice, kind: "card", card: card.name }] : [];
-};
-
-/** The combat cards' extra dice for the unit, in close assault or at range (Spotter, Explosives…) */
+/** The cards' extra dice for the unit, in close assault or at range (Finest Hour…) */
 const combatSteps = ({ combatBonuses = [] }: FireContext, closeAssault: boolean): DiceStep[] =>
   combatBonuses
     .filter((bonus) => bonus.closeAssault === undefined || bonus.closeAssault === closeAssault)
     .map((bonus) => ({ label: cardLabel(bonus.name), dice: bonus.dice, kind: "card", card: bonus.name, ...(bonus.face && { face: bonus.face }) }));
 
-/** Dice the combat cards played add to this shot: a card's extra dice let the unit keep one more result */
+/** Dice the card played adds to this shot: a card's extra dice let the unit keep one more result */
 export const combatBonusDice = (context: FireContext, closeAssault: boolean): number =>
   combatSteps(context, closeAssault).reduce((sum, step) => sum + step.dice, 0);
 
@@ -308,11 +302,10 @@ const pinnedSteps = ({ unitType, pinned }: FireContext, answers: FireAnswers): D
     ? [{ label: { es: "Inmovilizada", en: "Pinned" }, dice: PINNED_FIRE_DICE[unitType], kind: "pinned" }]
     : [];
 
-/** Extra dice that don't need a question: the command card's bonuses, and the firing unit's own hex (barbed wire, a town, a ford) */
+/** Extra dice that don't need a question: the card's bonuses, and the firing unit's own hex (barbed wire, a town, a ford) */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
   answers.distance
     ? [
-        ...cardSteps(context, answers.distance === "1"),
         ...combatSteps(context, answers.distance === "1"),
         ...wireSteps(context),
         ...fromTownSteps(context),
@@ -323,7 +316,7 @@ export const fireBonusSteps = (context: FireContext, answers: FireAnswers): Dice
 
 /**
  * A collision in the movement phase (two units cross or land on the same hex):
- * close assault dice − 1, plus the card's close-assault bonus. Terrain is ignored.
+ * close assault dice − 1, plus the card's bonus. Terrain is ignored.
  */
 export const collisionSteps = (context: FireContext): DiceStep[] => [
   {
@@ -332,7 +325,6 @@ export const collisionSteps = (context: FireContext): DiceStep[] => [
     kind: "base",
   },
   { label: { es: "Choque", en: "Collision" }, dice: -1, kind: "collision" },
-  ...cardSteps(context, true),
   ...combatSteps(context, true),
   ...pinnedSteps(context, {}),
 ];

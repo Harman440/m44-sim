@@ -1,11 +1,9 @@
 // game-core/ai/selfPlay.ts
 // The computer against itself, for tests: each side played by a brain, the
-// steps both players share taken as they would, with seeded dice and decks.
+// steps both players share taken as they would, with seeded dice.
 import GameSession from "../gameSession";
 import PassAndPlayMatch, { armyOf } from "../passAndPlay";
 import { aiStep, Brain } from "./aiStep";
-import { commandDeckFor } from "../../data/commandCards";
-import { combatDeckFor } from "../../data/combatCards";
 import { FACTIONS, Faction } from "../../types/faction";
 import { Scenario } from "../../types/scenario";
 
@@ -21,9 +19,6 @@ export const newSession = (scenario: Scenario, faction: Faction, random: () => n
   new GameSession({
     scenario,
     faction,
-    initialHandSize: scenario.initialHandSize[faction === "Axis" ? "axis" : "allies"],
-    commandCards: commandDeckFor(scenario, faction),
-    combatCards: combatDeckFor(scenario, faction),
     figures: true,
     random,
   });
@@ -53,8 +48,7 @@ export const figuresLeft = (match: PassAndPlayMatch): Record<Faction, number> =>
 
 /**
  * Play a match with a brain on each side, until `turns` turns are over, a side has won or a side
- * has no units left. `random` drives the dice and the brains; the decks shuffle with Math.random, so a test
- * that wants the same game twice mocks it with the same seed
+ * has no units left. `random` drives the dice and the brains
  */
 export function playOut(
   scenario: Scenario,
@@ -78,12 +72,10 @@ export function playOut(
       const phases = FACTIONS.map((side) => {
         const game = match.sessions[side].getSnapshot();
         const detail = {
-          ordersLeft: game.ordersLeft,
           orderable: game.orderable.length,
           marking: game.marking?.card.id ?? null,
           markable: game.markable.length,
-          assigning: game.assigning && { card: game.assigning.card.id, positions: game.assigning.positions.length },
-          played: game.combatCardsPlayed.map((card) => card.id),
+          played: game.playedCard?.id ?? null,
         };
         return `${side}: phase ${game.phase} ${JSON.stringify(detail)}`;
       }).join(", ");

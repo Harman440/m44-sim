@@ -5,8 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import HistoryDialog from "./HistoryDialog";
 import GameSession from "../game-core/gameSession";
 import { SAVE_VERSION } from "../game-core/saveGame";
-import CommandCard from "../game-core/commandCard";
-import { Side } from "../types/hex";
 import { Position } from "../types/scenario";
 import { downloadJson } from "../download";
 import { same } from "../i18n/lang";
@@ -31,23 +29,16 @@ const playedSession = () => {
       units: { allies: { infantry: [INFANTRY] }, axis: {} },
     },
     faction: "Allies",
-    initialHandSize: 2,
-    commandCards: [
-      new CommandCard({ id: "a", name: same("Ataque"), sections: [Side.LEFT], orders: 1 }),
-      new CommandCard({ id: "b", name: same("Asalto"), sections: [Side.LEFT], orders: 1 }),
-    ],
     random: () => 0.5, // grenade
   });
   const playTurn = (battle: () => void, final: () => void = () => {}) => {
-    session.pickCard(session.getSnapshot().hand[0]!);
+    session.pickCard(null);
     session.issueOrder(INFANTRY, INFANTRY);
     session.commitOrders();
     session.startBattle();
     battle();
     session.endBattle();
     final();
-    session.drawCard();
-    session.chooseReward("coins"); // not asked in the extra turn 1
     session.endTurn();
   };
   playTurn(() => shoot(session, 0, AT_INFANTRY));
@@ -72,8 +63,9 @@ describe("HistoryDialog", () => {
     expect(first).toHaveTextContent("(contra infantería · a distancia: 2 impactos · 0 retiradas)");
     expect(first).toHaveTextContent("Sin bajas ni retiradas.");
     expect(first).toHaveTextContent("Al terminar el turno: 0 suministros");
-    expect(second).toHaveTextContent("Fase final: suministros: +2");
-    expect(second).toHaveTextContent("Al terminar el turno: 2 suministros");
+    // No card played, and nothing is handed out at the end of the turn
+    expect(second).toHaveTextContent("Sin carta");
+    expect(second).toHaveTextContent("Al terminar el turno: 0 suministros");
   });
 
   it("says so when no turn has finished yet", () => {

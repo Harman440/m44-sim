@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import CoinsDialog from "./CoinsDialog";
 import GameSession from "../game-core/gameSession";
-import CommandCard from "../game-core/commandCard";
 import { same } from "../i18n/lang";
 import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 
@@ -20,8 +19,6 @@ const makeSession = () => {
       units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },
     },
     faction: "Allies",
-    initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "a", orders: 1 })],
   });
   session.startFirstTurn();
   return session;

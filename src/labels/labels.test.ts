@@ -4,11 +4,8 @@ import { DieFace } from "../game-core/dice";
 import Hex from "../game-core/hex";
 import Unit, { UnitType } from "../game-core/unit";
 import { HexType } from "../types/hex";
-import CommandCard from "../game-core/commandCard";
 import { moveLimits } from "../game-core/orderRules";
 import { LANGS } from "../i18n/lang";
-
-const CARD_ORDER = { section: null, onTheMove: false };
 
 describe("Spanish descriptions", () => {
   const { describeFaces, describeHex, describeMovement } = LABELS.es;
@@ -26,19 +23,13 @@ describe("Spanish descriptions", () => {
     [UnitType.TANK, "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
     [UnitType.ARTILLERY, "Mueve hasta 1 casilla; si se mueve no puede disparar"],
   ])("explains how %s moves and fires", (unitType, text) => {
-    const limits = moveLimits(new CommandCard({}), new Unit(unitType), CARD_ORDER);
+    const limits = moveLimits(new Unit(unitType));
     expect(describeMovement(limits)).toBe(text);
   });
 
-  it("explains a card that stops units moving, or a unit on the move", () => {
-    const infantry = new Unit(UnitType.INFANTRY);
-
-    expect(describeMovement(moveLimits(new CommandCard({ noMove: true }), infantry, CARD_ORDER))).toBe(
-      "No puede moverse con esta carta"
-    );
-    expect(describeMovement(moveLimits(new CommandCard({}), infantry, { section: null, onTheMove: true }))).toBe(
-      "Mueve hasta 2 casillas; no puede disparar"
-    );
+  it("explains limits that stop a unit moving, or firing", () => {
+    expect(describeMovement({ maxMove: 0, moveAndFire: 0, holdShots: 1 })).toBe("No puede moverse con esta carta");
+    expect(describeMovement({ maxMove: 2, moveAndFire: 0, holdShots: 0 })).toBe("Mueve hasta 2 casillas; no puede disparar");
   });
 
   it("sums up a roll by face, or says it had no effect", () => {
@@ -66,7 +57,7 @@ describe("English descriptions", () => {
   });
 
   it("explains how a unit moves and fires", () => {
-    const limits = moveLimits(new CommandCard({}), new Unit(UnitType.INFANTRY), CARD_ORDER);
+    const limits = moveLimits(new Unit(UnitType.INFANTRY));
     expect(describeMovement(limits)).toBe("Moves up to 2 hexes; can fire if it moves up to 1 hex");
   });
 

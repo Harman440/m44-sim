@@ -41,7 +41,7 @@ import {
   setVictory,
   setVictoryMedals,
 } from "../../game-core/scenarioDraft";
-import { airSortiesOf, hasBigGuns } from "../../data/combatCards";
+import { airSortiesOf, hasBigGuns } from "../../data/scenarioRules";
 import { LANGS, LANG_NAMES, Lang } from "../../i18n/lang";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";

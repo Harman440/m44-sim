@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import GameSession from "../gameSession";
 import PassAndPlayMatch from "../passAndPlay";
-import CommandCard from "../commandCard";
 import { AiView, seenEnemies } from "./aiStep";
 import { basicBrain } from "./basicBrain";
 import { shotValue, standardBrain, threatAt } from "./standardBrain";
@@ -28,15 +27,11 @@ const scenario: Scenario = {
   },
 };
 
-const cards = () => Array.from({ length: 4 }, (_, i) => new CommandCard({ id: `one-${i}`, orders: 1 }));
-
-const viewOf = (coins = 0): AiView => {
-  const session = (faction: Faction) =>
-    new GameSession({ scenario, faction, initialHandSize: 2, commandCards: cards(), figures: true });
+const viewOf = (): AiView => {
+  const session = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
   const match = new PassAndPlayMatch(scenario, { Allies: session("Allies"), Axis: session("Axis") }, { computer: "Allies" });
   const allies = match.sessions.Allies;
   allies.startFirstTurn();
-  if (coins > 0) allies.adjustCoins(coins);
   return { side: "Allies", session: allies, enemies: seenEnemies(match, "Allies"), random: () => 0 };
 };
 
@@ -60,29 +55,6 @@ describe("standardBrain", () => {
     expect(threatAt(view, UnitType.INFANTRY, { row: 5, col: 4 })).toBeLessThan(
       threatAt(view, UnitType.INFANTRY, { row: 5, col: 3 })
     );
-  });
-
-  it("buys an extra order for a unit that would fire with it, when it has the supplies", () => {
-    // The card's one order goes to the infantry; the artillery could still fire
-    const far = { row: 7, col: 8 };
-    const near = { row: 7, col: 4 };
-    const orderFar = (view: AiView) => {
-      view.session.pickCard(view.session.getSnapshot().hand[0]!);
-      view.session.issueOrder(far, far);
-      return view.session.getSnapshot().extraOrderable;
-    };
-    const poor = viewOf();
-    expect(standardBrain.extraOrder!(poor, orderFar(poor))).toBeNull();
-    const rich = viewOf(10);
-    expect(standardBrain.extraOrder!(rich, orderFar(rich))).toEqual(near);
-  });
-
-  it("buys none for a unit that couldn't fire at anything", () => {
-    const view = viewOf(10);
-    view.session.pickCard(view.session.getSnapshot().hand[0]!);
-    // The artillery takes the card's order: the infantry is left, out of reach
-    view.session.issueOrder({ row: 7, col: 4 }, { row: 7, col: 4 });
-    expect(standardBrain.extraOrder!(view, view.session.getSnapshot().extraOrderable)).toBeNull();
   });
 
   it("wins more games than it loses against the basic brain, on every built-in scenario and from both sides", () => {

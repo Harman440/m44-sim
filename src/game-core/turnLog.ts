@@ -1,5 +1,4 @@
 // game-core/turnLog.ts
-import CommandCard from "./commandCard";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { DieFace } from "./dice";
@@ -7,8 +6,7 @@ import { DiceStep } from "./fireRules";
 import { Position } from "../types/scenario";
 import type { BattleEdit, CardAttack, Shot } from "./gameSession";
 import type { ShotTarget } from "../data/hitRules";
-import type { CoinEntry, RewardChoice } from "./coins";
-import type { CombatCard } from "./combatCard";
+import type { CoinEntry } from "./coins";
 import type { Localized } from "../i18n/lang";
 
 /**
@@ -19,7 +17,8 @@ import type { Localized } from "../i18n/lang";
  */
 export interface TurnRecord {
   turn: number;
-  card: { id: string; name: Localized };
+  /** The command card played, or null for none */
+  card: { id: string; name: Localized } | null;
   orders: {
     unit: UnitType;
     elite?: boolean;
@@ -47,12 +46,6 @@ export interface TurnRecord {
     target: ShotTarget;
     /** Instead of firing, the unit removed the barbed wire on this hex */
     removedWire?: Position;
-    /** Instead of firing, the unit fortified: sandbags on this hex (Fortify) */
-    fortified?: Position;
-    /** Concentrated Fire: the order whose roll this unit's dice went into */
-    joinedTo?: number;
-    /** Concentrated Fire: the orders whose units rolled with this one */
-    joined?: number[];
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -68,32 +61,20 @@ export interface TurnRecord {
   coins: CoinEntry[];
   /** Coins at the end of the turn */
   coinsAfter: number;
-  /** Final phase: 2 coins or a combat card; null in the extra turn or after a card with its own reward */
-  reward: RewardChoice | null;
-  /** Combat cards played this turn, with the command card */
-  combatCardsPlayed: { id: string; name: Localized }[];
-  /** The cards played that were given to a unit, and the unit (where it stood at the end of the turn) */
-  assignments?: { card: Localized; unit: UnitType; position: Position | null }[];
-  /** The combat card drawn in the final phase */
-  combatCardDrawn: { id: string; name: Localized } | null;
-  /** Hexes marked for the combat cards played */
+  /** Hexes marked for the card played */
   markers: Position[];
-  /** The attack combat cards' rolls on the marked hexes */
+  /** The attack card's rolls on the marked hexes */
   cardAttacks: CardAttack[];
 }
 
 interface TurnState {
   turn: number;
-  card: CommandCard;
+  card: { id: string; name: Localized } | null;
   orders: readonly Order[];
   shots: readonly Shot[];
   battleEdits: readonly BattleEdit[];
   coins: readonly CoinEntry[];
   coinsAfter: number;
-  reward: RewardChoice | null;
-  combatCardsPlayed: readonly CombatCard[];
-  assignments: readonly { card: Localized; unit: UnitType; position: Position | null }[];
-  combatCardDrawn: CombatCard | null;
   markers: readonly Position[];
   cardAttacks: readonly CardAttack[];
 }
@@ -107,16 +88,12 @@ export function recordTurn({
   battleEdits,
   coins,
   coinsAfter,
-  reward,
-  combatCardsPlayed,
-  assignments,
-  combatCardDrawn,
   markers,
   cardAttacks,
 }: TurnState): TurnRecord {
   return {
     turn,
-    card: { id: card.id, name: card.name },
+    card: card && { id: card.id, name: card.name },
     orders: orders.map((order) => ({
       unit: order.unit.getUnitType(),
       ...eliteOf(order.unit),
@@ -137,9 +114,6 @@ export function recordTurn({
       collision: shot.collision,
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
-      ...(shot.fortified && { fortified: { ...shot.fortified } }),
-      ...(shot.joinedTo !== undefined && { joinedTo: shot.joinedTo }),
-      ...(shot.joined && { joined: [...shot.joined] }),
     })),
     battleEdits: battleEdits.map((edit): TurnRecord["battleEdits"][number] => {
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
@@ -160,10 +134,6 @@ export function recordTurn({
     }),
     coins: coins.map((entry) => ({ ...entry })),
     coinsAfter,
-    reward,
-    combatCardsPlayed: combatCardsPlayed.map(({ id, name }) => ({ id, name })),
-    assignments: assignments.map(({ card, unit, position }) => ({ card, unit, position: position && { ...position } })),
-    combatCardDrawn: combatCardDrawn && { id: combatCardDrawn.id, name: combatCardDrawn.name },
     markers: markers.map((p) => ({ ...p })),
     cardAttacks: cardAttacks.map((attack) => ({
       ...attack,

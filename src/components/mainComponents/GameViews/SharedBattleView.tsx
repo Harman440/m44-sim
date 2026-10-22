@@ -38,6 +38,7 @@ import ShotDice from "../../ShotDice";
 import HexThumbnail from "../../HexThumbnail";
 import FactionInsignia from "../../FactionInsignia";
 import BattleReserve from "./BattleReserve";
+import { playedCardOf } from "../../PlayedCards";
 import CoinsDialog from "../../CoinsDialog";
 import { OpponentContext } from "../../OpponentContext";
 import { useSound } from "../../../sound";
@@ -71,11 +72,7 @@ const TEXT = defineMessages({
     figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     hold: "No disparar",
     holdLabel: (unit: string) => `${unit}: no disparar`,
-    fortify: "Fortificar sin disparar",
     removeWire: "Quitar la alambrada sin disparar",
-    suppressive: "Fuego de supresión",
-    concentrated: "Fuego concentrado: suma unidades",
-    joinUnit: (unit: string, dice: number) => `${unit} · +${dice}`,
     nobody: "Ninguna unidad puede disparar ya.",
     thinking: "El ordenador está pensando…",
     cards: { Allies: "Cartas de los Aliados", Axis: "Cartas del Eje" },
@@ -124,11 +121,7 @@ const TEXT = defineMessages({
     figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     hold: "Hold fire",
     holdLabel: (unit: string) => `${unit}: hold fire`,
-    fortify: "Fortify, no shot",
     removeWire: "Remove the wire, no shot",
-    suppressive: "Suppressive Fire",
-    concentrated: "Concentrated Fire: add units",
-    joinUnit: (unit: string, dice: number) => `${unit} · +${dice}`,
     nobody: "No unit can fire any more.",
     thinking: "The computer is thinking…",
     cards: { Allies: "Allied cards", Axis: "Axis cards" },
@@ -184,11 +177,8 @@ interface FiringUnitProps {
   aims: readonly ShotAim[];
   /** The target picked on the map */
   aim: ShotAim | null;
-  /** Fire, with the units joined (Concentrated Fire) and the suppressive die or not */
-  onFire: (options: { joined: number[]; suppressive: boolean }) => void;
+  onFire: () => void;
   onHold: () => void;
-  /** Fortify was played: the unit puts sandbags on its hex instead of firing */
-  onFortify: () => void;
   /** Infantry on barbed wire removes it instead of firing */
   onRemoveWire: () => void;
 }
@@ -196,7 +186,7 @@ interface FiringUnitProps {
 const formatDice = (dice: number) => (dice > 0 ? `+${dice}` : `${dice}`);
 
 /** The unit picked on the map to fire: where it stands, its target and the dice it rolls */
-function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify, onRemoveWire }: FiringUnitProps) {
+function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onRemoveWire }: FiringUnitProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -205,14 +195,6 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
   const figures = session.figuresAt(summary.firingFrom);
   const range = BASE_DICE_BY_DISTANCE[summary.unitType];
   const game = session.getSnapshot();
-  const [suppressive, setSuppressive] = useState(false);
-  const [chosen, setChosen] = useState<number[]>([]);
-  // Concentrated Fire: the units that can roll with this one at the target, and the ones joined that still can
-  const options = aim ? session.joinable(order, { position: aim.position, infantry: true, sandbags: false, suppressive }) : [];
-  const joined = chosen.filter((o) => options.some((option) => option.order === o));
-  const joinedOptions = options.filter((option) => joined.includes(option.order));
-  const joinedDice = joinedOptions.reduce((sum, option) => sum + option.dice, 0);
-  const summaries = session.orderSummaries();
 
   return (
     <Stack spacing={1} data-testid="firing-unit">
@@ -240,40 +222,7 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
               {aim.enemy.sandbags && ` · ${t.sandbags}`}
             </Typography>
           </Stack>
-          {game.suppressiveFire && (
-            <FormControlLabel
-              control={<Switch checked={suppressive} onChange={(e) => setSuppressive(e.target.checked)} />}
-              label={t.suppressive}
-              sx={{ minHeight: 48, m: 0 }}
-            />
-          )}
-          {options.length > 0 && (
-            <Stack sx={{ gap: 0.5 }} data-testid="concentrated-fire">
-              <Typography variant="body2" color="text.secondary">
-                {t.concentrated}
-              </Typography>
-              {options.map((option) => (
-                <ToggleButton
-                  key={option.order}
-                  value={option.order}
-                  size="small"
-                  selected={joined.includes(option.order)}
-                  onChange={() => setChosen(joined.includes(option.order) ? joined.filter((o) => o !== option.order) : [...joined, option.order])}
-                  sx={{ gap: 1, textTransform: "none", minHeight: 48, justifyContent: "flex-start" }}
-                >
-                  <HexThumbnail
-                    board={session.board}
-                    position={summaries[option.order]!.firingFrom}
-                    image={session.scenario.image}
-                    faction={side}
-                    size={28}
-                  />
-                  {t.joinUnit(labels.unitKind(summaries[option.order]!.unitType, summaries[option.order]!.elite), option.dice)}
-                </ToggleButton>
-              ))}
-            </Stack>
-          )}
-          <DicePool dice={aim.dice} eightSided={aim.eightSided} joined={joinedOptions} faction={side}>
+          <DicePool dice={aim.dice} eightSided={aim.eightSided} faction={side}>
             <InfoButton title={t.whereDiceComeFrom}>
               <Stack sx={{ gap: 0.5 }} data-testid="fire-breakdown">
                 {aim.steps.map((step) => (
@@ -283,12 +232,12 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
                   </Stack>
                 ))}
                 <Typography variant="h6" sx={{ mt: 1 }}>
-                  {t.total(aim.dice + joinedDice)}
+                  {t.total(aim.dice)}
                 </Typography>
               </Stack>
             </InfoButton>
           </DicePool>
-          <Button size="large" startIcon={<GameIcon name="fire" />} onClick={() => onFire({ joined, suppressive })}>
+          <Button size="large" startIcon={<GameIcon name="fire" />} onClick={onFire}>
             {t.fire}
           </Button>
         </Stack>
@@ -301,11 +250,6 @@ function FiringUnit({ side, session, order, aims, aim, onFire, onHold, onFortify
       {game.canRemoveWire[order] && (
         <Button variant="outlined" color="warning" startIcon={<BarbedWireIcon size={28} />} onClick={onRemoveWire}>
           {t.removeWire}
-        </Button>
-      )}
-      {session.getSnapshot().canFortify[order] && (
-        <Button variant="outlined" color="warning" startIcon={<SandbagsIcon size={28} />} onClick={onFortify}>
-          {t.fortify}
         </Button>
       )}
       <Button variant="outlined" aria-label={t.holdLabel(unit)} onClick={onHold}>
@@ -403,17 +347,13 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const boardGame = boardSession.getSnapshot();
   const inBoardView = (faction: Faction, position: Position) => (faction === boardSide ? position : turnedRound(position, boardSession.board.size));
 
-  // The combat cards' marks, both sides', the attacker's first
+  // The cards' marks, both sides', the attacker's first
   const defender = otherSide(match.scenario.attacker);
   const markSides = [match.scenario.attacker, defender].map((faction) => ({ faction, game: match.sessions[faction].getSnapshot() }));
   const marks = {
     positions: markSides.flatMap(({ faction, game }) => game.markers.map((m) => inBoardView(faction, m))),
     kind: markSides.flatMap(({ game }) => game.markerKinds),
   };
-  // The units each side gave a combat card to
-  const cardBadges = markSides.flatMap(({ faction, game }) =>
-    game.assignments.map((a) => ({ position: a.position && inBoardView(faction, a.position) }))
-  );
 
   const tapMap = (position: Position) => {
     if (pick) {
@@ -429,10 +369,10 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     }
   };
 
-  const fire = (options: { joined: number[]; suppressive: boolean }) => {
+  const fire = () => {
     if (!picked || !aim || !fireTurn) return;
     const shot = fireTurn.session.getSnapshot().shots.length;
-    if (!match.fire(picked.order, aim.position, options)) return;
+    if (!match.fire(picked.order, aim.position)) return;
     play("dice");
     setRolled({ side: fireTurn.side, shot });
   };
@@ -442,13 +382,11 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
     setRolled(null);
   };
 
-  /** The attack combat cards a side played (Barrage, Air Power…) */
-  const attackCard = (faction: Faction) =>
-    match.sessions[faction]
-      .getSnapshot()
-      .combatCardsPlayed.filter((card) => card.effect?.kind === "attack")
-      .map((card) => tr(card.name))
-      .join(" · ");
+  /** The attack card a side played (Barrage, Air Power…) */
+  const attackCard = (faction: Faction) => {
+    const card = match.sessions[faction].getSnapshot().playedCard;
+    return card?.effect.kind === "attack" ? tr(card.name) : "";
+  };
   const retreatingUnit = retreat
     ? match.sessions[retreat.side].board.getHex(retreat.position)?.unit?.getUnitType()
     : undefined;
@@ -478,7 +416,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 selectedTarget={shownShot ? shotTarget : (picked?.target ?? null)}
                 markers={marks.positions}
                 markerKind={marks.kind}
-                cardBadges={cardBadges}
                 camouflaged={boardGame.camouflaged}
                 possibleMoveAndFirePositions={[]}
                 boardManager={boardSession.board}
@@ -515,7 +452,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     faction={shown.side}
                     kept={shownShot.kept}
                     die={shownShot.target.die}
-                    kinds={shownShot.kinds}
                     target={shownShot.target}
                     rolling
                     placed={placedDice(shownShot)}
@@ -646,9 +582,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                       onHold={() => {
                         if (match.holdFire(picked.order)) setAiming(null);
                       }}
-                      onFortify={() => {
-                        if (match.fortify(picked.order)) setAiming(null);
-                      }}
                       onRemoveWire={() => {
                         if (match.removeWire(picked.order)) setAiming(null);
                       }}
@@ -739,13 +672,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 const owner = match.sessions[cardsOf];
                 const game = owner.getSnapshot();
                 return (
-                  <BattleReserve
-                    faction={cardsOf}
-                    coins={game.coins}
-                    onShowCoins={() => setCoinsOf(cardsOf)}
-                    played={game.combatCardsPlayed}
-                    assignments={game.assignments}
-                  />
+                  <BattleReserve faction={cardsOf} coins={game.coins} onShowCoins={() => setCoinsOf(cardsOf)} {...playedCardOf(game)} />
                 );
               })()}
             </DialogContent>

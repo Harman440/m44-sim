@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
 import { fireTargets, hasLineOfSight, hexDistance } from "./fireTargets";
 import { UnitType } from "./unit";
-import CommandCard from "./commandCard";
 import { HexType } from "../types/hex";
 import { Position } from "../types/scenario";
 import { Scenario } from "../types/scenario";
@@ -84,7 +83,7 @@ describe("fireTargets", () => {
 
   it("lists the hexes in range with their dice, without this side's units", () => {
     const b = board({ forest: [{ row: 4, col: 5 }] }, { infantry: [from, { row: 4, col: 3 }] });
-    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null });
+    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY });
 
     expect(targets.every((t) => t.distance >= 1 && t.distance <= 3)).toBe(true);
     expect(at(targets, { row: 4, col: 3 })).toBeUndefined(); // own unit
@@ -95,36 +94,36 @@ describe("fireTargets", () => {
 
   it("gives 0 dice where terrain takes them all (infantry 3 hexes away into forest), and adds the card's dice", () => {
     const b = board({ forest: [{ row: 4, col: 7 }] });
-    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null }), { row: 4, col: 7 })!.dice).toBe(0);
+    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY }), { row: 4, col: 7 })!.dice).toBe(0);
 
-    const card = new CommandCard({ id: "bonus", orders: 1, fireBonus: [{ dice: 1 }] });
-    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, card }), { row: 4, col: 7 })!.dice).toBe(1);
+    const combatBonuses = [{ name: same("Bonus"), dice: 1 }];
+    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, combatBonuses }), { row: 4, col: 7 })!.dice).toBe(1);
   });
 
   it("reaches only adjacent hexes in close assault", () => {
-    const targets = fireTargets(board(), from, { unitType: UnitType.TANK, card: null, closeAssaultOnly: true });
+    const targets = fireTargets(board(), from, { unitType: UnitType.TANK, closeAssaultOnly: true });
     expect(targets).toHaveLength(6);
     expect(targets.every((t) => t.distance === 1)).toBe(true);
   });
 
   it("fires from a hill at a hill as if it were open ground", () => {
     const b = board({ hill: [from, { row: 4, col: 5 }] });
-    expect(at(fireTargets(b, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(3);
+    expect(at(fireTargets(b, from, { unitType: UnitType.TANK }), { row: 4, col: 5 })!.dice).toBe(3);
     const low = board({ hill: [{ row: 4, col: 5 }] });
-    expect(at(fireTargets(low, from, { unitType: UnitType.TANK, card: null }), { row: 4, col: 5 })!.dice).toBe(2);
+    expect(at(fireTargets(low, from, { unitType: UnitType.TANK }), { row: 4, col: 5 })!.dice).toBe(2);
   });
 
   it("gives armour in a town 2 dice fewer at every target", () => {
     const b = board({ town: [from] });
-    const tank = fireTargets(b, from, { unitType: UnitType.TANK, card: null });
+    const tank = fireTargets(b, from, { unitType: UnitType.TANK });
     expect(at(tank, { row: 4, col: 5 })!.dice).toBe(1);
     expect(at(tank, { row: 4, col: 7 })!.dice).toBe(1);
-    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null }), { row: 4, col: 5 })!.dice).toBe(3);
+    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY }), { row: 4, col: 5 })!.dice).toBe(3);
   });
 
   it("never offers water, and fires at a bridge as at open ground", () => {
     const b = board({ river: [{ row: 4, col: 5 }], lake: [{ row: 3, col: 4 }], bridge: [{ row: 5, col: 4 }] });
-    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null });
+    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY });
     expect(at(targets, { row: 4, col: 5 })).toBeUndefined();
     expect(at(targets, { row: 3, col: 4 })).toBeUndefined();
     expect(at(targets, { row: 5, col: 4 })).toMatchObject({ terrain: HexType.BRIDGE, dice: 3 });
@@ -133,14 +132,14 @@ describe("fireTargets", () => {
 
   it("marks hexes out of sight", () => {
     const b = board({ town: [{ row: 4, col: 5 }] });
-    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY, card: null });
+    const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY });
     expect(at(targets, { row: 4, col: 5 })!.lineOfSight).toBe(true);
     expect(at(targets, { row: 4, col: 6 })!.lineOfSight).toBe(false);
   });
 
   it("lets artillery fire without line of sight", () => {
     const b = board({ town: [{ row: 4, col: 5 }] }, { infantry: [{ row: 4, col: 6 }] });
-    const targets = fireTargets(b, from, { unitType: UnitType.ARTILLERY, card: null });
+    const targets = fireTargets(b, from, { unitType: UnitType.ARTILLERY });
     expect(at(targets, { row: 4, col: 7 })!.lineOfSight).toBe(true); // behind the town and a unit
     expect(targets.every((t) => t.lineOfSight)).toBe(true);
   });

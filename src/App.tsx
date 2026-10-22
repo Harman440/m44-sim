@@ -4,8 +4,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import CircularProgress from '@mui/material/CircularProgress';
 import './App.css';
 import { scenarios } from './data/scenarios';
-import { commandDeckFor } from './data/commandCards';
-import { allCombatCards, combatDeckFor } from './data/combatCards';
 import GameSession from './game-core/gameSession';
 import PassAndPlayMatch, { otherSide } from './game-core/passAndPlay';
 import GameView from './components/mainComponents/LazyGameView';
@@ -61,9 +59,6 @@ const newSession = (scenario: Scenario, faction: Faction, setup: Omit<GameSetup,
   new GameSession({
     scenario,
     faction,
-    initialHandSize: scenario.initialHandSize[faction === 'Axis' ? 'axis' : 'allies'],
-    commandCards: commandDeckFor(scenario, faction),
-    combatCards: setup.testMode ? allCombatCards() : combatDeckFor(scenario, faction),
     longRangeDie: setup.longRangeDie,
     testMode: setup.testMode === true,
     artilleryCrew: setup.artilleryCrew === true,

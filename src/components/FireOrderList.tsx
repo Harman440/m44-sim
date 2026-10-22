@@ -3,7 +3,6 @@ import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
 import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
 import type { AttackMark, CardAttack } from "../game-core/gameSession";
-import type { CombatCard } from "../game-core/combatCard";
 import { samePosition } from "../game-core/position";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Position } from "../types/scenario";
@@ -17,8 +16,6 @@ import Stamp from "./Stamp";
 
 const TEXT = defineMessages({
   es: {
-    extraOrder: "orden extra",
-    movedFiresNow: "movida, ¡Fusiles arriba!",
     tookGround: "tomó terreno",
     closeAssault: "asalto cercano",
     wire: "Alambrada",
@@ -31,10 +28,6 @@ const TEXT = defineMessages({
     cantFire: "No dispara",
     removedWireResult: "Quitó la alambrada",
     removedWire: "quitó la alambrada",
-    fortifiedStamp: "Fortificada",
-    fortifiedResult: "Se fortificó: sacos terreros en su casilla",
-    fortified: "se fortificó",
-    joinedTo: "en fuego concentrado",
     collisionPrefix: "choque, ",
     firedResult: (results: string) => `Disparó: ${results}`,
     seeRoll: (unit: string) => `Ver tirada de ${unit}`,
@@ -58,11 +51,6 @@ const TEXT = defineMessages({
     dicePerHex: (n: number) => `${n} dados · `,
     roll: "Tirar",
     hexLabel: (done: boolean, n: number) => `${done ? "Ver" : "Tirar"} casilla ${n}`,
-    closeAssaultTitle: "Asalto cercano",
-    markYourUnits: "Marca tus unidades junto a una enemiga",
-    closeAssaultDetail: "Dispararán en asalto cercano",
-    mark: "Marcar",
-    markUnits: "Marcar unidades",
     firesFirst: "Dispara primero",
     beforeAnyOther: "antes que cualquier otra unidad",
     unmoved: "Sin mover",
@@ -71,8 +59,6 @@ const TEXT = defineMessages({
     skipToMoved: "Pasar a las movidas",
   },
   en: {
-    extraOrder: "extra order",
-    movedFiresNow: "moved, Rifles Up!",
     tookGround: "took ground",
     closeAssault: "close assault",
     wire: "Barbed wire",
@@ -85,10 +71,6 @@ const TEXT = defineMessages({
     cantFire: "Can't fire",
     removedWireResult: "Removed the barbed wire",
     removedWire: "removed the barbed wire",
-    fortifiedStamp: "Fortified",
-    fortifiedResult: "Fortified: sandbags on its hex",
-    fortified: "fortified",
-    joinedTo: "in Concentrated Fire",
     collisionPrefix: "collision, ",
     firedResult: (results: string) => `Fired: ${results}`,
     seeRoll: (unit: string) => `See ${unit}'s roll`,
@@ -110,11 +92,6 @@ const TEXT = defineMessages({
     dicePerHex: (n: number) => `${n} dice · `,
     roll: "Roll",
     hexLabel: (done: boolean, n: number) => `${done ? "See" : "Roll"} hex ${n}`,
-    closeAssaultTitle: "Close assault",
-    markYourUnits: "Mark your units next to an enemy one",
-    closeAssaultDetail: "They'll fire in close assault",
-    mark: "Mark",
-    markUnits: "Mark units",
     firesFirst: "Fires first",
     beforeAnyOther: "before any other unit",
     unmoved: "Didn't move",
@@ -141,14 +118,10 @@ interface FireOrderListProps {
   /** Some unit moved: step 1 asks whether one collided with an enemy */
   onCollision?: () => void;
   attack?: CardAttackStep | null;
-  /** A Close Assault card: mark the units adjacent to an enemy */
-  onMarkCloseAssault?: () => void;
   /** Open the fire dialog for a unit: to fire, or to see its roll. Missing while the card attacks are pending */
   onFire?: (summary: OrderSummary) => void;
   /** Give up the unfired shots of the units that didn't move, so the moved units can fire */
   onSkipUnmoved?: () => void;
-  /** The combat cards given to units this turn, shown on the unit's row */
-  assignments?: readonly { card: CombatCard; position: Position | null }[];
   /** Shown when no unit has an order */
   emptyText: string;
 }
@@ -264,10 +237,8 @@ function FireOrderList({
   faction,
   onCollision,
   attack,
-  onMarkCloseAssault,
   onFire,
   onSkipUnmoved,
-  assignments = [],
   emptyText,
 }: FireOrderListProps) {
   const t = useMessages(TEXT);
@@ -342,9 +313,6 @@ function FireOrderList({
     const hasShots = summary.shots.length > 0;
     const canFireNow = summary.shotsLeft > 0 && !summary.waiting && onFire !== undefined;
     const tags = [
-      summary.extra && t.extraOrder,
-      // ¡Fusiles arriba!: it moved, yet fires with the units that didn't
-      summary.unmovedGroup && !summary.hold && t.movedFiresNow,
       summary.tookGround && t.tookGround,
       summary.closeAssaultOnly && t.closeAssault,
     ]
@@ -352,9 +320,7 @@ function FireOrderList({
       .join(" · ");
     let status: ReactNode;
     const onlyWire = hasShots && summary.shots.every((shot) => shot.removedWire);
-    const onlyFortified = hasShots && summary.shots.every((shot) => shot.fortified);
     if (onlyWire) status = <Stamp angle={-7}>{t.wire}</Stamp>;
-    else if (onlyFortified) status = <Stamp angle={-7}>{t.fortifiedStamp}</Stamp>;
     else if (hasShots) status = <Stamp angle={-7}>{t.fired}</Stamp>;
     else if (summary.removed) status = <StatusText>{t.removed}</StatusText>;
     else if (summary.waiting) status = <StatusText>{t.waits}</StatusText>;
@@ -381,39 +347,16 @@ function FireOrderList({
           </>
         }
         // Where it is now: after taking ground, the hex it took
-        detail={
-          <>
-            {where(summary.firingFrom)}
-            {assignments
-              .filter((given) => given.position && samePosition(given.position, summary.firingFrom))
-              .map(({ card }) => (
-                <Box
-                  component="span"
-                  key={card.id}
-                  data-testid="row-card"
-                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, color: "var(--m44-primary)" }}
-                >
-                  <GameIcon name="cards" size={18} />
-                  {tr(card.name)}
-                </Box>
-              ))}
-          </>
-        }
+        detail={where(summary.firingFrom)}
         result={
           hasShots &&
           (onlyWire
             ? t.removedWireResult
-            : onlyFortified
-            ? t.fortifiedResult
             : t.firedResult(
                 summary.shots
                   .map((shot) =>
                     shot.removedWire
                       ? t.removedWire
-                      : shot.fortified
-                      ? t.fortified
-                      : shot.joinedTo !== undefined
-                      ? t.joinedTo
                       : `${shot.collision ? t.collisionPrefix : ""}${labels.describeAppliedFaces(shot.faces, shot.kept)}${
                           shot.dice > 0 ? ` → ${labels.describeRoll(readRoll(appliedFaces(shot.faces, shot.kept), shot.target))}` : ""
                         }`
@@ -498,22 +441,6 @@ function FireOrderList({
             );
           }),
           "card-attacks"
-        )}
-
-      {onMarkCloseAssault &&
-        group(
-          t.closeAssaultTitle,
-          null,
-          <Row
-            icon={<GameIcon name="battle" size={32} />}
-            title={t.markYourUnits}
-            detail={t.closeAssaultDetail}
-            status={<Action color="var(--m44-primary)">{t.mark}</Action>}
-            tone="card"
-            onClick={onMarkCloseAssault}
-            label={t.markUnits}
-          />,
-          "step-close-assault"
         )}
 
       {summaries.length === 0 ? (

@@ -20,7 +20,7 @@ import { DieFace } from "../game-core/dice";
 import { HexType } from "../types/hex";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
-import { hasUnits } from "./commandCards";
+import { airSortiesOf, hasBigGuns, hasUnits } from "./scenarioRules";
 import { Localized, same } from "../i18n/lang";
 
 /** Rattenkrieg is only dealt on a map with more town hexes than this */
@@ -324,12 +324,7 @@ export function allCombatCards(): CombatCard[] {
   return TEMPLATES.map(({ rule, ...card }) => ({ ...card, id: `${card.id}-1`, templateId: card.id, reason: rule.reason }));
 }
 
-/** Whether a side gets Cortina de Fuego: both do unless the scenario lists the sides that have big guns */
-export const hasBigGuns = (scenario: Scenario, faction: Faction): boolean => scenario.bigGuns?.includes(faction) ?? true;
 
-/** Air sorties a side has in the scenario, the copies of each air card it gets: 1 when the scenario doesn't say */
-export const airSortiesOf = (scenario: Scenario, faction: Faction): number =>
-  scenario.airPower?.[faction === "Axis" ? "axis" : "allies"] ?? 1;
 
 function sideContext(scenario: Scenario, faction: Faction): SideContext {
   return {

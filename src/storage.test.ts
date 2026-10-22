@@ -21,12 +21,10 @@ import { newDraft, paintTerrain, placeUnit, setAttacker, setHandSize, setText } 
 import { validateScenario } from "./game-core/scenarioFile";
 import { UnitType } from "./game-core/unit";
 import { HexType } from "./types/hex";
-import { combatDeckFor } from "./data/combatCards";
 import { DEFAULT_SETTINGS } from "./settings";
 import GameSession from "./game-core/gameSession";
 import PassAndPlayMatch from "./game-core/passAndPlay";
 import { Faction } from "./types/faction";
-import { commandDeckFor } from "./data/commandCards";
 import { TurnPhase } from "./types/gameManager";
 import { Scenario } from "./types/scenario";
 import { same } from "./i18n/lang";
@@ -43,13 +41,10 @@ const scenario: Scenario = {
   units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },
 };
 
-// The saved game is read back with the side's own deck
-const newSession = () =>
-  new GameSession({ scenario, faction: "Axis", initialHandSize: 2, commandCards: commandDeckFor(scenario, "Axis") });
+const newSession = () => new GameSession({ scenario, faction: "Axis" });
 
 const newMatch = () => {
-  const side = (faction: Faction) =>
-    new GameSession({ scenario, faction, initialHandSize: 2, commandCards: commandDeckFor(scenario, faction), figures: true });
+  const side = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
   return new PassAndPlayMatch(scenario, { Allies: side("Allies"), Axis: side("Axis") });
 };
 
@@ -95,15 +90,18 @@ describe("settings", () => {
 
 describe("saved game", () => {
   it("saves a game and picks it up again", () => {
-    const session = newSession();
-    session.pickCard(session.getSnapshot().hand[0]!);
+    // The defender, on its first whole turn, with the supplies to play a card
+    const session = new GameSession({ scenario, faction: "Allies", testMode: true });
+    session.startFirstTurn();
+    expect(session.pickCard(session.getSnapshot().cards[0]!.card)).toBe(true);
     saveGame(session);
 
     const restored = loadSavedGame([scenario]);
 
-    expect(restored?.faction).toBe("Axis");
+    expect(restored?.faction).toBe("Allies");
     expect(restored?.getSnapshot().phase).toBe(TurnPhase.ORDER_UNITS);
-    expect(restored?.getSnapshot().chosenCard?.id).toBe(session.getSnapshot().chosenCard?.id);
+    expect(restored?.getSnapshot().playedCard?.id).toBe(session.getSnapshot().playedCard!.id);
+    expect(restored?.getSnapshot().coins).toBe(session.getSnapshot().coins);
   });
 
   it("has nothing to load when no game was saved", () => {
@@ -229,30 +227,18 @@ describe("Mis mapas", () => {
     const [map] = loadCustomMaps();
     expect(validateScenario(map!)).toEqual([]);
 
-    const session = new GameSession({
-      scenario: map!,
-      faction: "Allies",
-      initialHandSize: map!.initialHandSize.allies,
-      commandCards: commandDeckFor(map!, "Allies"),
-      combatCards: combatDeckFor(map!, "Allies"),
-    });
+    const session = new GameSession({ scenario: map!, faction: "Allies" });
     // The Axis attack: the Allies wait out their extra turn and start on turn 2
     expect(session.getSnapshot().phase).toBe(TurnPhase.AWAIT_ATTACKER);
     expect(session.startFirstTurn()).toBe(true);
-    const card = session.getSnapshot().hand.find((each) => !session.cardNeedsSection(each))!;
-    expect(session.pickCard(card)).toBe(true);
-    while (session.getSnapshot().ordersLeft > 0 && session.getSnapshot().orderable.length > 0) {
+    expect(session.pickCard(null)).toBe(true);
+    while (session.getSnapshot().orderable.length > 0) {
       const position = session.getSnapshot().orderable[0]!;
       expect(session.issueOrder(position, position)).toBe(true);
     }
     expect(session.commitOrders()).toBe(true);
     expect(session.startBattle()).toBe(true);
     expect(session.endBattle()).toBe(true);
-    // What the final phase asks depends on the card played: keep one of Probe's cards, take Preparations' combat card
-    const kept = session.getSnapshot().drawOptions[0];
-    if (kept) expect(session.keepCard(kept)).toBe(true);
-    if (session.getSnapshot().combatCardDue) expect(session.drawCombatCard()).toBe(true);
-    if (session.getSnapshot().needsRewardChoice) expect(session.chooseReward("coins")).toBe(true);
     expect(session.endTurn()).toBe(true);
     saveGame(session);
 
@@ -269,7 +255,7 @@ describe("Mis mapas", () => {
   it("drops a game whose map is gone from the device", () => {
     saveCustomMap(madeMap());
     const [map] = loadCustomMaps();
-    saveGame(new GameSession({ scenario: map!, faction: "Axis", initialHandSize: 5, commandCards: commandDeckFor(map!, "Axis") }));
+    saveGame(new GameSession({ scenario: map!, faction: "Axis" }));
     deleteCustomMap(map!.id);
 
     expect(loadSavedGame(loadCustomMaps())).toBeNull();
@@ -282,7 +268,7 @@ describe("saved pass and play match", () => {
     const match = newMatch();
     match.uncover();
     const axis = match.activeSession();
-    axis.pickCard(axis.getSnapshot().hand[0]!);
+    axis.pickCard(null);
     saveMatch(match);
 
     expect(savedMatchScenarioId()).toBe(scenario.id);

@@ -3,12 +3,10 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it } from "vitest";
 import FireDialog from "./FireDialog";
 import GameSession from "../game-core/gameSession";
-import CommandCard from "../game-core/commandCard";
-import { Side } from "../types/hex";
+import { actionCardById } from "../data/actionCards";
 import { summarizeOrders } from "../game-core/turnSummary";
 import { UnitType } from "../game-core/unit";
 import { Position, Scenario } from "../types/scenario";
-import { CombatCard } from "../game-core/combatCard";
 import { same } from "../i18n/lang";
 import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 
@@ -37,12 +35,10 @@ const makeSession = (
       units: { allies: { [unitType]: [UNIT] }, axis: {} },
     },
     faction: "Allies",
-    initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1, holdShots })],
     random: () => 0.5, // grenade, on either die
     longRangeDie,
   });
-  session.pickCard(session.getSnapshot().hand[0]!);
+  session.pickCard(null);
   session.issueOrder(UNIT, UNIT);
   session.commitOrders();
   session.startBattle();
@@ -60,7 +56,6 @@ function Harness({ session }: { session: GameSession }) {
       <FireDialog
         key={open ? "open" : "closed"}
         summary={open ? summary : null}
-        card={game.chosenCard}
         faction="Allies"
         board={session.board}
         targets={session.fireTargetsFor(0)}
@@ -73,8 +68,6 @@ function Harness({ session }: { session: GameSession }) {
         targetKinds={session.targetKinds}
         canRemoveWire={game.canRemoveWire[0]}
         onRemoveWire={() => session.removeWire(0)}
-        canFortify={game.canFortify[0]}
-        onFortify={() => session.fortify(0)}
         enemyCamouflage={session.enemyCamouflage}
         onUndoShot={() => session.undoShot(0)}
         onKeepResults={(shotNumber, kept) => session.keepResults(0, shotNumber, kept)}
@@ -318,14 +311,7 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("roll-hits")).toHaveTextContent("3impactos");
   });
 
-  it("adds a dice combat card played with the orders, with no switch", async () => {
-    const spotter: CombatCard = {
-      id: "spotter",
-      name: same("Observador"),
-      description: same(""),
-      cost: 0,
-      effect: { kind: "diceBonus", dice: 1, unitTypes: [UnitType.ARTILLERY] },
-    };
+  it("adds Finest Hour's die, played with the orders, with nothing to answer", async () => {
     const session = new GameSession({
       scenario: {
         id: "test",
@@ -337,13 +323,11 @@ describe("FireDialog", () => {
         units: { allies: { [UnitType.ARTILLERY]: [UNIT] }, axis: {} },
       },
       faction: "Allies",
-      initialHandSize: 1,
-      commandCards: [new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 })],
-      combatCards: [spotter],
       random: () => 0.5,
+      testMode: true,
     });
     session.startFirstTurn();
-    session.pickCard(session.getSnapshot().hand[0]!, undefined, spotter);
+    session.pickCard(actionCardById("finest-hour")!);
     session.issueOrder(UNIT, UNIT);
     session.commitOrders();
     session.startBattle();
@@ -352,8 +336,7 @@ describe("FireDialog", () => {
 
     tapHex(TWO_AWAY);
     choose("Infantería");
-    expect(screen.queryByRole("switch", { name: /Observador/ })).not.toBeInTheDocument();
-    expect(await readBreakdown()).toContain("Carta Observador+1");
+    expect(await readBreakdown()).toContain("Carta La Hora de la Verdad+1");
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName("4 dados");
     choose("Disparar");
 
@@ -376,19 +359,6 @@ describe("FireDialog", () => {
 
     expect(session.getSnapshot().shots).toHaveLength(0);
     expect(screen.getByTestId("fire-map")).toBeInTheDocument();
-  });
-
-  it("lets a unit fire again when the card allows more than one shot", () => {
-    const session = open(UnitType.TANK, 2);
-    fireAt(TWO_AWAY, "Infantería", "3 dados");
-
-    choose("Disparar otra vez (queda 1)");
-    expect(screen.getByRole("button", { name: "Disparar" })).toBeDisabled(); // a new target each shot
-    fireAt(TWO_AWAY, "Blindados o artillería", "3 dados");
-
-    expect(session.getSnapshot().shots.map((s) => s.dice)).toEqual([3, 3]);
-    expect(screen.getAllByTestId("shot-result")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: /Disparar otra vez/ })).not.toBeInTheDocument();
   });
 
   it("lets armour take ground after a close assault with a hit or flag: it moves there and fires again, adjacent only", () => {
@@ -453,47 +423,5 @@ describe("FireDialog on barbed wire", () => {
   it("doesn't ask armour", () => {
     openOnWire(UnitType.TANK);
     expect(screen.queryByTestId("wire-choice")).not.toBeInTheDocument();
-  });
-});
-
-describe("FireDialog with Fortify", () => {
-  it("lets ordered infantry fortify instead of firing, and reminds the player to put the sandbags on the table", () => {
-    const fortify: CombatCard = {
-      id: "fortify",
-      name: same("Fortificar"),
-      description: same(""),
-      cost: 0,
-      effect: { kind: "fortify", unitTypes: [UnitType.INFANTRY] },
-    };
-    const card = new CommandCard({ id: "left", sections: [Side.LEFT], orders: 1 });
-    const session = new GameSession({
-      scenario: {
-        id: "test",
-        name: { es: "Test", en: "Test" },
-        description: same(""),
-        initialHandSize: { allies: 1, axis: 1 },
-        attacker: "Axis",
-        tiles: {},
-        units: { allies: { infantry: [UNIT] }, axis: {} },
-      },
-      faction: "Allies",
-      initialHandSize: 1,
-      commandCards: [card],
-      combatCards: [fortify],
-    });
-    session.startFirstTurn();
-    session.pickCard(card, undefined, fortify);
-    session.issueOrder(UNIT, UNIT);
-    session.commitOrders();
-    session.startBattle();
-    render(<Harness session={session} />);
-    fireEvent.click(screen.getByText("abrir"));
-
-    choose("Fortificar sin disparar");
-
-    expect(session.board.getHex(UNIT)!.sandbags).toBe(true);
-    expect(screen.getByTestId("shot-result")).toHaveTextContent("Se fortificó, sin disparar");
-    expect(screen.getByTestId("shot-result")).toHaveTextContent("Pon sacos terreros en su casilla, en la mesa");
-    expect(screen.queryByRole("button", { name: "Fortificar sin disparar" })).not.toBeInTheDocument();
   });
 });

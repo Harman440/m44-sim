@@ -1,10 +1,7 @@
 // game-core/ai/basicBrain.ts
-// The very basic computer player: it plays the card that orders the most of
-// its units, moves them toward the nearest enemy and fires its best shot. It
-// plays no combat cards and doesn't spend supplies.
-import { Brain, AiView, SeenEnemy } from "./aiStep";
-import CommandCard, { SECTIONS, Section } from "../commandCard";
-import { fallbackCard, ordersLeft } from "../orderRules";
+// The very basic computer player: it plays no card, moves its units toward
+// the nearest enemy and fires its best shot.
+import { Brain, SeenEnemy } from "./aiStep";
 import { hexDistance } from "../fireTargets";
 import { positionKey, samePosition } from "../position";
 import { UnitType } from "../unit";
@@ -24,29 +21,11 @@ function best<T>(options: readonly T[], score: (option: T) => number, random: ()
   return tied[Math.floor(random() * tied.length)] ?? tied[0]!;
 }
 
-/** How many units the card would order (in this section, for a card whose section is picked) */
-function unitsOrdered(view: AiView, card: CommandCard, section: Section | null): number {
-  const { board } = view.session;
-  const rules = fallbackCard(card, board) ?? card;
-  return ordersLeft({ card: rules, chosenSection: section, board, orders: [], coins: 0 });
-}
-
 /** The dice a unit of this type rolls at an enemy this far away (0 out of range) */
 const diceAt = (unitType: UnitType, distance: number): number => BASE_DICE_BY_DISTANCE[unitType][distance - 1] ?? 0;
 
 export const basicBrain: Brain = {
   dropAt: (view, options) => best(options, () => 0, view.random),
-
-  pickCard(view) {
-    const { session } = view;
-    const plays = session.getSnapshot().hand.flatMap((card): { card: CommandCard; section?: Section; units: number }[] =>
-      session.cardNeedsSection(card)
-        ? SECTIONS.map((section) => ({ card, section, units: unitsOrdered(view, card, section) }))
-        : [{ card, section: undefined, units: unitsOrdered(view, card, null) }]
-    );
-    const play = best(plays, (option) => -option.units, view.random)!;
-    return { card: play.card, section: play.section };
-  },
 
   nextToOrder: (view, orderable) => best(orderable, (position) => nearestEnemy(view.enemies, position), view.random),
 
@@ -54,7 +33,7 @@ export const basicBrain: Brain = {
     const { session, enemies, random } = view;
     const options = session.getMoveOptions(from);
     const unitType = session.board.getHex(from)?.unit?.getUnitType();
-    const hold = { to: from, slots: options?.slots ?? [] };
+    const hold = { to: from };
     if (!options || !unitType || enemies.length === 0) return hold;
 
     const now = nearestEnemy(enemies, from);
@@ -70,7 +49,7 @@ export const basicBrain: Brain = {
       score,
       random
     );
-    return to && score(to) < now ? { to, slots: options.slots } : hold;
+    return to && score(to) < now ? { to } : hold;
   },
 
   shotFor(view, fireable) {
@@ -93,18 +72,6 @@ export const basicBrain: Brain = {
     best(options, (position) => -nearestEnemy(view.enemies, position), view.random) ?? options[0]!,
 
   takeGround: () => true,
-
-  // The card that would order the most units now
-  keepCard: (view, options) =>
-    best(
-      options,
-      (card) => -Math.max(...(card.choosesSection ? SECTIONS : [null]).map((section) => unitsOrdered(view, card, section))),
-      view.random
-    )!,
-
-  reward: () => "coins",
-
-  discardCombatCard: (_view, hand) => hand[0]!,
 
   // Toward its own edge, the bottom rows of its own view
   reinforcementAt: (view, options) => best(options, (position) => -position.row, view.random),

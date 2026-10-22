@@ -33,6 +33,7 @@ const TEXT = defineMessages({
     noTurns: "Aún no ha terminado ningún turno.",
     turn: (n: number) => `Turno ${n}`,
     card: (name: string) => `Carta: ${name}`,
+    noCard: "Sin carta",
     exportTurnLabel: (n: number) => `Exportar turno ${n}`,
     exportTurn: "Exportar turno",
     orders: "Órdenes",
@@ -44,9 +45,6 @@ const TEXT = defineMessages({
     shots: "Disparos",
     noShots: "Nadie disparó.",
     removedWire: (unit: string, place: string) => `${unit}: quitó la alambrada (${place})`,
-    fortifiedShot: (unit: string, place: string) => `${unit}: se fortificó con sacos terreros (${place})`,
-    joinedTo: (unit: string, lead: string) => `${unit}: disparó con ${lead.toLowerCase()} (fuego concentrado)`,
-    concentrated: " · fuego concentrado",
     dice: (n: number) => (n === 1 ? "1 dado" : `${n} dados`),
     inCollision: " en un choque",
     mapChanges: "Cambios en el mapa",
@@ -61,13 +59,10 @@ const TEXT = defineMessages({
     moved: (unit: string, place: string) => `Movida: ${unit} → ${place}`,
     supplies: "Suministros",
     coinsAfter: (coins: string) => `Al terminar el turno: ${coins}`,
-    combatCards: "Cartas de combate",
-    played: (name: string) => `Jugada: ${name}`,
-    givenTo: (name: string, unit: string) => `${name}, dada a: ${unit}`,
+    cardMarks: "La carta en el mapa",
     markers: (places: string) => `Marcas en el mapa: ${places}`,
     attack: (n: number) => `Ataque en la casilla ${n}:`,
     empty: "vacía",
-    drawn: (name: string) => `Robada en la fase final: ${name}`,
     exportGame: "Exportar partida",
     close: "Cerrar",
   },
@@ -76,6 +71,7 @@ const TEXT = defineMessages({
     noTurns: "No turn has ended yet.",
     turn: (n: number) => `Turn ${n}`,
     card: (name: string) => `Card: ${name}`,
+    noCard: "No card",
     exportTurnLabel: (n: number) => `Export turn ${n}`,
     exportTurn: "Export turn",
     orders: "Orders",
@@ -87,9 +83,6 @@ const TEXT = defineMessages({
     shots: "Shots",
     noShots: "Nobody fired.",
     removedWire: (unit: string, place: string) => `${unit}: removed the barbed wire (${place})`,
-    fortifiedShot: (unit: string, place: string) => `${unit}: fortified with sandbags (${place})`,
-    joinedTo: (unit: string, lead: string) => `${unit}: fired with the ${lead.toLowerCase()} (Concentrated Fire)`,
-    concentrated: " · Concentrated Fire",
     dice: (n: number) => (n === 1 ? "1 die" : `${n} dice`),
     inCollision: " in a collision",
     mapChanges: "Map changes",
@@ -104,13 +97,10 @@ const TEXT = defineMessages({
     moved: (unit: string, place: string) => `Moved: ${unit} → ${place}`,
     supplies: "Supplies",
     coinsAfter: (coins: string) => `At the end of the turn: ${coins}`,
-    combatCards: "Combat cards",
-    played: (name: string) => `Played: ${name}`,
-    givenTo: (name: string, unit: string) => `${name}, given to: ${unit}`,
+    cardMarks: "The card on the map",
     markers: (places: string) => `Marks on the map: ${places}`,
     attack: (n: number) => `Attack on hex ${n}:`,
     empty: "empty",
-    drawn: (name: string) => `Drawn in the final phase: ${name}`,
     exportGame: "Export game",
     close: "Close",
   },
@@ -148,7 +138,7 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     {t.turn(record.turn)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {t.card(tr(record.card.name))}
+                    {record.card ? t.card(tr(record.card.name)) : t.noCard}
                   </Typography>
                 </Box>
                 <Button
@@ -208,13 +198,6 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                     >
                       {shot.removedWire ? (
                         t.removedWire(labels.unitKind(shot.unit, shot.elite), placeOf(shot.removedWire))
-                      ) : shot.fortified ? (
-                        t.fortifiedShot(labels.unitKind(shot.unit, shot.elite), placeOf(shot.fortified))
-                      ) : shot.joinedTo !== undefined ? (
-                        t.joinedTo(
-                          labels.unitKind(shot.unit, shot.elite),
-                          record.orders[shot.joinedTo] ? labels.units[record.orders[shot.joinedTo]!.unit] : ""
-                        )
                       ) : (
                         <>
                           {labels.unitKind(shot.unit, shot.elite)}: {t.dice(shot.dice)}
@@ -225,7 +208,6 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                             ` (${labels.describeTarget(shot.target).toLowerCase()}: ${labels.describeRoll(
                               readRoll(appliedFaces(shot.faces, shot.kept), shot.target)
                             )})`}
-                          {shot.joined && t.concentrated}
                           {shot.notes.map((note) => ` · ${tr(note)}`).join("")}
                         </>
                       )}
@@ -275,27 +257,12 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                 {t.coinsAfter(labels.coins(record.coinsAfter))}
               </Typography>
 
-              {(record.combatCardsPlayed.length > 0 || record.combatCardDrawn || record.cardAttacks.length > 0) && (
+              {(record.markers.length > 0 || record.cardAttacks.length > 0) && (
                 <>
                   <Typography variant="subtitle2" component="h4" sx={{ mt: 1.5 }}>
-                    {t.combatCards}
+                    {t.cardMarks}
                   </Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-combat-cards">
-                    {record.combatCardsPlayed.map((card) => (
-                      <Typography component="li" variant="body2" key={card.id}>
-                        {t.played(tr(card.name))}
-                      </Typography>
-                    ))}
-                    {(record.assignments ?? []).map((given, i) => (
-                      <Typography component="li" variant="body2" key={`given-${i}`}>
-                        {t.givenTo(
-                          tr(given.card),
-                          given.position
-                            ? `${labels.units[given.unit].toLowerCase()} (${placeOf(given.position)})`
-                            : labels.units[given.unit].toLowerCase()
-                        )}
-                      </Typography>
-                    ))}
+                  <Box component="ul" sx={{ m: 0, pl: 2 }} data-testid="turn-card-marks">
                     {record.markers.length > 0 && (
                       <Typography component="li" variant="body2">
                         {t.markers(record.markers.map(placeOf).join(" · "))}
@@ -312,11 +279,6 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                           : t.empty}
                       </Typography>
                     ))}
-                    {record.combatCardDrawn && (
-                      <Typography component="li" variant="body2">
-                        {t.drawn(tr(record.combatCardDrawn.name))}
-                      </Typography>
-                    )}
                   </Box>
                 </>
               )}

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { shoot } from "../test/shots";
 import GameSession from "./gameSession";
-import CommandCard from "./commandCard";
 import { summarizeOrders } from "./turnSummary";
 import { UnitType } from "./unit";
-import { HexType, Side } from "../types/hex";
+import { HexType } from "../types/hex";
 import { Position } from "../types/scenario";
 import { same } from "../i18n/lang";
 
@@ -28,10 +27,8 @@ const playTurn = (elite: Position[] = []) => {
       elite,
     },
     faction: "Allies",
-    initialHandSize: 1,
-    commandCards: [new CommandCard({ id: "all", orders: 6 })],
   });
-  session.pickCard(session.getSnapshot().hand[0]!);
+  session.pickCard(null);
   session.issueOrder(TANK, FOREST);
   session.issueOrder(INFANTRY, INFANTRY);
   session.commitOrders();
@@ -50,7 +47,6 @@ describe("summarizeOrders", () => {
       unitType: UnitType.TANK,
       elite: false,
       position: session.getSnapshot().orders[0]!.end,
-      section: Side.CENTER,
       hold: false,
       unmovedGroup: false,
       hexesMoved: 1,
@@ -59,7 +55,6 @@ describe("summarizeOrders", () => {
       closeAssaultOnly: false,
       firingFrom: session.getSnapshot().orders[0]!.end,
       tookGround: false,
-      extra: false,
       removed: false,
       shots: [],
       shotsLeft: 0,
@@ -70,7 +65,6 @@ describe("summarizeOrders", () => {
     expect(infantry).toMatchObject({
       index: 1,
       unitType: UnitType.INFANTRY,
-      section: Side.LEFT,
       hold: true,
       unmovedGroup: true,
       hexesMoved: 0,
