@@ -5,7 +5,6 @@
   "id": "hedgerow-hell-x9so",
   "name": { "es": "Hedgerow Hell", "en": "Hedgerow Hell" },
   "description": { "es": "", "en": "" },
-  "initialHandSize": { "allies": 5, "axis": 5 },
   "attacker": "Allies",
   "tiles": {
     "hedgerow": [

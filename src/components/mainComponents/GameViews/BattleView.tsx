@@ -164,6 +164,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           <Box className="battle-view__fire">
             <FireOrderList
               summaries={summaries}
+              changes={game.changes}
               board={session.board}
               image={session.scenario.image}
               faction={faction}
@@ -182,7 +183,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           </Box>
 
           <Box className="battle-view__reserve">
-            <BattleReserve faction={faction} coins={game.coins} onShowCoins={onShowCoins} {...playedCardOf(game)} />
+            <BattleReserve coins={game.coins} onShowCoins={onShowCoins} {...playedCardOf(game)} />
           </Box>
         </Box>
       )}

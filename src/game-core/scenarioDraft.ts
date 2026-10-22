@@ -76,12 +76,11 @@ export const isBlank = (draft: Scenario): boolean =>
   !draft.description.es.trim() &&
   !draft.description.en.trim();
 
-/** A new, empty map: all plains, no units, 5 command cards each and the Allies attacking */
+/** A new, empty map: all plains, no units and the Allies attacking */
 export const newDraft = (id: string): Scenario => ({
   id,
   name: { es: "", en: "" },
   description: { es: "", en: "" },
-  initialHandSize: { allies: 5, axis: 5 },
   attacker: "Allies",
   tiles: {},
   units: { allies: {}, axis: {} },
@@ -214,7 +213,7 @@ export function clearHex(draft: Scenario, position: Position): Scenario {
   return withoutObjectivesAt(next === false ? cleared : next, position);
 }
 
-/** Each side's units by type, and the town hexes (Rattenkrieg is dealt above RATTENKRIEG_MIN_TOWNS) */
+/** Each side's units by type, and the town hexes */
 export function draftCounts(draft: Scenario) {
   const count = (group: UnitGroup) =>
     Object.fromEntries(Object.values(UnitType).map((type) => [type, group[type]?.length ?? 0])) as Record<UnitType, number>;
@@ -225,9 +224,7 @@ export function draftCounts(draft: Scenario) {
 
 /** How far each number in "Datos del escenario" goes */
 export const SETTING_LIMITS = {
-  handSize: { min: 1, max: 10 },
   airSorties: { min: 0, max: 10 },
-  extraDrawTurns: { min: 1, max: 10 },
   paradropUnits: { min: 1, max: 10 },
   victoryMedals: { min: 1, max: 20 },
 } as const;
@@ -242,17 +239,9 @@ export function setText(draft: Scenario, field: "name" | "description", lang: La
   return { ...draft, [field]: { ...draft[field], [lang]: text } };
 }
 
-/** The side that plays the extra first turn */
+/** The side that attacks: it fires first, and the defender's units start a shot short */
 export const setAttacker = (draft: Scenario, attacker: Faction): Scenario =>
   draft.attacker === attacker ? draft : { ...draft, attacker };
-
-/** The command cards a side starts with */
-export function setHandSize(draft: Scenario, faction: Faction, cards: number): Scenario | false {
-  if (!inLimits(cards, SETTING_LIMITS.handSize)) return false;
-  const side = SIDE[faction];
-  if (draft.initialHandSize[side] === cards) return draft;
-  return { ...draft, initialHandSize: { ...draft.initialHandSize, [side]: cards } };
-}
 
 /** A side's air sorties (its copies of each air card); left out of the map while both have the usual 1 */
 export function setAirSorties(draft: Scenario, faction: Faction, sorties: number): Scenario | false {
@@ -271,26 +260,12 @@ export function setBigGuns(draft: Scenario, faction: Faction, bigGuns: boolean):
   return sides.length === FACTIONS.length ? rest : { ...rest, bigGuns: sides };
 }
 
-/** What the extra draws start as when they're turned on: the defender, surprised, for 2 turns */
-export const defaultExtraDraws = (draft: Scenario): NonNullable<Scenario["extraDraws"]> => ({
-  faction: otherSide(draft.attacker),
-  turns: 2,
-});
-
 /** What the paradrop starts as when it's turned on: 4 of the attacker's infantry, as at Sainte-Mère-Église */
 export const defaultParadrop = (draft: Scenario): NonNullable<Scenario["paradrop"]> => ({
   faction: draft.attacker,
   unitType: UnitType.INFANTRY,
   units: 4,
 });
-
-/** One side draws 2 command cards in its first turns, or (null) neither */
-export function setExtraDraws(draft: Scenario, extraDraws: Scenario["extraDraws"] | null): Scenario | false {
-  if (extraDraws && !inLimits(extraDraws.turns, SETTING_LIMITS.extraDrawTurns)) return false;
-  if (JSON.stringify(draft.extraDraws ?? null) === JSON.stringify(extraDraws ?? null)) return draft;
-  const { extraDraws: _old, ...rest } = draft;
-  return extraDraws ? { ...rest, extraDraws } : rest;
-}
 
 /** One side drops units by parachute before the first turn, or (null) neither */
 export function setParadrop(draft: Scenario, paradrop: Scenario["paradrop"] | null): Scenario | false {

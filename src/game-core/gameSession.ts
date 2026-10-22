@@ -45,18 +45,20 @@ import {
   shotsOf,
 } from "./actionRules";
 import type { FireOption, UnitAction } from "./unitAction";
-import { SupplyCost, UnitSupplies, endOfTurn, fullSupplies, pay, refund, reload, startingSupplies } from "./unitSupplies";
+import { SupplyCost, UnitSupplies, amountOf, endOfTurn, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
 import { actionById, fireOptionById } from "../data/unitActions";
 import { Supply } from "../data/unitSupplies";
+import { TAKE_COVER_HITS } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
-import { ARTILLERY_CREW_FIGURES, figureDamaged, figuresLeft, hitsToDestroy } from "../data/figures";
-import type { MarkerRule } from "./combatCard";
+import { ARTILLERY_CREW_FIGURES, figureDamaged, figuresLeft, hitsPerFigure, hitsToDestroy } from "../data/figures";
+import type { MarkerRule } from "./actionCard";
 import { ActionCard, ActionCardEffect, HeldCard, cardsOf, isReady, turnsLeft } from "./actionCard";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
 import { summarizeOrders } from "./turnSummary";
+import { rollWithLuck } from "./luck";
 import { Localized } from "../i18n/lang";
 
 export interface GameSnapshot {
@@ -71,6 +73,16 @@ export interface GameSnapshot {
   orderable: readonly Position[];
   /** What each of this side's units has left to spend on its actions, by hex (costs are paid when the orders are confirmed) */
   supplies: readonly { position: Position; supplies: UnitSupplies }[];
+  /**
+   * What this side's units have lost or gained since the orders were confirmed: morale lost to
+   * flags, ammo and shells spent, luck moved. Only units with a change; never the enemy's
+   */
+  changes: readonly UnitChange[];
+  /**
+   * The final phase: the energy each unit gets back when the turn ends (more if it rested), and
+   * the cards whose cooldown is over next turn. Null in the other phases
+   */
+  turnEnd: { energy: readonly { position: Position; amount: number; rested: boolean }[]; cardsBack: readonly ActionCard[] } | null;
   /** Board changes made to mirror the table: after the battle, or in Órdenes before any order */
   battleEdits: number;
   /** The map can be changed by hand now: in the final phase, or in Órdenes before any order or mark */
@@ -109,8 +121,13 @@ export interface GameSnapshot {
   canRemoveWire: readonly boolean[];
   /** This side's units with the camouflage badge: only a close assault can hit them */
   camouflaged: readonly Position[];
-  /** Pass and play, final phase: the next unit that moves after the battle (Reposition, Behind Enemy Lines), why, and the hexes it can go to; null once each has moved */
+  /** Pass and play, final phase: the next unit that moves after the battle (Behind Enemy Lines), why, and the hexes it can go to; null once each has moved */
   finalMove: { from: Position; options: readonly Position[]; name: Localized } | null;
+  /**
+   * Own tablets, which don't track figures: the actions given this turn that the table carries
+   * out (Medic, Mechanic, Take Cover, Behind Enemy Lines' move after the battle), where each unit ended
+   */
+  tableReminders: readonly TableReminder[];
   /** Paratroopers placed so far, in order (PARADROP) */
   drops: readonly Position[];
   /** Paratroopers that can still be placed (PARADROP) */
@@ -134,6 +151,23 @@ export interface EnemyUnit {
    * block the view, but it's still there, so retreats and moves can't end on it
    */
   hidden?: boolean;
+}
+
+/** A unit's changes this turn, since the orders were confirmed (`GameSnapshot.changes`) */
+export interface UnitChange {
+  position: Position;
+  /** Morale gained (negative: lost to flags) */
+  morale: number;
+  /** Ammo and shells gained (negative: spent firing and in collisions) */
+  ammo: number;
+  /** How far its luck moved */
+  luck: number;
+}
+
+/** An action the table carries out on own tablets: the unit's hex and the action */
+export interface TableReminder {
+  position: Position;
+  action: UnitAction;
 }
 
 /** Pass and play: a shot aimed at an enemy unit, before it's rolled (`GameSession.aimAt`) */
@@ -240,6 +274,8 @@ export interface Shot extends ShotRoll {
   orderIndex: number;
   /** How it fired: a fire option's id (data/unitActions.ts); left out in a collision or removing wire */
   option?: string;
+  /** The unit's luck before this roll, put back if the shot is taken back */
+  luckBefore?: number;
   /** After this close assault the unit took ground (the target retreated or was eliminated) and gets one more shot */
   tookGround?: boolean;
   /** Pass and play: infantry took ground by pushing back the unit its close assault made retreat; no more shot */
@@ -400,8 +436,14 @@ class GameSession {
   private retreatsDue = new Map<Unit, number>();
   /** Pass and play: hits each unit has taken this turn, shown on the map until the turn ends */
   private turnHits = new Map<Unit, number>();
+  /** Pass and play: infantry-symbol hits each unit given Take Cover has ignored this turn */
+  private coverHits = new Map<Unit, number>();
   /** Units with the camouflage badge, kept from turn to turn until they move or battle (`camouflagedUnits`) */
   private camouflaged = new Set<Unit>();
+  /** Each unit's luck meter (game-core/luck.ts), kept from turn to turn; a unit missing here is at 0 */
+  private luck = new Map<Unit, number>();
+  /** Each unit's supplies and luck as the orders were confirmed, to show what the turn changed; null before */
+  private turnStart: { supplies: Map<Unit, UnitSupplies>; luck: Map<Unit, number> } | null = null;
   /** What each unit has left, kept from turn to turn; a unit missing here is full (`suppliesOf`) */
   private supplies = new Map<Unit, UnitSupplies>();
   /** Pass and play: where the enemy units are, from the match; null in the one-side game */
@@ -510,6 +552,7 @@ class GameSession {
     this.retreatFlags = new Map();
     this.retreatsDue = new Map();
     this.turnHits = new Map();
+    this.coverHits = new Map();
   }
 
   // --- PICK_CARDS
@@ -563,7 +606,19 @@ class GameSession {
   }
 
   private refusalOf(unit: Unit, action: UnitAction): ActionRefusal | null {
-    return actionRefusal(action, { unitType: unit.getUnitType(), supplies: this.suppliesOf(unit), ownTablets: this.ownTablets });
+    return actionRefusal(action, {
+      unitType: unit.getUnitType(),
+      supplies: this.suppliesOf(unit),
+      ownTablets: this.ownTablets,
+      ...(this.figures && { wounds: this.woundsOf(unit) }),
+    });
+  }
+
+  /** Pass and play: whether the unit has lost a figure (for Medic) and has one hit but not lost (for Mechanic) */
+  private woundsOf(unit: Unit): { lost: boolean; damaged: boolean } {
+    const hits = this.hits.get(unit) ?? 0;
+    const type = unit.getUnitType();
+    return { lost: hits >= hitsPerFigure(type, unit.elite), damaged: figureDamaged(type, hits, unit.elite) };
   }
 
   /** The unit has an action it can be given */
@@ -634,10 +689,15 @@ class GameSession {
 
   /**
    * The action's move limits and paths (none when it may not move); it can't end on (or next to)
-   * a hex marked for an attack. `follows` checks a path the player picked hex by hex
+   * a hex marked for an attack. A unit with nothing left to fire moves but doesn't fire (armour).
+   * `follows` checks a path the player picked hex by hex
    */
   private movePlan(hex: Hex, action: UnitAction, canMove = true) {
-    const limits = canMove ? moveLimitsOf(action) : { ...moveLimitsOf(action), maxMove: 0, moveAndFire: 0 };
+    const unit = hex.unit;
+    const dry = !!unit && !canFireAShot(unit.getUnitType(), this.suppliesOf(unit));
+    const full = moveLimitsOf(action);
+    const fires = dry ? { ...full, moveAndFire: 0, holdShots: 0 } : full;
+    const limits = canMove ? fires : { ...fires, maxMove: 0, moveAndFire: 0 };
     const rules = moveRulesOf(action);
     const endsOk = (key: string) => !this.breaksMark(fromKey(key));
     return {
@@ -758,16 +818,106 @@ class GameSession {
     if (this.phase !== TurnPhase.ORDER_UNITS) return false;
     if (this.markersLeft() > 0) return false;
 
+    this.phase = TurnPhase.MOVEMENT;
     for (const order of this.orders) {
       const action = actionById(order.action);
       const paid = action && pay(this.suppliesOf(order.unit), action.cost);
       if (!paid) continue;
-      // Reload: the ammo or shells come back at once (the unit doesn't fire this turn)
-      const full = fullSupplies(order.unit.getUnitType(), order.unit.elite);
-      this.supplies.set(order.unit, action.effect === "reload" ? reload(paid, full) : paid);
+      this.supplies.set(order.unit, paid);
+      this.carryOut(order, action);
     }
-    this.phase = TurnPhase.MOVEMENT;
+    this.refillByCard();
+    this.markTurnStart();
     return this.publish();
+  }
+
+  /** Each unit's supplies and luck now, the orders paid: what the turn's changes are counted from */
+  private markTurnStart() {
+    const units = this.board.getAllHexes().flatMap((hex) => (hex.unit ? [hex.unit] : []));
+    this.turnStart = {
+      supplies: new Map(units.map((unit) => [unit, this.suppliesOf(unit)])),
+      luck: new Map(units.map((unit) => [unit, this.luckOf(unit)])),
+    };
+  }
+
+  /** What this side's units lost or gained since the orders were confirmed */
+  private turnChanges(): UnitChange[] {
+    const start = this.turnStart;
+    if (!start) return [];
+    return this.board.getAllHexes().flatMap((hex) => {
+      const unit = hex.unit;
+      const before = unit && start.supplies.get(unit);
+      if (!unit || !before) return [];
+      const now = this.suppliesOf(unit);
+      const shots = (supplies: UnitSupplies) => amountOf(supplies, Supply.AMMO) + amountOf(supplies, Supply.SHELLS);
+      const change = {
+        position: hex.getPosition(),
+        morale: amountOf(now, Supply.MORALE) - amountOf(before, Supply.MORALE),
+        ammo: shots(now) - shots(before),
+        luck: this.luckOf(unit) - (start.luck.get(unit) ?? 0),
+      };
+      return change.morale !== 0 || change.ammo !== 0 || Math.abs(change.luck) > 1e-9 ? [change] : [];
+    });
+  }
+
+  /**
+   * What the action does as the orders are revealed, besides moving and firing: Reload, Morale Up,
+   * sandbags for Fortify, and in pass and play Medic and Mechanic (on own tablets the table does
+   * those, `tableReminders`). Camouflage, Take Cover and Behind Enemy Lines' move come later
+   */
+  private carryOut(order: Order, action: UnitAction) {
+    const { unit } = order;
+    const full = fullSupplies(unit.getUnitType(), unit.elite);
+    const supplies = this.suppliesOf(unit);
+    const hits = this.hits.get(unit) ?? 0;
+    const perFigure = hitsPerFigure(unit.getUnitType(), unit.elite);
+    switch (action.effect) {
+      case "reload":
+        this.supplies.set(unit, reload(supplies, full));
+        break;
+      case "moraleUp":
+        this.supplies.set(unit, refill(supplies, full, [Supply.MORALE]));
+        break;
+      case "medic":
+        if (this.figures && hits >= perFigure) this.setHits(unit, hits - perFigure);
+        break;
+      case "mechanic":
+        if (this.figures) this.setHits(unit, hits - (hits % perFigure));
+        break;
+      case "fortify": {
+        const hex = this.board.getHex(order.end);
+        if (hex && !hex.sandbags) {
+          hex.setSandbags(true);
+          this.addBattleEdit({ kind: "sandbags", position: { ...order.end }, placed: true, fortify: true });
+        }
+        break;
+      }
+    }
+  }
+
+  private setHits(unit: Unit, hits: number) {
+    const next = new Map(this.hits);
+    if (hits > 0) next.set(unit, hits);
+    else next.delete(unit);
+    this.hits = next;
+  }
+
+  /**
+   * The card played refills as the orders are revealed: Resupply gives all infantry its morale,
+   * ammo and equipment back (a unit at morale 0 too), Refuel tops up the fuel of tanks and artillery
+   */
+  private refillByCard() {
+    const kind = this.playedCard?.effect.kind;
+    if (kind !== "resupply" && kind !== "refuel") return;
+    for (const hex of this.board.getAllHexes()) {
+      const unit = hex.unit;
+      if (!unit) continue;
+      const infantry = unit.getUnitType() === UnitType.INFANTRY;
+      if (infantry !== (kind === "resupply")) continue;
+      const full = fullSupplies(unit.getUnitType(), unit.elite);
+      const refilled = kind === "resupply" ? refill(this.suppliesOf(unit), full, [Supply.MORALE, Supply.AMMO], { equipment: true }) : refill(this.suppliesOf(unit), full, [Supply.FUEL]);
+      this.supplies.set(unit, refilled);
+    }
   }
 
   // --- Pass and play: figures, hits and retreats
@@ -776,7 +926,7 @@ class GameSession {
   figuresAt(position: Position): number | null {
     const unit = this.board.getHex(position)?.unit;
     if (!this.figures || !unit) return null;
-    return figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0);
+    return figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0, unit.elite);
   }
 
   /** Pass and play: the unit on this hex took a flag this turn: it's pinned (infantry fires with a die less) */
@@ -808,11 +958,18 @@ class GameSession {
    * more this turn. A unit that loses its last figure is removed; artillery leaves its crew
    * behind, `ARTILLERY_CREW_FIGURES` infantry figures
    */
-  sufferHits(position: Position, hits: number, flags: number, _hitFaces: readonly DieFace[] = []): boolean {
+  sufferHits(position: Position, rolledHits: number, flags: number, hitFaces: readonly DieFace[] = []): boolean {
     const unit = this.board.getHex(position)?.unit;
-    if (!this.figures || !unit || hits < 0 || flags < 0) return false;
+    if (!this.figures || !unit || rolledHits < 0 || flags < 0) return false;
+    const hits = rolledHits - this.takeCover(unit, hitFaces);
+    // Each flag on infantry costs it a point of morale, besides pinning it or making it retreat
+    if (flags > 0 && unit.getUnitType() === UnitType.INFANTRY) {
+      const supplies = this.suppliesOf(unit);
+      const morale = Math.max(0, amountOf(supplies, Supply.MORALE) - flags);
+      this.supplies.set(unit, { ...supplies, amounts: { ...supplies.amounts, [Supply.MORALE]: morale } });
+    }
     const taken = (this.hits.get(unit) ?? 0) + hits;
-    if (taken < hitsToDestroy(unit.getUnitType())) {
+    if (taken < hitsToDestroy(unit.getUnitType(), unit.elite)) {
       if (hits > 0) {
         this.hits = new Map(this.hits).set(unit, taken);
         this.turnHits = new Map(this.turnHits).set(unit, (this.turnHits.get(unit) ?? 0) + hits);
@@ -846,12 +1003,28 @@ class GameSession {
     const hitThisTurn = new Map(this.turnHits);
     hitThisTurn.delete(unit);
     this.turnHits = hitThisTurn;
+    const covered = new Map(this.coverHits);
+    covered.delete(unit);
+    this.coverHits = covered;
     // The sandbags go with the unit; a crew left behind stays behind them
     const hex = this.board.getHex(position)!;
     const sandbags = hex.sandbags && !crew;
     if (sandbags) hex.setSandbags(false);
     this.addBattleEdit({ kind: "remove", position, unit, ...(crew && { replacement: crew }), ...(sandbags && { sandbags }) });
     return this.publish();
+  }
+
+  /**
+   * Take Cover: of the hits on a unit given it, the infantry-symbol ones are ignored, up to
+   * `TAKE_COVER_HITS` this turn (grenades still hit). Returns how many of these it ignores
+   */
+  private takeCover(unit: Unit, hitFaces: readonly DieFace[]): number {
+    const covering = this.orders.some((order) => order.unit === unit && actionById(order.action)?.effect === "takeCover");
+    if (!covering) return 0;
+    const used = this.coverHits.get(unit) ?? 0;
+    const ignored = Math.min(TAKE_COVER_HITS - used, hitFaces.filter((face) => face === DieFace.INFANTRY).length);
+    if (ignored > 0) this.coverHits = new Map(this.coverHits).set(unit, used + ignored);
+    return Math.max(0, ignored);
   }
 
   /**
@@ -903,8 +1076,8 @@ class GameSession {
       const unit = hex.unit;
       if (!unit) return [];
       const hits = this.hits.get(unit) ?? 0;
-      const figures = figuresLeft(unit.getUnitType(), hits);
-      const damaged = figureDamaged(unit.getUnitType(), hits);
+      const figures = figuresLeft(unit.getUnitType(), hits, unit.elite);
+      const damaged = figureDamaged(unit.getUnitType(), hits, unit.elite);
       const hitThisTurn = this.turnHits.get(unit) ?? 0;
       const pinned = (this.retreatFlags.get(unit) ?? 0) > 0;
       const retreats = this.retreatsDue.get(unit) ?? 0;
@@ -1002,7 +1175,7 @@ class GameSession {
       unitType: unit.getUnitType(),
       steps,
       dice,
-      faces: this.rollFaces(dice, steps, target),
+      faces: this.rollFaces(dice, steps, target, unit),
       notes: [...COLLISION_NOTES],
       collision: true,
       target,
@@ -1219,15 +1392,6 @@ class GameSession {
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
     const enemies = this.seenEnemies()?.map((enemy) => enemy.position);
     return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, enemies);
-  }
-
-  /**
-   * Pass and play: both sides use the sections as `viewSide` (the main side, where the device
-   * sits) sees them, so both armies agree on left and right
-   */
-  sectionsSeenFrom(viewSide: Faction) {
-    this.board.sectionsSeenFrom(this.faction, viewSide);
-    this.publish();
   }
 
   /**
@@ -1510,12 +1674,23 @@ class GameSession {
   // Moves after the battle (Reposition, Behind Enemy Lines). On their own tablets the player
   // mirrors the table's move with "Actualizar mapa"; pass and play moves it here, one unit at a time
 
-  /** The units whose action moves them after the battle this turn (Behind Enemy Lines), how far and how */
+  /** The units that move after the battle this turn (Behind Enemy Lines), why, how far and how */
   private movesAfterBattle(): { unit: Unit; name: Localized; hexes: number; rules: { ignoreTerrain?: boolean } }[] {
-    return this.orders.flatMap(({ unit, action: id }) => {
-      const action = actionById(id);
+    return this.orders.flatMap((order) => {
+      const action = actionById(order.action);
       if (!action?.moveAfterBattle) return [];
-      return [{ unit, name: action.name, hexes: action.moveAfterBattle, rules: { ignoreTerrain: action.ignoresTerrain } }];
+      return [{ unit: order.unit, name: action.name, hexes: action.moveAfterBattle, rules: moveRulesOf(action) }];
+    });
+  }
+
+  /** Own tablets: the actions given this turn the table carries out, once the orders are revealed */
+  private tableReminders(): TableReminder[] {
+    if (this.figures || this.phase === TurnPhase.ORDER_UNITS || this.phase === TurnPhase.PICK_CARDS) return [];
+    const forTable = (action: UnitAction) =>
+      action.effect === "medic" || action.effect === "mechanic" || action.effect === "takeCover" || !!action.moveAfterBattle;
+    return this.orders.flatMap((order) => {
+      const action = actionById(order.action);
+      return action && forTable(action) ? [{ position: { ...order.end }, action }] : [];
     });
   }
 
@@ -1618,9 +1793,10 @@ class GameSession {
     const index = this.shots.findLastIndex((shot) => shot.orderIndex === orderIndex);
     if (index === -1) return false;
 
-    const { removedWire: wire, spent } = this.shots[index]!;
+    const { removedWire: wire, spent, luckBefore } = this.shots[index]!;
     if (wire) this.board.getHex(wire)?.setWire(true);
     const unit = this.orders[orderIndex]!.unit;
+    if (luckBefore !== undefined) this.luck = new Map(this.luck).set(unit, luckBefore);
     if (spent) this.supplies.set(unit, refund(this.suppliesOf(unit), spent));
     this.shots = this.shots.filter((_, i) => i !== index);
     return this.publish();
@@ -1658,11 +1834,13 @@ class GameSession {
     orderIndex: number,
     { dice, steps, notes, target, collision = false, combatBonus = false, targetPosition, option }: ShotRecord
   ): true {
-    const faces = this.rollFaces(dice, steps, target);
-    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null, spent: option.cost };
+    const { unit } = this.orders[orderIndex]!;
+    const luckBefore = this.luckOf(unit);
+    const faces = this.rollFaces(dice, steps, target, unit);
+    const shot: Shot = { orderIndex, steps, dice, faces, notes, collision, target, combatBonus, kept: null, spent: option.cost, luckBefore };
     if (!collision) shot.option = option.id;
     if (targetPosition) shot.targetPosition = targetPosition;
-    this.spend(this.orders[orderIndex]!.unit, option.cost);
+    this.spend(unit, option.cost);
     this.shots = [...this.shots, shot];
     return this.publish();
   }
@@ -1674,9 +1852,26 @@ class GameSession {
   }
 
   /** A roll's faces: the dice thrown, then the ones its steps add already showing a face */
-  private rollFaces(dice: number, steps: readonly DiceStep[], target: ShotTarget): DieFace[] {
+  /**
+   * A roll's faces: the dice thrown, nudged by the unit's luck (which moves on the streak), then
+   * the ones its steps add already showing a face
+   */
+  private rollFaces(dice: number, steps: readonly DiceStep[], target: ShotTarget, unit: Unit): DieFace[] {
     const set = setFaces(steps).slice(0, dice);
-    return [...rollDice(dice - set.length, this.random, SIDES_OF[target.die]), ...set];
+    const isHit = (face: DieFace) => faceHits(face, target);
+    const rolled = rollWithLuck(dice - set.length, SIDES_OF[target.die], isHit, this.luckOf(unit), this.random);
+    this.luck = new Map(this.luck).set(unit, rolled.luck);
+    return [...rolled.faces, ...set];
+  }
+
+  private luckOf(unit: Unit): number {
+    return this.luck.get(unit) ?? 0;
+  }
+
+  /** The luck of this side's unit on this hex (−3 to +3), null without one; never shown for the enemy */
+  luckAt(position: Position): number | null {
+    const unit = this.board.getHex(position)?.unit;
+    return unit ? this.luckOf(unit) : null;
   }
 
   // --- coins: earned and spent through the turn; `turnCoins` works out the ledger
@@ -1945,6 +2140,9 @@ class GameSession {
     const unit = unitType && this.placeNewUnit(position, unitType);
     if (!unit) return false;
 
+    // It arrives with no energy, and everything else full
+    const full = fullSupplies(unitType, unit.elite);
+    this.supplies.set(unit, { ...full, amounts: { ...full.amounts, ...(full.amounts[Supply.ENERGY] !== undefined && { [Supply.ENERGY]: 0 }) } });
     this.battleEdits = [...this.battleEdits, { kind: "add", position: { ...position }, unit }];
     return true;
   }
@@ -1967,8 +2165,11 @@ class GameSession {
       cardAttacks: this.cardAttacks,
     });
     this.log = [...this.log, record];
-    this.camouflaged = new Set(this.camouflagedUnits());
+    // Camouflage: the badge goes on after the battle, kept until the unit moves or battles
+    const camouflaging = this.orders.filter((order) => actionById(order.action)?.effect === "camouflage").map((order) => order.unit);
+    this.camouflaged = new Set([...this.camouflagedUnits(), ...camouflaging.filter((unit) => this.positionOf(unit))]);
     this.recoverEnergy();
+    this.turnStart = null;
     this.startCoins = this.testMode ? Math.max(coins, TEST_MODE_COINS) : coins;
     this.coinAdjustments = [];
     if (this.playedCard) this.cardsPlayedOn = { ...this.cardsPlayedOn, [this.playedCard.id]: this.turn };
@@ -1983,6 +2184,24 @@ class GameSession {
     this.turn++;
     this.phase = TurnPhase.PICK_CARDS;
     return this.publish();
+  }
+
+  /** The final phase: the energy each unit will get back as the turn ends, and the cards back next turn */
+  private turnEnd(): GameSnapshot["turnEnd"] {
+    if (this.phase !== TurnPhase.END_OF_TURN) return null;
+    const energy = this.board.getAllHexes().flatMap((hex) => {
+      const unit = hex.unit;
+      if (!unit) return [];
+      const rested = this.orderIndexOf(unit) === -1;
+      const now = this.suppliesOf(unit);
+      const after = endOfTurn(now, fullSupplies(unit.getUnitType(), unit.elite), rested);
+      const amount = amountOf(after, Supply.ENERGY) - amountOf(now, Supply.ENERGY);
+      return amount > 0 ? [{ position: hex.getPosition(), amount, rested }] : [];
+    });
+    const cardsBack = this.cards
+      .filter(({ card }) => !this.testMode && this.cardsPlayedOn[card.id] !== undefined && turnsLeft(this.cardsPlayedOn[card.id], this.turn) === 1)
+      .map(({ card }) => card);
+    return { energy, cardsBack };
   }
 
   /** The end of the turn: infantry gets energy back, more if it rested (had no order) */
@@ -2022,6 +2241,9 @@ class GameSession {
       retreatFlags: this.retreatFlags,
       retreatsDue: this.retreatsDue,
       turnHits: this.turnHits,
+      coverHits: this.coverHits,
+      luck: this.luck,
+      turnStart: this.turnStart,
       camouflaged: this.camouflaged,
       supplies: this.supplies,
       drops: this.drops,
@@ -2060,6 +2282,9 @@ class GameSession {
     session.retreatFlags = new Map(state.retreatFlags);
     session.retreatsDue = new Map(state.retreatsDue);
     session.turnHits = new Map(state.turnHits);
+    session.coverHits = new Map(state.coverHits);
+    session.luck = new Map(state.luck);
+    session.turnStart = state.turnStart && { supplies: new Map(state.turnStart.supplies), luck: new Map(state.turnStart.luck) };
     session.camouflaged = new Set(state.camouflaged);
     session.supplies = new Map(state.supplies);
     session.drops = state.drops;
@@ -2086,6 +2311,8 @@ class GameSession {
       supplies: this.board.getAllHexes().flatMap((hex) =>
         hex.unit ? [{ position: hex.getPosition(), supplies: this.suppliesOf(hex.unit) }] : []
       ),
+      changes: this.turnChanges(),
+      turnEnd: this.turnEnd(),
       battleEdits: this.battleEdits.length,
       canEditMap: this.canEditMap(),
       canUndoMapEdit: this.canUndoMapEdit(),
@@ -2106,6 +2333,7 @@ class GameSession {
       canRemoveWire: this.orders.map((_, i) => this.canRemoveWire(i)),
       camouflaged: this.camouflagedUnits().flatMap((unit) => this.positionOf(unit) ?? []),
       finalMove: this.finalMove(),
+      tableReminders: this.tableReminders(),
       drops: this.drops,
       dropsLeft: this.dropsLeft(),
       canUnpickCard: this.canUnpickCard(),

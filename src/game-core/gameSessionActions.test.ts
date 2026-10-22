@@ -21,7 +21,6 @@ const scenario: Scenario = {
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: { forest: new Hex(TANK, HexType.PLAINS).getNeighbors() },
   units: {
@@ -67,7 +66,9 @@ describe("GameSession giving actions", () => {
 
     expect(actionIds(session, TANK)).toEqual(["tank:firefight", "tank:assault", "tank:armorForward", "tank:mechanic", "tank:reload"]);
     expect(actionIds(session, INF)).toContain("infantry:moraleUp");
-    expect(Object.values(refusals(session, INF)).every((refusal) => refusal === null)).toBe(true);
+    // An unhurt unit has nothing for Medic to mend
+    expect(refusals(session, INF)).toMatchObject({ "infantry:medic": "nothingToMend", "infantry:firefight": null });
+    expect(Object.values(refusals(session, INF)).filter((refusal) => refusal !== null)).toHaveLength(1);
     expect(session.getActions({ row: 0, col: 0 })).toBeNull();
   });
 

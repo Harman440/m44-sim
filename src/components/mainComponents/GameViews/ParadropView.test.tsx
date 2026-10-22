@@ -16,7 +16,6 @@ const makeSession = () =>
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY] }, axis: {} },

@@ -20,7 +20,6 @@ const playTurn = (elite: Position[] = []) => {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: { forest: [FOREST] },
       units: { allies: { tank: [TANK], infantry: [INFANTRY] }, axis: {} },

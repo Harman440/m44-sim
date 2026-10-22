@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { OpponentContext } from "../../OpponentContext";
 import {
   Alert,
@@ -8,9 +8,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  List,
-  ListItemButton,
-  ListItemText,
   Paper,
   Snackbar,
   Stack,
@@ -31,6 +28,9 @@ import EndOfTurnMap from "./EndOfTurnMap";
 import SandbagsIcon from "../../SandbagsIcon";
 import PlayedCards, { PLAY_LAYOUT_PREFIX, playedCardOf } from "../../PlayedCards";
 import LeavingHand from "./LeavingHand";
+import UnitList from "./UnitList";
+import ActionPopup from "./ActionPopup";
+import ActionPanel from "./ActionPanel";
 import "./PhaseLayout.css";
 
 const TEXT = defineMessages({
@@ -39,8 +39,6 @@ const TEXT = defineMessages({
     holdAndFire: "Quedarse en su casilla y disparar",
     holdAndFireTimes: (n: number) => `Quedarse en su casilla y disparar ${n} veces`,
     promptPickAction: "Elige una acción",
-    actions: "Acciones",
-    currentAction: (name: string) => `Orden: ${name}`,
     otherAction: "Otra acción",
     promptMark: (n: number) => `Marca en el mapa: faltan ${n}`,
     tapHighlightedHex: "Toca una casilla resaltada",
@@ -67,7 +65,6 @@ const TEXT = defineMessages({
     markOnMap: "Marcar en el mapa",
     eraseLastMark: "Borrar última marca",
     resting: (n: number) => (n === 1 ? "1 unidad sin orden (descansa)" : `${n} unidades sin orden (descansan)`),
-    selectedUnit: "Unidad seleccionada",
     hedgerowExit: ". Al salir de un seto solo avanza 1 casilla",
     hasSandbags: "Tiene sacos terreros: si se mueve, los pierde.",
     moveAndFire: "Mover y disparar",
@@ -91,8 +88,6 @@ const TEXT = defineMessages({
     holdAndFire: "Stay in its hex and fire",
     holdAndFireTimes: (n: number) => `Stay in its hex and fire ${n} times`,
     promptPickAction: "Pick an action",
-    actions: "Actions",
-    currentAction: (name: string) => `Order: ${name}`,
     otherAction: "Another action",
     promptMark: (n: number) => `Mark on the map: ${n} left`,
     tapHighlightedHex: "Tap a highlighted hex",
@@ -119,7 +114,6 @@ const TEXT = defineMessages({
     markOnMap: "Mark on the map",
     eraseLastMark: "Erase last mark",
     resting: (n: number) => (n === 1 ? "1 unit without an order (rests)" : `${n} units without an order (they rest)`),
-    selectedUnit: "Selected unit",
     hedgerowExit: ". Leaving a hedgerow it only moves 1 hex",
     hasSandbags: "It has sandbags: if it moves, it loses them.",
     moveAndFire: "Move and fire",
@@ -192,6 +186,11 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** Fixing the map before any order: asked first, then the map editor of the final phase */
   const [confirmMapFix, setConfirmMapFix] = useState(false);
   const [fixingMap, setFixingMap] = useState(false);
+  /** The map's box, for the actions' pop-up to sit beside its unit; `view` counts its zooms and pans */
+  const boardBox = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState(0);
+  /** A unit picked from the list: the map zooms a little onto it (a new request each time) */
+  const [zoomOn, setZoomOn] = useState<{ position: Position; request: number } | null>(null);
   /** The last order moved a unit off its sandbags: said for a moment */
   const [leftSandbags, setLeftSandbags] = useState(false);
   // Pass and play: there's no table, the app's map is the game
@@ -288,14 +287,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     }
 
     // Select a unit, or switch to another one: its actions are listed
-    const unitActions = session.getActions(position);
-    if (unitActions) {
-      setUnitHexPosition(position);
-      setActions(unitActions);
-      setChosen(null);
-      setMoveOptions(null);
-      return;
-    }
+    if (selectUnit(position)) return;
 
     // A unit that can't be ordered, or a hex the selected unit can't reach
     if (unitHexPosition || boardManager.getHex(position)?.hasUnit()) {
@@ -303,12 +295,31 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     }
   };
 
+  /** Pick the unit on this hex to give it an action; false when it can't be ordered now */
+  const selectUnit = (position: Position): boolean => {
+    const unitActions = session.getActions(position);
+    if (!unitActions) return false;
+    setUnitHexPosition(position);
+    setActions(unitActions);
+    setChosen(null);
+    setMoveOptions(null);
+    return true;
+  };
+
+  /** A row of the unit list: the unit is picked if it can be ordered, and the map zooms onto it either way */
+  const pickFromList = (position: Position) => {
+    if (marking) return;
+    if (!selectUnit(position)) clearSelection();
+    setZoomOn((last) => ({ position, request: (last?.request ?? 0) + 1 }));
+  };
+
   const handleHold = () => {
     if (unitHexPosition && chosen) order(unitHexPosition, chosen, unitHexPosition);
   };
 
   const selectedHex = unitHexPosition ? boardManager.getHex(unitHexPosition) : null;
-  const selectedSupplies = unitHexPosition && game.supplies.find((each) => samePosition(each.position, unitHexPosition))?.supplies;
+  const hedgerow = !!selectedHex?.getTerrain().leaveOneHex && (moveOptions?.limits.maxMove ?? 0) > 1 && !chosen?.ignoresTerrain;
+  const movement = moveOptions ? `${labels.describeMovement(moveOptions.limits)}${hedgerow ? t.hedgerowExit : ""}.` : undefined;
   const currentOrder = selectedHex?.unit && orders.find((each) => each.unit === selectedHex.unit);
   const currentAction = currentOrder && actions.find((each) => each.action.id === currentOrder.action)?.action;
 
@@ -344,10 +355,12 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   }
 
   return (
-    <div className="phase-layout">
-      <div className="phase-layout__board">
+    <div className="phase-layout phase-layout--wide-controls">
+      <div className="phase-layout__board" ref={boardBox}>
         <Board
           zoomable
+          zoomOn={zoomOn}
+          onViewChange={() => setView((n) => n + 1)}
           onTileClick={handleTileClick}
           unitHexPosition={unitHexPosition}
           possibleMovePositions={(steps ?? moveOptions)?.moves ?? []}
@@ -369,7 +382,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
       {/* While the card flies in, the column doesn't clip it (it scrolls the rest of the time) */}
       <div className={`phase-layout__controls${handLeaving ? " phase-layout__controls--arriving" : ""}`}>
         {/* The card played, flown here from the Command Zone's tray; tapping it shows its text */}
-        <PlayedCards className="played-cards--orders" faction={faction} {...playedCardOf(game)} layoutPrefix={PLAY_LAYOUT_PREFIX} />
+        <PlayedCards className="played-cards--orders" {...playedCardOf(game)} layoutPrefix={PLAY_LAYOUT_PREFIX} />
         {game.canUnpickCard && (
           <Button variant="outlined" onClick={() => session.unpickCard()} startIcon={<GameIcon name="undo" />}>
             {t.changeCard}
@@ -409,97 +422,42 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           </Typography>
         </Box>
 
-        {selectedHex && (
-          <Paper variant="outlined" sx={{ p: 1.5, width: "100%" }}>
-            <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
-              <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
-                {chosen ? `${labels.describeHex(selectedHex)} · ${tr(chosen.name)}` : labels.describeHex(selectedHex)}
-              </Typography>
-              <InfoButton title={t.selectedUnit}>
-                <Stack sx={{ gap: 1 }}>
-                  <Typography variant="body1">{labels.describeHex(selectedHex)}.</Typography>
-                  {chosen && moveOptions && (
-                    <>
-                      <Typography variant="body1">{tr(chosen.description)}</Typography>
-                      <Typography variant="body1">
-                        {labels.describeMovement(moveOptions.limits)}
-                        {selectedHex.getTerrain().leaveOneHex && moveOptions.limits.maxMove > 1 && !chosen.ignoresTerrain && t.hedgerowExit}
-                        .
-                      </Typography>
-                    </>
-                  )}
-                </Stack>
-              </InfoButton>
-            </Stack>
-            {selectedSupplies && (
-              <Typography variant="body2" color="text.secondary" data-testid="unit-supplies">
-                {labels.describeSupplies(selectedSupplies)}
-              </Typography>
-            )}
-            {currentAction && !chosen && (
-              <Typography variant="body2" color="primary">
-                {t.currentAction(tr(currentAction.name))}
-              </Typography>
-            )}
+        {selectedHex && chosen && (
+          <ActionPanel action={chosen} unit={labels.describeHex(selectedHex)} movement={movement}>
             {selectedHex.sandbags && (moveOptions?.moves.length ?? 0) > 0 && (
-              <Alert severity="warning" icon={<SandbagsIcon size={26} />} sx={{ mt: 1, py: 0 }} data-testid="sandbags-warning">
+              <Alert severity="warning" icon={<SandbagsIcon size={26} />} sx={{ py: 0 }} data-testid="sandbags-warning">
                 {t.hasSandbags}
               </Alert>
             )}
-            {chosen ? (
+            {/* Legend for the highlighted hexes (no hover on tablets) */}
+            <Stack sx={{ gap: 0.5 }}>
+              {(moveOptions?.moveAndFire.length ?? 0) > 0 && <LegendItem color="var(--m44-move-fire)" label={t.moveAndFire} />}
+              <LegendItem color="var(--m44-move-only)" label={t.moveOnly} />
+            </Stack>
+            {pathEnd && unitHexPosition ? (
+              // Pass and play, a path on its way: end it here, or take off its last hex
               <>
-                {/* Legend for the highlighted hexes (no hover on tablets) */}
-                <Stack sx={{ gap: 0.5, my: 1 }}>
-                  {(moveOptions?.moveAndFire.length ?? 0) > 0 && (
-                    <LegendItem color="var(--m44-move-fire)" label={t.moveAndFire} />
-                  )}
-                  <LegendItem color="var(--m44-move-only)" label={t.moveOnly} />
-                </Stack>
-                <Stack sx={{ gap: 1 }}>
-                  {pathEnd && unitHexPosition ? (
-                    // Pass and play, a path on its way: end it here, or take off its last hex
-                    <>
-                      <Button onClick={() => order(unitHexPosition, chosen, pathEnd, path!)} startIcon={<GameIcon name="confirm" />}>
-                        {t.goHere}
-                      </Button>
-                      <Button variant="outlined" onClick={() => setPath(path!.slice(0, -1))} startIcon={<GameIcon name="undo" />}>
-                        {t.stepBack}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button onClick={handleHold} startIcon={<GameIcon name={moveOptions?.limits.holdShots ? "fire" : "confirm"} />}>
-                        {holdLabel(moveOptions?.limits.holdShots ?? 0, t)}
-                      </Button>
-                      <Button variant="outlined" onClick={otherAction} startIcon={<GameIcon name="undo" />}>
-                        {t.otherAction}
-                      </Button>
-                    </>
-                  )}
-                </Stack>
+                <Button onClick={() => order(unitHexPosition, chosen, pathEnd, path!)} startIcon={<GameIcon name="confirm" />}>
+                  {t.goHere}
+                </Button>
+                <Button variant="outlined" onClick={() => setPath(path!.slice(0, -1))} startIcon={<GameIcon name="undo" />}>
+                  {t.stepBack}
+                </Button>
               </>
             ) : (
-              <List dense aria-label={t.actions} sx={{ my: 0.5 }}>
-                {actions.map(({ action, refusal }) => (
-                  <ListItemButton
-                    key={action.id}
-                    disabled={refusal !== null}
-                    selected={action.id === currentAction?.id}
-                    onClick={() => pickAction(action)}
-                    sx={{ minHeight: 48, borderRadius: 1 }}
-                  >
-                    <ListItemText
-                      primary={tr(action.name)}
-                      secondary={refusal === null ? labels.describeCost(action.cost) : labels.actionRefusals[refusal]}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
+              <>
+                <Button onClick={handleHold} startIcon={<GameIcon name={moveOptions?.limits.holdShots ? "fire" : "confirm"} />}>
+                  {holdLabel(moveOptions?.limits.holdShots ?? 0, t)}
+                </Button>
+                <Button variant="outlined" onClick={otherAction} startIcon={<GameIcon name="undo" />}>
+                  {t.otherAction}
+                </Button>
+              </>
             )}
-            <Button variant="outlined" onClick={clearSelection} startIcon={<GameIcon name="cancel" />} sx={{ mt: 1, width: "100%" }}>
+            <Button variant="outlined" onClick={clearSelection} startIcon={<GameIcon name="cancel" />}>
               {t.cancel}
             </Button>
-          </Paper>
+          </ActionPanel>
         )}
 
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
@@ -514,6 +472,9 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
             </Button>
           )}
         </Stack>
+
+        {/* The action's card takes the list's place while its moves are on the map */}
+        {!chosen && <UnitList faction={faction} session={session} game={game} selected={unitHexPosition} onSelect={pickFromList} />}
 
         <Stack sx={{ mt: "auto", gap: 0.5 }}>
           <InfoButton title={t.howToOrder} label={t.instructions}>
@@ -539,6 +500,17 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           )}
         </Stack>
       </div>
+
+      <ActionPopup
+        position={selectedHex && !chosen && !marking ? unitHexPosition : null}
+        board={boardBox}
+        title={selectedHex ? labels.describeHex(selectedHex) : ""}
+        actions={actions}
+        current={currentAction}
+        onPick={pickAction}
+        onCancel={clearSelection}
+        view={view}
+      />
 
       <Snackbar
         open={leftSandbags}

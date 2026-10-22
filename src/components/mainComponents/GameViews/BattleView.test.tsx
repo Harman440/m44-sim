@@ -29,7 +29,6 @@ const makeBattleSession = ({ moveTank = false } = {}) => {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 1, axis: 1 },
       attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
@@ -70,9 +69,8 @@ describe("BattleView summary screen", () => {
     const rows = screen.getAllByTestId("order-summary");
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("Infantería");
-    // Where it is, as icons, not how far it moved
+    // Where it is, as its hex, not how far it moved
     expect(within(rows[0]!).getByRole("img", { name: "Llanura" })).toBeInTheDocument();
-    expect(within(rows[0]!).getByRole("img", { name: "Izquierda" })).toBeInTheDocument();
     expect(rows[0]).toHaveTextContent("Disparar ›");
     expect(rows[1]).toHaveTextContent("Tanque");
     // No card was played: the side panel says so
@@ -250,7 +248,6 @@ describe("BattleView command card played", () => {
         id: "test",
         name: { es: "Test", en: "Test" },
         description: same(""),
-        initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
         units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
@@ -315,5 +312,22 @@ describe("BattleView command card played", () => {
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
     fireEvent.click(screen.getByRole("button", { name: "Disparar" }));
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 3, combatBonus: true });
+  });
+});
+
+describe("BattleView changes this turn", () => {
+  it("shows the ammo a unit spent and its luck in its row, and on the map", () => {
+    const { session } = setup({ openMap: false });
+    expect(screen.queryByTestId("unit-changes")).not.toBeInTheDocument();
+    act(() => {
+      shoot(session, 0, AT_INFANTRY);
+    });
+
+    const [infantry] = screen.getAllByTestId("order-summary");
+    // In the row's button, whose label is what's read out: the chips are there to be seen
+    expect(within(infantry!).getByTestId("unit-changes")).toHaveTextContent("−1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver mapa" }));
+    expect(screen.getAllByTestId("change-pill")).toHaveLength(1);
   });
 });

@@ -13,16 +13,25 @@ export const FIGURES: Record<UnitType, { figures: number; hitsPerFigure: number 
 
 export const ARTILLERY_CREW_FIGURES = 1;
 
+/** Hits each figure of an elite unit takes, where it differs from its type's (elite tanks: 3) */
+export const ELITE_HITS_PER_FIGURE: Partial<Record<UnitType, number>> = {
+  [UnitType.TANK]: 3,
+};
+
+/** Hits each figure of the unit takes */
+export const hitsPerFigure = (unitType: UnitType, elite = false): number =>
+  (elite ? ELITE_HITS_PER_FIGURE[unitType] : undefined) ?? FIGURES[unitType].hitsPerFigure;
+
 /** Hits that destroy a unit of this type */
-export const hitsToDestroy = (unitType: UnitType): number => FIGURES[unitType].figures * FIGURES[unitType].hitsPerFigure;
+export const hitsToDestroy = (unitType: UnitType, elite = false): number => FIGURES[unitType].figures * hitsPerFigure(unitType, elite);
 
 /** Figures left after `hits`: a figure is only lost once all its hits are taken */
-export const figuresLeft = (unitType: UnitType, hits: number): number =>
-  Math.max(0, Math.ceil((hitsToDestroy(unitType) - hits) / FIGURES[unitType].hitsPerFigure));
+export const figuresLeft = (unitType: UnitType, hits: number, elite = false): number =>
+  Math.max(0, Math.ceil((hitsToDestroy(unitType, elite) - hits) / hitsPerFigure(unitType, elite)));
 
 /** A figure has taken some of its hits but not all (armour hit once): it's marked on the map */
-export const figureDamaged = (unitType: UnitType, hits: number): boolean =>
-  hits > 0 && hits < hitsToDestroy(unitType) && hits % FIGURES[unitType].hitsPerFigure !== 0;
+export const figureDamaged = (unitType: UnitType, hits: number, elite = false): boolean =>
+  hits > 0 && hits < hitsToDestroy(unitType, elite) && hits % hitsPerFigure(unitType, elite) !== 0;
 
 /**
  * Limited damage (house rule): a unit applies at most as many results as it has figures, one

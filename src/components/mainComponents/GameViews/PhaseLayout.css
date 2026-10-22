@@ -59,6 +59,11 @@
     overscroll-behavior: contain;
   }
 
+  /* The orders screen lists every unit with its supplies: a wider column */
+  .phase-layout--wide-controls .phase-layout__controls {
+    flex-basis: 288px;
+  }
+
   .phase-layout__controls--arriving {
     overflow: visible;
   }

@@ -150,6 +150,7 @@ function EndOfTurnMap({
           invalidFlash={flash}
           markers={reinforcements ? game.markers.filter((_, i) => game.markerKinds[i] === "cross") : []}
           markerKind="cross"
+          changes={game.changes}
           faction={faction}
         />
       </div>

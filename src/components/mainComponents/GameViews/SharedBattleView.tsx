@@ -47,6 +47,7 @@ import "../GameView.css";
 import "./PhaseLayout.css";
 import MedalTally from "../../MedalTally";
 import FireOptionPicker from "../../FireOptionPicker";
+import UnitChangeChips from "../../UnitChangeChips";
 
 const TEXT = defineMessages({
   es: {
@@ -222,6 +223,7 @@ function FiringUnit({ side, session, order, aims, aim, option, onPickOption, onF
               .filter(Boolean)
               .join(" · ")}
           </Typography>
+          <UnitChangeChips change={game.changes.find((change) => samePosition(change.position, summary.firingFrom))} />
         </Box>
       </Stack>
 
@@ -450,6 +452,9 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 opponent={match.opponentOf(boardSide, { fogged: boardSide !== computer })}
                 fog={match.fogOn(boardSide)}
                 strength={boardGame.strength}
+                // Only the side acting now, and never the computer's (the person's enemy): the
+                // enemy's supplies and luck aren't shown
+                changes={boardSide !== computer ? boardGame.changes : []}
                 firedUnits={
                   new Set(boardGame.orders.filter((_, i) => boardSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))
                 }
@@ -729,7 +734,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 const owner = match.sessions[cardsOf];
                 const game = owner.getSnapshot();
                 return (
-                  <BattleReserve faction={cardsOf} coins={game.coins} onShowCoins={() => setCoinsOf(cardsOf)} {...playedCardOf(game)} />
+                  <BattleReserve coins={game.coins} onShowCoins={() => setCoinsOf(cardsOf)} {...playedCardOf(game)} />
                 );
               })()}
             </DialogContent>

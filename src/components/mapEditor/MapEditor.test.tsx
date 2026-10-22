@@ -261,7 +261,6 @@ describe("MapEditor", () => {
 
     fireEvent.change(dialog.getByLabelText("Nombre · Español"), { target: { value: "Bocage" } });
     fireEvent.click(dialog.getByRole("button", { name: "Defiende" }));
-    fireEvent.click(dialog.getByLabelText("Cartas de mando (Eje): uno menos"));
     fireEvent.click(dialog.getByLabelText("Lanzamiento de paracaidistas"));
 
     expect(dialog.queryByText("El escenario no tiene nombre")).not.toBeInTheDocument();
@@ -270,7 +269,6 @@ describe("MapEditor", () => {
     expect(savedDraft()).toMatchObject({
       name: { es: "Bocage", en: "" },
       attacker: "Axis",
-      initialHandSize: { allies: 5, axis: 4 },
       paradrop: { faction: "Axis", unitType: "infantry", units: 4 },
     });
 
@@ -284,18 +282,20 @@ describe("MapEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
     const dialog = within(await screen.findByRole("dialog"));
     const name = dialog.getByLabelText("Nombre · Español");
-    const fewerCards = dialog.getByLabelText("Cartas de mando (Eje): uno menos");
+    const moreSorties = dialog.getByLabelText("Salidas aéreas (Eje): uno más");
 
     fireEvent.change(name, { target: { value: "Boc" } });
     fireEvent.change(name, { target: { value: "Bocage" } });
-    fireEvent.click(fewerCards);
-    fireEvent.click(fewerCards);
+    fireEvent.click(moreSorties);
+    fireEvent.click(moreSorties);
     fireEvent.click(dialog.getByRole("button", { name: "Hecho" }));
     await dialogClosed();
 
     const undo = screen.getByRole("button", { name: "Deshacer" });
     fireEvent.click(undo);
-    expect(savedDraft()).toMatchObject({ name: { es: "Bocage" }, initialHandSize: { axis: 5 } });
+    // Both taps on the same setting are taken back together
+    expect(savedDraft()).toMatchObject({ name: { es: "Bocage" } });
+    expect(savedDraft().airPower).toBeUndefined();
     fireEvent.click(undo);
     expect(savedDraft().name.es).toBe("");
     expect(undo).toBeDisabled();

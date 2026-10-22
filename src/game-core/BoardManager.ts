@@ -58,7 +58,7 @@ class BoardManager {
       const actualMaxWidth = this.width + (row % 2 === 1 ? -1 : 0);
       for (let col = 0; col < actualMaxWidth; col++) {
         const position: Position = { row, col };
-        const hex = new Hex(position, HexType.PLAINS, this.width);
+        const hex = new Hex(position, HexType.PLAINS);
         this.hexes.set(hex.getKey(), hex);
       }
     }
@@ -69,7 +69,7 @@ class BoardManager {
       positions.forEach((originalPosition) => {
         const position = flipPosition(originalPosition);
         if (this.isValidPosition(position)) {
-          const tile = new Hex(position, tileType, this.width, !!scenario.fordableRivers);
+          const tile = new Hex(position, tileType, !!scenario.fordableRivers);
           this.hexes.set(tile.getKey(), tile);
         }
       });
@@ -106,14 +106,6 @@ class BoardManager {
       const hex = this.getHex(flipPosition(position));
       if (hex?.hasUnit()) hex.setSandbags(true);
     });
-  }
-
-  /**
-   * Pass and play: the sections follow `viewSide`'s left and right, so the same hexes are each
-   * section for both armies. For the other side the sections swap
-   */
-  sectionsSeenFrom(faction: Faction, viewSide: Faction) {
-    this.hexes.forEach((hex) => hex.mirrorSections(faction !== viewSide));
   }
 
   /** The board's size, for turning positions round (`turnedRound`) */

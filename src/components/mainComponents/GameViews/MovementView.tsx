@@ -23,6 +23,7 @@ const TEXT = defineMessages({
     move: "Mueve en la mesa las unidades con flecha.",
     markers: (n: number) =>
       `Pon un marcador de batalla en ${n === 1 ? "la unidad que dispara" : `las ${n} unidades que disparan`}.`,
+    forTable: "En la mesa, además:",
     clearedWire: (n: number) =>
       n === 1
         ? "Tu tanque quita la alambrada en la que entra: quítala de la mesa."
@@ -40,6 +41,7 @@ const TEXT = defineMessages({
     ),
     move: "Move the units with an arrow on the table.",
     markers: (n: number) => `Put a battle marker on ${n === 1 ? "the unit that fires" : `the ${n} units that fire`}.`,
+    forTable: "On the table, also:",
     clearedWire: (n: number) =>
       n === 1
         ? "Your tank removes the barbed wire it enters: take it off the table."
@@ -92,13 +94,26 @@ function MovementView({ faction, session, game }: MovementViewProps) {
         <Typography variant="h6" component="h2" sx={{ textAlign: "center" }}>
           {t.title}
         </Typography>
-        <PlayedCards faction={faction} {...playedCardOf(game)} />
+        <PlayedCards {...playedCardOf(game)} />
         {clearedWire > 0 && (
           // Something to do on the table, so it isn't tucked away in the instructions
           <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1 }} data-testid="cleared-wire">
             <BarbedWireIcon size={32} />
             {t.clearedWire(clearedWire)}
           </Typography>
+        )}
+        {game.tableReminders.length > 0 && (
+          // Actions the app can't carry out on own tablets: the table does
+          <Box data-testid="table-reminders">
+            <Typography variant="subtitle2">{t.forTable}</Typography>
+            <Box component="ul" sx={{ m: 0, pl: 3 }}>
+              {game.tableReminders.map(({ position, action }) => (
+                <Typography key={`${position.row}-${position.col}`} component="li" variant="body2">
+                  <strong>{labels.describePlace(session.board.getHex(position))}</strong> · {tr(action.name)}: {tr(action.description)}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
         )}
         <Button onClick={() => session.startBattle()} startIcon={<GameIcon name="battle" />}>
           {t.battle}

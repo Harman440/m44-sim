@@ -30,7 +30,7 @@ import {
   pickedByHex,
   planBoard,
 } from "./boardPlan.mjs";
-import { BoardSize, STANDARD_BOARD, isStandardBoard, sectionLines } from "../game-core/boardSize";
+import { BoardSize, STANDARD_BOARD, isStandardBoard } from "../game-core/boardSize";
 import type { DrawnHex, HexArt, JoinedHex, RidgeHex, SpillHex } from "./boardPlan.mjs";
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
@@ -272,8 +272,8 @@ const hexPath = (ctx: CanvasRenderingContext2D, { x, y }: { x: number; y: number
 type Grid = ReturnType<typeof artGrid>;
 
 // A bigger board's background is made from the empty standard board: its hexes, picked away from
-// the section lines printed on it (the long rows' hexes on each side of a line, the short rows'
-// hexes it runs through) and from its edges, and its dark green frame
+// its edges and from where its section lines were printed (npm run board paints them over), and its
+// dark green frame
 const CLEAN_HEXES = [
   ...[2, 4, 6].flatMap((row) => [1, 2, 5, 6, 7, 10, 11].map((col) => `${row}-${col}`)),
   ...[1, 3, 5, 7].flatMap((row) => [1, 2, 4, 5, 6, 9, 10].map((col) => `${row}-${col}`)),
@@ -286,7 +286,7 @@ const paintFrame = (ctx: CanvasRenderingContext2D, base: HTMLImageElement, sourc
   ctx.drawImage(base, 3, y - source.radius * 0.4, source.hexWidth * 0.3, source.radius * 0.8, 0, 0, width, height);
 };
 
-/** A bigger board's open ground: each hex one of the empty board's, the frame round them, and its own section lines */
+/** A bigger board's open ground: each hex one of the empty board's, and the frame round them */
 function paintBigBase(ctx: CanvasRenderingContext2D, base: HTMLImageElement, grid: Grid, size: BoardSize, scale: number) {
   const source = artGrid(base.naturalHeight);
   paintFrame(ctx, base, source, grid.width, grid.height);
@@ -303,23 +303,6 @@ function paintBigBase(ctx: CanvasRenderingContext2D, base: HTMLImageElement, gri
     ctx.drawImage(base, from.x - w / 2, from.y - h / 2, w, h, to.x - (w * k) / 2, to.y - (h * k) / 2, w * k, h * k);
     ctx.restore();
   }
-}
-
-/** The section lines, dashed red as on the printed board, where a bigger board's thirds meet */
-function paintSectionLines(ctx: CanvasRenderingContext2D, grid: Grid, cols: number, scale: number) {
-  const lines = sectionLines(cols);
-  ctx.save();
-  ctx.strokeStyle = "rgba(196, 66, 38, 0.85)";
-  ctx.lineWidth = 3 * scale;
-  ctx.setLineDash([9 * scale, 6 * scale]);
-  for (const at of [lines.left, lines.right]) {
-    const x = grid.hexWidth / 2 + at * grid.hexWidth;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, grid.height);
-    ctx.stroke();
-  }
-  ctx.restore();
 }
 
 /**
@@ -442,7 +425,6 @@ export async function paintBoard(
   ctx.clip("evenodd");
   ctx.drawImage(frame, 0, 0, grid.width, grid.height);
   ctx.restore();
-  if (!standard) paintSectionLines(ctx, grid, size.cols, scale);
 }
 
 /**

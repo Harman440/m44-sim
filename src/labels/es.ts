@@ -2,7 +2,7 @@
 // Spanish UI text for game enums
 import { UnitType } from "../game-core/unit";
 import { DieFace, DieKind, countFaces } from "../game-core/dice";
-import { HexType, Side } from "../types/hex";
+import { HexType } from "../types/hex";
 import { appliedFaces } from "../game-core/rollResult";
 import type { Labels } from ".";
 import { EQUIPMENT, Equipment, SUPPLIES, Supply } from "../data/unitSupplies";
@@ -27,13 +27,7 @@ const TERRAIN: Labels["terrain"] = {
   [HexType.OCEAN]: "océano",
 };
 
-const SECTIONS: Labels["sections"] = {
-  [Side.LEFT]: "flanco izquierdo",
-  [Side.LEFT_CENTER]: "entre izquierda y centro",
-  [Side.CENTER]: "centro",
-  [Side.RIGHT_CENTER]: "entre centro y derecha",
-  [Side.RIGHT]: "flanco derecho",
-};
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const DIE_FACES: Labels["dieFaces"] = {
   [DieFace.INFANTRY]: "Infantería",
@@ -105,27 +99,9 @@ const es: Labels = {
   factions: { Allies: "Aliados", Axis: "Eje" },
   units: UNITS,
   terrain: TERRAIN,
-  sections: SECTIONS,
-  sectionsShort: {
-    [Side.LEFT]: "Izquierda",
-    [Side.LEFT_CENTER]: "Izq.–centro",
-    [Side.CENTER]: "Centro",
-    [Side.RIGHT_CENTER]: "Centro–dcha.",
-    [Side.RIGHT]: "Derecha",
-  },
   dieFaces: DIE_FACES,
-  deckReasons: {
-    shared: "Para todos",
-    attacker: "Ataca",
-    defender: "Defiende",
-    tanks: "Blindados",
-    artillery: "Artillería",
-    towns: "Combate urbano",
-    bigGuns: "Artillería pesada",
-    air: "Aviación",
-  },
   target,
-  describePlace: (hex) => (hex ? `${TERRAIN[hex.getType()]}, ${SECTIONS[hex.getSide()]}` : "fuera del mapa"),
+  describePlace: (hex) => (hex ? capitalize(TERRAIN[hex.getType()]) : "fuera del mapa"),
   unit,
   unitKind,
   describeHex: (hex) => {
@@ -153,6 +129,7 @@ const es: Labels = {
     equipment: "Sin equipo",
     unitType: "No es de esta unidad",
     ownTablets: "No en tablets propias",
+    nothingToMend: "Nada que reparar",
   },
   describeFaces,
   describeAppliedFaces: (faces, kept) =>

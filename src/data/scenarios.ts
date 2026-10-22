@@ -31,7 +31,6 @@ const builtIns: Scenario[] = [
         'All French infantry is elite: it carries more morale, energy and equipment; so are the German units with a badge.',
     },
     image: foretDEcouvesImage,
-    initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
     // Heavy guns and aircraft for both sides (the player's ruling)
     airPower: { allies: 1, axis: 1 },
@@ -81,7 +80,6 @@ const builtIns: Scenario[] = [
         "held by the tanks of the US 4th Armored Division.",
     },
     image: arracourtImage,
-    initialHandSize: { allies: 6, axis: 4 },
     attacker: 'Axis',
     // Air rules: one air sortie to the Axis; the other is shuffled into the deck, which gives
     // the Allies none
@@ -119,7 +117,6 @@ const builtIns: Scenario[] = [
       en: 'American paratroopers drop at night around the town, among hedgerows and woods.',
     },
     image: sainteMereEgliseImage,
-    initialHandSize: { allies: 6, axis: 5 },
     attacker: 'Allies',
     // The scenario says nothing about air superiority, so both sides keep their air cards; heavy
     // guns only for the Axis (the player's ruling)
@@ -164,8 +161,6 @@ const builtIns: Scenario[] = [
       en: 'British gliders land by the bridges over the Caen canal and the Orne: they must be taken.',
     },
     image: pegasusBridgeImage,
-    initialHandSize: { allies: 6, axis: 2 },
-    extraDraws: { faction: 'Axis', turns: 2 },
     attacker: 'Allies',
     // A night glider raid on two bridges: no heavy guns (the player's ruling) or aircraft on either side
     bigGuns: [],

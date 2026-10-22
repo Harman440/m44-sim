@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
 import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
-import type { AttackMark, CardAttack } from "../game-core/gameSession";
+import type { AttackMark, CardAttack, UnitChange } from "../game-core/gameSession";
 import { samePosition } from "../game-core/position";
 import { appliedFaces, readRoll } from "../game-core/rollResult";
 import { Position } from "../types/scenario";
@@ -11,8 +11,8 @@ import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
 import OrderToken from "./OrderToken";
 import GameIcon from "./GameIcon";
 import HexThumbnail from "./HexThumbnail";
-import SectionIcon from "./SectionIcon";
 import Stamp from "./Stamp";
+import UnitChangeChips from "./UnitChangeChips";
 
 const TEXT = defineMessages({
   es: {
@@ -124,6 +124,8 @@ interface FireOrderListProps {
   onSkipUnmoved?: () => void;
   /** Shown when no unit has an order */
   emptyText: string;
+  /** What this side's units lost or gained this turn, shown in their rows */
+  changes?: readonly UnitChange[];
 }
 
 type Tone = "go" | "card" | "plain" | "dim";
@@ -227,8 +229,8 @@ const StatusText = ({ children, color = "text.secondary" }: { children: ReactNod
 /**
  * The battle in the order it's fought: collisions, an attack combat card, a
  * unit that fires first (Tras las líneas enemigas), the units that didn't
- * move, then the units that moved. Each unit shows its hex
- * and section; tapping it opens the fire dialog.
+ * move, then the units that moved. Each unit shows its hex; tapping it opens
+ * the fire dialog.
  */
 function FireOrderList({
   summaries,
@@ -240,6 +242,7 @@ function FireOrderList({
   onFire,
   onSkipUnmoved,
   emptyText,
+  changes = [],
 }: FireOrderListProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
@@ -253,7 +256,7 @@ function FireOrderList({
   const where = (position: Position) => {
     const hex = board.getHex(position);
     if (!hex) return null;
-    // Icons only: the hex's own art and the lit section say it without words
+    // An icon only: the hex's own art says it without words
     return (
       <>
         <HexThumbnail
@@ -264,7 +267,6 @@ function FireOrderList({
           size={34}
           label={capitalize(labels.terrain[hex.getType()])}
         />
-        <SectionIcon side={hex.getSide()} label={labels.sectionsShort[hex.getSide()]} />
       </>
     );
   };
@@ -346,8 +348,13 @@ function FireOrderList({
             )}
           </>
         }
-        // Where it is now: after taking ground, the hex it took
-        detail={where(summary.firingFrom)}
+        // Where it is now (after taking ground, the hex it took), and what the turn cost it
+        detail={
+          <>
+            {where(summary.firingFrom)}
+            <UnitChangeChips change={changes.find((change) => samePosition(change.position, summary.firingFrom))} />
+          </>
+        }
         result={
           hasShots &&
           (onlyWire

@@ -152,52 +152,57 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Brought forward from R8 so the computer's games still end: Reload's ammo or shells come back when the orders are confirmed, and the computer reloads a unit with nothing left to fire (R15 teaches it the rest). `SAVE_VERSION` 40
 
 ### R8: Morale, and the other actions and cards
-- [ ] Pass and play and computer: each flag on infantry is −1 morale (down to 0), on top of the pinned and retreat rule. Own tablets: flags as today, no morale
-- [ ] The action effects, on the plumbing kept in R4:
+- [x] Pass and play and computer: each flag on infantry is −1 morale (down to 0), on top of the pinned and retreat rule. Own tablets: flags as today, no morale
+- [x] The action effects, on the plumbing kept in R4 (as the orders are confirmed, unless said otherwise):
   - Morale Up: morale back to full
-  - Medic: +1 figure, using the kit, when the unit has lost one
-  - Mechanic: clears a hit figure's damage
-  - Camouflage: the badge
-  - Fortify: sandbags now, for infantry and artillery
-  - Take Cover: the infantry hits ignored
-  - Reposition: moves after the battle
+  - Medic: +1 figure, using the kit, when the unit has lost one (pass and play refuses it with none lost: `nothingToMend`)
+  - Mechanic: clears a hit figure's damage (refused with no figure hit)
+  - Camouflage: the badge, after the battle
+  - Fortify: sandbags now, for infantry and artillery (a battle edit, so the log shows it)
+  - Take Cover: the first 2 infantry-symbol hits ignored in the battle (`TAKE_COVER_HITS`, `coverHits` in the save)
+  - ~~Reposition: moves after the battle~~ It stays a move before the battle (decided 2026-10-22)
   - Behind Enemy Lines: the 3-hex move after the battle
   - ~~Reload~~ (done in R7)
 
-  On own tablets, Medic and Mechanic are a reminder for the table
-- [ ] Resupply and Refuel take effect as the orders are revealed
-- [ ] Elite tanks: a figure goes on its 3rd hit (`data/figures.ts` by unit, not only by type)
-- [ ] New units: Reinforcements arrive with energy 0 and everything else full; an artillery crew left as infantry has everything full
-- [ ] Rule book and tests for each one
+  On own tablets, Medic, Mechanic, Take Cover and Behind Enemy Lines' move are reminders for the table on the movement screen (`tableReminders`)
+- [x] Resupply and Refuel take effect as the orders are revealed
+- [x] Elite tanks: a figure goes on its 3rd hit (`data/figures.ts`: `ELITE_HITS_PER_FIGURE`)
+- [x] New units: Reinforcements arrive with energy 0 and everything else full; an artillery crew left as infantry has everything full
+- [x] Rule book and tests for each one. `SAVE_VERSION` 41
 
 ### R9: The luck meter
-- [ ] `game-core/luck.ts`: each unit's luck from −3 to +3, starting at 0. Each point moves a die's chance of a hit face by 5%: a miss turns into a hit face of the right kind, or a hit into a miss, so the faces stay the die's own. After each die the meter moves on the streak: −(1 − p) for a hit, +p for a miss. The unit's luck is in the save. On own tablets, only the tablet's own rolls count
-- [ ] A hit is a face that hits the target (its symbol or a grenade, as `hitRules.ts` says for that target), and everything else is a miss. Luck also applies to suppressive dice and collisions, but not to the cards' attacks
-- [ ] Tests with a fixed random source: the chance at each level, the meter's steps and limits, and a unit firing at tanks for many turns staying near 0
+- [x] `game-core/luck.ts`: each unit's luck from −3 to +3, starting at 0. Each point moves a die's chance of a hit face by 5%: a miss turns into a hit face of the right kind, or a hit into a miss, so the faces stay the die's own. After each die the meter moves on the streak: −(1 − p) for a hit, +p for a miss. The unit's luck is in the save. On own tablets, only the tablet's own rolls count
+- [x] A hit is a face that hits the target (its symbol or a grenade, as `hitRules.ts` says for that target), and everything else is a miss. Luck also applies to suppressive dice and collisions, but not to the cards' attacks
+- [x] Tests with a fixed random source: the chance at each level, the meter's steps and limits, and a unit firing at tanks for many turns staying near 0
+- [x] Luck uses each die's own draw (where the draw falls within its side decides whether it's turned), so the dice need no extra draws and the tests' fixed dice stay as they were. `luckAt(position)` for the screens of R11; a shot taken back puts the luck back. `SAVE_VERSION` 42
 
 ### R10: Sections and the last of the cards
-- [ ] Sections: the hexes' sides (`hex.ts`), the dashed lines on the board art, `sectionsSeenFrom`, `OrderSummary.section`, `SectionIcon`, the section in place names (`describePlace`)
-- [ ] The scenario's card fields: `initialHandSize` and `extraDraws` stop being required (old files still read), and go from the editor, the menu's scenario panel and the built-ins
-- [ ] `commandCard.ts`, `data/commandCards.ts`, `combatCard.ts` and `data/combatCards.ts` go, with whatever still pointed at them. The rule book's last card text goes too. `house-rules.md` gets a note that its card rules are history, and the card items in `PLAN.md`, `PASS_AND_PLAY_NEXT.md` and `PLAY_THE_COMPUTER.md` are struck through
+- [x] Sections: the hexes' sides (`hex.ts`), the dashed lines on the board art, `sectionsSeenFrom`, `OrderSummary.section`, `SectionIcon`, the section in place names (`describePlace`)
+- [x] The scenario's card fields: `initialHandSize` and `extraDraws` stop being required (old files still read), and go from the editor, the menu's scenario panel and the built-ins
+- [x] `commandCard.ts`, `data/commandCards.ts`, `combatCard.ts` and `data/combatCards.ts` go, with whatever still pointed at them. The rule book's last card text goes too. `house-rules.md` gets a note that its card rules are history, and the card items in `PLAN.md`, `PASS_AND_PLAY_NEXT.md` and `PLAY_THE_COMPUTER.md` are struck through
+- [x] How it went: the dashed lines are painted over in `compose-board.mjs` (`eraseSectionLines`: the strip one hex to the left, feathered), so the empty board and the four built-ins' art were rebuilt; a bigger board drawn in the app has no lines either. A place is now just its terrain (`describePlace`). `MarkerRule` and `AttackEffect` moved to `actionCard.ts`, and the paintings' list to `components/cardPaintings.ts`; `CardArt`, `CommandCardComponent`, `CombatCardComponent` and `SectionIcon` went. Old scenario files with `initialHandSize` or `extraDraws` still load (the schema marks them as no longer used). The map editor lost its hand sizes, extra draws and Rattenkrieg note. ARCHITECTURE.md and CLAUDE.md's code map still name the old card modules: R16
 
 ## Part 3: The screens
 
 ### R11: The units to order
-- [ ] The list of the side's units on the **right** of the map. Each row shows the unit's icon and hex, its supplies as small meters (morale, energy, ammo and equipment icons, or fuel and shells), its luck, and the action it has, or "Descansa". Rows are at least 48px
-- [ ] Tapping a row selects the unit and zooms the map a little onto it (`boardZoom.ts`). Tapping the unit on the map still works and highlights its row
-- [ ] Portrait: the list goes below the map, and the page never scrolls sideways
+- [x] The list of the side's units on the **right** of the map. Each row shows the unit's icon and hex, its supplies as small meters (morale, energy, ammo and equipment icons, or fuel and shells), its luck, and the action it has, or "Descansa". Rows are at least 48px
+- [x] Tapping a row selects the unit and zooms the map a little onto it (`boardZoom.ts`). Tapping the unit on the map still works and highlights its row
+- [x] Portrait: the list goes below the map, and the page never scrolls sideways
+- [x] How it went: `GameViews/UnitList.tsx`, in the orders screen's column (288px wide there, `phase-layout--wide-controls`), under the confirm button. Rows go left to right across the board. Supplies, equipment and luck are icons with their number (red at 0); the icons are from game-icons.net (credited in the README). Tapping a row picks the unit (or only zooms, for one whose order moved it) and zooms the map to at least 1.6× on it (`Board`'s `zoomOn`, `useBoardZoom().focusOn`); a unit picked on the map scrolls its row into sight. Luck shows rounded, with its sign
 
 ### R12: The action pop-up and the action's card
-- [ ] Selecting a unit opens its actions as a pop-up **over the map, to the right of the unit** (MUI `Popper` anchored to the unit's hex; it flips to the left near the map's right edge). One it can't pay for is greyed, with the reason ("Sin energía", "Moral 0")
-- [ ] Picking one shows its card **on the right, over the unit list**: the painting, the name, the description and the cost. Then the map offers the action's moves. Once the order is given or cancelled, the list comes back
-- [ ] Art: the paintings from R2. For the missing ones, the Explosives + Street Equipment mix is put together by a script (`src/assets/cards/explosives-mix.webp`, half and half). The rest borrow paintings until the player has new ones: armour Firefight → firefight, armour Assault → infantry-assault, Reload → preparations, Normal fire → firefight, Suppressive Fire → heat-of-battle
-- [ ] Tests: the pop-up offers only the unit's actions, a greyed one can't be picked, and both languages
+- [x] Selecting a unit opens its actions as a pop-up **over the map, to the right of the unit** (MUI `Popper` anchored to the unit's hex; it flips to the left near the map's right edge). One it can't pay for is greyed, with the reason ("Sin energía", "Moral 0")
+- [x] Picking one shows its card **on the right, over the unit list**: the painting, the name, the description and the cost. Then the map offers the action's moves. Once the order is given or cancelled, the list comes back
+- [x] Art: the paintings from R2. For the missing ones, the Explosives + Street Equipment mix is put together by a script (`src/assets/cards/explosives-mix.webp`, half and half). The rest borrow paintings until the player has new ones: armour Firefight → firefight, armour Assault → infantry-assault, Reload → preparations, Normal fire → firefight, Suppressive Fire → heat-of-battle
+- [x] Tests: the pop-up offers only the unit's actions, a greyed one can't be picked, and both languages
+- [x] How it went: `GameViews/ActionPopup.tsx` (MUI `Popper` on the unit's hex, found again each time it's placed; it follows the map's zooms and pans through `Board`'s `onViewChange`, stays inside the drawn map and scrolls when the list is taller) and `GameViews/ActionPanel.tsx` (the card, with the map's legend and the buttons under it). The unit's supplies are only in its row now. The Explosives painting is `npm run mix-paintings -- explosives street-equipment explosives-mix`: the two side by side, each trimmed to its drawing (cutting them in half split both figures). In portrait, picking a unit on the map no longer scrolls the page to its row
 
 ### R13: The battle and the final phase
-- [ ] Show the changes on the unit: morale lost, ammo spent, luck moved (a small number on the unit and in its row). The final phase lists the energy recovered and the cards coming back off cooldown
-- [ ] The history (`turnLog.ts`) records each unit's action and the card played
-- [ ] The enemy's supplies and luck are never shown, on any screen, and the shared battle screen shows only the side firing. Test
-- [ ] Every screen checked at 1280×800, 800×1280 and on desktop, in Spanish and English
+- [x] Show the changes on the unit: morale lost, ammo spent, luck moved (a small number on the unit and in its row). The final phase lists the energy recovered and the cards coming back off cooldown
+- [x] The history (`turnLog.ts`) records each unit's action and the card played
+- [x] The enemy's supplies and luck are never shown, on any screen, and the shared battle screen shows only the side firing. Test
+- [x] Every screen checked at 1280×800, 800×1280 and on desktop, in Spanish and English
+- [x] How it went: `GameSession` keeps each unit's supplies and luck as the orders are confirmed (`turnStart`, in the save) and `snapshot.changes` gives each of this side's units' morale, ammo and shells, and luck moved since then; a pill under the token on the battle and final maps (`UnitComponent`'s `change`) and chips in the battle list's rows (`UnitChangeChips`) and pass and play's firing unit. `snapshot.turnEnd` gives the final phase's energy back and the cards off cooldown next turn ("Al empezar el turno N"). The turn log keeps each order's `action` and each shot's fire `option`, and the history names them. The shared battle draws the changes of the side whose map is shown, never the computer's; `EnemyUnit` carries no supplies or luck (test). `SAVE_VERSION` 43. Checked at 1280×800 and 800×1280 (Spanish and English) and 1440×900
 
 ### R14: The map editor
 - [ ] In the scenario's settings, for each side, the cost of each card it has (from the card's own down to 0), stored in `Scenario.cardCosts`. The air sorties and big guns there already decide which cards a side has. Shown in the menu's scenario panel. Test

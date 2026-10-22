@@ -1,25 +1,13 @@
-import { AxialCoord, HexType, MovementRule, Side } from "../types/hex";
+import { AxialCoord, HexType, MovementRule } from "../types/hex";
 import { Position } from "../types/scenario";
 import { FORDABLE_RIVER, TERRAIN, TerrainRules } from "../data/terrain";
 import { positionKey } from "./position";
-import { STANDARD_BOARD, sectionLines } from "./boardSize";
 import Unit from "./unit";
-
-const MIRRORED_SIDE: Record<Side, Side> = {
-  [Side.LEFT]: Side.RIGHT,
-  [Side.LEFT_CENTER]: Side.RIGHT_CENTER,
-  [Side.CENTER]: Side.CENTER,
-  [Side.RIGHT_CENTER]: Side.LEFT_CENTER,
-  [Side.RIGHT]: Side.LEFT,
-};
 
 class Hex {
   private readonly position: Position;
   private readonly posAxial: AxialCoord;
-  private side: Side;
   private readonly type: HexType;
-  /** The board's width, which decides where its sections meet */
-  private readonly boardCols: number;
 
   private _unit: Unit | null = null;
   /** Barbed wire on the hex: removable, so it isn't part of the terrain */
@@ -29,43 +17,19 @@ class Hex {
   /** The map's rivers can be forded (`Scenario.fordableRivers`) */
   private readonly fordable: boolean;
 
-  constructor(position: Position, type: HexType = HexType.PLAINS, boardCols: number = STANDARD_BOARD.cols, fordable = false) {
+  constructor(position: Position, type: HexType = HexType.PLAINS, fordable = false) {
     this.position = position;
     this.type = type;
-    this.boardCols = boardCols;
     this.fordable = fordable;
 
     // Convert position to axial
     this.posAxial = this.offsetToAxial(this.position);
 
-    //get the side of the hex
-    this.side = this._setSide(this.position);
-  }
-
-  /**
-   * Pass and play: the sections as the other end of the table sees them, so a card's left is the
-   * same hexes for both sides (the grid's sections are symmetric, so left and right just swap)
-   */
-  mirrorSections(mirrored: boolean) {
-    const side = this._setSide(this.position);
-    this.side = mirrored ? MIRRORED_SIDE[side] : side;
-  }
-
-  private _setSide(pos: Position): Side {
-    // Across the board in hexes: short rows sit half a hex right
-    const x = pos.col + (pos.row % 2) / 2;
-    const lines = sectionLines(this.boardCols);
-    if (x < lines.left) return Side.LEFT;
-    if (x === lines.left) return Side.LEFT_CENTER;
-    if (x < lines.right) return Side.CENTER;
-    if (x === lines.right) return Side.RIGHT_CENTER;
-    return Side.RIGHT;
   }
 
   // Getters for readonly properties
   getPosition(): Position { return this.position; }
   getPosAxial(): AxialCoord { return this.posAxial; }
-  getSide(): Side { return this.side; }
   getType(): HexType { return this.type; }
   /** What the terrain does to units moving and firing (data/terrain.ts) */
   getTerrain(): TerrainRules {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { FOCUS_ZOOM } from "./boardZoom";
 import Board from "./Board";
 import { ViewSideContext } from "./OpponentContext";
 import BoardManager from "../game-core/BoardManager";
@@ -12,7 +13,6 @@ const scenario: Scenario = {
   id: "sandbags",
   name: same("Sandbags"),
   description: same(""),
-  initialHandSize: { allies: 2, axis: 2 },
   attacker: "Allies",
   tiles: {},
   units: { allies: { infantry: [{ row: 6, col: 2 }] }, axis: { infantry: [{ row: 2, col: 4 }] } },
@@ -92,5 +92,25 @@ describe("Board fog of war", () => {
     expect(container.querySelector('[data-unit-at="6-2"]')).toBeNull();
     expect(container.querySelector('[data-sandbags-side="Allies"]')).toBeNull();
     expect(container.querySelector('[data-faction="Axis"]')).not.toBeNull();
+  });
+});
+
+describe("Board zooming onto a hex", () => {
+  const viewWidth = (container: HTMLElement) => Number(container.querySelector("svg.board__svg")!.getAttribute("viewBox")!.split(" ")[2]);
+
+  it("zooms in a little on the hex asked for, and again on each new request", () => {
+    const board = new BoardManager(scenario, "Allies");
+    const props = { ...plain, boardManager: board, faction: "Allies" as const, zoomable: true };
+    const { container, rerender } = render(<Board {...props} />);
+    const full = viewWidth(container);
+
+    rerender(<Board {...props} zoomOn={{ position: { row: 7, col: 1 }, request: 1 }} />);
+    expect(viewWidth(container)).toBeCloseTo(full / FOCUS_ZOOM);
+
+    // Zoomed back out with the button, the same hex asked for again zooms in again
+    fireEvent.click(screen.getByRole("button", { name: "Ver el mapa entero" }));
+    expect(viewWidth(container)).toBeCloseTo(full);
+    rerender(<Board {...props} zoomOn={{ position: { row: 7, col: 1 }, request: 2 }} />);
+    expect(viewWidth(container)).toBeCloseTo(full / FOCUS_ZOOM);
   });
 });

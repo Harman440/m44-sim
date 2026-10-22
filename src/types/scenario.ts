@@ -43,8 +43,6 @@ export interface Scenario {
    * Omitted for the standard board. Positions are counted from its top left as on any board
    */
   board?: BoardSize;
-  /** Command cards each side starts with */
-  initialHandSize: { allies: number; axis: number };
   /** The side that fires first in the battle; the defender's units start a shot short (`startingSupplies`) */
   attacker: Faction;
   tiles: Tiles;
@@ -65,12 +63,10 @@ export interface Scenario {
    */
   sandbags?: Position[];
   /**
-   * Hexes of the units that start as elite (either side's; a badge on the table): they move
-   * their whole move and still fire (elite infantry moves 2 and fires)
+   * Hexes of the units that start as elite (either side's; a badge on the table): they carry
+   * more supplies (data/unitSupplies.ts), and an elite tank's figures take more hits
    */
   elite?: Position[];
-  /** One side draws 2 command cards instead of 1 after each of its first `turns` turns (Pegasus Bridge: the Germans were surprised) */
-  extraDraws?: { faction: Faction; turns: number };
   /**
    * Sides that get Cortina de Fuego. Omitted (both sides) unless the scenario, or the player's
    * own ruling, says a side has no heavy guns

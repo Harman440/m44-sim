@@ -17,7 +17,7 @@ import {
   savedMatchScenarioId,
   settleMapIds,
 } from "./storage";
-import { newDraft, paintTerrain, placeUnit, setAttacker, setHandSize, setText } from "./game-core/scenarioDraft";
+import { newDraft, paintTerrain, placeUnit, setAttacker, setText } from "./game-core/scenarioDraft";
 import { validateScenario } from "./game-core/scenarioFile";
 import { UnitType } from "./game-core/unit";
 import { HexType } from "./types/hex";
@@ -35,7 +35,6 @@ const scenario: Scenario = {
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 2, axis: 2 },
   attacker: "Axis",
   tiles: {},
   units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis: {} },
@@ -163,7 +162,6 @@ describe("Mis mapas", () => {
       (d: Scenario) => placeUnit(d, { row: 2, col: 8 }, "Axis", UnitType.ARTILLERY),
       (d: Scenario) => setText(d, "name", "es", "Bocage normando"),
       (d: Scenario) => setAttacker(d, "Axis"),
-      (d: Scenario) => setHandSize(d, "Allies", 4),
     ].reduce((draft, step) => {
       const next = step(draft);
       if (!next) throw new Error("edit not allowed");

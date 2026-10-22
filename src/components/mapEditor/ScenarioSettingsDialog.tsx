@@ -26,13 +26,10 @@ import { UnitType } from "../../game-core/unit";
 import { ScenarioProblem } from "../../game-core/scenarioFile";
 import {
   SETTING_LIMITS,
-  defaultExtraDraws,
   defaultParadrop,
   setAirSorties,
   setAttacker,
   setBigGuns,
-  setExtraDraws,
-  setHandSize,
   setParadrop,
   setFordableRivers,
   removeObjective,
@@ -67,9 +64,6 @@ const TEXT = defineMessages({
     roleInfo:
       "Los dos bandos juegan desde el turno 1. El que ataca dispara primero en la batalla; cada unidad del que defiende empieza con 1 munición menos (infantería) o 1 proyectil menos (tanques y artillería). " +
       "Toca «Defiende» para que ataque ese bando.",
-    handSize: "Cartas de mando",
-    handSizeInfo:
-      "Las cartas de mando que tiene en la mano al empezar. Cada turno juega una y en la fase final roba otra. En los escenarios del juego, entre 2 y 6.",
     air: "Salidas aéreas",
     airInfo:
       "Cuántas copias de Poder aéreo y de Bombardeo aéreo hay en su mazo de combate: una de cada por cada salida aérea que el escenario da al bando. " +
@@ -80,9 +74,6 @@ const TEXT = defineMessages({
     yes: "Sí",
     no: "No",
     specialRules: "Reglas especiales",
-    extraDraws: "Robo extra de cartas",
-    extraDrawsInfo:
-      "Un bando roba 2 cartas de mando en vez de 1 en la fase final de sus primeros turnos. En Pegasus Bridge, el Eje, cogido por sorpresa, empieza con 2 cartas y roba 2 en sus 2 primeros turnos.",
     turns: "Primeros turnos",
     paradrop: "Lanzamiento de paracaidistas",
     paradropInfo:
@@ -129,9 +120,6 @@ const TEXT = defineMessages({
     roleInfo:
       "Both sides play from turn 1. The side that attacks fires first in the battle; each unit of the side that defends starts with 1 ammo less (infantry) or 1 shell less (tanks and artillery). " +
       'Tap "Defends" to make that side attack.',
-    handSize: "Command cards",
-    handSizeInfo:
-      "The command cards in its hand at the start. Each turn it plays one and draws another in the final phase. In the game's scenarios, between 2 and 6.",
     air: "Air sorties",
     airInfo:
       "How many copies of Air Power and Air Bombardment its combat deck has: one of each for each air sortie the scenario gives the side. " +
@@ -142,9 +130,6 @@ const TEXT = defineMessages({
     yes: "Yes",
     no: "No",
     specialRules: "Special rules",
-    extraDraws: "Extra card draws",
-    extraDrawsInfo:
-      "One side draws 2 command cards instead of 1 in the final phase of its first turns. In Pegasus Bridge, the Axis, taken by surprise, start with 2 cards and draw 2 in their first 2 turns.",
     turns: "First turns",
     paradrop: "Paratrooper drop",
     paradropInfo:
@@ -279,18 +264,6 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
       },
     },
     {
-      label: t.handSize,
-      info: t.handSizeInfo,
-      cell: (faction) => (
-        <NumberStepper
-          value={draft.initialHandSize[sideKey(faction)]}
-          {...SETTING_LIMITS.handSize}
-          label={t.ofSide(t.handSize, labels.factions[faction])}
-          onChange={(cards) => change(setHandSize(draft, faction, cards), `handSize.${faction}`)}
-        />
-      ),
-    },
-    {
       label: t.air,
       info: t.airInfo,
       cell: (faction) => (
@@ -353,7 +326,6 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
     </Stack>
   );
 
-  const extraDraws = draft.extraDraws;
   const paradrop = draft.paradrop;
   const victory = draft.victory;
   const objectives = victory?.objectives ?? [];
@@ -431,26 +403,6 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
             <Typography variant="h6" component="h3">
               {t.specialRules}
             </Typography>
-            {ruleSwitch(t.extraDraws, t.extraDrawsInfo, !!extraDraws, () =>
-              change(setExtraDraws(draft, extraDraws ? null : defaultExtraDraws(draft)), "extraDraws"),
-            )}
-            {extraDraws && (
-              <Stack direction="row" sx={{ gap: 2, flexWrap: "wrap", alignItems: "flex-end", pl: { sm: 6 } }}>
-                {labelled(
-                  t.side,
-                  sidePicker(extraDraws.faction, (faction) => change(setExtraDraws(draft, { ...extraDraws, faction }), "extraDraws.faction")),
-                )}
-                {labelled(
-                  t.turns,
-                  <NumberStepper
-                    value={extraDraws.turns}
-                    {...SETTING_LIMITS.extraDrawTurns}
-                    label={`${t.extraDraws}: ${t.turns}`}
-                    onChange={(turns) => change(setExtraDraws(draft, { ...extraDraws, turns }), "extraDraws.turns")}
-                  />,
-                )}
-              </Stack>
-            )}
             {ruleSwitch(t.paradrop, t.paradropInfo, !!paradrop, () =>
               change(setParadrop(draft, paradrop ? null : defaultParadrop(draft)), "paradrop"),
             )}

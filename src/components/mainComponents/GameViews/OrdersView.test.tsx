@@ -8,6 +8,7 @@ import { actionCardById } from "../../../data/actionCards";
 import { Position } from "../../../types/scenario";
 import { TurnPhase } from "../../../types/gameManager";
 import { same } from "../../../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../../../settings";
 
 // Allies: two infantry on the left flank and one on the right
 const LEFT_A: Position = { row: 7, col: 1 };
@@ -20,7 +21,6 @@ const makeSession = () => {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 3, axis: 3 },
       attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
@@ -97,7 +97,7 @@ describe("OrdersView selecting units", () => {
     expect(screen.queryByRole("list", { name: "Acciones" })).not.toBeInTheDocument();
   });
 
-  it("lists the unit's actions with their cost, and its supplies", () => {
+  it("lists the unit's actions with their cost in a pop-up over the map, its supplies in its row", () => {
     const { tap } = setup();
 
     tap(LEFT_A);
@@ -106,7 +106,9 @@ describe("OrdersView selecting units", () => {
     expect(actions.getByRole("button", { name: /^Recargar/ })).toHaveTextContent("gratis");
     // Own tablets don't track morale
     expect(actions.queryByRole("button", { name: /^Subir la moral/ })).not.toBeInTheDocument();
-    expect(screen.getByTestId("unit-supplies")).toHaveTextContent("Moral 5 · Energía 5 · Munición 2");
+    expect(screen.getByTestId("action-popup")).toContainElement(screen.getByRole("list", { name: "Acciones" }));
+    const row = screen.getAllByTestId("unit-row")[0]!;
+    for (const meter of ["Moral: 5", "Energía: 5", "Munición: 2"]) expect(within(row).getByRole("img", { name: meter })).toBeInTheDocument();
   });
 
   it("switches the selection when another orderable unit is tapped", () => {
@@ -178,7 +180,8 @@ describe("OrdersView giving orders", () => {
     pickAction("Escaramuza");
 
     tap(LEFT_A);
-    expect(screen.getByText("Orden: Escaramuza")).toBeInTheDocument();
+    // The action it has is marked in the list
+    expect(screen.getByRole("button", { name: /^Escaramuza/ })).toHaveClass("Mui-selected");
     pickAction("Fortificar");
 
     expect(session.getSnapshot().orders.map((order) => order.action)).toEqual(["infantry:fortify"]);
@@ -247,7 +250,6 @@ describe("OrdersView the card played", () => {
         id: "test",
         name: { es: "Test", en: "Test" },
         description: same(""),
-        initialHandSize: { allies: 1, axis: 1 },
         attacker: "Axis",
         tiles: {},
         units: { allies: { infantry: [LEFT_A, LEFT_B, RIGHT] }, axis: {} },
@@ -340,5 +342,116 @@ describe("OrdersView fixing the map", () => {
     tap(LEFT_A);
     pickAction("Escaramuza");
     expect(screen.queryByRole("button", { name: "Actualizar mapa" })).not.toBeInTheDocument();
+  });
+});
+
+describe("OrdersView unit list", () => {
+  const rows = () => screen.getAllByTestId("unit-row");
+
+  it("lists every unit with its supplies and luck, resting until it gets an action", () => {
+    const { tap } = setup();
+
+    expect(rows()).toHaveLength(3);
+    expect(rows()[0]).toHaveTextContent("Descansa");
+    expect(within(rows()[0]!).getByRole("img", { name: "Munición: 2" })).toBeInTheDocument();
+    expect(within(rows()[0]!).getByRole("img", { name: "Suerte 0" })).toBeInTheDocument();
+
+    tap(LEFT_A);
+    pickAction("Escaramuza");
+    expect(rows()[0]).toHaveTextContent("Escaramuza");
+  });
+
+  it("picks the unit of a row tapped, highlighting the row, as tapping it on the map does", () => {
+    const { tap, isSelected } = setup();
+
+    fireEvent.click(rows()[1]!);
+    expect(isSelected(LEFT_B)).toBe(true);
+    expect(screen.getByRole("list", { name: "Acciones" })).toBeInTheDocument();
+    expect(rows()[1]).toHaveClass("Mui-selected");
+
+    tap(RIGHT);
+    expect(rows()[2]).toHaveClass("Mui-selected");
+    expect(rows()[1]).not.toHaveClass("Mui-selected");
+  });
+
+  it("only shows the unit of a row that can't be ordered any more", () => {
+    const { tap, isSelected } = setup();
+    tap(LEFT_A);
+    pickAction("Asalto de Infantería");
+    tap({ row: 6, col: 1 });
+
+    const moved = rows().find((row) => row.textContent?.includes("Asalto de Infantería"))!;
+    fireEvent.click(moved);
+    expect(isSelected({ row: 6, col: 1 })).toBe(false);
+    expect(screen.queryByRole("list", { name: "Acciones" })).not.toBeInTheDocument();
+  });
+
+  it("speaks English", () => {
+    const session = makeSession();
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={session} />
+      </SettingsContext.Provider>
+    );
+    expect(screen.getByRole("list", { name: "Your units" })).toBeInTheDocument();
+    expect(rows()[0]).toHaveTextContent("Rests");
+    expect(within(rows()[0]!).getByRole("img", { name: "Energy: 5" })).toBeInTheDocument();
+  });
+});
+
+describe("OrdersView action pop-up and card", () => {
+  it("offers only the unit's own actions", () => {
+    const { tap } = setup();
+    tap(LEFT_A);
+    const popup = within(screen.getByTestId("action-popup"));
+    expect(popup.getByRole("button", { name: /^Médico/ })).toBeInTheDocument();
+    expect(popup.queryByRole("button", { name: /^Mecánico/ })).not.toBeInTheDocument();
+    expect(popup.queryByRole("button", { name: /^Reposicionamiento/ })).not.toBeInTheDocument();
+  });
+
+  it("greys an action the unit can't pay for, with the reason, and it can't be picked", () => {
+    const saved = makeSession().save();
+    const unit = saved.units.findIndex((each) => each.position?.row === LEFT_A.row && each.position.col === LEFT_A.col);
+    saved.supplies = [{ unit, amounts: { morale: 5, energy: 0, ammo: 2 }, equipment: { explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 } }];
+    const session = GameSession.restore(JSON.parse(JSON.stringify(saved)), makeSession().scenario);
+    const { container } = render(<Harness session={session} />);
+    fireEvent.click(container.querySelector(`[data-position="${LEFT_A.row}-${LEFT_A.col}"]`)!);
+
+    const motorized = screen.getByRole("button", { name: /^Motorizado/ });
+    expect(motorized).toHaveTextContent("Sin energía");
+    expect(motorized).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(motorized);
+    expect(screen.queryByTestId("action-panel")).not.toBeInTheDocument();
+  });
+
+  it("shows the action picked as a card over the unit list while its moves are on the map, then the list again", () => {
+    const { tap } = setup();
+    tap(LEFT_A);
+    pickAction("Motorizado");
+
+    const panel = screen.getByTestId("action-panel");
+    expect(panel).toHaveTextContent("Motorizado");
+    expect(panel).toHaveTextContent("Se mueve hasta 3 casillas y no dispara.");
+    expect(within(panel).getByTestId("action-cost")).toHaveTextContent("Cuesta: 2 energía");
+    expect(panel.querySelector("img")).toHaveAttribute("src", expect.stringContaining("motorized"));
+    expect(screen.queryByTestId("unit-list")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-popup")).not.toBeInTheDocument();
+
+    tap({ row: 5, col: 1 });
+    expect(screen.queryByTestId("action-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("unit-list")).toBeInTheDocument();
+  });
+
+  it("speaks English", () => {
+    const session = makeSession();
+    const { container } = render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={session} />
+      </SettingsContext.Provider>
+    );
+    fireEvent.click(container.querySelector(`[data-position="${LEFT_A.row}-${LEFT_A.col}"]`)!);
+    expect(within(screen.getByRole("list", { name: "Actions" })).getByRole("button", { name: /^Take Cover/ })).toHaveTextContent("1 energy");
+    fireEvent.click(screen.getByRole("button", { name: /^Move Out/ }));
+    expect(within(screen.getByTestId("action-panel")).getByTestId("action-cost")).toHaveTextContent("Costs: 1 energy");
   });
 });

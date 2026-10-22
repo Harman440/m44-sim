@@ -28,6 +28,8 @@ export interface TurnRecord {
     /** Hexes crossed, start and end included */
     path: Position[];
     canFire: boolean;
+    /** The action the unit was given (data/unitActions.ts) */
+    action: string;
   }[];
   shots: {
     /** Index into this record's orders */
@@ -47,6 +49,8 @@ export interface TurnRecord {
     target: ShotTarget;
     /** Instead of firing, the unit removed the barbed wire on this hex */
     removedWire?: Position;
+    /** How it fired (a fire option's id, data/unitActions.ts); left out in a collision or removing wire */
+    option?: string;
   }[];
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
@@ -102,6 +106,7 @@ export function recordTurn({
       end: { ...order.end },
       path: (order.path ?? [order.start, order.end]).map((p) => ({ ...p })),
       canFire: order.canFire,
+      action: order.action,
     })),
     shots: shots.map((shot) => ({
       order: shot.orderIndex,
@@ -115,6 +120,7 @@ export function recordTurn({
       collision: shot.collision,
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
+      ...(shot.option && { option: shot.option }),
     })),
     // A move after the battle that was skipped moved nothing
     battleEdits: battleEdits.filter((edit) => edit.kind !== "move" || !samePosition(edit.from, edit.to)).map((edit): TurnRecord["battleEdits"][number] => {

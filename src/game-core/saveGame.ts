@@ -19,9 +19,10 @@ import { actionCardById } from "../data/actionCards";
 import { actionById, fireOptionById } from "../data/unitActions";
 import type { SupplyCost, UnitSupplies } from "./unitSupplies";
 import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
+import { LUCK_LIMIT } from "../data/luck";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 40;
+export const SAVE_VERSION = 43;
 
 interface SavedUnit {
   type: UnitType;
@@ -51,6 +52,12 @@ export interface SavedGame {
   retreatsDue: { unit: number; flags: number }[];
   /** Hits each unit took this turn, by unit index; missing in older saves */
   turnHits?: { unit: number; hits: number }[];
+  /** Infantry-symbol hits ignored this turn by Take Cover */
+  coverHits: { unit: number; hits: number }[];
+  /** Each unit's luck meter */
+  luck: { unit: number; luck: number }[];
+  /** Each unit's supplies and luck as the orders were confirmed (what the turn changed); null before */
+  turnStart: { supplies: ({ unit: number } & UnitSupplies)[]; luck: { unit: number; luck: number }[] } | null;
   /** Units with the camouflage badge, by unit index */
   camouflaged: number[];
   /** What each unit that has spent something has left, by unit index; the others are full */
@@ -125,6 +132,9 @@ export interface SessionState {
   retreatsDue: ReadonlyMap<Unit, number>;
   /** Pass and play: hits taken this turn, by unit */
   turnHits: ReadonlyMap<Unit, number>;
+  coverHits: ReadonlyMap<Unit, number>;
+  luck: ReadonlyMap<Unit, number>;
+  turnStart: { supplies: ReadonlyMap<Unit, UnitSupplies>; luck: ReadonlyMap<Unit, number> } | null;
   /** Units with the camouflage badge, kept from turn to turn */
   camouflaged: ReadonlySet<Unit>;
   /** What each unit has left, kept from turn to turn; a unit missing is full */
@@ -180,6 +190,19 @@ function readUnitCounts<K extends "hits" | "flags">(
     })
   );
 }
+
+/** Each unit's luck meter, within its limits */
+function readLuck(entries: unknown, unit: (index: number) => Unit): Map<Unit, number> {
+  if (!Array.isArray(entries)) throw new Error("Unit luck is not a list");
+  return new Map(
+    entries.map((entry: { unit: number; luck: number }) => {
+      if (!isLuck(entry?.luck)) throw new Error("Unknown unit luck");
+      return [unit(entry.unit), entry.luck] as const;
+    })
+  );
+}
+
+const isLuck = (luck: unknown): luck is number => typeof luck === "number" && Math.abs(luck) <= LUCK_LIMIT;
 
 const isCounts = (counts: unknown, keys: readonly string[]) =>
   typeof counts === "object" &&
@@ -308,6 +331,16 @@ export function writeSave(
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     retreatsDue: [...state.retreatsDue].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    coverHits: [...state.coverHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    luck: [...state.luck].map(([unit, luck]) => ({ unit: unitIndex(unit), luck })),
+    turnStart: state.turnStart && {
+      supplies: [...state.turnStart.supplies].map(([unit, supplies]) => ({
+        unit: unitIndex(unit),
+        amounts: { ...supplies.amounts },
+        equipment: { ...supplies.equipment },
+      })),
+      luck: [...state.turnStart.luck].map(([unit, luck]) => ({ unit: unitIndex(unit), luck })),
+    },
     camouflaged: [...state.camouflaged].map(unitIndex),
     supplies: [...state.supplies].map(([unit, supplies]) => ({
       unit: unitIndex(unit),
@@ -399,6 +432,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     if (shot.placed !== undefined && !Number.isInteger(shot.placed)) throw new Error("Unknown dice placed");
     if (shot.pushedBack !== undefined && typeof shot.pushedBack !== "boolean") throw new Error("Unknown push back");
     if (shot.option !== undefined && !fireOptionById(shot.option)) throw new Error("Unknown fire option");
+    if (shot.luckBefore !== undefined && !isLuck(shot.luckBefore)) throw new Error("Unknown luck");
     if (!isSpent(shot.spent)) throw new Error("Unknown supplies spent");
     return shot;
   });
@@ -448,6 +482,9 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
     retreatsDue: readUnitCounts(saved.retreatsDue, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
+    coverHits: readUnitCounts(saved.coverHits, "hits", unit),
+    luck: readLuck(saved.luck, unit),
+    turnStart: saved.turnStart === null ? null : { supplies: readSupplies(saved.turnStart?.supplies, unit), luck: readLuck(saved.turnStart?.luck, unit) },
     camouflaged: readUnits(saved.camouflaged, "Camouflaged units", unit),
     supplies: readSupplies(saved.supplies, unit),
     drops: readPositions(saved.drops, "Paradrops"),

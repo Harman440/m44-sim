@@ -4,7 +4,6 @@ import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { isOrdered, orderablePositions } from "./orderRules";
 import { positionKey as key } from "./position";
-import { Side } from "../types/hex";
 import { Position, Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
 
@@ -12,14 +11,12 @@ const makeScenario = (units: Scenario["units"]["allies"]): Scenario => ({
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: {},
   units: { allies: units, axis: {} },
 });
 
-// One unit per section: (7,1) left, (7,3) left-center, (8,4) center tank,
-// (8,6) center, (7,8) right-center, (8,11) right
+// Units across the board: (7,1), (7,3), (8,4) a tank, (8,6), (7,8) and (8,11)
 const scenario = makeScenario({
   infantry: [
     { row: 7, col: 1 }, { row: 7, col: 3 }, { row: 8, col: 6 },
@@ -36,21 +33,8 @@ const orderable = (board: BoardManager, orders: Order[] = []) => orderablePositi
 const holdAt = (board: BoardManager, position: Position) =>
   new Order({ unit: board.getHex(position)!.unit!, action: "infantry:firefight", start: position, end: position, shots: 1 });
 
-describe("sections", () => {
-  it("uses the sections the test scenario expects", () => {
-    const board = new BoardManager(scenario);
-    const sideOf = (row: number, col: number) => board.getHex({ row, col })!.getSide();
-
-    expect(sideOf(7, 1)).toBe(Side.LEFT);
-    expect(sideOf(7, 3)).toBe(Side.LEFT_CENTER);
-    expect(sideOf(8, 4)).toBe(Side.CENTER);
-    expect(sideOf(7, 8)).toBe(Side.RIGHT_CENTER);
-    expect(sideOf(8, 11)).toBe(Side.RIGHT);
-  });
-});
-
 describe("which units can be ordered", () => {
-  it("is every unit on the board, in any section", () => {
+  it("is every unit on the board", () => {
     expect(orderable(new BoardManager(scenario))).toEqual(["7-1", "7-3", "7-8", "8-11", "8-4", "8-6"]);
   });
 

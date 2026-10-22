@@ -27,7 +27,6 @@ const scenario: Scenario = {
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 3, axis: 3 },
   attacker: "Allies",
   tiles: { forest: [{ row: 4, col: 7 }] },
   units: {
@@ -678,7 +677,8 @@ describe("GameSession firing", () => {
 
 describe("GameSession long-range die", () => {
   // The infantry at (7,1) and (7,3) hold and fire (orders 0 and 1)
-  const battle = (longRangeDie: boolean, random = () => 0.99) => {
+  // Low in the last side (a flag, or the 8-sided die's supply), where luck never turns a die
+  const battle = (longRangeDie: boolean, random = () => 0.9) => {
     const session = makeSession({ longRangeDie, random });
     session.pickCard(null);
     hold(session, LEFT_INF, OTHER_INF);
@@ -921,9 +921,9 @@ describe("GameSession turn log", () => {
     expect(record!.turn).toBe(1);
     expect(record!.card).toBeNull();
     expect(record!.orders).toHaveLength(4);
-    expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true });
+    expect(record!.orders[tankOrder]).toEqual({ unit: "tank", start: TANK, end: TANK, path: [TANK], canFire: true, action: "tank:firefight" });
     expect(record!.shots).toEqual([
-      { order: tankOrder, unit: "tank", dice: 3, steps: expect.any(Array), faces: expect.any(Array), kept: null, notes: [], collision: false, target: { ...AT_INFANTRY, die: "battle" } },
+      { order: tankOrder, unit: "tank", dice: 3, steps: expect.any(Array), faces: expect.any(Array), kept: null, notes: [], collision: false, target: { ...AT_INFANTRY, die: "battle" }, option: "tank:normal" },
     ]);
     expect(record!.shots[0]!.faces).toHaveLength(3);
     expect(record!.battleEdits).toEqual([
@@ -1469,6 +1469,13 @@ describe("GameSession Reinforcements", () => {
 
     expect(session.getSnapshot()).toMatchObject({ reinforcementToPlace: null, battleEdits: 1 });
     expect(session.board.getHex(FAR)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
+  });
+
+  it("brings the unit with no energy and everything else full", () => {
+    const session = finalPhase();
+    const { supplies } = session.getSnapshot().supplies.find((each) => samePosition(each.position, FAR))!;
+    expect(supplies.amounts).toMatchObject({ energy: 0, morale: 5, ammo: 2 });
+    expect(supplies.equipment).toMatchObject({ explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 });
   });
 
   it("asks for another hex when the cross is taken, and the placing can be undone", () => {

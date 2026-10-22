@@ -3,7 +3,6 @@ import { Box, Stack } from "@mui/material";
 import { motion } from "motion/react";
 import type { ActionCard } from "../game-core/actionCard";
 import type { GameSnapshot } from "../game-core/gameSession";
-import { Faction } from "../types/faction";
 import { defineMessages, useMessages } from "../i18n/useI18n";
 import ActionCardComponent from "./ActionCardComponent";
 import CardDialog, { ShownCard } from "./CardDialog";
@@ -25,7 +24,6 @@ export const playedCardOf = (game: GameSnapshot): { card: ActionCard | null; cos
 });
 
 interface PlayedCardsProps {
-  faction: Faction;
   /** The command card played this turn, if any */
   card: ActionCard | null;
   /** What it cost the side */
@@ -42,7 +40,7 @@ interface PlayedCardsProps {
  * The card played this turn, for the opponent to read at the table; tapping it shows its full
  * text. Sized by --card-width (PhaseLayout.css).
  */
-function PlayedCards({ faction, card, cost, layoutPrefix, className }: PlayedCardsProps) {
+function PlayedCards({ card, cost, layoutPrefix, className }: PlayedCardsProps) {
   const t = useMessages(TEXT);
   const [looking, setLooking] = useState<ShownCard | null>(null);
   if (!card) return null;
@@ -56,7 +54,7 @@ function PlayedCards({ faction, card, cost, layoutPrefix, className }: PlayedCar
           </motion.div>
         </Stack>
       </Box>
-      <CardDialog card={looking} faction={faction} onClose={() => setLooking(null)} label={t.played} />
+      <CardDialog card={looking} onClose={() => setLooking(null)} label={t.played} />
     </>
   );
 }

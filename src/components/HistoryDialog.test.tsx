@@ -23,7 +23,6 @@ const playedSession = () => {
       id: "test",
       name: { es: "Test", en: "Test" },
       description: same(""),
-      initialHandSize: { allies: 2, axis: 2 },
       attacker: "Allies",
       tiles: {},
       units: { allies: { infantry: [INFANTRY] }, axis: {} },
@@ -58,8 +57,9 @@ describe("HistoryDialog", () => {
     expect(within(second!).getByRole("heading", { name: "Turno 2" })).toBeInTheDocument();
     expect(second).toHaveTextContent("Eliminada: Infantería");
     expect(second).toHaveTextContent("Nadie disparó.");
-    expect(first).toHaveTextContent("Infantería · mantiene posición");
-    expect(first).toHaveTextContent("Infantería: 2 dados → 2 × Granada");
+    // Each order's action, and how each shot fired
+    expect(first).toHaveTextContent("Infantería · Escaramuza · mantiene posición");
+    expect(first).toHaveTextContent("Infantería (Disparo normal): 2 dados → 2 × Granada");
     expect(first).toHaveTextContent("(contra infantería · a distancia: 2 impactos · 0 retiradas)");
     expect(first).toHaveTextContent("Sin bajas ni retiradas.");
     expect(first).toHaveTextContent("Al terminar el turno: 0 suministros");

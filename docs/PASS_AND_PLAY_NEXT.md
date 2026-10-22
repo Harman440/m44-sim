@@ -16,7 +16,7 @@ The risky parts, to watch in a match with "Modo prueba" (every combat card in th
 - [ ] Units of one side passing through each other, and two ending on one hex (with no priority for the first there, once fixed)
 - [ ] Pinned and retreats: the first flag pins, each flag after it is a hex to retreat at once; a hex it can't retreat is a hit
 - [ ] Taking ground: armour moves in and fires again, infantry pushes the enemy out without firing
-- [ ] The reworked cards: Concentrated Fire, Suppressive Fire, Not One Step Back, Personal Armor, Camouflage, Fortify, Medic and Mechanic, Reposition, Refuel
+- [ ] ~~The reworked cards: Concentrated Fire, Suppressive Fire, Not One Step Back, Personal Armor, Camouflage, Fortify, Medic and Mechanic, Reposition, Refuel~~ (the card game was replaced by the actions mode, docs/ACTIONS_PLAN.md)
 - [ ] Reload or close the tab mid-turn (orders, reveal, battle, retreats): the match resumes behind the cover screen, in the same state
 
 ## 3. Winning (PP5)

@@ -13,7 +13,6 @@ const board = (tiles: Scenario["tiles"] = {}, units: Scenario["units"]["allies"]
     id: "test",
     name: { es: "Test", en: "Test" },
     description: same(""),
-    initialHandSize: { allies: 1, axis: 1 },
     attacker: "Allies",
     tiles,
     units: { allies: units, axis: {} },

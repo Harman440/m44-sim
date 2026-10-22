@@ -3,7 +3,6 @@ import {
   HISTORY_LIMIT,
   clearHex,
   copyDraft,
-  defaultExtraDraws,
   defaultParadrop,
   draftCounts,
   isBlank,
@@ -30,9 +29,7 @@ import {
   setVictoryMedals,
   setAttacker,
   setBigGuns,
-  setExtraDraws,
   setFordableRivers,
-  setHandSize,
   setParadrop,
   setText,
   setWire,
@@ -74,7 +71,7 @@ describe("a new map", () => {
   it("is empty, with the settings most scenarios start from", () => {
     const draft = empty();
 
-    expect(draft).toMatchObject({ id: "map-test", tiles: {}, units: { allies: {}, axis: {} }, attacker: "Allies", initialHandSize: { allies: 5, axis: 5 } });
+    expect(draft).toMatchObject({ id: "map-test", tiles: {}, units: { allies: {}, axis: {} }, attacker: "Allies" });
   });
 
   it("can be saved and read back before it can be played", () => {
@@ -257,14 +254,11 @@ describe("the scenario's settings", () => {
     expect(validateScenario(named).map((p) => p.message.en)).not.toContain("The scenario has no name");
   });
 
-  it("sets the attacker and the starting command cards, within their limits", () => {
-    const draft = edit(empty(), (d) => setAttacker(d, "Axis"), (d) => setHandSize(d, "Axis", 3));
+  it("sets the attacker", () => {
+    const draft = edit(empty(), (d) => setAttacker(d, "Axis"));
 
-    expect(draft).toMatchObject({ attacker: "Axis", initialHandSize: { allies: 5, axis: 3 } });
+    expect(draft).toMatchObject({ attacker: "Axis" });
     expect(setAttacker(draft, "Axis")).toBe(draft);
-    expect(setHandSize(draft, "Axis", 3)).toBe(draft);
-    expect(setHandSize(draft, "Axis", 0)).toBe(false);
-    expect(setHandSize(draft, "Allies", 11)).toBe(false);
   });
 
   it("keeps air sorties and big guns out of the map while both sides have the usual ones", () => {
@@ -296,20 +290,13 @@ describe("the scenario's settings", () => {
     );
   });
 
-  it("turns the extra draws and the paradrop on and off", () => {
+  it("turns the paradrop on and off", () => {
     const draft = setAttacker(empty(), "Axis");
-    const special = edit(
-      draft,
-      (d) => setExtraDraws(d, defaultExtraDraws(d)),
-      (d) => setParadrop(d, defaultParadrop(d)),
-    );
+    const special = edit(draft, (d) => setParadrop(d, defaultParadrop(d)));
 
-    expect(special.extraDraws).toEqual({ faction: "Allies", turns: 2 });
     expect(special.paradrop).toEqual({ faction: "Axis", unitType: UnitType.INFANTRY, units: 4 });
-    expect(setExtraDraws(special, { faction: "Allies", turns: 2 })).toBe(special);
-    expect(setExtraDraws(special, { faction: "Allies", turns: 0 })).toBe(false);
     expect(setParadrop(special, { faction: "Axis", unitType: UnitType.TANK, units: 11 })).toBe(false);
-    expect(edit(special, (d) => setExtraDraws(d, null), (d) => setParadrop(d, null))).toEqual(draft);
+    expect(edit(special, (d) => setParadrop(d, null))).toEqual(draft);
   });
 
   it("lets a side that drops by parachute start with no units on the board", () => {

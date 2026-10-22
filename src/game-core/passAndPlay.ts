@@ -308,7 +308,6 @@ class PassAndPlayMatch {
     this.result = result;
     for (const side of FACTIONS) {
       sessions[side].setEnemyView(() => this.enemiesOf(side));
-      sessions[side].sectionsSeenFrom(mainSide);
     }
     this.follow();
     this.snapshot = this.createSnapshot();

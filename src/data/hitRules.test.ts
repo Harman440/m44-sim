@@ -10,7 +10,6 @@ const scenario = (axis: Scenario["units"]["axis"], extra: Partial<Scenario> = {}
   id: "test",
   name: { es: "Test", en: "Test" },
   description: same(""),
-  initialHandSize: { allies: 1, axis: 1 },
   attacker: "Allies",
   tiles: {},
   units: { allies: { infantry: [{ row: 7, col: 1 }] }, axis },

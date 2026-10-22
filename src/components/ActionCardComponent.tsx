@@ -1,8 +1,7 @@
 import { Box, ButtonBase, Typography } from "@mui/material";
 import type { ActionCard } from "../game-core/actionCard";
 import { defineMessages, useLang, useMessages, useTr } from "../i18n/useI18n";
-import { PAINTINGS } from "./CardArt";
-import { longestWord } from "./CommandCardComponent";
+import { PAINTINGS } from "./cardPaintings";
 import { cardScaleRef } from "./cardScale";
 import generalsArt from "../assets/cards/british-generals.webp";
 import "./CommandCard.css";
@@ -11,6 +10,8 @@ import "./CardArt.css";
 /** A name longer than this, or with a word longer than LONG_WORD, gets a smaller font */
 const LONG_NAME = 20;
 const LONG_WORD = 11;
+
+const longestWord = (name: string) => Math.max(...name.split(/\s+/).map((word) => word.length));
 
 const isLongName = (name: string) => name.length > LONG_NAME || longestWord(name) > LONG_WORD;
 

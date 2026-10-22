@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import Hex from "./hex";
 import Unit from "./unit";
-import { HexType, Side } from "../types/hex";
+import { HexType } from "../types/hex";
 import { Position } from "../types/scenario";
 
 const WIDTH = 13;
@@ -52,24 +52,6 @@ describe("Hex neighbors (odd rows shifted right)", () => {
         expect(backLinks).toContainEqual(position);
       }
     }
-  });
-});
-
-describe("Hex sections", () => {
-  const side = (row: number, col: number) => new Hex({ row, col }).getSide();
-
-  it("splits even rows 4 / 5 / 4 into left, center and right", () => {
-    expect([0, 1, 2, 3].map((c) => side(0, c))).toEqual(Array(4).fill(Side.LEFT));
-    expect([4, 5, 6, 7, 8].map((c) => side(0, c))).toEqual(Array(5).fill(Side.CENTER));
-    expect([9, 10, 11, 12].map((c) => side(0, c))).toEqual(Array(4).fill(Side.RIGHT));
-  });
-
-  it("puts the border hexes of odd rows in the shared left-center / right-center sections", () => {
-    expect([0, 1, 2].map((c) => side(1, c))).toEqual(Array(3).fill(Side.LEFT));
-    expect(side(1, 3)).toBe(Side.LEFT_CENTER);
-    expect([4, 5, 6, 7].map((c) => side(1, c))).toEqual(Array(4).fill(Side.CENTER));
-    expect(side(1, 8)).toBe(Side.RIGHT_CENTER);
-    expect([9, 10, 11].map((c) => side(1, c))).toEqual(Array(3).fill(Side.RIGHT));
   });
 });
 

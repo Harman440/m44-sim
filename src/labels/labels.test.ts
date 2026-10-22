@@ -87,9 +87,9 @@ describe("English descriptions", () => {
 });
 
 describe("every language", () => {
-  it.each(LANGS)("names every unit, terrain and section in %s", (lang) => {
+  it.each(LANGS)("names every unit, terrain and die face in %s", (lang) => {
     const labels = LABELS[lang];
-    for (const table of [labels.units, labels.terrain, labels.sections, labels.sectionsShort, labels.dieFaces, labels.deckReasons]) {
+    for (const table of [labels.units, labels.terrain, labels.dieFaces]) {
       Object.values(table).forEach((text) => expect(text).not.toBe(""));
     }
   });

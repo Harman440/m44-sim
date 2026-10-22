@@ -48,8 +48,7 @@ describe("Forêt d'Écouves", () => {
     expect(elite("Axis").sort()).toEqual(["infantry", "infantry", "tank"]);
   });
 
-  it("starts the Allies with 6 cards and the Axis with 5, the Allies first", () => {
-    expect(ecouves.initialHandSize).toEqual({ allies: 6, axis: 5 });
+  it("has the Allies attacking", () => {
     expect(ecouves.attacker).toBe("Allies");
   });
 });
@@ -58,10 +57,9 @@ describe("Arracourt", () => {
   const arracourt = scenarios.find((s) => s.id === "arracourt")!;
   const count = (group: UnitGroup) => Object.fromEntries(Object.entries(group).map(([type, at]) => [type, at!.length]));
 
-  it("has the official units, the Axis first with 4 cards and the Allies with 6", () => {
+  it("has the official units, the Axis attacking", () => {
     expect(count(arracourt.units.allies)).toEqual({ infantry: 5, tank: 6, artillery: 3 });
     expect(count(arracourt.units.axis)).toEqual({ infantry: 6, tank: 8 });
-    expect(arracourt.initialHandSize).toEqual({ allies: 6, axis: 4 });
     expect(arracourt.attacker).toBe("Axis");
   });
 

@@ -29,14 +29,6 @@ export enum MovementRule {
   BLOCK = "block",
 }
 
-export enum Side {
-  LEFT = "left",
-  LEFT_CENTER = "leftcenter",
-  CENTER = "center",
-  RIGHT_CENTER = "rightcenter",
-  RIGHT = "right",
-}
-
 // Axial coordinate representation for easier hex calculations
 export interface AxialCoord {
   q: number;
