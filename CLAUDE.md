@@ -73,7 +73,7 @@ Every push to `main` publishes to GitHub Pages at https://harman440.github.io/m4
 - Remove debug `console.log` calls before committing.
 
 ## Roadmap
-The step-by-step plan is in [docs/PLAN.md](docs/PLAN.md): work through it one step at a time and tick items off when they're done. Size, refactor and tooling ideas are in [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md). The finished plans are in `docs/oldPlans/`. What's left of pass and play is in [docs/PASS_AND_PLAY_NEXT.md](docs/PASS_AND_PLAY_NEXT.md). The player's house rules are in [docs/house-rules.md](docs/house-rules.md): they were written for pen and paper and may change, so confirm a rule with the player before building it.
+The step-by-step plan is in [docs/PLAN.md](docs/PLAN.md): work through it one step at a time and tick items off when they're done. Size, refactor and tooling ideas are in [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md). The finished plans are in `docs/oldPlans/`. What's left of pass and play is in [docs/PASS_AND_PLAY_NEXT.md](docs/PASS_AND_PLAY_NEXT.md). The actions mode (a rework that replaces the card game) is planned in [docs/ACTIONS_PLAN.md](docs/ACTIONS_PLAN.md). The player's house rules are in [docs/house-rules.md](docs/house-rules.md): they were written for pen and paper and may change, so confirm a rule with the player before building it.
 
 ## MCP servers (`.mcp.json`)
 - `playwright`: drive the dev server, click through a turn and take screenshots to check UI changes (headless Chromium).
