@@ -13,9 +13,10 @@ import { SUPPLIES, Supply } from "../data/unitSupplies";
 /**
  * Why a unit can't be given an action: the supply it lacks (morale: it's at 0 and can only be
  * given Morale Up; ammo or shells: the action fires and it has none), a piece of equipment, an
- * action of another unit type, or one own tablets don't offer
+ * action of another unit type, one own tablets don't offer, or nothing for it to mend (Medic
+ * with no figure lost, Mechanic with no figure hit)
  */
-export type ActionRefusal = Supply | "equipment" | "unitType" | "ownTablets";
+export type ActionRefusal = Supply | "equipment" | "unitType" | "ownTablets" | "nothingToMend";
 
 /** What the unit is and has, for checking an action */
 export interface ActionContext {
@@ -23,6 +24,11 @@ export interface ActionContext {
   supplies: UnitSupplies;
   /** Own tablets: only the actions they offer (no morale, so no Morale Up) */
   ownTablets: boolean;
+  /**
+   * Pass and play, which tracks figures: whether the unit has lost a figure (Medic) and has one
+   * hit but not lost (Mechanic). Left out on own tablets, where the table knows
+   */
+  wounds?: { lost: boolean; damaged: boolean };
 }
 
 /** The actions a unit of this type is offered, in their list order */
@@ -30,9 +36,12 @@ export const actionsFor = (unitType: UnitType, ownTablets: boolean): readonly Un
   UNIT_ACTIONS[unitType].filter((action) => !ownTablets || action.ownTablets);
 
 /** Why the unit can't be given the action, or null when it can */
-export function actionRefusal(action: UnitAction, { unitType, supplies, ownTablets }: ActionContext): ActionRefusal | null {
+export function actionRefusal(action: UnitAction, { unitType, supplies, ownTablets, wounds }: ActionContext): ActionRefusal | null {
   if (action.unitType !== unitType) return "unitType";
   if (ownTablets && !action.ownTablets) return "ownTablets";
+  if (wounds && ((action.effect === "medic" && !wounds.lost) || (action.effect === "mechanic" && !wounds.damaged))) {
+    return "nothingToMend";
+  }
   // At morale 0 the unit can only be given Morale Up (a type without morale never is)
   if (supplies.amounts[Supply.MORALE] === 0 && action.effect !== "moraleUp") return Supply.MORALE;
   if (!canPay(supplies, action.cost)) {

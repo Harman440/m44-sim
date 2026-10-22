@@ -152,23 +152,23 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] Brought forward from R8 so the computer's games still end: Reload's ammo or shells come back when the orders are confirmed, and the computer reloads a unit with nothing left to fire (R15 teaches it the rest). `SAVE_VERSION` 40
 
 ### R8: Morale, and the other actions and cards
-- [ ] Pass and play and computer: each flag on infantry is −1 morale (down to 0), on top of the pinned and retreat rule. Own tablets: flags as today, no morale
-- [ ] The action effects, on the plumbing kept in R4:
+- [x] Pass and play and computer: each flag on infantry is −1 morale (down to 0), on top of the pinned and retreat rule. Own tablets: flags as today, no morale
+- [x] The action effects, on the plumbing kept in R4 (as the orders are confirmed, unless said otherwise):
   - Morale Up: morale back to full
-  - Medic: +1 figure, using the kit, when the unit has lost one
-  - Mechanic: clears a hit figure's damage
-  - Camouflage: the badge
-  - Fortify: sandbags now, for infantry and artillery
-  - Take Cover: the infantry hits ignored
-  - Reposition: moves after the battle
+  - Medic: +1 figure, using the kit, when the unit has lost one (pass and play refuses it with none lost: `nothingToMend`)
+  - Mechanic: clears a hit figure's damage (refused with no figure hit)
+  - Camouflage: the badge, after the battle
+  - Fortify: sandbags now, for infantry and artillery (a battle edit, so the log shows it)
+  - Take Cover: the first 2 infantry-symbol hits ignored in the battle (`TAKE_COVER_HITS`, `coverHits` in the save)
+  - ~~Reposition: moves after the battle~~ It stays a move before the battle (decided 2026-10-22)
   - Behind Enemy Lines: the 3-hex move after the battle
   - ~~Reload~~ (done in R7)
 
-  On own tablets, Medic and Mechanic are a reminder for the table
-- [ ] Resupply and Refuel take effect as the orders are revealed
-- [ ] Elite tanks: a figure goes on its 3rd hit (`data/figures.ts` by unit, not only by type)
-- [ ] New units: Reinforcements arrive with energy 0 and everything else full; an artillery crew left as infantry has everything full
-- [ ] Rule book and tests for each one
+  On own tablets, Medic, Mechanic, Take Cover and Behind Enemy Lines' move are reminders for the table on the movement screen (`tableReminders`)
+- [x] Resupply and Refuel take effect as the orders are revealed
+- [x] Elite tanks: a figure goes on its 3rd hit (`data/figures.ts`: `ELITE_HITS_PER_FIGURE`)
+- [x] New units: Reinforcements arrive with energy 0 and everything else full; an artillery crew left as infantry has everything full
+- [x] Rule book and tests for each one. `SAVE_VERSION` 41
 
 ### R9: The luck meter
 - [ ] `game-core/luck.ts`: each unit's luck from −3 to +3, starting at 0. Each point moves a die's chance of a hit face by 5%: a miss turns into a hit face of the right kind, or a hit into a miss, so the faces stay the die's own. After each die the meter moves on the streak: −(1 − p) for a hit, +p for a miss. The unit's luck is in the save. On own tablets, only the tablet's own rolls count

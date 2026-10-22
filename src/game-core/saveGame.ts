@@ -21,7 +21,7 @@ import type { SupplyCost, UnitSupplies } from "./unitSupplies";
 import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 40;
+export const SAVE_VERSION = 41;
 
 interface SavedUnit {
   type: UnitType;
@@ -51,6 +51,8 @@ export interface SavedGame {
   retreatsDue: { unit: number; flags: number }[];
   /** Hits each unit took this turn, by unit index; missing in older saves */
   turnHits?: { unit: number; hits: number }[];
+  /** Infantry-symbol hits ignored this turn by Take Cover */
+  coverHits: { unit: number; hits: number }[];
   /** Units with the camouflage badge, by unit index */
   camouflaged: number[];
   /** What each unit that has spent something has left, by unit index; the others are full */
@@ -125,6 +127,7 @@ export interface SessionState {
   retreatsDue: ReadonlyMap<Unit, number>;
   /** Pass and play: hits taken this turn, by unit */
   turnHits: ReadonlyMap<Unit, number>;
+  coverHits: ReadonlyMap<Unit, number>;
   /** Units with the camouflage badge, kept from turn to turn */
   camouflaged: ReadonlySet<Unit>;
   /** What each unit has left, kept from turn to turn; a unit missing is full */
@@ -308,6 +311,7 @@ export function writeSave(
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     retreatsDue: [...state.retreatsDue].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    coverHits: [...state.coverHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
     camouflaged: [...state.camouflaged].map(unitIndex),
     supplies: [...state.supplies].map(([unit, supplies]) => ({
       unit: unitIndex(unit),
@@ -448,6 +452,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
     retreatsDue: readUnitCounts(saved.retreatsDue, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),
+    coverHits: readUnitCounts(saved.coverHits, "hits", unit),
     camouflaged: readUnits(saved.camouflaged, "Camouflaged units", unit),
     supplies: readSupplies(saved.supplies, unit),
     drops: readPositions(saved.drops, "Paradrops"),

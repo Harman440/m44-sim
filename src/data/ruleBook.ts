@@ -6,7 +6,8 @@
 import { TurnPhase } from "../types/gameManager";
 import { CARD_COOLDOWN_TURNS } from "./actionCards";
 import { Localized } from "../i18n/lang";
-import { ARTILLERY_CREW_FIGURES, FIGURES } from "./figures";
+import { ARTILLERY_CREW_FIGURES, ELITE_HITS_PER_FIGURE, FIGURES } from "./figures";
+import { TAKE_COVER_HITS, actionById } from "./unitActions";
 import { UnitType } from "../game-core/unit";
 import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
@@ -35,6 +36,8 @@ const eliteEquipment = EQUIPMENT_CARRIED[UnitType.INFANTRY].elite;
 const ammoShort = DEFENDER_SHORTFALL[Supply.AMMO] ?? 0;
 const shellsShort = DEFENDER_SHORTFALL[Supply.SHELLS] ?? 0;
 const reloadAmmo = RELOAD[Supply.AMMO] ?? 0;
+const eliteTankHits = ELITE_HITS_PER_FIGURE[UnitType.TANK];
+const behindLines = actionById("infantry:behindEnemyLines")?.moveAfterBattle ?? 0;
 const reloadShells = RELOAD[Supply.SHELLS] ?? 0;
 /** What the defender's units start without, as the rule book says it */
 const defenderShortfall: Localized = {
@@ -453,6 +456,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Cuándo hace efecto cada acción", en: "When each action takes effect" },
+        house: {
+          es: `Al confirmar las órdenes: Recargar, Subir la moral, Fortificar (sacos terreros en su casilla), Médico (recupera una figura perdida) y Mecánico (repara la figura tocada), y las cartas Reabastecimiento (la infantería recupera moral, munición y equipo) y Repostaje (tanques y artillería llenan el combustible). En la batalla, A cubierto ignora los ${TAKE_COVER_HITS} primeros impactos de símbolo de infantería. Tras la batalla, Camuflaje pone la ficha y Tras las líneas enemigas mueve otras ${behindLines} casillas. Médico y Mecánico solo se ofrecen si hay algo que curar o reparar. En tablets propias la app no lleva las figuras: Médico, Mecánico, A cubierto y el movimiento de Tras las líneas enemigas se hacen en la mesa, y la app los recuerda en la fase de movimiento. Los artilleros que deja una artillería destruida empiezan con todo lleno.`,
+          en: `When the orders are confirmed: Reload, Morale Up, Fortify (sandbags on its hex), Medic (a lost figure back) and Mechanic (the figure hit is mended), and the Resupply card (infantry gets its morale, ammo and equipment back) and Refuel (tanks and artillery fill up their fuel). In the battle, Take Cover ignores the first ${TAKE_COVER_HITS} infantry-symbol hits. After the battle, Camouflage puts the badge on and Behind Enemy Lines moves ${behindLines} more hexes. Medic and Mechanic are only offered when there's something to heal or mend. On own tablets the app doesn't track figures: Medic, Mechanic, Take Cover and Behind Enemy Lines' move are done on the table, and the app reminds you in the movement phase. The crew a destroyed artillery leaves behind starts with everything full.`,
+        },
+      },
+      {
         title: { es: "Descanso", en: "Rest" },
         house: {
           es: `Al final de cada turno la infantería recupera ${ENERGY_PER_TURN} de energía, o ${RESTING_ENERGY_PER_TURN} si descansó (no recibió acción), sin pasar de la que lleva llena.`,
@@ -466,8 +476,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Elite infantry moves 2 hexes and still fires.",
         },
         house: {
-          es: `Se mueve y dispara como las demás de su tipo, pero lleva más: la infantería de élite, moral ${eliteInfantry[Supply.MORALE]}, energía ${eliteInfantry[Supply.ENERGY]} y ${eliteEquipment} de cada equipo; los tanques de élite, combustible ${ELITE_FULL_SUPPLIES[UnitType.TANK]?.[Supply.FUEL]}.`,
-          en: `It moves and fires as the others of its type, but carries more: elite infantry, morale ${eliteInfantry[Supply.MORALE]}, energy ${eliteInfantry[Supply.ENERGY]} and ${eliteEquipment} of each piece of equipment; elite tanks, fuel ${ELITE_FULL_SUPPLIES[UnitType.TANK]?.[Supply.FUEL]}.`,
+          es: `Se mueve y dispara como las demás de su tipo, pero lleva más: la infantería de élite, moral ${eliteInfantry[Supply.MORALE]}, energía ${eliteInfantry[Supply.ENERGY]} y ${eliteEquipment} de cada equipo; los tanques de élite, combustible ${ELITE_FULL_SUPPLIES[UnitType.TANK]?.[Supply.FUEL]}, y en pasar y jugar cada una de sus figuras aguanta ${eliteTankHits} impactos.`,
+          en: `It moves and fires as the others of its type, but carries more: elite infantry, morale ${eliteInfantry[Supply.MORALE]}, energy ${eliteInfantry[Supply.ENERGY]} and ${eliteEquipment} of each piece of equipment; elite tanks, fuel ${ELITE_FULL_SUPPLIES[UnitType.TANK]?.[Supply.FUEL]}, and in pass and play each of their figures takes ${eliteTankHits} hits.`,
         },
       },
     ],
@@ -486,8 +496,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Refuerzos", en: "Reinforcements" },
         house: {
-          es: "La carta marca una cruz en el mapa. Al empezar la fase final llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre.",
-          en: "The card marks a cross on the map. As the final phase starts, an infantry unit arrives on that hex, with no die roll; if the hex is taken, you pick another empty one.",
+          es: "La carta marca una cruz en el mapa. Al empezar la fase final llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre. Llega sin energía y con todo lo demás lleno.",
+          en: "The card marks a cross on the map. As the final phase starts, an infantry unit arrives on that hex, with no die roll; if the hex is taken, you pick another empty one. It arrives with no energy and everything else full.",
         },
       },
     ],
@@ -512,6 +522,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: `Infantería ${infantry.figures} figuras; blindados ${armor.figures}, de ${armor.hitsPerFigure} impactos cada una (una figura tocada se marca en rojo y cae al siguiente impacto); los impactos de cada unidad en el turno se ven en el mapa hasta que acaba; artillería ${artillery.figures}, y al caer deja a sus artilleros: ${ARTILLERY_CREW_FIGURES} figura de infantería. Una unidad no aplica más impactos que figuras le quedan.`,
           en: `Infantry ${infantry.figures} figures; armor ${armor.figures}, ${armor.hitsPerFigure} hits each (a figure hit once is marked red and falls to the next hit); each unit's hits this turn show on the map until the turn ends; artillery ${artillery.figures}, and when it falls its crew stays: ${ARTILLERY_CREW_FIGURES} infantry figure. A unit applies no more hits than the figures it has left.`,
+        },
+      },
+      {
+        title: { es: "Moral", en: "Morale" },
+        house: {
+          es: "Cada bandera que recibe la infantería le quita 1 de moral (sin bajar de 0), además de inmovilizarla o hacerla retirarse. Con la moral a 0 solo puede subirla (o descansar), y no tira en los choques. En tablets propias no se lleva la moral.",
+          en: "Each flag infantry takes costs it 1 morale (never below 0), besides pinning it or making it retreat. At morale 0 it can only raise it (or rest), and it doesn't roll in collisions. Own tablets don't track morale.",
         },
       },
       {

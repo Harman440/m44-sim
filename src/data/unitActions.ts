@@ -119,6 +119,9 @@ export const ARTILLERY_ACTIONS: readonly UnitAction[] = [
     { painting: "preparations", cost: FREE, move: 0, fire: null, effect: "reload" }),
 ];
 
+/** Infantry-symbol hits a unit given Take Cover ignores in a turn */
+export const TAKE_COVER_HITS = 2;
+
 export const UNIT_ACTIONS: Record<UnitType, readonly UnitAction[]> = {
   [UnitType.INFANTRY]: INFANTRY_ACTIONS,
   [UnitType.TANK]: TANK_ACTIONS,

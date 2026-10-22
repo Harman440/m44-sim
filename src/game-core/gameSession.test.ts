@@ -1471,6 +1471,13 @@ describe("GameSession Reinforcements", () => {
     expect(session.board.getHex(FAR)!.unit!.getUnitType()).toBe(UnitType.INFANTRY);
   });
 
+  it("brings the unit with no energy and everything else full", () => {
+    const session = finalPhase();
+    const { supplies } = session.getSnapshot().supplies.find((each) => samePosition(each.position, FAR))!;
+    expect(supplies.amounts).toMatchObject({ energy: 0, morale: 5, ammo: 2 });
+    expect(supplies.equipment).toMatchObject({ explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 });
+  });
+
   it("asks for another hex when the cross is taken, and the placing can be undone", () => {
     const session = finalPhase();
     expect(session.undoBattleEdit()).toBe(true);

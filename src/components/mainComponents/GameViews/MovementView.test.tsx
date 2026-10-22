@@ -50,6 +50,31 @@ describe("MovementView", () => {
     expect(screen.getByText(/Pon un marcador de batalla en\s+la unidad que dispara\./)).toBeInTheDocument();
   });
 
+  it("reminds the player of the actions the table carries out, such as Medic", () => {
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: { es: "Test", en: "Test" },
+        description: same(""),
+        initialHandSize: { allies: 1, axis: 1 },
+        attacker: "Allies",
+        tiles: {},
+        units: { allies: { infantry: [INFANTRY], tank: [TANK] }, axis: {} },
+      },
+      faction: "Allies",
+    });
+    session.pickCard(null);
+    session.giveAction(INFANTRY, "infantry:medic", INFANTRY);
+    session.giveAction(TANK, "tank:firefight", TANK);
+    session.commitOrders();
+    render(<Harness session={session} />);
+
+    const reminders = screen.getByTestId("table-reminders");
+    expect(reminders).toHaveTextContent("En la mesa, además:");
+    expect(within(reminders).getAllByRole("listitem")).toHaveLength(1);
+    expect(reminders).toHaveTextContent("Médico: No se mueve ni dispara: recupera 1 figura.");
+  });
+
   it("reminds the player, in sight, to take off the table the barbed wire a tank entered", () => {
     expect(render(<Harness session={makeMovementSession()} />).queryByTestId("cleared-wire")).toBeNull();
 

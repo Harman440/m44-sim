@@ -153,6 +153,7 @@ const es: Labels = {
     equipment: "Sin equipo",
     unitType: "No es de esta unidad",
     ownTablets: "No en tablets propias",
+    nothingToMend: "Nada que reparar",
   },
   describeFaces,
   describeAppliedFaces: (faces, kept) =>
