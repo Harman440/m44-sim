@@ -73,6 +73,19 @@ describe("UnitComponent", () => {
     expect(drawn(1)).toBe(1);
   });
 
+  it("shows no figure count, only a red dot for a figure hit once", () => {
+    const tank = (damaged: boolean) =>
+      render(
+        <svg>
+          <UnitComponent x={0} y={0} faction="Axis" unitData={new Unit(UnitType.TANK)} figures={2} damaged={damaged} />
+        </svg>
+      ).container;
+
+    expect(tank(false).querySelector("text")).toBeNull();
+    expect(tank(false).querySelector('[data-testid="damaged-badge"]')).toBeNull();
+    expect(tank(true).querySelector('[data-testid="damaged-badge"]')).not.toBeNull();
+  });
+
   it("falls back to infantry without unit data", () => {
     expect(spriteFor("Allies").getAttribute("href")).toBe(alliedInfantry);
   });

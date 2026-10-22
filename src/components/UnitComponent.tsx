@@ -10,14 +10,12 @@ import axisTank from "../assets/units/axis/tank.svg";
 import axisArtillery from "../assets/units/axis/artillery.svg";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
-import { FACTION_COLORS } from "../looks/looks";
 import { FIGURES } from "../data/figures";
 import { defineMessages, useMessages } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
     elite: "De élite",
-    figures: (n: number) => (n === 1 ? "1 figura" : `${n} figuras`),
     damaged: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`}, una ya tocada: el próximo impacto la quita`,
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     pinned: "Inmovilizada: otra bandera la hace retirarse",
@@ -25,7 +23,6 @@ const TEXT = defineMessages({
   },
   en: {
     elite: "Elite",
-    figures: (n: number) => (n === 1 ? "1 figure" : `${n} figures`),
     damaged: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`}, one already hit: the next hit removes it`,
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     pinned: "Pinned: another flag makes it retreat",
@@ -69,13 +66,13 @@ interface UnitProps {
   fired?: boolean;
   /** It can be ordered */
   orderable?: boolean;
-  /** Pass and play: its figures left, the sprites drawn and a number bottom right; by default all of them */
+  /** Pass and play: its figures left, the sprites drawn; by default all of them */
   figures?: number;
   /** Pass and play: it took a flag this turn (pinned), a flag bottom left */
   pinned?: boolean;
   /** Pass and play: hexes it must retreat now, on the flag */
   retreats?: number;
-  /** Pass and play: a figure took one hit of two (armour): the figures badge is marked red */
+  /** Pass and play: a figure took one hit of two (armour): a red dot marks it */
   damaged?: boolean;
   /** Pass and play: hits it took this turn, a red tag over the token until the turn ends */
   hitThisTurn?: number;
@@ -197,33 +194,11 @@ const UnitComponent: React.FC<UnitProps> = ({
         </g>
       )}
 
-      {/* Pass and play: figures left, bottom right */}
-      {figures !== undefined && (
-        <g
-          className={`unit__badge unit__badge--figures${damaged ? " unit__badge--damaged" : ""}`}
-          data-testid="figures-badge"
-          data-damaged={damaged || undefined}
-        >
-          <title>{damaged ? t.damaged(figures) : t.figures(figures)}</title>
-          <circle
-            cx={badgeX}
-            cy={y + TOKEN_RADIUS * 0.72}
-            r={BADGE_RADIUS + 1}
-            fill={damaged ? "#b3261e" : "#f1ead6"}
-            stroke={damaged ? "#f1ead6" : FACTION_COLORS[faction]}
-            strokeWidth={2.5}
-          />
-          <text
-            x={badgeX}
-            y={y + TOKEN_RADIUS * 0.72}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={14}
-            fontWeight={700}
-            fill={damaged ? "#f1ead6" : "#2b2418"}
-          >
-            {figures}
-          </text>
+      {/* Pass and play: a figure hit once (armour), a red dot bottom right */}
+      {damaged && (
+        <g className="unit__badge unit__badge--damaged" data-testid="damaged-badge">
+          <title>{t.damaged(figuresShown)}</title>
+          <circle cx={badgeX} cy={y + TOKEN_RADIUS * 0.72} r={BADGE_RADIUS * 0.7} fill="#b3261e" stroke="#f1ead6" strokeWidth={2.5} />
         </g>
       )}
 
