@@ -28,6 +28,15 @@ import village from "../assets/icons/village.svg";
 import openBook from "../assets/icons/open-book.svg";
 import backForth from "../assets/icons/back-forth.svg";
 import medal from "../assets/icons/medal.svg";
+import rallyTheTroops from "../assets/icons/rally-the-troops.svg";
+import runningShoe from "../assets/icons/running-shoe.svg";
+import bullets from "../assets/icons/bullets.svg";
+import jerrycan from "../assets/icons/jerrycan.svg";
+import heavyBullets from "../assets/icons/heavy-bullets.svg";
+import clover from "../assets/icons/clover.svg";
+import dynamite from "../assets/icons/dynamite.svg";
+import firstAidKit from "../assets/icons/first-aid-kit.svg";
+import fishingNet from "../assets/icons/fishing-net.svg";
 
 const ICONS = {
   settings: cog,
@@ -53,7 +62,7 @@ const ICONS = {
   strafe: airplane,
   /** Air bombardment (Bombardeo aéreo) */
   bomb: fallingBomb,
-  // Why a combat card is in the deck (DECK_REASON_ICONS)
+  // A side's role and its arms (the menu's scenario panel, the map editor)
   offensive: crossedSwords,
   defensive: checkedShield,
   tank: battleTank,
@@ -65,6 +74,16 @@ const ICONS = {
   pass: backForth,
   /** Victory medals, and the objective hexes worth one */
   medal,
+  // A unit's supplies and equipment (data/unitSupplies.ts), and its luck
+  morale: rallyTheTroops,
+  energy: runningShoe,
+  ammo: bullets,
+  fuel: jerrycan,
+  shells: heavyBullets,
+  luck: clover,
+  explosives: dynamite,
+  medicKit: firstAidKit,
+  camouflageNet: fishingNet,
 } as const;
 
 export type GameIconName = keyof typeof ICONS;

@@ -1,4 +1,4 @@
-import { useContext, useRef } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import { IconButton } from '@mui/material';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
@@ -104,6 +104,11 @@ interface BoardProps {
    * zoom, a drag pans once zoomed in (a drag is never a tap on a hex)
    */
   zoomable?: boolean;
+  /**
+   * Zoom a little onto this hex (a unit picked from a list); a new `request` zooms again, even to
+   * the same hex. Needs `zoomable`
+   */
+  zoomOn?: { position: Position; request: number } | null;
 }
 
 /** A unit drawn on the map, where it stands in its own side's view */
@@ -162,7 +167,8 @@ function Board({
   strength: strengthProp,
   collisions = [],
   atStart = false,
-  zoomable = false
+  zoomable = false,
+  zoomOn = null
 }: BoardProps) {
   const t = useMessages(TEXT);
   const shared = useContext(OpponentContext);
@@ -579,6 +585,14 @@ function Board({
 
   const zoom = useBoardZoom({ x: viewX, y: viewY, width: viewWidth, height: viewHeight }, zoomable);
   const shown = zoom.view;
+  const { focusOn } = zoom;
+  const zoomRequest = zoomOn?.request;
+  useEffect(() => {
+    if (!zoomOn || !zoomable) return;
+    const { x, y } = geometry.hexCenter(zoomOn.position);
+    focusOn(x, y);
+    // Only a new request zooms: the board redrawing doesn't
+  }, [zoomRequest]);
 
   return (
     <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.zoomed ? ' board--zoomed' : ''}`} {...zoom.handlers}>

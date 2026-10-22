@@ -31,6 +31,7 @@ import EndOfTurnMap from "./EndOfTurnMap";
 import SandbagsIcon from "../../SandbagsIcon";
 import PlayedCards, { PLAY_LAYOUT_PREFIX, playedCardOf } from "../../PlayedCards";
 import LeavingHand from "./LeavingHand";
+import UnitList from "./UnitList";
 import "./PhaseLayout.css";
 
 const TEXT = defineMessages({
@@ -180,6 +181,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** Fixing the map before any order: asked first, then the map editor of the final phase */
   const [confirmMapFix, setConfirmMapFix] = useState(false);
   const [fixingMap, setFixingMap] = useState(false);
+  /** A unit picked from the list: the map zooms a little onto it (a new request each time) */
+  const [zoomOn, setZoomOn] = useState<{ position: Position; request: number } | null>(null);
   /** The last order moved a unit off its sandbags: said for a moment */
   const [leftSandbags, setLeftSandbags] = useState(false);
   // Pass and play: there's no table, the app's map is the game
@@ -248,19 +251,30 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     }
 
     // Select a unit, or switch to another one: its actions are listed
-    const unitActions = session.getActions(position);
-    if (unitActions) {
-      setUnitHexPosition(position);
-      setActions(unitActions);
-      setChosen(null);
-      setMoveOptions(null);
-      return;
-    }
+    if (selectUnit(position)) return;
 
     // A unit that can't be ordered, or a hex the selected unit can't reach
     if (unitHexPosition || boardManager.getHex(position)?.hasUnit()) {
       flashInvalid(position);
     }
+  };
+
+  /** Pick the unit on this hex to give it an action; false when it can't be ordered now */
+  const selectUnit = (position: Position): boolean => {
+    const unitActions = session.getActions(position);
+    if (!unitActions) return false;
+    setUnitHexPosition(position);
+    setActions(unitActions);
+    setChosen(null);
+    setMoveOptions(null);
+    return true;
+  };
+
+  /** A row of the unit list: the unit is picked if it can be ordered, and the map zooms onto it either way */
+  const pickFromList = (position: Position) => {
+    if (marking) return;
+    if (!selectUnit(position)) clearSelection();
+    setZoomOn((last) => ({ position, request: (last?.request ?? 0) + 1 }));
   };
 
   const handleHold = () => {
@@ -304,10 +318,11 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   }
 
   return (
-    <div className="phase-layout">
+    <div className="phase-layout phase-layout--wide-controls">
       <div className="phase-layout__board">
         <Board
           zoomable
+          zoomOn={zoomOn}
           onTileClick={handleTileClick}
           unitHexPosition={unitHexPosition}
           possibleMovePositions={moveOptions?.moves ?? []}
@@ -459,6 +474,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
             </Button>
           )}
         </Stack>
+
+        <UnitList faction={faction} session={session} game={game} selected={unitHexPosition} onSelect={pickFromList} />
 
         <Stack sx={{ mt: "auto", gap: 0.5 }}>
           <InfoButton title={t.howToOrder} label={t.instructions}>

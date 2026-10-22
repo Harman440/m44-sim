@@ -185,9 +185,10 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 ## Part 3: The screens
 
 ### R11: The units to order
-- [ ] The list of the side's units on the **right** of the map. Each row shows the unit's icon and hex, its supplies as small meters (morale, energy, ammo and equipment icons, or fuel and shells), its luck, and the action it has, or "Descansa". Rows are at least 48px
-- [ ] Tapping a row selects the unit and zooms the map a little onto it (`boardZoom.ts`). Tapping the unit on the map still works and highlights its row
-- [ ] Portrait: the list goes below the map, and the page never scrolls sideways
+- [x] The list of the side's units on the **right** of the map. Each row shows the unit's icon and hex, its supplies as small meters (morale, energy, ammo and equipment icons, or fuel and shells), its luck, and the action it has, or "Descansa". Rows are at least 48px
+- [x] Tapping a row selects the unit and zooms the map a little onto it (`boardZoom.ts`). Tapping the unit on the map still works and highlights its row
+- [x] Portrait: the list goes below the map, and the page never scrolls sideways
+- [x] How it went: `GameViews/UnitList.tsx`, in the orders screen's column (288px wide there, `phase-layout--wide-controls`), under the confirm button. Rows go left to right across the board. Supplies, equipment and luck are icons with their number (red at 0); the icons are from game-icons.net (credited in the README). Tapping a row picks the unit (or only zooms, for one whose order moved it) and zooms the map to at least 1.6× on it (`Board`'s `zoomOn`, `useBoardZoom().focusOn`); a unit picked on the map scrolls its row into sight. Luck shows rounded, with its sign
 
 ### R12: The action pop-up and the action's card
 - [ ] Selecting a unit opens its actions as a pop-up **over the map, to the right of the unit** (MUI `Popper` anchored to the unit's hex; it flips to the left near the map's right edge). One it can't pay for is greyed, with the reason ("Sin energía", "Moral 0")

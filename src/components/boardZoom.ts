@@ -12,6 +12,8 @@ export interface ViewRect {
 export const MAX_ZOOM = 4;
 /** One tap on + or −, one wheel notch */
 export const ZOOM_STEP = 1.5;
+/** How far in a zoom onto one hex goes, at least (a unit picked from a list) */
+export const FOCUS_ZOOM = 1.6;
 const WHEEL_STEP = 1.15;
 /** A finger has to move this far (px) before a touch is a drag and not a tap */
 const DRAG_THRESHOLD = 8;
@@ -176,6 +178,13 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
     canZoomIn: zoom.scale < MAX_ZOOM,
     zoomIn: () => zoomAt(ZOOM_STEP),
     zoomOut: () => zoomAt(1 / ZOOM_STEP),
+    /** Center the view on an SVG point, zoomed in at least `FOCUS_ZOOM` (never out) */
+    focusOn: (x: number, y: number) =>
+      setZoom((current) => {
+        const f = fullRef.current;
+        const shown = zoomedView(f, { scale: Math.max(current.scale, FOCUS_ZOOM), cx: x, cy: y });
+        return { scale: Math.max(current.scale, FOCUS_ZOOM), cx: shown.x + shown.width / 2, cy: shown.y + shown.height / 2 };
+      }),
     reset: () => setZoom(middle),
     handlers: enabled
       ? { onPointerDown, onPointerMove, onPointerUp: onPointerEnd, onPointerCancel: onPointerEnd, onClickCapture }

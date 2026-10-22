@@ -8,6 +8,7 @@ import { actionCardById } from "../../../data/actionCards";
 import { Position } from "../../../types/scenario";
 import { TurnPhase } from "../../../types/gameManager";
 import { same } from "../../../i18n/lang";
+import { DEFAULT_SETTINGS, SettingsContext } from "../../../settings";
 
 // Allies: two infantry on the left flank and one on the right
 const LEFT_A: Position = { row: 7, col: 1 };
@@ -338,5 +339,59 @@ describe("OrdersView fixing the map", () => {
     tap(LEFT_A);
     pickAction("Escaramuza");
     expect(screen.queryByRole("button", { name: "Actualizar mapa" })).not.toBeInTheDocument();
+  });
+});
+
+describe("OrdersView unit list", () => {
+  const rows = () => screen.getAllByTestId("unit-row");
+
+  it("lists every unit with its supplies and luck, resting until it gets an action", () => {
+    const { tap } = setup();
+
+    expect(rows()).toHaveLength(3);
+    expect(rows()[0]).toHaveTextContent("Descansa");
+    expect(within(rows()[0]!).getByRole("img", { name: "Munición: 2" })).toBeInTheDocument();
+    expect(within(rows()[0]!).getByRole("img", { name: "Suerte 0" })).toBeInTheDocument();
+
+    tap(LEFT_A);
+    pickAction("Escaramuza");
+    expect(rows()[0]).toHaveTextContent("Escaramuza");
+  });
+
+  it("picks the unit of a row tapped, highlighting the row, as tapping it on the map does", () => {
+    const { tap, isSelected } = setup();
+
+    fireEvent.click(rows()[1]!);
+    expect(isSelected(LEFT_B)).toBe(true);
+    expect(screen.getByRole("list", { name: "Acciones" })).toBeInTheDocument();
+    expect(rows()[1]).toHaveClass("Mui-selected");
+
+    tap(RIGHT);
+    expect(rows()[2]).toHaveClass("Mui-selected");
+    expect(rows()[1]).not.toHaveClass("Mui-selected");
+  });
+
+  it("only shows the unit of a row that can't be ordered any more", () => {
+    const { tap, isSelected } = setup();
+    tap(LEFT_A);
+    pickAction("Asalto de Infantería");
+    tap({ row: 6, col: 1 });
+
+    const moved = rows().find((row) => row.textContent?.includes("Asalto de Infantería"))!;
+    fireEvent.click(moved);
+    expect(isSelected({ row: 6, col: 1 })).toBe(false);
+    expect(screen.queryByRole("list", { name: "Acciones" })).not.toBeInTheDocument();
+  });
+
+  it("speaks English", () => {
+    const session = makeSession();
+    render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <Harness session={session} />
+      </SettingsContext.Provider>
+    );
+    expect(screen.getByRole("list", { name: "Your units" })).toBeInTheDocument();
+    expect(rows()[0]).toHaveTextContent("Rests");
+    expect(within(rows()[0]!).getByRole("img", { name: "Energy: 5" })).toBeInTheDocument();
   });
 });
