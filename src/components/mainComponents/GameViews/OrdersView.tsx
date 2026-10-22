@@ -44,6 +44,11 @@ const TEXT = defineMessages({
     otherAction: "Otra acción",
     promptMark: (n: number) => `Marca en el mapa: faltan ${n}`,
     tapHighlightedHex: "Toca una casilla resaltada",
+    tapNextHex: "Toca la siguiente casilla del camino",
+    goHere: "Ir hasta aquí",
+    stepBack: "Atrás",
+    helpPath:
+      "Toca casilla a casilla el camino de la unidad: cada una junto a la anterior. Toca otra vez la última, o «Ir hasta aquí», para que acabe ahí; «Atrás» quita la última.",
     promptMarkCard: (card: string) => `Marca las casillas de ${card}`,
     promptConfirm: "Todas tus unidades tienen orden: confirma",
     promptTapUnit: "Toca una unidad para darle una orden",
@@ -91,6 +96,11 @@ const TEXT = defineMessages({
     otherAction: "Another action",
     promptMark: (n: number) => `Mark on the map: ${n} left`,
     tapHighlightedHex: "Tap a highlighted hex",
+    tapNextHex: "Tap the next hex of its path",
+    goHere: "Go here",
+    stepBack: "Back",
+    helpPath:
+      "Tap the unit's path hex by hex, each next to the last. Tap the last one again, or “Go here”, to end the move there; “Back” takes off the last one.",
     promptMarkCard: (card: string) => `Mark the hexes for ${card}`,
     promptConfirm: "All your units have orders: confirm",
     promptTapUnit: "Tap a unit to give it an order",
@@ -168,6 +178,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   const [actions, setActions] = useState<ActionOption[]>([]);
   const [chosen, setChosen] = useState<UnitAction | null>(null);
   const [moveOptions, setMoveOptions] = useState<MoveOptions | null>(null);
+  /** Pass and play: the path picked so far, hex by hex, from the unit's hex */
+  const [path, setPath] = useState<Position[] | null>(null);
   /** The card's hexes marked so far, and how many are left */
   const markerRule = game.marking?.rule ?? null;
   const markersLeft = game.marking ? game.marking.rule.count - game.marking.marked : 0;
@@ -190,11 +202,12 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     setActions([]);
     setChosen(null);
     setMoveOptions(null);
+    setPath(null);
   };
 
-  const order = (from: Position, action: UnitAction, to: Position) => {
+  const order = (from: Position, action: UnitAction, to: Position, route?: readonly Position[]) => {
     const hadSandbags = !samePosition(from, to) && !!boardManager.getHex(from)?.sandbags;
-    if (session.giveAction(from, action.id, to)) {
+    if (session.giveAction(from, action.id, to, route)) {
       clearSelection();
       setLeftSandbags(hadSandbags);
     }
@@ -211,11 +224,27 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     }
     setChosen(action);
     setMoveOptions(options);
+    // Pass and play: the path decides collisions, so the player picks it hex by hex
+    setPath(shared ? [unitHexPosition] : null);
   };
 
   const otherAction = () => {
     setChosen(null);
     setMoveOptions(null);
+    setPath(null);
+  };
+
+  /** The next hexes of the path being picked (pass and play) */
+  const steps = unitHexPosition && chosen && path ? session.getNextSteps(unitHexPosition, chosen.id, path) : null;
+  const pathEnd = path && path.length > 1 ? path[path.length - 1]! : null;
+
+  /** The path goes on to `position`; with nowhere further to go, the move ends there */
+  const step = (position: Position) => {
+    if (!unitHexPosition || !chosen || !path) return;
+    const longer = [...path, position];
+    const next = session.getNextSteps(unitHexPosition, chosen.id, longer);
+    if (next && next.moves.length > 0) setPath(longer);
+    else order(unitHexPosition, chosen, position, longer);
   };
 
   const toggleMarkMode = () => {
@@ -240,8 +269,19 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
         clearSelection();
         return;
       }
+      // Pass and play: a highlighted hex is the path's next step; its last hex again ends the move there
+      if (chosen && path) {
+        if (pathEnd && samePosition(pathEnd, position)) {
+          order(unitHexPosition, chosen, position, path);
+          return;
+        }
+        if (steps?.moves.some((p) => samePosition(p, position))) {
+          step(position);
+          return;
+        }
+      }
       // Tapping a highlighted hex moves the selected unit there
-      if (chosen && moveOptions?.moves.some((p) => samePosition(p, position))) {
+      if (chosen && !path && moveOptions?.moves.some((p) => samePosition(p, position))) {
         order(unitHexPosition, chosen, position);
         return;
       }
@@ -275,7 +315,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** What to do now, in a few words: always in sight */
   const prompt = () => {
     if (marking && markerRule) return t.promptMark(markersLeft);
-    if (selectedHex) return chosen ? t.tapHighlightedHex : t.promptPickAction;
+    if (selectedHex) return chosen ? (path ? t.tapNextHex : t.tapHighlightedHex) : t.promptPickAction;
     if (game.marking) return t.promptMarkCard(tr(game.marking.card.name));
     if (game.orderable.length === 0) return t.promptConfirm;
     return t.promptTapUnit;
@@ -284,7 +324,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** The same, explained: behind "Instrucciones" */
   const instructions = () => {
     if (marking && markerRule) return t.helpMark(labels.describeMarkerRule(markerRule), markersLeft);
-    if (selectedHex) return chosen ? t.helpSelected : t.helpPickAction;
+    if (selectedHex) return chosen ? (path ? t.helpPath : t.helpSelected) : t.helpPickAction;
     if (game.marking) return t.helpMarkCard(tr(game.marking.card.name));
     if (game.orderable.length === 0) return t.helpConfirm;
     return t.helpTapUnit;
@@ -310,8 +350,9 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           zoomable
           onTileClick={handleTileClick}
           unitHexPosition={unitHexPosition}
-          possibleMovePositions={moveOptions?.moves ?? []}
-          possibleMoveAndFirePositions={moveOptions?.moveAndFire ?? []}
+          possibleMovePositions={(steps ?? moveOptions)?.moves ?? []}
+          possibleMoveAndFirePositions={(steps ?? moveOptions)?.moveAndFire ?? []}
+          pathPreview={path}
           boardManager={boardManager}
           orders={orders}
           backgroundImage={session.scenario.image}
@@ -415,12 +456,26 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
                   <LegendItem color="var(--m44-move-only)" label={t.moveOnly} />
                 </Stack>
                 <Stack sx={{ gap: 1 }}>
-                  <Button onClick={handleHold} startIcon={<GameIcon name={moveOptions?.limits.holdShots ? "fire" : "confirm"} />}>
-                    {holdLabel(moveOptions?.limits.holdShots ?? 0, t)}
-                  </Button>
-                  <Button variant="outlined" onClick={otherAction} startIcon={<GameIcon name="undo" />}>
-                    {t.otherAction}
-                  </Button>
+                  {pathEnd && unitHexPosition ? (
+                    // Pass and play, a path on its way: end it here, or take off its last hex
+                    <>
+                      <Button onClick={() => order(unitHexPosition, chosen, pathEnd, path!)} startIcon={<GameIcon name="confirm" />}>
+                        {t.goHere}
+                      </Button>
+                      <Button variant="outlined" onClick={() => setPath(path!.slice(0, -1))} startIcon={<GameIcon name="undo" />}>
+                        {t.stepBack}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button onClick={handleHold} startIcon={<GameIcon name={moveOptions?.limits.holdShots ? "fire" : "confirm"} />}>
+                        {holdLabel(moveOptions?.limits.holdShots ?? 0, t)}
+                      </Button>
+                      <Button variant="outlined" onClick={otherAction} startIcon={<GameIcon name="undo" />}>
+                        {t.otherAction}
+                      </Button>
+                    </>
+                  )}
                 </Stack>
               </>
             ) : (

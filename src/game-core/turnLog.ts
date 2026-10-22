@@ -1,4 +1,5 @@
 // game-core/turnLog.ts
+import { samePosition } from "./position";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { DieFace } from "./dice";
@@ -115,7 +116,8 @@ export function recordTurn({
       target: { ...shot.target },
       ...(shot.removedWire && { removedWire: { ...shot.removedWire } }),
     })),
-    battleEdits: battleEdits.map((edit): TurnRecord["battleEdits"][number] => {
+    // A move after the battle that was skipped moved nothing
+    battleEdits: battleEdits.filter((edit) => edit.kind !== "move" || !samePosition(edit.from, edit.to)).map((edit): TurnRecord["battleEdits"][number] => {
       if (edit.kind === "wire") return { kind: "wire", position: { ...edit.position } };
       if (edit.kind === "sandbags") {
         return { kind: "sandbags", position: { ...edit.position }, placed: edit.placed, ...(edit.fortify && { fortify: true }) };

@@ -11,11 +11,14 @@ import axisArtillery from "../assets/units/axis/artillery.svg";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { FIGURES } from "../data/figures";
+import { FACTION_COLORS } from "../looks/looks";
 import { defineMessages, useMessages } from "../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
     elite: "De élite",
+    readyToFire: (moved: boolean): string => (moved ? "Se movió y le queda disparar" : "Sin moverse, le queda disparar"),
+    fired: (moved: boolean): string => (moved ? "Se movió y disparó" : "Disparó sin moverse"),
     damaged: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`}, una ya tocada: el próximo impacto la quita`,
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     pinned: "Inmovilizada: otra bandera la hace retirarse",
@@ -23,6 +26,8 @@ const TEXT = defineMessages({
   },
   en: {
     elite: "Elite",
+    readyToFire: (moved: boolean): string => (moved ? "Moved, still to fire" : "Stood still, still to fire"),
+    fired: (moved: boolean): string => (moved ? "Moved and fired" : "Fired without moving"),
     damaged: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`}, one already hit: the next hit removes it`,
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     pinned: "Pinned: another flag makes it retreat",
@@ -64,6 +69,8 @@ interface UnitProps {
   readyToFire?: boolean;
   /** It has used its shots this turn */
   fired?: boolean;
+  /** It moved this turn: its fire badge carries an arrow */
+  moved?: boolean;
   /** It can be ordered */
   orderable?: boolean;
   /** Pass and play: its figures left, the sprites drawn; by default all of them */
@@ -127,8 +134,8 @@ const FIGURE_LAYOUT: Record<UnitType, { size: number; spots: ReadonlyArray<reado
 
 /**
  * A unit as one of its side's sprites per figure, with no token behind it. A dashed gold ring marks a
- * unit that can be ordered; a badge shows it will fire (crosshair) or has
- * fired (check).
+ * unit that can be ordered; a badge, rimmed in its side's colour, shows it is still to fire (crosshair)
+ * or has fired (check), with an arrow tag if it moved.
  */
 const UnitComponent: React.FC<UnitProps> = ({
   x,
@@ -138,6 +145,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   fromBehind = false,
   readyToFire = false,
   fired = false,
+  moved = false,
   orderable = false,
   figures,
   pinned = false,
@@ -250,29 +258,50 @@ const UnitComponent: React.FC<UnitProps> = ({
         </g>
       )}
 
-      {fired ? (
-        <g className="unit__badge unit__badge--fired">
-          <circle cx={badgeX} cy={badgeY} r={BADGE_RADIUS} fill="#3f6b2a" stroke="#f1ead6" strokeWidth={2} />
-          <path
-            d={`M${badgeX - 5} ${badgeY} l3.5 3.5 l6 -7`}
-            fill="none"
-            stroke="#f1ead6"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+      {/* Left to fire (red crosshair) or fired (green check), rimmed in its side's colour; an arrow tag if it moved */}
+      {(fired || readyToFire) && (
+        <g
+          className={`unit__badge ${fired ? "unit__badge--fired" : "unit__badge--fire"}${moved ? " unit__badge--moved" : ""}`}
+          data-testid="fire-badge"
+        >
+          <title>{fired ? t.fired(moved) : t.readyToFire(moved)}</title>
+          <circle cx={badgeX} cy={badgeY} r={BADGE_RADIUS + 2} fill={FACTION_COLORS[faction]} />
+          <circle cx={badgeX} cy={badgeY} r={BADGE_RADIUS} fill={fired ? "#3f6b2a" : "#b3261e"} stroke="#f1ead6" strokeWidth={1.5} />
+          {fired ? (
+            <path
+              d={`M${badgeX - 5} ${badgeY} l3.5 3.5 l6 -7`}
+              fill="none"
+              stroke="#f1ead6"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : (
+            <>
+              <circle cx={badgeX} cy={badgeY} r={4.5} fill="none" stroke="#f1ead6" strokeWidth={1.8} />
+              <path
+                d={`M${badgeX} ${badgeY - 8}v4M${badgeX} ${badgeY + 4}v4M${badgeX - 8} ${badgeY}h4M${badgeX + 4} ${badgeY}h4`}
+                stroke="#f1ead6"
+                strokeWidth={1.8}
+              />
+            </>
+          )}
+          {moved && (
+            <g data-testid="moved-tag">
+              <circle cx={badgeX - 10} cy={badgeY + 10} r={6.5} fill="#2b2418" stroke={FACTION_COLORS[faction]} strokeWidth={2} />
+              {/* Pointing the way it advances: up the map for the side it's seen from, down for the other */}
+              <path
+                d={`M${badgeX - 13} ${badgeY + 10 + (fromBehind ? 1.5 : -1.5)}l3 ${fromBehind ? -3 : 3}l3 ${fromBehind ? 3 : -3}`}
+                fill="none"
+                stroke="#f1ead6"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </g>
+          )}
         </g>
-      ) : readyToFire ? (
-        <g className="unit__badge unit__badge--fire">
-          <circle cx={badgeX} cy={badgeY} r={BADGE_RADIUS} fill="#b3261e" stroke="#f1ead6" strokeWidth={2} />
-          <circle cx={badgeX} cy={badgeY} r={4.5} fill="none" stroke="#f1ead6" strokeWidth={1.8} />
-          <path
-            d={`M${badgeX} ${badgeY - 8}v4M${badgeX} ${badgeY + 4}v4M${badgeX - 8} ${badgeY}h4M${badgeX + 4} ${badgeY}h4`}
-            stroke="#f1ead6"
-            strokeWidth={1.8}
-          />
-        </g>
-      ) : null}
+      )}
     </g>
   );
 };

@@ -1,3 +1,4 @@
+import InfoButton from "../../InfoButton";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
@@ -20,10 +21,7 @@ const TEXT = defineMessages({
     shortOfCoins: (cost: string, have: string) => `Te faltan suministros: cuesta ${cost} y tienes ${have}.`,
     cooldown: (n: number) => (n === 1 ? "Se jugó hace poco: vuelve en 1 turno." : `Se jugó hace poco: vuelve en ${n} turnos.`),
     pickCard: "Elige una carta, o juega sin carta",
-    readyToPlay: "Listo: pulsa Jugar",
     yourPlay: "Tu jugada",
-    cardSlot: "Carta",
-    noCardYet: "Sin elegir",
     remove: "Quitar",
     removeCard: (name: string) => `Quitar ${name}`,
     play: "Jugar",
@@ -42,10 +40,7 @@ const TEXT = defineMessages({
     shortOfCoins: (cost: string, have: string) => `Not enough supplies: it costs ${cost} and you have ${have}.`,
     cooldown: (n: number) => (n === 1 ? "Played recently: back in 1 turn." : `Played recently: back in ${n} turns.`),
     pickCard: "Pick a card, or play without one",
-    readyToPlay: "Ready: tap Play",
     yourPlay: "Your play",
-    cardSlot: "Card",
-    noCardYet: "Not picked",
     remove: "Remove",
     removeCard: (name: string) => `Remove ${name}`,
     play: "Play",
@@ -226,50 +221,40 @@ function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, largeM
                   </div>
                 </div>
 
-                <Stack className="cards-tray__lines">
-                  <Typography variant="body2" color={pick ? "primary" : "text.secondary"} className="cards-tray__prompt">
-                    {pick ? t.readyToPlay : t.pickCard}
-                  </Typography>
-                  <div className="cards-tray__line">
-                    <Typography variant="overline" className="cards-tray__slot">
-                      {t.cardSlot}
-                    </Typography>
-                    <div className="cards-tray__name">
-                      <Typography sx={{ fontWeight: 600 }} color={pickHeld ? "text.primary" : "text.secondary"}>
-                        {pickHeld ? tr(pickHeld.card.name) : t.noCardYet}
-                        {pickHeld && (
-                          <Typography component="span" variant="body2" color="text.secondary">
-                            {` · ${labels.coins(pickHeld.cost)}`}
-                          </Typography>
-                        )}
+                {/* One line: what to do, or the card picked; tapping the card shows its text */}
+                <div className="cards-tray__lines">
+                  {pickHeld ? (
+                    <Typography sx={{ fontWeight: 600 }} className="cards-tray__name">
+                      {tr(pickHeld.card.name)}
+                      <Typography component="span" variant="body2" color="text.secondary">
+                        {` · ${labels.coins(pickHeld.cost)}`}
                       </Typography>
-                      {pickHeld && (
-                        <Typography variant="body2" color="text.secondary">
-                          {tr(pickHeld.card.description)}
-                        </Typography>
-                      )}
-                    </div>
-                    {pickHeld && (
-                      <Button variant="text" size="small" aria-label={t.removeCard(tr(pickHeld.card.name))} onClick={unpick}>
-                        {t.remove}
-                      </Button>
-                    )}
-                  </div>
-                  {!pick && (
-                    <Typography variant="body2" color="text.secondary">
-                      {t.howToPick}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" className="cards-tray__prompt">
+                      {t.pickCard}
                     </Typography>
                   )}
-                </Stack>
+                  {pickHeld ? (
+                    <Button variant="text" size="small" aria-label={t.removeCard(tr(pickHeld.card.name))} onClick={unpick}>
+                      {t.remove}
+                    </Button>
+                  ) : (
+                    <InfoButton title={t.yourPlay}>
+                      <Typography variant="body1">{t.howToPick}</Typography>
+                    </InfoButton>
+                  )}
+                </div>
 
-                <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-                  <Button size="large" className="cards-tray__play" disabled={!pick} onClick={() => commit(pick)} startIcon={<GameIcon name="cards" />}>
+                {pickHeld ? (
+                  <Button size="large" className="cards-tray__play" onClick={() => commit(pick)} startIcon={<GameIcon name="cards" />}>
                     {t.play}
                   </Button>
-                  <Button size="large" variant="outlined" disabled={!!pick} onClick={() => commit(null)}>
+                ) : (
+                  <Button size="large" variant="outlined" onClick={() => commit(null)}>
                     {t.noCard}
                   </Button>
-                </Stack>
+                )}
               </section>
 
               {/* Picking a card from here puts it in the tray, and the table clears */}

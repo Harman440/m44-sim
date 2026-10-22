@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import UnitComponent from "./UnitComponent";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
+import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 import alliedInfantry from "../assets/units/allies/infantry.webp";
 import alliedInfantryBack from "../assets/units/allies/infantry-back.webp";
 import alliedTank from "../assets/units/allies/tank.svg";
@@ -84,6 +85,24 @@ describe("UnitComponent", () => {
     expect(tank(false).querySelector("text")).toBeNull();
     expect(tank(false).querySelector('[data-testid="damaged-badge"]')).toBeNull();
     expect(tank(true).querySelector('[data-testid="damaged-badge"]')).not.toBeNull();
+  });
+
+  it.each([
+    [false, false, "Stood still, still to fire"],
+    [false, true, "Moved, still to fire"],
+    [true, false, "Fired without moving"],
+    [true, true, "Moved and fired"],
+  ])("tells the four fire states apart (fired %s, moved %s)", (fired, moved, title) => {
+    const container = render(
+      <SettingsContext.Provider value={{ settings: { ...DEFAULT_SETTINGS, language: "en" }, updateSettings: () => {} }}>
+        <svg>
+          <UnitComponent x={0} y={0} faction="Allies" unitData={new Unit(UnitType.TANK)} readyToFire fired={fired} moved={moved} />
+        </svg>
+      </SettingsContext.Provider>
+    ).container;
+
+    expect(container.querySelector('[data-testid="fire-badge"] title')!.textContent).toBe(title);
+    expect(container.querySelector('[data-testid="moved-tag"]') !== null).toBe(moved);
   });
 
   it("falls back to infantry without unit data", () => {

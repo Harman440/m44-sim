@@ -14,7 +14,6 @@ import {
   ToggleButton,
   Typography,
 } from "@mui/material";
-import { MotionConfig } from "motion/react";
 import PassAndPlayMatch, { otherSide } from "../../../game-core/passAndPlay";
 import { UnitType } from "../../../game-core/unit";
 import { Faction } from "../../../types/faction";
@@ -92,6 +91,10 @@ const TEXT = defineMessages({
     takeGround: "Tomar terreno",
     stay: "Quedarse",
     retreats: { Allies: "Retirada de los Aliados", Axis: "Retirada del Eje" },
+    afterBattle: { Allies: "Aliados: tras la batalla", Axis: "Eje: tras la batalla" },
+    moveAfterText: (name: string) => `${name}: toca la casilla a la que va la unidad, o déjala donde está.`,
+    reinforcementText: (unit: string) =>
+      `Refuerzo (${unit.toLowerCase()}): la casilla de la cruz está ocupada. Toca una casilla libre para ponerlo.`,
     retreatText: (unit: string, n: number) =>
       `${unit}: otra bandera estando inmovilizada, se retira ya ${n === 1 ? "1 casilla" : `${n} casillas`} y no combate más este turno. Toca en el mapa la casilla a la que se retira, hacia su borde.`,
     attack: (card: string, side: string) => `${card} (${side}): se tira antes de que nadie dispare.`,
@@ -141,6 +144,9 @@ const TEXT = defineMessages({
     takeGround: "Take ground",
     stay: "Stay",
     retreats: { Allies: "Allied retreat", Axis: "Axis retreat" },
+    afterBattle: { Allies: "Allies: after the battle", Axis: "Axis: after the battle" },
+    moveAfterText: (name: string) => `${name}: tap the hex the unit goes to, or leave it where it is.`,
+    reinforcementText: (unit: string) => `Reinforcement (${unit.toLowerCase()}): the cross hex is taken. Tap a free hex to put it on.`,
     retreatText: (unit: string, n: number) =>
       `${unit}: another flag while pinned, so it retreats ${n === 1 ? "1 hex" : `${n} hexes`} now and doesn't battle again this turn. Tap the hex on the map it retreats to, toward its edge.`,
     attack: (card: string, side: string) => `${card} (${side}): rolled before anyone fires.`,
@@ -167,6 +173,7 @@ function computerTurn(match: PassAndPlayMatch, battle: NonNullable<ReturnType<Pa
   if (battle.attacks.length > 0) return null;
   if (battle.retreat) return battle.retreat.side === computer ? "retreat" : null;
   if (battle.ground) return battle.ground.side === computer ? "ground" : null;
+  if (battle.afterBattle) return battle.afterBattle.side === computer ? "afterBattle" : null;
   return battle.side === computer && battle.fireable.length > 0 ? "fire" : null;
 }
 
@@ -318,17 +325,19 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const side = battle.side;
   const session = side ? match.sessions[side] : null;
   const summaries = session?.orderSummaries() ?? [];
-  const canStillFire = (["Allies", "Axis"] as const).reduce(
-    (sum, faction) => sum + match.sessions[faction].orderSummaries().filter((s) => s.shotsLeft > 0).length,
-    0
-  );
+  // Units that held their fire (or have no target left to take) don't count
+  const canStillFire = match.stillToFire("Allies").length + match.stillToFire("Axis").length;
 
-  // The map picks a hex for a unit of one side: a retreat. The board drawn is that side's, so its
-  // positions need no turning: the map is still seen from the main side (ViewSideContext)
+  // The map picks a hex for a unit of one side: a retreat, or after the battle a move or a
+  // reinforcement. The board drawn is that side's, so its positions need no turning: the map is
+  // still seen from the main side (ViewSideContext)
   const retreat = battle.retreat;
+  const after = battle.afterBattle && battle.afterBattle.side !== computer ? battle.afterBattle : null;
   const pick = retreat && retreat.side !== computer
     ? { side: retreat.side, from: retreat.position as Position | null, options: retreat.options, act: (p: Position) => match.retreat(p) }
-    : null;
+    : after
+      ? { side: after.side, from: after.kind === "move" ? after.from : null, options: after.options, act: (p: Position) => match.moveAfterBattle(p) }
+      : null;
 
   // The shot rolled here, dealt at once: shown over the map until it's dismissed
   const shown = rolled;
@@ -417,9 +426,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const shotTarget = shownShot?.targetPosition ?? null;
 
   return (
-    <MotionConfig reducedMotion="user">
-      <Box className="game-screen" sx={{ width: "100%", maxWidth: 1400 }}>
-        <Box component="main" className="game-screen__main">
+    // GameView's header is above it, and its MotionConfig round it
+    <>
           <div className="phase-layout">
             <Box className="phase-layout__board" sx={{ position: "relative" }}>
               <Board
@@ -445,6 +453,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 firedUnits={
                   new Set(boardGame.orders.filter((_, i) => boardSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))
                 }
+                toFire={new Set(match.stillToFire(boardSide).map((i) => boardGame.orders[i]!.unit))}
               />
 
               {/* The dice, thrown onto the map; what they do is in the side column */}
@@ -563,6 +572,23 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     {t.retreatText(retreatingUnit ? labels.units[retreatingUnit] : "", retreat.flags)}
                   </Typography>
                 </Stack>
+              ) : after ? (
+                <Stack spacing={1} data-testid="after-battle">
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+                    <FactionInsignia faction={after.side} size={28} decorative />
+                    <Typography variant="subtitle1" component="h2">
+                      {t.afterBattle[after.side]}
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2">
+                    {after.kind === "move" ? t.moveAfterText(tr(after.name)) : t.reinforcementText(labels.units[after.unitType])}
+                  </Typography>
+                  {after.kind === "move" && (
+                    <Button variant="outlined" onClick={() => match.skipMoveAfterBattle()}>
+                      {t.stay}
+                    </Button>
+                  )}
+                </Stack>
               ) : battle.ground && groundUnit && battle.ground.side !== computer ? (
                 <Stack spacing={1} data-testid="take-ground">
                   <Typography variant="subtitle1" component="h2">
@@ -628,20 +654,33 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
               )}
 
               <Box sx={{ mt: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
-                {(["Allies", "Axis"] as const).map((faction) => (
-                  <Button
-                    key={faction}
-                    variant="outlined"
-                    startIcon={<GameIcon name="cards" />}
-                    onClick={() => setCardsOf(faction)}
-                  >
-                    {t.cards[faction]}
-                  </Button>
-                ))}
+                {/* Against the computer only the person's own cards are shown, right here; two people each open theirs */}
+                {computer ? (
+                  // Compact in the narrow column, so the button below stays in sight
+                  <Box sx={{ "& .battle-reserve": { flex: "none", p: 1, gap: 1 } }}>
+                    <BattleReserve
+                      faction={otherSide(computer)}
+                      coins={match.sessions[otherSide(computer)].getSnapshot().coins}
+                      onShowCoins={() => setCoinsOf(otherSide(computer))}
+                      {...playedCardOf(match.sessions[otherSide(computer)].getSnapshot())}
+                    />
+                  </Box>
+                ) : (
+                  (["Allies", "Axis"] as const).map((faction) => (
+                    <Button
+                      key={faction}
+                      variant="outlined"
+                      startIcon={<GameIcon name="cards" />}
+                      onClick={() => setCardsOf(faction)}
+                    >
+                      {t.cards[faction]}
+                    </Button>
+                  ))
+                )}
                 <Button
                   onClick={() => (canStillFire > 0 ? setConfirmingEnd(true) : match.endBattle())}
                   disabled={
-                    !!battle.ground || !!retreat || battle.attacks.length > 0
+                    !!battle.ground || !!retreat || battle.attacks.length > 0 || !!battle.afterBattle
                   }
                   startIcon={<GameIcon name="endTurn" />}
                 >
@@ -650,7 +689,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
               </Box>
             </div>
           </div>
-        </Box>
 
         {attackShown && (
           <Dialog open onClose={() => setAttackShown(null)} fullWidth maxWidth="sm">
@@ -732,8 +770,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
-    </MotionConfig>
+    </>
   );
 }
 

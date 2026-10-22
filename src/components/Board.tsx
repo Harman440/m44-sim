@@ -55,6 +55,10 @@ interface BoardProps {
   invalidFlash?: HexFlash | null;
   /** Units that have used their shots this turn */
   firedUnits?: ReadonlySet<Unit>;
+  /** Pass and play: the path being picked hex by hex for the selected unit, drawn as its arrow */
+  pathPreview?: readonly Position[] | null;
+  /** Units still to fire, with the crosshair; by default those whose order lets them fire */
+  toFire?: ReadonlySet<Unit>;
   /** Units that can still be ordered, ringed */
   orderablePositions?: readonly Position[];
   /** Hexes marked for the combat cards, drawn as targets or crosses */
@@ -101,7 +105,8 @@ interface BoardProps {
   atStart?: boolean;
   /**
    * The player can zoom and pan: pinch, the mouse wheel and the +/− buttons
-   * zoom, a drag pans once zoomed in (a drag is never a tap on a hex)
+   * zoom, a drag pans to what's out of sight (a drag is never a tap on a hex).
+   * In landscape it fills the box its screen gives it, cropped (`useBoardZoom`)
    */
   zoomable?: boolean;
 }
@@ -115,6 +120,7 @@ interface PlacedToken {
   other: boolean;
   readyToFire?: boolean;
   fired?: boolean;
+  moved?: boolean;
   orderable?: boolean;
   figures?: number;
   pinned?: boolean;
@@ -145,6 +151,8 @@ function Board({
   backgroundImage,
   invalidFlash = null,
   firedUnits,
+  toFire,
+  pathPreview,
   orderablePositions = [],
   markers = [],
   markerKind = 'target',
@@ -188,7 +196,7 @@ function Board({
   const geometry = turned
     ? { ...grid, hexCenter: (position: Position) => grid.hexCenter(turnedRound(position, boardManager.size)) }
     : grid;
-  const unitsReadyToFire = new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
+  const unitsReadyToFire = toFire ?? new Set(orders.filter((order) => order.canFire).map((order) => order.unit));
 
   const highlightAt = (position: Position): HexHighlight => {
     if (unitHexPosition && samePosition(unitHexPosition, position)) return 'selected';
@@ -202,15 +210,30 @@ function Board({
   };
 
   const renderOrders = () => {
-    return orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
-      <OrderComponent
-        key={index} // an order's index identifies it for the whole turn (see Order)
-        orderIndex={index}
-        order={order}
-        getHexCenter={geometry.hexCenter}
-        hexSize={hexSize}
-      />
-    ));
+    const previewUnit = pathPreview && pathPreview.length > 1 ? boardManager.getHex(pathPreview[0]!)?.unit : null;
+    return (
+      <>
+        {orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
+          <OrderComponent
+            key={index} // an order's index identifies it for the whole turn (see Order)
+            orderIndex={index}
+            order={order}
+            getHexCenter={geometry.hexCenter}
+            hexSize={hexSize}
+          />
+        ))}
+        {previewUnit && (
+          <g data-testid="path-preview" opacity={0.75}>
+            <OrderComponent
+              orderIndex={orders.length}
+              order={new Order({ unit: previewUnit, action: '', start: pathPreview![0]!, end: pathPreview!.at(-1)!, path: [...pathPreview!], shots: 0 })}
+              getHexCenter={geometry.hexCenter}
+              hexSize={hexSize}
+            />
+          </g>
+        )}
+      </>
+    );
   };
 
   /** The other army's order arrows, turned round onto this side's view */
@@ -407,6 +430,9 @@ function Board({
   /** Every unit on the map, this side's and the other army's, where it's drawn */
   const tokens = (): PlacedToken[] => {
     const startOf = (list: readonly Order[]) => new Map(list.map((order) => [order.unit, order.start]));
+    const movedUnits = (list: readonly Order[]) =>
+      new Set(list.filter((order) => !samePosition(order.start, order.end)).map((order) => order.unit));
+    const ownMoved = movedUnits(orders);
     const ownStarts = atStart ? startOf(orders) : null;
     const own = boardManager.getAllHexes().flatMap((hex): PlacedToken[] => {
       const unit = hex.unit;
@@ -420,6 +446,7 @@ function Board({
         other: false,
         readyToFire: unitsReadyToFire.has(unit),
         fired: firedUnits?.has(unit) ?? false,
+        moved: ownMoved.has(unit),
         orderable: includesPosition(orderablePositions, position),
         figures: stands?.figures,
         pinned: stands?.pinned,
@@ -430,11 +457,16 @@ function Board({
     });
     if (!opponent) return own;
     const otherStarts = atStart ? startOf(opponent.orders) : null;
+    const otherMoved = movedUnits(opponent.orders);
+    const otherReady = new Set(opponent.toFire);
     const other = opponent.units.map(({ position, unit, figures, pinned, retreats, damaged, hitThisTurn }): PlacedToken => ({
       unit,
       faction: opponent.faction,
       position: otherStarts?.get(unit) ?? position,
       other: true,
+      readyToFire: otherReady.has(unit),
+      fired: opponent.fired.includes(unit),
+      moved: otherMoved.has(unit),
       figures,
       pinned,
       retreats,
@@ -484,6 +516,7 @@ function Board({
                 unitData={token.unit}
                 readyToFire={token.readyToFire}
                 fired={token.fired}
+                moved={token.moved}
                 orderable={token.orderable}
                 figures={token.figures}
                 pinned={token.pinned}
@@ -582,7 +615,7 @@ function Board({
   const shown = zoom.view;
 
   return (
-    <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.zoomed ? ' board--zoomed' : ''}`} {...zoom.handlers}>
+    <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.pannable ? ' board--zoomed' : ''}`} {...zoom.handlers}>
       {/* viewBox + CSS width lets the board scale down to fit tablets; zooming narrows the viewBox */}
       <svg
         ref={zoom.svgRef}
@@ -641,10 +674,10 @@ function Board({
           <IconButton className="board__zoom-button" aria-label={t.zoomIn} title={t.zoomIn} disabled={!zoom.canZoomIn} onClick={zoom.zoomIn}>
             +
           </IconButton>
-          <IconButton className="board__zoom-button" aria-label={t.zoomOut} title={t.zoomOut} disabled={!zoom.zoomed} onClick={zoom.zoomOut}>
+          <IconButton className="board__zoom-button" aria-label={t.zoomOut} title={t.zoomOut} disabled={!zoom.canZoomOut} onClick={zoom.zoomOut}>
             −
           </IconButton>
-          <IconButton className="board__zoom-button" aria-label={t.fit} title={t.fit} disabled={!zoom.zoomed} onClick={zoom.reset}>
+          <IconButton className="board__zoom-button" aria-label={t.fit} title={t.fit} disabled={!zoom.canZoomOut} onClick={zoom.reset}>
             ⤢
           </IconButton>
         </div>

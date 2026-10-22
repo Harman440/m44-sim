@@ -64,14 +64,6 @@ const carryOut = (match: PassAndPlayMatch) => {
   expect(match.endBattle()).toBe(true);
 };
 
-/** The final phase of the side holding the device, to the next turn */
-const finishTurn = (match: PassAndPlayMatch) => {
-  match.uncover();
-  const session = match.activeSession();
-  expect(session.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
-  expect(session.endTurn()).toBe(true);
-};
-
 describe("PassAndPlayMatch", () => {
   it("starts with the attacker, behind the cover screen, both sides picking their cards", () => {
     const match = newMatch();
@@ -116,17 +108,63 @@ describe("PassAndPlayMatch", () => {
     expect(match.getSnapshot()).toMatchObject({ active: "Axis", covered: true, battle: null });
   });
 
-  it("hands the device to a side still finishing the last turn", () => {
+  describe("after the battle", () => {
+    const FROM = { row: 7, col: 1 };
+    const TO = { row: 6, col: 1 };
+    /** The Axis holds; the Allied infantry goes Behind Enemy Lines; nobody fires */
+    const behindLines = () => {
+      const match = newMatch();
+      giveOrders(match);
+      match.uncover();
+      const allies = match.sessions.Allies;
+      expect(allies.pickCard(null)).toBe(true);
+      expect(allies.giveAction(FROM, "infantry:behindEnemyLines", TO)).toBe(true);
+      expect(allies.commitOrders()).toBe(true);
+      expect(match.moveUnits()).toBe(true);
+      expect(match.finishReveal()).toBe(true);
+      for (let battle = match.getSnapshot().battle!; battle.side; battle = match.getSnapshot().battle!) {
+        expect(match.holdFire(battle.fireable[0]!)).toBe(true);
+      }
+      expect(match.endBattle()).toBe(true);
+      return match;
+    };
+
+    it("moves the Behind Enemy Lines unit on the battle screen, then starts the next turn", () => {
+      const match = behindLines();
+      const due = match.getSnapshot().battle!.afterBattle!;
+      expect(due).toMatchObject({ side: "Allies", kind: "move", from: TO });
+      expect(match.endBattle()).toBe(false); // the move comes first
+      expect(match.moveAfterBattle(TO)).toBe(false); // it has to go somewhere
+
+      const to = due.options.find((option) => option.row === 4)!;
+      expect(match.moveAfterBattle(to)).toBe(true);
+      expect(match.getSnapshot().battle).toBeNull();
+      expect(match.sessions.Allies.board.getHex(to)?.unit?.getUnitType()).toBe(UnitType.INFANTRY);
+      for (const side of ["Allies", "Axis"] as const) {
+        expect(match.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
+      }
+    });
+
+    it("lets the unit stay where it is instead", () => {
+      const match = behindLines();
+      expect(match.skipMoveAfterBattle()).toBe(true);
+      expect(match.getSnapshot().battle).toBeNull();
+      expect(match.sessions.Allies.board.getHex(TO)?.unit?.getUnitType()).toBe(UnitType.INFANTRY);
+      expect(match.sessions.Allies.getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
+      expect(match.sessions.Allies.getSnapshot().log.at(-1)!.battleEdits).toEqual([]);
+    });
+  });
+
+  it("starts the next turn for both sides once the battle ends: there's no final phase", () => {
     const match = newMatch();
     giveOrders(match);
     giveOrders(match);
     carryOut(match);
 
-    finishTurn(match); // the Axis' turn 1
-    giveOrders(match); // and its turn 2 orders, while the Allies are still in turn 1's final phase
-
-    expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: true, revealTurn: null });
-    expect(match.activeSession().getSnapshot()).toMatchObject({ phase: TurnPhase.END_OF_TURN, turn: 1 });
+    expect(match.getSnapshot()).toMatchObject({ active: "Axis", covered: true, battle: null });
+    for (const side of ["Allies", "Axis"] as const) {
+      expect(match.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
+    }
   });
 
   it("tells listeners about its own changes and either side's", () => {
@@ -180,7 +218,7 @@ describe("PassAndPlayMatch", () => {
     expect(match.opponentOf("Axis").orders).toHaveLength(2);
 
     carryOut(match);
-    expect(match.opponentOf("Allies").orders).toHaveLength(1);
+    expect(match.opponentOf("Allies").orders).toHaveLength(0); // the next turn has begun
   });
 
   it("moves both armies at once, stopping and rolling the units that collide", () => {
@@ -372,11 +410,17 @@ describe("PassAndPlayMatch", () => {
       expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES - 2);
       expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", fireable: [1 - infantry] });
       expect(match.fire(infantry, axisView(4, 2))).toBe(false); // it has fired
+      // The other side sees which of its units fired
+      expect(match.opponentOf("Allies").fired).toEqual([axis.getSnapshot().orders[infantry]!.unit]);
+
+      expect(match.stillToFire("Axis")).toEqual([1 - infantry]);
 
       expect(match.holdFire(1 - infantry)).toBe(true);
+      // A unit that held its fire keeps its shot, but isn't still to fire
+      expect(match.stillToFire("Axis")).toEqual([]);
       expect(match.getSnapshot().battle).toMatchObject({ side: null, group: null, fireable: [] });
       expect(match.endBattle()).toBe(true);
-      expect(match.sessions.Axis.getSnapshot().phase).toBe(TurnPhase.END_OF_TURN);
+      expect(match.sessions.Axis.getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
     });
 
     it("lets a unit with an enemy next to it fire in close assault only", () => {
@@ -422,9 +466,7 @@ describe("PassAndPlayMatch", () => {
       expect(hit().hitThisTurn).toBe(2);
       expect(match.opponentOf("Axis").units.find((u) => u.unit.getUnitType() === UnitType.INFANTRY)).toMatchObject({ hitThisTurn: 2 });
 
-      match.endBattle();
-      finishTurn(match); // the Axis' turn ends
-      expect(match.sessions.Allies.endTurn()).toBe(true); // and the Allies'
+      expect(match.endBattle()).toBe(true); // both sides' turn ends
       expect(hit().hitThisTurn).toBe(0);
       expect(hit().figures).toBe(INFANTRY_FIGURES - 2);
     });
@@ -444,8 +486,6 @@ describe("PassAndPlayMatch", () => {
       }
       match.holdFire(match.getSnapshot().battle!.fireable[0]!);
       expect(match.endBattle()).toBe(true);
-      finishTurn(match);
-      expect(allies.endTurn()).toBe(true);
       expect(allies.getSnapshot()).toMatchObject({ turn: 2, phase: TurnPhase.PICK_CARDS });
       expect(flagged()).toBeUndefined();
       expect(allies.getSnapshot().strength.every((u) => u.retreats === 0 && u.hitThisTurn === 0)).toBe(true);
@@ -715,7 +755,7 @@ describe("PassAndPlayMatch", () => {
 
     expect(restored.getSnapshot()).toMatchObject({ active: "Axis", covered: true, revealTurn: null });
     for (const side of ["Allies", "Axis"] as const) {
-      expect(restored.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.END_OF_TURN, turn: 1 });
+      expect(restored.sessions[side].getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
     }
     expect(otherSide(restored.getSnapshot().active)).toBe("Allies");
   });
@@ -778,8 +818,6 @@ describe("a match against the computer", () => {
     expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, battle: { turn: 1 } });
     expect(match.endBattle()).toBe(true);
     expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, battle: null });
-    endTurn(computer);
-    endTurn(person);
     expect(person.getSnapshot()).toMatchObject({ phase: TurnPhase.PICK_CARDS, turn: 2 });
   });
 

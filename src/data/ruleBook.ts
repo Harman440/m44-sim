@@ -486,8 +486,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Refuerzos", en: "Reinforcements" },
         house: {
-          es: "La carta marca una cruz en el mapa. Al empezar la fase final llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre.",
-          en: "The card marks a cross on the map. As the final phase starts, an infantry unit arrives on that hex, with no die roll; if the hex is taken, you pick another empty one.",
+          es: "La carta marca una cruz en el mapa. Al terminar la batalla llega a esa casilla una unidad de infantería, sin tirar dado; si la casilla está ocupada, eliges otra libre.",
+          en: "The card marks a cross on the map. When the battle ends, an infantry unit arrives on that hex, with no die roll; if the hex is taken, you pick another empty one.",
         },
       },
     ],

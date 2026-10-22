@@ -155,6 +155,14 @@ function battleStep(match: PassAndPlayMatch, view: AiView, brain: Brain): boolea
     if (battle.ground.side !== side) return false;
     return match.decideGround(brain.takeGround(view, battle.ground.order));
   }
+  if (battle.afterBattle) {
+    const due = battle.afterBattle;
+    if (due.side !== side) return false;
+    // The brains don't move units after the battle (Behind Enemy Lines) yet: it stays
+    if (due.kind === "move") return match.skipMoveAfterBattle();
+    const at = brain.reinforcementAt(view, [...due.options]);
+    return (!!at && match.moveAfterBattle(at)) || due.options.some((option) => match.moveAfterBattle(option));
+  }
   if (battle.side !== side || battle.fireable.length === 0) return false;
 
   const { order, targets } = brain.shotFor(view, battle.fireable);

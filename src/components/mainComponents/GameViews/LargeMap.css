@@ -25,4 +25,16 @@
   .large-map__fit .board {
     width: auto;
   }
+
+  /* A zoomable map fills the whole space, cropped to it; a drag shows the rest (useBoardZoom) */
+  .large-map__fit .board--zoomable {
+    width: 100%;
+  }
+
+  .large-map__fit .board--zoomable .board__svg {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100cqh;
+    max-width: none !important;
+  }
 }

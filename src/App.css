@@ -14,3 +14,10 @@
     --app-padding: 8px;
   }
 }
+
+/* A game screen in landscape: the least margin round it, so the board gets the room */
+@media (orientation: landscape) {
+  .app:has(.game-screen) {
+    --app-padding: 6px;
+  }
+}
