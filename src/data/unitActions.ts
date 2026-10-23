@@ -181,11 +181,12 @@ export const fireOptionById = (id: string): FireOption | undefined => ALL_FIRE_O
 /**
  * The actions a plain move turns into, in the order they're tried (cheapest first): the move a
  * unit is given with no action named (`GameSession.issueOrder`, the computer). A hold is
- * Firefight; a move it can fire after, Move Out (1 hex) or Assault (2); a longer one, Motorized
- * (Reposition for artillery)
+ * Firefight; a move of 1 hex, Move Out, which fires; of 2, Move Out, which doesn't; a longer
+ * one, Motorized (Reposition for artillery). Infantry Assault, which costs morale, only when it's
+ * picked
  */
 export const PLAIN_ACTIONS: Record<UnitType, readonly string[]> = {
-  [UnitType.INFANTRY]: ["infantry:firefight", "infantry:moveOut", "infantry:assault", "infantry:motorized"],
+  [UnitType.INFANTRY]: ["infantry:firefight", "infantry:moveOut", "infantry:motorized"],
   [UnitType.TANK]: ["tank:firefight", "tank:assault"],
   [UnitType.ARTILLERY]: ["artillery:firefight", "artillery:reposition"],
 };

@@ -239,7 +239,7 @@ The player's notes after playing it, and their answers: the cooldown goes to 4 t
   - Infantry Assault moves up to 2 and fires, for 3 energy and 2 morale (a unit at morale 2 may, ending at 0); own tablets don't track morale and pay only the energy (`actionCost`)
   - Motorized costs 4 energy
   - Close Assault is gone, with the action dice it alone used (`ActionFire.bonusDice`, `closeAssaultOnly`, the "action" dice step)
-  - A plain move tries Firefight, Move Out, Assault, Motorized
+  - A plain move tries Firefight, Move Out, Motorized: 2 hexes is Move Out, which doesn't fire; Infantry Assault only when picked
   - Cards wait 4 turns (`CARD_COOLDOWN_TURNS`)
   - An action that would change nothing is refused (`notNeeded`): Reload with full ammo or shells, Morale Up at full morale, Fortify on sandbags, Camouflage with the badge on
   - `SAVE_VERSION` 44, `MATCH_SAVE_VERSION` 19

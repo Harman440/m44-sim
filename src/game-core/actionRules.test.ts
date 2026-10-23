@@ -155,9 +155,9 @@ describe("how far an action moves", () => {
 });
 
 describe("the plain action for a move", () => {
-  it("tries Firefight, Move Out, Assault and Motorized for infantry; Firefight and Assault for tanks; Firefight and Reposition for artillery", () => {
+  it("tries Firefight, Move Out and Motorized for infantry; Firefight and Assault for tanks; Firefight and Reposition for artillery", () => {
     const ids = (unitType: UnitType) => plainActionsFor(unitType).map((each) => each.id);
-    expect(ids(UnitType.INFANTRY)).toEqual(["infantry:firefight", "infantry:moveOut", "infantry:assault", "infantry:motorized"]);
+    expect(ids(UnitType.INFANTRY)).toEqual(["infantry:firefight", "infantry:moveOut", "infantry:motorized"]);
     expect(ids(UnitType.TANK)).toEqual(["tank:firefight", "tank:assault"]);
     expect(ids(UnitType.ARTILLERY)).toEqual(["artillery:firefight", "artillery:reposition"]);
   });

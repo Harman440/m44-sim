@@ -146,16 +146,22 @@ describe("GameSession giving actions", () => {
     expect(session.giveAction(TANK, "tank:armorForward", far)).toBe(true);
   });
 
-  it("turns a plain move into the action for it: Firefight to hold, Assault to fire after moving, Move Out or Motorized further", () => {
+  it("turns a plain move into the action for it: Firefight to hold, Move Out for 1 or 2 hexes (firing after 1), Motorized further", () => {
     const session = ordering();
     const options = session.getMoveOptions(INF)!;
     const at = (distance: number) => options.moves.find((move) => hexDistance(move, INF) === distance)!;
 
-    expect(options.limits).toEqual({ maxMove: 3, moveAndFire: 2, holdShots: 1 });
+    expect(options.limits).toEqual({ maxMove: 3, moveAndFire: 1, holdShots: 1 });
     expect(session.issueOrder(INF, at(3))).toBe(true);
     expect(session.issueOrder(OTHER_INF, OTHER_INF)).toBe(true);
     expect(session.issueOrder(TANK, TANK)).toBe(true);
     expect(session.getSnapshot().orders.map((order) => order.action)).toEqual(["infantry:motorized", "infantry:firefight", "tank:firefight"]);
+
+    // 2 hexes is Move Out, which doesn't fire: never Infantry Assault, which costs morale
+    const two = ordering();
+    const far = two.getMoveOptions(INF)!.moves.find((move) => hexDistance(move, INF) === 2)!;
+    expect(two.issueOrder(INF, far)).toBe(true);
+    expect(two.getSnapshot().orders[0]).toMatchObject({ action: "infantry:moveOut", canFire: false });
   });
 });
 
