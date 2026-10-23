@@ -4,11 +4,15 @@
 import { AiView, SeenEnemy } from "./aiStep";
 import { hasLineOfSight, hexDistance } from "../fireTargets";
 import { positionKey } from "../position";
-import BoardManager from "../BoardManager";
+import BoardManager, { turnedRound } from "../BoardManager";
 import { UnitType, checksLineOfSight } from "../unit";
 import { BASE_DICE_BY_DISTANCE, TARGET_TERRAIN_MODIFIERS, TargetTerrain } from "../../data/fireQuestions";
 import { TERRAIN } from "../../data/terrain";
 import { Position } from "../../types/scenario";
+
+/** The hex in the Allies' view, as objectives are */
+export const inAlliesView = (view: AiView, position: Position): Position =>
+  view.side === "Axis" ? turnedRound(position, view.session.board.size) : position;
 
 /** What losing a unit of each type means to its side, roughly */
 export const UNIT_VALUE: Record<UnitType, number> = {

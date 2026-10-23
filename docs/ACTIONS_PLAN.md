@@ -212,12 +212,14 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 ## Part 4: The computer
 
 ### R15: The computer plays the actions game
-- [ ] `Brain` gets `chooseCard` (or none) and `chooseAction` for each unit, and a fire option. `standardBrain` scores the actions:
+- [x] `Brain` gets `chooseCard` (or none) and `chooseAction` for each unit, and a fire option. `standardBrain` scores the actions:
   - Reload when ammo or shells are empty, and Morale Up at morale 0 or close to it
   - rest when energy is low, and keep fuel for when it counts
   - Explosives in close assault, and Suppressive at targets it wants to push back
   - an attack card when it hits enough, Resupply or Refuel when its army is short
-- [ ] `selfPlay.ts`: computer-against-computer games end (as the medals test does today)
+- [x] `selfPlay.ts`: computer-against-computer games end (as the medals test does today)
+- [x] How it went: `ai/actionChoice.ts` (`chooseCard`, `chooseMark`, `chooseAction`, `chooseFireOption`), given to `standardBrain` as the `Brain`'s `pickCard`, `markFor`, `actionFor` and `fireOptionFor`. A card whose hexes can't all be marked is given up for the turn. 20 computer-against-computer games all ended. Against the brain before R15 it won 75–45 in 120 games; without the action rules it won 77–43, so the cards and fire options help and the action rules don't yet
+- [ ] **Decide:** keep the action rules as they are, or take them out until they're tuned
 
 ## Part 5: Finish
 

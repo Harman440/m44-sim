@@ -1,12 +1,13 @@
 // game-core/ai/standardBrain.ts
 // The computer player the app uses: like the basic one, but it weighs each
 // hex by the shots it gives against the fire it draws (terrain cover counts)
-// and fires where it can destroy or weaken most. It plays no card yet.
+// and fires where it can destroy or weaken most. It plays the actions game
+// too: the card, each unit's action and each shot's fire option (actionChoice.ts).
 import { AiView, Brain, MoveChoice } from "./aiStep";
 import { basicBrain } from "./basicBrain";
-import { bestShotFrom, nearestEnemy, shotValue, threatAt, top, unitWorth } from "./scoring";
+import { bestShotFrom, inAlliesView, nearestEnemy, shotValue, threatAt, top, unitWorth } from "./scoring";
+import { chooseAction, chooseCard, chooseFireOption, chooseMark } from "./actionChoice";
 import { includesPosition, positionKey, samePosition } from "../position";
-import { turnedRound } from "../BoardManager";
 import { hexDistance } from "../fireTargets";
 import { UnitType } from "../unit";
 import { Position } from "../../types/scenario";
@@ -36,9 +37,6 @@ export const CAUTIOUS_WEIGHTS: BrainWeights = {
   objectiveApproach: 0,
 };
 
-/** The hex in the Allies' view, as objectives are */
-const inAlliesView = (view: AiView, position: Position) => (view.side === "Axis" ? turnedRound(position, view.session.board.size) : position);
-
 /** What ending a move on this hex is worth for the scenario's objectives */
 function objectiveWorth(view: AiView, position: Position, weights: BrainWeights): number {
   const objectives = view.session.scenario.victory?.objectives ?? [];
@@ -56,6 +54,11 @@ function objectiveWorth(view: AiView, position: Position, weights: BrainWeights)
 export function makeStandardBrain(weights: BrainWeights): Brain {
   const brain: Brain = {
     ...basicBrain,
+
+    pickCard: chooseCard,
+    markFor: chooseMark,
+    actionFor: chooseAction,
+    fireOptionFor: chooseFireOption,
 
     // The unit with the most to gain goes first
     nextToOrder: (view, orderable) => top(orderable, (position) => unitWorth(view, position), view.random),

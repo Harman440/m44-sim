@@ -34,6 +34,12 @@ export interface MoveChoice {
   to: Position;
 }
 
+/**
+ * The action a unit is given for the move the brain chose: a named action to a hex, "rest" for no
+ * order at all, or null for the plain action of the move (`issueOrder`: Firefight, Assault, Move Out…)
+ */
+export type ActionChoice = { action: string; to: Position } | "rest" | null;
+
 /** The decisions a computer player makes; each returns an allowed option, or null to pass */
 export interface Brain {
   dropAt(view: AiView, options: readonly Position[]): Position | null;
@@ -45,8 +51,12 @@ export interface Brain {
   nextToOrder(view: AiView, orderable: readonly Position[]): Position | null;
   /** Where the unit goes */
   moveFor(view: AiView, from: Position): MoveChoice;
+  /** The action for that move; without it, always the plain one */
+  actionFor?(view: AiView, from: Position, to: Position): ActionChoice;
   /** The unit that fires now and its targets in turn, or the unit that holds its fire (no targets) */
   shotFor(view: AiView, fireable: readonly number[]): { order: number; targets: readonly Position[] };
+  /** The fire option (data/unitActions.ts) for a shot, or undefined for the unit's plain one */
+  fireOptionFor?(view: AiView, order: number, target: Position): string | undefined;
   retreatTo(view: AiView, from: Position, options: readonly Position[]): Position;
   takeGround(view: AiView, order: number): boolean;
   reinforcementAt(view: AiView, options: readonly Position[]): Position | null;
@@ -91,9 +101,12 @@ export function aiStep(match: PassAndPlayMatch, side: Faction, brain: Brain, ran
       }
       return session.finishParadrop();
     }
-    case TurnPhase.PICK_CARDS:
-      // A card the side can't play after all: none
-      return session.pickCard(brain.pickCard?.(view) ?? null) || session.pickCard(null);
+    case TurnPhase.PICK_CARDS: {
+      // A card the side can't play after all, or one whose hexes it couldn't mark this turn: none
+      const card = brain.pickCard?.(view) ?? null;
+      const dropped = card !== null && droppedCards.get(session)?.turn === game.turn && droppedCards.get(session)?.card === card.id;
+      return (!dropped && session.pickCard(card)) || session.pickCard(null);
+    }
     case TurnPhase.ORDER_UNITS:
       return orderStep(view, brain);
     case TurnPhase.END_OF_TURN:
@@ -103,36 +116,47 @@ export function aiStep(match: PassAndPlayMatch, side: Faction, brain: Brain, ran
   }
 }
 
+/** The card each session's computer gave up this turn, its hexes not all markable: not picked again until the next turn */
+const droppedCards = new WeakMap<GameSession, { turn: number; card: string }>();
+
 /**
  * One step of giving orders: a hex marked for the card, an order, or the orders locked once the
- * brain orders no more units (the rest rest). A card whose hexes can't be marked is taken back.
- * The move the brain wants turns into the plain action for it (`issueOrder`: Firefight, Assault,
+ * brain orders no more units (the rest rest). A card whose hexes can't all be marked is given
+ * up: its marks taken off one a step, then the card taken back. The move the brain wants turns
+ * into the action it picks for it, or the plain action for it (`issueOrder`: Firefight, Assault,
  * Move Out…), or a hold that fires; a unit that can pay for neither rests, and one with nothing
  * left to fire reloads
  */
 function orderStep(view: AiView, brain: Brain): boolean {
   const { session } = view;
   const game = session.getSnapshot();
+  const played = game.playedCard;
+  const dropped = droppedCards.get(session);
+  if (played && dropped?.turn === game.turn && dropped.card === played.id) return session.undoMarker() || session.unpickCard();
   if (game.marking) {
     const at = game.markable.length > 0 ? (brain.markFor?.(view, game.markable, game.marking) ?? game.markable[0]!) : null;
     if (at && session.markHex(at)) return true;
-    return session.unpickCard();
+    droppedCards.set(session, { turn: game.turn, card: game.marking.card.id });
+    return session.undoMarker() || session.unpickCard();
   }
   let candidates = game.orderable;
   while (candidates.length > 0) {
     const from = brain.nextToOrder(view, candidates);
     if (!from) break;
+    candidates = candidates.filter((position) => !samePosition(position, from));
     if (reloadIfEmpty(session, from)) return true;
     const { to } = brain.moveFor(view, from);
+    const choice = brain.actionFor?.(view, from, to) ?? null;
+    if (choice === "rest") continue;
+    if (choice && session.giveAction(from, choice.action, choice.to)) return true;
     if (session.issueOrder(from, to) || session.issueOrder(from, from)) return true;
-    candidates = candidates.filter((position) => !samePosition(position, from));
   }
   return session.commitOrders();
 }
 
 /**
- * A unit with no ammo or shells for any action that fires is given Reload, when it can be (until
- * the brains choose actions themselves, docs/ACTIONS_PLAN.md R15)
+ * A unit with no ammo or shells for any action that fires is given Reload, when it can be, by
+ * any brain, before it picks the unit's action
  */
 function reloadIfEmpty(session: GameSession, from: Position): boolean {
   const actions = session.getActions(from) ?? [];
@@ -160,7 +184,8 @@ function battleStep(match: PassAndPlayMatch, view: AiView, brain: Brain): boolea
 
   const { order, targets } = brain.shotFor(view, battle.fireable);
   for (const target of targets) {
-    if (match.fire(order, target)) return true;
+    const option = brain.fireOptionFor?.(view, order, target);
+    if ((option && match.fire(order, target, option)) || match.fire(order, target)) return true;
   }
   if (match.holdFire(order)) return true;
   // The brain picked a unit that can't fire now: hold the fire of one that can
