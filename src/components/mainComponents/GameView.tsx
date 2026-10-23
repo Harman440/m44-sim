@@ -28,6 +28,7 @@ import ParadropView from "./GameViews/ParadropView";
 import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
 import LargeMap from "./GameViews/LargeMap";
+import UnitList from "./GameViews/UnitList";
 import { OpponentContext } from "../OpponentContext";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import { useSettings } from "../../settings";
@@ -310,6 +311,8 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false,
               }}
               coins={game.coins}
               largeMap={shared ? <LargeMap session={session} faction={faction} /> : undefined}
+              // What each unit has left, to pick the card with: only read here, no unit is picked
+              units={<UnitList faction={faction} session={session} game={game} selected={null} />}
               initialPick={lastPlay}
             />
           )}

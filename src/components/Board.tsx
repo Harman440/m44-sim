@@ -22,6 +22,7 @@ import type { MarkerRule } from '../game-core/actionCard';
 import { SandbagsArt } from './SandbagsIcon';
 import { CamouflageBadge } from './CamouflageIcon';
 import { useBoardZoom } from './boardZoom';
+import type { Supply } from '../data/unitSupplies';
 import { defineMessages, useMessages } from '../i18n/useI18n';
 
 const TEXT = defineMessages({
@@ -123,6 +124,8 @@ interface BoardProps {
   zoomTools?: React.ReactNode;
   /** What this side's units lost or gained this turn (morale, ammo, luck): a pill under each. Never the other army's */
   changes?: readonly UnitChange[];
+  /** What each of this side's units has run out of: a red pill over it. Never the other army's */
+  empty?: readonly { position: Position; supplies: readonly Supply[] }[];
   /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
   onViewChange?: () => void;
 }
@@ -145,6 +148,8 @@ interface PlacedToken {
   hitThisTurn?: number;
   /** This side's units only: what it lost or gained this turn */
   change?: UnitChange;
+  /** This side's units only: the supplies it has run out of */
+  empty?: readonly Supply[];
 }
 
 /** A stable key per unit, so its token is the same element wherever it moves and can glide there */
@@ -194,7 +199,8 @@ function Board({
   startsWhole = false,
   zoomTools,
   onViewChange,
-  changes = []
+  changes = [],
+  empty = []
 }: BoardProps) {
   const t = useMessages(TEXT);
   const shared = useContext(OpponentContext);
@@ -478,6 +484,7 @@ function Board({
         damaged: stands?.damaged,
         hitThisTurn: stands?.hitThisTurn,
         change: changes.find((each) => samePosition(each.position, position)),
+        empty: empty.find((each) => samePosition(each.position, position))?.supplies,
       }];
     });
     if (!opponent) return own;
@@ -549,6 +556,7 @@ function Board({
                 damaged={token.damaged}
                 hitThisTurn={token.hitThisTurn}
                 change={token.change}
+                empty={token.empty}
               />
             </g>
           </g>

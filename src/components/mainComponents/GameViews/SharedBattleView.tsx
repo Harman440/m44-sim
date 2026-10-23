@@ -48,6 +48,7 @@ import "./PhaseLayout.css";
 import MedalTally from "../../MedalTally";
 import FireOptionPicker from "../../FireOptionPicker";
 import UnitChangeChips from "../../UnitChangeChips";
+import { emptyMarks } from "./emptyMarks";
 
 const TEXT = defineMessages({
   es: {
@@ -57,6 +58,7 @@ const TEXT = defineMessages({
     tapUnit: "Toca en el mapa una de las unidades marcadas.",
     noTarget: (side: string, n: number) =>
       n === 1 ? `${side}: 1 unidad no tiene a qué disparar y no dispara.` : `${side}: ${n} unidades no tienen a qué disparar y no disparan.`,
+    leftToFire: (n: number) => (n === 1 ? "Queda 1 unidad por disparar" : `Quedan ${n} unidades por disparar`),
     range: (range: string) => `Alcance: ${range}`,
     closeAssaultOnly: "Solo asalto cercano",
     tapTarget: "Toca un objetivo en el mapa: el número son los dados que tira.",
@@ -112,6 +114,7 @@ const TEXT = defineMessages({
     tapUnit: "Tap one of the marked units on the map.",
     noTarget: (side: string, n: number) =>
       n === 1 ? `${side}: 1 unit has nothing to fire at and doesn't fire.` : `${side}: ${n} units have nothing to fire at and don't fire.`,
+    leftToFire: (n: number) => (n === 1 ? "1 unit left to fire" : `${n} units left to fire`),
     range: (range: string) => `Range: ${range}`,
     closeAssaultOnly: "Close assault only",
     tapTarget: "Tap a target on the map: the number is the dice it rolls.",
@@ -466,6 +469,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 // Only the side acting now, and never the computer's (the person's enemy): the
                 // enemy's supplies and luck aren't shown
                 changes={boardSide !== computer ? boardGame.changes : []}
+                empty={boardSide !== computer ? emptyMarks(boardGame) : []}
                 firedUnits={
                   new Set(boardGame.orders.filter((_, i) => boardSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))
                 }
@@ -627,7 +631,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                     </Typography>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    {t.groups[battle.group!]}
+                    {t.groups[battle.group!]} · <span data-testid="left-to-fire">{t.leftToFire(match.stillToFire(fireTurn.side).length)}</span>
                   </Typography>
                   {picked && pickedSummary ? (
                     <FiringUnit

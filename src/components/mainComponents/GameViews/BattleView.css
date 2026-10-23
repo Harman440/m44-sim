@@ -23,6 +23,40 @@
   order: 3;
 }
 
+/*
+ * Portrait: the reserve is a row across the top (the coins beside the card), as small as it can
+ * be, so the firing order and each roll stay in sight under it
+ */
+@media (orientation: portrait) {
+  .battle-view__reserve .battle-reserve {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .battle-view__reserve .battle-reserve__cards {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    gap: 8px;
+    --card-width: 84px;
+  }
+
+  .battle-view__reserve .battle-reserve__hand {
+    padding: 2px;
+  }
+
+  /* The coins' crate shrinks with the number beside it (BattleReserve sets the font size) */
+  .battle-view__reserve .battle-reserve [data-icon="coins"] {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 /* The reserve: the coins large above the combat cards played, centred */
 .battle-reserve {
   display: flex;

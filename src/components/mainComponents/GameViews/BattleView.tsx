@@ -183,7 +183,13 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           </Box>
 
           <Box className="battle-view__reserve">
-            <BattleReserve coins={game.coins} onShowCoins={onShowCoins} {...playedCardOf(game)} />
+            {/* An attack card's painting is put away once every marked hex has been rolled */}
+            <BattleReserve
+              coins={game.coins}
+              onShowCoins={onShowCoins}
+              cardAway={game.attackMarks.length > 0 && !game.attacksPending}
+              {...playedCardOf(game)}
+            />
           </Box>
         </Box>
       )}

@@ -5,6 +5,7 @@ import GameSession from "../../../game-core/gameSession";
 import Board from "../../Board";
 import { OpponentContext } from "../../OpponentContext";
 import "./LargeMap.css";
+import { emptyMarks } from "./emptyMarks";
 
 interface LargeMapProps {
   session: GameSession;
@@ -39,6 +40,7 @@ function LargeMap({ session, faction }: LargeMapProps) {
           opponent={opponent}
           strength={game.strength}
           camouflaged={game.camouflaged}
+          empty={emptyMarks(game)}
         />
       </div>
     </Box>

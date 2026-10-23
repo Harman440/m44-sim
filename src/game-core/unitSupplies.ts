@@ -33,6 +33,16 @@ export interface SupplyCost {
 
 export const amountOf = (supplies: UnitSupplies, supply: Supply): number => supplies.amounts[supply] ?? 0;
 
+/**
+ * The supplies a unit spends and has run out of, for the mark on its token: no ammo or shells
+ * means it can't fire, no fuel or energy that it can't be given most of its actions. Morale is
+ * left out: a unit at 0 is shown as pinned and can only rally
+ */
+const MARKED_EMPTY: readonly Supply[] = [Supply.AMMO, Supply.SHELLS, Supply.FUEL, Supply.ENERGY];
+
+export const emptySupplies = (supplies: UnitSupplies): Supply[] =>
+  MARKED_EMPTY.filter((supply) => supplies.amounts[supply] === 0);
+
 export const equipmentOf = (supplies: UnitSupplies, equipment: Equipment): number => supplies.equipment[equipment] ?? 0;
 
 /** A unit's supplies when full: what it starts with and the most it can hold */

@@ -126,6 +126,31 @@
   background: none;
 }
 
+/*
+ * This side's units, on the left of the table: a narrow scrolling column in landscape, and a
+ * short box above the tray in portrait, so the cards keep their room either way
+ */
+.cards-table__units {
+  flex: 0 1 236px;
+  min-width: 0;
+  align-self: stretch;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--m44-paper);
+  border: var(--m44-border-width) solid var(--m44-border);
+  border-radius: var(--m44-radius);
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+@media (orientation: portrait) {
+  .cards-table__units {
+    flex: 1 1 100%;
+    max-height: 30vh;
+    align-self: auto;
+  }
+}
+
 .cards-table__map {
   flex: 1 1 auto;
   min-width: 0;

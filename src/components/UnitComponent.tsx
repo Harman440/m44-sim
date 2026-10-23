@@ -12,8 +12,10 @@ import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { FIGURES } from "../data/figures";
 import { FACTION_COLORS } from "../looks/looks";
-import { defineMessages, useMessages } from "../i18n/useI18n";
+import type { Supply } from "../data/unitSupplies";
+import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
 import { iconUrl } from "./GameIcon";
+import { SUPPLY_ICONS } from "./SupplyIcons";
 import { signedChange as signed } from "./UnitChangeChips";
 
 const TEXT = defineMessages({
@@ -26,6 +28,7 @@ const TEXT = defineMessages({
     pinned: "Inmovilizada: otra bandera la hace retirarse",
     retreats: (n: number) => (n === 1 ? "Se retira 1 casilla ahora" : `Se retira ${n} casillas ahora`),
     change: (morale: number, ammo: number, luck: string) => `Este turno: moral ${morale}, munición ${ammo}, suerte ${luck}`,
+    empty: (supplies: string) => `Sin ${supplies}`,
   },
   en: {
     elite: "Elite",
@@ -36,6 +39,7 @@ const TEXT = defineMessages({
     pinned: "Pinned: another flag makes it retreat",
     retreats: (n: number) => (n === 1 ? "Retreats 1 hex now" : `Retreats ${n} hexes now`),
     change: (morale: number, ammo: number, luck: string) => `This turn: morale ${morale}, ammo ${ammo}, luck ${luck}`,
+    empty: (supplies: string) => `No ${supplies}`,
   },
 });
 
@@ -89,6 +93,8 @@ interface UnitProps {
   hitThisTurn?: number;
   /** What it lost or gained since the orders were confirmed: a pill under the token (this side's units only) */
   change?: { morale: number; ammo: number; luck: number };
+  /** Supplies it has run out of: a red pill over the token (this side's units only) */
+  empty?: readonly Supply[];
 }
 
 const TOKEN_RADIUS = 27;
@@ -126,6 +132,35 @@ function ChangePill({ x, y, change }: { x: number; y: number; change: NonNullabl
           </g>
         );
       })}
+    </g>
+  );
+}
+
+/**
+ * What the unit has run out of, over its token: each empty supply's icon on a red pill, so an
+ * infantry with no ammo or a tank with no fuel shows on the map without reading its row
+ */
+function EmptyPill({ x, y, empty }: { x: number; y: number; empty: readonly Supply[] }) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  if (empty.length === 0) return null;
+  const ICON = 11;
+  const gap = 4;
+  const width = empty.length * ICON + (empty.length - 1) * gap + 9;
+  return (
+    <g className="unit__badge unit__badge--empty" data-testid="empty-pill">
+      <title>{t.empty(empty.map((supply) => labels.supplies[supply].toLowerCase()).join(", "))}</title>
+      <rect x={x - width / 2} y={y - 8} width={width} height={16} rx={8} fill="#b3261e" stroke="#f1ead6" strokeWidth={1.2} />
+      {empty.map((supply, i) => (
+        <image
+          key={supply}
+          href={iconUrl(SUPPLY_ICONS[supply])}
+          x={x - width / 2 + 4.5 + i * (ICON + gap)}
+          y={y - ICON / 2}
+          width={ICON}
+          height={ICON}
+        />
+      ))}
     </g>
   );
 }
@@ -196,6 +231,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   damaged = false,
   hitThisTurn = 0,
   change,
+  empty = [],
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
@@ -283,6 +319,7 @@ const UnitComponent: React.FC<UnitProps> = ({
       )}
 
       {change && <ChangePill x={x} y={y + TOKEN_RADIUS + 4} change={change} />}
+      {empty.length > 0 && <EmptyPill x={x} y={y - TOKEN_RADIUS - 4} empty={empty} />}
 
       {/* Pinned (a flag this turn): a flag bottom left, with the hexes it must retreat now */}
       {(pinned || retreats > 0) && (

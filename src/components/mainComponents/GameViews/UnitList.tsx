@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef } from "react";
-import { Box, List, ListItemButton, Stack, Typography } from "@mui/material";
+import { Box, List, ListItem, ListItemButton, Stack, Typography } from "@mui/material";
 import type GameSession from "../../../game-core/gameSession";
 import type { GameSnapshot } from "../../../game-core/gameSession";
 import { samePosition } from "../../../game-core/position";
@@ -89,10 +89,10 @@ interface UnitListProps {
   faction: Faction;
   session: GameSession;
   game: GameSnapshot;
-  /** The unit picked, on the map or here */
+  /** The unit picked, on the map or here; null while nothing can be picked */
   selected: Position | null;
-  /** A row tapped: the unit on that hex */
-  onSelect: (position: Position) => void;
+  /** A row tapped: the unit on that hex. Left out, the rows are only read (the card screen) */
+  onSelect?: (position: Position) => void;
 }
 
 /**
@@ -101,6 +101,7 @@ interface UnitListProps {
  * tapping it on the map does. Never the enemy's: their supplies and luck aren't shown
  */
 function UnitList({ faction, session, game, selected, onSelect }: UnitListProps) {
+  const readOnly = !onSelect;
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -128,15 +129,9 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
         const order = game.orders.find((each) => samePosition(each.end, position));
         const action = order && actionById(order.action);
         const isSelected = !!selected && samePosition(selected, position);
-        return (
-          <ListItemButton
-            key={`${position.row}-${position.col}`}
-            ref={isSelected ? selectedRow : undefined}
-            selected={isSelected}
-            onClick={() => onSelect(position)}
-            data-testid="unit-row"
-            sx={{ minHeight: 48, borderRadius: 1, px: 1, gap: 1, alignItems: "flex-start" }}
-          >
+        const rowSx = { minHeight: 48, borderRadius: 1, px: 1, gap: 1, alignItems: "flex-start" };
+        const content = (
+          <>
             <Box
               component="img"
               src={unitSprite(faction, unit.getUnitType())}
@@ -157,6 +152,24 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
               </Typography>
               <SupplyMeters supplies={supplies} luck={session.luckAt(position)} />
             </Stack>
+          </>
+        );
+        const key = `${position.row}-${position.col}`;
+        // Only read (the card screen): a plain row, so nothing invites a tap that does nothing
+        return readOnly ? (
+          <ListItem key={key} data-testid="unit-row" sx={rowSx}>
+            {content}
+          </ListItem>
+        ) : (
+          <ListItemButton
+            key={key}
+            ref={isSelected ? selectedRow : undefined}
+            selected={isSelected}
+            onClick={() => onSelect(position)}
+            data-testid="unit-row"
+            sx={rowSx}
+          >
+            {content}
           </ListItemButton>
         );
       })}

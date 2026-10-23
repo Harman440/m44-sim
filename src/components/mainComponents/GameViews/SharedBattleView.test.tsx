@@ -44,6 +44,12 @@ describe("SharedBattleView", () => {
     expect(screen.getByTestId("fire-option-text")).toHaveTextContent(/supresión/);
   });
 
+  it("says how many of the side's units are left to fire", () => {
+    render(<SharedBattleView match={battleOf({ row: 4, col: 2 }, { row: 4, col: 3 })} />);
+
+    expect(screen.getByTestId("left-to-fire")).toHaveTextContent("Queda 1 unidad por disparar");
+  });
+
   it("passes over a unit with nothing to fire at, and says so", () => {
     render(<SharedBattleView match={battleOf({ row: 8, col: 6 }, { row: 0, col: 6 })} />);
 

@@ -22,6 +22,7 @@ const TEXT = defineMessages({
     cooldown: (n: number) => (n === 1 ? "Se jugó hace poco: vuelve en 1 turno." : `Se jugó hace poco: vuelve en ${n} turnos.`),
     pickCard: "Elige una carta, o juega sin carta",
     yourPlay: "Tu jugada",
+    yourUnits: "Tus unidades",
     remove: "Quitar",
     removeCard: (name: string) => `Quitar ${name}`,
     play: "Jugar",
@@ -41,6 +42,7 @@ const TEXT = defineMessages({
     cooldown: (n: number) => (n === 1 ? "Played recently: back in 1 turn." : `Played recently: back in ${n} turns.`),
     pickCard: "Pick a card, or play without one",
     yourPlay: "Your play",
+    yourUnits: "Your units",
     remove: "Remove",
     removeCard: (name: string) => `Remove ${name}`,
     play: "Play",
@@ -79,6 +81,8 @@ interface CardsViewProps {
    * alone in place of the table and the hand when the cards are put away
    */
   largeMap?: ReactNode;
+  /** This side's units, on the left of the table: what each one has left, to pick the card with */
+  units?: ReactNode;
   /**
    * The card played before "Cambiar carta" brought the player back here: it starts in the tray
    * (flying back from the orders screen) and the hand slides up
@@ -86,7 +90,7 @@ interface CardsViewProps {
   initialPick?: ActionCard | null;
 }
 
-function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, largeMap, initialPick = null }: CardsViewProps) {
+function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, largeMap, units, initialPick = null }: CardsViewProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -201,6 +205,11 @@ function CardsView({ cards, dealtCardIds, onCardDealt, onPlay, coins = 0, largeM
         <>
           {/* The table: pass and play's map on the left; the tray with the card picked to play, and the card looked at */}
           <Box className={`cards-table${largeMap ? " cards-table--with-map" : ""}`}>
+            {units && (
+              <section className="cards-table__units" aria-label={t.yourUnits}>
+                {units}
+              </section>
+            )}
             {largeMap && <div className="cards-table__map">{largeMap}</div>}
             <div className="cards-table__side">
               <section className="cards-tray" ref={trayRef} aria-label={t.yourPlay}>

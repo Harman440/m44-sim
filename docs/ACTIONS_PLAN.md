@@ -248,3 +248,13 @@ The player's notes after playing it, and their answers: the cooldown goes to 4 t
 - [x] The action pop-up: tighter and see-through, only the actions the unit can be given, costs as icons, an "i" by each that shows its card on the right (`ActionPopup`, `CostIcons` in `components/SupplyIcons.tsx`; the card from the "i" has "Elegir esta acción"). Rows stay 48px for the finger
 - [x] The battle: changing the fire option keeps the target picked; a unit with nothing to fire at is passed over (it holds), one with a single target has it picked. How it went: `GameSession.ordersWithShotToTake` (an enemy in range, rolling dice and in sight, `hasFireTarget`, or wire to remove), cached by `PassAndPlayMatch` per pair of snapshots as it's asked on every snapshot; `BattleState.noTarget` says which, and the screen says so for the person's side. A tank that takes ground with no enemy next to it gets no shot more. The only unit that can fire is picked too. Own tablets can't know: they're unchanged
 - [x] The collision phase shows the Close Assault painting at the top of its column (`RevealView`, once units have collided)
+
+## R19: After the second test game (2026-10-23)
+The player's notes from playing the actions game on own tablets and against the computer.
+
+- [x] The card screen shows this side's units beside the cards (`CardsView`'s `units`, a read-only `UnitList`: left of the table in landscape, above the tray in portrait), so the card is picked knowing what each unit has left
+- [x] The battle's played card no longer fills the top in portrait: the reserve is a row (`BattleView.css`), its card 84px, and an attack card's painting goes once every marked hex is rolled, leaving a button with its name (`BattleReserve`'s `cardAway`)
+- [x] A unit's empty supplies are marked on its token: a red pill with the icons of what it has run out of (`emptySupplies`, `Board`'s `empty`, `UnitComponent`'s `EmptyPill`); ammo, shells, fuel and energy, never morale (a unit at 0 already shows as pinned)
+- [x] The shared battle says how many of the side's units are left to fire, under "Los Aliados disparan"
+- [x] The fire options are chips of one line, their cost as icons (`FireOptionPicker`), and each option's text no longer repeats what it spends; the suppressive die's faces stay in the rule book
+- [x] A wood per kind of die, so a roll is read at a glance: the suppressive dice grey-green, the attack die red (`WOODS`)

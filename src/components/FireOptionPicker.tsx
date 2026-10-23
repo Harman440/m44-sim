@@ -1,6 +1,7 @@
-import { List, ListItemButton, ListItemText, Typography } from "@mui/material";
+import { Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import type { FireOptionChoice } from "../game-core/gameSession";
 import { defineMessages, useLabels, useMessages, useTr } from "../i18n/useI18n";
+import { CostIcons } from "./SupplyIcons";
 
 const TEXT = defineMessages({
   es: {
@@ -23,9 +24,10 @@ interface FireOptionPickerProps {
 }
 
 /**
- * How the unit fires its next shot: its fire options with their cost, one it can't pay for
- * greyed with the reason, and the picked one's description underneath (a tap, not a hover).
- * Nothing when the unit has only one way to fire
+ * How the unit fires its next shot: one chip per fire option, its name and its cost as icons, one
+ * it can't pay for greyed with the reason, and the picked one's description underneath (a tap, not
+ * a hover). Kept to one line each, so the Fire button below stays in sight. Nothing when the unit
+ * has only one way to fire
  */
 function FireOptionPicker({ options, selected, onSelect, closeAssault = false }: FireOptionPickerProps) {
   const t = useMessages(TEXT);
@@ -36,32 +38,43 @@ function FireOptionPicker({ options, selected, onSelect, closeAssault = false }:
 
   return (
     <>
-      {/* In a row that wraps, so the map keeps its room */}
-      <List dense aria-label={t.fireOptions} data-testid="fire-options" sx={{ py: 0, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+      {/* Chips in a row that wraps, so the map and the Fire button keep their room */}
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={selected}
+        onChange={(_, id: string | null) => id && onSelect(id)}
+        aria-label={t.fireOptions}
+        data-testid="fire-options"
+        sx={{ flexWrap: "wrap", gap: 0.5, border: 0, "& .MuiToggleButtonGroup-grouped": { border: "1px solid var(--m44-border)", borderRadius: 1 } }}
+      >
         {options.map(({ option, refusal }) => (
-          <ListItemButton
+          <ToggleButton
             key={option.id}
+            value={option.id}
             disabled={refusal !== null}
-            selected={option.id === selected}
-            onClick={() => onSelect(option.id)}
-            sx={{ minHeight: 48, borderRadius: 1, flex: "1 1 180px", border: "1px solid var(--m44-border)" }}
+            sx={{ minHeight: 48, px: 1, gap: 0.75, textTransform: "none", lineHeight: 1.1 }}
           >
-            <ListItemText
-              primary={tr(option.name)}
-              secondary={[
-                refusal === null ? labels.describeCost(option.cost) : labels.actionRefusals[refusal],
-                option.closeAssaultOnly && !closeAssault && t.closeAssaultOnly,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            />
-          </ListItemButton>
+            <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
+              {tr(option.name)}
+            </Typography>
+            {refusal === null ? (
+              <CostIcons cost={option.cost} size={16} />
+            ) : (
+              <Typography component="span" variant="caption" color="text.secondary">
+                {labels.actionRefusals[refusal]}
+              </Typography>
+            )}
+          </ToggleButton>
         ))}
-      </List>
+      </ToggleButtonGroup>
       {picked && (
-        <Typography variant="body2" color="text.secondary" data-testid="fire-option-text">
-          {tr(picked.description)}
-        </Typography>
+        <Stack direction="row" sx={{ gap: 0.5, flexWrap: "wrap" }}>
+          <Typography variant="caption" color="text.secondary" data-testid="fire-option-text">
+            {tr(picked.description)}
+            {picked.closeAssaultOnly && !closeAssault && ` · ${t.closeAssaultOnly}`}
+          </Typography>
+        </Stack>
       )}
     </>
   );

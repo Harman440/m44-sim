@@ -1,10 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { UnitType } from "./unit";
-import { amountOf, canPay, endOfTurn, equipmentOf, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
+import { amountOf, canPay, emptySupplies, endOfTurn, equipmentOf, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
 import { Equipment, Supply } from "../data/unitSupplies";
 
 const infantry = fullSupplies(UnitType.INFANTRY);
 const tank = fullSupplies(UnitType.TANK);
+
+describe("what a unit has run out of", () => {
+  it("names the spendable supplies at 0, and never morale (a unit at 0 is shown as pinned)", () => {
+    expect(emptySupplies(infantry)).toEqual([]);
+    expect(emptySupplies({ ...infantry, amounts: { ...infantry.amounts, [Supply.AMMO]: 0 } })).toEqual([Supply.AMMO]);
+    expect(emptySupplies({ ...infantry, amounts: { [Supply.MORALE]: 0, [Supply.ENERGY]: 0, [Supply.AMMO]: 0 } })).toEqual([
+      Supply.AMMO,
+      Supply.ENERGY,
+    ]);
+    // A supply its type doesn't use isn't "empty": infantry has no fuel
+    expect(emptySupplies({ ...tank, amounts: { [Supply.FUEL]: 0, [Supply.SHELLS]: 1 } })).toEqual([Supply.FUEL]);
+  });
+});
 
 describe("unit supplies", () => {
   it("fills infantry with morale 5, energy 5, ammo 2 and one of each piece of equipment", () => {

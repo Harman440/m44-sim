@@ -141,36 +141,37 @@ const shell: SupplyCost = { amounts: { [Supply.SHELLS]: 1 } };
 
 const NORMAL_NAME: Localized = { es: "Disparo normal", en: "Normal fire" };
 const SUPPRESSIVE_NAME: Localized = { es: "Fuego de supresión", en: "Suppressive Fire" };
+/* Short: what it spends is on the option itself as icons, and the rule book has each die's faces */
 const SUPPRESSIVE_TEXT: Localized = {
-  es: "Tira el dado de supresión: el de batalla con 1 infantería, 1 granada, 3 banderas y 1 suministro, o el de 8 caras con 2 infantería, 4 banderas y 2 suministros.",
-  en: "Rolls the suppressive die: the battle die with 1 infantry, 1 grenade, 3 flags and 1 supply, or the 8-sided one with 2 infantry, 4 flags and 2 supplies.",
+  es: "Tira el dado de supresión: más banderas y menos impactos.",
+  en: "Rolls the suppressive die: more flags, fewer hits.",
 };
 
 export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
   [UnitType.INFANTRY]: [
     { id: "infantry:normal", unitType: UnitType.INFANTRY, name: NORMAL_NAME, painting: "firefight", cost: ammo,
-      description: { es: "Dispara como siempre. Gasta 1 de munición.", en: "Fires as usual. Uses 1 ammo." } },
+      description: { es: "Dispara como siempre.", en: "Fires as usual." } },
     { id: "infantry:explosives", unitType: UnitType.INFANTRY, name: { es: "Explosivos", en: "Explosives" }, painting: "explosives-mix",
       cost: { ...ammo, equipment: [Equipment.EXPLOSIVES] }, closeAssaultOnly: true, closeAssaultBonus: { dice: 1 },
       description: {
-        es: "Solo en asalto cercano: 1 dado más. Gasta 1 de munición y los explosivos.",
-        en: "Close assault only: 1 extra die. Uses 1 ammo and the explosives.",
+        es: "Solo en asalto cercano: 1 dado más.",
+        en: "Close assault only: 1 extra die.",
       } },
     { id: "infantry:suppressive", unitType: UnitType.INFANTRY, name: SUPPRESSIVE_NAME, painting: "heat-of-battle", cost: ammo, die: "suppressive",
-      description: { es: `${SUPPRESSIVE_TEXT.es} Gasta 1 de munición.`, en: `${SUPPRESSIVE_TEXT.en} Uses 1 ammo.` } },
+      description: SUPPRESSIVE_TEXT },
   ],
   [UnitType.TANK]: [
     { id: "tank:normal", unitType: UnitType.TANK, name: NORMAL_NAME, painting: "firefight", cost: shell, closeAssaultBonus: { dice: 1, unmoved: true },
       description: {
-        es: "Dispara como siempre, con 1 dado más en asalto cercano si no se movió. Gasta 1 proyectil.",
-        en: "Fires as usual, with 1 extra die in close assault if it didn't move. Uses 1 shell.",
+        es: "Dispara como siempre, con 1 dado más en asalto cercano si no se movió.",
+        en: "Fires as usual, with 1 extra die in close assault if it didn't move.",
       } },
     { id: "tank:suppressive", unitType: UnitType.TANK, name: SUPPRESSIVE_NAME, painting: "heat-of-battle", cost: shell, die: "suppressive",
-      description: { es: `${SUPPRESSIVE_TEXT.es} Gasta 1 proyectil.`, en: `${SUPPRESSIVE_TEXT.en} Uses 1 shell.` } },
+      description: SUPPRESSIVE_TEXT },
   ],
   [UnitType.ARTILLERY]: [
     { id: "artillery:fire", unitType: UnitType.ARTILLERY, name: { es: "Fuego", en: "Fire" }, painting: "spotter", cost: shell,
-      description: { es: "Dispara. Gasta 1 proyectil.", en: "Fires. Uses 1 shell." } },
+      description: { es: "Dispara.", en: "Fires." } },
   ],
 };
 

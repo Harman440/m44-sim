@@ -275,12 +275,11 @@ describe("FireDialog", () => {
 
   it("offers the unit's fire options: Explosives fires only in close assault, with 1 die more", () => {
     const session = open(UnitType.INFANTRY);
-    const options = within(screen.getByRole("list", { name: "Cómo dispara" })).getAllByRole("button");
-    expect(options.map((option) => option.textContent)).toEqual([
-      "Disparo normal1 munición",
-      "Explosivos1 munición + explosivos · Solo en asalto cercano",
-      "Fuego de supresión1 munición",
-    ]);
+    const options = within(screen.getByTestId("fire-options")).getAllByRole("button");
+    // One chip each, the cost as icons (read out by their label)
+    expect(options.map((option) => option.textContent)).toEqual(["Disparo normal1", "Explosivos1", "Fuego de supresión1"]);
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual([null, null, null]);
+    expect(within(options[1]!).getByRole("img", { name: "1 munición + explosivos" })).toBeInTheDocument();
     expect(screen.getByTestId("fire-option-text")).toHaveTextContent("Dispara como siempre");
 
     choose(/^Explosivos/);

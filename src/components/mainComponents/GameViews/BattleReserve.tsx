@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Box, ButtonBase, Stack, Typography } from "@mui/material";
+import { Box, Button, ButtonBase, Stack, Typography } from "@mui/material";
 import type { ActionCard } from "../../../game-core/actionCard";
 import ActionCardComponent from "../../ActionCardComponent";
 import CardDialog, { ShownCard } from "../../CardDialog";
 import GameIcon from "../../GameIcon";
 import CoinCount from "../../CoinCount";
-import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
@@ -14,6 +14,7 @@ const TEXT = defineMessages({
     cardPlayed: "Carta jugada",
     tapToSee: "Toca la carta para verla",
     noCardPlayed: "No jugaste carta este turno.",
+    seeCard: (card: string) => `Ver ${card}`,
   },
   en: {
     coinsLabel: (coins: string) => `Supplies: ${coins}`,
@@ -21,6 +22,7 @@ const TEXT = defineMessages({
     cardPlayed: "Card played",
     tapToSee: "Tap the card to see it",
     noCardPlayed: "You played no card this turn.",
+    seeCard: (card: string) => `See ${card}`,
   },
 });
 
@@ -32,16 +34,22 @@ interface BattleReserveProps {
   card: ActionCard | null;
   /** What it cost the side */
   cost?: number;
+  /**
+   * The card's painting is put away and only its name is left (a button that still opens it): an
+   * attack card once every marked hex has been rolled, so the roll and the firing order show
+   */
+  cardAway?: boolean;
 }
 
 /**
  * The battle's side panel: the coins, large, and the card played with the orders. Tapping the
  * card shows it in full.
  */
-function BattleReserve({ coins, onShowCoins, card, cost }: BattleReserveProps) {
+function BattleReserve({ coins, onShowCoins, card, cost, cardAway = false }: BattleReserveProps) {
   const [looking, setLooking] = useState(false);
   const t = useMessages(TEXT);
   const labels = useLabels();
+  const tr = useTr();
   const shown: ShownCard | null = looking && card ? { action: card, cost } : null;
 
   return (
@@ -63,7 +71,10 @@ function BattleReserve({ coins, onShowCoins, card, cost }: BattleReserveProps) {
       >
         <GameIcon name="coins" size={56} />
         <Stack sx={{ alignItems: "flex-start" }}>
-          <Typography component="span" sx={{ fontFamily: "var(--m44-font-display)", fontSize: 64, lineHeight: 1 }}>
+          <Typography
+            component="span"
+            sx={{ fontFamily: "var(--m44-font-display)", fontSize: 64, lineHeight: 1, "@media (orientation: portrait)": { fontSize: 36 } }}
+          >
             <CoinCount coins={coins} />
           </Typography>
           <Typography component="span" variant="body2" color="text.secondary">
@@ -72,28 +83,41 @@ function BattleReserve({ coins, onShowCoins, card, cost }: BattleReserveProps) {
         </Stack>
       </ButtonBase>
 
-      <Box component="section" aria-labelledby="battle-card-title" data-testid="battle-card" className="battle-reserve__cards">
-        <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "center", gap: 1, flexWrap: "wrap" }}>
-          <Typography variant="h6" component="h3" id="battle-card-title">
-            {t.cardPlayed}
-          </Typography>
-          {card && (
-            <Typography variant="body2" color="text.secondary">
-              {t.tapToSee}
+      {card && cardAway ? (
+        // Only its name: tapping it opens the card, so the rolls below stay in sight
+        <Button
+          variant="outlined"
+          data-testid="battle-card-away"
+          startIcon={<GameIcon name="cards" />}
+          onClick={() => setLooking(true)}
+          sx={{ alignSelf: "stretch" }}
+        >
+          {t.seeCard(tr(card.name))}
+        </Button>
+      ) : (
+        <Box component="section" aria-labelledby="battle-card-title" data-testid="battle-card" className="battle-reserve__cards">
+          <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography variant="h6" component="h3" id="battle-card-title">
+              {t.cardPlayed}
+            </Typography>
+            {card && (
+              <Typography variant="body2" color="text.secondary">
+                {t.tapToSee}
+              </Typography>
+            )}
+          </Stack>
+
+          {card ? (
+            <Box className="battle-reserve__hand">
+              <ActionCardComponent card={card} cost={cost} onClick={() => setLooking(true)} />
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+              {t.noCardPlayed}
             </Typography>
           )}
-        </Stack>
-
-        {card ? (
-          <Box className="battle-reserve__hand">
-            <ActionCardComponent card={card} cost={cost} onClick={() => setLooking(true)} />
-          </Box>
-        ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-            {t.noCardPlayed}
-          </Typography>
-        )}
-      </Box>
+        </Box>
+      )}
 
       <CardDialog card={shown} onClose={() => setLooking(false)} label={t.cardPlayed} />
     </Box>
