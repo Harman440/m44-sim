@@ -6,10 +6,12 @@ import { scenarios } from "../data/scenarios";
 describe("board sizes", () => {
   it("take odd rows within the limits", () => {
     expect(isBoardSize(STANDARD_BOARD)).toBe(true);
-    expect(isBoardSize({ cols: 21, rows: 17 })).toBe(true);
+    expect(isBoardSize({ cols: 26, rows: 9 })).toBe(true);
+    expect(isBoardSize({ cols: 33, rows: 25 })).toBe(true);
     expect(isBoardSize({ cols: 15, rows: 10 })).toBe(false);
     expect(isBoardSize({ cols: 12, rows: 9 })).toBe(false);
-    expect(isBoardSize({ cols: 22, rows: 9 })).toBe(false);
+    expect(isBoardSize({ cols: 34, rows: 9 })).toBe(false);
+    expect(isBoardSize({ cols: 13, rows: 27 })).toBe(false);
   });
 
   it("know their hexes, short rows one fewer", () => {

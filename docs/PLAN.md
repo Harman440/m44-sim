@@ -119,7 +119,7 @@ Step 70 already did the rectangle part of what the 13×9 grid assumed. What stil
 - [ ] New `ScenarioProblem`s for a shape, in both languages:
   - no hexes
   - the board is in more than one piece
-  - its box bigger than `BOARD_LIMITS` (**Decide** the limits: today 21×17; Overlord needs 26×9)
+  - its box bigger than `BOARD_LIMITS` (decided 2026-10-23: 33×25, which takes Overlord's 26×9, now that the game screens zoom and pan)
 - [ ] `scenarioDraft`: `addHex` and `removeHex`. Only an empty countryside hex can be removed (no terrain, unit, wire or sandbags), and adding a hex above or to the left of the board goes through `moveMap`. `strokeOf` covers a stroke of either. Each is one undo step. Tests
 - [ ] Saves: the shape travels with the scenario. Check that a saved game and a saved match on a map from Mis mapas come back with their shape, and bump `SAVE_VERSION` / `MATCH_SAVE_VERSION` if the saves' shape changes
 

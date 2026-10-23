@@ -557,8 +557,8 @@ describe("resizeBoard", () => {
     expect(resizeBoard(map(), "left", false)).toBe(false);
     expect(resizeBoard(map(), "top", false)).toBe(false);
     let wide: Scenario = map();
-    for (let i = 0; i < 8; i++) wide = resizeBoard(wide, "right", true) as Scenario;
-    expect(wide.board).toEqual({ cols: 21, rows: 9 });
+    for (let i = 0; i < 20; i++) wide = resizeBoard(wide, "right", true) as Scenario;
+    expect(wide.board).toEqual({ cols: 33, rows: 9 });
     expect(resizeBoard(wide, "right", true)).toBe(false);
   });
 });

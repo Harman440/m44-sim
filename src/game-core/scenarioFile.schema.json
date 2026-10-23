@@ -18,8 +18,8 @@
           "additionalProperties": false,
           "required": ["cols", "rows"],
           "properties": {
-            "cols": { "type": "integer", "minimum": 13, "maximum": 21 },
-            "rows": { "type": "integer", "minimum": 9, "maximum": 17, "not": { "multipleOf": 2 } }
+            "cols": { "type": "integer", "minimum": 13, "maximum": 33 },
+            "rows": { "type": "integer", "minimum": 9, "maximum": 25, "not": { "multipleOf": 2 } }
           }
         }
       ]
@@ -163,8 +163,8 @@
       "additionalProperties": false,
       "required": ["row", "col"],
       "properties": {
-        "row": { "type": "integer", "minimum": 0, "maximum": 16, "description": "Up to 8 on the standard board, one fewer than the board's rows" },
-        "col": { "type": "integer", "minimum": 0, "maximum": 20, "description": "Up to 12 on the standard board (11 on odd rows), one fewer than the board's columns" }
+        "row": { "type": "integer", "minimum": 0, "maximum": 24, "description": "Up to 8 on the standard board, one fewer than the board's rows" },
+        "col": { "type": "integer", "minimum": 0, "maximum": 32, "description": "Up to 12 on the standard board (11 on odd rows), one fewer than the board's columns" }
       }
     },
     "positions": { "type": "array", "items": { "$ref": "#/definitions/position" } },

@@ -14,8 +14,12 @@ export interface BoardSize {
 
 export const STANDARD_BOARD: Readonly<BoardSize> = { cols: 13, rows: 9 };
 
-/** The sizes a map can have: from the standard board up to what still taps well on a tablet */
-export const BOARD_LIMITS = { cols: { min: 13, max: 21 }, rows: { min: 9, max: 17 } } as const;
+/**
+ * The sizes a map can have: from the standard board up to about two and a half times as many hexes
+ * as Overlord (26×9). The game screens zoom and pan, so a big board still taps well on a tablet;
+ * the cap keeps its board art (about 4100×2750 px at the most) within a tablet's memory
+ */
+export const BOARD_LIMITS = { cols: { min: 13, max: 33 }, rows: { min: 9, max: 25 } } as const;
 
 /** A scenario's board: the standard one unless it says otherwise */
 export const boardSizeOf = (scenario: { board?: BoardSize }): BoardSize => scenario.board ?? STANDARD_BOARD;
