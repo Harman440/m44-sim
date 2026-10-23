@@ -126,6 +126,19 @@ describe("GameSession giving actions", () => {
     expect(session.getSnapshot().orders.map((order) => order.canFire)).toEqual([true, true, false]);
   });
 
+  it("moves infantry with no ammo on Move Out, without a shot", () => {
+    const session = withAmounts(ordering(), INF, { [Supply.AMMO]: 0 });
+    // No hex to fire from: it moves only
+    expect(session.getMoveOptions(INF, "infantry:moveOut")!.moveAndFire).toEqual([]);
+    const one = session.getMoveOptions(INF, "infantry:moveOut")!.moves.find((move) => hexDistance(move, INF) === 1)!;
+    expect(session.giveAction(INF, "infantry:firefight", INF)).toBe(false);
+    expect(session.giveAction(INF, "infantry:moveOut", one)).toBe(true);
+    expect(session.giveAction(TANK, "tank:firefight", TANK)).toBe(true);
+    expect(session.commitOrders()).toBe(true);
+    expect(session.startBattle()).toBe(true);
+    expect(session.orderSummaries()[0]).toMatchObject({ position: one, shotsLeft: 0 });
+  });
+
   it("pays Infantry Assault in energy and morale, but no morale on own tablets", () => {
     for (const figures of [true, false]) {
       const session = ordering({ figures });

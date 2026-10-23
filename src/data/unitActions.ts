@@ -73,8 +73,8 @@ export const INFANTRY_ACTIONS: readonly UnitAction[] = [
     { painting: "fortify", cost: { ...energy(2), equipment: [Equipment.SANDBAGS] }, move: 0, fire: null, effect: "fortify" }),
   infantry("takeCover", { es: "A cubierto", en: "Take Cover" },
     {
-      es: "Se mueve hasta 1 casilla y no dispara; este turno ignora los 2 primeros impactos de símbolo de infantería. Las granadas sí la impactan.",
-      en: "Moves up to 1 hex and doesn't fire; this turn it ignores the first 2 infantry-symbol hits. Grenades still hit it.",
+      es: "Se mueve hasta 1 casilla y no dispara; este turno ignora el primer impacto de símbolo de infantería. Las granadas sí la impactan.",
+      en: "Moves up to 1 hex and doesn't fire; this turn it ignores the first infantry-symbol hit. Grenades still hit it.",
     },
     { painting: "rattenkrieg", cost: energy(1), move: 1, fire: null, effect: "takeCover" }),
   infantry("reload", RELOAD_NAME,
@@ -118,13 +118,13 @@ export const ARTILLERY_ACTIONS: readonly UnitAction[] = [
 ];
 
 /**
- * Unit types that can still be given an action that moves and fires with nothing left to fire:
- * they move and don't fire (armour, whose every move fires). Infantry has Move Out instead
+ * Actions that move and fire, which a unit with nothing left to fire can still be given: it moves
+ * and doesn't fire (Move Out, and armour, whose every move fires)
  */
-export const MOVES_WITHOUT_SHOTS: readonly UnitType[] = [UnitType.TANK];
+export const MOVES_WITHOUT_SHOTS: readonly string[] = ["infantry:moveOut", "tank:assault", "tank:armorForward"];
 
 /** Infantry-symbol hits a unit given Take Cover ignores in a turn */
-export const TAKE_COVER_HITS = 2;
+export const TAKE_COVER_HITS = 1;
 
 export const UNIT_ACTIONS: Record<UnitType, readonly UnitAction[]> = {
   [UnitType.INFANTRY]: INFANTRY_ACTIONS,

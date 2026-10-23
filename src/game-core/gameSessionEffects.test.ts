@@ -151,14 +151,16 @@ describe("GameSession Fortify, Take Cover and Camouflage", () => {
     expect(session.getSnapshot().phase).toBe(TurnPhase.MOVEMENT);
   });
 
-  it("ignores the first 2 infantry-symbol hits with Take Cover, but not grenades, kept through a save", () => {
+  it("ignores the first infantry-symbol hit with Take Cover, but not grenades, kept through a save", () => {
     const session = commit(holdWith(withNoCard(ordering()), INF, "infantry:takeCover"));
+    const before = strengthAt(session, INF).figures;
     expect(session.sufferHits(INF, 3, 0, [DieFace.INFANTRY, DieFace.GRENADE, DieFace.INFANTRY])).toBe(true);
-    expect(strengthAt(session, INF).figures).toBe(5);
+    expect(strengthAt(session, INF).figures).toBe(before - 2);
 
+    // The one hit it ignores is used up
     const restored = restore(session.save());
     expect(restored.sufferHits(INF, 1, 0, [DieFace.INFANTRY])).toBe(true);
-    expect(strengthAt(restored, INF).figures).toBe(4);
+    expect(strengthAt(restored, INF).figures).toBe(before - 3);
   });
 
   it("takes every hit on a unit that didn't take cover", () => {

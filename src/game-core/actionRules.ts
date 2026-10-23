@@ -86,7 +86,7 @@ export function actionRefusal(action: UnitAction, context: ActionContext): Actio
   }
   // An action that fires needs a shot's worth of ammo or shells, except armour's moves: with no
   // shells left they move and don't fire
-  const movesDry = action.move > 0 && MOVES_WITHOUT_SHOTS.includes(unitType);
+  const movesDry = MOVES_WITHOUT_SHOTS.includes(action.id);
   if (action.fire && !movesDry) {
     const options = FIRE_OPTIONS[unitType];
     if (!options.some((option) => canPay(supplies, option.cost))) {

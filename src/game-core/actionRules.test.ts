@@ -112,6 +112,8 @@ describe("which actions a unit can be given", () => {
     expect(refusal("tank:armorForward", dry)).toBeNull();
     expect(refusal("tank:firefight", dry)).toBe(Supply.SHELLS);
     expect(refusal("infantry:assault", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBe(Supply.AMMO);
+    expect(refusal("infantry:moveOut", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBeNull();
+    expect(refusal("infantry:firefight", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBe(Supply.AMMO);
   });
 
   it.each([
