@@ -689,7 +689,8 @@ class GameSession {
 
   /**
    * The action's move limits and paths (none when it may not move); it can't end on (or next to)
-   * a hex marked for an attack. A unit with nothing left to fire moves but doesn't fire (armour)
+   * a hex marked for an attack. A unit with nothing left to fire moves but doesn't fire (armour).
+   * `follows` checks a path the player picked hex by hex
    */
   private movePlan(hex: Hex, action: UnitAction, canMove = true) {
     const unit = hex.unit;
@@ -703,6 +704,27 @@ class GameSession {
       limits,
       paths: (range: number, forFire = false) =>
         new Map([...this.board.getAllPaths(hex, range, forFire, rules)].filter(([key]) => endsOk(key))),
+      follows: (path: readonly Position[], range: number, forFire = false) => this.board.followsPath(hex, path, range, forFire, rules),
+      endsOk: (position: Position) => endsOk(positionKey(position)),
+    };
+  }
+
+  /**
+   * Pass and play, a path picked hex by hex: the hexes the unit at `position` can step to next
+   * after `path` (which starts on its hex), and those it could still fire from if it stopped there
+   */
+  getNextSteps(position: Position, actionId: string, path: readonly Position[]): { moves: Position[]; moveAndFire: Position[] } | null {
+    const hex = this.board.getHex(position);
+    const found = this.orderableAt(hex);
+    const action = actionById(actionId);
+    if (!hex || !found || !action || this.refusalOf(found.unit, action) !== null) return null;
+    const plan = this.movePlan(hex, action, found.canMove);
+    const last = this.board.getHex(path.at(-1) ?? position);
+    if (!last) return null;
+    const next = last.getNeighbors().filter((step) => plan.follows([...path, step], plan.limits.maxMove));
+    return {
+      moves: next,
+      moveAndFire: next.filter((step) => plan.endsOk(step) && plan.follows([...path, step], plan.limits.moveAndFire, true)),
     };
   }
 
@@ -711,7 +733,7 @@ class GameSession {
    * whose order holds gets the new action in its place. Its cost is paid when the orders are
    * confirmed
    */
-  giveAction(from: Position, actionId: string, to: Position): boolean {
+  giveAction(from: Position, actionId: string, to: Position, path?: readonly Position[]): boolean {
     const hex = this.board.getHex(from);
     const found = this.orderableAt(hex);
     const action = actionById(actionId);
@@ -726,14 +748,17 @@ class GameSession {
     if (samePosition(from, to)) {
       order = new Order({ ...props, path: [from], shots: noFire ? 0 : plan.limits.holdShots });
     } else {
-      // Paths must be found before moving: afterwards the start hex is empty and the destination taken
-      const path = plan.paths(plan.limits.maxMove).get(positionKey(to));
-      const canFire = !noFire && plan.paths(plan.limits.moveAndFire, true).has(positionKey(to));
-      if (!path) return false;
+      // Paths must be found before moving: afterwards the start hex is empty and the destination taken.
+      // A path the player picked (pass and play) must end on `to` and keep to the move's rules
+      const picked = !!path && samePosition(path.at(-1) ?? from, to) && plan.endsOk(to) && plan.follows(path!, plan.limits.maxMove) ? [...path!] : null;
+      if (path && !picked) return false;
+      const route = picked ?? plan.paths(plan.limits.maxMove).get(positionKey(to));
+      const canFire = !noFire && (picked ? plan.follows(picked, plan.limits.moveAndFire, true) : plan.paths(plan.limits.moveAndFire, true).has(positionKey(to)));
+      if (!route) return false;
       const lostSandbags = this.moveUnit(from, to);
       if (!lostSandbags) return false;
       const clearedWire = this.clearWire(unit, to);
-      order = new Order({ ...props, path, shots: canFire ? shotsOf(action) : 0, lostSandbags, clearedWire });
+      order = new Order({ ...props, path: route, shots: canFire ? shotsOf(action) : 0, lostSandbags, clearedWire });
     }
 
     const index = this.orderIndexOf(unit);
@@ -1703,6 +1728,25 @@ class GameSession {
     return this.publish();
   }
 
+  /** Pass and play: the unit due to move after the battle stays where it is (an edit that moves it nowhere) */
+  skipFinalMove(): boolean {
+    const due = this.finalMove();
+    if (!due) return false;
+    const unit = this.board.getHex(due.from)!.unit!;
+    this.addBattleEdit({ kind: "move", from: { ...due.from }, to: { ...due.from }, unit, reposition: true });
+    return this.publish();
+  }
+
+  /** Pass and play: the hexes the reinforcement may be put on when its cross is taken (free of both armies) */
+  reinforcementOptions(): Position[] {
+    if (!this.reinforcementToPlace()) return [];
+    const enemies = new Set((this.enemyView?.() ?? []).map((enemy) => positionKey(enemy.position)));
+    return this.board
+      .getAllHexes()
+      .filter((hex) => hex.isPassable() && !hex.hasUnit() && !enemies.has(positionKey(hex.getPosition())))
+      .map((hex) => hex.getPosition());
+  }
+
   /** The target of a shot: rolled on the long-range die when the game uses it and the target isn't adjacent */
   private targetFor(infantry: boolean, closeAssault: boolean): ShotTarget {
     const die: DieKind = this.longRangeDie && !closeAssault ? "longRange" : "battle";
@@ -2062,7 +2106,8 @@ class GameSession {
       this.board.getHex(edit.position)?.setWire(true);
     } else if (edit.kind === "sandbags") {
       this.board.getHex(edit.position)?.setSandbags(!edit.placed);
-    } else {
+    } else if (!samePosition(edit.from, edit.to)) {
+      // A move skipped (`skipFinalMove`) moved nothing
       this.board.moveUnit(edit.to, edit.from);
       this.restoreSandbags(edit.sandbags ?? []);
       if (edit.clearedWire) this.board.getHex(edit.to)?.setWire(true);

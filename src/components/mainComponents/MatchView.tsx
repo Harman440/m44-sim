@@ -84,20 +84,25 @@ function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
     );
   }
 
-  // Both sides' orders are given: both players look
+  // Both sides' orders are given: both players look, under the main side's header
   if (revealTurn !== null) {
     return (
       <Suspense fallback={loading}>
-        <RevealView match={match} turn={revealTurn} viewer={match.mainSide} />
+        <GameView
+          key="shared"
+          session={match.sessions[match.mainSide]}
+          onExit={onExit}
+          sharedScreen={<RevealView match={match} turn={revealTurn} viewer={match.mainSide} />}
+        />
       </Suspense>
     );
   }
 
-  // The battle, on one screen for both players
+  // The battle, on one screen for both players, under the main side's header
   if (battle) {
     return (
       <Suspense fallback={loading}>
-        <SharedBattleView match={match} />
+        <GameView key="shared" session={match.sessions[match.mainSide]} onExit={onExit} sharedScreen={<SharedBattleView match={match} />} />
       </Suspense>
     );
   }

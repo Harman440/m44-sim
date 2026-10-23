@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, type ReactNode, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Box,
   Button,
@@ -54,6 +54,8 @@ export interface GameViewProps {
   onPass?: () => void;
   /** The hand on show was already dealt (pass and play: this side's player has seen it before) */
   handDealt?: boolean;
+  /** Pass and play: a screen both players share (the reveal, the battle), shown under the header instead of this side's phase */
+  sharedScreen?: ReactNode;
 }
 
 const TEXT = defineMessages({
@@ -107,7 +109,7 @@ const PHASE_STEPS: { phase: TurnPhase; label: keyof (typeof TEXT)["es"]["phases"
   { phase: TurnPhase.END_OF_TURN, label: "final" },
 ];
 
-function GameView({ session, resumed = false, onExit, onPass, handDealt = false }: GameViewProps) {
+function GameView({ session, resumed = false, onExit, onPass, handDealt = false, sharedScreen }: GameViewProps) {
   const { scenario, faction } = session;
   const { settings, updateSettings } = useSettings();
   const play = useSound();
@@ -147,6 +149,11 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
     setDealtCardIds((prev) => new Set(prev).add(card.id));
   }, []);
 
+  // A shared screen takes the place of this side's phase
+  const phase = sharedScreen ? null : game.phase;
+  // Pass and play has no final phase: the battle screen ends the turn
+  const steps = session.figures ? PHASE_STEPS.filter((step) => step.phase !== TurnPhase.END_OF_TURN) : PHASE_STEPS;
+
   return (
     // Animations follow the device's "reduce motion" setting. Only the game
     // screens animate, so motion stays out of the menu's download.
@@ -161,20 +168,21 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             justifyContent: "space-between",
             gap: 1,
             flex: "none",
-            mb: 1.5,
-            pb: 1,
+            // Slim, so the board below gets the height
+            mb: 0.75,
+            pb: 0.5,
             borderBottom: "3px double",
             borderColor: "divider",
           }}
         >
           <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
-            <FactionInsignia faction={faction} size={34} decorative />
+            <FactionInsignia faction={faction} size={28} decorative />
             <Typography variant="h6" component="p" sx={{ mr: 1, lineHeight: 1.1 }}>
               {tr(scenario.name)} · {labels.factions[faction]}
             </Typography>
             {session.testMode && <Chip label={t.testMode} color="warning" size="small" />}
             <Chip label={t.turn(game.turn)} color="secondary" size="small" />
-            {PHASE_STEPS.map(({ phase, label }, i) => (
+            {steps.map(({ phase, label }, i) => (
               <Chip
                 key={phase}
                 label={`${i + 1}. ${t.phases[label]}`}
@@ -285,9 +293,11 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
         </Box>
 
         <Box component="main" className="game-screen__main">
-          {game.phase === TurnPhase.PARADROP && <ParadropView faction={faction} session={session} game={game} />}
+          {sharedScreen}
 
-          {game.phase === TurnPhase.PICK_CARDS && (
+          {phase === TurnPhase.PARADROP && <ParadropView faction={faction} session={session} game={game} />}
+
+          {phase === TurnPhase.PICK_CARDS && (
             <CardsView
               cards={game.cards}
               dealtCardIds={dealtCardIds}
@@ -304,7 +314,7 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             />
           )}
 
-          {game.phase === TurnPhase.ORDER_UNITS && (
+          {phase === TurnPhase.ORDER_UNITS && (
             <OrdersView
               faction={faction}
               session={session}
@@ -314,9 +324,9 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             />
           )}
 
-          {game.phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}
+          {phase === TurnPhase.MOVEMENT && <MovementView faction={faction} session={session} game={game} />}
 
-          {game.phase === TurnPhase.BATTLE && (
+          {phase === TurnPhase.BATTLE && (
             <BattleView
               faction={faction}
               session={session}
@@ -326,7 +336,7 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false 
             />
           )}
 
-          {game.phase === TurnPhase.END_OF_TURN && (
+          {phase === TurnPhase.END_OF_TURN && (
             <EndOfTurnView faction={faction} session={session} game={game} onEndTurn={() => session.endTurn()} />
           )}
         </Box>

@@ -2,7 +2,6 @@ import { useState, useSyncExternalStore } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
 import { appliedFaces, readRoll } from "../../../game-core/rollResult";
 import InfoButton from "../../InfoButton";
-import { MotionConfig } from "motion/react";
 import PassAndPlayMatch, { CollisionView, otherSide } from "../../../game-core/passAndPlay";
 import { turnedRound } from "../../../game-core/BoardManager";
 import { BoardSize, boardSizeOf } from "../../../game-core/boardSize";
@@ -108,9 +107,8 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
   };
 
   return (
-    <MotionConfig reducedMotion="user">
-      <Box className="game-screen" sx={{ width: "100%", maxWidth: 1400 }}>
-        <Box component="main" className="game-screen__main">
+    // GameView's header is above it, and its MotionConfig round it
+    <>
           <div className="phase-layout">
             <div className="phase-layout__board">
               <Board
@@ -230,7 +228,6 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
               )}
             </div>
           </div>
-        </Box>
 
         {shown !== null && moved?.collisions[shown] && (() => {
           const collision = moved.collisions[shown]!;
@@ -271,8 +268,7 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
             </Dialog>
           );
         })()}
-      </Box>
-    </MotionConfig>
+    </>
   );
 }
 

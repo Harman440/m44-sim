@@ -56,7 +56,7 @@ describe("EndOfTurnView in pass and play", () => {
   it("has no retreats step: the map, and the steps beside it", () => {
     const session = makeFinalSession();
     const shared = {
-      opponent: { faction: "Axis" as const, units: [], orders: [], camouflaged: [], sandbags: [] },
+      opponent: { faction: "Axis" as const, units: [], orders: [], fired: [], toFire: [], camouflaged: [], sandbags: [] },
       strength: [],
     };
     render(

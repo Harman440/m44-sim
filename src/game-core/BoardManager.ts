@@ -4,7 +4,7 @@ import { Factions, Position, Scenario } from "../types/scenario";
 import { Faction, isFaction } from "../types/faction";
 import { HexType, isHexType } from "../types/hex";
 import { PathNode, PathResult } from "../types/boardManager";
-import { includesPosition, positionKey } from "./position";
+import { includesPosition, positionKey, samePosition } from "./position";
 import { BoardSize, boardSizeOf } from "./boardSize";
 
 /** Terrain rules an action loosens for one unit's move */
@@ -254,6 +254,45 @@ class BoardManager {
     }
 
     return reachableResults;
+  };
+
+  /**
+   * Whether a unit at `startHex` may move along `path` (its first hex the start, each next one
+   * beside the last, none twice) within `maxRange`, by the same rules as
+   * `calculatePossibleMovesWithPaths`; with `forFirePositions`, and still fire at its end
+   */
+  followsPath = (
+    startHex: Hex,
+    path: readonly Position[],
+    maxRange: number,
+    forFirePositions: boolean = false,
+    rules: MoveRules = {}
+  ): boolean => {
+    const startPos = startHex.getPosition();
+    if (path.length < 2 || !samePosition(path[0]!, startPos)) return false;
+    if (new Set(path.map(positionKey)).size !== path.length) return false;
+    const hedgerowRules = !rules.ignoreTerrain;
+    if (hedgerowRules && startHex.getTerrain().leaveOneHex) maxRange = Math.min(maxRange, 1);
+    const capOf = (hex: Hex, cap: number | undefined) => {
+      const through = hex.getTerrain().moveThrough;
+      return through === undefined ? cap : Math.min(cap ?? Infinity, through);
+    };
+
+    let current = startHex;
+    let cap = capOf(startHex, undefined);
+    let canContinue = true;
+    for (let cost = 1; cost < path.length; cost++) {
+      const position = path[cost]!;
+      const hex = this.getHex(position);
+      if (!canContinue || !hex || !hex.isPassable()) return false;
+      if (!current.getNeighbors().some((neighbor) => samePosition(neighbor, position))) return false;
+      if (hedgerowRules && hex.getTerrain().firstStepOnly && cost > 1) return false;
+      cap = capOf(hex, cap);
+      if (cost > Math.min(maxRange, cap ?? Infinity)) return false;
+      canContinue = rules.ignoreTerrain ? !hex.wire : hex.canContinueMovement();
+      current = hex;
+    }
+    return !forFirePositions || current.getTerrain().fireAfterMove || (rules.fireInto?.includes(current.getType()) ?? false);
   };
 
   // Method to get all paths as a Map for quick lookup

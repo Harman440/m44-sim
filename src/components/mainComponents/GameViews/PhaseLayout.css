@@ -26,7 +26,7 @@
   .phase-layout {
     flex-direction: row;
     align-items: stretch;
-    gap: 12px;
+    gap: 8px;
   }
 
   .phase-layout__board {
@@ -38,6 +38,14 @@
   .phase-layout__board .board__svg {
     /* as wide as fits both ways; --board-aspect is set by Board, the 8px is the border */
     width: min(100cqw, (100cqh - 8px) * var(--board-aspect));
+  }
+
+  /* A zoomable board fills the whole box, cropped to it; a drag shows the rest (useBoardZoom) */
+  .phase-layout__board .board--zoomable .board__svg {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100cqh;
+    max-width: none !important;
   }
 
   /* Narrow column so the board gets most of the width: only what the player

@@ -11,19 +11,19 @@
   min-height: 0;
 }
 
-/* The tray: the picked cards stacked (the combat cards tucked behind the
-   command card), a line for each with its text, and the Play button */
+/* The tray, one compact row: the picked card (small; a tap shows its text),
+   its name or what to do, and Play or No card */
 .cards-tray {
-  --card-width: 110px;
-  flex: 1 1 480px;
+  --card-width: 56px;
+  flex: 0 1 auto;
   max-width: 760px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 12px 16px;
+  gap: 8px 12px;
   min-width: 0;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: var(--m44-border-width) solid var(--m44-border);
   border-radius: calc(var(--m44-radius) * 2);
   background: var(--m44-paper);
@@ -32,8 +32,8 @@
 .cards-tray__stack {
   position: relative;
   flex: none;
-  width: calc(var(--card-width) * 1.45);
-  height: calc(var(--card-width) * 7 / 5 + var(--card-width) * 0.1);
+  width: var(--card-width);
+  height: calc(var(--card-width) * 7 / 5);
 }
 
 .cards-tray__card {
@@ -63,22 +63,11 @@
 }
 
 .cards-tray__lines {
-  flex: 1 1 260px;
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-.cards-tray__line {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 48px;
-}
-
-.cards-tray__slot {
-  flex: none;
-  width: 5.5em;
-  line-height: 1.2 !important;
-  color: var(--m44-muted);
+  gap: 4px;
 }
 
 .cards-tray__name {
@@ -154,7 +143,8 @@
 }
 
 .cards-table--with-map .cards-table__side {
-  flex: 0 1 440px;
+  /* narrow: the tray is one row, so the map gets the width */
+  flex: 0 1 340px;
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
@@ -172,8 +162,13 @@
   max-width: none;
 }
 
+/* In the narrow column beside the map only the card's text: the card itself is lifted in the hand below */
+.cards-table--with-map .card-details__card {
+  display: none;
+}
+
 .cards-tray__prompt {
-  padding-top: 4px;
+  min-width: 0;
 }
 
 .cards-table__look {
@@ -224,9 +219,9 @@
     overscroll-behavior: contain;
   }
 
-  /* The tray's cards as tall as the table allows */
+  /* The tray's card small, but no taller than the table */
   .cards-tray {
-    --card-width: clamp(76px, (100cqh - 56px) * 5 / 7 / 1.07, 120px);
+    --card-width: clamp(44px, (100cqh - 40px) * 5 / 7, 64px);
   }
 }
 

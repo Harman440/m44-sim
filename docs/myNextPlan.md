@@ -7,12 +7,12 @@
 
 - Improve badges for elite units
 
-- Finish game with game summary
+- Finish game with game summary and show map
 
 - More hexes types art and rules
 - Improve Villages Art. Maybe revert all the changes to Villages and just add like "houses" or new hexes
 - Hills could be see bluffs or hills. So merge with beach hexes too and dont show cliff on the countryside side
-- Add rule fordable river to map. This is a per scenario rule.
+- sandbags on move to background
 
 - Improve map sizes to much more hexes. Maps should be scrollable so that more fits
 
@@ -21,7 +21,6 @@
 - More rules will appear with more maps
 
 - Improve AI. Sometimes makes weird decisions.
-- Include winning conditions etc..
 - Include Fog of war:
     - When AI is rolling dice dont show units
     - AI is really scared and just orders units when it is obvious there are no units close. Give AI better vision or something like that
@@ -34,6 +33,16 @@
     - The scenario is divded into two side or if bigger more sections. each section has to be atleat 7 hexes.
     - Follow House rules for overload for now
 
+- Pop up for should be tighter and only show actions that make sense. Use icons instead of hexes. clicking outside deselects unit. Add a bit of transparency to pop up
+- when a unit is chosen and change type of fire keep it selected
+- can reinforcents appear wherever: fix only end hexes
+- I am too free to order units: check Moral, ammo, etc.. everything must feel more
+- add condition of rest if not next to enemy unit
+- some times the fire is obvious as there is nothing to fire and no units will retreat into range and/or there is only one obvious target. make these decisions faster for the player
+
+- New Rework: Officer
+   - Each units last figure is a serageant and can recruit other troops from other units. It spends maybe moral and energy and must be near to other weakend unit
+   - Officers are the figures that must die to count as a vistory point
 
 - [x] Rework (built: [ACTIONS_PLAN.md](ACTIONS_PLAN.md)):
  - You order all units: To make it easier there can be to the right a list of all units to the left of the map. 

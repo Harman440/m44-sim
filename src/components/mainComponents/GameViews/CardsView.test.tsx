@@ -106,7 +106,7 @@ describe("CardsView picking a card", () => {
     const tray = screen.getByRole("region", { name: "Tu jugada" });
     expect(within(tray).getByRole("button", { name: "Quitar Reabastecimiento" })).toBeInTheDocument();
     expect(handKeys(container)).not.toContain("resupply");
-    expect(screen.getByRole("button", { name: "Sin carta" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Sin carta" })).toBeNull(); // only the button that fits is shown
 
     fireEvent.click(screen.getByRole("button", { name: "Jugar" }));
     expect(onPlay).toHaveBeenCalledWith(actionCardById("resupply"));
@@ -117,7 +117,7 @@ describe("CardsView picking a card", () => {
     const onPlay = vi.fn();
     render(<Harness session={session} onPlay={onPlay} />);
 
-    expect(screen.getByRole("button", { name: "Jugar" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Jugar" })).toBeNull(); // only the button that fits is shown
     fireEvent.click(screen.getByRole("button", { name: "Sin carta" }));
     expect(onPlay).toHaveBeenCalledWith(null);
   });
@@ -129,7 +129,7 @@ describe("CardsView picking a card", () => {
     fireEvent.click(handCard(container, "refuel"));
     fireEvent.click(screen.getByRole("button", { name: "Quitar Repostaje" }));
     expect(handKeys(container)).toContain("refuel");
-    expect(screen.getByRole("button", { name: "Jugar" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Jugar" })).toBeNull(); // only the button that fits is shown
   });
 
   it("swaps the card in the tray for another from the table", () => {

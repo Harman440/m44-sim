@@ -15,6 +15,7 @@ import { resultLimit } from "../data/figures";
 import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
+import type { Localized } from "../i18n/lang";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
 export const MATCH_SAVE_VERSION = 18;
@@ -66,6 +67,11 @@ export interface MatchBattle {
   ground: { side: Faction; order: number } | null;
   /** The unit took ground: it fires once more, now, in close assault */
   bonus: { side: Faction; order: number } | null;
+  /**
+   * The firing is over and both sides are in their final phase: the units that move after the
+   * battle are moved, and a reinforcement whose cross was taken placed, then the turn ends
+   */
+  ending?: boolean;
 }
 
 /** The battle for the screen */
@@ -81,8 +87,16 @@ export interface BattleState {
   /** The unit retreating now (in its side's view), the hexes it can retreat to and the hexes it has to go */
   retreat: { side: Faction; position: Position; options: readonly Position[]; flags: number } | null;
   /** Sides whose attack combat card (Barrage…) is still to be rolled, before anyone fires */
-  attacks: readonly Faction[];
+  attacks: readonly Faction[];  /**
+   * Once the firing is over: what a side still does on the map before the turn ends, a unit moving
+   * after the battle (Behind Enemy Lines) or a reinforcement whose cross was taken (in its side's view)
+   */
+  afterBattle: AfterBattle | null;
 }
+
+export type AfterBattle =
+  | { side: Faction; kind: "move"; from: Position; options: readonly Position[]; name: Localized }
+  | { side: Faction; kind: "reinforcement"; unitType: UnitType; options: readonly Position[] };
 
 /** Where a collision's roll was kept: one of its side's shots, or its rolls for units without an order */
 export interface RollRef {
@@ -171,6 +185,10 @@ export interface ArmyView {
   units: readonly PlacedUnit[];
   /** Its orders this turn, once they've been revealed; none while they're secret */
   orders: readonly Order[];
+  /** Its units that have fired this turn, of those orders */
+  fired: readonly Unit[];
+  /** Its units still to fire, of those orders */
+  toFire: readonly Unit[];
   /** Its units with the camouflage badge, as they stood at the start of the turn while its orders are secret */
   camouflaged: readonly Position[];
   /** Its sandbags, as they stood at the start of the turn while its orders are secret */
@@ -507,6 +525,11 @@ class PassAndPlayMatch {
     return { side: can(first) ? first : otherSide(first), group };
   }
 
+  /** The order indexes of a side's units that can still fire this battle, in any group (not those that held their fire) */
+  stillToFire(side: Faction): number[] {
+    return [...new Set(FIRE_GROUPS.flatMap((group) => this.fireable(side, group)))];
+  }
+
   /** The order indexes of a side's units that can still fire in this group */
   private fireable(side: Faction, group: FireGroup): number[] {
     const battle = this.battle;
@@ -677,17 +700,61 @@ class PassAndPlayMatch {
    * final phase. Retreats are made as the flags come, so none is left
    */
   endBattle(): boolean {
-    if (!this.battle || this.busy()) return false;
-    this.finishBattle();
+    const battle = this.battle;
+    if (!battle || this.busy()) return false;
+    if (!battle.ending) {
+      for (const side of FACTIONS) this.sessions[side].endBattle();
+      this.battle = { ...battle, ending: true };
+      this.scoreTurn();
+    } else if (this.afterBattle()) {
+      return false;
+    }
+    if (this.result || !this.afterBattle()) this.finishBattle();
     return this.publish();
   }
 
+  /** What a side still does on the map once the firing is over, the attacker first; null when nothing */
+  private afterBattle(): AfterBattle | null {
+    if (!this.battle?.ending || this.result) return null;
+    for (const side of [this.scenario.attacker, otherSide(this.scenario.attacker)]) {
+      const session = this.sessions[side];
+      const game = session.getSnapshot();
+      if (game.reinforcementToPlace) {
+        return { side, kind: "reinforcement", unitType: game.reinforcementToPlace, options: session.reinforcementOptions() };
+      }
+      if (game.finalMove) return { side, kind: "move", ...game.finalMove };
+    }
+    return null;
+  }
+
+  /**
+   * After the battle: the unit moving after it goes to `to`, or the reinforcement is put there (in
+   * its side's view). The turn ends once nothing is left to do
+   */
+  moveAfterBattle(to: Position): boolean {
+    const due = this.afterBattle();
+    if (!due || !includesPosition(due.options, to)) return false;
+    const session = this.sessions[due.side];
+    const done = due.kind === "move" ? session.makeFinalMove(to) : session.placeReinforcement(to);
+    if (!done) return false;
+    if (!this.afterBattle()) this.finishBattle();
+    return this.publish();
+  }
+
+  /** After the battle: the unit due to move after it stays where it is (a reinforcement has to be placed) */
+  skipMoveAfterBattle(): boolean {
+    const due = this.afterBattle();
+    if (due?.kind !== "move" || !this.sessions[due.side].skipFinalMove()) return false;
+    if (!this.afterBattle()) this.finishBattle();
+    return this.publish();
+  }
+
+  /** The battle and its moves are over: the next turn starts for both sides at once (pass and play has no final phase) */
   private finishBattle() {
     // What each side sees as the battle ends is what it knows until the next turn's units move
     if (this.fog && this.computer) this.sighted = { Allies: this.liveSight("Allies"), Axis: this.liveSight("Axis") };
-    for (const side of FACTIONS) this.sessions[side].endBattle();
     this.battle = null;
-    this.scoreTurn();
+    if (!this.result) for (const side of FACTIONS) this.sessions[side].endTurn();
     this.active = this.person() ?? this.scenario.attacker;
     this.covered = !this.computer;
   }
@@ -783,6 +850,7 @@ class PassAndPlayMatch {
       attacks: FACTIONS.filter((side) => this.sessions[side].getSnapshot().attacksPending),
       ground: battle.ground,
       retreat: this.retreatView(),
+      afterBattle: this.afterBattle(),
     };
   }
 
@@ -955,7 +1023,13 @@ class PassAndPlayMatch {
     const sandbags = session.board.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : []));
     if (revealed) {
       const orders = sight ? game.orders.filter((order) => army.some((placed) => placed.unit === order.unit)) : game.orders;
-      return { faction, units: army, orders, camouflaged: visible(game.camouflaged, seenHexes), sandbags: visible(sandbags, seenHexes) };
+      const summaries = session.orderSummaries();
+      const fired = game.orders.filter((order, i) => summaries[i]?.shots.length && orders.includes(order)).map((order) => order.unit);
+      // In the battle, the units with a shot they can still use; before it, those whose order lets them fire
+      const toFire = this.battle
+        ? this.stillToFire(faction).map((index) => game.orders[index]!.unit)
+        : orders.filter((order) => order.canFire).map((order) => order.unit);
+      return { faction, units: army, orders, fired, toFire: toFire.filter((unit) => orders.some((order) => order.unit === unit)), camouflaged: visible(game.camouflaged, seenHexes), sandbags: visible(sandbags, seenHexes) };
     }
 
     const units = army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position }));
@@ -965,6 +1039,8 @@ class PassAndPlayMatch {
       faction,
       units,
       orders: [],
+      fired: [],
+      toFire: [],
       camouflaged: visible(session.camouflagedAtStart(), seenStarts),
       sandbags: visible([...sandbags, ...left], seenStarts),
     };

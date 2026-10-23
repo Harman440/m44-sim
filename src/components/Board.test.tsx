@@ -23,6 +23,7 @@ const armyOf = (board: BoardManager, faction: "Allies" | "Axis"): ArmyView => ({
   faction,
   units: board.getAllHexes().flatMap((hex) => (hex.unit ? [{ position: hex.getPosition(), unit: hex.unit }] : [])),
   orders: [],
+  fired: [], toFire: [],
   camouflaged: [],
   sandbags: board.getAllHexes().flatMap((hex) => (hex.sandbags ? [hex.getPosition()] : [])),
 });
