@@ -219,7 +219,7 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
   - an attack card when it hits enough, Resupply or Refuel when its army is short
 - [x] `selfPlay.ts`: computer-against-computer games end (as the medals test does today)
 - [x] How it went: `ai/actionChoice.ts` (`chooseCard`, `chooseMark`, `chooseAction`, `chooseFireOption`), given to `standardBrain` as the `Brain`'s `pickCard`, `markFor`, `actionFor` and `fireOptionFor`. A card whose hexes can't all be marked is given up for the turn. 20 computer-against-computer games all ended. Against the brain before R15 it won 75–45 in 120 games; without the action rules it won 77–43, so the cards and fire options help and the action rules don't yet
-- [ ] **Decide:** keep the action rules as they are, or take them out until they're tuned
+- [x] **Decided (2026-10-23):** keep the action rules as they are
 
 ## Part 5: Finish
 
@@ -227,5 +227,22 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] `ARCHITECTURE.md` (the actions game and its modules, without the card game), the rule book checked against the code, the README, and CLAUDE.md's code map (Cards, decks, sections). Tick off the "Rework" in `myNextPlan.md`
 
 ### R17: A test game, then merge
-- [ ] A pass and play match, a game against the computer and a turn on two tablets, at 1280×800 and 800×1280 with touch, in Spanish and English. Retune the costs, starting supplies and cooldown, which are all in the data files
+- [x] A pass and play match, a game against the computer and a turn on two tablets, at 1280×800 and 800×1280 with touch, in Spanish and English. Retune the costs, starting supplies and cooldown, which are all in the data files: the player's answers (2026-10-23) are R18
 - [ ] Merge `actions-mode` into `main` (this deploys it to the tablets) and delete the branch
+
+## R18: After the test game (2026-10-23)
+The player's notes after playing it, and their answers: the cooldown goes to 4 turns; the starting supplies, Move Out's 1 energy and the computer's action rules stay.
+
+- [x] Rules (`data/unitActions.ts`):
+  - Behind Enemy Lines costs 5 energy and fires with the units that moved (no more "fires first": the round, its group in the battle and its rule book line go); it still moves 3 ignoring terrain, and 3 more after the battle
+  - Move Out moves up to 2 and fires if it moved 1 hex or none (`UnitAction.fireMove`)
+  - Infantry Assault moves up to 2 and fires, for 3 energy and 2 morale (a unit at morale 2 may, ending at 0); own tablets don't track morale and pay only the energy (`actionCost`)
+  - Motorized costs 4 energy
+  - Close Assault is gone, with the action dice it alone used (`ActionFire.bonusDice`, `closeAssaultOnly`, the "action" dice step)
+  - A plain move tries Firefight, Move Out, Assault, Motorized
+  - Cards wait 4 turns (`CARD_COOLDOWN_TURNS`)
+  - An action that would change nothing is refused (`notNeeded`): Reload with full ammo or shells, Morale Up at full morale, Fortify on sandbags, Camouflage with the badge on
+  - `SAVE_VERSION` 44, `MATCH_SAVE_VERSION` 19
+- [ ] The action pop-up: tighter and see-through, only the actions the unit can be given, costs as icons, an "i" by each that shows its card on the right
+- [ ] The battle: changing the fire option keeps the target picked; a unit with nothing to fire at is passed over (it holds), one with a single target has it picked
+- [ ] The collision phase shows the Close Assault painting at the top of its column

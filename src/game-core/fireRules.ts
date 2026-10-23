@@ -24,8 +24,6 @@ export interface FireContext {
   closeAssaultOnly?: boolean;
   /** Extra dice from the card played this turn (Finest Hour) */
   combatBonuses?: readonly CombatBonus[];
-  /** Extra dice the unit's action gives every shot (Close Assault) */
-  actionBonus?: { name: Localized; dice: number };
   /** How the unit fires this shot (data/unitActions.ts FIRE_OPTIONS): its dice and its die */
   fireOption?: UnitFireOption;
   /** The unit moved this turn (its order, or taking ground): armour's normal fire loses its close assault die */
@@ -70,7 +68,6 @@ export type DiceStepKind =
   | "ford"
   | "joined"
   | "pinned"
-  | "action"
   | "fireOption";
 
 /** One labelled line of the dice calculation, e.g. "Objetivo en bosque: -1" */

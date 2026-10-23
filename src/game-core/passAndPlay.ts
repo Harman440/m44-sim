@@ -18,7 +18,7 @@ import { Position, Scenario } from "../types/scenario";
 import type { Localized } from "../i18n/lang";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 18;
+export const MATCH_SAVE_VERSION = 19;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -42,13 +42,13 @@ export interface SavedMatch {
   sighted?: Record<Faction, Position[]> | null;
 }
 
-/** A unit a card makes fire before any other (Behind Enemy Lines), then the units that didn't move, then the ones that moved */
-export type FireGroup = "first" | "unmoved" | "moved";
+/** The units that didn't move fire first (and No Respite's), then the ones that moved */
+export type FireGroup = "unmoved" | "moved";
 
-const FIRE_GROUPS: readonly FireGroup[] = ["first", "unmoved", "moved"];
+const FIRE_GROUPS: readonly FireGroup[] = ["unmoved", "moved"];
 
 /** The group a unit fires in */
-const groupOf = (summary: OrderSummary): FireGroup => (summary.firesFirst ? "first" : summary.unmovedGroup ? "unmoved" : "moved");
+const groupOf = (summary: OrderSummary): FireGroup => (summary.unmovedGroup ? "unmoved" : "moved");
 
 /**
  * The shared battle: both sides take turns to fire, one unit at a time, the attacker first in

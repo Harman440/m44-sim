@@ -231,9 +231,8 @@ describe("the action's and the fire option's dice", () => {
   const steps = (extra: Partial<FireContext>) =>
     calculateFireDice(FIRE_QUESTIONS, { unitType: UnitType.TANK, ...extra }, answers, fireBonusSteps).steps;
 
-  it("adds the action's dice, and the option's in close assault unless it says only when the unit didn't move", () => {
+  it("adds the option's dice in close assault unless it says only when the unit didn't move", () => {
     const tankNormal = fireOptionById("tank:normal")!;
-    expect(steps({ actionBonus: { name: same("Asalto"), dice: 1 } }).map((step) => step.kind)).toEqual(["base", "action"]);
     expect(steps({ fireOption: tankNormal }).map((step) => step.kind)).toEqual(["base", "fireOption"]);
     expect(steps({ fireOption: tankNormal, moved: true }).map((step) => step.kind)).toEqual(["base"]);
   });

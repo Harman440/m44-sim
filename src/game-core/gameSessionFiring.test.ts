@@ -173,15 +173,6 @@ describe("GameSession firing with ammo and shells", () => {
     expect(lastShot(moved).dice).toBe(3);
   });
 
-  it("fires Close Assault only at an adjacent enemy, with 1 die more", () => {
-    const session = holding("infantry:closeAssault", INF);
-    expect(session.orderSummaries()[0]!.closeAssaultOnly).toBe(true);
-    expect(session.fire(0, at(2))).toBe(false);
-    expect(session.fire(0, at(1))).toBe(true);
-    expect(lastShot(session).dice).toBe(4);
-    expect(stepKinds(session)).toEqual(["base", "action"]);
-  });
-
   it("keeps each shot's fire option and what it spent in a save", () => {
     const session = holding("infantry:firefight", INF);
     expect(session.fire(0, at(1), "infantry:explosives")).toBe(true);
@@ -216,10 +207,10 @@ describe("GameSession firing order of the actions", () => {
     fight(session);
 
     const [noRespite] = session.orderSummaries();
-    expect(noRespite).toMatchObject({ hold: false, unmovedGroup: true, firesFirst: false, waiting: false });
+    expect(noRespite).toMatchObject({ hold: false, unmovedGroup: true, waiting: false });
   });
 
-  it("fires Behind Enemy Lines before anyone, without waiting for the units that didn't move", () => {
+  it("fires Behind Enemy Lines with the units that moved, after the ones that didn't", () => {
     const session = ordering();
     const to = { row: 5, col: 1 };
     expect(session.giveAction(INF, "infantry:behindEnemyLines", to)).toBe(true);
@@ -227,9 +218,9 @@ describe("GameSession firing order of the actions", () => {
     fight(session);
 
     const [infiltrators, artillery] = session.orderSummaries();
-    expect(infiltrators).toMatchObject({ firesFirst: true, unmovedGroup: false, waiting: false, shotsLeft: 1 });
+    expect(infiltrators).toMatchObject({ unmovedGroup: false, waiting: true, shotsLeft: 1 });
     expect(artillery).toMatchObject({ unmovedGroup: true, waiting: false });
-    expect(session.fire(0, at(2))).toBe(true);
+    expect(session.fire(0, at(2))).toBe(false);
   });
 
   it("doesn't fire Armour Forward from a hex its terrain doesn't let it fire from", () => {

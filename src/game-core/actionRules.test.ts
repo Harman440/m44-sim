@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { UnitType } from "./unit";
 import {
+  actionCost,
   actionRefusal,
   actionsFor,
   canFireAShot,
@@ -29,12 +30,37 @@ const refusal = (id: string, supplies: UnitSupplies, ownTablets = false) =>
   actionRefusal(action(id), { unitType: action(id).unitType, supplies, ownTablets });
 
 describe("which actions a unit can be given", () => {
-  it("allows every action of its type with full supplies, in pass and play", () => {
+  it("allows every action of its type with full supplies, in pass and play, but the ones that would change nothing", () => {
+    const pointless = ["infantry:moraleUp", "infantry:reload", "tank:reload", "artillery:reload"];
     for (const unitType of Object.values(UnitType)) {
       for (const each of UNIT_ACTIONS[unitType]) {
-        expect(actionRefusal(each, { unitType, supplies: fullSupplies(unitType), ownTablets: false }), each.id).toBeNull();
+        const why = actionRefusal(each, { unitType, supplies: fullSupplies(unitType), ownTablets: false });
+        expect(why, each.id).toBe(pointless.includes(each.id) ? "notNeeded" : null);
       }
     }
+  });
+
+  it("refuses what would change nothing: Reload when full, Morale Up at full morale, Fortify on sandbags, Camouflage with the badge", () => {
+    const infantry = fullSupplies(UnitType.INFANTRY);
+    const context = { unitType: UnitType.INFANTRY, supplies: infantry, ownTablets: false };
+    expect(refusal("infantry:reload", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 1 }))).toBeNull();
+    expect(refusal("infantry:moraleUp", suppliesWith(UnitType.INFANTRY, { [Supply.MORALE]: 3 }))).toBeNull();
+    expect(refusal("tank:reload", suppliesWith(UnitType.TANK, { [Supply.SHELLS]: 1 }))).toBeNull();
+    // Elite infantry holds more morale: 5 isn't full
+    expect(actionRefusal(action("infantry:moraleUp"), { ...context, elite: true, supplies: suppliesWith(UnitType.INFANTRY, { [Supply.MORALE]: 5 }) })).toBeNull();
+    expect(actionRefusal(action("infantry:fortify"), { ...context, sandbags: true })).toBe("notNeeded");
+    expect(actionRefusal(action("infantry:fortify"), context)).toBeNull();
+    expect(actionRefusal(action("infantry:camouflage"), { ...context, camouflaged: true })).toBe("notNeeded");
+    expect(actionRefusal(action("artillery:fortify"), { unitType: UnitType.ARTILLERY, supplies: fullSupplies(UnitType.ARTILLERY), ownTablets: false, sandbags: true })).toBe("notNeeded");
+  });
+
+  it("costs morale only where it's tracked: own tablets pay Infantry Assault's energy alone", () => {
+    expect(actionCost(action("infantry:assault"), false).amounts).toEqual({ [Supply.ENERGY]: 3, [Supply.MORALE]: 2 });
+    expect(actionCost(action("infantry:assault"), true).amounts).toEqual({ [Supply.ENERGY]: 3 });
+    expect(actionCost(action("infantry:firefight"), true)).toBe(action("infantry:firefight").cost);
+    expect(refusal("infantry:assault", suppliesWith(UnitType.INFANTRY, { [Supply.MORALE]: 1 }))).toBe(Supply.MORALE);
+    expect(refusal("infantry:assault", suppliesWith(UnitType.INFANTRY, { [Supply.MORALE]: 2 }))).toBeNull();
+    expect(refusal("infantry:assault", suppliesWith(UnitType.INFANTRY, { [Supply.MORALE]: 1 }), true)).toBeNull();
   });
 
   it("refuses another unit type's action", () => {
@@ -51,7 +77,10 @@ describe("which actions a unit can be given", () => {
   it("at morale 0 allows only Morale Up", () => {
     const shaken = suppliesWith(UnitType.INFANTRY, { [Supply.MORALE]: 0 });
     for (const each of UNIT_ACTIONS[UnitType.INFANTRY]) {
-      expect(refusal(each.id, shaken), each.id).toBe(each.effect === "moraleUp" ? null : Supply.MORALE);
+      const why = refusal(each.id, shaken);
+      // Reload with its ammo full has nothing to do whatever its morale
+      if (each.effect === "reload") expect(why, each.id).toBe("notNeeded");
+      else expect(why, each.id).toBe(each.effect === "moraleUp" ? null : Supply.MORALE);
     }
   });
 
@@ -59,9 +88,10 @@ describe("which actions a unit can be given", () => {
     // [action, the supplies it lacks, why]
     ["infantry:firefight", { [Supply.ENERGY]: 0 }, Supply.ENERGY],
     ["infantry:noRespite", { [Supply.ENERGY]: 1 }, Supply.ENERGY],
-    ["infantry:behindEnemyLines", { [Supply.ENERGY]: 3 }, Supply.ENERGY],
-    ["infantry:motorized", { [Supply.ENERGY]: 1 }, Supply.ENERGY],
-    ["infantry:moraleUp", { [Supply.ENERGY]: 0 }, Supply.ENERGY],
+    ["infantry:behindEnemyLines", { [Supply.ENERGY]: 4 }, Supply.ENERGY],
+    ["infantry:motorized", { [Supply.ENERGY]: 3 }, Supply.ENERGY],
+    ["infantry:assault", { [Supply.ENERGY]: 2 }, Supply.ENERGY],
+    ["infantry:moraleUp", { [Supply.ENERGY]: 0, [Supply.MORALE]: 2 }, Supply.ENERGY],
     ["infantry:takeCover", { [Supply.ENERGY]: 0 }, Supply.ENERGY],
     ["infantry:firefight", { [Supply.AMMO]: 0 }, Supply.AMMO],
     ["infantry:assault", { [Supply.AMMO]: 0 }, Supply.AMMO],
@@ -93,7 +123,7 @@ describe("which actions a unit can be given", () => {
   });
 
   it("lets actions that don't fire go without ammo or shells, and free ones without energy or fuel", () => {
-    expect(refusal("infantry:moveOut", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBeNull();
+    expect(refusal("infantry:motorized", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0 }))).toBeNull();
     expect(refusal("infantry:reload", suppliesWith(UnitType.INFANTRY, { [Supply.AMMO]: 0, [Supply.ENERGY]: 0 }))).toBeNull();
     expect(refusal("tank:reload", suppliesWith(UnitType.TANK, { [Supply.SHELLS]: 0, [Supply.FUEL]: 0 }))).toBeNull();
     expect(refusal("tank:mechanic", suppliesWith(UnitType.TANK, { [Supply.FUEL]: 0 }))).toBeNull();
@@ -104,8 +134,8 @@ describe("which actions a unit can be given", () => {
 describe("how far an action moves", () => {
   it.each([
     ["infantry:firefight", { maxMove: 0, moveAndFire: 0, holdShots: 1 }],
-    ["infantry:assault", { maxMove: 1, moveAndFire: 1, holdShots: 1 }],
-    ["infantry:moveOut", { maxMove: 2, moveAndFire: 0, holdShots: 0 }],
+    ["infantry:assault", { maxMove: 2, moveAndFire: 2, holdShots: 1 }],
+    ["infantry:moveOut", { maxMove: 2, moveAndFire: 1, holdShots: 1 }],
     ["infantry:motorized", { maxMove: 3, moveAndFire: 0, holdShots: 0 }],
     ["infantry:behindEnemyLines", { maxMove: 3, moveAndFire: 3, holdShots: 1 }],
     ["infantry:takeCover", { maxMove: 1, moveAndFire: 0, holdShots: 0 }],
@@ -125,9 +155,9 @@ describe("how far an action moves", () => {
 });
 
 describe("the plain action for a move", () => {
-  it("tries Firefight, Assault, Move Out and Motorized for infantry; Firefight and Assault for tanks; Firefight and Reposition for artillery", () => {
+  it("tries Firefight, Move Out, Assault and Motorized for infantry; Firefight and Assault for tanks; Firefight and Reposition for artillery", () => {
     const ids = (unitType: UnitType) => plainActionsFor(unitType).map((each) => each.id);
-    expect(ids(UnitType.INFANTRY)).toEqual(["infantry:firefight", "infantry:assault", "infantry:moveOut", "infantry:motorized"]);
+    expect(ids(UnitType.INFANTRY)).toEqual(["infantry:firefight", "infantry:moveOut", "infantry:assault", "infantry:motorized"]);
     expect(ids(UnitType.TANK)).toEqual(["tank:firefight", "tank:assault"]);
     expect(ids(UnitType.ARTILLERY)).toEqual(["artillery:firefight", "artillery:reposition"]);
   });

@@ -208,22 +208,22 @@ describe("GameSession command cards", () => {
 
     const finestNow = (s: GameSession) => s.getSnapshot().cards.find((held) => held.card.id === finest.id)!;
     expect(session.getSnapshot().turn).toBe(2);
-    expect(finestNow(session)).toMatchObject({ turnsLeft: 2, playable: false });
+    expect(finestNow(session)).toMatchObject({ turnsLeft: 3, playable: false });
     expect(session.pickCard(finest)).toBe(false);
     expect(session.getSnapshot().cards.find((held) => held.card.id === "resupply")!.playable).toBe(true);
     expect(session.getSnapshot().log[0]!.card).toEqual({ id: finest.id, name: finest.name });
 
     const restored = reload(session);
-    expect(finestNow(restored)).toMatchObject({ turnsLeft: 2, playable: false });
+    expect(finestNow(restored)).toMatchObject({ turnsLeft: 3, playable: false });
     expect(restored.pickCard(finest)).toBe(false);
 
-    for (const turnsLeft of [2, 1]) {
+    for (const turnsLeft of [3, 2, 1]) {
       expect(finestNow(restored).turnsLeft).toBe(turnsLeft);
       expect(restored.pickCard(null)).toBe(true);
       orderAllAndFight(restored);
       finishTurn(restored);
     }
-    expect(restored.getSnapshot().turn).toBe(4);
+    expect(restored.getSnapshot().turn).toBe(5);
     expect(finestNow(restored)).toMatchObject({ turnsLeft: 0, playable: true });
     expect(restored.pickCard(finest)).toBe(true);
   });
@@ -811,10 +811,10 @@ describe("GameSession collisions", () => {
     orderAllAndFight(session);
     expect(session.fireCollision(0, true)).toBe(false);
 
-    // Infantry that moved 2 hexes can't fire this turn, so it doesn't roll either
+    // Infantry that moved 2 hexes on Motorized can't fire this turn, so it doesn't roll either
     const moved = makeSession();
     moved.pickCard(null);
-    moved.issueOrder(LEFT_INF, { row: 5, col: 1 });
+    moved.giveAction(LEFT_INF, "infantry:motorized", { row: 5, col: 1 });
     orderAllAndFight(moved);
     expect(moved.getSnapshot().orders[0]!.canFire).toBe(false);
     expect(moved.fireCollision(0, true)).toBe(false);
@@ -1994,8 +1994,8 @@ describe("GameSession elite units", () => {
     const suppliesAt = (position: Position) =>
       session.getSnapshot().supplies.find((each) => samePosition(each.position, position))!.supplies;
 
-    expect(session.getMoveOptions(LEFT_INF, "infantry:assault")!.limits).toMatchObject({ maxMove: 1, moveAndFire: 1 });
-    expect(session.issueOrder(LEFT_INF, { row: 5, col: 1 })).toBe(true);
+    expect(session.getMoveOptions(LEFT_INF, "infantry:moveOut")!.limits).toMatchObject({ maxMove: 2, moveAndFire: 1 });
+    expect(session.giveAction(LEFT_INF, "infantry:moveOut", { row: 5, col: 1 })).toBe(true);
     expect(session.getSnapshot().orders[0]!.canFire).toBe(false);
     expect(suppliesAt({ row: 5, col: 1 }).amounts).toMatchObject({ morale: 10, energy: 10 });
     expect(suppliesAt(OTHER_INF).amounts).toMatchObject({ morale: 5, energy: 5 });
@@ -2015,7 +2015,7 @@ describe("pass and play movement", () => {
     const session = makeSession();
     expect(session.pickCard(null)).toBe(true);
     const far = session.getMoveOptions(LEFT_INF)!.moves.find((p) => hexDistance(p, LEFT_INF) === 2)!;
-    expect(session.issueOrder(LEFT_INF, far)).toBe(true);
+    expect(session.giveAction(LEFT_INF, "infantry:motorized", far)).toBe(true);
     expect(session.issueOrder(OTHER_INF, OTHER_INF)).toBe(true);
     expect(session.commitOrders()).toBe(true);
     return { session, order: session.getSnapshot().orders[0]! };

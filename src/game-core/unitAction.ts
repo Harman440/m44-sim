@@ -30,14 +30,9 @@ export interface ActionFire {
   shots: number;
   /**
    * The round it fires in, when not the one its move gives (units that didn't move fire first):
-   * "unmoved" fires with the units that didn't move though it moved (No Respite); "first"
-   * fires before anyone (Behind Enemy Lines)
+   * "unmoved" fires with the units that didn't move though it moved (No Respite)
    */
-  round?: "unmoved" | "first";
-  /** Only in close assault (the Close Assault action) */
-  closeAssaultOnly?: boolean;
-  /** Extra dice on each shot */
-  bonusDice?: number;
+  round?: "unmoved";
 }
 
 /** An action a unit can be given for the turn */
@@ -52,6 +47,8 @@ export interface UnitAction {
   readonly cost: SupplyCost;
   /** Hexes it may move, 0 when it stays put */
   readonly move: number;
+  /** Hexes it may move and still fire, when fewer than `move` (Move Out: 1) */
+  readonly fireMove?: number;
   /** Its move ignores terrain movement limits (battle limits still apply) */
   readonly ignoresTerrain?: boolean;
   /** Hexes it moves after the battle (Behind Enemy Lines) */

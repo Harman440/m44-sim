@@ -66,9 +66,14 @@ describe("GameSession giving actions", () => {
 
     expect(actionIds(session, TANK)).toEqual(["tank:firefight", "tank:assault", "tank:armorForward", "tank:mechanic", "tank:reload"]);
     expect(actionIds(session, INF)).toContain("infantry:moraleUp");
-    // An unhurt unit has nothing for Medic to mend
-    expect(refusals(session, INF)).toMatchObject({ "infantry:medic": "nothingToMend", "infantry:firefight": null });
-    expect(Object.values(refusals(session, INF)).filter((refusal) => refusal !== null)).toHaveLength(1);
+    // An unhurt unit has nothing for Medic to mend, and a full one nothing to reload or rally
+    expect(refusals(session, INF)).toMatchObject({
+      "infantry:medic": "nothingToMend",
+      "infantry:reload": "notNeeded",
+      "infantry:moraleUp": "notNeeded",
+      "infantry:firefight": null,
+    });
+    expect(Object.values(refusals(session, INF)).filter((refusal) => refusal !== null)).toHaveLength(3);
     expect(session.getActions({ row: 0, col: 0 })).toBeNull();
   });
 
@@ -94,26 +99,41 @@ describe("GameSession giving actions", () => {
     const moves = (id: string, from = INF) => session.getMoveOptions(from, id)!;
 
     expect(moves("infantry:firefight").moves.every((move) => samePosition(move, INF))).toBe(true);
-    expect(farthest(moves("infantry:assault").moves, INF)).toBe(1);
+    expect(farthest(moves("infantry:assault").moves, INF)).toBe(2);
+    expect(farthest(moves("infantry:assault").moveAndFire, INF)).toBe(2);
     expect(farthest(moves("infantry:moveOut").moves, INF)).toBe(2);
-    expect(moves("infantry:moveOut").moveAndFire).toEqual([]);
+    expect(farthest(moves("infantry:moveOut").moveAndFire, INF)).toBe(1);
     expect(farthest(moves("infantry:motorized").moves, INF)).toBe(3);
     expect(farthest(moves("artillery:reposition", ARTILLERY).moves, ARTILLERY)).toBe(2);
 
+    const three = moves("infantry:motorized").moves.find((move) => hexDistance(move, INF) === 3)!;
+    expect(session.giveAction(INF, "infantry:moveOut", three)).toBe(false);
     const two = moves("infantry:moveOut").moves.find((move) => hexDistance(move, INF) === 2)!;
-    expect(session.giveAction(INF, "infantry:assault", two)).toBe(false);
     expect(session.giveAction(INF, "infantry:moveOut", two)).toBe(true);
-    expect(session.getSnapshot().orders[0]).toMatchObject({ action: "infantry:moveOut", shots: 0 });
+    // Move Out fires only if it moved 1 hex or none
+    expect(session.getSnapshot().orders[0]).toMatchObject({ action: "infantry:moveOut", canFire: false });
   });
 
-  it("fires after an Assault, but not after Move Out or Reposition", () => {
+  it("fires after an Assault and a 1-hex Move Out, but not after Reposition", () => {
     const session = ordering();
-    const one = session.getMoveOptions(INF, "infantry:assault")!.moveAndFire.find((move) => hexDistance(move, INF) === 1)!;
+    const two = session.getMoveOptions(INF, "infantry:assault")!.moveAndFire.find((move) => hexDistance(move, INF) === 2)!;
+    const one = session.getMoveOptions(OTHER_INF, "infantry:moveOut")!.moveAndFire.find((move) => hexDistance(move, OTHER_INF) === 1)!;
     const away = session.getMoveOptions(ARTILLERY, "artillery:reposition")!.moves.find((move) => hexDistance(move, ARTILLERY) === 2)!;
 
-    expect(session.giveAction(INF, "infantry:assault", one)).toBe(true);
+    expect(session.giveAction(INF, "infantry:assault", two)).toBe(true);
+    expect(session.giveAction(OTHER_INF, "infantry:moveOut", one)).toBe(true);
     expect(session.giveAction(ARTILLERY, "artillery:reposition", away)).toBe(true);
-    expect(session.getSnapshot().orders.map((order) => order.shots)).toEqual([1, 0]);
+    expect(session.getSnapshot().orders.map((order) => order.canFire)).toEqual([true, true, false]);
+  });
+
+  it("pays Infantry Assault in energy and morale, but no morale on own tablets", () => {
+    for (const figures of [true, false]) {
+      const session = ordering({ figures });
+      const to = session.getMoveOptions(INF, "infantry:assault")!.moveAndFire.find((move) => hexDistance(move, INF) === 2)!;
+      expect(session.giveAction(INF, "infantry:assault", to)).toBe(true);
+      expect(session.commitOrders()).toBe(true);
+      expect(suppliesAt(session, to).amounts).toMatchObject({ [Supply.ENERGY]: 2, [Supply.MORALE]: figures ? 3 : 5 });
+    }
   });
 
   it("moves Armour Forward through terrain that stops an Assault", () => {
@@ -131,7 +151,7 @@ describe("GameSession giving actions", () => {
     const options = session.getMoveOptions(INF)!;
     const at = (distance: number) => options.moves.find((move) => hexDistance(move, INF) === distance)!;
 
-    expect(options.limits).toEqual({ maxMove: 3, moveAndFire: 1, holdShots: 1 });
+    expect(options.limits).toEqual({ maxMove: 3, moveAndFire: 2, holdShots: 1 });
     expect(session.issueOrder(INF, at(3))).toBe(true);
     expect(session.issueOrder(OTHER_INF, OTHER_INF)).toBe(true);
     expect(session.issueOrder(TANK, TANK)).toBe(true);
@@ -158,7 +178,7 @@ describe("GameSession changing an action", () => {
 
     expect(session.getMoveOptions(INF, "infantry:assault")!.limits.maxMove).toBe(0);
     expect(session.giveAction(INF, "infantry:assault", next)).toBe(false);
-    expect(session.giveAction(INF, "infantry:closeAssault", INF)).toBe(true);
+    expect(session.giveAction(INF, "infantry:camouflage", INF)).toBe(true);
   });
 
   it("lets the last order's hold become a move", () => {
@@ -194,7 +214,7 @@ describe("GameSession unit supplies", () => {
 
     expect(suppliesAt(session, far).amounts[Supply.ENERGY]).toBe(5);
     expect(session.commitOrders()).toBe(true);
-    expect(suppliesAt(session, far).amounts[Supply.ENERGY]).toBe(3);
+    expect(suppliesAt(session, far).amounts[Supply.ENERGY]).toBe(1);
     expect(suppliesAt(session, tankTo).amounts[Supply.FUEL]).toBe(3);
     expect(suppliesAt(session, ARTILLERY).amounts[Supply.FUEL]).toBe(0);
     expect(suppliesAt(session, OTHER_INF).amounts[Supply.ENERGY]).toBe(5);
@@ -229,7 +249,7 @@ describe("GameSession unit supplies", () => {
   });
 
   it("refuses an action the unit can't pay for, and a unit with nothing it can pay for rests", () => {
-    const session = withAmounts(ordering(), INF, { [Supply.ENERGY]: 0 });
+    const session = withAmounts(ordering(), INF, { [Supply.ENERGY]: 0, [Supply.AMMO]: 1 });
 
     expect(refusals(session, INF)["infantry:firefight"]).toBe(Supply.ENERGY);
     expect(refusals(session, INF)["infantry:reload"]).toBeNull();

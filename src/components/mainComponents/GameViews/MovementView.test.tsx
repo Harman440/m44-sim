@@ -27,7 +27,7 @@ const makeMovementSession = ({ wire, tankTo = TANK }: { wire?: Position[]; tankT
     testMode: true,
   });
   session.pickCard(actionCardById("resupply")!);
-  session.issueOrder(INFANTRY, { row: 5, col: 1 });
+  session.giveAction(INFANTRY, "infantry:motorized", { row: 5, col: 1 });
   session.issueOrder(TANK, tankTo);
   session.commitOrders();
   return session;

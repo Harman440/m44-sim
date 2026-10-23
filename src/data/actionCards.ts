@@ -7,7 +7,7 @@ import { UnitType } from "../game-core/unit";
 import type { ActionCard } from "../game-core/actionCard";
 
 /** Turns a card waits after it's played: one played on turn 2 can be played again on turn 5 */
-export const CARD_COOLDOWN_TURNS = 3;
+export const CARD_COOLDOWN_TURNS = 4;
 
 export const ACTION_CARDS: readonly ActionCard[] = [
   {

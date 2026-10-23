@@ -21,7 +21,7 @@ export interface OrderSummary {
   hexesMoved: number;
   destinationTerrain: HexType;
   canFire: boolean;
-  /** It fires only at an adjacent enemy: its action says so (Close Assault), or its shot after taking ground */
+  /** It fires only at an adjacent enemy: its shot after taking ground */
   closeAssaultOnly: boolean;
   /** Where it fires from: where the order left it, or the hex it took ground on */
   firingFrom: Position;
@@ -35,8 +35,6 @@ export interface OrderSummary {
   shotsLeft: number;
   /** It didn't move and lost its unfired shot when the player moved on to the moved units */
   skipped: boolean;
-  /** It fires before any other unit, whatever the firing order (Behind Enemy Lines) */
-  firesFirst: boolean;
   /** It fires in the first group, with the units that didn't move: it didn't move, or its action says so (No Respite) */
   unmovedGroup: boolean;
   /** It moved, so it must wait until every unit that didn't move has fired (or been skipped) */
@@ -60,7 +58,7 @@ export function summarizeOrders(
 ): OrderSummary[] {
   const summaries = summarizeEach(orders, board, shots, unmovedFireSkipped, retreating, outOfAmmo);
   const unmovedLeft = summaries.some((s) => s.unmovedGroup && s.shotsLeft > 0);
-  return summaries.map((s) => ({ ...s, waiting: !s.firesFirst && !s.unmovedGroup && s.shotsLeft > 0 && unmovedLeft }));
+  return summaries.map((s) => ({ ...s, waiting: !s.unmovedGroup && s.shotsLeft > 0 && unmovedLeft }));
 }
 
 function summarizeEach(
@@ -77,8 +75,7 @@ function summarizeEach(
     const destination = board.getHex(order.end)!;
     const hold = samePosition(order.start, order.end);
     const fire = actionById(order.action)?.fire;
-    const firesFirst = fire?.round === "first";
-    const unmovedGroup = !firesFirst && (hold || fire?.round === "unmoved");
+    const unmovedGroup = hold || fire?.round === "unmoved";
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
     // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)
@@ -102,12 +99,11 @@ function summarizeEach(
       elite: order.unit.elite,
       position: order.end,
       hold,
-      firesFirst,
       unmovedGroup,
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
-      closeAssaultOnly: !!fire?.closeAssaultOnly || overrunPending,
+      closeAssaultOnly: overrunPending,
       firingFrom,
       tookGround: !!groundShot,
       removed,

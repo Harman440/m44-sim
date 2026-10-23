@@ -228,11 +228,11 @@ describe("PassAndPlayMatch", () => {
     const side = (faction: Faction) => new GameSession({ scenario: close, faction, figures: true });
     const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
 
-    // The Axis infantry heads 2 hexes west, into the Allied unit, which rests
+    // The Axis infantry heads 2 hexes west on Motorized, into the Allied unit, which rests
     match.uncover();
     const axis = match.activeSession();
     axis.pickCard(null);
-    expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
+    expect(axis.giveAction(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), "infantry:motorized", turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
     expect(axis.commitOrders()).toBe(true);
     restAll(match);
     expect(match.rollCollision(0)).toBe(false); // nothing has moved yet
@@ -265,7 +265,7 @@ describe("PassAndPlayMatch", () => {
     expect(match.rollCollision(0)).toBe(true);
     expect(match.rollCollision(0)).toBe(false);
     const [axisUnit, alliedUnit] = match.getSnapshot().movement!.collisions[0]!.units;
-    // Ordered 2 hexes, the Axis infantry couldn't have fired: it doesn't roll
+    // On Motorized, the Axis infantry couldn't have fired: it doesn't roll
     expect(axisUnit.roll).toBeNull();
     expect(axis.getSnapshot().shots).toHaveLength(0);
     // The Allied unit, without an order, rolls infantry's 3 close assault dice minus 1

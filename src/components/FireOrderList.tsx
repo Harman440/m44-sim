@@ -51,8 +51,6 @@ const TEXT = defineMessages({
     dicePerHex: (n: number) => `${n} dados · `,
     roll: "Tirar",
     hexLabel: (done: boolean, n: number) => `${done ? "Ver" : "Tirar"} casilla ${n}`,
-    firesFirst: "Dispara primero",
-    beforeAnyOther: "antes que cualquier otra unidad",
     unmoved: "Sin mover",
     moved: "Movidas",
     waitForUnmoved: "esperan a las sin mover",
@@ -92,8 +90,6 @@ const TEXT = defineMessages({
     dicePerHex: (n: number) => `${n} dice · `,
     roll: "Roll",
     hexLabel: (done: boolean, n: number) => `${done ? "See" : "Roll"} hex ${n}`,
-    firesFirst: "Fires first",
-    beforeAnyOther: "before any other unit",
     unmoved: "Didn't move",
     moved: "Moved",
     waitForUnmoved: "they wait for the ones that didn't move",
@@ -379,9 +375,8 @@ function FireOrderList({
     );
   };
 
-  const first = summaries.filter((s) => s.firesFirst);
-  const unmoved = summaries.filter((s) => s.unmovedGroup && !s.firesFirst);
-  const moved = summaries.filter((s) => !s.unmovedGroup && !s.firesFirst);
+  const unmoved = summaries.filter((s) => s.unmovedGroup);
+  const moved = summaries.filter((s) => !s.unmovedGroup);
 
   return (
     <Box data-testid="fire-order-list">
@@ -456,7 +451,6 @@ function FireOrderList({
         </Typography>
       ) : (
         <>
-          {first.length > 0 && group(t.firesFirst, t.beforeAnyOther, first.map(unitRow), "group-first")}
           {unmoved.length > 0 && group(t.unmoved, null, unmoved.map(unitRow), "group-unmoved")}
           {moved.length > 0 &&
             group(

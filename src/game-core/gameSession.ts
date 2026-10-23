@@ -32,6 +32,7 @@ import Hex from "./hex";
 import { MoveLimits, orderablePositions } from "./orderRules";
 import {
   ActionRefusal,
+  actionCost,
   actionRefusal,
   actionsFor,
   canFireAShot,
@@ -321,6 +322,8 @@ export interface MoveOptions {
 export interface ActionOption {
   action: UnitAction;
   refusal: ActionRefusal | null;
+  /** What it costs this unit: no morale on own tablets (`actionCost`) */
+  cost: SupplyCost;
 }
 
 /** A hex marked for the attack card, which rolls there before anyone fires */
@@ -606,11 +609,15 @@ class GameSession {
   }
 
   private refusalOf(unit: Unit, action: UnitAction): ActionRefusal | null {
+    const position = this.positionOf(unit);
     return actionRefusal(action, {
       unitType: unit.getUnitType(),
       supplies: this.suppliesOf(unit),
       ownTablets: this.ownTablets,
       ...(this.figures && { wounds: this.woundsOf(unit) }),
+      elite: unit.elite,
+      sandbags: !!position && !!this.board.getHex(position)?.sandbags,
+      camouflaged: this.camouflaged.has(unit),
     });
   }
 
@@ -651,7 +658,11 @@ class GameSession {
   getActions(position: Position): ActionOption[] | null {
     const found = this.orderableAt(this.board.getHex(position));
     if (!found) return null;
-    return actionsFor(found.unit.getUnitType(), this.ownTablets).map((action) => ({ action, refusal: this.refusalOf(found.unit, action) }));
+    return actionsFor(found.unit.getUnitType(), this.ownTablets).map((action) => ({
+      action,
+      refusal: this.refusalOf(found.unit, action),
+      cost: actionCost(action, this.ownTablets),
+    }));
   }
 
   /**
@@ -821,7 +832,7 @@ class GameSession {
     this.phase = TurnPhase.MOVEMENT;
     for (const order of this.orders) {
       const action = actionById(order.action);
-      const paid = action && pay(this.suppliesOf(order.unit), action.cost);
+      const paid = action && pay(this.suppliesOf(order.unit), actionCost(action, this.ownTablets));
       if (!paid) continue;
       this.supplies.set(order.unit, paid);
       this.carryOut(order, action);
@@ -1327,13 +1338,10 @@ class GameSession {
     const order = this.orders[orderIndex];
     const summary = this.summaries()[orderIndex];
     if (!order || !summary) return null;
-    const action = actionById(order.action);
-    const bonusDice = action?.fire?.bonusDice ?? 0;
     return {
       unitType: order.unit.getUnitType(),
       closeAssaultOnly: summary.closeAssaultOnly || !!option?.closeAssaultOnly,
       combatBonuses: this.combatBonusesFor(orderIndex),
-      ...(action && bonusDice !== 0 && { actionBonus: { name: action.name, dice: bonusDice } }),
       ...(option && { fireOption: option }),
       moved: !samePosition(order.start, order.end) || summary.tookGround,
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),

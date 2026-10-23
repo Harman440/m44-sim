@@ -10,6 +10,7 @@ import type { Localized } from "../i18n/lang";
 
 const energy = (amount: number): SupplyCost => ({ amounts: { [Supply.ENERGY]: amount } });
 const fuel = (amount: number): SupplyCost => ({ amounts: { [Supply.FUEL]: amount } });
+const energyAndMorale = (energy: number, morale: number): SupplyCost => ({ amounts: { [Supply.ENERGY]: energy, [Supply.MORALE]: morale } });
 const FREE: SupplyCost = {};
 const ONE_SHOT = { shots: 1 };
 
@@ -38,29 +39,26 @@ const artillery = (name: string, names: Localized, description: Localized, detai
 export const INFANTRY_ACTIONS: readonly UnitAction[] = [
   infantry("firefight", FIREFIGHT_NAME, FIREFIGHT_TEXT, { painting: "firefight", cost: energy(1), move: 0, fire: ONE_SHOT }),
   infantry("assault", { es: "Asalto de Infantería", en: "Infantry Assault" },
-    { es: "Se mueve 1 casilla y dispara.", en: "Moves 1 hex and fires." },
-    { painting: "infantry-assault", cost: energy(1), move: 1, fire: ONE_SHOT }),
+    { es: "Se mueve hasta 2 casillas y dispara.", en: "Moves up to 2 hexes and fires." },
+    { painting: "infantry-assault", cost: energyAndMorale(3, 2), move: 2, fire: ONE_SHOT }),
   infantry("noRespite", { es: "Sin tregua", en: "No Respite" },
     { es: "Se mueve 1 casilla y dispara con las unidades que no se movieron.", en: "Moves 1 hex and fires with the units that didn't move." },
     { painting: "no-respite", cost: energy(2), move: 1, fire: { shots: 1, round: "unmoved" } }),
-  infantry("closeAssault", { es: "Asalto cercano", en: "Close Assault" },
-    { es: "No se mueve; dispara solo en asalto cercano, con 1 dado más.", en: "Doesn't move; fires only in close assault, with 1 extra die." },
-    { painting: "close-assault", cost: energy(1), move: 0, fire: { shots: 1, closeAssaultOnly: true, bonusDice: 1 } }),
   infantry("moveOut", { es: "En marcha", en: "Move Out!" },
-    { es: "Se mueve hasta 2 casillas y no dispara.", en: "Moves up to 2 hexes and doesn't fire." },
-    { painting: "move-out", cost: energy(1), move: 2, fire: null }),
+    { es: "Se mueve hasta 2 casillas; si se mueve 1 o ninguna, dispara.", en: "Moves up to 2 hexes; if it moves 1 or none, it fires." },
+    { painting: "move-out", cost: energy(1), move: 2, fireMove: 1, fire: ONE_SHOT }),
   infantry("medic", { es: "Médico", en: "Medic" },
     { es: "No se mueve ni dispara: recupera 1 figura. Gasta el botiquín.", en: "Doesn't move or fire: gets 1 figure back. Uses up the medic kit." },
     { painting: "medic", cost: { equipment: [Equipment.MEDIC_KIT] }, move: 0, fire: null, effect: "medic" }),
   infantry("behindEnemyLines", { es: "Tras las líneas enemigas", en: "Behind Enemy Lines" },
     {
-      es: "Se mueve hasta 3 casillas sin que el terreno la detenga y dispara antes que cualquier otra unidad (las restricciones de combate se mantienen). Tras la batalla se mueve otras 3 casillas.",
-      en: "Moves up to 3 hexes with no terrain stopping it and fires before any other unit (battle limits still apply). After the battle it moves 3 more hexes.",
+      es: "Se mueve hasta 3 casillas sin que el terreno la detenga y dispara con las unidades que se movieron (las restricciones de combate se mantienen). Tras la batalla se mueve otras 3 casillas.",
+      en: "Moves up to 3 hexes with no terrain stopping it and fires with the units that moved (battle limits still apply). After the battle it moves 3 more hexes.",
     },
-    { painting: "infiltrators", cost: energy(4), move: 3, ignoresTerrain: true, moveAfterBattle: 3, fire: { shots: 1, round: "first" } }),
+    { painting: "infiltrators", cost: energy(5), move: 3, ignoresTerrain: true, moveAfterBattle: 3, fire: ONE_SHOT }),
   infantry("motorized", { es: "Motorizado", en: "Motorized" },
     { es: "Se mueve hasta 3 casillas y no dispara.", en: "Moves up to 3 hexes and doesn't fire." },
-    { painting: "motorized", cost: energy(2), move: 3, fire: null }),
+    { painting: "motorized", cost: energy(4), move: 3, fire: null }),
   infantry("moraleUp", { es: "Subir la moral", en: "Morale Up" },
     { es: "No se mueve ni dispara: recupera toda la moral.", en: "Doesn't move or fire: gets all its morale back." },
     { painting: "not-a-step-back", cost: energy(1), move: 0, fire: null, effect: "moraleUp", ownTablets: false }),
@@ -183,11 +181,11 @@ export const fireOptionById = (id: string): FireOption | undefined => ALL_FIRE_O
 /**
  * The actions a plain move turns into, in the order they're tried (cheapest first): the move a
  * unit is given with no action named (`GameSession.issueOrder`, the computer). A hold is
- * Firefight; a move it can fire after, Assault; a longer one, Move Out or Motorized (Reposition
- * for artillery)
+ * Firefight; a move it can fire after, Move Out (1 hex) or Assault (2); a longer one, Motorized
+ * (Reposition for artillery)
  */
 export const PLAIN_ACTIONS: Record<UnitType, readonly string[]> = {
-  [UnitType.INFANTRY]: ["infantry:firefight", "infantry:assault", "infantry:moveOut", "infantry:motorized"],
+  [UnitType.INFANTRY]: ["infantry:firefight", "infantry:moveOut", "infantry:assault", "infantry:motorized"],
   [UnitType.TANK]: ["tank:firefight", "tank:assault"],
   [UnitType.ARTILLERY]: ["artillery:firefight", "artillery:reposition"],
 };

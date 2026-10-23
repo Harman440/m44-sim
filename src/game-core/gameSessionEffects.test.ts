@@ -314,7 +314,11 @@ describe("GameSession final phase summary", () => {
     expect(session.getSnapshot().turnEnd!.cardsBack).toEqual([]);
     expect(session.endTurn()).toBe(true);
     expect(session.pickCard(null)).toBe(true);
-    playTurn(); // turn 3: back for turn 4
+    playTurn(); // turn 3
+    expect(session.getSnapshot().turnEnd!.cardsBack).toEqual([]);
+    expect(session.endTurn()).toBe(true);
+    expect(session.pickCard(null)).toBe(true);
+    playTurn(); // turn 4: back for turn 5
     expect(session.getSnapshot().turnEnd!.cardsBack.map((card) => card.id)).toEqual(["finest-hour"]);
   });
 });

@@ -38,12 +38,12 @@ describe("the actions mode's command cards", () => {
     expect(cardsOf(cheaper, "Allies").find((each) => each.card.id === "finest-hour")?.cost).toBe(15);
   });
 
-  it("wait 3 turns after they're played: played on turn 2, ready again on turn 5", () => {
-    expect(CARD_COOLDOWN_TURNS).toBe(3);
+  it("wait 4 turns after they're played: played on turn 2, ready again on turn 6", () => {
+    expect(CARD_COOLDOWN_TURNS).toBe(4);
     expect(isReady(undefined, 1)).toBe(true);
-    expect(turnsLeft(2, 3)).toBe(2);
-    expect(isReady(2, 4)).toBe(false);
-    expect(isReady(2, 5)).toBe(true);
+    expect(turnsLeft(2, 3)).toBe(3);
+    expect(isReady(2, 5)).toBe(false);
+    expect(isReady(2, 6)).toBe(true);
     expect(turnsLeft(2, 9)).toBe(0);
   });
 });

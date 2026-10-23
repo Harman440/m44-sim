@@ -22,7 +22,7 @@ import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
 import { LUCK_LIMIT } from "../data/luck";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 43;
+export const SAVE_VERSION = 44;
 
 interface SavedUnit {
   type: UnitType;

@@ -159,7 +159,7 @@ describe("CardsView cards that can't be played now", () => {
 
   it("shows a card's cooldown on it and says when it comes back", () => {
     const session = makeSession(20);
-    // Played on turn 2: it waits until turn 5
+    // Played on turn 2: it waits until turn 6
     session.pickCard(actionCardById("refuel")!);
     session.commitOrders();
     session.startBattle();
@@ -168,9 +168,9 @@ describe("CardsView cards that can't be played now", () => {
     const { container } = render(<Harness session={session} />);
 
     const refuel = container.querySelector('[data-card-key="refuel"]')!;
-    expect(within(refuel as HTMLElement).getByTestId("card-cooldown")).toHaveTextContent("2");
+    expect(within(refuel as HTMLElement).getByTestId("card-cooldown")).toHaveTextContent("3");
     fireEvent.click(handCard(container, "refuel"));
-    expect(screen.getByText("Se jugó hace poco: vuelve en 2 turnos.")).toBeInTheDocument();
+    expect(screen.getByText("Se jugó hace poco: vuelve en 3 turnos.")).toBeInTheDocument();
   });
 
 });

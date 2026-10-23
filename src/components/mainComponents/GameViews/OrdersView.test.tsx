@@ -103,7 +103,8 @@ describe("OrdersView selecting units", () => {
     tap(LEFT_A);
     const actions = within(screen.getByRole("list", { name: "Acciones" }));
     expect(actions.getByRole("button", { name: /^Fortificar/ })).toHaveTextContent("2 energía + sacos terreros");
-    expect(actions.getByRole("button", { name: /^Recargar/ })).toHaveTextContent("gratis");
+    // Full ammo: nothing to reload
+    expect(actions.getByRole("button", { name: /^Recargar/ })).toHaveTextContent("No hace falta");
     // Own tablets don't track morale
     expect(actions.queryByRole("button", { name: /^Subir la moral/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("action-popup")).toContainElement(screen.getByRole("list", { name: "Acciones" }));
@@ -432,7 +433,7 @@ describe("OrdersView action pop-up and card", () => {
     const panel = screen.getByTestId("action-panel");
     expect(panel).toHaveTextContent("Motorizado");
     expect(panel).toHaveTextContent("Se mueve hasta 3 casillas y no dispara.");
-    expect(within(panel).getByTestId("action-cost")).toHaveTextContent("Cuesta: 2 energía");
+    expect(within(panel).getByTestId("action-cost")).toHaveTextContent("Cuesta: 4 energía");
     expect(panel.querySelector("img")).toHaveAttribute("src", expect.stringContaining("motorized"));
     expect(screen.queryByTestId("unit-list")).not.toBeInTheDocument();
     expect(screen.queryByTestId("action-popup")).not.toBeInTheDocument();

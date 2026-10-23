@@ -104,12 +104,11 @@ function ShotSteps({ shot, unitType, faction, targetHex }: ShotStepsProps) {
             </Typography>
           </>
         );
-      case "action":
       case "fireOption":
-        // The unit's action (Close Assault) or how it fired (Explosives, Suppressive Fire)
+        // How it fired (Explosives, Suppressive Fire)
         return (
           <>
-            <GameIcon name={step.kind === "action" ? "battle" : "fire"} size={20} />
+            <GameIcon name="fire" size={20} />
             <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
               {tr(step.label)}
             </Typography>

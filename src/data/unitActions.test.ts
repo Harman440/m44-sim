@@ -21,7 +21,7 @@ const costText = (cost: SupplyCost): string =>
 
 const summary = (actions: readonly UnitAction[]) =>
   Object.fromEntries(
-    actions.map((each) => [each.id.split(":")[1], `${costText(each.cost)}, move ${each.move}, ${each.fire ? `${each.fire.shots} shot` : "no fire"}`])
+    actions.map((each) => [each.id.split(":")[1], `${costText(each.cost)}, move ${each.move}, ${each.fire ? `${each.fire.shots} shot${each.fireMove !== undefined ? ` if it moves ${each.fireMove}` : ""}` : "no fire"}`])
   );
 
 describe("unit actions", () => {
@@ -48,13 +48,12 @@ describe("unit actions", () => {
   it("costs and moves infantry as the house rules say", () => {
     expect(summary(INFANTRY_ACTIONS)).toEqual({
       firefight: "1 energy, move 0, 1 shot",
-      assault: "1 energy, move 1, 1 shot",
+      assault: "3 energy + 2 morale, move 2, 1 shot",
       noRespite: "2 energy, move 1, 1 shot",
-      closeAssault: "1 energy, move 0, 1 shot",
-      moveOut: "1 energy, move 2, no fire",
+      moveOut: "1 energy, move 2, 1 shot if it moves 1",
       medic: "medicKit, move 0, no fire",
-      behindEnemyLines: "4 energy, move 3, 1 shot",
-      motorized: "2 energy, move 3, no fire",
+      behindEnemyLines: "5 energy, move 3, 1 shot",
+      motorized: "4 energy, move 3, no fire",
       moraleUp: "1 energy, move 0, no fire",
       camouflage: "2 energy + camouflageNet, move 0, no fire",
       fortify: "2 energy + sandbags, move 0, no fire",
@@ -80,10 +79,10 @@ describe("unit actions", () => {
     });
   });
 
-  it("fires No Respite with the units that didn't move, Behind Enemy Lines first, and Close Assault only in close assault with 1 extra die", () => {
+  it("fires No Respite with the units that didn't move, and Behind Enemy Lines with the ones that moved", () => {
     expect(actionById("infantry:noRespite")?.fire?.round).toBe("unmoved");
-    expect(actionById("infantry:behindEnemyLines")).toMatchObject({ ignoresTerrain: true, moveAfterBattle: 3, fire: { round: "first" } });
-    expect(actionById("infantry:closeAssault")?.fire).toEqual({ shots: 1, closeAssaultOnly: true, bonusDice: 1 });
+    expect(actionById("infantry:behindEnemyLines")).toMatchObject({ ignoresTerrain: true, moveAfterBattle: 3, fire: { shots: 1 } });
+    expect(actionById("infantry:behindEnemyLines")?.fire?.round).toBeUndefined();
     expect(actionById("tank:armorForward")?.ignoresTerrain).toBe(true);
   });
 

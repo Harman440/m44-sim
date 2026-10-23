@@ -22,7 +22,8 @@ describe("Spanish descriptions", () => {
   });
 
   it.each([
-    ["infantry:assault", "Mueve hasta 1 casilla; puede disparar si mueve hasta 1 casilla"],
+    ["infantry:assault", "Mueve hasta 2 casillas; puede disparar si mueve hasta 2 casillas"],
+    ["infantry:moveOut", "Mueve hasta 2 casillas; puede disparar si mueve hasta 1 casilla"],
     ["tank:assault", "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
     ["artillery:reposition", "Mueve hasta 2 casillas; no puede disparar"],
     ["artillery:firefight", "No se mueve; dispara"],
@@ -61,7 +62,7 @@ describe("English descriptions", () => {
   });
 
   it("explains how a unit moves and fires", () => {
-    expect(describeMovement(moveLimitsOf(actionById("infantry:assault")!))).toBe("Moves up to 1 hex; can fire if it moves up to 1 hex");
+    expect(describeMovement(moveLimitsOf(actionById("infantry:moveOut")!))).toBe("Moves up to 2 hexes; can fire if it moves up to 1 hex");
     expect(describeMovement(moveLimitsOf(actionById("tank:firefight")!))).toBe("Doesn't move; fires");
   });
 

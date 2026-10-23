@@ -51,7 +51,7 @@ describe("GameSession paths picked hex by hex", () => {
     const session = ordering();
     expect(session.giveAction(INF, "infantry:moveOut", AHEAD, [INF, AHEAD])).toBe(false);
     expect(session.giveAction(INF, "infantry:moveOut", ROUND, [INF, STEP])).toBe(false);
-    expect(session.giveAction(INF, "infantry:assault", AHEAD, [INF, ROUND, AHEAD])).toBe(false); // Assault moves 1 hex
+    expect(session.giveAction(INF, "infantry:noRespite", AHEAD, [INF, ROUND, AHEAD])).toBe(false); // No Respite moves 1 hex
     expect(session.getSnapshot().orders).toEqual([]);
   });
 });

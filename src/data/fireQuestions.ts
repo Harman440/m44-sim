@@ -303,12 +303,11 @@ const pinnedSteps = ({ unitType, pinned }: FireContext, answers: FireAnswers): D
     : [];
 
 /**
- * The action's extra dice (Close Assault) and the fire option's: its close assault dice
- * (Explosives; armour's normal fire, only if it didn't move) and its die (Suppressive Fire)
+ * The fire option's extra dice: its close assault dice (Explosives; armour's normal fire, only
+ * if it didn't move) and its die (Suppressive Fire)
  */
-const actionSteps = ({ actionBonus, fireOption, moved = false }: FireContext, closeAssault: boolean): DiceStep[] => {
+const actionSteps = ({ fireOption, moved = false }: FireContext, closeAssault: boolean): DiceStep[] => {
   const steps: DiceStep[] = [];
-  if (actionBonus) steps.push({ label: actionBonus.name, dice: actionBonus.dice, kind: "action" });
   const bonus = fireOption?.closeAssaultBonus;
   if (fireOption && bonus && closeAssault && !(bonus.unmoved && moved)) {
     steps.push({ label: fireOption.name, dice: bonus.dice, kind: "fireOption" });
@@ -318,7 +317,7 @@ const actionSteps = ({ actionBonus, fireOption, moved = false }: FireContext, cl
 };
 
 /**
- * Extra dice that don't need a question: the card's bonuses, the action's and the fire option's,
+ * Extra dice that don't need a question: the card's bonuses, the fire option's,
  * and the firing unit's own hex (barbed wire, a town, a ford)
  */
 export const fireBonusSteps = (context: FireContext, answers: FireAnswers): DiceStep[] =>
