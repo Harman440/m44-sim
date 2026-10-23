@@ -5,6 +5,7 @@
 import BoardManager from "./BoardManager";
 import { Position } from "../types/scenario";
 import { HexType } from "../types/hex";
+import type Hex from "./hex";
 import { FireAnswers, FireContext, calculateFireDice } from "./fireRules";
 import { BASE_DICE_BY_DISTANCE, FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
 import { positionKey, samePosition } from "./position";
@@ -116,8 +117,8 @@ export const mapAnswers = (target: Pick<FireTarget, "distance" | "terrain">): Fi
  * and could hold one (not water),
  * with the dice a shot at it would roll and whether it's in sight (always, for
  * a unit that doesn't need line of sight, like artillery). A unit that
- * may only fire in close assault (Close Assault card, taking ground, an enemy
- * unit next to it) reaches adjacent hexes only.
+ * may only fire in close assault (taking ground, an enemy unit next to it)
+ * reaches adjacent hexes only.
  */
 export function fireTargets(
   board: BoardManager,
@@ -126,21 +127,47 @@ export function fireTargets(
   /** Pass and play: the other army's hexes; then only they are targets, and they block the view */
   enemies?: readonly Position[]
 ): FireTarget[] {
-  const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
-  const needsSight = checksLineOfSight(context.unitType);
-  const range = context.closeAssaultOnly || context.adjacentEnemy ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
-  const enemyKeys = new Set((enemies ?? []).map(positionKey));
+  const { context, range, enemyKeys } = aiming(board, from, firing, enemies);
   return board
     .getAllHexes()
     .filter((hex) => hex.canEnter() && !samePosition(hex.getPosition(), from))
     .filter((hex) => !enemies || enemyKeys.has(hex.getKey()))
     .map((hex) => ({ hex, distance: hexDistance(from, hex.getPosition()) }))
     .filter(({ distance }) => distance >= 1 && distance <= range)
-    .map(({ hex, distance }) => {
-      const terrain = hex.getType();
-      // The combat card's dice count: it can make a hex worth firing at
-      const answers = { ...mapAnswers({ distance, terrain }), combatCard: "yes" };
-      const { dice } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
-      return { position: hex.getPosition(), distance, terrain, dice, lineOfSight: !needsSight || hasLineOfSight(board, from, hex.getPosition(), enemyKeys) };
-    });
+    .map(({ hex, distance }) => ({ ...diceAt(context, hex, distance), lineOfSight: inSight(board, from, context, hex.getPosition(), enemyKeys) }));
 }
+
+/**
+ * Whether one of `enemies` is a target worth a shot: in range, rolling dice, and in sight. As
+ * `fireTargets`, but it tries only the enemies' hexes and stops at the first (the battle asks it
+ * of every unit, on every change)
+ */
+export function hasFireTarget(board: BoardManager, from: Position, firing: FireContext, enemies: readonly Position[]): boolean {
+  const { context, range, enemyKeys } = aiming(board, from, firing, enemies);
+  return enemies.some((position) => {
+    const distance = hexDistance(from, position);
+    const hex = board.getHex(position);
+    if (!hex || !hex.canEnter() || distance < 1 || distance > range) return false;
+    return diceAt(context, hex, distance).dice > 0 && inSight(board, from, context, position, enemyKeys);
+  });
+}
+
+/** What every target of a unit at `from` shares: the context with its hex, its reach, the enemies' hexes */
+function aiming(board: BoardManager, from: Position, firing: FireContext, enemies?: readonly Position[]) {
+  const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
+  const range = context.closeAssaultOnly || context.adjacentEnemy ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
+  return { context, range, enemyKeys: new Set((enemies ?? []).map(positionKey)) };
+}
+
+/** The dice at a target on this hex */
+function diceAt(context: FireContext, hex: Hex, distance: number): Omit<FireTarget, "lineOfSight"> {
+  const terrain = hex.getType();
+  // The combat card's dice count: it can make a hex worth firing at
+  const answers = { ...mapAnswers({ distance, terrain }), combatCard: "yes" };
+  const { dice } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
+  return { position: hex.getPosition(), distance, terrain, dice };
+}
+
+/** In sight from `from` (always, for a unit that doesn't need line of sight, like artillery) */
+const inSight = (board: BoardManager, from: Position, context: FireContext, to: Position, enemyKeys: ReadonlySet<string>) =>
+  !checksLineOfSight(context.unitType) || hasLineOfSight(board, from, to, enemyKeys);

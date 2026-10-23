@@ -6,7 +6,7 @@ import { ShotTarget, TargetKinds, enemyTargetKinds, faceHits } from "../data/hit
 import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
-import { FireTarget, fireTargets, hexDistance, mapAnswers } from "./fireTargets";
+import { FireTarget, fireTargets, hasFireTarget, hexDistance, mapAnswers } from "./fireTargets";
 import {
   COLLISION_NOTES,
   FIRE_QUESTIONS,
@@ -17,6 +17,7 @@ import {
   PUSH_BACK_UNIT_TYPES,
   TARGET_INFANTRY,
   TARGET_OTHER,
+  BASE_DICE_BY_DISTANCE,
   combatBonusDice,
   fireBonusSteps,
   targetAnswer,
@@ -58,7 +59,7 @@ import { ActionCard, ActionCardEffect, HeldCard, cardsOf, isReady, turnsLeft } f
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
 import { SavedGame, SessionState, readSave, writeSave } from "./saveGame";
 import { TurnRecord, recordTurn } from "./turnLog";
-import { summarizeOrders } from "./turnSummary";
+import { OrderSummary, summarizeOrders } from "./turnSummary";
 import { rollWithLuck } from "./luck";
 import { Localized } from "../i18n/lang";
 
@@ -1334,9 +1335,14 @@ class GameSession {
    * dice is still recorded: the unit has used its fire.
    */
   /** What the fire questions need to know about this unit's next shot, fired with this option */
-  private fireContextFor(orderIndex: number, option?: FireOption): FireContext | null {
+  private fireContextFor(
+    orderIndex: number,
+    option?: FireOption,
+    /** The order's summary and the enemy units, when the caller has them already */
+    known: { summary?: OrderSummary; enemies?: readonly EnemyUnit[] } = {},
+  ): FireContext | null {
     const order = this.orders[orderIndex];
-    const summary = this.summaries()[orderIndex];
+    const summary = known.summary ?? this.summaries()[orderIndex];
     if (!order || !summary) return null;
     return {
       unitType: order.unit.getUnitType(),
@@ -1353,7 +1359,7 @@ class GameSession {
       ...(this.figures && { pinned: this.isPinned(summary.firingFrom) }),
       // Pass and play knows whether an enemy is next to the unit; on own tablets the player says
       ...(this.enemyView && {
-        adjacentEnemy: this.enemyView().some((enemy) => hexDistance(enemy.position, summary.firingFrom) === 1),
+        adjacentEnemy: (known.enemies ?? this.enemyView()).some((enemy) => hexDistance(enemy.position, summary.firingFrom) === 1),
       }),
     };
   }
@@ -1625,6 +1631,29 @@ class GameSession {
     const summary = this.summaries()[orderIndex];
     if (!order || !summary || !this.canFireNow(orderIndex)) return false;
     return !!this.board.getHex(summary.firingFrom)?.wire && wireChoiceFor(order.unit.getUnitType());
+  }
+
+  /**
+   * The orders whose units have something to do with a shot: an enemy in sight they roll dice at,
+   * or barbed wire to remove. A unit with neither is passed over in pass and play's battle. Every
+   * order on own tablets, where the app doesn't know where the enemy is. In one pass, as the
+   * match asks on every snapshot: an enemy out of range rules a unit out before any line of sight
+   */
+  ordersWithShotToTake(): ReadonlySet<number> {
+    const summaries = this.summaries();
+    const enemies = this.seenEnemies();
+    if (!enemies) return new Set(summaries.map((summary) => summary.index));
+    const all = this.enemyView!();
+    const positions = enemies.map((enemy) => enemy.position);
+    const hasShot = (summary: OrderSummary) => {
+      if (this.board.getHex(summary.firingFrom)?.wire && this.canRemoveWire(summary.index)) return true;
+      const range = BASE_DICE_BY_DISTANCE[summary.unitType].length;
+      if (!positions.some((position) => hexDistance(position, summary.firingFrom) <= range)) return false;
+      const option = this.fireOptionFor(summary.index);
+      const context = option && this.fireContextFor(summary.index, option, { summary, enemies: all });
+      return !!context && hasFireTarget(this.board, summary.firingFrom, context, positions);
+    };
+    return new Set(summaries.filter(hasShot).map((summary) => summary.index));
   }
 
   /** Remove the barbed wire under this unit instead of firing: it counts as the unit's shot */

@@ -584,7 +584,24 @@ describe("PassAndPlayMatch", () => {
       expect(match.getSnapshot().battle!.fireable).not.toContain(own);
     });
 
-    it("lets armour take ground after a close assault: the enemy retreats at once, then it moves in and fires again", () => {
+    it("passes over a unit with nothing to fire at: it isn't fireable, and the battle can end without it", () => {
+      // Far apart: the Axis infantry on (0,6) has no Allied unit in its 3 hexes of range
+      const apart: Scenario = {
+        ...scenario,
+        units: { allies: { infantry: [{ row: 8, col: 6 }] }, axis: { infantry: [{ row: 0, col: 6 }] } },
+      };
+      const side = (faction: Faction) => new GameSession({ scenario: apart, faction, figures: true });
+      const match = new PassAndPlayMatch(apart, { Allies: side("Allies"), Axis: side("Axis") });
+      allHold(match);
+
+      const battle = match.getSnapshot().battle!;
+      expect(match.sessions.Axis.orderSummaries()[0]!.shotsLeft).toBe(1);
+      expect(battle).toMatchObject({ side: null, fireable: [], noTarget: { Axis: [0], Allies: [] } });
+      expect(match.stillToFire("Axis")).toEqual([]);
+      expect(match.endBattle()).toBe(true);
+    });
+
+    it("lets armour take ground after a close assault, and fire again only with an enemy next to it", () => {
       const close: Scenario = {
         ...scenario,
         units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { tank: [{ row: 4, col: 3 }] } },
@@ -606,10 +623,9 @@ describe("PassAndPlayMatch", () => {
       expect(match.endBattle()).toBe(false);
 
       expect(match.decideGround(true)).toBe(true);
-      // The tank moved in and fires once more, in close assault
+      // The tank moved in; the infantry is 3 hexes back, so there's no close assault to fire
       expect(match.sessions.Axis.board.getHex(axisView(4, 2))?.unit?.getUnitType()).toBe(UnitType.TANK);
-      expect(match.getSnapshot().battle).toMatchObject({ side: "Axis", fireable: [0], retreat: null });
-      expect(match.holdFire(0)).toBe(true);
+      expect(match.getSnapshot().battle).toMatchObject({ side: null, fireable: [], retreat: null });
       expect(match.endBattle()).toBe(true);
       expect(match.getSnapshot().battle).toBeNull();
     });

@@ -82,6 +82,8 @@ export interface BattleState {
   group: FireGroup | null;
   /** The order indexes of that side's units that can fire now */
   fireable: readonly number[];
+  /** Each side's units with a shot left but nothing to fire at, passed over (order indexes) */
+  noTarget: Readonly<Record<Faction, readonly number[]>>;
   /** The unit that may take ground after its close assault: its player decides */
   ground: { side: Faction; order: number } | null;
   /** The unit retreating now (in its side's view), the hexes it can retreat to and the hexes it has to go */
@@ -506,9 +508,10 @@ class PassAndPlayMatch {
   // --- The battle: the sides take turns to fire, one unit at a time
 
   /**
-   * The side whose turn it is to fire, and the group: a unit given Behind Enemy Lines first, then
-   * the units that didn't move (with ¡Fusiles arriba!'s moved infantry), then the ones that moved. In each group the attacker fires first and the sides alternate; a side
-   * with nothing left to fire lets the other go on. Null once nobody can fire
+   * The side whose turn it is to fire, and the group: the units that didn't move (with No
+   * Respite's moved infantry), then the ones that moved. In each group the attacker fires first
+   * and the sides alternate; a side with nothing left to fire lets the other go on. Null once
+   * nobody can fire
    */
   private battleTurn(): { side: Faction; group: FireGroup } | null {
     const battle = this.battle;
@@ -525,13 +528,34 @@ class PassAndPlayMatch {
     return { side: can(first) ? first : otherSide(first), group };
   }
 
-  /** The order indexes of a side's units that can still fire this battle, in any group (not those that held their fire) */
+  /**
+   * The order indexes of a side's units that can still fire this battle, in any group (not those
+   * that held their fire, nor those with nothing to fire at)
+   */
   stillToFire(side: Faction): number[] {
     return [...new Set(FIRE_GROUPS.flatMap((group) => this.fireable(side, group)))];
   }
 
-  /** The order indexes of a side's units that can still fire in this group */
+  /**
+   * The order indexes of a side's units that can still fire in this group. A unit with nothing to
+   * fire at (no enemy in sight it rolls dice at, no wire to remove) is passed over, as if it held
+   */
   private fireable(side: Faction, group: FireGroup): number[] {
+    return this.withShotsLeft(side, group).filter((order) => this.hasShotToTake(side, order));
+  }
+
+  /** Each side's `ordersWithShotToTake`, kept until either side's game changes (it's asked on every snapshot) */
+  private shotsToTake: { allies: GameSnapshot; axis: GameSnapshot; known: Partial<Record<Faction, ReadonlySet<number>>> } | null = null;
+
+  private hasShotToTake(side: Faction, order: number): boolean {
+    const [allies, axis] = [this.sessions.Allies.getSnapshot(), this.sessions.Axis.getSnapshot()];
+    if (this.shotsToTake?.allies !== allies || this.shotsToTake.axis !== axis) this.shotsToTake = { allies, axis, known: {} };
+    const known = (this.shotsToTake.known[side] ??= this.sessions[side].ordersWithShotToTake());
+    return known.has(order);
+  }
+
+  /** The order indexes of a side's units with shots left in this group, that haven't held their fire */
+  private withShotsLeft(side: Faction, group: FireGroup | null): number[] {
     const battle = this.battle;
     const session = this.sessions[side];
     if (!battle || session.getSnapshot().phase !== TurnPhase.BATTLE) return [];
@@ -543,8 +567,13 @@ class PassAndPlayMatch {
     return session
       .orderSummaries()
       .filter((summary) => summary.shotsLeft > 0 && !held.has(summary.index))
-      .filter((summary) => groupOf(summary) === group)
+      .filter((summary) => group === null || groupOf(summary) === group)
       .map((summary) => summary.index);
+  }
+
+  /** The order indexes of a side's units passed over in the battle: shots left, but nothing to fire at */
+  private noTarget(side: Faction): number[] {
+    return this.withShotsLeft(side, null).filter((order) => !this.hasShotToTake(side, order));
   }
 
   /**
@@ -649,9 +678,9 @@ class PassAndPlayMatch {
     if (!session.takeGround(ground.order)) return false;
     this.settleWire();
     // Infantry that pushed the enemy back moves in without firing again, and so does armour with
-    // no shell left for its shot more
+    // no shell left for its shot more, or nothing to fire at from the hex it took
     const pushedBack = session.getSnapshot().shots.findLast((s) => s.orderIndex === ground.order)?.pushedBack;
-    const canFire = (session.orderSummaries()[ground.order]?.shotsLeft ?? 0) > 0;
+    const canFire = (session.orderSummaries()[ground.order]?.shotsLeft ?? 0) > 0 && this.hasShotToTake(ground.side, ground.order);
     this.battle = { ...this.battle!, ground: null, bonus: pushedBack || !canFire ? null : { ...ground } };
     return this.publish();
   }
@@ -847,6 +876,7 @@ class PassAndPlayMatch {
       side: turn?.side ?? null,
       group: turn?.group ?? null,
       fireable: turn ? this.fireable(turn.side, turn.group) : [],
+      noTarget: { Allies: this.noTarget("Allies"), Axis: this.noTarget("Axis") },
       attacks: FACTIONS.filter((side) => this.sessions[side].getSnapshot().attacksPending),
       ground: battle.ground,
       retreat: this.retreatView(),

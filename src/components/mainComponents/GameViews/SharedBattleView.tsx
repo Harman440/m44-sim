@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import PassAndPlayMatch, { otherSide } from "../../../game-core/passAndPlay";
 import { UnitType } from "../../../game-core/unit";
-import { Faction } from "../../../types/faction";
+import { FACTIONS, Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
 import GameSession, { ShotAim } from "../../../game-core/gameSession";
 import { samePosition } from "../../../game-core/position";
@@ -55,6 +55,8 @@ const TEXT = defineMessages({
     fires: { Allies: "Disparan los Aliados", Axis: "Dispara el Eje" },
     groups: { first: "Dispara primero: Tras las líneas enemigas", unmoved: "Unidades que no se movieron", moved: "Unidades que se movieron" },
     tapUnit: "Toca en el mapa una de las unidades marcadas.",
+    noTarget: (side: string, n: number) =>
+      n === 1 ? `${side}: 1 unidad no tiene a qué disparar y no dispara.` : `${side}: ${n} unidades no tienen a qué disparar y no disparan.`,
     range: (range: string) => `Alcance: ${range}`,
     closeAssaultOnly: "Solo asalto cercano",
     tapTarget: "Toca un objetivo en el mapa: el número son los dados que tira.",
@@ -108,6 +110,8 @@ const TEXT = defineMessages({
     fires: { Allies: "The Allies fire", Axis: "The Axis fires" },
     groups: { first: "Fires first: Behind Enemy Lines", unmoved: "Units that didn't move", moved: "Units that moved" },
     tapUnit: "Tap one of the marked units on the map.",
+    noTarget: (side: string, n: number) =>
+      n === 1 ? `${side}: 1 unit has nothing to fire at and doesn't fire.` : `${side}: ${n} units have nothing to fire at and don't fire.`,
     range: (range: string) => `Range: ${range}`,
     closeAssaultOnly: "Close assault only",
     tapTarget: "Tap a target on the map: the number is the dice it rolls.",
@@ -350,7 +354,13 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   // Firing: the side whose turn it is taps one of its units, then a target
   const fireTurn =
     !pick && !retreat && !shownShot && !battle.ground && side && side !== computer && session ? { side, session } : null;
-  const picked = fireTurn && aiming?.side === fireTurn.side && battle.fireable.includes(aiming.order) ? aiming : null;
+  // The unit tapped; the only one that can fire is picked for the player
+  const picked =
+    fireTurn && aiming?.side === fireTurn.side && battle.fireable.includes(aiming.order)
+      ? aiming
+      : fireTurn && battle.fireable.length === 1
+        ? { side: fireTurn.side, order: battle.fireable[0]!, target: null, option: undefined }
+        : null;
   const pickedSummary = picked ? summaries[picked.order] : undefined;
   // An option it can't pay for any more falls back to its plain fire
   const option =
@@ -364,7 +374,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
           .filter((target) => target.lineOfSight && target.dice > 0)
           .flatMap((target) => fireTurn.session.aimAt(picked.order, target.position, option) ?? [])
       : [];
-  const aim = picked?.target ? (aims.find((a) => samePosition(a.position, picked.target!)) ?? null) : null;
+  // The target tapped; a single target is picked for the player
+  const aim = picked?.target ? (aims.find((a) => samePosition(a.position, picked.target!)) ?? null) : aims.length === 1 ? aims[0]! : null;
   const fireablePositions = fireTurn ? battle.fireable.map((order) => summaries[order]!.firingFrom) : [];
 
   // The board of the side acting now, seen from the main side. Fog of war: against the computer,
@@ -440,7 +451,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 markablePositions={pick && !pick.from ? pick.options : []}
                 orderablePositions={fireTurn ? fireablePositions.filter((p) => !pickedSummary || !samePosition(p, pickedSummary.firingFrom)) : []}
                 fireTargets={shownShot ? [] : aims.map((a) => ({ position: a.position, dice: a.dice }))}
-                selectedTarget={shownShot ? shotTarget : (picked?.target ?? null)}
+                selectedTarget={shownShot ? shotTarget : (aim?.position ?? null)}
                 markers={marks.positions}
                 markerKind={marks.kind}
                 camouflaged={boardGame.camouflaged}
@@ -627,7 +638,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                       aims={aims}
                       aim={aim}
                       option={option ?? null}
-                      onPickOption={(id) => setAiming({ ...picked, option: id, target: null })}
+                      // The target stays picked (if the new way of firing can't reach it, it's picked again on switching back)
+                      onPickOption={(id) => setAiming({ ...picked, option: id })}
                       onFire={fire}
                       onHold={() => {
                         if (match.holdFire(picked.order)) setAiming(null);
@@ -657,6 +669,13 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   </Typography>
                 )
               )}
+
+              {/* The units passed over, the person's own (never the computer's) */}
+              {FACTIONS.filter((faction) => faction !== computer && battle.noTarget[faction].length > 0).map((faction) => (
+                <Typography key={faction} variant="body2" color="text.secondary" data-testid="no-target">
+                  {t.noTarget(labels.factions[faction], battle.noTarget[faction].length)}
+                </Typography>
+              ))}
 
               <Box sx={{ mt: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
                 {/* Against the computer only the person's own cards are shown, right here; two people each open theirs */}
