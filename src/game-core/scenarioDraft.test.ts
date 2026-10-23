@@ -29,6 +29,7 @@ import {
   setVictoryMedals,
   setAttacker,
   setBigGuns,
+  setCardCost,
   setFordableRivers,
   setParadrop,
   setText,
@@ -48,7 +49,8 @@ import { HexType } from "../types/hex";
 import { UnitType } from "./unit";
 import { scenarios } from "../data/scenarios";
 import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
-import { cardsOf } from "./actionCard";
+import { cardCost, cardsOf } from "./actionCard";
+import { actionCardById } from "../data/actionCards";
 import { same } from "../i18n/lang";
 
 const A = { row: 4, col: 4 };
@@ -276,6 +278,23 @@ describe("the scenario's settings", () => {
     expect(back).toEqual(draft);
     expect(setAirSorties(draft, "Allies", -1)).toBe(false);
     expect(setBigGuns(draft, "Axis", true)).toBe(draft);
+  });
+
+  it("makes a card cheaper for one side, from its own cost down to 0, through a file too", () => {
+    const draft = empty();
+    const resupply = actionCardById("resupply")!;
+    const cheaper = edit(draft, (d) => setCardCost(d, "Axis", "resupply", 4));
+
+    expect(cheaper.cardCosts).toEqual({ allies: {}, axis: { resupply: 4 } });
+    expect(cardCost(cheaper, "Axis", resupply)).toBe(4);
+    expect(cardCost(cheaper, "Allies", resupply)).toBe(resupply.cost);
+    expect(setCardCost(cheaper, "Axis", "resupply", 4)).toBe(cheaper);
+    expect(setCardCost(cheaper, "Axis", "resupply", resupply.cost + 1)).toBe(false);
+    expect(setCardCost(cheaper, "Axis", "resupply", -1)).toBe(false);
+    expect(setCardCost(cheaper, "Axis", "no-such-card", 1)).toBe(false);
+    expect(edit(cheaper, (d) => setCardCost(d, "Axis", "resupply", 0)).cardCosts?.axis).toEqual({ resupply: 0 });
+    expect(parseScenario(JSON.parse(JSON.stringify(toScenarioFile(cheaper))), { rules: false }).cardCosts).toEqual(cheaper.cardCosts);
+    expect(edit(cheaper, (d) => setCardCost(d, "Axis", "resupply", resupply.cost))).toEqual(draft);
   });
 
   it("turns fordable rivers on and off, keeping them out of the map when off, through a file too", () => {

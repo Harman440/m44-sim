@@ -28,6 +28,8 @@ const TEXT = defineMessages({
       "pagándola con suministros. Unas las tienen los dos bandos; las de la artillería pesada y la aviación dependen del escenario.",
     bigGunsInfo: "Tiene artillería pesada: la carta Cortina de Fuego.",
     airInfo: "Tiene aviación: Poder aéreo y Bombardeo aéreo.",
+    cheaperInfo: "Una carta que el escenario abarata a un bando sale con su coste para él (y el de la carta tachado).",
+    cheaper: (card: string, cost: number, was: number) => `${card}: cuesta ${cost} en vez de ${was}`,
     cards: (count: number, extras: string) => `${count} cartas${extras && `, con ${extras}`}`,
     bigGuns: "artillería pesada",
     air: "aviación",
@@ -62,6 +64,8 @@ const TEXT = defineMessages({
       "paying for it with supplies. Some both sides have; the heavy guns' and the air cards depend on the scenario.",
     bigGunsInfo: "Has heavy guns: the Barrage card.",
     airInfo: "Has air power: Air Power and Air Bombardment.",
+    cheaperInfo: "A card the scenario makes cheaper for a side is listed with its cost to it (and the card's own crossed out).",
+    cheaper: (card: string, cost: number, was: number) => `${card}: costs ${cost} instead of ${was}`,
     cards: (count: number, extras: string) => `${count === 1 ? "1 card" : `${count} cards`}${extras && `, with ${extras}`}`,
     bigGuns: "heavy guns",
     air: "air power",
@@ -182,6 +186,7 @@ function detailRows(
             <GameIcon name="strafe" size={32} />
             <Typography variant="body1">{t.airInfo}</Typography>
           </Stack>
+          <Typography variant="body1">{t.cheaperInfo}</Typography>
         </Stack>
       ),
       value: (faction) => {
@@ -190,15 +195,35 @@ function detailRows(
         const bigGuns = held.some(({ card }) => card.needs === "bigGuns");
         const air = held.some(({ card }) => card.needs === "air");
         const extras = [bigGuns && t.bigGuns, air && t.air].filter(Boolean).join(t.and);
+        const cheaper = held.filter(({ card, cost }) => cost < card.cost);
         return (
-          <Stack
-            direction="row"
-            aria-label={t.cards(held.length, extras)}
-            sx={{ justifyContent: "center", alignItems: "center", gap: 1, flexWrap: "wrap" }}
-          >
-            <IconCount icon="cards" count={held.length} />
-            {bigGuns && <GameIcon name="bigGuns" size={34} />}
-            {air && <GameIcon name="strafe" size={34} />}
+          <Stack spacing={0.25} sx={{ alignItems: "center" }}>
+            <Stack
+              direction="row"
+              aria-label={t.cards(held.length, extras)}
+              sx={{ justifyContent: "center", alignItems: "center", gap: 1, flexWrap: "wrap" }}
+            >
+              <IconCount icon="cards" count={held.length} />
+              {bigGuns && <GameIcon name="bigGuns" size={34} />}
+              {air && <GameIcon name="strafe" size={34} />}
+            </Stack>
+            {cheaper.map(({ card, cost }) => (
+              <Typography
+                key={card.id}
+                variant="body2"
+                aria-label={t.cheaper(tr(card.name), cost, card.cost)}
+                sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", justifyContent: "center" }}
+              >
+                <span aria-hidden>{tr(card.name)}</span>
+                <GameIcon name="coins" size={18} />
+                <Box component="span" aria-hidden sx={{ fontWeight: 700 }}>
+                  {cost}
+                </Box>
+                <Box component="s" aria-hidden sx={{ color: "text.secondary" }}>
+                  {card.cost}
+                </Box>
+              </Typography>
+            ))}
           </Stack>
         );
       },

@@ -206,7 +206,8 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 - [x] How it went: `GameSession` keeps each unit's supplies and luck as the orders are confirmed (`turnStart`, in the save) and `snapshot.changes` gives each of this side's units' morale, ammo and shells, and luck moved since then; a pill under the token on the battle and final maps (`UnitComponent`'s `change`) and chips in the battle list's rows (`UnitChangeChips`) and pass and play's firing unit. `snapshot.turnEnd` gives the final phase's energy back and the cards off cooldown next turn ("Al empezar el turno N"). The turn log keeps each order's `action` and each shot's fire `option`, and the history names them. The shared battle draws the changes of the side whose map is shown, never the computer's; `EnemyUnit` carries no supplies or luck (test). `SAVE_VERSION` 43. Checked at 1280×800 and 800×1280 (Spanish and English) and 1440×900
 
 ### R14: The map editor
-- [ ] In the scenario's settings, for each side, the cost of each card it has (from the card's own down to 0), stored in `Scenario.cardCosts`. The air sorties and big guns there already decide which cards a side has. Shown in the menu's scenario panel. Test
+- [x] In the scenario's settings, for each side, the cost of each card it has (from the card's own down to 0), stored in `Scenario.cardCosts`. The air sorties and big guns there already decide which cards a side has. Shown in the menu's scenario panel. Test
+- [x] How it went: "Coste de las cartas" in Datos del escenario, a stepper per card and side (`setCardCost` in `scenarioDraft.ts`; a card at its own cost is left out of `cardCosts`, which goes when empty), "No la tiene" for a card the side's air or big guns leave out. The menu's panel lists a side's cheaper cards under its card count, the card's own cost crossed out. The air and big guns help texts no longer speak of the combat deck. Checked at 1280×800 and 800×1280
 
 ## Part 4: The computer
 

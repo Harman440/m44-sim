@@ -30,6 +30,7 @@ import {
   setAirSorties,
   setAttacker,
   setBigGuns,
+  setCardCost,
   setParadrop,
   setFordableRivers,
   removeObjective,
@@ -39,13 +40,15 @@ import {
   setVictoryMedals,
 } from "../../game-core/scenarioDraft";
 import { airSortiesOf, hasBigGuns } from "../../data/scenarioRules";
+import { ACTION_CARDS } from "../../data/actionCards";
+import { cardCost, sideHasCard } from "../../game-core/actionCard";
 import { LANGS, LANG_NAMES, Lang } from "../../i18n/lang";
 import FactionInsignia from "../FactionInsignia";
 import GameIcon from "../GameIcon";
 import InfoButton from "../InfoButton";
 import ScenarioDetails from "../mainComponents/ScenarioDetails";
 import ScenarioProblems from "../ScenarioProblems";
-import { defineMessages, useLabels, useMessages } from "../../i18n/useI18n";
+import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 
 const TEXT = defineMessages({
   es: {
@@ -66,13 +69,18 @@ const TEXT = defineMessages({
       "Toca «Defiende» para que ataque ese bando.",
     air: "Salidas aéreas",
     airInfo:
-      "Cuántas copias de Poder aéreo y de Bombardeo aéreo hay en su mazo de combate: una de cada por cada salida aérea que el escenario da al bando. " +
-      "Con 0 no tiene aviación. Si el escenario no dice nada, 1 cada bando.",
+      "Con al menos una salida aérea, el bando tiene las cartas Poder aéreo y Bombardeo aéreo; con 0 no tiene aviación. Si el escenario no dice nada, 1 cada bando.",
     bigGuns: "Artillería pesada",
     bigGunsInfo:
-      "Si tiene la carta Cortina de Fuego en su mazo de combate. Los dos bandos la tienen, salvo que el escenario diga que uno no tiene artillería pesada.",
+      "Si tiene la carta Cortina de Fuego. Los dos bandos la tienen, salvo que el escenario diga que uno no tiene artillería pesada.",
     yes: "Sí",
     no: "No",
+    cardCosts: "Coste de las cartas",
+    cardCostsInfo:
+      "Lo que paga cada bando, en suministros, por jugar cada carta de mando: desde lo que cuesta la carta hasta 0. Así un escenario puede abaratar una carta a un bando. " +
+      "La aviación y la artillería pesada de arriba deciden qué cartas tiene cada bando.",
+    notHeld: "No la tiene",
+    cardCost: (card: string, side: string) => `Coste de ${card} (${side})`,
     specialRules: "Reglas especiales",
     turns: "Primeros turnos",
     paradrop: "Lanzamiento de paracaidistas",
@@ -122,13 +130,18 @@ const TEXT = defineMessages({
       'Tap "Defends" to make that side attack.',
     air: "Air sorties",
     airInfo:
-      "How many copies of Air Power and Air Bombardment its combat deck has: one of each for each air sortie the scenario gives the side. " +
-      "With 0 it has no air power. When the scenario says nothing, 1 for each side.",
+      "With at least one air sortie, the side has the Air Power and Air Bombardment cards; with 0 it has no air power. When the scenario says nothing, 1 for each side.",
     bigGuns: "Heavy guns",
     bigGunsInfo:
-      "Whether its combat deck has the Barrage card. Both sides have it, unless the scenario says one has no heavy guns.",
+      "Whether it has the Barrage card. Both sides have it, unless the scenario says one has no heavy guns.",
     yes: "Yes",
     no: "No",
+    cardCosts: "Card costs",
+    cardCostsInfo:
+      "What each side pays, in supplies, to play each command card: from the card's own cost down to 0. So a scenario can make a card cheaper for one side. " +
+      "The air sorties and heavy guns above decide which cards each side has.",
+    notHeld: "Doesn't have it",
+    cardCost: (card: string, side: string) => `Cost of ${card} (${side})`,
     specialRules: "Special rules",
     turns: "First turns",
     paradrop: "Paratrooper drop",
@@ -220,13 +233,14 @@ interface ScenarioSettingsDialogProps {
 
 /**
  * "Datos del escenario": everything about a map but its hexes. The name and description in each
- * language, the attacker, each side's starting cards, air sorties and big guns, the special
+ * language, the attacker, each side's air sorties, big guns and card costs, the special
  * rules and the victory conditions (the medals and the objectives' names; the objectives
  * themselves are put on the map); then the sides as the menu will show them, and what's still wrong
  */
 function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, onClose }: ScenarioSettingsDialogProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
+  const tr = useTr();
   const change = (next: Scenario | false, field: string) => {
     if (next !== false && next !== draft) onChange(next, field);
   };
@@ -391,6 +405,40 @@ function ScenarioSettingsDialog({ open, draft, onChange, problems, onShowHexes, 
                     {FACTIONS.map((f) => (
                       <TableCell key={f} align="center">
                         {row.cell(f)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+
+          <Box component="section" aria-label={t.cardCosts}>
+            <Heading title={t.cardCosts} info={<Typography variant="body1">{t.cardCostsInfo}</Typography>} />
+            <Table size="small" sx={{ tableLayout: "fixed", "& td, & th": { px: 0.75 } }}>
+              <TableBody>
+                {ACTION_CARDS.map((card) => (
+                  <TableRow key={card.id}>
+                    <TableCell component="th" scope="row" sx={{ width: "34%" }}>
+                      <Typography variant="body2" color="text.secondary" component="span">
+                        {tr(card.name)}
+                      </Typography>
+                    </TableCell>
+                    {FACTIONS.map((f) => (
+                      <TableCell key={f} align="center">
+                        {sideHasCard(draft, f, card) ? (
+                          <NumberStepper
+                            value={cardCost(draft, f, card)}
+                            min={0}
+                            max={card.cost}
+                            label={t.cardCost(tr(card.name), labels.factions[f])}
+                            onChange={(cost) => change(setCardCost(draft, f, card.id, cost), `cardCost.${f}.${card.id}`)}
+                          />
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            {t.notHeld}
+                          </Typography>
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>

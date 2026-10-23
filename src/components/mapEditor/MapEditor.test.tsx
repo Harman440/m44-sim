@@ -277,6 +277,23 @@ describe("MapEditor", () => {
     expect(screen.getByRole("heading", { name: "Editor de mapas · Bocage" })).toBeInTheDocument();
   });
 
+  it("makes a card cheaper for one side in Datos del escenario, shown in the menu's panel", async () => {
+    render(<Editor />);
+    fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    const cheaper = dialog.getByLabelText("Coste de Reabastecimiento (Eje): uno menos");
+
+    expect(dialog.getByLabelText("Coste de Reabastecimiento (Eje): uno más")).toBeDisabled();
+    fireEvent.click(cheaper);
+    fireEvent.click(cheaper);
+    expect(dialog.getByLabelText("Reabastecimiento: cuesta 7 en vez de 9")).toBeInTheDocument();
+
+    // A side with no air sorties has no air cards to price
+    fireEvent.click(dialog.getByLabelText("Salidas aéreas (Aliados): uno menos"));
+    expect(dialog.queryByLabelText("Coste de Poder aéreo (Aliados): uno menos")).not.toBeInTheDocument();
+    expect(dialog.getByLabelText("Coste de Poder aéreo (Eje): uno menos")).toBeInTheDocument();
+  });
+
   it("undoes the settings a setting at a time", async () => {
     render(<Editor />);
     fireEvent.click(screen.getByRole("button", { name: "Datos del escenario" }));

@@ -11,6 +11,7 @@ import { samePosition } from "./position";
 import { BoardSize, boardPositions, boardSizeOf, isBoardSize, isOnBoard as isOnSize, isStandardBoard } from "./boardSize";
 import { TERRAIN } from "../data/terrain";
 import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
+import { actionCardById } from "../data/actionCards";
 import type { Lang, Localized } from "../i18n/lang";
 
 const SIDE = { Allies: "allies", Axis: "axis" } as const;
@@ -258,6 +259,22 @@ export function setBigGuns(draft: Scenario, faction: Faction, bigGuns: boolean):
   const sides = FACTIONS.filter((each) => (each === faction ? bigGuns : hasBigGuns(draft, each)));
   const { bigGuns: _old, ...rest } = draft;
   return sides.length === FACTIONS.length ? rest : { ...rest, bigGuns: sides };
+}
+
+/**
+ * What a command card costs a side, from the card's own cost down to 0. A card at its own cost
+ * is left out of `cardCosts`, and `cardCosts` goes while no card is cheaper for either side
+ */
+export function setCardCost(draft: Scenario, faction: Faction, cardId: string, cost: number): Scenario | false {
+  const card = actionCardById(cardId);
+  if (!card || !inLimits(cost, { min: 0, max: card.cost })) return false;
+  const side = SIDE[faction];
+  const current = draft.cardCosts?.[side][cardId] ?? card.cost;
+  if (current === cost) return draft;
+  const { [cardId]: _old, ...others } = draft.cardCosts?.[side] ?? {};
+  const costs = { allies: draft.cardCosts?.allies ?? {}, axis: draft.cardCosts?.axis ?? {}, [side]: cost === card.cost ? others : { ...others, [cardId]: cost } };
+  const { cardCosts: _gone, ...rest } = draft;
+  return Object.keys(costs.allies).length + Object.keys(costs.axis).length === 0 ? rest : { ...rest, cardCosts: costs };
 }
 
 /** What the paradrop starts as when it's turned on: 4 of the attacker's infantry, as at Sainte-Mère-Église */
