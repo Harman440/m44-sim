@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ZOOM, minScale, zoomAround, zoomedView } from "./boardZoom";
+import { MAX_ZOOM, minScale, zoomAround, zoomToShow, zoomedView } from "./boardZoom";
 
 const full = { x: 0, y: 0, width: 1000, height: 600 };
 const whole = { scale: 1, cx: 500, cy: 300 };
@@ -21,6 +21,20 @@ describe("board zoom", () => {
   it("never shows past the board's edge", () => {
     const view = zoomedView(full, { scale: 2, cx: 0, cy: 10_000 });
     expect(view).toEqual({ x: 0, y: 300, width: 500, height: 300 });
+  });
+
+  it("brings points out of sight into it, zooming out only as far as it takes", () => {
+    const zoomed = { scale: 4, cx: 125, cy: 75 };
+    // In sight already: nothing moves
+    expect(zoomToShow(full, zoomed, [{ x: 100, y: 70 }], 10)).toBe(zoomed);
+    // One out of sight: centred on it, as zoomed in as before
+    const one = zoomToShow(full, zoomed, [{ x: 800, y: 500 }], 10);
+    expect(one).toEqual({ scale: 4, cx: 800, cy: 500 });
+    // Two far apart: zoomed out until both fit, with their margins
+    const view = zoomedView(full, zoomToShow(full, zoomed, [{ x: 100, y: 100 }, { x: 700, y: 100 }], 50));
+    expect(view.x).toBeLessThanOrEqual(50);
+    expect(view.x + view.width).toBeGreaterThanOrEqual(750);
+    expect(view.width).toBeCloseTo(700);
   });
 
   it("zooms between the whole board and the closest zoom", () => {

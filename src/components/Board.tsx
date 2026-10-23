@@ -52,6 +52,7 @@ interface BoardProps {
   orders: readonly Order[];
   /** Scenario artwork drawn under the hexes */
   backgroundImage?: string;
+  /** Hexes flashed red; on a zoomed board, those out of sight are brought into it */
   invalidFlash?: HexFlash | null;
   /** Units that have used their shots this turn */
   firedUnits?: ReadonlySet<Unit>;
@@ -638,7 +639,7 @@ function Board({
 
   const zoom = useBoardZoom({ x: viewX, y: viewY, width: viewWidth, height: viewHeight }, zoomable, dragPans, startsWhole);
   const shown = zoom.view;
-  const { focusOn } = zoom;
+  const { focusOn, show } = zoom;
   const zoomRequest = zoomOn?.request;
   useEffect(() => {
     if (!zoomOn || !zoomable) return;
@@ -646,6 +647,12 @@ function Board({
     focusOn(x, y);
     // Only a new request zooms: the board redrawing doesn't
   }, [zoomRequest]);
+  // Hexes flashed out of sight on a zoomed board (a problem pointed out) are brought into it
+  const flashId = invalidFlash?.id;
+  useEffect(() => {
+    if (!invalidFlash || !zoomable) return;
+    show(invalidFlash.positions.map((position) => geometry.hexCenter(position)), hexSize);
+  }, [flashId]);
   useEffect(() => {
     onViewChange?.();
   }, [shown.x, shown.y, shown.width, shown.height]);

@@ -57,6 +57,30 @@ export function zoomedView(full: ViewRect, zoom: Zoom, aspect: number | null = n
   };
 }
 
+/**
+ * The zoom that brings every point into sight, `margin` round each: unchanged when they all are,
+ * else centred on them, zoomed out only as far as it takes (never in)
+ */
+export function zoomToShow(
+  full: ViewRect,
+  zoom: Zoom,
+  points: readonly { x: number; y: number }[],
+  margin: number,
+  aspect: number | null = null,
+): Zoom {
+  if (points.length === 0) return zoom;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const [left, right, top, bottom] = [Math.min(...xs) - margin, Math.max(...xs) + margin, Math.min(...ys) - margin, Math.max(...ys) + margin];
+  const shown = zoomedView(full, zoom, aspect);
+  if (left >= shown.x && right <= shown.x + shown.width && top >= shown.y && bottom <= shown.y + shown.height) return zoom;
+  const base = baseSize(full, aspect);
+  const fits = Math.min(base.width / (right - left), base.height / (bottom - top));
+  const scale = Math.max(Math.min(zoom.scale, fits), minScale(full, aspect));
+  const next = zoomedView(full, { scale, cx: (left + right) / 2, cy: (top + bottom) / 2 }, aspect);
+  return { scale, cx: next.x + next.width / 2, cy: next.y + next.height / 2 };
+}
+
 /** Zooms by `factor` keeping the SVG point (px, py) where it is on the screen */
 export function zoomAround(full: ViewRect, zoom: Zoom, factor: number, px: number, py: number, aspect: number | null = null): Zoom {
   const scale = Math.min(Math.max(zoom.scale * factor, minScale(full, aspect)), MAX_ZOOM);
@@ -273,6 +297,13 @@ export function useBoardZoom(full: ViewRect, enabled: boolean, dragPans = true, 
         return { scale: Math.max(current.scale, FOCUS_ZOOM), cx: shown.x + shown.width / 2, cy: shown.y + shown.height / 2 };
       });
     },
+    /** Bring these SVG points into sight, `margin` round each, moving as little as it takes (`zoomToShow`) */
+    show: (points: readonly { x: number; y: number }[], margin: number) =>
+      setZoom((current) => {
+        const next = zoomToShow(fullRef.current, current, points, margin, aspectRef.current);
+        if (next !== current) untouched.current = false;
+        return next;
+      }),
     /** The whole board in sight */
     reset: () => setZoom({ ...middle, scale: minScale(full, aspect) }),
     handlers: enabled
