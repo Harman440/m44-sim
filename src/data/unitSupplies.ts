@@ -8,7 +8,7 @@ import { UnitType } from "../game-core/unit";
 export enum Supply {
   /** Infantry: one less for each flag rolled on it; at 0 it can only be given Morale Up */
   MORALE = "morale",
-  /** Infantry: spent on actions, a little back at the end of each turn */
+  /** Infantry: spent on actions, a little back at the end of a turn it didn't move in */
   ENERGY = "energy",
   /** Infantry: one per shot, back with Reload */
   AMMO = "ammo",
@@ -62,7 +62,7 @@ export const DEFENDER_SHORTFALL: Partial<Record<Supply, number>> = { [Supply.AMM
 /** What the Reload action brings back, never past full */
 export const RELOAD: Partial<Record<Supply, number>> = { [Supply.AMMO]: 2, [Supply.SHELLS]: 2 };
 
-/** Energy infantry gets back at the end of each turn, never past full */
+/** Energy infantry gets back at the end of a turn it didn't move in, never past full (none after moving) */
 export const ENERGY_PER_TURN = 1;
 
 /** Energy infantry with no action this turn (resting) gets back instead */

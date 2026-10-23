@@ -45,7 +45,7 @@ import {
   shotsOf,
 } from "./actionRules";
 import type { FireOption, UnitAction } from "./unitAction";
-import { SupplyCost, UnitSupplies, amountOf, endOfTurn, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
+import { SupplyCost, TurnSpent, UnitSupplies, amountOf, endOfTurn, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
 import { actionById, fireOptionById } from "../data/unitActions";
 import { Supply } from "../data/unitSupplies";
 import { TAKE_COVER_HITS } from "../data/unitActions";
@@ -82,7 +82,7 @@ export interface GameSnapshot {
    * The final phase: the energy each unit gets back when the turn ends (more if it rested), and
    * the cards whose cooldown is over next turn. Null in the other phases
    */
-  turnEnd: { energy: readonly { position: Position; amount: number; rested: boolean }[]; cardsBack: readonly ActionCard[] } | null;
+  turnEnd: { energy: readonly { position: Position; amount: number; spent: TurnSpent }[]; cardsBack: readonly ActionCard[] } | null;
   /** Board changes made to mirror the table: after the battle, or in Órdenes before any order */
   battleEdits: number;
   /** The map can be changed by hand now: in the final phase, or in Órdenes before any order or mark */
@@ -2147,11 +2147,11 @@ class GameSession {
     const energy = this.board.getAllHexes().flatMap((hex) => {
       const unit = hex.unit;
       if (!unit) return [];
-      const rested = this.orderIndexOf(unit) === -1;
+      const spent = this.turnSpent(unit);
       const now = this.suppliesOf(unit);
-      const after = endOfTurn(now, fullSupplies(unit.getUnitType(), unit.elite), rested);
+      const after = endOfTurn(now, fullSupplies(unit.getUnitType(), unit.elite), spent);
       const amount = amountOf(after, Supply.ENERGY) - amountOf(now, Supply.ENERGY);
-      return amount > 0 ? [{ position: hex.getPosition(), amount, rested }] : [];
+      return amount > 0 ? [{ position: hex.getPosition(), amount, spent }] : [];
     });
     const cardsBack = this.cards
       .filter(({ card }) => !this.testMode && this.cardsPlayedOn[card.id] !== undefined && turnsLeft(this.cardsPlayedOn[card.id], this.turn) === 1)
@@ -2159,14 +2159,29 @@ class GameSession {
     return { energy, cardsBack };
   }
 
-  /** The end of the turn: infantry gets energy back, more if it rested (had no order) */
+  /** The end of the turn: infantry gets energy back, more if it rested (had no order), none if it moved */
   private recoverEnergy() {
     for (const hex of this.board.getAllHexes()) {
       const unit = hex.unit;
       if (!unit) continue;
-      const rested = this.orderIndexOf(unit) === -1;
-      this.supplies.set(unit, endOfTurn(this.suppliesOf(unit), fullSupplies(unit.getUnitType(), unit.elite), rested));
+      this.supplies.set(unit, endOfTurn(this.suppliesOf(unit), fullSupplies(unit.getUnitType(), unit.elite), this.turnSpent(unit)));
     }
+  }
+
+  /**
+   * How the unit spent the turn, for its energy back: no order is resting; it moved if its order
+   * moved it, it took ground or it made a card's move after the battle. A retreat or a fix on the
+   * map isn't the unit's own move, so it doesn't count
+   */
+  private turnSpent(unit: Unit): TurnSpent {
+    const index = this.orderIndexOf(unit);
+    const order = this.orders[index];
+    if (!order) return "rested";
+    const moved =
+      !samePosition(order.start, order.end) ||
+      this.shots.some((shot) => shot.orderIndex === index && shot.tookGround) ||
+      this.battleEdits.some((edit) => edit.kind === "move" && edit.unit === unit && edit.reposition);
+    return moved ? "moved" : "held";
   }
 
   // --- saving

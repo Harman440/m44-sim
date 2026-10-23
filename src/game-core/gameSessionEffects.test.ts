@@ -292,7 +292,7 @@ describe("GameSession final phase summary", () => {
     expect(session.startBattle()).toBe(true);
     expect(session.endBattle()).toBe(true);
 
-    expect(session.getSnapshot().turnEnd!.energy).toEqual([{ position: INF, amount: 2, rested: true }]);
+    expect(session.getSnapshot().turnEnd!.energy).toEqual([{ position: INF, amount: 2, spent: "rested" }]);
     expect(session.getSnapshot().turnEnd!.cardsBack).toEqual([]);
   });
 

@@ -119,8 +119,13 @@ export function refill(
   return equipment ? { ...topped, equipment: { ...full.equipment } } : topped;
 }
 
-/** The end of the turn: energy back, more for a unit that rested (had no action), never past full */
-export const endOfTurn = (supplies: UnitSupplies, full: UnitSupplies, rested: boolean): UnitSupplies =>
-  withAmounts(supplies, full, (supply, current) =>
-    supply === Supply.ENERGY ? current + (rested ? RESTING_ENERGY_PER_TURN : ENERGY_PER_TURN) : current
-  );
+/** How the unit spent the turn, which decides the energy it gets back */
+export type TurnSpent = "rested" | "held" | "moved";
+
+/** The energy back at the end of the turn: more for a unit that rested (had no action), none for one that moved */
+export const energyBack = (spent: TurnSpent): number =>
+  spent === "rested" ? RESTING_ENERGY_PER_TURN : spent === "held" ? ENERGY_PER_TURN : 0;
+
+/** The end of the turn: energy back as `energyBack` says, never past full */
+export const endOfTurn = (supplies: UnitSupplies, full: UnitSupplies, spent: TurnSpent): UnitSupplies =>
+  withAmounts(supplies, full, (supply, current) => (supply === Supply.ENERGY ? current + energyBack(spent) : current));

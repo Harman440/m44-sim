@@ -473,8 +473,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Descanso", en: "Rest" },
         house: {
-          es: `Al final de cada turno la infantería recupera ${ENERGY_PER_TURN} de energía, o ${RESTING_ENERGY_PER_TURN} si descansó (no recibió acción), sin pasar de la que lleva llena.`,
-          en: `At the end of each turn infantry gets ${ENERGY_PER_TURN} energy back, or ${RESTING_ENERGY_PER_TURN} if it rested (had no action), never past full.`,
+          es: `Al final de cada turno la infantería que no se movió recupera ${ENERGY_PER_TURN} de energía, o ${RESTING_ENERGY_PER_TURN} si descansó (no recibió acción), sin pasar de la que lleva llena. La que se movió (con su acción, al tomar terreno o con el movimiento tras la batalla) no recupera nada; retirarse no cuenta como moverse.`,
+          en: `At the end of each turn infantry that didn't move gets ${ENERGY_PER_TURN} energy back, or ${RESTING_ENERGY_PER_TURN} if it rested (had no action), never past full. Infantry that moved (with its action, taking ground or with the move after the battle) gets none back; a retreat doesn't count as a move.`,
         },
       },
       {

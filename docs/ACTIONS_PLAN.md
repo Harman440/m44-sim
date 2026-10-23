@@ -21,6 +21,7 @@ Work through it one step at a time. Each step is one commit, and you tick items 
 - **Elite tanks:** 3 hits take away a figure, and they start with 7 fuel.
 - **No extra turn for the attacker** (decided 2026-10-22): both sides play from turn 1. Instead, every unit of the defending side starts the game with 1 ammo less (infantry) or 1 shell less (tanks and artillery).
 - **A unit with no action rests.** It doesn't move or fire, and infantry recovers 2 energy at the end of the turn instead of 1.
+- **Energy back only without moving** (decided 2026-10-22): infantry that moved this turn (its action's move, taking ground, or a card's move after the battle) gets no energy back at the end of the turn. A retreat doesn't count as moving.
 - **Free actions:** infantry Reload, armour Firefight and Mechanic, and artillery Firefight cost nothing.
 - **Mechanic:** the tank clears the damage on a figure that has been hit but not lost (each figure needs 2 hits to go, 3 for elite). A figure already lost doesn't come back.
 - **Take Cover** can't fire. **Armour Forward** fires, unless it ends on a hex its terrain doesn't let it fire from.
@@ -128,7 +129,7 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
   - on own tablets, only the actions they offer
 
   The moves come from the action's move (Armour Forward and Behind Enemy Lines ignore terrain movement limits). Choosing another action replaces the unit's order; undo works as today. Only an order that holds is replaced, and it may become a move only when it's the last order (a later order may have moved through the hex it would free); an order that moved is changed with "Volver". A unit with no action it can pay for isn't offered (`orderable`). `issueOrder(from, to)` stays as the plain move: the cheapest plain action that makes it (`PLAIN_ACTIONS`)
-- [x] Each unit's supplies (`unitSupplies.ts`) live in the session and the save. Costs are paid when the orders are confirmed. A unit with no order rests. The final phase gives energy back (2 if it rested)
+- [x] Each unit's supplies (`unitSupplies.ts`) live in the session and the save. Costs are paid when the orders are confirmed. A unit with no order rests. The final phase gives energy back (2 if it rested, 1 if it held, none if it moved: `turnSpent`)
 - [x] Elite infantry no longer moves 2 and fires (`Unit`'s elite move rule goes)
 - [x] `OrdersView`: tapping a unit lists its actions (a plain list for now, the pop-up comes in R13)
 - [x] Computer: turns the move it wants into an action (holding: Firefight, a move it fires after: Assault, a longer one: Move Out or Motorized), and rests when it can't pay

@@ -34,9 +34,9 @@ const TEXT = defineMessages({
       `llega ${unit.toLowerCase()}, ya en el mapa. Ponla en la mesa en la casilla de la cruz.`,
     nextTurnTitle: (n: number) => `Al empezar el turno ${n}`,
     nextTurnInfo:
-      "La infantería recupera energía al acabar el turno: 2 la que descansó (no recibió acción), 1 la demás, sin pasar de la que lleva llena. Una carta jugada vuelve cuando acaba de esperar sus turnos.",
+      "La infantería recupera energía al acabar el turno: 2 la que descansó (no recibió acción), 1 la que no se movió y nada la que se movió, sin pasar de la que lleva llena. Una carta jugada vuelve cuando acaba de esperar sus turnos.",
     energyBack: (amount: number, units: number) => `+${amount} de energía: ${units === 1 ? "1 unidad" : `${units} unidades`}`,
-    noEnergyBack: "Ninguna unidad recupera energía: todas la tienen llena.",
+    noEnergyBack: "Ninguna unidad recupera energía: la tienen llena o se movieron.",
     cardsBack: (names: string) => `Vuelven: ${names}`,
     cardsTitle: "Tus cartas",
     cardsInfo: "No se roba ninguna carta: siguen todas en tu mano. Una carta jugada vuelve cuando acaba de esperar sus turnos.",
@@ -64,9 +64,9 @@ const TEXT = defineMessages({
       `${unit.toLowerCase()} arrives, already on the map. Put it on the table on the cross hex.`,
     nextTurnTitle: (n: number) => `As turn ${n} starts`,
     nextTurnInfo:
-      "Infantry gets energy back as the turn ends: 2 if it rested (had no action), 1 otherwise, never past full. A card played comes back once it has waited its turns.",
+      "Infantry gets energy back as the turn ends: 2 if it rested (had no action), 1 if it didn't move, none if it moved, never past full. A card played comes back once it has waited its turns.",
     energyBack: (amount: number, units: number) => `+${amount} energy: ${units === 1 ? "1 unit" : `${units} units`}`,
-    noEnergyBack: "No unit gets energy back: they're all full.",
+    noEnergyBack: "No unit gets energy back: they're full or they moved.",
     cardsBack: (names: string) => `Back: ${names}`,
     cardsTitle: "Your cards",
     cardsInfo: "No card is drawn: they all stay in your hand. A card played comes back once it has waited its turns.",

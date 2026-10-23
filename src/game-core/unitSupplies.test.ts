@@ -65,12 +65,13 @@ describe("unit supplies", () => {
     expect(equipmentOf(refill(spent, infantry, [Supply.AMMO]), Equipment.EXPLOSIVES)).toBe(0);
   });
 
-  it("gets 1 energy back at the end of the turn, 2 when resting, never past full", () => {
+  it("gets 1 energy back at the end of a turn it held, 2 when resting, none after moving, never past full", () => {
     const tired = pay(infantry, { amounts: { [Supply.ENERGY]: 4 } })!;
-    expect(amountOf(endOfTurn(tired, infantry, false), Supply.ENERGY)).toBe(2);
-    expect(amountOf(endOfTurn(tired, infantry, true), Supply.ENERGY)).toBe(3);
-    expect(amountOf(endOfTurn(infantry, infantry, true), Supply.ENERGY)).toBe(5);
-    expect(endOfTurn(tank, tank, true)).toEqual(tank);
+    expect(amountOf(endOfTurn(tired, infantry, "held"), Supply.ENERGY)).toBe(2);
+    expect(amountOf(endOfTurn(tired, infantry, "rested"), Supply.ENERGY)).toBe(3);
+    expect(amountOf(endOfTurn(tired, infantry, "moved"), Supply.ENERGY)).toBe(1);
+    expect(amountOf(endOfTurn(infantry, infantry, "rested"), Supply.ENERGY)).toBe(5);
+    expect(endOfTurn(tank, tank, "rested")).toEqual(tank);
   });
 
   it("gives back what a shot paid, amounts and equipment", () => {

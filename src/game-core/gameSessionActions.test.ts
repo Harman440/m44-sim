@@ -200,7 +200,7 @@ describe("GameSession unit supplies", () => {
     expect(suppliesAt(session, OTHER_INF).amounts[Supply.ENERGY]).toBe(5);
   });
 
-  it("gives infantry 1 energy back at the end of the turn, or 2 when it rested, never past full", () => {
+  it("gives infantry 1 energy back at the end of a turn it held, or 2 when it rested, never past full", () => {
     let session = withAmounts(ordering(), INF, { [Supply.ENERGY]: 1 });
     session = withAmounts(session, OTHER_INF, { [Supply.ENERGY]: 1 });
     session.giveAction(INF, "infantry:firefight", INF);
@@ -213,6 +213,19 @@ describe("GameSession unit supplies", () => {
     expect(suppliesAt(session, INF).amounts[Supply.ENERGY]).toBe(1);
     expect(suppliesAt(session, OTHER_INF).amounts[Supply.ENERGY]).toBe(3);
     expect(suppliesAt(session, TANK).amounts).toEqual({ [Supply.FUEL]: 5, [Supply.SHELLS]: 2 });
+  });
+
+  it("gives no energy back to infantry that moved", () => {
+    const to: Position = { row: 6, col: 1 };
+    let session = withAmounts(ordering(), INF, { [Supply.ENERGY]: 3 });
+    expect(session.giveAction(INF, "infantry:moveOut", to)).toBe(true);
+    session.commitOrders();
+    session.startBattle();
+    session.endBattle();
+    expect(session.getSnapshot().turnEnd!.energy.some((each) => samePosition(each.position, to))).toBe(false);
+    expect(session.endTurn()).toBe(true);
+
+    expect(suppliesAt(session, to).amounts[Supply.ENERGY]).toBe(2);
   });
 
   it("refuses an action the unit can't pay for, and a unit with nothing it can pay for rests", () => {
