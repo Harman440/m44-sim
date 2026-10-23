@@ -5,13 +5,13 @@ import type { GameSnapshot } from "../../../game-core/gameSession";
 import { samePosition } from "../../../game-core/position";
 import type { UnitSupplies } from "../../../game-core/unitSupplies";
 import { actionById } from "../../../data/unitActions";
-import { EQUIPMENT, Equipment, SUPPLIES, Supply } from "../../../data/unitSupplies";
+import { EQUIPMENT, SUPPLIES } from "../../../data/unitSupplies";
 import { Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
 import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
-import GameIcon, { GameIconName } from "../../GameIcon";
+import GameIcon from "../../GameIcon";
 import HexThumbnail from "../../HexThumbnail";
-import SandbagsIcon from "../../SandbagsIcon";
+import { EquipmentIcon, SUPPLY_ICONS } from "../../SupplyIcons";
 import { unitSprite } from "../../UnitComponent";
 
 const TEXT = defineMessages({
@@ -28,20 +28,6 @@ const TEXT = defineMessages({
     amount: (name: string, n: number) => `${name}: ${n}`,
   },
 });
-
-const SUPPLY_ICONS: Record<Supply, GameIconName> = {
-  [Supply.MORALE]: "morale",
-  [Supply.ENERGY]: "energy",
-  [Supply.AMMO]: "ammo",
-  [Supply.FUEL]: "fuel",
-  [Supply.SHELLS]: "shells",
-};
-
-const EQUIPMENT_ICONS: Record<Exclude<Equipment, Equipment.SANDBAGS>, GameIconName> = {
-  [Equipment.EXPLOSIVES]: "explosives",
-  [Equipment.MEDIC_KIT]: "medicKit",
-  [Equipment.CAMOUFLAGE_NET]: "camouflageNet",
-};
 
 /** Luck as the list shows it: rounded, with its sign */
 const luckText = (luck: number): string => {
@@ -82,7 +68,7 @@ function SupplyMeters({ supplies, luck }: { supplies: UnitSupplies; luck: number
       {EQUIPMENT.filter((kind) => supplies.equipment[kind] !== undefined).map((kind) => (
         <Meter
           key={kind}
-          icon={kind === Equipment.SANDBAGS ? <SandbagsIcon size={16} /> : <GameIcon name={EQUIPMENT_ICONS[kind]} size={16} />}
+          icon={<EquipmentIcon kind={kind} size={16} />}
           amount={supplies.equipment[kind]!}
           label={t.amount(labels.equipment[kind], supplies.equipment[kind]!)}
         />

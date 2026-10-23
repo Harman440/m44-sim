@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Paper, Stack, Typography } from "@mui/material";
 import type { UnitAction } from "../../../game-core/unitAction";
+import type { SupplyCost } from "../../../game-core/unitSupplies";
 import { defineMessages, useLabels, useLang, useMessages, useTr } from "../../../i18n/useI18n";
 import { PAINTINGS } from "../../cardPaintings";
 import generalsArt from "../../../assets/cards/british-generals.webp";
@@ -16,6 +17,8 @@ const TEXT = defineMessages({
 
 interface ActionPanelProps {
   action: UnitAction;
+  /** What it costs this unit (`ActionOption.cost`) */
+  cost: SupplyCost;
   /** What the unit is and where: "Infantería en bosque" */
   unit: string;
   /** How far it moves and where it can still fire, from its move options */
@@ -28,7 +31,7 @@ interface ActionPanelProps {
  * The action picked for a unit, as a card in the column (over the unit list): its painting, its
  * name, what it does and what it costs. Under it, what to do next while the map shows its moves
  */
-function ActionPanel({ action, unit, movement, children }: ActionPanelProps) {
+function ActionPanel({ action, cost, unit, movement, children }: ActionPanelProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
@@ -50,7 +53,7 @@ function ActionPanel({ action, unit, movement, children }: ActionPanelProps) {
         </Typography>
         <Typography variant="body2">{tr(action.description)}</Typography>
         <Typography variant="body2" sx={{ fontWeight: 600 }} data-testid="action-cost">
-          {t.costs(labels.describeCost(action.cost))}
+          {t.costs(labels.describeCost(cost))}
         </Typography>
         {movement && (
           <Typography variant="body2" color="text.secondary">

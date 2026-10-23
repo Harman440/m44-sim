@@ -30,6 +30,7 @@ import PlayedCards, { PLAY_LAYOUT_PREFIX, playedCardOf } from "../../PlayedCards
 import LeavingHand from "./LeavingHand";
 import UnitList from "./UnitList";
 import ActionPopup from "./ActionPopup";
+import { moveLimitsOf } from "../../../game-core/actionRules";
 import ActionPanel from "./ActionPanel";
 import "./PhaseLayout.css";
 
@@ -40,6 +41,8 @@ const TEXT = defineMessages({
     holdAndFireTimes: (n: number) => `Quedarse en su casilla y disparar ${n} veces`,
     promptPickAction: "Elige una acción",
     otherAction: "Otra acción",
+    pickThis: "Elegir esta acción",
+    closeCard: "Cerrar",
     promptMark: (n: number) => `Marca en el mapa: faltan ${n}`,
     tapHighlightedHex: "Toca una casilla resaltada",
     tapNextHex: "Toca la siguiente casilla del camino",
@@ -54,7 +57,7 @@ const TEXT = defineMessages({
     helpMarkCard: (card: string) => `Marca en el mapa las casillas de ${card} para poder confirmar.`,
     helpConfirm: "Todas tus unidades tienen orden: confirma las órdenes o deshaz la última.",
     helpPickAction:
-      "Elige la acción de la unidad. Cada una cuesta energía, combustible o equipo, que se paga al confirmar las órdenes; las que no puede pagar salen en gris.",
+      "Elige la acción de la unidad. Cada una cuesta energía, combustible o equipo, que se paga al confirmar las órdenes; solo salen las que puede hacer ahora. La «i» de cada una muestra qué hace.",
     helpSelected: "Toca una casilla resaltada para mover la unidad, quédate en su casilla, o elige otra acción.",
     helpTapUnit:
       "Toca una unidad para darle una acción; si se mueve, después la casilla adonde va. Las unidades sin orden descansan y recuperan más energía: confirma cuando quieras.",
@@ -89,6 +92,8 @@ const TEXT = defineMessages({
     holdAndFireTimes: (n: number) => `Stay in its hex and fire ${n} times`,
     promptPickAction: "Pick an action",
     otherAction: "Another action",
+    pickThis: "Pick this action",
+    closeCard: "Close",
     promptMark: (n: number) => `Mark on the map: ${n} left`,
     tapHighlightedHex: "Tap a highlighted hex",
     tapNextHex: "Tap the next hex of its path",
@@ -103,7 +108,7 @@ const TEXT = defineMessages({
     helpMarkCard: (card: string) => `Mark the hexes for ${card} on the map to be able to confirm.`,
     helpConfirm: "All your units have orders: confirm the orders or undo the last one.",
     helpPickAction:
-      "Pick the unit's action. Each costs energy, fuel or equipment, paid when the orders are confirmed; the ones it can't pay for are greyed out.",
+      "Pick the unit's action. Each costs energy, fuel or equipment, paid when the orders are confirmed; only the ones it can do now are listed. The \"i\" by each shows what it does.",
     helpSelected: "Tap a highlighted hex to move the unit, stay in its hex, or pick another action.",
     helpTapUnit:
       "Tap a unit to give it an action; if it moves, then the hex it goes to. Units without an order rest and get more energy back: confirm whenever you like.",
@@ -171,6 +176,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   const [unitHexPosition, setUnitHexPosition] = useState<Position | null>(null);
   const [actions, setActions] = useState<ActionOption[]>([]);
   const [chosen, setChosen] = useState<UnitAction | null>(null);
+  /** An action's card shown in the column from its "i" in the pop-up, not picked yet */
+  const [shownAction, setShownAction] = useState<UnitAction | null>(null);
   const [moveOptions, setMoveOptions] = useState<MoveOptions | null>(null);
   /** Pass and play: the path picked so far, hex by hex, from the unit's hex */
   const [path, setPath] = useState<Position[] | null>(null);
@@ -200,6 +207,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     setUnitHexPosition(null);
     setActions([]);
     setChosen(null);
+    setShownAction(null);
     setMoveOptions(null);
     setPath(null);
   };
@@ -217,6 +225,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     if (!unitHexPosition) return;
     const options = session.getMoveOptions(unitHexPosition, action.id);
     if (!options) return;
+    setShownAction(null);
     if (options.limits.maxMove === 0) {
       order(unitHexPosition, action, unitHexPosition);
       return;
@@ -302,6 +311,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     setUnitHexPosition(position);
     setActions(unitActions);
     setChosen(null);
+    setShownAction(null);
     setMoveOptions(null);
     return true;
   };
@@ -322,6 +332,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   const movement = moveOptions ? `${labels.describeMovement(moveOptions.limits)}${hedgerow ? t.hedgerowExit : ""}.` : undefined;
   const currentOrder = selectedHex?.unit && orders.find((each) => each.unit === selectedHex.unit);
   const currentAction = currentOrder && actions.find((each) => each.action.id === currentOrder.action)?.action;
+  /** What the action costs this unit (no morale on own tablets) */
+  const costOf = (action: UnitAction) => actions.find((each) => each.action.id === action.id)?.cost ?? action.cost;
 
   /** What to do now, in a few words: always in sight */
   const prompt = () => {
@@ -423,7 +435,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
         </Box>
 
         {selectedHex && chosen && (
-          <ActionPanel action={chosen} unit={labels.describeHex(selectedHex)} movement={movement}>
+          <ActionPanel action={chosen} cost={costOf(chosen)} unit={labels.describeHex(selectedHex)} movement={movement}>
             {selectedHex.sandbags && (moveOptions?.moves.length ?? 0) > 0 && (
               <Alert severity="warning" icon={<SandbagsIcon size={26} />} sx={{ py: 0 }} data-testid="sandbags-warning">
                 {t.hasSandbags}
@@ -473,8 +485,24 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           )}
         </Stack>
 
-        {/* The action's card takes the list's place while its moves are on the map */}
-        {!chosen && <UnitList faction={faction} session={session} game={game} selected={unitHexPosition} onSelect={pickFromList} />}
+        {selectedHex && !chosen && shownAction && (
+          <ActionPanel
+            action={shownAction}
+            cost={costOf(shownAction)}
+            unit={labels.describeHex(selectedHex)}
+            movement={labels.describeMovement(moveLimitsOf(shownAction))}
+          >
+            <Button onClick={() => pickAction(shownAction)} startIcon={<GameIcon name="confirm" />}>
+              {t.pickThis}
+            </Button>
+            <Button variant="outlined" onClick={() => setShownAction(null)} startIcon={<GameIcon name="cancel" />}>
+              {t.closeCard}
+            </Button>
+          </ActionPanel>
+        )}
+
+        {/* The action's card takes the list's place while its moves are on the map, or while it's looked at */}
+        {!chosen && !shownAction && <UnitList faction={faction} session={session} game={game} selected={unitHexPosition} onSelect={pickFromList} />}
 
         <Stack sx={{ mt: "auto", gap: 0.5 }}>
           <InfoButton title={t.howToOrder} label={t.instructions}>
@@ -507,7 +535,9 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
         title={selectedHex ? labels.describeHex(selectedHex) : ""}
         actions={actions}
         current={currentAction}
+        shown={shownAction}
         onPick={pickAction}
+        onShow={(action) => setShownAction((shown) => (shown?.id === action.id ? null : action))}
         onCancel={clearSelection}
         view={view}
       />

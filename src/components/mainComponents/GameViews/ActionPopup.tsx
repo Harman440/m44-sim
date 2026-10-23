@@ -1,20 +1,24 @@
 import { RefObject, useEffect, useMemo, useRef } from "react";
-import { Button, List, ListItemButton, ListItemText, Paper, Popper, PopperProps, Typography } from "@mui/material";
+import { Box, IconButton, List, ListItemButton, Paper, Popper, PopperProps, Stack, Typography } from "@mui/material";
 import type { ActionOption } from "../../../game-core/gameSession";
 import type { UnitAction } from "../../../game-core/unitAction";
 import { positionKey } from "../../../game-core/position";
 import { Position } from "../../../types/scenario";
-import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/useI18n";
+import { defineMessages, useMessages, useTr } from "../../../i18n/useI18n";
 import GameIcon from "../../GameIcon";
+import { InfoGlyph } from "../../InfoButton";
+import { CostIcons } from "../../SupplyIcons";
 
 const TEXT = defineMessages({
   es: {
     actions: "Acciones",
     cancel: "Cancelar",
+    about: (action: string) => `Qué hace ${action}`,
   },
   en: {
     actions: "Actions",
     cancel: "Cancel",
+    about: (action: string) => `What ${action} does`,
   },
 });
 
@@ -28,7 +32,11 @@ interface ActionPopupProps {
   actions: readonly ActionOption[];
   /** The action the unit has now (it holds), marked in the list */
   current?: UnitAction | null;
+  /** The action whose card is shown in the column ("i"), marked in the list */
+  shown?: UnitAction | null;
   onPick: (action: UnitAction) => void;
+  /** Its "i": show the action's card in the column, without picking it */
+  onShow: (action: UnitAction) => void;
   onCancel: () => void;
   /** Changes whenever the map zooms or pans, so the pop-up follows its unit */
   view?: number;
@@ -36,14 +44,15 @@ interface ActionPopupProps {
 
 /**
  * The picked unit's actions as a pop-up over the map, to the right of the unit (to its left near
- * the map's right edge). One it can't be given is greyed, with the reason ("Sin energía",
- * "Moral 0"). Not modal: tapping the map still picks another unit or deselects this one
+ * the map's right edge): one line each, its name and its cost as icons, and an "i" that shows its
+ * card in the column. Only the actions it can be given now are listed. See-through, so the map
+ * shows under it. Not modal: tapping the map still picks another unit or deselects this one
  */
-function ActionPopup({ position, board, title, actions, current, onPick, onCancel, view = 0 }: ActionPopupProps) {
+function ActionPopup({ position, board, title, actions, current, shown, onPick, onShow, onCancel, view = 0 }: ActionPopupProps) {
   const t = useMessages(TEXT);
-  const labels = useLabels();
   const tr = useTr();
   const key = position && positionKey(position);
+  const offered = actions.filter(({ refusal }) => refusal === null);
 
   const popper = useRef<{ update: () => void } | null>(null);
   useEffect(() => {
@@ -75,29 +84,54 @@ function ActionPopup({ position, board, title, actions, current, onPick, onCance
       ]}
       sx={{ zIndex: 1200 }}
     >
-      <Paper elevation={8} data-testid="action-popup" sx={{ width: 248, maxHeight: mapHeight ? mapHeight - 8 : "70vh", overflowY: "auto", p: 1 }}>
-        <Typography variant="subtitle2" sx={{ px: 1 }}>
-          {title}
-        </Typography>
-        <List dense aria-label={t.actions} sx={{ py: 0.5 }}>
-          {actions.map(({ action, refusal }) => (
-            <ListItemButton
-              key={action.id}
-              disabled={refusal !== null}
-              selected={action.id === current?.id}
-              onClick={() => onPick(action)}
-              sx={{ minHeight: 48, borderRadius: 1 }}
-            >
-              <ListItemText
-                primary={tr(action.name)}
-                secondary={refusal === null ? labels.describeCost(action.cost) : labels.actionRefusals[refusal]}
-              />
-            </ListItemButton>
+      <Paper
+        elevation={8}
+        data-testid="action-popup"
+        sx={{
+          width: 252,
+          maxHeight: mapHeight ? mapHeight - 8 : "70vh",
+          overflowY: "auto",
+          p: 0.5,
+          // See-through, so what's under it on the map still shows
+          bgcolor: "color-mix(in srgb, var(--m44-paper) 78%, transparent)",
+          backdropFilter: "blur(2px)",
+        }}
+      >
+        <Stack direction="row" sx={{ alignItems: "center", pl: 1 }}>
+          <Typography variant="caption" noWrap sx={{ flex: 1, fontWeight: 700 }}>
+            {title}
+          </Typography>
+          <IconButton aria-label={t.cancel} title={t.cancel} onClick={onCancel} sx={{ width: 48, height: 48 }}>
+            <GameIcon name="cancel" size={20} />
+          </IconButton>
+        </Stack>
+        <List dense disablePadding aria-label={t.actions}>
+          {offered.map(({ action, cost }) => (
+            <Box component="li" key={action.id} sx={{ display: "flex", alignItems: "center" }}>
+              <ListItemButton
+                component="div"
+                role="button"
+                selected={action.id === current?.id || action.id === shown?.id}
+                onClick={() => onPick(action)}
+                sx={{ minHeight: 48, py: 0, px: 1, gap: 1, borderRadius: 1, justifyContent: "space-between" }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.15 }}>
+                  {tr(action.name)}
+                </Typography>
+                <CostIcons cost={cost} />
+              </ListItemButton>
+              <IconButton
+                aria-label={t.about(tr(action.name))}
+                title={t.about(tr(action.name))}
+                aria-pressed={action.id === shown?.id}
+                onClick={() => onShow(action)}
+                sx={{ width: 48, height: 48, flex: "none", color: action.id === shown?.id ? "primary.main" : "text.secondary" }}
+              >
+                <InfoGlyph size={20} />
+              </IconButton>
+            </Box>
           ))}
         </List>
-        <Button variant="outlined" fullWidth onClick={onCancel} startIcon={<GameIcon name="cancel" />}>
-          {t.cancel}
-        </Button>
       </Paper>
     </Popper>
   );

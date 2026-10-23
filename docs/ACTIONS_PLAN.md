@@ -243,6 +243,6 @@ The player's notes after playing it, and their answers: the cooldown goes to 4 t
   - Cards wait 4 turns (`CARD_COOLDOWN_TURNS`)
   - An action that would change nothing is refused (`notNeeded`): Reload with full ammo or shells, Morale Up at full morale, Fortify on sandbags, Camouflage with the badge on
   - `SAVE_VERSION` 44, `MATCH_SAVE_VERSION` 19
-- [ ] The action pop-up: tighter and see-through, only the actions the unit can be given, costs as icons, an "i" by each that shows its card on the right
+- [x] The action pop-up: tighter and see-through, only the actions the unit can be given, costs as icons, an "i" by each that shows its card on the right (`ActionPopup`, `CostIcons` in `components/SupplyIcons.tsx`; the card from the "i" has "Elegir esta acción"). Rows stay 48px for the finger
 - [ ] The battle: changing the fire option keeps the target picked; a unit with nothing to fire at is passed over (it holds), one with a single target has it picked
 - [ ] The collision phase shows the Close Assault painting at the top of its column

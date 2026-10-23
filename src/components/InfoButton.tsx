@@ -17,7 +17,7 @@ interface InfoButtonProps {
 }
 
 /** The circled "i" */
-function InfoGlyph({ size = 26 }: { size?: number }) {
+export function InfoGlyph({ size = 26 }: { size?: number }) {
   return (
     <Box
       component="span"

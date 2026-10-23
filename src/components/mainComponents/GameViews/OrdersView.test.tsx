@@ -97,14 +97,15 @@ describe("OrdersView selecting units", () => {
     expect(screen.queryByRole("list", { name: "Acciones" })).not.toBeInTheDocument();
   });
 
-  it("lists the unit's actions with their cost in a pop-up over the map, its supplies in its row", () => {
+  it("lists the unit's actions with their cost as icons in a pop-up over the map, its supplies in its row", () => {
     const { tap } = setup();
 
     tap(LEFT_A);
     const actions = within(screen.getByRole("list", { name: "Acciones" }));
-    expect(actions.getByRole("button", { name: /^Fortificar/ })).toHaveTextContent("2 energía + sacos terreros");
-    // Full ammo: nothing to reload
-    expect(actions.getByRole("button", { name: /^Recargar/ })).toHaveTextContent("No hace falta");
+    expect(actions.getByRole("button", { name: "Fortificar 2 energía + sacos terreros" })).toBeInTheDocument();
+    expect(actions.getByRole("img", { name: "2 energía + sacos terreros" })).toBeInTheDocument();
+    // Full ammo: nothing to reload, so it isn't offered
+    expect(actions.queryByRole("button", { name: /^Recargar/ })).not.toBeInTheDocument();
     // Own tablets don't track morale
     expect(actions.queryByRole("button", { name: /^Subir la moral/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("action-popup")).toContainElement(screen.getByRole("list", { name: "Acciones" }));
@@ -410,7 +411,7 @@ describe("OrdersView action pop-up and card", () => {
     expect(popup.queryByRole("button", { name: /^Reposicionamiento/ })).not.toBeInTheDocument();
   });
 
-  it("greys an action the unit can't pay for, with the reason, and it can't be picked", () => {
+  it("leaves out an action the unit can't pay for", () => {
     const saved = makeSession().save();
     const unit = saved.units.findIndex((each) => each.position?.row === LEFT_A.row && each.position.col === LEFT_A.col);
     saved.supplies = [{ unit, amounts: { morale: 5, energy: 0, ammo: 2 }, equipment: { explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 } }];
@@ -418,11 +419,35 @@ describe("OrdersView action pop-up and card", () => {
     const { container } = render(<Harness session={session} />);
     fireEvent.click(container.querySelector(`[data-position="${LEFT_A.row}-${LEFT_A.col}"]`)!);
 
-    const motorized = screen.getByRole("button", { name: /^Motorizado/ });
-    expect(motorized).toHaveTextContent("Sin energía");
-    expect(motorized).toHaveAttribute("aria-disabled", "true");
-    fireEvent.click(motorized);
+    const popup = within(screen.getByTestId("action-popup"));
+    expect(popup.queryByRole("button", { name: /^Motorizado/ })).not.toBeInTheDocument();
+    expect(popup.queryByRole("button", { name: /^Escaramuza/ })).not.toBeInTheDocument();
+    // Free, or paid in equipment: still offered
+    expect(popup.getByRole("button", { name: /^Médico/ })).toBeInTheDocument();
+  });
+
+  it("shows an action's card from its \"i\" without picking it, then picks it from the card", () => {
+    const { tap } = setup();
+    tap(LEFT_A);
+
+    fireEvent.click(screen.getByRole("button", { name: "Qué hace Motorizado" }));
+    const panel = screen.getByTestId("action-panel");
+    expect(panel).toHaveTextContent("Se mueve hasta 3 casillas y no dispara.");
+    expect(within(panel).getByTestId("action-cost")).toHaveTextContent("Cuesta: 4 energía");
+    expect(screen.queryByTestId("unit-list")).not.toBeInTheDocument();
+    // Not picked yet: the pop-up stays, and no moves are on the map
+    expect(screen.getByTestId("action-popup")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Qué hace Motorizado" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Qué hace Motorizado" }));
     expect(screen.queryByTestId("action-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("unit-list")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Qué hace Motorizado" }));
+    fireEvent.click(within(screen.getByTestId("action-panel")).getByRole("button", { name: "Elegir esta acción" }));
+    expect(screen.queryByTestId("action-popup")).not.toBeInTheDocument();
+    // Picked: its moves are on the map, with the buttons of a picked action
+    expect(within(screen.getByTestId("action-panel")).getByRole("button", { name: "Otra acción" })).toBeInTheDocument();
   });
 
   it("shows the action picked as a card over the unit list while its moves are on the map, then the list again", () => {
@@ -451,7 +476,7 @@ describe("OrdersView action pop-up and card", () => {
       </SettingsContext.Provider>
     );
     fireEvent.click(container.querySelector(`[data-position="${LEFT_A.row}-${LEFT_A.col}"]`)!);
-    expect(within(screen.getByRole("list", { name: "Actions" })).getByRole("button", { name: /^Take Cover/ })).toHaveTextContent("1 energy");
+    expect(within(screen.getByRole("list", { name: "Actions" })).getByRole("button", { name: "Take Cover 1 energy" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^Move Out/ }));
     expect(within(screen.getByTestId("action-panel")).getByTestId("action-cost")).toHaveTextContent("Costs: 1 energy");
   });
