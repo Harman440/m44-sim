@@ -224,7 +224,7 @@ Done as one commit: the hand, card picking, coins, markers and the end of the tu
 ## Part 5: Finish
 
 ### R16: Docs
-- [ ] `ARCHITECTURE.md` (the actions game and its modules, without the card game), the rule book checked against the code, the README, and CLAUDE.md's code map (Cards, decks, sections). Tick off the "Rework" in `myNextPlan.md`
+- [x] `ARCHITECTURE.md` (the actions game and its modules, without the card game), the rule book checked against the code, the README, and CLAUDE.md's code map (Cards, decks, sections). Tick off the "Rework" in `myNextPlan.md`
 
 ### R17: A test game, then merge
 - [ ] A pass and play match, a game against the computer and a turn on two tablets, at 1280×800 and 800×1280 with touch, in Spanish and English. Retune the costs, starting supplies and cooldown, which are all in the data files

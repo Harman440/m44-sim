@@ -32,16 +32,16 @@ Every push to `main` publishes to GitHub Pages at https://harman440.github.io/m4
   - `GameSession` (`gameSession.ts`): one player's game and the **only place game rules run**. Actions return `false` and change nothing when not allowed; each change publishes an immutable `GameSnapshot`.
   - `PassAndPlayMatch` (`passAndPlay.ts`): both sides on one device, one `GameSession` per side; simultaneous movement in `simultaneousMove.ts`, winning in `victory.ts`.
   - `ai/`: the computer player for pass and play (`aiStep`, `Brain`, `standardBrain`; `selfPlay.ts` for tests).
-  - Rules as pure functions: `orderRules.ts` (applying a command card), `markerRules.ts`, `turnSummary.ts` (firing order), `fireRules.ts` (the dice questionnaire), `fireTargets.ts` (range, line of sight), `rollResult.ts`, `coins.ts`, `dice.ts`.
-  - Board: `BoardManager` (grid, pathfinding), `Hex`, `Unit`, `Order`, `Deck`, `position.ts` (`samePosition`, `positionKey`, `includesPosition`: use them rather than comparing rows and columns by hand).
-  - Cards: `commandCard.ts`, `combatCard.ts` (the card types and their rules as data).
+  - Rules as pure functions: `orderRules.ts` (orderable units, move limits), `actionRules.ts` (which action a unit can be given, fire options), `unitSupplies.ts`, `luck.ts`, `markerRules.ts`, `turnSummary.ts` (firing order), `fireRules.ts` (the dice questionnaire), `fireTargets.ts` (range, line of sight), `rollResult.ts`, `coins.ts`, `dice.ts`.
+  - Board: `BoardManager` (grid, pathfinding), `Hex`, `Unit`, `Order`, `position.ts` (`samePosition`, `positionKey`, `includesPosition`: use them rather than comparing rows and columns by hand).
+  - Actions and cards: `unitAction.ts` (the action and fire option types), `actionCard.ts` (the command cards, cooldown, a side's cards and costs).
   - Files: `saveGame.ts` (saves), `turnLog.ts`, `scenarioFile.ts` (scenario JSON, `validateScenario`, `parseScenario`, `scenarioFile.schema.json`), `scenarioDraft.ts` (the map editor's edits).
-- `src/data/`: scenarios (`scenarios.ts` built-ins, then `data/catalog/<id>.json` with art in `assets/scenarios/<id>.webp`), the decks (`commandCards.ts`, `combatCards.ts`), `ruleBook.ts`, `figures.ts`, `coinRules.ts`. Where each rule lives:
+- `src/data/`: scenarios (`scenarios.ts` built-ins, then `data/catalog/<id>.json` with art in `assets/scenarios/<id>.webp`), the actions and fire options (`unitActions.ts`), the supplies (`unitSupplies.ts`), the command cards (`actionCards.ts`), `ruleBook.ts`, `figures.ts`, `coinRules.ts`. Where each rule lives:
   - **`fireQuestions.ts`: the firing situations** (questions, dice effects, terrain dice tables, collision dice). Add new situations there.
   - **`hitRules.ts`: what each die face does to a target.**
   - **`terrain.ts`: what each terrain does** (`TERRAIN`); a new terrain also needs its labels and its art in `scripts/compose-board.mjs`.
 - `src/boardArt/`: board art shared by the app and `npm run board`.
-- `src/components/`: rendering. `mainComponents/GameView.tsx` shows one view per phase from `GameViews/`; pass and play is `MatchView`; the map editor is `mapEditor/`; the SVG board is `Board` → `Hexagon` → `UnitComponent`; cards are `CommandCardComponent`/`CombatCardComponent` with `CardArt`.
+- `src/components/`: rendering. `mainComponents/GameView.tsx` shows one view per phase from `GameViews/`; pass and play is `MatchView`; the map editor is `mapEditor/`; the SVG board is `Board` → `Hexagon` → `UnitComponent`; command cards are `ActionCardComponent`; the orders screen's `UnitList`, `ActionPopup` and `ActionPanel`.
 - `src/App.tsx`: the menu, starting and resuming games, Mis mapas. `src/storage.ts`: everything kept in `localStorage`.
 - `src/labels/` (enum and object names per language), `src/i18n/` (languages, `Localized`), `src/looks/` (the three looks and the MUI theme), `src/settings.ts`, `src/sound.ts`, `src/types/`.
 

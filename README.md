@@ -3,15 +3,15 @@
 A companion web app for playing [Memoir '44](https://www.daysofwonder.com/memoir44/) with **simultaneous turns**, using a loose house variant rather than the official rules. Each player runs the app on their own device, a desktop browser or an Android tablet, next to the physical board.
 
 Each turn:
-1. **Carta:** pick a command card from your hand.
-2. **Órdenes:** order the units that card activates on a digital copy of the map: move them (with the path drawn as an arrow) or hold and fire. Then confirm.
-3. **Batalla:** the map is hidden, because the battle is played on the physical table. The screen shows a summary of this turn's orders and a dice roller:
-   - "Disparar" on a unit asks about the situation (distance, the target's terrain) and works out how many dice to roll, or takes the number straight away ("Tirada rápida"). The roll is final; only a confirmed "Anular disparo" takes it back.
-   - "Ver mapa" brings the map back to record casualties and retreats so the app matches the table.
+1. **Carta:** play one of your side's command cards, paid with supplies, or none. A card played waits a few turns before it can be played again.
+2. **Órdenes:** give each unit an action on a digital copy of the map (move, fire, reload, fortify…), paid from its own supplies: morale, energy, ammo and equipment for infantry, fuel and shells for armour and artillery. A unit with no action rests. Then confirm.
+3. **Batalla:** the map is hidden, because the battle is played on the physical table. The screen lists the units that fire, in order:
+   - Tapping a unit picks its fire option, then its target on the map, and works out how many dice to roll. The roll is final; only a confirmed "Anular disparo" takes it back.
+   - "Ver mapa" shows the map; after the battle, "Actualizar mapa" records casualties and retreats so the app matches the table.
 
 "Ajustes" (Settings) on the start menu picks the language, one of three looks (field map, board-game box or command tent) and turns sound effects on or off.
 
-Two other ways to play, with no physical board: **Pasar y jugar** (pass and play), both sides on one device, and **Contra el ordenador** (against the computer), pass and play with the computer as the other side (it plays most combat cards, not yet the movement ones).
+Two other ways to play, with no physical board: **Pasar y jugar** (pass and play), both sides on one device, and **Contra el ordenador** (against the computer), pass and play with the computer as the other side (it plays the command cards, picks each unit's action and each shot's fire option).
 
 The UI is in Spanish and English. It starts in the browser's language (Spanish for any Spanish locale, English otherwise), and the choice in Settings is remembered per device. Each player picks their own, so two players can play in different languages.
 
@@ -60,13 +60,14 @@ Saved games belong to the address they were played on: a game saved on one addre
 
 ## Project layout
 
-- `src/game-core/`: game logic in plain TypeScript: board and pathfinding, units, cards, `GameSession` (the turn flow), dice and the fire-dice engine
-- `src/data/`: scenarios, command cards, and `fireQuestions.ts` (the firing situations and their dice effects, the place to tune house rules)
+- `src/game-core/`: game logic in plain TypeScript: board and pathfinding, units and their actions and supplies, command cards, `GameSession` (the turn flow), dice and the fire-dice engine
+- `src/data/`: scenarios, the units' actions and supplies, command cards, and `fireQuestions.ts` (the firing situations and their dice effects, the place to tune house rules)
 - `src/components/`: React + MUI UI; the board is an SVG
-- `src/i18n/` and `src/labels/`: the two languages: the language setting and hooks, and the names of game things (units, terrain, sections…) in each language
+- `src/i18n/` and `src/labels/`: the two languages: the language setting and hooks, and the names of game things (units, terrain, supplies…) in each language
 - `docs/PLAN.md`: roadmap and known issues
 - `docs/PASS_AND_PLAY_NEXT.md`: what's left of pass and play
 - `docs/PLAY_THE_COMPUTER.md`: playing against the computer
+- `docs/ACTIONS_PLAN.md`: the actions game, which replaced the card game
 - `docs/oldPlans/`: the finished plans
 - `CLAUDE.md`: conventions for working on the code, and a map of it
 - `docs/ARCHITECTURE.md`: what each module does, in detail

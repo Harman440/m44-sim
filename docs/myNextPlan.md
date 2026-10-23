@@ -30,12 +30,12 @@
 
 - collision are very buggy: I need more info. Improve interactions so this the bug is shown better
 
-- Rework to Card playing:
+- ~~Rework to Card playing~~ (dropped: the actions game has no sections, docs/ACTIONS_PLAN.md R0):
     - The scenario is divded into two side or if bigger more sections. each section has to be atleat 7 hexes.
     - Follow House rules for overload for now
 
 
-- Rework:
+- [x] Rework (built: [ACTIONS_PLAN.md](ACTIONS_PLAN.md)):
  - You order all units: To make it easier there can be to the right a list of all units to the left of the map. 
     The player can click on them one by one, the map zooms a little to the unit and the player can then do an action with that unit. The player can still select directly from the map
  - All command cards and combat cards will be named command cards and dont have to be played
