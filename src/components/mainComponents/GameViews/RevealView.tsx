@@ -16,6 +16,7 @@ import { defineMessages, useLabels, useMessages } from "../../../i18n/useI18n";
 import "../GameView.css";
 import "./PhaseLayout.css";
 import MedalTally from "../../MedalTally";
+import { PAINTINGS } from "../../cardPaintings";
 
 const TEXT = defineMessages({
   es: {
@@ -136,6 +137,16 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
             <div className="phase-layout__controls">
               {moved ? (
                 <>
+                  {/* Units that collide fight it out at close quarters: the Close Assault painting heads the column */}
+                  {moved.collisions.length > 0 && (
+                    <Box
+                      component="img"
+                      src={PAINTINGS["close-assault"]}
+                      alt=""
+                      data-testid="collision-painting"
+                      sx={{ display: "block", width: "100%", aspectRatio: "3 / 2", objectFit: "contain", borderRadius: 1, bgcolor: "var(--m44-paper-alt)" }}
+                    />
+                  )}
                   <Typography variant="h6" component="h1" sx={{ textAlign: "center" }}>
                     {t.moved(turn)}
                   </Typography>
