@@ -119,6 +119,36 @@ describe("MapEditor", () => {
     expect(savedDraft().tiles).toEqual({});
   });
 
+  it("drops a stroke that a second finger turns into a pinch, with nothing to redo", () => {
+    render(<Editor />);
+    const board = screen.getByLabelText("Mapa");
+
+    tool("Bosque");
+    fireEvent.pointerDown(hex("4-4"), { pointerId: 1, isPrimary: true });
+    expect(savedDraft().tiles).toEqual({ forest: [{ row: 4, col: 4 }] });
+    fireEvent.pointerDown(hex("4-6"), { pointerId: 2, isPrimary: false });
+    fireEvent.pointerUp(board, { pointerId: 2 });
+    fireEvent.pointerUp(board, { pointerId: 1 });
+
+    expect(savedDraft().tiles).toEqual({});
+    expect(screen.getByRole("button", { name: "Rehacer" })).toBeDisabled();
+  });
+
+  it("moves the map instead of painting while ✥ is on", () => {
+    render(<Editor />);
+    tool("Bosque");
+    const move = screen.getByRole("button", { name: "Mover el mapa: desliza un dedo para ver el resto" });
+
+    fireEvent.click(move);
+    expect(move).toHaveAttribute("aria-pressed", "true");
+    tap("4-4");
+    expect(savedDraft()).toBeUndefined();
+
+    fireEvent.click(move);
+    tap("4-4");
+    expect(savedDraft().tiles).toEqual({ forest: [{ row: 4, col: 4 }] });
+  });
+
   it("puts each side's objectives on the map, and sets the victory in the scenario's details", async () => {
     render(<Editor />);
     tool("Objetivo (Aliados)");

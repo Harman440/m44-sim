@@ -110,11 +110,15 @@ function useLandscape(): boolean {
  * first: every zoom also works with single taps). A drag doesn't count as a
  * tap on a hex. Spread `handlers` on the element around the SVG.
  *
+ * Two fingers pan as they pinch. Without `dragPans`, one finger never pans (the map editor's
+ * finger paints): only two fingers do, or one once `dragPans` is turned on. With `startsWhole`,
+ * it starts with the whole board in sight, not cropped to the box, until the player zooms or pans.
+ *
  * In landscape the game screens give the SVG a box of its own (CSS): unzoomed, the board fills
  * it, cropped to its shape, and zooming out shows the whole board. Elsewhere the SVG takes the
  * board's shape and unzoomed is the whole board.
  */
-export function useBoardZoom(full: ViewRect, enabled: boolean) {
+export function useBoardZoom(full: ViewRect, enabled: boolean, dragPans = true, startsWhole = false) {
   const middle = { scale: 1, cx: full.x + full.width / 2, cy: full.y + full.height / 2 };
   const [zoom, setZoom] = useState<Zoom>(middle);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -122,6 +126,8 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
   const start = useRef<{ x: number; y: number } | null>(null);
   const pinch = useRef<number | null>(null);
   const dragged = useRef(false);
+  /** The player hasn't zoomed or panned this board yet */
+  const untouched = useRef(true);
   const fullRef = useRef(full);
   fullRef.current = full;
   const landscape = useLandscape();
@@ -133,8 +139,13 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
   const fullKey = `${full.x} ${full.y} ${full.width} ${full.height}`;
   useEffect(() => {
     const f = fullRef.current;
+    untouched.current = true;
     setZoom({ scale: 1, cx: f.x + f.width / 2, cy: f.y + f.height / 2 });
   }, [fullKey]);
+  // …or, with `startsWhole`, zoomed out to the whole board once the box is measured
+  useEffect(() => {
+    if (startsWhole && untouched.current) setZoom((current) => ({ ...current, scale: minScale(fullRef.current, aspect) }));
+  }, [startsWhole, aspect, fullKey]);
 
   const view = enabled ? zoomedView(full, zoom, aspect) : full;
   // Some of the board is out of sight: a drag pans to it
@@ -151,7 +162,8 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
   }, []);
 
   const zoomAt = useCallback(
-    (factor: number, clientX?: number, clientY?: number) =>
+    (factor: number, clientX?: number, clientY?: number) => {
+      untouched.current = false;
       setZoom((current) => {
         const f = fullRef.current;
         const a = aspectRef.current;
@@ -161,7 +173,8 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
             ? { x: shown.x + shown.width / 2, y: shown.y + shown.height / 2 }
             : toSvg(clientX, clientY, shown);
         return zoomAround(f, current, factor, point.x, point.y, a);
-      }),
+      });
+    },
     [toSvg]
   );
 
@@ -182,6 +195,20 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
   };
 
+  /** Moves what's shown by a drag of (dx, dy) screen pixels, kept inside the board */
+  const panBy = (dx: number, dy: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    untouched.current = false;
+    setZoom((current) => {
+      const a = aspectRef.current;
+      const shown = zoomedView(fullRef.current, current, a);
+      const moved = { ...current, cx: shown.x + shown.width / 2 - (dx / rect.width) * shown.width, cy: shown.y + shown.height / 2 - (dy / rect.height) * shown.height };
+      const kept = zoomedView(fullRef.current, moved, a);
+      return { ...moved, cx: kept.x + kept.width / 2, cy: kept.y + kept.height / 2 };
+    });
+  };
+
   const onPointerDown = (event: React.PointerEvent) => {
     if (pointers.current.size === 0) dragged.current = false;
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -200,24 +227,16 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
       dragged.current = true;
       if (now > 0) zoomAt(now / pinch.current, (a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
       pinch.current = now;
+      // The fingers' middle moved half as far as this one
+      panBy((event.clientX - last.x) / 2, (event.clientY - last.y) / 2);
       return;
     }
-    if (pointers.current.size !== 1 || !pannable || !start.current) return;
+    if (pointers.current.size !== 1 || !pannable || !dragPans || !start.current) return;
     if (!dragged.current && Math.hypot(event.clientX - start.current.x, event.clientY - start.current.y) < DRAG_THRESHOLD) return;
     // Only a real drag captures the pointer: a tap's click must still reach its hex
     if (!dragged.current) (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
     dragged.current = true;
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    const dx = event.clientX - last.x;
-    const dy = event.clientY - last.y;
-    setZoom((current) => {
-      const a = aspectRef.current;
-      const shown = zoomedView(fullRef.current, current, a);
-      const moved = { ...current, cx: shown.x + shown.width / 2 - (dx / rect.width) * shown.width, cy: shown.y + shown.height / 2 - (dy / rect.height) * shown.height };
-      const kept = zoomedView(fullRef.current, moved, a);
-      return { ...moved, cx: kept.x + kept.width / 2, cy: kept.y + kept.height / 2 };
-    });
+    panBy(event.clientX - last.x, event.clientY - last.y);
   };
 
   const onPointerEnd = (event: React.PointerEvent) => {
@@ -246,12 +265,14 @@ export function useBoardZoom(full: ViewRect, enabled: boolean) {
     zoomIn: () => zoomAt(ZOOM_STEP),
     zoomOut: () => zoomAt(1 / ZOOM_STEP),
     /** Center the view on an SVG point, zoomed in at least `FOCUS_ZOOM` (never out) */
-    focusOn: (x: number, y: number) =>
+    focusOn: (x: number, y: number) => {
+      untouched.current = false;
       setZoom((current) => {
         const f = fullRef.current;
         const shown = zoomedView(f, { scale: Math.max(current.scale, FOCUS_ZOOM), cx: x, cy: y }, aspectRef.current);
         return { scale: Math.max(current.scale, FOCUS_ZOOM), cx: shown.x + shown.width / 2, cy: shown.y + shown.height / 2 };
-      }),
+      });
+    },
     /** The whole board in sight */
     reset: () => setZoom({ ...middle, scale: minScale(full, aspect) }),
     handlers: enabled

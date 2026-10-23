@@ -540,6 +540,13 @@ export function undoStep(history: DraftHistory): DraftHistory {
   return { past: history.past.slice(0, -1), present: previous, future: [history.present, ...history.future] };
 }
 
+/** The last step taken back with nothing to redo: a stroke the finger turned into a pinch */
+export function dropStep(history: DraftHistory): DraftHistory {
+  const previous = history.past.at(-1);
+  if (!previous) return history;
+  return { past: history.past.slice(0, -1), present: previous, future: [] };
+}
+
 export function redoStep(history: DraftHistory): DraftHistory {
   const [next, ...future] = history.future;
   if (!next) return history;

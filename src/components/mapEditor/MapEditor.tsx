@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { PointerEvent } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Button, IconButton, Stack, Typography } from "@mui/material";
 import Board from "../Board";
 import BoardManager from "../../game-core/BoardManager";
 import { PickedTile, Position, Scenario, Tiles } from "../../types/scenario";
@@ -15,6 +15,7 @@ import {
   isBlank,
   recordStep,
   redoStep,
+  dropStep,
   startHistory,
   strokeOf,
   undoStep,
@@ -49,6 +50,7 @@ const TEXT = defineMessages({
     finished: "Ver el mapa terminado",
     plain: "Volver al mapa sencillo",
     map: "Mapa",
+    move: "Mover el mapa: desliza un dedo para ver el resto",
     onWater: "No puede ir en un río ni en un lago.",
     noUnit: "Ahí no hay ninguna unidad.",
     side: (side: string, infantry: number, tanks: number, artillery: number) =>
@@ -59,6 +61,7 @@ const TEXT = defineMessages({
     instructions: "Instrucciones",
     help: [
       "Elige una herramienta y toca las casillas del mapa. El mapa se ve desde el lado de los Aliados: el Eje empieza arriba.",
+      "Zoom: los botones + y − sobre el mapa, la rueda del ratón, o separar y juntar dos dedos; con dos dedos también se mueve el mapa. Con ✥ activado, un dedo mueve el mapa en vez de pintar.",
       "Terreno: toca una casilla para pintarla, y otra vez para dejarla en llano. Desliza el dedo para pintar varias. Los ríos y lagos se unen solos con los de al lado; un puente es un río que se puede cruzar.",
       "Unidades: toca una casilla para poner la unidad, y otra vez para quitarla. No pueden ir en el agua.",
       "Marcas: De élite y Sacos terreros van sobre una unidad; la alambrada, en cualquier casilla de tierra. Borrar deja la casilla vacía.",
@@ -79,6 +82,7 @@ const TEXT = defineMessages({
     finished: "Show the finished map",
     plain: "Back to the plain map",
     map: "Map",
+    move: "Move the map: slide a finger to see the rest of it",
     onWater: "It can't go on a river or a lake.",
     noUnit: "There's no unit there.",
     side: (side: string, infantry: number, tanks: number, artillery: number) =>
@@ -89,6 +93,7 @@ const TEXT = defineMessages({
     instructions: "Instructions",
     help: [
       "Pick a tool and tap the hexes on the map. The map is seen from the Allies' side: the Axis starts at the top.",
+      "Zoom: the + and − buttons on the map, the mouse wheel, or two fingers apart and together; two fingers also move the map. With ✥ turned on, one finger moves it instead of painting.",
       "Terrain: tap a hex to paint it, and again to leave it as plains. Slide your finger to paint several. Rivers and lakes join up with the ones next to them on their own; a bridge is a river that can be crossed.",
       "Units: tap a hex to put the unit there, and again to take it off. They can't go on water.",
       "Marks: Elite and Sandbags go on a unit; barbed wire on any land hex. Clear empties the hex.",
@@ -101,7 +106,12 @@ const TEXT = defineMessages({
   },
 });
 
-type Action = { kind: "edit"; next: Scenario; amend: boolean } | { kind: "undo" } | { kind: "redo" } | { kind: "start"; draft: Scenario };
+type Action =
+  | { kind: "edit"; next: Scenario; amend: boolean }
+  | { kind: "undo" }
+  | { kind: "redo" }
+  | { kind: "drop" }
+  | { kind: "start"; draft: Scenario };
 
 /** The objectives drawn on the map, each medal solid in its side's colour */
 function victoryOnMap(draft: Scenario): VictoryInfo | null {
@@ -120,6 +130,8 @@ const reducer = (history: DraftHistory, action: Action): DraftHistory => {
       return undoStep(history);
     case "redo":
       return redoStep(history);
+    case "drop":
+      return dropStep(history);
     case "start":
       return startHistory(action.draft);
   }
@@ -192,6 +204,8 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
   const [finished, setFinished] = useState(false);
+  // One finger moves the zoomed map instead of painting
+  const [moving, setMoving] = useState(false);
   const { flash, flashInvalid, flashHexes } = useHexFlash();
   const size = boardSizeOf(draft);
   const art = useBoardArt(draft.tiles, size, finished, draft.pickedTiles);
@@ -213,6 +227,8 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
   const latest = useRef(draft);
   latest.current = draft;
   const stroke = useRef<(Stroke & { done: Set<string>; recorded: boolean }) | null>(null);
+  // The fingers on the board: a second one makes the stroke a pinch, which zooms (Board) instead
+  const fingers = useRef(new Set<number>());
 
   const applyAt = (position: Position) => {
     const current = stroke.current;
@@ -233,6 +249,17 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
 
   const handlePointerDown = (event: PointerEvent) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    // The first finger down starts afresh, in case a finger's lift was missed
+    if (event.isPrimary) fingers.current.clear();
+    fingers.current.add(event.pointerId);
+    if (fingers.current.size > 1) {
+      // The stroke's first finger was the start of a pinch: what it painted goes
+      if (stroke.current?.recorded) dispatch({ kind: "drop" });
+      stroke.current = null;
+      setProblem(null);
+      return;
+    }
+    if (moving) return;
     const position = hexAt(event.target as Element);
     if (!position) return;
     event.preventDefault();
@@ -244,7 +271,8 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
     const position = hexAt(document.elementFromPoint(event.clientX, event.clientY));
     if (position) applyAt(position);
   };
-  const endStroke = () => {
+  const endStroke = (event: PointerEvent) => {
+    fingers.current.delete(event.pointerId);
     stroke.current = null;
   };
 
@@ -318,6 +346,21 @@ function MapEditor({ map, scenarios, onExit }: MapEditorProps) {
               invalidFlash={flash}
               faction="Allies"
               unitFactionAt={(position) => unitAt(draft, position)?.faction ?? "Allies"}
+              zoomable
+              startsWhole
+              dragPans={moving}
+              zoomTools={
+                <IconButton
+                  className="board__zoom-button"
+                  aria-label={t.move}
+                  title={t.move}
+                  aria-pressed={moving}
+                  onClick={() => setMoving((on) => !on)}
+                  sx={moving ? { bgcolor: "action.selected", outline: "3px solid", outlineColor: "primary.main" } : undefined}
+                >
+                  ✥
+                </IconButton>
+              }
             />
           </VictoryContext.Provider>
         </div>

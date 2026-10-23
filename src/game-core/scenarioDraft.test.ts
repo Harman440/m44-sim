@@ -5,6 +5,7 @@ import {
   copyDraft,
   defaultParadrop,
   draftCounts,
+  dropStep,
   isBlank,
   isProvisionalId,
   mapIdFor,
@@ -468,6 +469,13 @@ describe("undo and redo", () => {
     expect(stroke.past).toEqual([empty()]);
     expect(undoStep(stroke).present).toEqual(empty());
     expect(recordStep(undoStep(stroke), one).future).toEqual([]);
+  });
+
+  it("drops a stroke turned into a pinch, leaving nothing to redo", () => {
+    const stroke = recordStep(recordStep(startHistory(empty()), one), two, true);
+
+    expect(dropStep(stroke)).toEqual(startHistory(empty()));
+    expect(dropStep(startHistory(empty()))).toEqual(startHistory(empty()));
   });
 
   it("keeps no step that changes nothing, and at most the last steps", () => {

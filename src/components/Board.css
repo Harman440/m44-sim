@@ -145,7 +145,7 @@
   touch-action: none;
 }
 
-.board--zoomed .board__svg {
+.board--grab .board__svg {
   cursor: grab;
 }
 

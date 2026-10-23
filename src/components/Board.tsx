@@ -114,6 +114,12 @@ interface BoardProps {
    * the same hex. Needs `zoomable`
    */
   zoomOn?: { position: Position; request: number } | null;
+  /** Off, one finger doesn't pan the zoomed board (it paints, in the map editor): two fingers do */
+  dragPans?: boolean;
+  /** Start with the whole board in sight, not cropped to the box (the map editor) */
+  startsWhole?: boolean;
+  /** More buttons under the zoom buttons */
+  zoomTools?: React.ReactNode;
   /** What this side's units lost or gained this turn (morale, ammo, luck): a pill under each. Never the other army's */
   changes?: readonly UnitChange[];
   /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
@@ -183,6 +189,9 @@ function Board({
   atStart = false,
   zoomable = false,
   zoomOn = null,
+  dragPans = true,
+  startsWhole = false,
+  zoomTools,
   onViewChange,
   changes = []
 }: BoardProps) {
@@ -627,7 +636,7 @@ function Board({
     viewHeight = bottom - top;
   }
 
-  const zoom = useBoardZoom({ x: viewX, y: viewY, width: viewWidth, height: viewHeight }, zoomable);
+  const zoom = useBoardZoom({ x: viewX, y: viewY, width: viewWidth, height: viewHeight }, zoomable, dragPans, startsWhole);
   const shown = zoom.view;
   const { focusOn } = zoom;
   const zoomRequest = zoomOn?.request;
@@ -642,7 +651,7 @@ function Board({
   }, [shown.x, shown.y, shown.width, shown.height]);
 
   return (
-    <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.pannable ? ' board--zoomed' : ''}`} {...zoom.handlers}>
+    <div className={`board${zoomable ? ' board--zoomable' : ''}${zoom.pannable ? ' board--zoomed' : ''}${zoom.pannable && dragPans ? ' board--grab' : ''}`} {...zoom.handlers}>
       {/* viewBox + CSS width lets the board scale down to fit tablets; zooming narrows the viewBox */}
       <svg
         ref={zoom.svgRef}
@@ -707,6 +716,7 @@ function Board({
           <IconButton className="board__zoom-button" aria-label={t.fit} title={t.fit} disabled={!zoom.canZoomOut} onClick={zoom.reset}>
             ⤢
           </IconButton>
+          {zoomTools}
         </div>
       )}
     </div>
