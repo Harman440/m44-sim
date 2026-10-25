@@ -18,6 +18,12 @@ const playBasic = (scenario: Scenario, seed: number, turns: number, brain: Brain
   return playOut(scenario, { Allies: brain, Axis: brain }, random, turns);
 };
 
+/**
+ * The per-scenario games below: 20 turns each, which take longer the bigger the map and the more
+ * units on it (Sword Beach, 31×21 with 75 units, nears the default 20 s on a CI runner)
+ */
+const WHOLE_GAMES_TIMEOUT = 90_000;
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -30,7 +36,7 @@ describe("the computer against itself", () => {
         // Each side has finished turns
         expect(FACTIONS.every((side) => match.sessions[side].getSnapshot().log.length > 0)).toBe(true);
       }
-    });
+    }, WHOLE_GAMES_TIMEOUT);
   }
 
   for (const scenario of scenarios) {
@@ -40,7 +46,7 @@ describe("the computer against itself", () => {
       const match = playOut(scenario, { Allies: standardBrain, Axis: standardBrain }, random, 20, { fog: true });
       expect(match.fog).toBe(true);
       expect(FACTIONS.every((side) => match.sessions[side].getSnapshot().log.length > 0)).toBe(true);
-    });
+    }, WHOLE_GAMES_TIMEOUT);
   }
 
   it("plays a bigger map, grown at every edge, to the end", () => {
@@ -60,7 +66,7 @@ describe("the computer against itself", () => {
         const match = playBasic(scenario, seed, 20, standardBrain);
         expect(FACTIONS.every((side) => match.sessions[side].getSnapshot().log.length > 0)).toBe(true);
       }
-    });
+    }, WHOLE_GAMES_TIMEOUT);
   }
 
   it("fights: shots are fired and units are lost", () => {
