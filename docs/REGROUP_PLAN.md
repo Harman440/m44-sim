@@ -52,11 +52,11 @@ Today `GameSession.hits` is one number per unit and `data/figures.ts` works the 
 - [x] Tests in `gameSessionEffects.test.ts` and `passAndPlay.test.ts`: costs, both units idle, no medal, supplies, the save round trip
 
 ## Step R4: Regroup, the screen
-- [ ] `ActionPopup`: Regroup appears with the other actions (greyed with its reason when it can't be given). Picking it highlights the possible partners on the map, as moves are highlighted; tapping one gives the order (one tap; 48px targets)
-- [ ] `ActionPanel` shows the Regroup card and which unit joins; `UnitList` marks the partner "Se une a …" / "Joining …" and doesn't offer it actions; the map draws a short arrow from B to A (`OrderToken`)
-- [ ] `RevealView` shows the regroup; a B that left the board disappears with the reveal
-- [ ] Every new string in both languages (`defineMessages`, labels)
-- [ ] Check at 1280×800 landscape in English, desktop and tablet touch
+- [x] `ActionPopup`: Regroup appears with the other actions (greyed with its reason when it can't be given). Picking it highlights the possible partners on the map, as moves are highlighted; tapping one gives the order (one tap; 48px targets)
+- [x] `ActionPanel` shows the Regroup card and which unit joins; `UnitList` marks the partner "Se une a: …" / "Joins: …" and doesn't offer it actions; the map draws an arrow from B to A (`OrderComponent`)
+- [x] `RevealView` shows the regroup; a B that left the board disappears with the reveal
+- [x] Every new string in both languages (`defineMessages`, labels)
+- [x] Check at 1280×800 landscape in English, desktop and tablet touch
 
 ## Step R5: The computer regroups
 - [ ] `ai/actionChoice.ts`: a weak unit (lost 2 or more figures) with a weak partner next to it and no good shot where it stands regroups, into the unit on the better ground or further from the enemy; never when the receiver has a good shot. A weight in `scoring.ts`

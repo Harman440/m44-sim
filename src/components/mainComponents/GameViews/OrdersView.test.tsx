@@ -481,3 +481,50 @@ describe("OrdersView action pop-up and card", () => {
     expect(within(screen.getByTestId("action-panel")).getByTestId("action-cost")).toHaveTextContent("Costs: 1 energy");
   });
 });
+
+describe("OrdersView Regroup", () => {
+  const NEXT: Position = { row: 7, col: 2 };
+  const setupRegroup = () => {
+    const session = new GameSession({
+      scenario: {
+        id: "test",
+        name: same("Test"),
+        description: same(""),
+        attacker: "Allies",
+        tiles: {},
+        units: { allies: { infantry: [LEFT_A, NEXT, RIGHT] }, axis: {} },
+      },
+      faction: "Allies",
+      figures: true,
+    });
+    session.pickCard(null);
+    session.sufferHits(LEFT_A, 2, 0);
+    const { container } = render(<Harness session={session} />);
+    const tap = (p: Position) => fireEvent.click(container.querySelector(`[data-position="${p.row}-${p.col}"]`)!);
+    return { session, tap };
+  };
+
+  it("lights up the units that could join, and gives the order when one is tapped", () => {
+    const { session, tap } = setupRegroup();
+    tap(LEFT_A);
+    pickAction("Reagrupar");
+    expect(screen.getByText("Toca la unidad que se une")).toBeInTheDocument();
+    // A unit far away isn't one of them
+    tap(RIGHT);
+    expect(session.getSnapshot().orders).toHaveLength(0);
+
+    tap(LEFT_A);
+    pickAction("Reagrupar");
+    tap(NEXT);
+    expect(session.getSnapshot().orders[0]).toMatchObject({ action: "infantry:regroup", partner: NEXT });
+    expect(screen.getByTestId("unit-list")).toHaveTextContent("Se une a");
+  });
+
+  it("goes back to the actions from Otra acción", () => {
+    const { tap } = setupRegroup();
+    tap(LEFT_A);
+    pickAction("Reagrupar");
+    fireEvent.click(screen.getByRole("button", { name: "Otra acción" }));
+    expect(screen.queryByText("Toca la unidad que se une")).not.toBeInTheDocument();
+  });
+});
