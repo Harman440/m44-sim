@@ -38,7 +38,12 @@ export interface MoveChoice {
  * The action a unit is given for the move the brain chose: a named action to a hex, "rest" for no
  * order at all, or null for the plain action of the move (`issueOrder`: Firefight, Assault, Move Out…)
  */
-export type ActionChoice = { action: string; to: Position } | "rest" | null;
+/**
+ * The action for a unit, or "rest", or null for the plain action for its move. Regroup names the
+ * unit that takes the figures (`receiver`, the unit being ordered or one next to it) and the one
+ * that gives them (`partner`)
+ */
+export type ActionChoice = { action: string; to: Position; partner?: Position; receiver?: Position } | "rest" | null;
 
 /** The decisions a computer player makes; each returns an allowed option, or null to pass */
 export interface Brain {
@@ -148,7 +153,8 @@ function orderStep(view: AiView, brain: Brain): boolean {
     const { to } = brain.moveFor(view, from);
     const choice = brain.actionFor?.(view, from, to) ?? null;
     if (choice === "rest") continue;
-    if (choice && session.giveAction(from, choice.action, choice.to)) return true;
+    if (choice?.partner && session.giveRegroup(choice.receiver ?? from, choice.partner)) return true;
+    if (choice && !choice.partner && session.giveAction(from, choice.action, choice.to)) return true;
     if (session.issueOrder(from, to) || session.issueOrder(from, from)) return true;
   }
   return session.commitOrders();

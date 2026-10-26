@@ -59,9 +59,9 @@ Today `GameSession.hits` is one number per unit and `data/figures.ts` works the 
 - [x] Check at 1280×800 landscape in English, desktop and tablet touch
 
 ## Step R5: The computer regroups
-- [ ] `ai/actionChoice.ts`: a weak unit (lost 2 or more figures) with a weak partner next to it and no good shot where it stands regroups, into the unit on the better ground or further from the enemy; never when the receiver has a good shot. A weight in `scoring.ts`
-- [ ] `aiStep.ts` gives the order through `giveRegroup`
-- [ ] Tests: `actionChoice.test.ts` picks Regroup in the plain case and not with a good shot; a `selfPlay` run where regroups happen and every one is legal
+- [x] `ai/actionChoice.ts` (`regroupWith`): a unit the brain wants to hold, that has lost 2 or more figures (`REGROUP_LOSS`), and a weakened unit of its type next to it whose figures fit in one unit: the bigger takes the smaller's (whichever of the two is being ordered), when the receiver has no good shot where it stands, or always when the smaller is down to 2 figures (`REGROUP_SAVES_MEDAL`: a medal about to be lost)
+- [x] `aiStep.ts`: `ActionChoice` carries the `partner` and the `receiver`, given through `giveRegroup`
+- [x] Tests: `actionChoice.test.ts` (the pairs, the bigger unit taking the smaller, units left alone); a seeded self-play game in `standardBrain.test.ts` where a regroup happens and the smaller unit leaves the map
 
 ## Step R6: Write it down
 - [ ] `ruleBook.ts`: the Regroup rule in both languages, numbers from the data files (the costs from `unitActions.ts`, the full figures from `figures.ts`)
