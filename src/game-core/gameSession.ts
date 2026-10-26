@@ -47,13 +47,13 @@ import {
   shotsOf,
 } from "./actionRules";
 import type { FireOption, UnitAction } from "./unitAction";
-import { SupplyCost, TurnSpent, UnitSupplies, amountOf, endOfTurn, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
+import { SupplyCost, TurnSpent, UnitSupplies, amountOf, betterOf, endOfTurn, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
 import { actionById, fireOptionById } from "../data/unitActions";
 import { Supply } from "../data/unitSupplies";
 import { TAKE_COVER_HITS } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
-import { ARTILLERY_CREW_FIGURES, damagedFigures, FIGURES, freshFigures, healFigure, hitsPerFigure, mendFigure, takeHits, type Figures } from "../data/figures";
+import { ARTILLERY_CREW_FIGURES, damagedFigures, FIGURES, freshFigures, healFigure, hitsPerFigure, mendFigure, regroupFigures, takeHits, type Figures } from "../data/figures";
 import type { MarkerRule } from "./actionCard";
 import { ActionCard, ActionCardEffect, HeldCard, cardsOf, isReady, turnsLeft } from "./actionCard";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
@@ -363,12 +363,19 @@ interface GameSessionOptions {
  * or in ORDER_UNITS before any order (`beforeOrders`), when the map turns out
  * not to match the table (a roll changed at the table, a missed retreat)
  */
+/** A unit that left the map by regrouping: the hex of the unit it joined, and the figures it took there */
+export interface Regrouped {
+  into: Position;
+  figures: number;
+}
+
 export type BattleEdit = (
   /**
    * `replacement`: the infantry an artillery's crew leaves behind (the `artilleryCrew` rule);
-   * `sandbags`: the unit's sandbags went with it (a crew left behind keeps them)
+   * `sandbags`: the unit's sandbags went with it (a crew left behind keeps them);
+   * `regrouped`: it wasn't destroyed but gave all its figures to a unit next to it (no medal)
    */
-  | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit; sandbags?: boolean }
+  | { kind: "remove"; position: Position; unit: Unit; replacement?: Unit; sandbags?: boolean; regrouped?: Regrouped }
   /**
    * `unit`: the unit moved, kept so the turn log names it (orders after a fix in Órdenes move units too);
    * `sandbags`: hexes whose sandbags went with the move (the unit left them); `clearedWire`: a tank removed the wire on `to`;
@@ -619,7 +626,44 @@ class GameSession {
       elite: unit.elite,
       sandbags: !!position && !!this.board.getHex(position)?.sandbags,
       camouflaged: this.camouflaged.has(unit),
+      partners: this.figures && !!position && this.partnersOf(unit, position).length > 0,
     });
+  }
+
+  /**
+   * Regroup: the units next to the unit on `position` whose figures it could take: of its type and
+   * elite as it is, with no order of their own and not already giving theirs; infantry with some morale
+   */
+  private partnersOf(unit: Unit, position: Position): Position[] {
+    const hex = this.board.getHex(position);
+    if (!hex) return [];
+    const willing = (other: Unit) =>
+      other.getUnitType() === unit.getUnitType() &&
+      other.elite === unit.elite &&
+      this.orderIndexOf(other) === -1 &&
+      !this.isPartner(other) &&
+      (other.getUnitType() !== UnitType.INFANTRY || amountOf(this.suppliesOf(other), Supply.MORALE) > 0);
+    return hex.getNeighbors().filter((next) => {
+      const other = this.board.getHex(next)?.unit;
+      return !!other && willing(other);
+    });
+  }
+
+  /** Regroup: the unit is giving its figures to a unit next to it this turn, so it gets no order of its own */
+  private isPartner(unit: Unit): boolean {
+    return this.orders.some((order) => !!order.partner && this.board.getHex(order.partner)?.unit === unit);
+  }
+
+  /** Regroup: the units the unit on `position` could take figures from now; none when it can't be given Regroup */
+  regroupPartners(position: Position): Position[] {
+    const found = this.orderableAt(this.board.getHex(position));
+    const action = found && this.regroupAction(found.unit);
+    if (!found || !action || this.refusalOf(found.unit, action) !== null) return [];
+    return this.partnersOf(found.unit, position);
+  }
+
+  private regroupAction(unit: Unit): UnitAction | undefined {
+    return actionsFor(unit.getUnitType(), this.ownTablets).find((action) => action.effect === "regroup");
   }
 
   /** Pass and play: whether the unit has lost a figure (for Medic) and has one hit but not lost (for Mechanic) */
@@ -651,7 +695,7 @@ class GameSession {
    */
   private orderableAt(hex: Hex | null | undefined): { unit: Unit; canMove: boolean } | null {
     const unit = hex?.unit;
-    if (this.phase !== TurnPhase.ORDER_UNITS || !unit) return null;
+    if (this.phase !== TurnPhase.ORDER_UNITS || !unit || this.isPartner(unit)) return null;
     const index = this.orderIndexOf(unit);
     if (index === -1) return { unit, canMove: true };
     const order = this.orders[index]!;
@@ -753,7 +797,8 @@ class GameSession {
     const hex = this.board.getHex(from);
     const found = this.orderableAt(hex);
     const action = actionById(actionId);
-    if (!hex || !found || !action || this.refusalOf(found.unit, action) !== null) return false;
+    // Regroup needs a partner: `giveRegroup`
+    if (!hex || !found || !action || action.effect === "regroup" || this.refusalOf(found.unit, action) !== null) return false;
     const { unit, canMove } = found;
     const plan = this.movePlan(hex, action, canMove);
 
@@ -778,6 +823,21 @@ class GameSession {
     }
 
     const index = this.orderIndexOf(unit);
+    this.orders = index === -1 ? [...this.orders, order] : this.orders.map((each, i) => (i === index ? order : each));
+    return this.publish();
+  }
+
+  /**
+   * Give the unit at `from` Regroup with the unit at `partner`, next to it (`regroupPartners`):
+   * neither moves or fires, and as the orders are confirmed the partner's figures join it. A unit
+   * whose order holds gets Regroup in its place
+   */
+  giveRegroup(from: Position, partner: Position): boolean {
+    const found = this.orderableAt(this.board.getHex(from));
+    const action = found && this.regroupAction(found.unit);
+    if (!found || !action || !includesPosition(this.regroupPartners(from), partner)) return false;
+    const order = new Order({ unit: found.unit, action: action.id, start: from, end: from, path: [from], shots: 0, partner: { ...partner } });
+    const index = this.orderIndexOf(found.unit);
     this.orders = index === -1 ? [...this.orders, order] : this.orders.map((each, i) => (i === index ? order : each));
     return this.publish();
   }
@@ -898,6 +958,9 @@ class GameSession {
       case "mechanic":
         if (this.figures) this.setFigures(unit, mendFigure(this.figuresOf(unit)));
         break;
+      case "regroup":
+        if (this.figures && order.partner) this.regroup(unit, order.partner);
+        break;
       case "fortify": {
         const hex = this.board.getHex(order.end);
         if (hex && !hex.sandbags) {
@@ -907,6 +970,36 @@ class GameSession {
         break;
       }
     }
+  }
+
+  /**
+   * Regroup, as the orders are confirmed: the figures of the unit on `from` join `unit` until it's
+   * full, and it keeps the better of both units' supplies. A unit left with no figures leaves the
+   * map with its sandbags, and the enemy gets no medal for it (`unitsLost`)
+   */
+  private regroup(unit: Unit, from: Position) {
+    const giver = this.board.getHex(from)?.unit;
+    const at = this.positionOf(unit);
+    if (!giver || !at) return;
+    const given = this.figuresOf(giver);
+    const moved = regroupFigures(this.figuresOf(unit), given, unit.getUnitType());
+    this.setFigures(unit, moved.receiver);
+    this.supplies.set(unit, betterOf(this.suppliesOf(unit), this.suppliesOf(giver), fullSupplies(unit.getUnitType(), unit.elite)));
+    if (moved.giver.length > 0) {
+      this.setFigures(giver, moved.giver);
+      return;
+    }
+    this.board.removeUnitAt(from);
+    const figures = new Map(this.figureHits);
+    figures.delete(giver);
+    this.figureHits = figures;
+    this.supplies.delete(giver);
+    this.camouflaged.delete(giver);
+    const hex = this.board.getHex(from)!;
+    const sandbags = hex.sandbags;
+    if (sandbags) hex.setSandbags(false);
+    const regrouped = { into: { ...at }, figures: given.length };
+    this.addBattleEdit({ kind: "remove", position: { ...from }, unit: giver, regrouped, ...(sandbags && { sandbags }) });
   }
 
   private setFigures(unit: Unit, figures: Figures) {
@@ -1429,9 +1522,20 @@ class GameSession {
    * counts), from the finished turns' logs and this turn's map changes
    */
   unitsLost(): UnitType[] {
-    const logged = this.log.flatMap((turn) => turn.battleEdits.flatMap((edit) => (edit.kind === "remove" ? [edit.unit] : [])));
-    const now = this.battleEdits.flatMap((edit) => (edit.kind === "remove" ? [edit.unit.getUnitType()] : []));
+    // A unit that gave all its figures away (Regroup) wasn't lost
+    const logged = this.log.flatMap((turn) => turn.battleEdits.flatMap((edit) => (edit.kind === "remove" && !edit.regroupedInto ? [edit.unit] : [])));
+    const now = this.battleEdits.flatMap((edit) => (edit.kind === "remove" && !edit.regrouped ? [edit.unit.getUnitType()] : []));
     return [...logged, ...now];
+  }
+
+  /**
+   * Pass and play: the units that left the map this turn by giving all their figures away
+   * (Regroup), where they stood, the figures they had and whether they took sandbags with them
+   */
+  leftByRegroup(): { unit: Unit; position: Position; figures: number; sandbags: boolean }[] {
+    return this.battleEdits.flatMap((edit) =>
+      edit.kind === "remove" && edit.regrouped ? [{ unit: edit.unit, position: edit.position, figures: edit.regrouped.figures, sandbags: !!edit.sandbags }] : []
+    );
   }
 
   /** The battle's order summaries, as the snapshot's (for the pass and play match) */
@@ -2025,7 +2129,9 @@ class GameSession {
   /** Edits made in Órdenes can't be undone after the orders: the orders start from them */
   private canUndoMapEdit(): boolean {
     const edit = this.battleEdits.at(-1);
-    return this.canEditMap() && !!edit && (this.phase === TurnPhase.ORDER_UNITS || !edit.beforeOrders);
+    // A unit that left by regrouping comes back only with the figures it gave, which an undo can't take back
+    const regrouped = edit?.kind === "remove" && !!edit.regrouped;
+    return this.canEditMap() && !!edit && !regrouped && (this.phase === TurnPhase.ORDER_UNITS || !edit.beforeOrders);
   }
 
   private addBattleEdit(edit: BattleEdit) {

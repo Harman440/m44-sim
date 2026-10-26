@@ -71,6 +71,26 @@ export const healFigure = (figures: Figures, unitType: UnitType): Figures =>
   figures.length < FIGURES[unitType].figures ? [0, ...figures] : figures;
 
 /**
+ * Regroup: the giver's figures join the receiver until it's back to full, the giver's healthy ones
+ * first, then its damaged ones (the least damaged first), and its squad leader last. The figures
+ * that join go in front of the receiver's, so its own leader stays its leader; a giver's leader
+ * that joins is a plain figure there. The giver keeps the rest, its leader last
+ */
+export function regroupFigures(receiver: Figures, giver: Figures, unitType: UnitType): { receiver: Figures; giver: Figures } {
+  const room = Math.max(0, FIGURES[unitType].figures - receiver.length);
+  const inFront = giver
+    .slice(0, -1)
+    .map((hits, at) => ({ hits, at }))
+    .sort((a, b) => a.hits - b.hits)
+    .map(({ at }) => at);
+  const taken = new Set([...inFront, giver.length - 1].slice(0, Math.min(room, giver.length)));
+  return {
+    receiver: [...[...taken].map((at) => giver[at]!), ...receiver],
+    giver: giver.filter((_, at) => !taken.has(at)),
+  };
+}
+
+/**
  * Limited damage (house rule): a unit applies at most as many results as it has figures, one
  * more with a card's extra dice
  */

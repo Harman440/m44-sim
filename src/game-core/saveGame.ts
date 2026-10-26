@@ -12,7 +12,7 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
+import type { BattleEdit, CardAttack, Regrouped, Shot, StandingCollisionRoll } from "./gameSession";
 import { TurnRecord } from "./turnLog";
 import type { ActionCard } from "./actionCard";
 import { actionCardById } from "../data/actionCards";
@@ -85,10 +85,12 @@ export interface SavedGame {
     lostSandbags: Position[];
     /** Left out when false, and in saves from before tanks cleared wire */
     clearedWire?: boolean;
+    /** Regroup: the hex of the unit whose figures join it */
+    partner?: Position;
   }[];
   unmovedFireSkipped: boolean;
   battleEdits: ((
-    | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
+    | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean; regrouped?: Regrouped }
     | { kind: "move"; from: Position; to: Position; unit: number; sandbags?: Position[]; clearedWire?: boolean; reposition?: boolean }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
@@ -190,6 +192,12 @@ function readUnitCounts<K extends "hits" | "flags">(
       return [unit(entry.unit), entry[key]] as const;
     })
   );
+}
+
+function readRegrouped(regrouped: Regrouped): Regrouped {
+  const [into] = readPositions([regrouped?.into], "Regroup");
+  if (!Number.isInteger(regrouped.figures) || regrouped.figures < 1) throw new Error("Unknown regroup");
+  return { into: into!, figures: regrouped.figures };
 }
 
 /** Each unit's figures, each with the hits it has taken: at least one figure, no more than a full unit's */
@@ -302,6 +310,7 @@ export function writeSave(
       shots: order.shots,
       lostSandbags: order.lostSandbags,
       ...(order.clearedWire && { clearedWire: true }),
+      ...(order.partner && { partner: { ...order.partner } }),
     })),
     battleEdits: state.battleEdits.map((edit): SavedGame["battleEdits"][number] => {
       if (edit.kind === "wire" || edit.kind === "sandbags") return edit;
@@ -314,6 +323,7 @@ export function writeSave(
         unit: unitIndex(edit.unit),
         ...(edit.replacement && { replacement: unitIndex(edit.replacement) }),
         ...(edit.sandbags && { sandbags: true }),
+        ...(edit.regrouped && { regrouped: { into: { ...edit.regrouped.into }, figures: edit.regrouped.figures } }),
         ...beforeOrders,
       };
     }),
@@ -438,6 +448,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
       shots: order.shots,
       lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
       clearedWire: order.clearedWire === true,
+      ...(order.partner !== undefined && { partner: readPositions([order.partner], "Regroup partner")[0] }),
     });
   });
 
@@ -487,6 +498,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
         unit: unit(edit.unit),
         ...(edit.replacement !== undefined && { replacement: unit(edit.replacement) }),
         ...(edit.sandbags === true && { sandbags: true }),
+        ...(edit.regrouped !== undefined && { regrouped: readRegrouped(edit.regrouped) }),
         ...beforeOrders,
       };
     }),

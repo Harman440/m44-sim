@@ -915,3 +915,38 @@ describe("PassAndPlayMatch keeps each side's supplies and luck its own", () => {
     }
   });
 });
+
+describe("PassAndPlayMatch Regroup", () => {
+  const AXIS_INF = { row: 1, col: 3 };
+  const AXIS_NEXT = { row: 1, col: 4 };
+  // The Axis session sees the board turned round
+  const own = (position: { row: number; col: number }) => turnedRound(position, STANDARD_BOARD);
+  const regroupScenario: Scenario = {
+    ...scenario,
+    units: { allies: scenario.units.allies, axis: { infantry: [AXIS_INF, AXIS_NEXT] } },
+  };
+  const side = (faction: Faction) => new GameSession({ scenario: regroupScenario, faction, figures: true });
+
+  it("shows the enemy a unit that gave all its figures away until the orders are revealed, and scores no medal", () => {
+    const match = new PassAndPlayMatch(regroupScenario, { Allies: side("Allies"), Axis: side("Axis") });
+    const axis = match.sessions.Axis;
+    expect(axis.sufferHits(own(AXIS_INF), 4, 0)).toBe(true);
+    expect(axis.sufferHits(own(AXIS_NEXT), 3, 0)).toBe(true);
+
+    match.uncover();
+    expect(axis.pickCard(null)).toBe(true);
+    expect(axis.giveRegroup(own(AXIS_INF), own(AXIS_NEXT))).toBe(true);
+    expect(axis.commitOrders()).toBe(true);
+    expect(axis.figuresAt(own(AXIS_INF))).toBe(5);
+    expect(armyOf(axis)).toHaveLength(1);
+    // Still there for the Allies, as it stood, while the orders are secret
+    const before = match.opponentOf("Allies", { fogged: false }).units;
+    expect(before).toHaveLength(2);
+    expect(before.find((placed) => samePosition(placed.position, own(AXIS_NEXT)))).toMatchObject({ figures: 3 });
+
+    restAll(match);
+    expect(match.opponentOf("Allies", { fogged: false }).units).toHaveLength(1);
+    carryOut(match);
+    expect(axis.unitsLost()).toEqual([]);
+  });
+});

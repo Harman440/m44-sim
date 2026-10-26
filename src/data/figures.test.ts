@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { damagedFigures, freshFigures, healFigure, hitsPerFigure, hitsToDestroy, mendFigure, resultLimit, takeHits } from "./figures";
+import { damagedFigures, freshFigures, healFigure, hitsPerFigure, hitsToDestroy, mendFigure, regroupFigures, resultLimit, takeHits } from "./figures";
 import { UnitType } from "../game-core/unit";
 
 describe("figures", () => {
@@ -47,6 +47,19 @@ describe("figures", () => {
   it("brings a lost figure back at the front, up to full strength (Medic)", () => {
     expect(healFigure([0, 0], UnitType.INFANTRY)).toEqual([0, 0, 0]);
     expect(healFigure(freshFigures(UnitType.INFANTRY), UnitType.INFANTRY)).toHaveLength(6);
+  });
+
+  it("regroups the giver's figures into the receiver until it's full, the giver's leader last", () => {
+    // Infantry: 2 + 3 figures, all of them fit; the giver is left with none
+    expect(regroupFigures([0, 0], [0, 0, 0], UnitType.INFANTRY)).toEqual({ receiver: [0, 0, 0, 0, 0], giver: [] });
+    // 4 + 3: two fit, and the giver keeps one figure, its leader
+    expect(regroupFigures([0, 0, 0, 0], [0, 0, 0], UnitType.INFANTRY)).toEqual({ receiver: [0, 0, 0, 0, 0, 0], giver: [0] });
+    // Tanks: the giver's healthy figure goes first, its damaged one stays with its leader
+    expect(regroupFigures([1, 0], [1, 0, 1], UnitType.TANK)).toEqual({ receiver: [0, 1, 0], giver: [1, 1] });
+    // Its damaged figures and leader move too when there's room for all of them; both stay damaged
+    expect(regroupFigures([1], [0, 1], UnitType.TANK)).toEqual({ receiver: [0, 1, 1], giver: [] });
+    // A full receiver takes none
+    expect(regroupFigures([0, 0, 0], [0], UnitType.TANK)).toEqual({ receiver: [0, 0, 0], giver: [0] });
   });
 
   it("applies as many results as figures, one more with a card's extra dice", () => {

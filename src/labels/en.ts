@@ -130,6 +130,7 @@ const en: Labels = {
     ownTablets: "Not on own tablets",
     nothingToMend: "Nothing to mend",
     notNeeded: "Not needed",
+    noPartner: "No unit to regroup with",
   },
   describeFaces,
   describeAppliedFaces: (faces, kept) =>

@@ -1062,9 +1062,15 @@ class PassAndPlayMatch {
       return { faction, units: army, orders, fired, toFire: toFire.filter((unit) => orders.some((order) => order.unit === unit)), camouflaged: visible(game.camouflaged, seenHexes), sandbags: visible(sandbags, seenHexes) };
     }
 
-    const units = army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position }));
+    // A unit that gave all its figures away (Regroup) left as its side confirmed: the enemy sees it until the reveal
+    const gone = session.leftByRegroup().filter((placed) => seen(placed.unit, placed.position));
+    const units = [
+      ...army.map((placed) => ({ ...placed, position: startOf.get(placed.unit) ?? placed.position })),
+      ...gone.map(({ unit, position, figures }) => ({ unit, position, figures, pinned: false, retreats: 0, damaged: false, hitThisTurn: 0 })),
+    ];
+    gone.forEach(({ position }) => seenStarts.add(positionKey(position)));
     // A unit ordered off its sandbags left them, but the enemy can't see that yet
-    const left = game.orders.flatMap((order) => order.lostSandbags);
+    const left = [...game.orders.flatMap((order) => order.lostSandbags), ...gone.flatMap(({ position, sandbags }) => (sandbags ? [position] : []))];
     return {
       faction,
       units,
