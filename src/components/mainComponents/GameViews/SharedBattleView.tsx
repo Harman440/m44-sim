@@ -530,6 +530,8 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
             <Box className="phase-layout__board" sx={{ position: "relative" }}>
               <Board
                 zoomable
+                // The computer's shot: centred on the unit firing, so the person sees which it is
+                zoomOn={shown?.side === computer && shotFrom ? { position: shotFrom, request: shown.shot + 1 } : null}
                 onTileClick={pick || fireTurn ? tapMap : noop}
                 unitHexPosition={pick?.from ?? (shownShot ? shotFrom : (pickedSummary?.firingFrom ?? null))}
                 possibleMovePositions={pick?.from ? [...pick.options] : []}
@@ -543,6 +545,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 possibleMoveAndFirePositions={[]}
                 boardManager={boardSession.board}
                 orders={boardGame.orders}
+                showArrows={false}
                 backgroundImage={boardSession.scenario.image}
                 faction={boardSide}
                 opponent={match.opponentOf(boardSide, { fogged: boardSide !== computer })}

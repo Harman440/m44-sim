@@ -8,6 +8,7 @@ import type { ArmyView } from "../game-core/passAndPlay";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
 import { Supply } from "../data/unitSupplies";
+import Order from "../game-core/order";
 
 // Allied infantry behind sandbags at (6,2); the Axis infantry's at (2,4) in the Allies' view, (6,8) in its own
 const scenario: Scenario = {
@@ -129,5 +130,27 @@ describe("Board zooming onto a hex", () => {
     expect(viewWidth(container)).toBeCloseTo(full);
     rerender(<Board {...props} zoomOn={{ position: { row: 7, col: 1 }, request: 2 }} />);
     expect(viewWidth(container)).toBeCloseTo(full / FOCUS_ZOOM);
+  });
+});
+
+describe("Board order arrows", () => {
+  it("draws both sides' movement arrows, and none with showArrows off (the battle)", () => {
+    const allies = new BoardManager(scenario, "Allies");
+    const axis = new BoardManager(scenario, "Axis");
+    const move = (board: BoardManager, from: { row: number; col: number }, to: { row: number; col: number }) =>
+      new Order({ unit: board.getHex(from)!.unit!, action: "", start: from, end: to, path: [from, to], shots: 0 });
+    const props = {
+      ...plain,
+      boardManager: allies,
+      faction: "Allies" as const,
+      orders: [move(allies, { row: 6, col: 2 }, { row: 5, col: 2 })],
+      opponent: { ...armyOf(axis, "Axis"), orders: [move(axis, { row: 6, col: 8 }, { row: 5, col: 8 })] },
+    };
+
+    const { container, rerender } = render(<Board {...props} />);
+    expect(container.querySelectorAll("g.order-arrow")).toHaveLength(2);
+
+    rerender(<Board {...props} showArrows={false} />);
+    expect(container.querySelectorAll("g.order-arrow")).toHaveLength(0);
   });
 });

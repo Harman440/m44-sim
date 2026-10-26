@@ -105,6 +105,8 @@ interface BoardProps {
    * from: the reveal before the armies move. Taken off, they glide to where they stand
    */
   atStart?: boolean;
+  /** Draw the orders' movement arrows (both sides'); off in the battle, where the moves are done */
+  showArrows?: boolean;
   /**
    * The player can zoom and pan: pinch, the mouse wheel and the +/− buttons
    * zoom, a drag pans to what's out of sight (a drag is never a tap on a hex).
@@ -193,6 +195,7 @@ function Board({
   strength: strengthProp,
   collisions = [],
   atStart = false,
+  showArrows = true,
   zoomable = false,
   zoomOn = null,
   dragPans = true,
@@ -243,7 +246,7 @@ function Board({
     const previewUnit = pathPreview && pathPreview.length > 1 ? boardManager.getHex(pathPreview[0]!)?.unit : null;
     return (
       <>
-        {orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
+        {showArrows && orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
           <OrderComponent
             key={index} // an order's index identifies it for the whole turn (see Order)
             orderIndex={index}
@@ -272,7 +275,7 @@ function Board({
     const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardManager.size));
     return (
       <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
-        {opponent.orders.map((order, index) => (
+        {showArrows && opponent.orders.map((order, index) => (
           <OrderComponent
             key={index}
             orderIndex={index}
