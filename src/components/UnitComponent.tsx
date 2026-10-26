@@ -24,6 +24,7 @@ const TEXT = defineMessages({
     readyToFire: (moved: boolean): string => (moved ? "Se movió y le queda disparar" : "Sin moverse, le queda disparar"),
     fired: (moved: boolean): string => (moved ? "Se movió y disparó" : "Disparó sin moverse"),
     damaged: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`}, una ya tocada: el próximo impacto la quita`,
+    leader: "Jefe de escuadra: es la última figura que cae, y la que da la medalla",
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     pinned: "Inmovilizada: otra bandera la hace retirarse",
     retreats: (n: number) => (n === 1 ? "Se retira 1 casilla ahora" : `Se retira ${n} casillas ahora`),
@@ -35,6 +36,7 @@ const TEXT = defineMessages({
     readyToFire: (moved: boolean): string => (moved ? "Moved, still to fire" : "Stood still, still to fire"),
     fired: (moved: boolean): string => (moved ? "Moved and fired" : "Fired without moving"),
     damaged: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`}, one already hit: the next hit removes it`,
+    leader: "Squad leader: the last figure to fall, and the one that gives the medal",
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     pinned: "Pinned: another flag makes it retreat",
     retreats: (n: number) => (n === 1 ? "Retreats 1 hex now" : `Retreats ${n} hexes now`),
@@ -176,6 +178,10 @@ const starPath = (cx: number, cy: number, outer: number, inner: number) =>
   "Z";
 const BADGE_RADIUS = 10;
 
+/** A sergeant's chevron, point up, centred on (cx, cy) */
+const leaderChevron = (cx: number, cy: number) =>
+  `M${cx - 6} ${cy + 3}L${cx} ${cy - 2}L${cx + 6} ${cy + 3}L${cx + 6} ${cy + 6}L${cx} ${cy + 1}L${cx - 6} ${cy + 6}Z`;
+
 /**
  * Each figure's sprite size and where it stands, from the centre: back row first, so the front row
  * overlaps it. A unit that has lost figures shows the first ones, losing its front row first
@@ -269,6 +275,19 @@ const UnitComponent: React.FC<UnitProps> = ({
           preserveAspectRatio="xMidYMid meet"
         />
       ))}
+
+      {/* The squad leader: the first spot, the last figure to go, with a rank chevron under it */}
+      {figuresShown > 0 && (
+        <g className="unit__leader" data-testid="leader-mark">
+          <title>{t.leader}</title>
+          <path
+            d={leaderChevron(x + layout.spots[0]![0], y + layout.spots[0]![1] + layout.size / 2 - 4)}
+            style={{ fill: "var(--m44-accent)", stroke: "var(--m44-paper)" }}
+            strokeWidth={1.2}
+            strokeLinejoin="round"
+          />
+        </g>
+      )}
 
       {/* The scenario's elite badge (moves its whole move and fires), top left */}
       {unitData?.elite && (

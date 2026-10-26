@@ -36,9 +36,9 @@ Today `GameSession.hits` is one number per unit and `data/figures.ts` works the 
 - [x] Every existing figures test passes unchanged (with one damaged figure at most, the rules give the same results); new tests for a unit with two damaged figures
 
 ## Step R2: The squad leader, shown
-- [ ] `UnitComponent`: in pass and play the leader is the last sprite spot to go; draw it with a small rank mark (a chevron or star, `--m44-*` colours, works in every look) and a `<title>`: "Jefe de escuadra: cae el último y da la medalla" / "Squad leader: falls last and gives the medal". A damaged leader shows it as the other figures do
-- [ ] `UnitList` (Órdenes): the figures line counts the leader apart ("5 + jefe" / "5 + leader") when it helps reading; keep it short
-- [ ] `ruleBook.ts`: the squad leader rule in both languages (every unit has one; the last figure hit; the one whose fall gives the medal)
+- [x] `UnitComponent`: the leader is the last sprite spot to go; draw it with a small rank mark (a chevron or star, `--m44-*` colours, works in every look) and a `<title>`: "Jefe de escuadra: cae el último y da la medalla" / "Squad leader: falls last and gives the medal". A damaged leader shows it as the other figures do
+- [x] ~~`UnitList` (Órdenes): the figures line counts the leader apart~~ (not needed: the list shows figures as a bar)
+- [x] `ruleBook.ts`: the squad leader rule in both languages (every unit has one; the last figure hit; the one whose fall gives the medal)
 - [ ] Check at 1280×800 landscape in English (desktop and tablet touch)
 
 ## Step R3: Regroup, the rules (game-core)

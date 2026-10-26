@@ -533,6 +533,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Jefe de escuadra", en: "Squad leader" },
+        house: {
+          es: `Una de las figuras de cada unidad es su jefe de escuadra (la infantería, ${infantry.figures - 1} figuras y el jefe), marcado en el mapa con un galón. Es la última figura a la que se impacta, así que es la que cae cuando se destruye la unidad, y la que da la medalla.`,
+          en: `One figure in every unit is its squad leader (infantry: ${infantry.figures - 1} figures and the leader), marked on the map with a chevron. It's the last figure hit, so it's the one that falls when the unit is destroyed, and the one that gives the medal.`,
+        },
+      },
+      {
         title: { es: "Moral", en: "Morale" },
         house: {
           es: "Cada bandera que recibe la infantería le quita 1 de moral (sin bajar de 0), además de inmovilizarla o hacerla retirarse. Con la moral a 0 solo puede subirla (o descansar), y no tira en los choques. En tablets propias no se lleva la moral.",
