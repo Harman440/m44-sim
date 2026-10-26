@@ -1,0 +1,55 @@
+/* The map alone fills its box, both ways, the whole board in sight to start with (zoom and drag
+   for the rest); the box needs a height, which the container query reads */
+.map-only {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  container-type: size;
+}
+
+.map-only .board {
+  width: 100%;
+  height: 100%;
+}
+
+.map-only .board__svg {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100cqh;
+  max-width: none !important;
+}
+
+/* In portrait, the board's own height for the width: the page scrolls on below it */
+@media (orientation: portrait) {
+  .map-only--natural {
+    height: auto;
+    container-type: normal;
+  }
+
+  .map-only--natural .board,
+  .map-only--natural .board__svg {
+    height: auto;
+  }
+}
+
+/* Pinch and drag move the map, never the page, in either orientation */
+.map-only .board--zoomable {
+  touch-action: none;
+}
+
+.map-viewer.MuiPaper-root {
+  background: var(--m44-paper);
+  overflow: hidden;
+}
+
+/* The board's zoom buttons are in its top right corner: opening and closing the full map is in the top left, as see-through */
+.map-viewer__corner.MuiIconButton-root {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 48px;
+  height: 48px;
+  color: var(--m44-ink);
+  background: color-mix(in srgb, var(--m44-paper) 72%, transparent);
+}

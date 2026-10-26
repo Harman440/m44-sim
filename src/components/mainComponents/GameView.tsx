@@ -29,7 +29,8 @@ import MovementView from "./GameViews/MovementView";
 import EndOfTurnView from "./GameViews/EndOfTurnView";
 import LargeMap from "./GameViews/LargeMap";
 import UnitList from "./GameViews/UnitList";
-import { OpponentContext } from "../OpponentContext";
+import { OpponentContext, type SharedBoard } from "../OpponentContext";
+import MapViewer from "../MapViewer";
 import { defineMessages, useLabels, useMessages, useTr } from "../../i18n/useI18n";
 import { useSettings } from "../../settings";
 import { useSound } from "../../sound";
@@ -57,6 +58,8 @@ export interface GameViewProps {
   handDealt?: boolean;
   /** Pass and play: a screen both players share (the reveal, the battle), shown under the header instead of this side's phase */
   sharedScreen?: ReactNode;
+  /** Pass and play, on a shared screen: the other army and the fog for the map shown alone (own screens take the game screen's) */
+  sharedMap?: SharedBoard;
 }
 
 const TEXT = defineMessages({
@@ -79,6 +82,7 @@ const TEXT = defineMessages({
     exit: "Salir",
     pass: "Pasar",
     passLabel: "Pasar el dispositivo al rival",
+    hideUi: "Ocultar la interfaz y ver el mapa",
   },
   en: {
     phases: { card: "Card", orders: "Orders", movement: "Movement", battle: "Battle", final: "Final" },
@@ -99,6 +103,7 @@ const TEXT = defineMessages({
     exit: "Exit",
     pass: "Pass",
     passLabel: "Pass the device to the opponent",
+    hideUi: "Hide the interface and see the map",
   },
 });
 
@@ -110,7 +115,7 @@ const PHASE_STEPS: { phase: TurnPhase; label: keyof (typeof TEXT)["es"]["phases"
   { phase: TurnPhase.END_OF_TURN, label: "final" },
 ];
 
-function GameView({ session, resumed = false, onExit, onPass, handDealt = false, sharedScreen }: GameViewProps) {
+function GameView({ session, resumed = false, onExit, onPass, handDealt = false, sharedScreen, sharedMap }: GameViewProps) {
   const { scenario, faction } = session;
   const { settings, updateSettings } = useSettings();
   const play = useSound();
@@ -123,6 +128,7 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false,
   const [coinsOpen, setCoinsOpen] = useState(false);
   const [ruleBookOpen, setRuleBookOpen] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
+  const [mapOnly, setMapOnly] = useState(false);
   const [showResumed, setShowResumed] = useState(resumed);
   const game = useSyncExternalStore(session.subscribe, session.getSnapshot);
   /**
@@ -211,6 +217,9 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false,
                 <CoinCount coins={game.coins} />
               </Button>
             )}
+            <IconButton aria-label={t.hideUi} title={t.hideUi} onClick={() => setMapOnly(true)} sx={{ color: "text.primary" }}>
+              <GameIcon name="map" size={26} />
+            </IconButton>
             <IconButton
               aria-label={settings.sound ? t.mute : t.unmute}
               aria-pressed={settings.sound}
@@ -352,6 +361,15 @@ function GameView({ session, resumed = false, onExit, onPass, handDealt = false,
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         />
 
+        <MapViewer
+          open={mapOnly}
+          onClose={() => setMapOnly(false)}
+          session={session}
+          faction={faction}
+          opponent={sharedMap?.opponent}
+          fog={sharedMap?.fog}
+          strength={sharedMap?.strength}
+        />
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <CoinsDialog open={coinsOpen} onClose={() => setCoinsOpen(false)} session={session} game={game} />
         <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} session={session} log={game.log} />

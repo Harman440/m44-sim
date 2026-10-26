@@ -110,7 +110,7 @@ describe("OrdersView selecting units", () => {
     expect(actions.queryByRole("button", { name: /^Subir la moral/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("action-popup")).toContainElement(screen.getByRole("list", { name: "Acciones" }));
     const row = screen.getAllByTestId("unit-row")[0]!;
-    for (const meter of ["Moral: 5", "Energía: 5", "Munición: 2"]) expect(within(row).getByRole("img", { name: meter })).toBeInTheDocument();
+    for (const meter of ["Moral: 5 de 5", "Energía: 5 de 5", "Munición: 2 de 2"]) expect(within(row).getByRole("img", { name: meter })).toBeInTheDocument();
   });
 
   it("switches the selection when another orderable unit is tapped", () => {
@@ -355,7 +355,7 @@ describe("OrdersView unit list", () => {
 
     expect(rows()).toHaveLength(3);
     expect(rows()[0]).toHaveTextContent("Descansa");
-    expect(within(rows()[0]!).getByRole("img", { name: "Munición: 2" })).toBeInTheDocument();
+    expect(within(rows()[0]!).getByRole("img", { name: "Munición: 2 de 2" })).toBeInTheDocument();
     expect(within(rows()[0]!).getByRole("img", { name: "Suerte 0" })).toBeInTheDocument();
 
     tap(LEFT_A);
@@ -397,7 +397,7 @@ describe("OrdersView unit list", () => {
     );
     expect(screen.getByRole("list", { name: "Your units" })).toBeInTheDocument();
     expect(rows()[0]).toHaveTextContent("Rests");
-    expect(within(rows()[0]!).getByRole("img", { name: "Energy: 5" })).toBeInTheDocument();
+    expect(within(rows()[0]!).getByRole("img", { name: "Energy: 5 of 5" })).toBeInTheDocument();
   });
 });
 

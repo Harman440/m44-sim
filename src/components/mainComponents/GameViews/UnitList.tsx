@@ -3,7 +3,9 @@ import { Box, List, ListItem, ListItemButton, Stack, Typography } from "@mui/mat
 import type GameSession from "../../../game-core/gameSession";
 import type { GameSnapshot } from "../../../game-core/gameSession";
 import { samePosition } from "../../../game-core/position";
-import type { UnitSupplies } from "../../../game-core/unitSupplies";
+import { fullSupplies, type UnitSupplies } from "../../../game-core/unitSupplies";
+import type Unit from "../../../game-core/unit";
+import { FIGURES } from "../../../data/figures";
 import { actionById } from "../../../data/unitActions";
 import { EQUIPMENT, SUPPLIES } from "../../../data/unitSupplies";
 import { Faction } from "../../../types/faction";
@@ -12,6 +14,7 @@ import { defineMessages, useLabels, useMessages, useTr } from "../../../i18n/use
 import GameIcon from "../../GameIcon";
 import HexThumbnail from "../../HexThumbnail";
 import { EquipmentIcon, SUPPLY_ICONS } from "../../SupplyIcons";
+import StatBar from "../../StatBar";
 import { unitSprite } from "../../UnitComponent";
 
 const TEXT = defineMessages({
@@ -20,12 +23,16 @@ const TEXT = defineMessages({
     rests: "Descansa",
     luck: (value: string) => `Suerte ${value}`,
     amount: (name: string, n: number) => `${name}: ${n}`,
+    outOf: (name: string, n: number, max: number) => `${name}: ${n} de ${max}`,
+    figures: "Figuras",
   },
   en: {
     units: "Your units",
     rests: "Rests",
     luck: (value: string) => `Luck ${value}`,
     amount: (name: string, n: number) => `${name}: ${n}`,
+    outOf: (name: string, n: number, max: number) => `${name}: ${n} of ${max}`,
+    figures: "Figures",
   },
 });
 
@@ -52,35 +59,68 @@ function Meter({ icon, amount, label }: { icon: ReactNode; amount: number; label
   );
 }
 
-function SupplyMeters({ supplies, luck }: { supplies: UnitSupplies; luck: number | null }) {
+interface SupplyMetersProps {
+  unit: Unit;
+  supplies: UnitSupplies;
+  luck: number | null;
+  /** Pass and play: the figures it has left; null on own tablets, which don't count them */
+  figures: number | null;
+  faction: Faction;
+}
+
+/**
+ * A unit's figures and supplies as bars against what it has when full, then its equipment and
+ * luck as icons with their number
+ */
+function SupplyMeters({ unit, supplies, luck, figures, faction }: SupplyMetersProps) {
   const t = useMessages(TEXT);
   const labels = useLabels();
+  const full = fullSupplies(unit.getUnitType(), unit.elite);
+  const maxFigures = FIGURES[unit.getUnitType()].figures;
   return (
-    <Stack direction="row" sx={{ flexWrap: "wrap", alignItems: "center", columnGap: 1, rowGap: 0.25 }} data-testid="unit-meters">
-      {SUPPLIES.filter((supply) => supplies.amounts[supply] !== undefined).map((supply) => (
-        <Meter
-          key={supply}
-          icon={<GameIcon name={SUPPLY_ICONS[supply]} size={16} />}
-          amount={supplies.amounts[supply]!}
-          label={t.amount(labels.supplies[supply], supplies.amounts[supply]!)}
-        />
-      ))}
-      {EQUIPMENT.filter((kind) => supplies.equipment[kind] !== undefined).map((kind) => (
-        <Meter
-          key={kind}
-          icon={<EquipmentIcon kind={kind} size={16} />}
-          amount={supplies.equipment[kind]!}
-          label={t.amount(labels.equipment[kind], supplies.equipment[kind]!)}
-        />
-      ))}
-      {luck !== null && (
-        <Box component="span" role="img" aria-label={t.luck(luckText(luck))} sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, color: "text.secondary" }}>
-          <GameIcon name="luck" size={16} />
-          <Typography component="span" variant="caption" sx={{ fontWeight: 700, lineHeight: 1 }}>
-            {luckText(luck)}
-          </Typography>
-        </Box>
-      )}
+    <Stack spacing={0.5} data-testid="unit-meters">
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", columnGap: 1.5, rowGap: 0.5 }}>
+        {figures !== null && (
+          <StatBar
+            icon={<Box component="img" src={unitSprite(faction, unit.getUnitType())} alt="" sx={{ width: 16, height: 16 }} />}
+            value={figures}
+            max={maxFigures}
+            color="success"
+            label={t.outOf(t.figures, figures, maxFigures)}
+          />
+        )}
+        {SUPPLIES.filter((supply) => supplies.amounts[supply] !== undefined).map((supply) => {
+          const amount = supplies.amounts[supply]!;
+          const max = full.amounts[supply] ?? amount;
+          return (
+            <StatBar
+              key={supply}
+              icon={<GameIcon name={SUPPLY_ICONS[supply]} size={16} />}
+              value={amount}
+              max={max}
+              label={t.outOf(labels.supplies[supply], amount, max)}
+            />
+          );
+        })}
+      </Box>
+      <Stack direction="row" sx={{ flexWrap: "wrap", alignItems: "center", columnGap: 1, rowGap: 0.25 }}>
+        {EQUIPMENT.filter((kind) => supplies.equipment[kind] !== undefined).map((kind) => (
+          <Meter
+            key={kind}
+            icon={<EquipmentIcon kind={kind} size={16} />}
+            amount={supplies.equipment[kind]!}
+            label={t.amount(labels.equipment[kind], supplies.equipment[kind]!)}
+          />
+        ))}
+        {luck !== null && (
+          <Box component="span" role="img" aria-label={t.luck(luckText(luck))} sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, color: "text.secondary" }}>
+            <GameIcon name="luck" size={16} />
+            <Typography component="span" variant="caption" sx={{ fontWeight: 700, lineHeight: 1 }}>
+              {luckText(luck)}
+            </Typography>
+          </Box>
+        )}
+      </Stack>
     </Stack>
   );
 }
@@ -97,7 +137,7 @@ interface UnitListProps {
 
 /**
  * This side's units while giving orders, beside the map (below it in portrait): each one's hex,
- * its supplies and luck, and the action it has or "Descansa". Tapping a row picks the unit, as
+ * its figures and supplies as bars, its equipment and luck, and the action it has or "Descansa". Tapping a row picks the unit, as
  * tapping it on the map does. Never the enemy's: their supplies and luck aren't shown
  */
 function UnitList({ faction, session, game, selected, onSelect }: UnitListProps) {
@@ -150,7 +190,13 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
               <Typography variant="body2" sx={{ fontWeight: 600, color: action ? "primary.main" : "text.secondary" }} noWrap>
                 {action ? tr(action.name) : t.rests}
               </Typography>
-              <SupplyMeters supplies={supplies} luck={session.luckAt(position)} />
+              <SupplyMeters
+                unit={unit}
+                supplies={supplies}
+                luck={session.luckAt(position)}
+                figures={session.figuresAt(position)}
+                faction={faction}
+              />
             </Stack>
           </>
         );

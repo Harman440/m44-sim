@@ -74,6 +74,12 @@ function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
   }, [onOwnScreen, active]);
   const t = useMessages(TEXT);
   const loading = <CircularProgress aria-label={t.loading} sx={{ m: "auto" }} />;
+  // The map shown alone on a shared screen: both armies, as that screen's map shows them
+  const sharedMap = () => ({
+    opponent: match.opponentOf(match.mainSide, { fogged: match.mainSide !== match.computer }),
+    strength: match.sessions[match.mainSide].getSnapshot().strength,
+    fog: match.fogOn(match.mainSide),
+  });
 
   // A side has won: the match is over
   if (result) {
@@ -92,6 +98,7 @@ function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
           key="shared"
           session={match.sessions[match.mainSide]}
           onExit={onExit}
+          sharedMap={sharedMap()}
           sharedScreen={<RevealView match={match} turn={revealTurn} viewer={match.mainSide} />}
         />
       </Suspense>
@@ -102,7 +109,13 @@ function MatchScreen({ match, resumed = false, onExit }: MatchViewProps) {
   if (battle) {
     return (
       <Suspense fallback={loading}>
-        <GameView key="shared" session={match.sessions[match.mainSide]} onExit={onExit} sharedScreen={<SharedBattleView match={match} />} />
+        <GameView
+          key="shared"
+          session={match.sessions[match.mainSide]}
+          onExit={onExit}
+          sharedMap={sharedMap()}
+          sharedScreen={<SharedBattleView match={match} />}
+        />
       </Suspense>
     );
   }
