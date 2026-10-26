@@ -9,6 +9,8 @@ import {
   DialogContentText,
   DialogTitle,
   FormControlLabel,
+  List,
+  ListItemButton,
   Stack,
   Switch,
   ToggleButton,
@@ -49,6 +51,11 @@ import MedalTally from "../../MedalTally";
 import FireOptionPicker from "../../FireOptionPicker";
 import UnitChangeChips from "../../UnitChangeChips";
 import { emptyMarks } from "./emptyMarks";
+import StatBar from "../../StatBar";
+import { SUPPLY_ICONS } from "../../SupplyIcons";
+import { unitSprite } from "../../UnitComponent";
+import { fullSupplies } from "../../../game-core/unitSupplies";
+import { Supply } from "../../../data/unitSupplies";
 
 const TEXT = defineMessages({
   es: {
@@ -106,6 +113,8 @@ const TEXT = defineMessages({
     rollAttack: "Tirar en las casillas marcadas",
     attackResults: (card: string) => `${card}: resultados`,
     emptyHex: "Casilla vacía: no se tira.",
+    toFireList: "Unidades por disparar",
+    supplyLeft: (unit: string, supply: string, n: number, max: number) => `${unit}, ${supply}: ${n} de ${max}`,
   },
   en: {
     title: (turn: number) => `Turn ${turn}: the battle`,
@@ -161,6 +170,8 @@ const TEXT = defineMessages({
     rollAttack: "Roll on the marked hexes",
     attackResults: (card: string) => `${card}: results`,
     emptyHex: "Empty hex: no roll.",
+    toFireList: "Units left to fire",
+    supplyLeft: (unit: string, supply: string, n: number, max: number) => `${unit}, ${supply}: ${n} of ${max}`,
   },
 });
 
@@ -284,6 +295,77 @@ function FiringUnit({ side, session, order, aims, aim, option, onPickOption, onF
         {t.hold}
       </Button>
     </Stack>
+  );
+}
+
+interface ToFireListProps {
+  side: Faction;
+  session: GameSession;
+  /** The order indexes of the side's units that can still fire, this group or a later one */
+  toFire: readonly number[];
+  /** Those that can fire now; the others wait for their group */
+  fireable: readonly number[];
+  /** The order picked to fire, if any */
+  picked: number | null;
+  onPick: (order: number) => void;
+}
+
+/**
+ * The side's units left to fire, each with its hex and the ammo or shells it has left; tapping a
+ * row picks the unit, as tapping it on the map does. Units waiting for their group are greyed
+ */
+function ToFireList({ side, session, toFire, fireable, picked, onPick }: ToFireListProps) {
+  const t = useMessages(TEXT);
+  const labels = useLabels();
+  const game = session.getSnapshot();
+  const summaries = session.orderSummaries();
+  // Left to right across the board, then front to back, as the player reads the map
+  const orders = [...toFire].sort((a, b) => {
+    const [pa, pb] = [summaries[a]!.firingFrom, summaries[b]!.firingFrom];
+    return pa.col - pb.col || pa.row - pb.row;
+  });
+
+  return (
+    <List dense aria-label={t.toFireList} data-testid="to-fire-list" sx={{ width: "100%", py: 0 }}>
+      {orders.map((order) => {
+        const summary = summaries[order]!;
+        const position = summary.firingFrom;
+        const supplies = game.supplies.find((each) => samePosition(each.position, position))?.supplies;
+        const full = fullSupplies(summary.unitType, summary.elite);
+        const unit = labels.unitKind(summary.unitType, summary.elite);
+        return (
+          <ListItemButton
+            key={order}
+            selected={picked === order}
+            disabled={!fireable.includes(order)}
+            onClick={() => onPick(order)}
+            data-testid="to-fire-row"
+            sx={{ minHeight: 48, borderRadius: 1, px: 1, gap: 1 }}
+          >
+            <Box component="img" src={unitSprite(side, summary.unitType)} alt={unit} sx={{ width: 28, height: 28, flex: "none" }} />
+            <HexThumbnail board={session.board} position={position} image={session.scenario.image} faction={side} size={28} />
+            <Stack sx={{ minWidth: 0, flex: 1, gap: 0.25 }}>
+              {supplies &&
+                [Supply.AMMO, Supply.SHELLS]
+                  .filter((supply) => supplies.amounts[supply] !== undefined)
+                  .map((supply) => {
+                    const amount = supplies.amounts[supply]!;
+                    const max = full.amounts[supply] ?? amount;
+                    return (
+                      <StatBar
+                        key={supply}
+                        icon={<GameIcon name={SUPPLY_ICONS[supply]} size={16} />}
+                        value={amount}
+                        max={max}
+                        label={t.supplyLeft(unit, labels.supplies[supply], amount, max)}
+                      />
+                    );
+                  })}
+            </Stack>
+          </ListItemButton>
+        );
+      })}
+    </List>
   );
 }
 
@@ -655,6 +737,14 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                   ) : (
                     <Typography variant="body2">{t.tapUnit}</Typography>
                   )}
+                  <ToFireList
+                    side={fireTurn.side}
+                    session={fireTurn.session}
+                    toFire={match.stillToFire(fireTurn.side)}
+                    fireable={battle.fireable}
+                    picked={picked?.order ?? null}
+                    onPick={(order) => setAiming(picked?.order === order ? null : { side: fireTurn.side, order, target: null })}
+                  />
                 </Stack>
               ) : computerActs ? (
                 !shownShot && (

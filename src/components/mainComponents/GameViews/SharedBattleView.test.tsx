@@ -50,6 +50,14 @@ describe("SharedBattleView", () => {
     expect(screen.getByTestId("left-to-fire")).toHaveTextContent("Queda 1 unidad por disparar");
   });
 
+  it("lists the units left to fire with their ammo", () => {
+    render(<SharedBattleView match={battleOf({ row: 4, col: 2 }, { row: 4, col: 3 })} />);
+
+    const rows = within(screen.getByTestId("to-fire-list")).getAllByTestId("to-fire-row");
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]!).getByRole("img", { name: /Munición/ })).toBeInTheDocument();
+  });
+
   it("passes over a unit with nothing to fire at, and says so", () => {
     render(<SharedBattleView match={battleOf({ row: 8, col: 6 }, { row: 0, col: 6 })} />);
 
