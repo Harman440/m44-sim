@@ -9,10 +9,11 @@ import { BoardSize, STANDARD_BOARD, boardSizeOf } from "../game-core/boardSize";
 export const ART_WAIT_MS = 15_000;
 
 const drawn = new Map<string, Promise<string>>();
+const ART_RENDER_VERSION = 3; // Invalidate images made before the painted hedgerow asset was added.
 
 /** A map's board art as an image URL (a blob: URL kept for as long as the app is open) */
 export function boardArtFor(tiles: Tiles, size: BoardSize = STANDARD_BOARD, picked: PickedTile[] = []): Promise<string> {
-  const key = JSON.stringify([tiles, size.cols, size.rows, picked]);
+  const key = JSON.stringify([ART_RENDER_VERSION, tiles, size.cols, size.rows, picked]);
   let art = drawn.get(key);
   if (!art) {
     art = import("./drawBoard").then(({ drawBoardArt }) => drawBoardArt(tiles, size, { picked }));

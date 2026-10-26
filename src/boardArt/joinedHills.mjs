@@ -19,8 +19,9 @@ import { R, edgeDir, rng, shoreCurves } from "./terrainTiles.mjs";
 /**
  * `offset`: draw the hill of the hex that far away instead (in hex radii; its outline only, the
  * textures staying where `center` is on the board), for a hill running on into a river beside it
- * `toRiver`: which of the `open` edges lead into a river rather than another hill
- * @typedef {(open: boolean[], seed: number, center: { x: number, y: number }, offset?: { x: number, y: number }, toRiver?: boolean[]) => Uint8Array} RidgeMaker
+ * `toRiver`: which of the `open` edges lead into a river rather than another hill; `cliffs`: the
+ * edges a coastal bluff faces (when present, its other sides become grassy slopes)
+ * @typedef {(open: boolean[], seed: number, center: { x: number, y: number }, offset?: { x: number, y: number }, toRiver?: boolean[], cliffs?: boolean[]) => Uint8Array} RidgeMaker
  */
 
 const SQRT3 = Math.sqrt(3);
@@ -173,7 +174,7 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass }, tileWidt
   for (let i = 0; i < 360; i++) deepestCliff = Math.max(deepestCliff, /** @type {number} */ (foot[i]) - /** @type {number} */ (top[i]));
   const GRASS_REACH = (deepestCliff + 6) / k + 1;
 
-  return (open, seed, center, offset, toRiver) => {
+  return (open, seed, center, offset, toRiver, cliffs) => {
     const rand = rng(seed);
     // The plateau's outline, as points at the build's scale, with the distance along it
     /** @type {[number, number][]} */
@@ -277,12 +278,21 @@ export function joinedHillMaker({ tile, plateau: plateauImage, grass }, tileWidt
             far = mirrored(plateauTexture, ox + x, oy + y, b, 0.45, mean);
             w = Math.min(1, dist / (0.16 * TR));
           } else {
-            // Down the cliff, then out over the grass at its foot
             const r = rTop + dist * k;
             const rc = Math.min(r, rFoot + 3);
-            near = sample(OW / 2 + ca * rc, OH / 2 + sa * rc, a);
             far = mirrored(grass, ox + x, oy + y, b, 1, [0, 0, 0]);
-            w = clamp((r - rFoot) / 6, 0, 1);
+            const angle = (Math.atan2(hy, hx) * 180) / Math.PI;
+            const edge = Math.round((((angle % 360) + 360) % 360) / 60) % 6;
+            const bluffSide = cliffs?.some(Boolean) ? cliffs[edge] : true;
+            if (bluffSide) {
+              // Keep the source tile's rock face toward the sea or beach.
+              near = sample(OW / 2 + ca * rc, OH / 2 + sa * rc, a);
+              w = clamp((r - rFoot) / 6, 0, 1);
+            } else {
+              // On the landward sides, turn the cliff ring into a grassy slope.
+              near = sample(OW / 2 + ca * rTop, OH / 2 + sa * rTop, a);
+              w = clamp((r - rTop) / Math.max(1, rFoot - rTop), 0, 1);
+            }
             const [u, v] = [(ox + x) / TR, (oy + y) / TR];
             const keep = -3 + 3 * Math.sin(7 * u + 3 * v) * Math.sin(5 * v - 2 * u + 1.3);
             alpha = clamp(1 - (r - rFoot - keep) / 5, 0, 1);

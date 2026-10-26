@@ -76,7 +76,6 @@ const grass = (rand, n, color, opacity = 0.35, area = 90) => {
 // Leafy bushes and trees, like the forest art: a shadow, a gradient crown and light leaf dabs
 export const PALETTES = {
   forest: ["#2f5a1c", "#5d9230", "#a8d253"],
-  hedge: ["#23461a", "#46752a", "#86b447"],
   olive: ["#3f4f1d", "#6c7d33", "#b3bb62"],
   scrub: ["#4a5324", "#7a8a3a", "#c1c46c"],
 };
@@ -258,7 +257,7 @@ const cornerAt = (d, k = 1) => { const a = ((d * 60 + 30) * Math.PI) / 180; retu
  * `wobble` adds a point at each corner between two closed edges, for a less round shape.
  * `reach` and `cornerReach`: how far out it comes in the middle of a closed edge and at a
  * wobbled corner, as [least, more at random] fractions of the hex's inner radius (a lake's
- * shore by default; a hedgerow's comes out past the edges onto open countryside), or, edge by
+ * shore by default), or, edge by
  * edge, `reachAt(d)` and `cornerAt(d)` (the corner after edge d). `outAt(d)`: how far past an
  * open edge it bulges, in inner radii from the middle (1.35: a third of the way into the next hex).
  * @param {boolean[]} open
@@ -348,94 +347,4 @@ export function lake(open = [false, false, false, false, false, false], seed = 7
   return frame(b, WATER_RIM, defs);
 }
 
-// ---------- HEDGEROWS ----------
-// A line of hedge along a path: overlapping small bushes with a few taller trees
-const hedgeLine = (pts, rand, { r = 6.5, trees = 0.12, pal = "hedge" } = {}) => {
-  const spots = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
-    const len = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(len / (r * 0.7));
-    const nx = -(y1 - y0) / len, ny = (x1 - x0) / len;
-    for (let k = 0; k < n; k++) {
-      const t = (k + rand() * 0.6) / n, side = (rand() - 0.5) * r * 1.1;
-      const tree = rand() < trees;
-      spots.push([x0 + (x1 - x0) * t + nx * side, y0 + (y1 - y0) * t + ny * side, tree ? r * (1.5 + rand() * 0.4) : r * (0.6 + rand() * 0.55), tree ? "forest" : rand() < 0.3 ? "olive" : pal]);
-    }
-  }
-  const path = pts.map(([x, y], i) => `${i ? "L" : "M"}${f(x)},${f(y)}`).join("");
-  let s = `<path d="${path}" fill="none" stroke="#0d1a05" stroke-width="${f(r * 2.6)}" stroke-linejoin="round" stroke-linecap="round" opacity=".35" filter="url(#soft)" transform="translate(${f(r * 0.4)} ${f(r * 0.5)})"/>`;
-  s += `<path d="${path}" fill="none" stroke="#2a4a1a" stroke-width="${f(r * 1.9)}" stroke-linejoin="round" stroke-linecap="round"/>`;
-  spots.sort((a, b) => a[2] - b[2]).forEach(([x, y, rr, p]) => (s += bush(x, y, rr, p, rand, p === "forest" ? 0.35 : 0)));
-  return s;
-};
-// Fields: filled polygons with furrow patterns at different angles
-const FIELDS = {
-  wheat: ["#d2c27e", "#b5a45e"], pasture: ["#9ab65a", "#86a24a"], plough: ["#b49a68", "#8f7650"], hay: ["#c5c97a", "#a5aa58"],
-};
-const fieldDefs = (seed) => Object.entries(FIELDS).map(([k, [, line]], i) =>
-  `<pattern id="fur-${k}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(${[20, -35, 65, -10][i] + seed})"><rect width="6" height="${k === "pasture" ? 0.6 : 1.5}" fill="${line}" opacity="${k === "pasture" ? 0.4 : 0.7}"/></pattern>`).join("");
-const field = (pts, kind) => {
-  const poly = pts.map(([x, y]) => `${f(x)},${f(y)}`).join(" ");
-  return `<polygon points="${poly}" fill="${FIELDS[kind][0]}"/><polygon points="${poly}" fill="url(#fur-${kind})"/>`;
-};
-const inset = (k) => corners(R * k);
-// Hedges crossing the hex between three fields, meeting a hedge along most of its rim.
-// The seed picks where they meet, which corners they run to and where the rim's hedge starts.
-// The fields fill a rounded patch, not the hex: past the edges onto open countryside (`bare`) it
-// spreads beyond the hex, with more hedges, and stays inside it elsewhere; it runs straight on
-// through the edges `open` to another hedgerow (the outline a lake's is, shoreCurves). Round it
-// the board's countryside shows, and the hedges' bushes stand out over it. The image is
-// HEDGEROW_SPREAD times the hex's box, centred on it, laid over what's round it
-/** How much larger than the hex's box a hedgerow's image is */
-export const HEDGEROW_SPREAD = 1.5;
-export function hedgerow(seed = 53, open = [false, false, false, false, false, false], bare = [false, false, false, false, false, false]) {
-  const rand = rng(seed);
-  const wide = (d) => bare[d] && !open[d];
-  const outline = shoreCurves(open, rng(seed * 31 + 5), {
-    neck: 0.9,
-    wobble: true,
-    reachAt: (d) => (wide(d) ? [1.08, 0.12] : [0.84, 0.08]),
-    cornerAt: (d) => (wide(d) && wide((d + 1) % 6) ? [1.06, 0.12] : wide(d) || wide((d + 1) % 6) ? [0.96, 0.1] : [0.86, 0.1]),
-  });
-  const patch = `M${f(outline[0][0][0])},${f(outline[0][0][1])}` +
-    outline.map(([, a, b, c]) => `C${f(a[0])},${f(a[1])} ${f(b[0])},${f(b[1])} ${f(c[0])},${f(c[1])}`).join("") + "Z";
-  let b = ground("#8fa652", "#aebd6c", "#6f8a38", seed, 0.03);
-  const turn = Math.floor(rand() * 2), start = Math.floor(rand() * 6);
-  const m = [(rand() - 0.5) * 24, (rand() - 0.5) * 24];
-  const corner = (points, i) => points[(i + turn) % 6];
-  const k = inset(1.8);
-  const kinds = ["wheat", "pasture", "plough", "hay"].sort(() => rand() - 0.5);
-  [1, 3, 5].forEach((c, i) => (b += field([m, corner(k, c), corner(k, c + 1), corner(k, c + 2)], kinds[i])));
-  b += `<g filter="url(#gl${seed})" opacity=".35"><rect x="-150" y="-150" width="300" height="300"/></g>`;
-  // The hedges follow the patch's rounded outline, just inside it: one along most of it, three
-  // across the fields from where they meet out to it, and two more splitting the fields
-  const along = outline.flatMap(([p0, p1, p2, p3]) =>
-    [0, 0.25, 0.5, 0.75].map((t) => {
-      const u = 1 - t;
-      return [0, 1].map((c) => 0.9 * (u ** 3 * p0[c] + 3 * u * u * t * p1[c] + 3 * u * t * t * p2[c] + t ** 3 * p3[c]));
-    }),
-  );
-  const towards = (a) => along.reduce((best, p) => (Math.abs(Math.atan2(p[1], p[0]) - a) < Math.abs(Math.atan2(best[1], best[0]) - a) ? p : best));
-  let hedges = "";
-  [1, 3, 5].forEach((c) => {
-    const [x, y] = corner(inset(1), c);
-    hedges += hedgeLine([m, towards(Math.atan2(y, x))], rand, { r: 9.5, trees: 0.1 });
-  });
-  // The two more: from part way along a hedge across a field to the rim
-  [0, 2].forEach((c) => {
-    const [x, y] = corner(inset(1), c);
-    const [ex, ey] = towards(Math.atan2(y, x));
-    const t = 0.35 + rand() * 0.25;
-    hedges += hedgeLine([[m[0] + (ex - m[0]) * t * 0.6, m[1] + (ey - m[1]) * t * 0.6], [ex, ey]], rand, { r: 8.5, trees: 0.12 });
-  });
-  const from = Math.floor((start / 6) * along.length);
-  const ring = [...Array(Math.round(along.length * 0.8)).keys()].map((i) => along[(from + i) % along.length]);
-  hedges += hedgeLine(ring, rand, { r: 9.5, trees: 0.15 });
-  const S = HEDGEROW_SPREAD;
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f((-W / 2) * S)} ${f(-100 * S)} ${f(W * S)} ${f(200 * S)}" width="${f(W * 2 * S)}" height="${f(400 * S)}">` +
-    `<defs><clipPath id="patch"><path d="${patch}"/></clipPath>${bushDefs()}${fieldDefs(seed)}</defs>` +
-    `<g clip-path="url(#patch)">${b}</g>${hedges}</svg>`
-  );
-}
-export const TILES = { river, bridge, lake, hedgerow };
+export const TILES = { river, bridge, lake };

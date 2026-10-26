@@ -30,7 +30,7 @@ export const APP_ART_HEIGHT = 1008;
 /** The bridge piece (board-art/pieces/bridge.webp) was cut out on a hex box from a board whose hexes are this wide */
 export const PIECE_HEX_WIDTH = 173.35;
 /** How wide the bridge piece is laid, of its own width: its deck runs north to south in the image, so this narrows the deck */
-export const BRIDGE_WIDTH = 0.72;
+export const BRIDGE_WIDTH = 0.86;
 
 /**
  * Terrain a board can ask to draw in code instead of painting it, and the terrain each choice takes along
@@ -41,10 +41,10 @@ export const DRAWABLE = { river: ["river", "bridge"], hedgerow: ["hedgerow"] };
 export const JOINED_TERRAIN = ["forest", "town"];
 /**
  * Of those, terrain that's always made so: a forest's trees grow out over the countryside, a
- * town re-lays its houses (some standing over the edge)
+ * town keeps its painted tile while its outside fades into the countryside
  */
 const ALWAYS_JOINED = ["forest", "town"];
-/** Terrain whose hexes end in countryside (joinedTiles.mjs's toCountryside, the drawn hedgerow's rounded patch) */
+/** Terrain whose hexes end in countryside (joinedTiles.mjs's toCountryside) */
 const COUNTRYSIDE_ENDS = ["town", "river", "bridge", "hedgerow"];
 /** Terrain that's always drawn in code (a lake is drawn when the library's lake tiles don't fit it) */
 export const ALWAYS_DRAWN = ["hedgerow"];
@@ -147,28 +147,24 @@ const isRiver = (type) => type === "river" || type === "bridge";
  */
 /**
  * Drawn in code (terrainTiles.mjs): `edges`, the two edges a river runs through; `open`, the edges
- * a lake or a hedgerow runs out through; `woods`, a river's edges facing a forest; `bare`, a
- * hedgerow's edges onto open countryside, which it spreads out over (its image is
- * terrainTiles.mjs's HEDGEROW_SPREAD times the hex's box, laid over what's round it)
+ * a lake's edges to matching neighbors; `woods`, a river's edges facing a forest
  * `hills` and `hillTile`: a river's edges facing a hill, whose ridge (made from that tile) runs on
  * into it, short of the water; `hillShapes`: each one's edge, and its ridge's `open` and `seed`
- * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], bare: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[] }} DrawnHex
+ * @typedef {{ key: string, type: string, art: "drawn", seed: number, edges: number[], open: boolean[], woods: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[] }} DrawnHex
  * @typedef {{ edge: number, open: boolean[], toRiver: boolean[], seed: number }} HillShape
  */
 /**
  * A hill made into a ridge, running on into the hills and rivers across its `open` edges (none for
  * a lone hill), its cliffs giving way to the countryside (joinedHills.mjs)
  * (`toRiver`: which of them lead into a river, where it bulges less far)
- * @typedef {{ key: string, type: string, art: "ridge", tile: string, open: boolean[], toRiver?: boolean[], seed: number }} RidgeHex
+ * @typedef {{ key: string, type: string, art: "ridge", tile: string, open: boolean[], toRiver?: boolean[], cliffs?: boolean[], seed: number }} RidgeHex
  */
 /**
  * A painted tile blended into the same terrain across its `open` edges, turned `turns` × 60°
  * clockwise (joinedTiles.mjs): forests grow trees across them and out over the countryside
- * across their `bare` edges, a town lays its houses out again, one of them standing over the
- * bare edge `spill` (-1: none) and its streets running out a little over the edges `streets`; a painted river (or
- * bridge) is one too, its tile's grass giving way to the countryside, or to a forest beside it
- * across its `woods` edges
- * across its `woods` edges; a beach fades out across its `fade` edges, into the land there
+ * across their `bare` edges; a town keeps its painted tile and lets countryside fade into its
+ * outside edge; a painted river (or bridge) gives way to the countryside or a forest across its
+ * `woods` edges; a beach fades out across its `fade` edges, into the land there
  * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[], fade?: boolean[], seed: number }} JoinedHex
  */
 /**
@@ -525,17 +521,14 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       // Drawn: running out to the lakes beside it, and to a river flowing in
       const { lake: open, inflow } = lakeEdges(key);
       const edges = [...Array(6).keys()].map((d) => open.includes(d) || inflow.includes(d));
-      plan.push({ key, type, art: "drawn", seed, edges: [], open: edges, woods: [], bare: [] });
+      plan.push({ key, type, art: "drawn", seed, edges: [], open: edges, woods: [] });
     } else if (drawn.has(type)) {
-      // A hedgerow's fields run on into the hedgerows beside it
+      // Only hedge edges join across hexes; the fields stay inside their own hex.
       const joins = type === "hedgerow" && !plain;
       // A river's edges facing a forest, which grows into it up to the water
       const woods = isRiver(type) && !plain ? edgesTo(key, ["forest"]) : [];
       const hills = isRiver(type) && !plain ? hillsBeside(key) : {};
-      // A hedgerow spreads out over the open countryside beside it, on the board, and over a river's bank
-      const bare =
-        type === "hedgerow" && !plain ? [...Array(6).keys()].map((d) => !outside(key) && onBoard.has(neighbor(key, d)) && ["plains", "river", "bridge"].includes(wanted.get(neighbor(key, d)) ?? "plains")) : [];
-      plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, bare, ...hills });
+      plan.push({ key, type, art: "drawn", seed, edges: isRiver(type) ? riverEdges(key) : [], open: joins ? edgesTo(key, [type]) : [], woods, ...hills });
     } else if (isRiver(type)) {
       const { edges, fits } = river(key);
       const fit = fits[pickFor(key, 3, fits.length)];
@@ -589,30 +582,19 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       // A hill is a ridge (its cliffs giving way to the countryside), running on into the hills and
       // the rivers beside it; a lone one too, its outline running out through no edge
       const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill", "river", "bridge"]) : [];
+      const cliffs = type === "hill" && !plain ? edgesTo(key, ["beach", "ocean"]) : [];
       const joins = JOINED_TERRAIN.includes(type) && !plain ? edgesTo(key, [type]) : [];
-      if (type === "hill" && !separateHills && !plain) plan.push({ key, type, art: "ridge", tile, open: ridge, toRiver: edgesTo(key, ["river", "bridge"]), seed });
+      if (type === "town" && !plain) plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: [], bare: [], spill: -1, seed });
+      else if (type === "hill" && !plain && (!separateHills || cliffs.some(Boolean)))
+        plan.push({ key, type, art: "ridge", tile, open: ridge, toRiver: edgesTo(key, ["river", "bridge"]), ...(cliffs.some(Boolean) ? { cliffs } : {}), seed });
       else if ((ALWAYS_JOINED.includes(type) && !plain) || joins.some(Boolean)) {
-        // Open countryside across an edge, on the board; a town has a house over one such edge
-        // one time in two
-        // (towns and rivers end in countryside too, so a forest's trees grow out over them)
+        // Open countryside across an edge, on the board (towns and rivers end in countryside too,
+        // so a forest's trees grow out over them)
         // (an outskirt hex has none: nothing of it reaches back onto the board)
         const across = (/** @type {number} */ d) => (!outside(key) && onBoard.has(neighbor(key, d)) ? (wanted.get(neighbor(key, d)) ?? "plains") : null);
         // (a town's cobbled yards spill onto a river's bank)
-        const bare = [...Array(6).keys()].map((d) => ["plains", ...(type === "town" ? ["river", "bridge"] : COUNTRYSIDE_ENDS)].includes(across(d) ?? ""));
-        const bareEdges = [...Array(6).keys()].filter((d) => across(d) === "plains");
-        const spill = type === "town" && bareEdges.length && pickFor(key, 5, 2) === 0 ? (bareEdges[pickFor(key, 6, bareEdges.length)] ?? -1) : -1;
-        // A town's streets run out a little over the edges to a bridge, and over one or two others
-        // (not into a town, a lake or off the board)
-        const streets =
-          type === "town"
-            ? (() => {
-                const out = [...Array(6).keys()].filter((d) => d !== spill && !["town", "lake"].includes(across(d) ?? "town"));
-                const bridges = out.filter((d) => across(d) === "bridge");
-                const others = out.filter((d) => across(d) !== "bridge").sort((a, b) => pickFor(key, 20 + a, 97) - pickFor(key, 20 + b, 97));
-                return [...bridges, ...others.slice(0, 1 + pickFor(key, 8, 2))].sort();
-              })()
-            : [];
-        plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, bare, spill, ...(type === "town" ? { streets } : {}), seed });
+        const bare = [...Array(6).keys()].map((d) => ["plains", ...COUNTRYSIDE_ENDS].includes(across(d) ?? ""));
+        plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, bare, spill: -1, seed });
       }
       else plan.push({ key, type, art: "painted", tile, turns: pickFor(key, 2, 6) });
     }
@@ -642,13 +624,12 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
 }
 
 /**
- * A drawn hex's SVG (a hex-shaped tile in a √3 : 2 box; a hedgerow's HEDGEROW_SPREAD times it)
+ * A drawn hex's SVG (a hex-shaped tile in a √3 : 2 box)
  * @param {DrawnHex} hex
  * @returns {string}
  */
-export function drawnSvg({ type, seed, edges, open, bare }) {
+export function drawnSvg({ type, seed, edges, open }) {
   if (type === "river" || type === "bridge") return TILES[type](edges[0], edges[1], seed);
   if (type === "lake") return TILES.lake(open, seed);
-  if (type === "hedgerow") return TILES.hedgerow(seed, open, bare);
   throw new Error(`Can't draw ${type}`);
 }

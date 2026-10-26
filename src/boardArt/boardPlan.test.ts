@@ -83,9 +83,9 @@ describe("planBoard", () => {
       ["2-2", "joined"],
     ]);
     expect(at(plan, "4-5")[0]).toMatchObject({ tile: "forest/official.webp", open: [false, false, false, true, false, false] });
-    // A hedgerow's fields run on into the hedgerow beside it, and spread over the countryside round it
-    expect(at(plan, "6-6")[0]).toMatchObject({ open: [true, false, false, false, false, false], bare: [false, true, true, true, true, true] });
-    expect(drawnSvg(at(plan, "6-6")[0] as DrawnHex)).toMatch(/viewBox="-129\.9 -150 259\.8 300"/);
+    // Adjacent hedgerows share an open edge, while the tile art stays inside one hex.
+    expect(at(plan, "6-6")[0]).toMatchObject({ open: [true, false, false, false, false, false] });
+    expect(drawnSvg(at(plan, "6-6")[0] as DrawnHex)).toMatch(/viewBox="-86\.6 -100 173\.2 200"/);
     expect(at(plan, "2-2")[0]).toMatchObject({ open: [false, false, false, false, false, false] });
     // A forest's trees grow over a town, a river or a hedgerow beside it, which end in countryside
     expect(at(planBoard({ forest: [p(4, 4)], town: [p(4, 5)], river: [p(4, 3)], hedgerow: [p(3, 3)] }, LIBRARY), "4-4")[0]).toMatchObject({
@@ -335,10 +335,11 @@ describe("canPaintRivers", () => {
 });
 
 describe("drawnSvg", () => {
-  it("draws rivers, bridges, lakes and hedgerows as SVG", () => {
-    const hex = (type: string): DrawnHex => ({ key: "4-4", type, art: "drawn", seed: 57, edges: [0, 3], open: [false, false, false, false, false, false], woods: [], bare: [] });
+  it("draws rivers, bridges and lakes as SVG", () => {
+    const hex = (type: string): DrawnHex => ({ key: "4-4", type, art: "drawn", seed: 57, edges: [0, 3], open: [false, false, false, false, false, false], woods: [] });
 
-    for (const type of ["river", "bridge", "lake", "hedgerow"]) expect(drawnSvg(hex(type))).toMatch(/^<svg /);
+    for (const type of ["river", "bridge", "lake"]) expect(drawnSvg(hex(type))).toMatch(/^<svg /);
     expect(() => drawnSvg(hex("forest"))).toThrow("Can't draw forest");
+    expect(() => drawnSvg(hex("hedgerow"))).toThrow("Can't draw hedgerow");
   });
 });

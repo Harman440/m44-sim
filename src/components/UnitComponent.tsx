@@ -2,21 +2,22 @@
 import React from "react";
 import alliedInfantry from "../assets/units/allies/infantry.webp";
 import alliedInfantryBack from "../assets/units/allies/infantry-back.webp";
-import alliedTank from "../assets/units/allies/tank.svg";
-import alliedArtillery from "../assets/units/allies/artillery.svg";
+import alliedTank from "../assets/units/allies/tank.webp";
+import alliedTankBack from "../assets/units/allies/tank-back.webp";
+import alliedArtillery from "../assets/units/allies/artillery.webp";
+import alliedArtilleryBack from "../assets/units/allies/artillery-back.webp";
 import axisInfantry from "../assets/units/axis/infantry.webp";
 import axisInfantryBack from "../assets/units/axis/infantry-back.webp";
-import axisTank from "../assets/units/axis/tank.svg";
-import axisArtillery from "../assets/units/axis/artillery.svg";
+import axisTank from "../assets/units/axis/tank.webp";
+import axisTankBack from "../assets/units/axis/tank-back.webp";
+import axisArtillery from "../assets/units/axis/artillery.webp";
+import axisArtilleryBack from "../assets/units/axis/artillery-back.webp";
 import Unit, { UnitType } from "../game-core/unit";
 import { Faction } from "../types/faction";
 import { FIGURES } from "../data/figures";
 import { FACTION_COLORS } from "../looks/looks";
-import type { Supply } from "../data/unitSupplies";
-import { defineMessages, useLabels, useMessages } from "../i18n/useI18n";
-import { iconUrl } from "./GameIcon";
-import { SUPPLY_ICONS } from "./SupplyIcons";
-import { signedChange as signed } from "./UnitChangeChips";
+import { defineMessages, useMessages } from "../i18n/useI18n";
+import EliteBadge from "./EliteBadge";
 
 const TEXT = defineMessages({
   es: {
@@ -27,8 +28,6 @@ const TEXT = defineMessages({
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     pinned: "Inmovilizada: otra bandera la hace retirarse",
     retreats: (n: number) => (n === 1 ? "Se retira 1 casilla ahora" : `Se retira ${n} casillas ahora`),
-    change: (morale: number, ammo: number, luck: string) => `Este turno: moral ${morale}, munición ${ammo}, suerte ${luck}`,
-    empty: (supplies: string) => `Sin ${supplies}`,
   },
   en: {
     elite: "Elite",
@@ -38,12 +37,9 @@ const TEXT = defineMessages({
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     pinned: "Pinned: another flag makes it retreat",
     retreats: (n: number) => (n === 1 ? "Retreats 1 hex now" : `Retreats ${n} hexes now`),
-    change: (morale: number, ammo: number, luck: string) => `This turn: morale ${morale}, ammo ${ammo}, luck ${luck}`,
-    empty: (supplies: string) => `No ${supplies}`,
   },
 });
 
-// Tank and artillery are placeholder SVGs; drop real art in the same folders to replace them
 const SPRITES: Record<Faction, Record<UnitType, string>> = {
   Allies: {
     [UnitType.INFANTRY]: alliedInfantry,
@@ -59,8 +55,16 @@ const SPRITES: Record<Faction, Record<UnitType, string>> = {
 
 /** Seen from behind, facing the enemy: a unit type without one shows its front */
 const BACK_SPRITES: Record<Faction, Partial<Record<UnitType, string>>> = {
-  Allies: { [UnitType.INFANTRY]: alliedInfantryBack },
-  Axis: { [UnitType.INFANTRY]: axisInfantryBack },
+  Allies: {
+    [UnitType.INFANTRY]: alliedInfantryBack,
+    [UnitType.TANK]: alliedTankBack,
+    [UnitType.ARTILLERY]: alliedArtilleryBack,
+  },
+  Axis: {
+    [UnitType.INFANTRY]: axisInfantryBack,
+    [UnitType.TANK]: axisTankBack,
+    [UnitType.ARTILLERY]: axisArtilleryBack,
+  },
 };
 
 export const unitSprite = (faction: Faction, unitType: UnitType): string => SPRITES[faction][unitType];
@@ -91,89 +95,10 @@ interface UnitProps {
   damaged?: boolean;
   /** Pass and play: hits it took this turn, a red tag over the token until the turn ends */
   hitThisTurn?: number;
-  /** What it lost or gained since the orders were confirmed: a pill under the token (this side's units only) */
-  change?: { morale: number; ammo: number; luck: number };
-  /** Supplies it has run out of: a red pill over the token (this side's units only) */
-  empty?: readonly Supply[];
 }
 
 const TOKEN_RADIUS = 27;
 
-/**
- * What a unit lost or gained this turn, under its token: each change with its icon (morale lost,
- * ammo or shells spent, luck moved), on a light pill
- */
-function ChangePill({ x, y, change }: { x: number; y: number; change: NonNullable<UnitProps["change"]> }) {
-  const t = useMessages(TEXT);
-  const parts = [
-    change.morale !== 0 && { icon: "morale" as const, text: signed(change.morale) },
-    change.ammo !== 0 && { icon: "ammo" as const, text: signed(change.ammo) },
-    Math.abs(change.luck) >= 0.05 && { icon: "luck" as const, text: signed(change.luck, 1) },
-  ].filter((part): part is { icon: "morale" | "ammo" | "luck"; text: string } => !!part);
-  if (parts.length === 0) return null;
-  const ICON = 11;
-  const widths = parts.map((part) => ICON + 2 + part.text.length * 6.2);
-  const gap = 5;
-  const width = widths.reduce((sum, w) => sum + w, 0) + gap * (parts.length - 1) + 10;
-  let left = x - width / 2 + 5;
-  return (
-    <g className="unit__badge unit__badge--change" data-testid="change-pill">
-      <title>{t.change(change.morale, change.ammo, signed(change.luck, 1))}</title>
-      <rect x={x - width / 2} y={y - 8} width={width} height={16} rx={8} fill="#f1ead6" stroke="#2b2418" strokeWidth={1} opacity={0.95} />
-      {parts.map((part, i) => {
-        const at = left;
-        left += widths[i]! + gap;
-        return (
-          <g key={part.icon}>
-            <image href={iconUrl(part.icon)} x={at} y={y - ICON / 2} width={ICON} height={ICON} />
-            <text x={at + ICON + 1.5} y={y} dominantBaseline="central" fontSize={10.5} fontWeight={700} fill="#2b2418">
-              {part.text}
-            </text>
-          </g>
-        );
-      })}
-    </g>
-  );
-}
-
-/**
- * What the unit has run out of, over its token: each empty supply's icon on a red pill, so an
- * infantry with no ammo or a tank with no fuel shows on the map without reading its row
- */
-function EmptyPill({ x, y, empty }: { x: number; y: number; empty: readonly Supply[] }) {
-  const t = useMessages(TEXT);
-  const labels = useLabels();
-  if (empty.length === 0) return null;
-  const ICON = 11;
-  const gap = 4;
-  const width = empty.length * ICON + (empty.length - 1) * gap + 9;
-  return (
-    <g className="unit__badge unit__badge--empty" data-testid="empty-pill">
-      <title>{t.empty(empty.map((supply) => labels.supplies[supply].toLowerCase()).join(", "))}</title>
-      <rect x={x - width / 2} y={y - 8} width={width} height={16} rx={8} fill="#b3261e" stroke="#f1ead6" strokeWidth={1.2} />
-      {empty.map((supply, i) => (
-        <image
-          key={supply}
-          href={iconUrl(SUPPLY_ICONS[supply])}
-          x={x - width / 2 + 4.5 + i * (ICON + gap)}
-          y={y - ICON / 2}
-          width={ICON}
-          height={ICON}
-        />
-      ))}
-    </g>
-  );
-}
-
-/** A five-pointed star centred on (cx, cy) */
-const starPath = (cx: number, cy: number, outer: number, inner: number) =>
-  "M" +
-  Array.from({ length: 10 }, (_, i) => {
-    const r = i % 2 === 0 ? outer : inner;
-    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-    return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
-  }).join("L") +
-  "Z";
 const BADGE_RADIUS = 10;
 
 /**
@@ -230,8 +155,6 @@ const UnitComponent: React.FC<UnitProps> = ({
   retreats = 0,
   damaged = false,
   hitThisTurn = 0,
-  change,
-  empty = [],
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
@@ -267,26 +190,30 @@ const UnitComponent: React.FC<UnitProps> = ({
           width={layout.size}
           height={layout.size}
           preserveAspectRatio="xMidYMid meet"
+          style={{
+            filter: "drop-shadow(0 0 0.8px #f7f0dc) drop-shadow(0 1px 1px rgba(24, 29, 19, 0.75))",
+          }}
         />
       ))}
 
-      {/* The scenario's elite badge (moves its whole move and fires), top left */}
-      {unitData?.elite && (
-        <g className="unit__badge unit__badge--elite" data-testid="elite-badge">
-          <title>{t.elite}</title>
-          <circle cx={x - TOKEN_RADIUS * 0.72} cy={badgeY} r={BADGE_RADIUS} fill="#c9a227" stroke="#f1ead6" strokeWidth={2} />
-          <path
-            d={starPath(x - TOKEN_RADIUS * 0.72, badgeY, 6.5, 2.7)}
-            fill="#3b2a07"
-          />
+      {/* A damaged tank figure smoulders from its roof */}
+      {damaged && unitType === UnitType.TANK && (
+        <g className="unit__damage-fire" data-testid="damage-fire" transform="translate(0 3)">
+          <title>{t.damaged(figuresShown)}</title>
+          <g fill="#454744" opacity={0.28} filter="blur(1px)">
+            <ellipse cx={x - 15} cy={y - 29} rx={2.1} ry={2.8} transform={`rotate(-18 ${x - 15} ${y - 29})`} />
+            <ellipse cx={x - 12} cy={y - 33} rx={2.7} ry={3.1} transform={`rotate(22 ${x - 12} ${y - 33})`} />
+            <ellipse cx={x - 9} cy={y - 37} rx={2.1} ry={2.6} transform={`rotate(-12 ${x - 9} ${y - 37})`} />
+          </g>
+          <path d={`M${x - 17} ${y - 22}c-2-2-1-4 0-6c0-2 1-4 2-5c0 3 3 4 2 8c-.4 2-2 4-4 3z`} fill="#9a4825" opacity={0.9} />
+          <path d={`M${x - 16} ${y - 23}c-1.5-2-0.2-4 1-5c.1 2 1.8 2.8 1 4.8c-.4 1-1.3 1.4-2 0.2z`} fill="#d58b36" opacity={0.85} />
         </g>
       )}
 
-      {/* Pass and play: a figure hit once (armour), a red dot bottom right */}
-      {damaged && (
-        <g className="unit__badge unit__badge--damaged" data-testid="damaged-badge">
-          <title>{t.damaged(figuresShown)}</title>
-          <circle cx={badgeX} cy={y + TOKEN_RADIUS * 0.72} r={BADGE_RADIUS * 0.7} fill="#b3261e" stroke="#f1ead6" strokeWidth={2.5} />
+      {/* The scenario's elite badge (moves its whole move and fires), top left */}
+      {unitData?.elite && (
+        <g className="unit__badge unit__badge--elite">
+          <EliteBadge x={x - TOKEN_RADIUS * 0.72} y={badgeY} size={22} title={t.elite} />
         </g>
       )}
 
@@ -296,7 +223,7 @@ const UnitComponent: React.FC<UnitProps> = ({
           <title>{t.hitThisTurn(hitThisTurn)}</title>
           <rect
             x={x - 15}
-            y={y - TOKEN_RADIUS - 11}
+            y={y + TOKEN_RADIUS + 4}
             width={30}
             height={18}
             rx={9}
@@ -306,7 +233,7 @@ const UnitComponent: React.FC<UnitProps> = ({
           />
           <text
             x={x}
-            y={y - TOKEN_RADIUS - 2}
+            y={y + TOKEN_RADIUS + 13}
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={12}
@@ -317,9 +244,6 @@ const UnitComponent: React.FC<UnitProps> = ({
           </text>
         </g>
       )}
-
-      {change && <ChangePill x={x} y={y + TOKEN_RADIUS + 4} change={change} />}
-      {empty.length > 0 && <EmptyPill x={x} y={y - TOKEN_RADIUS - 4} empty={empty} />}
 
       {/* Pinned (a flag this turn): a flag bottom left, with the hexes it must retreat now */}
       {(pinned || retreats > 0) && (

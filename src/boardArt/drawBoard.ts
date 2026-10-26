@@ -2,7 +2,7 @@
 // A board's art drawn in the browser, for a map that has no painted art (one made in the map
 // editor): the empty board, the art boardPlan.mjs plans for each terrain hex, as `npm run board`
 // does for the catalog's art (hills next to each other joined into ridges, joinedHills.mjs;
-// forests and hedgerows blended into their own kind and towns' houses laid out again,
+// forests blended into their own kind, hedgerows painted from the approved field image, and towns' houses laid out again,
 // joinedTiles.mjs, with what spills out of them over the countryside, and towns and rivers ending
 // in the countryside) and the board's edges made soft (softLines.mjs: the frame filled with
 // countryside, the hex lines softened), but
@@ -35,10 +35,10 @@ import type { DrawnHex, HexArt, JoinedHex, RidgeHex, SpillHex } from "./boardPla
 import { blurPixels, joinedHillMaker, plateauCrop } from "./joinedHills.mjs";
 import type { Pixels, RidgeMaker } from "./joinedHills.mjs";
 import { OVERFLOW, growHill, growWoods, hillOver, joinedTileMaker, spillMaker, toCountryside } from "./joinedTiles.mjs";
-import { HEDGEROW_SPREAD } from "./terrainTiles.mjs";
 import { LINE_BAND, fillFrame, softenHexLines } from "./softLines.mjs";
-import type { HouseOutlines, JoinedMaker, SpillMaker } from "./joinedTiles.mjs";
+import type { JoinedMaker, SpillMaker } from "./joinedTiles.mjs";
 import emptyBoardUrl from "../assets/board-art/empty-board.webp";
+import hedgerowFieldUrl from "../assets/board-art/hedgerow-field.webp";
 import bridgeUrl from "../../scripts/board-art/pieces/bridge.webp";
 import grassUrl from "../../scripts/board-art/textures/grass.webp";
 
@@ -46,13 +46,6 @@ import grassUrl from "../../scripts/board-art/textures/grass.webp";
 const TILE_URLS = new Map(
   Object.entries(import.meta.glob<string>("../../scripts/board-art/tiles/*/*.webp", { eager: true, import: "default" })).map(
     ([path, url]) => [path.split("/").slice(-2).join("/"), url],
-  ),
-);
-
-// The houses drawn round on a town tile, beside it as <tile>.json, by "<terrain>/<file>.webp"
-const HOUSE_OUTLINES = new Map(
-  Object.entries(import.meta.glob<HouseOutlines>("../../scripts/board-art/tiles/*/*.json", { eager: true, import: "default" })).map(
-    ([path, outlines]) => [path.split("/").slice(-2).join("/").replace(/\.json$/, ".webp"), outlines],
   ),
 );
 
@@ -124,8 +117,22 @@ const forestTile = () =>
 // Drawn hexes rendered once at a size and kept as bitmaps: the browser would render an SVG
 // image again every time it's pasted
 const drawnTiles = new Map<string, Promise<HTMLCanvasElement>>();
+const hedgerowTile = (hex: DrawnHex, width: number, height: number) =>
+  cached(drawnTiles, `hedgerow-field:${hex.seed % 2}@${width}x${height}`, async () => {
+    const image = await loadImage(hedgerowFieldUrl);
+    const tile = document.createElement("canvas");
+    tile.width = width;
+    tile.height = height;
+    const ctx = tile.getContext("2d");
+    if (!ctx) throw new Error("No canvas to draw a hedgerow tile on");
+    ctx.translate(width / 2, height / 2);
+    if (hex.seed % 2) ctx.rotate(Math.PI);
+    ctx.drawImage(image, -width / 2, -height / 2, width, height);
+    return tile;
+  });
+
 const drawnTile = (hex: DrawnHex, width: number, height: number, center: { x: number; y: number }) =>
-  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}:${hex.bare.map(Number).join("")}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`, async () => {
+  cached(drawnTiles, `${hex.type}:${hex.seed}:${hex.edges.join()}:${hex.open.map(Number).join("")}:${hex.woods.map(Number).join("")}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`, async () => {
     const svg = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawnSvg(hex))}`);
     const tile = document.createElement("canvas");
     tile.width = width;
@@ -180,9 +187,9 @@ const ridgeMaker = (tile: string, width: number, height: number) =>
 /** A hill joined to the hills beside it, made at the board's size (the script makes it at twice), kept as a bitmap */
 const ridgeTile = (hex: RidgeHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
-  const key = `ridge:${hex.tile}:${hex.key}:${hex.open.map(Number).join("")}:${(hex.toRiver ?? []).map(Number).join("")}@${width}x${height}`;
+  const key = `ridge:${hex.tile}:${hex.key}:${hex.open.map(Number).join("")}:${(hex.toRiver ?? []).map(Number).join("")}:${(hex.cliffs ?? []).map(Number).join("")}@${width}x${height}`;
   return cached(drawnTiles, key, async () => {
-    const pixels = (await ridgeMaker(hex.tile, width, height))(hex.open, hex.seed, grid.center(hex.key), undefined, hex.toRiver);
+    const pixels = (await ridgeMaker(hex.tile, width, height))(hex.open, hex.seed, grid.center(hex.key), undefined, hex.toRiver, hex.cliffs);
     const tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
@@ -204,7 +211,7 @@ const joinedMaker = (type: string, tile: string, width: number, height: number) 
     // Read at about twice the hex's size: a small tile at twice its own, as the script reads it, a
     // large one at its own, so finding its houses doesn't take long
     const k = Math.max(1, Math.round((2 * width) / image.naturalWidth));
-    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * k, image.naturalHeight * k), width, height, 1, forest, hill, HOUSE_OUTLINES.get(tile));
+    return joinedTileMaker(type, pixelsOf(image, image.naturalWidth * k, image.naturalHeight * k), width, height, 1, forest, hill);
   });
 
 /** RGBA pixels as a canvas */
@@ -256,7 +263,7 @@ const hexImage = (hex: HexArt, grid: ReturnType<typeof artGrid>): Promise<Canvas
   if (hex.art === "ridge") return ridgeTile(hex, grid);
   if (hex.art === "joined") return joinedTile(hex, grid).then(({ tile }) => tile);
   if (hex.art === "spill") return spillTile(hex, grid);
-  if (hex.art === "drawn" && hex.type === "hedgerow") return drawnTile(hex, Math.ceil(HEDGEROW_SPREAD * grid.hexWidth), Math.ceil(HEDGEROW_SPREAD * 2 * grid.radius), grid.center(hex.key));
+  if (hex.art === "drawn" && hex.type === "hedgerow") return hedgerowTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius));
   if (hex.art === "drawn") return drawnTile(hex, Math.ceil(grid.hexWidth), Math.ceil(2 * grid.radius), grid.center(hex.key));
   return null;
 };
@@ -351,10 +358,9 @@ export async function paintBoard(
     ctx.putImageData(pixels, 0, 0);
     frame = canvasOf(new Uint8Array(pixels.data.buffer), grid.width, grid.height);
   }
-  /** A drawn hedgerow's image, HEDGEROW_SPREAD times the hex's box, centred on it */
+  /** A drawn hedgerow, contained in its own hex */
   const drawHedgerow = (image: CanvasImageSource, { x, y }: { x: number; y: number }) => {
-    const [w, h] = [HEDGEROW_SPREAD * tileWidth, HEDGEROW_SPREAD * tileHeight];
-    ctx.drawImage(image, x - w / 2, y - h / 2, w, h);
+    ctx.drawImage(image, x - tileWidth / 2, y - tileHeight / 2, tileWidth, tileHeight);
   };
   plan.forEach((hex, i) => {
     const center = grid.center(hex.key);

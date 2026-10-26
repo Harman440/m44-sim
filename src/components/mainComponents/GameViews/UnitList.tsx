@@ -16,10 +16,13 @@ import HexThumbnail from "../../HexThumbnail";
 import { EquipmentIcon, SUPPLY_ICONS } from "../../SupplyIcons";
 import StatBar from "../../StatBar";
 import { unitSprite } from "../../UnitComponent";
+import EliteBadge from "../../EliteBadge";
+import UnitChangeChips from "../../UnitChangeChips";
 
 const TEXT = defineMessages({
   es: {
     units: "Tus unidades",
+    elite: "De élite",
     rests: "Descansa",
     luck: (value: string) => `Suerte ${value}`,
     amount: (name: string, n: number) => `${name}: ${n}`,
@@ -28,6 +31,7 @@ const TEXT = defineMessages({
   },
   en: {
     units: "Your units",
+    elite: "Elite",
     rests: "Rests",
     luck: (value: string) => `Luck ${value}`,
     amount: (name: string, n: number) => `${name}: ${n}`,
@@ -168,16 +172,24 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
         if (!unit) return null;
         const order = game.orders.find((each) => samePosition(each.end, position));
         const action = order && actionById(order.action);
+        const change = game.changes.find((each) => samePosition(each.position, position));
         const isSelected = !!selected && samePosition(selected, position);
         const rowSx = { minHeight: 48, borderRadius: 1, px: 1, gap: 1, alignItems: "flex-start" };
         const content = (
           <>
-            <Box
-              component="img"
-              src={unitSprite(faction, unit.getUnitType())}
-              alt={labels.unit(unit)}
-              sx={{ width: 28, height: 28, flex: "none", mt: 0.25 }}
-            />
+            <Box sx={{ position: "relative", width: 28, height: 28, flex: "none", mt: 0.25 }}>
+              <Box
+                component="img"
+                src={unitSprite(faction, unit.getUnitType())}
+                alt={labels.unit(unit)}
+                sx={{ width: 28, height: 28 }}
+              />
+              {unit.elite && (
+                <Box sx={{ position: "absolute", top: -4, left: -4, width: 18, height: 18 }}>
+                  <EliteBadge x={9} y={9} size={18} title={t.elite} />
+                </Box>
+              )}
+            </Box>
             <HexThumbnail
               board={session.board}
               position={position}
@@ -197,6 +209,7 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
                 figures={session.figuresAt(position)}
                 faction={faction}
               />
+              <UnitChangeChips change={change} />
             </Stack>
           </>
         );
