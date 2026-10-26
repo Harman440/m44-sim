@@ -64,7 +64,7 @@ Today `GameSession.hits` is one number per unit and `data/figures.ts` works the 
 - [x] Tests: `actionChoice.test.ts` (the pairs, the bigger unit taking the smaller, units left alone); a seeded self-play game in `standardBrain.test.ts` where a regroup happens and the smaller unit leaves the map
 
 ## Step R6: Write it down
-- [ ] `ruleBook.ts`: the Regroup rule in both languages, numbers from the data files (the costs from `unitActions.ts`, the full figures from `figures.ts`)
-- [ ] `docs/house-rules.md`: the squad leader and Regroup
-- [ ] `docs/ARCHITECTURE.md`: per-figure hits (`data/figures.ts`, `GameSession`), the Regroup action and its battle edit
-- [ ] Tick off "New Rework: Officer" in `myNextPlan.md`
+- [x] `ruleBook.ts`: the Regroup rule in both languages, numbers from the data files (the costs from `unitActions.ts`, the full figures from `figures.ts`)
+- [x] `docs/house-rules.md`: the squad leader and Regroup
+- [x] `docs/ARCHITECTURE.md`: per-figure hits (`data/figures.ts`, `GameSession`), the Regroup action and its battle edit
+- [x] Tick off "New Rework: Officer" in `myNextPlan.md`

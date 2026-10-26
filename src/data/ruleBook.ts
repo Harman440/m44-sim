@@ -38,6 +38,9 @@ const ammoShort = DEFENDER_SHORTFALL[Supply.AMMO] ?? 0;
 const shellsShort = DEFENDER_SHORTFALL[Supply.SHELLS] ?? 0;
 const reloadAmmo = RELOAD[Supply.AMMO] ?? 0;
 const eliteTankHits = ELITE_HITS_PER_FIGURE[UnitType.TANK];
+/** What Regroup costs a unit type, in its one supply (energy or fuel) */
+const regroupCost = (unitType: "infantry" | "tank"): number =>
+  Object.values(actionById(`${unitType}:regroup`)?.cost.amounts ?? {})[0] ?? 0;
 const behindLines = actionById("infantry:behindEnemyLines")?.moveAfterBattle ?? 0;
 const reloadShells = RELOAD[Supply.SHELLS] ?? 0;
 /** What the defender's units start without, as the rule book says it */
@@ -461,6 +464,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         house: {
           es: `Al confirmar las órdenes: Recargar, Subir la moral, Fortificar (sacos terreros en su casilla), Médico (recupera una figura perdida) y Mecánico (repara la figura más tocada), y las cartas Reabastecimiento (la infantería recupera moral, munición y equipo) y Repostaje (tanques y artillería llenan el combustible). En la batalla, A cubierto ignora ${TAKE_COVER_HITS === 1 ? "el primer impacto" : `los ${TAKE_COVER_HITS} primeros impactos`} de símbolo de infantería. Tras la batalla, Camuflaje pone la ficha y Tras las líneas enemigas mueve otras ${behindLines} casillas. Médico y Mecánico solo se ofrecen si hay algo que curar o reparar. En tablets propias la app no lleva las figuras: Médico, Mecánico, A cubierto y el movimiento de Tras las líneas enemigas se hacen en la mesa, y la app los recuerda en la fase de movimiento. Los artilleros que deja una artillería destruida empiezan con todo lleno.`,
           en: `When the orders are confirmed: Reload, Morale Up, Fortify (sandbags on its hex), Medic (a lost figure back) and Mechanic (the most damaged figure is mended), and the Resupply card (infantry gets its morale, ammo and equipment back) and Refuel (tanks and artillery fill up their fuel). In the battle, Take Cover ignores the first ${TAKE_COVER_HITS === 1 ? "infantry-symbol hit" : `${TAKE_COVER_HITS} infantry-symbol hits`}. After the battle, Camouflage puts the badge on and Behind Enemy Lines moves ${behindLines} more hexes. Medic and Mechanic are only offered when there's something to heal or mend. On own tablets the app doesn't track figures: Medic, Mechanic, Take Cover and Behind Enemy Lines' move are done on the table, and the app reminds you in the movement phase. The crew a destroyed artillery leaves behind starts with everything full.`,
+        },
+      },
+      {
+        title: { es: "Reagrupar", en: "Regroup" },
+        house: {
+          es: `La infantería (${regroupCost("infantry")} de energía) y los blindados (${regroupCost("tank")} de combustible) que han perdido figuras pueden reagruparse con una unidad de su tipo en una casilla contigua, las dos de élite o ninguna; la infantería, con moral. Al confirmar las órdenes, las figuras de esa unidad pasan a esta hasta completarla: primero las sanas, luego las tocadas (siguen tocadas) y el jefe de escuadra la última. Ninguna de las dos se mueve ni dispara ese turno, y la que se reagrupa se queda con lo mejor de los suministros y el equipo de las dos. La que da sus figuras, si se queda sin ninguna, sale del mapa con sus sacos terreros y no da medalla al enemigo, que la sigue viendo hasta que se revelan las órdenes; si le quedan, se queda con ellas y descansa. Solo en pasar y jugar y contra el ordenador.`,
+          en: `Infantry (${regroupCost("infantry")} energy) and armour (${regroupCost("tank")} fuel) that have lost figures can regroup with a unit of their type on a hex next to them, both elite or neither; infantry, with some morale. When the orders are confirmed, that unit's figures join this one until it's full: healthy ones first, then damaged ones (they stay damaged), and its squad leader last. Neither moves or fires that turn, and the one regrouping keeps the better of both units' supplies and equipment. The one giving its figures, if left with none, leaves the map with its sandbags and gives the enemy no medal; the enemy still sees it until the orders are revealed. If it has some left, it keeps them and rests. Only in pass and play and against the computer.`,
         },
       },
       {

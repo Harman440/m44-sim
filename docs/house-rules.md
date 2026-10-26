@@ -13,6 +13,8 @@ These are the player's house rules for Memoir '44 with simultaneous turns, kept 
 - Cards that have 'on the move' in standard map have 1 less on the move unit.
 - A unit with an enemy unit in an adjacent hex must fire in close assault, at an adjacent unit: it can't fire at range.
 - *Experimental (a switch in the app's "Ajustes"):* when an artillery unit is destroyed, its crew stays on the hex as an infantry unit.
+- **Squad leader:** every unit has one squad leader among its figures (infantry: 5 figures and the leader). It's the last figure hit, so it's the figure that falls when the unit is destroyed, and the one that gives the medal.
+- **Regroup** (2026-10-26; pass and play and against the computer): infantry (2 energy) and armour (2 fuel) that have lost figures take the figures of a unit of their type next to them (both elite or neither; infantry with morale above 0) until full: healthy ones first, damaged tank figures keep their damage, the giver's squad leader last. Neither unit moves or fires; the receiver keeps the better of both units' supplies and equipment. A giver left with none leaves the map with its sandbags and gives no medal; one with figures left keeps them and rests. A tank's next hit goes to its most damaged figure, and Mechanic mends the most damaged one.
 
 ## Changed units
 Some units have new rules (some rules are still the same):
