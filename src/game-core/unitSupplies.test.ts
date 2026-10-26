@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UnitType } from "./unit";
-import { amountOf, canPay, emptySupplies, endOfTurn, equipmentOf, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
+import { amountOf, betterOf, canPay, emptySupplies, endOfTurn, equipmentOf, fullSupplies, pay, refill, refund, reload, startingSupplies } from "./unitSupplies";
 import { Equipment, Supply } from "../data/unitSupplies";
 
 const infantry = fullSupplies(UnitType.INFANTRY);
@@ -92,5 +92,19 @@ describe("unit supplies", () => {
     const paid = pay(infantry, cost)!;
     expect(amountOf(paid, Supply.AMMO)).toBe(1);
     expect(refund(paid, cost)).toEqual(infantry);
+  });
+});
+
+describe("Regroup's supplies", () => {
+  it("keeps the higher of each supply and piece of equipment, never past full", () => {
+    const tired = { amounts: { ...infantry.amounts, [Supply.ENERGY]: 1, [Supply.AMMO]: 2 }, equipment: { ...infantry.equipment, [Equipment.MEDIC_KIT]: 0 } };
+    const other = { amounts: { ...infantry.amounts, [Supply.ENERGY]: 4, [Supply.AMMO]: 0 }, equipment: { ...infantry.equipment, [Equipment.SANDBAGS]: 0 } };
+    const merged = betterOf(tired, other, infantry);
+    expect(amountOf(merged, Supply.ENERGY)).toBe(4);
+    expect(amountOf(merged, Supply.AMMO)).toBe(2);
+    expect(equipmentOf(merged, Equipment.MEDIC_KIT)).toBe(1);
+    expect(equipmentOf(merged, Equipment.SANDBAGS)).toBe(1);
+    // An elite giver's extra doesn't go past a regular unit's full
+    expect(betterOf(infantry, fullSupplies(UnitType.INFANTRY, true), infantry)).toEqual(infantry);
   });
 });

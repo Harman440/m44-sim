@@ -116,6 +116,16 @@ describe("UnitComponent", () => {
     expect(spriteFor("Allies").getAttribute("href")).toBe(alliedInfantry);
   });
 
+  it("marks the squad leader under its first figure, the last to go", () => {
+    const { container } = render(
+      <svg>
+        <UnitComponent x={0} y={0} faction="Axis" unitData={new Unit(UnitType.INFANTRY)} figures={1} />
+      </svg>
+    );
+    expect(container.querySelectorAll("[data-testid='leader-mark']")).toHaveLength(1);
+    expect(container.querySelector("[data-testid='leader-mark'] title")?.textContent).toMatch(/Jefe de escuadra/);
+  });
+
   it("marks an elite unit with a star badge", () => {
     const badge = (unit: Unit) =>
       render(

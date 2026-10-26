@@ -16,9 +16,9 @@ import { RELOAD, SUPPLIES, Supply } from "../data/unitSupplies";
  * action of another unit type, one own tablets don't offer, nothing for it to mend (Medic
  * with no figure lost, Mechanic with no figure hit), or nothing it would change (`notNeeded`:
  * Reload with its ammo or shells full, Morale Up at full morale, Fortify where there are sandbags,
- * Camouflage with the badge on)
+ * Camouflage with the badge on, Regroup at full strength), or no unit next to it to regroup with
  */
-export type ActionRefusal = Supply | "equipment" | "unitType" | "ownTablets" | "nothingToMend" | "notNeeded";
+export type ActionRefusal = Supply | "equipment" | "unitType" | "ownTablets" | "nothingToMend" | "notNeeded" | "noPartner";
 
 /** What the unit is and has, for checking an action */
 export interface ActionContext {
@@ -37,10 +37,12 @@ export interface ActionContext {
   sandbags?: boolean;
   /** It has the camouflage badge already (Camouflage) */
   camouflaged?: boolean;
+  /** Pass and play: it has a unit next to it it could regroup with (Regroup) */
+  partners?: boolean;
 }
 
 /** The action would change nothing: see `ActionRefusal`'s `notNeeded` */
-function notNeeded(action: UnitAction, { unitType, supplies, elite = false, sandbags = false, camouflaged = false }: ActionContext): boolean {
+function notNeeded(action: UnitAction, { unitType, supplies, wounds, elite = false, sandbags = false, camouflaged = false }: ActionContext): boolean {
   const full = fullSupplies(unitType, elite);
   const isFull = (supply: Supply) => full.amounts[supply] !== undefined && amountOf(supplies, supply) >= amountOf(full, supply);
   switch (action.effect) {
@@ -52,6 +54,8 @@ function notNeeded(action: UnitAction, { unitType, supplies, elite = false, sand
       return sandbags;
     case "camouflage":
       return camouflaged;
+    case "regroup":
+      return !!wounds && !wounds.lost;
     default:
       return false;
   }
@@ -79,6 +83,7 @@ export function actionRefusal(action: UnitAction, context: ActionContext): Actio
   if (notNeeded(action, context)) return "notNeeded";
   // At morale 0 the unit can only be given Morale Up (a type without morale never is)
   if (supplies.amounts[Supply.MORALE] === 0 && action.effect !== "moraleUp") return Supply.MORALE;
+  if (action.effect === "regroup" && !context.partners) return "noPartner";
   const cost = actionCost(action, ownTablets);
   if (!canPay(supplies, cost)) {
     const short = SUPPLIES.find((supply) => amountOf(supplies, supply) < (cost.amounts?.[supply] ?? 0));

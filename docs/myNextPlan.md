@@ -27,7 +27,7 @@
 
 - collision are very buggy: I need more info. Improve interactions so this the bug is shown better
 
-- New Rework: Officer
+- [x] New Rework: Officer (built: [REGROUP_PLAN.md](REGROUP_PLAN.md))
    - Each units last figure is a serageant and can recruit other troops from other units. It spends maybe moral and energy and must be near to other weakend unit
    - Officers are the figures that must die to count as a vistory point
 

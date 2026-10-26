@@ -25,16 +25,20 @@ const orangeShades = [
 export const orderColor = (orderIndex: number = 0): string =>
   orangeShades[orderIndex % orangeShades.length]!;
 
-// Draws an order as an arrow along the unit's path, from start to destination
+// Draws an order as an arrow along the unit's path, from start to destination; Regroup's, from
+// the unit that gives its figures to the one that takes them
 function OrderComponent({ orderIndex, order, getHexCenter, hexSize, color: arrowColor }: OrderProps) {
   // Hold-and-fire orders have no movement; the unit's ready-to-fire glow shows them
-  if (samePosition(order.start, order.end)) {
+  if (samePosition(order.start, order.end) && !order.partner) {
     return null;
   }
 
   // If we have a full path, use it; otherwise fall back to direct line
-  const pathToRender =
-    order.path && order.path.length > 1 ? order.path : [order.start, order.end];
+  const pathToRender = order.partner
+    ? [order.partner, order.start]
+    : order.path && order.path.length > 1
+      ? order.path
+      : [order.start, order.end];
 
   // Convert path positions to screen coordinates
   const pathPoints = pathToRender.map((pos) => getHexCenter(pos));

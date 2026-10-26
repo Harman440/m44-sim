@@ -55,7 +55,8 @@ export interface TurnRecord {
   /** Casualties and retreats mirrored from the table, in the order they were made */
   battleEdits: (
     /** `replacedBy`: the infantry an artillery's crew left on the hex (experimental rule) */
-    | { kind: "remove"; unit: UnitType; elite?: boolean; position: Position; replacedBy?: UnitType }
+    /** `regroupedInto`: it gave all its figures to the unit on that hex (Regroup), and wasn't lost */
+    | { kind: "remove"; unit: UnitType; elite?: boolean; position: Position; replacedBy?: UnitType; regroupedInto?: Position }
     | { kind: "move"; unit: UnitType; elite?: boolean; from: Position; to: Position }
     | { kind: "add"; unit: UnitType; position: Position }
     | { kind: "wire"; position: Position }
@@ -138,6 +139,7 @@ export function recordTurn({
         ...(edit.kind === "remove" && eliteOf(unit)),
         position: { ...edit.position },
         ...(edit.kind === "remove" && edit.replacement && { replacedBy: edit.replacement.getUnitType() }),
+        ...(edit.kind === "remove" && edit.regrouped && { regroupedInto: { ...edit.regrouped.into } }),
       };
     }),
     coins: coins.map((entry) => ({ ...entry })),

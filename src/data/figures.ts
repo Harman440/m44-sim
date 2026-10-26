@@ -25,13 +25,70 @@ export const hitsPerFigure = (unitType: UnitType, elite = false): number =>
 /** Hits that destroy a unit of this type */
 export const hitsToDestroy = (unitType: UnitType, elite = false): number => FIGURES[unitType].figures * hitsPerFigure(unitType, elite);
 
-/** Figures left after `hits`: a figure is only lost once all its hits are taken */
-export const figuresLeft = (unitType: UnitType, hits: number, elite = false): number =>
-  Math.max(0, Math.ceil((hitsToDestroy(unitType, elite) - hits) / hitsPerFigure(unitType, elite)));
+/**
+ * A unit's figures, each with the hits it has taken, front first and the squad leader last. Only
+ * armour has figures that take more than one hit, so only a tank figure is ever above 0
+ */
+export type Figures = readonly number[];
+
+/** A unit's figures at full strength */
+export const freshFigures = (unitType: UnitType, count = FIGURES[unitType].figures): Figures => Array<number>(count).fill(0);
+
+/**
+ * The figure the next hit goes to: the most damaged one in front of the squad leader (the front
+ * one of equals); the leader only once it's alone
+ */
+const nextHit = (figures: Figures): number => {
+  const inFront = figures.length > 1 ? figures.slice(0, -1) : figures;
+  return inFront.indexOf(Math.max(...inFront));
+};
+
+/** The figures after `hits` more, one by one; a figure that has taken all it takes is lost */
+export function takeHits(figures: Figures, hits: number, perFigure: number): Figures {
+  const next = [...figures];
+  for (let hit = 0; hit < hits && next.length > 0; hit++) {
+    const at = nextHit(next);
+    const taken = (next[at] ?? 0) + 1;
+    if (taken >= perFigure) next.splice(at, 1);
+    else next[at] = taken;
+  }
+  return next;
+}
 
 /** A figure has taken some of its hits but not all (armour hit once): it's marked on the map */
-export const figureDamaged = (unitType: UnitType, hits: number, elite = false): boolean =>
-  hits > 0 && hits < hitsToDestroy(unitType, elite) && hits % hitsPerFigure(unitType, elite) !== 0;
+export const damagedFigures = (figures: Figures): number => figures.filter((hits) => hits > 0).length;
+
+/** Mechanic: the most damaged figure is mended */
+export function mendFigure(figures: Figures): Figures {
+  const worst = Math.max(0, ...figures);
+  if (worst === 0) return figures;
+  const at = figures.indexOf(worst);
+  return figures.map((hits, i) => (i === at ? 0 : hits));
+}
+
+/** Medic: a lost figure back, at the front, up to the unit's full strength */
+export const healFigure = (figures: Figures, unitType: UnitType): Figures =>
+  figures.length < FIGURES[unitType].figures ? [0, ...figures] : figures;
+
+/**
+ * Regroup: the giver's figures join the receiver until it's back to full, the giver's healthy ones
+ * first, then its damaged ones (the least damaged first), and its squad leader last. The figures
+ * that join go in front of the receiver's, so its own leader stays its leader; a giver's leader
+ * that joins is a plain figure there. The giver keeps the rest, its leader last
+ */
+export function regroupFigures(receiver: Figures, giver: Figures, unitType: UnitType): { receiver: Figures; giver: Figures } {
+  const room = Math.max(0, FIGURES[unitType].figures - receiver.length);
+  const inFront = giver
+    .slice(0, -1)
+    .map((hits, at) => ({ hits, at }))
+    .sort((a, b) => a.hits - b.hits)
+    .map(({ at }) => at);
+  const taken = new Set([...inFront, giver.length - 1].slice(0, Math.min(room, giver.length)));
+  return {
+    receiver: [...[...taken].map((at) => giver[at]!), ...receiver],
+    giver: giver.filter((_, at) => !taken.has(at)),
+  };
+}
 
 /**
  * Limited damage (house rule): a unit applies at most as many results as it has figures, one

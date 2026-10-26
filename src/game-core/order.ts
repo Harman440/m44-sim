@@ -12,6 +12,7 @@ interface OrderProps {
   shots: number;
   lostSandbags?: Position[];
   clearedWire?: boolean;
+  partner?: Position;
 }
 
 /**
@@ -32,7 +33,9 @@ class Order {
   lostSandbags: Position[];
   /** A tank removed the barbed wire on the hex it moved to, put back if the order is undone */
   clearedWire: boolean;
-  constructor({ unit, action, start, end, path = null, shots, lostSandbags = [], clearedWire = false }: OrderProps) {
+  /** Regroup: the hex of the unit next to it whose figures join it (that unit gets no order of its own) */
+  partner?: Position;
+  constructor({ unit, action, start, end, path = null, shots, lostSandbags = [], clearedWire = false, partner }: OrderProps) {
     this.unit = unit;
     this.action = action;
     this.start = start;
@@ -41,6 +44,7 @@ class Order {
     this.shots = shots;
     this.lostSandbags = lostSandbags;
     this.clearedWire = clearedWire;
+    if (partner) this.partner = partner;
   }
 
   /** Whether the unit may fire this turn after carrying out the order */

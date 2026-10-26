@@ -64,16 +64,17 @@ describe("GameSession giving actions", () => {
     expect(session.getActions(INF)).toBeNull();
     session.pickCard(null);
 
-    expect(actionIds(session, TANK)).toEqual(["tank:firefight", "tank:assault", "tank:armorForward", "tank:mechanic", "tank:reload"]);
+    expect(actionIds(session, TANK)).toEqual(["tank:firefight", "tank:assault", "tank:armorForward", "tank:mechanic", "tank:regroup", "tank:reload"]);
     expect(actionIds(session, INF)).toContain("infantry:moraleUp");
-    // An unhurt unit has nothing for Medic to mend, and a full one nothing to reload or rally
+    // An unhurt unit has nothing for Medic to mend nor figures to regroup, and a full one nothing to reload or rally
     expect(refusals(session, INF)).toMatchObject({
       "infantry:medic": "nothingToMend",
+      "infantry:regroup": "notNeeded",
       "infantry:reload": "notNeeded",
       "infantry:moraleUp": "notNeeded",
       "infantry:firefight": null,
     });
-    expect(Object.values(refusals(session, INF)).filter((refusal) => refusal !== null)).toHaveLength(3);
+    expect(Object.values(refusals(session, INF)).filter((refusal) => refusal !== null)).toHaveLength(4);
     expect(session.getActions({ row: 0, col: 0 })).toBeNull();
   });
 

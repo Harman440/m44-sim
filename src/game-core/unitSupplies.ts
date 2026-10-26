@@ -129,6 +129,19 @@ export function refill(
   return equipment ? { ...topped, equipment: { ...full.equipment } } : topped;
 }
 
+/**
+ * Regroup: the unit that took the other's figures ends with the higher of the two of each supply
+ * and each piece of equipment, never past its own full amount
+ */
+export function betterOf(supplies: UnitSupplies, other: UnitSupplies, full: UnitSupplies): UnitSupplies {
+  const amounts = withAmounts(supplies, full, (supply, current) => Math.max(current, amountOf(other, supply))).amounts;
+  const equipment: Partial<Record<Equipment, number>> = { ...supplies.equipment };
+  for (const kind of Object.keys(full.equipment) as Equipment[]) {
+    equipment[kind] = Math.min(equipmentOf(full, kind), Math.max(equipmentOf(supplies, kind), equipmentOf(other, kind)));
+  }
+  return { amounts, equipment };
+}
+
 /** How the unit spent the turn, which decides the energy it gets back */
 export type TurnSpent = "rested" | "held" | "moved";
 

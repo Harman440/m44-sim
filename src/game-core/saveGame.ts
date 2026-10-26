@@ -12,7 +12,7 @@ import { positionKey } from "./position";
 import { TurnPhase } from "../types/gameManager";
 import { Faction } from "../types/faction";
 import { Position } from "../types/scenario";
-import type { BattleEdit, CardAttack, Shot, StandingCollisionRoll } from "./gameSession";
+import type { BattleEdit, CardAttack, Regrouped, Shot, StandingCollisionRoll } from "./gameSession";
 import { TurnRecord } from "./turnLog";
 import type { ActionCard } from "./actionCard";
 import { actionCardById } from "../data/actionCards";
@@ -20,9 +20,10 @@ import { actionById, fireOptionById } from "../data/unitActions";
 import type { SupplyCost, UnitSupplies } from "./unitSupplies";
 import { EQUIPMENT, SUPPLIES } from "../data/unitSupplies";
 import { LUCK_LIMIT } from "../data/luck";
+import { FIGURES, hitsPerFigure, type Figures } from "../data/figures";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 44;
+export const SAVE_VERSION = 45;
 
 interface SavedUnit {
   type: UnitType;
@@ -44,8 +45,8 @@ export interface SavedGame {
   artilleryCrew: boolean;
   /** Pass and play: units have figures and take hits (the session's `figures`) */
   figures: boolean;
-  /** Hits each damaged unit has taken, by unit index */
-  hits: { unit: number; hits: number }[];
+  /** Each unit's figures that isn't at full strength, the hits each figure has taken (front first, the squad leader last), by unit index */
+  figureHits: { unit: number; figures: number[] }[];
   /** Flags each unit took this turn (one pins it, each more makes it retreat), by unit index */
   retreatFlags: { unit: number; flags: number }[];
   /** Hexes each unit must still retreat now, by unit index */
@@ -84,10 +85,12 @@ export interface SavedGame {
     lostSandbags: Position[];
     /** Left out when false, and in saves from before tanks cleared wire */
     clearedWire?: boolean;
+    /** Regroup: the hex of the unit whose figures join it */
+    partner?: Position;
   }[];
   unmovedFireSkipped: boolean;
   battleEdits: ((
-    | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean }
+    | { kind: "remove"; position: Position; unit: number; replacement?: number; sandbags?: boolean; regrouped?: Regrouped }
     | { kind: "move"; from: Position; to: Position; unit: number; sandbags?: Position[]; clearedWire?: boolean; reposition?: boolean }
     | { kind: "add"; position: Position; unit: number }
     | { kind: "wire"; position: Position }
@@ -124,8 +127,8 @@ export interface SessionState {
   cardAttacks: CardAttack[];
   /** Pass and play: collision rolls of units without an order */
   standingCollisions: readonly StandingCollisionRoll[];
-  /** Pass and play: hits taken, by unit (it keeps them from turn to turn) */
-  hits: ReadonlyMap<Unit, number>;
+  /** Pass and play: each unit's figures and the hits each has taken (kept from turn to turn) */
+  figureHits: ReadonlyMap<Unit, Figures>;
   /** Pass and play: flags the unit took this turn (one pins it) */
   retreatFlags: ReadonlyMap<Unit, number>;
   /** Pass and play: hexes the unit must still retreat now */
@@ -187,6 +190,30 @@ function readUnitCounts<K extends "hits" | "flags">(
     entries.map((entry: { unit: number } & Record<K, number>) => {
       if (!Number.isInteger(entry?.[key]) || entry[key] < 0) throw new Error(`Unknown unit ${key}`);
       return [unit(entry.unit), entry[key]] as const;
+    })
+  );
+}
+
+function readRegrouped(regrouped: Regrouped): Regrouped {
+  const [into] = readPositions([regrouped?.into], "Regroup");
+  if (!Number.isInteger(regrouped.figures) || regrouped.figures < 1) throw new Error("Unknown regroup");
+  return { into: into!, figures: regrouped.figures };
+}
+
+/** Each unit's figures, each with the hits it has taken: at least one figure, no more than a full unit's */
+function readFigureHits(entries: unknown, unit: (index: number) => Unit): Map<Unit, Figures> {
+  if (!Array.isArray(entries)) throw new Error("Unit figures are not a list");
+  return new Map(
+    entries.map((entry: { unit: number; figures: number[] }) => {
+      const owner = unit(entry?.unit);
+      const { figures } = entry;
+      const valid =
+        Array.isArray(figures) &&
+        figures.length > 0 &&
+        figures.length <= FIGURES[owner.getUnitType()].figures &&
+        figures.every((hits) => Number.isInteger(hits) && hits >= 0 && hits < hitsPerFigure(owner.getUnitType(), owner.elite));
+      if (!valid) throw new Error("Unknown unit figures");
+      return [owner, [...figures]] as const;
     })
   );
 }
@@ -283,6 +310,7 @@ export function writeSave(
       shots: order.shots,
       lostSandbags: order.lostSandbags,
       ...(order.clearedWire && { clearedWire: true }),
+      ...(order.partner && { partner: { ...order.partner } }),
     })),
     battleEdits: state.battleEdits.map((edit): SavedGame["battleEdits"][number] => {
       if (edit.kind === "wire" || edit.kind === "sandbags") return edit;
@@ -295,6 +323,7 @@ export function writeSave(
         unit: unitIndex(edit.unit),
         ...(edit.replacement && { replacement: unitIndex(edit.replacement) }),
         ...(edit.sandbags && { sandbags: true }),
+        ...(edit.regrouped && { regrouped: { into: { ...edit.regrouped.into }, figures: edit.regrouped.figures } }),
         ...beforeOrders,
       };
     }),
@@ -327,7 +356,7 @@ export function writeSave(
       notes: [...roll.notes],
     })),
     drops: state.drops.map((p) => ({ ...p })),
-    hits: [...state.hits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
+    figureHits: [...state.figureHits].map(([unit, figures]) => ({ unit: unitIndex(unit), figures: [...figures] })),
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     retreatsDue: [...state.retreatsDue].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
@@ -419,6 +448,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
       shots: order.shots,
       lostSandbags: readPositions(order.lostSandbags, "Sandbags lost"),
       clearedWire: order.clearedWire === true,
+      ...(order.partner !== undefined && { partner: readPositions([order.partner], "Regroup partner")[0] }),
     });
   });
 
@@ -468,6 +498,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
         unit: unit(edit.unit),
         ...(edit.replacement !== undefined && { replacement: unit(edit.replacement) }),
         ...(edit.sandbags === true && { sandbags: true }),
+        ...(edit.regrouped !== undefined && { regrouped: readRegrouped(edit.regrouped) }),
         ...beforeOrders,
       };
     }),
@@ -478,7 +509,7 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     markers: readPositions(saved.markers, "Markers"),
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     standingCollisions: readStandingCollisions(saved.standingCollisions),
-    hits: readUnitCounts(saved.hits, "hits", unit),
+    figureHits: readFigureHits(saved.figureHits, unit),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
     retreatsDue: readUnitCounts(saved.retreatsDue, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),

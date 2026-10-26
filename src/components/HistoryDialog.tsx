@@ -55,6 +55,7 @@ const TEXT = defineMessages({
     enemySandbags: "Sacos terreros enemigos puestos",
     sandbagsRemoved: "Sacos terreros quitados",
     removed: (unit: string) => `Eliminada: ${unit}`,
+    regrouped: (unit: string, place: string, into: string) => `${unit} (${place}) se unió a la unidad de ${into} al reagruparse`,
     replacedBy: (unit: string) => `, queda ${unit.toLowerCase()}`,
     reinforcement: (unit: string, place: string) => `Refuerzo: ${unit} (${place})`,
     moved: (unit: string, place: string) => `Movida: ${unit} → ${place}`,
@@ -93,6 +94,7 @@ const TEXT = defineMessages({
     enemySandbags: "Enemy sandbags placed",
     sandbagsRemoved: "Sandbags removed",
     removed: (unit: string) => `Removed: ${unit}`,
+    regrouped: (unit: string, place: string, into: string) => `${unit} (${place}) joined the unit on ${into} by regrouping`,
     replacedBy: (unit: string) => `, ${unit.toLowerCase()} stays`,
     reinforcement: (unit: string, place: string) => `Reinforcement: ${unit} (${place})`,
     moved: (unit: string, place: string) => `Moved: ${unit} → ${place}`,
@@ -238,6 +240,8 @@ function HistoryDialog({ open, onClose, session, log }: HistoryDialogProps) {
                         ? t.wireRemoved(placeOf(edit.position))
                         : edit.kind === "sandbags"
                         ? `${edit.fortify ? t.fortified : edit.placed ? t.enemySandbags : t.sandbagsRemoved} (${placeOf(edit.position)})`
+                        : edit.kind === "remove" && edit.regroupedInto
+                        ? t.regrouped(labels.unitKind(edit.unit, edit.elite), placeOf(edit.position), placeOf(edit.regroupedInto))
                         : edit.kind === "remove"
                         ? `${t.removed(labels.unitKind(edit.unit, edit.elite))}${
                             edit.replacedBy ? t.replacedBy(labels.units[edit.replacedBy]) : ""

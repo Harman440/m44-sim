@@ -131,6 +131,7 @@ const es: Labels = {
     ownTablets: "No en tablets propias",
     nothingToMend: "Nada que reparar",
     notNeeded: "No hace falta",
+    noPartner: "Nadie con quien reagruparse",
   },
   describeFaces,
   describeAppliedFaces: (faces, kept) =>

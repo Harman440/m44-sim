@@ -80,3 +80,37 @@ describe("the computer's cards", () => {
     expect(chooseMark(viewOf(session), [next, away], { card: reinforcements, rule: reinforcements.marker!, marked: 0 })).toEqual(away);
   });
 });
+
+describe("the computer's Regroup", () => {
+  const NEXT: Position = { row: 7, col: 9 };
+  const regroupScenario: Scenario = {
+    ...scenario,
+    units: { allies: { infantry: [INF, NEXT], artillery: [ARTILLERY] }, axis: { infantry: [ENEMY] } },
+  };
+  /** The Allies giving orders, their two infantry units hit this many times */
+  const hurt = (hits: number, nextHits: number) => {
+    const session = new GameSession({ scenario: regroupScenario, faction: "Allies", figures: true });
+    session.sufferHits(INF, hits, 0);
+    session.sufferHits(NEXT, nextHits, 0);
+    expect(session.pickCard(null)).toBe(true);
+    return session;
+  };
+
+  it("takes the figures of a weakened unit next to it when they fit in one unit", () => {
+    expect(chooseAction(viewOf(hurt(3, 4)), INF, INF)).toEqual({ action: "infantry:regroup", to: INF, partner: NEXT, receiver: INF });
+  });
+
+  it("has the bigger unit take the smaller one's, whichever it's ordering", () => {
+    expect(chooseAction(viewOf(hurt(4, 3)), INF, INF)).toEqual({ action: "infantry:regroup", to: NEXT, partner: INF, receiver: NEXT });
+  });
+
+  it("leaves units alone when their figures don't fit in one, or it has hardly lost any", () => {
+    expect(chooseAction(viewOf(hurt(3, 0)), INF, INF)).toEqual({ action: "infantry:medic", to: INF });
+    expect(chooseAction(viewOf(hurt(1, 4)), INF, INF)).toEqual({ action: "infantry:medic", to: INF });
+    expect(chooseAction(viewOf(hurt(2, 2)), INF, INF)).toEqual({ action: "infantry:medic", to: INF });
+  });
+
+  it("doesn't regroup a unit the brain wants to move", () => {
+    expect(chooseAction(viewOf(hurt(3, 4)), INF, { row: 6, col: 8 })).not.toMatchObject({ action: "infantry:regroup" });
+  });
+});

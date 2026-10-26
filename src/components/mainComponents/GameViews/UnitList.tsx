@@ -24,6 +24,7 @@ const TEXT = defineMessages({
     units: "Tus unidades",
     elite: "De élite",
     rests: "Descansa",
+    joining: (unit: string) => `Se une a: ${unit}`,
     luck: (value: string) => `Suerte ${value}`,
     amount: (name: string, n: number) => `${name}: ${n}`,
     outOf: (name: string, n: number, max: number) => `${name}: ${n} de ${max}`,
@@ -33,6 +34,7 @@ const TEXT = defineMessages({
     units: "Your units",
     elite: "Elite",
     rests: "Rests",
+    joining: (unit: string) => `Joins: ${unit}`,
     luck: (value: string) => `Luck ${value}`,
     amount: (name: string, n: number) => `${name}: ${n}`,
     outOf: (name: string, n: number, max: number) => `${name}: ${n} of ${max}`,
@@ -173,6 +175,9 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
         const order = game.orders.find((each) => samePosition(each.end, position));
         const action = order && actionById(order.action);
         const change = game.changes.find((each) => samePosition(each.position, position));
+        // Regroup: the unit giving its figures has no order of its own
+        const joins = game.orders.find((each) => each.partner && samePosition(each.partner, position));
+        const joinsHex = joins && session.board.getHex(joins.start);
         const isSelected = !!selected && samePosition(selected, position);
         const rowSx = { minHeight: 48, borderRadius: 1, px: 1, gap: 1, alignItems: "flex-start" };
         const content = (
@@ -200,7 +205,7 @@ function UnitList({ faction, session, game, selected, onSelect }: UnitListProps)
             />
             <Stack sx={{ minWidth: 0, flex: 1, gap: 0.25 }}>
               <Typography variant="body2" sx={{ fontWeight: 600, color: action ? "primary.main" : "text.secondary" }} noWrap>
-                {action ? tr(action.name) : t.rests}
+                {action ? tr(action.name) : joinsHex ? t.joining(labels.describeHex(joinsHex)) : t.rests}
               </Typography>
               <SupplyMeters
                 unit={unit}

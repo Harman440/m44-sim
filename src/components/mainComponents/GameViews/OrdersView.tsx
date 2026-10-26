@@ -46,6 +46,9 @@ const TEXT = defineMessages({
     closeCard: "Cerrar",
     promptMark: (n: number) => `Marca en el mapa: faltan ${n}`,
     tapHighlightedHex: "Toca una casilla resaltada",
+    tapPartner: "Toca la unidad que se une",
+    helpPartner:
+      "Toca una de las unidades resaltadas: sus figuras se unen a esta hasta completarla. Ninguna de las dos se mueve ni dispara este turno.",
     tapNextHex: "Toca la siguiente casilla del camino",
     goHere: "Ir hasta aquí",
     stepBack: "Atrás",
@@ -97,6 +100,9 @@ const TEXT = defineMessages({
     closeCard: "Close",
     promptMark: (n: number) => `Mark on the map: ${n} left`,
     tapHighlightedHex: "Tap a highlighted hex",
+    tapPartner: "Tap the unit that joins it",
+    helpPartner:
+      "Tap one of the highlighted units: its figures join this one until it's full. Neither moves or fires this turn.",
     tapNextHex: "Tap the next hex of its path",
     goHere: "Go here",
     stepBack: "Back",
@@ -182,6 +188,8 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   const [moveOptions, setMoveOptions] = useState<MoveOptions | null>(null);
   /** Pass and play: the path picked so far, hex by hex, from the unit's hex */
   const [path, setPath] = useState<Position[] | null>(null);
+  /** Regroup picked: the units whose figures could join it, one to tap */
+  const [partners, setPartners] = useState<Position[] | null>(null);
   /** The card's hexes marked so far, and how many are left */
   const markerRule = game.marking?.rule ?? null;
   const markersLeft = game.marking ? game.marking.rule.count - game.marking.marked : 0;
@@ -211,6 +219,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     setShownAction(null);
     setMoveOptions(null);
     setPath(null);
+    setPartners(null);
   };
 
   const order = (from: Position, action: UnitAction, to: Position, route?: readonly Position[]) => {
@@ -224,6 +233,13 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** An action that doesn't move is given at once; one that moves shows its hexes on the map */
   const pickAction = (action: UnitAction) => {
     if (!unitHexPosition) return;
+    // Regroup: the units that could join it light up, and tapping one gives the order
+    if (action.effect === "regroup") {
+      setShownAction(null);
+      setChosen(action);
+      setPartners(session.regroupPartners(unitHexPosition));
+      return;
+    }
     const options = session.getMoveOptions(unitHexPosition, action.id);
     if (!options) return;
     setShownAction(null);
@@ -241,6 +257,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
     setChosen(null);
     setMoveOptions(null);
     setPath(null);
+    setPartners(null);
   };
 
   /** The next hexes of the path being picked (pass and play) */
@@ -276,6 +293,10 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
       // Tapping the selected unit again deselects it
       if (samePosition(unitHexPosition, position)) {
         clearSelection();
+        return;
+      }
+      if (partners?.some((p) => samePosition(p, position))) {
+        if (session.giveRegroup(unitHexPosition, position)) clearSelection();
         return;
       }
       // Pass and play: a highlighted hex is the path's next step; its last hex again ends the move there
@@ -339,7 +360,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** What to do now, in a few words: always in sight */
   const prompt = () => {
     if (marking && markerRule) return t.promptMark(markersLeft);
-    if (selectedHex) return chosen ? (path ? t.tapNextHex : t.tapHighlightedHex) : t.promptPickAction;
+    if (selectedHex) return partners ? t.tapPartner : chosen ? (path ? t.tapNextHex : t.tapHighlightedHex) : t.promptPickAction;
     if (game.marking) return t.promptMarkCard(tr(game.marking.card.name));
     if (game.orderable.length === 0) return t.promptConfirm;
     return t.promptTapUnit;
@@ -348,7 +369,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
   /** The same, explained: behind "Instrucciones" */
   const instructions = () => {
     if (marking && markerRule) return t.helpMark(labels.describeMarkerRule(markerRule), markersLeft);
-    if (selectedHex) return chosen ? (path ? t.helpPath : t.helpSelected) : t.helpPickAction;
+    if (selectedHex) return partners ? t.helpPartner : chosen ? (path ? t.helpPath : t.helpSelected) : t.helpPickAction;
     if (game.marking) return t.helpMarkCard(tr(game.marking.card.name));
     if (game.orderable.length === 0) return t.helpConfirm;
     return t.helpTapUnit;
@@ -376,7 +397,7 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           onViewChange={() => setView((n) => n + 1)}
           onTileClick={handleTileClick}
           unitHexPosition={unitHexPosition}
-          possibleMovePositions={(steps ?? moveOptions)?.moves ?? []}
+          possibleMovePositions={partners ?? (steps ?? moveOptions)?.moves ?? []}
           possibleMoveAndFirePositions={(steps ?? moveOptions)?.moveAndFire ?? []}
           pathPreview={path}
           boardManager={boardManager}
@@ -436,7 +457,18 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           </Typography>
         </Box>
 
-        {selectedHex && chosen && (
+        {selectedHex && chosen && partners && (
+          <ActionPanel action={chosen} cost={costOf(chosen)} unit={labels.describeHex(selectedHex)}>
+            <Button variant="outlined" onClick={otherAction} startIcon={<GameIcon name="undo" />}>
+              {t.otherAction}
+            </Button>
+            <Button variant="outlined" onClick={clearSelection} startIcon={<GameIcon name="cancel" />}>
+              {t.cancel}
+            </Button>
+          </ActionPanel>
+        )}
+
+        {selectedHex && chosen && !partners && (
           <ActionPanel action={chosen} cost={costOf(chosen)} unit={labels.describeHex(selectedHex)} movement={movement}>
             {selectedHex.sandbags && (moveOptions?.moves.length ?? 0) > 0 && (
               <Alert severity="warning" icon={<SandbagsIcon size={26} />} sx={{ py: 0 }} data-testid="sandbags-warning">

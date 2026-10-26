@@ -28,6 +28,7 @@ const action = (unitType: UnitType, name: string, names: Localized, description:
 const FIREFIGHT_NAME: Localized = { es: "Escaramuza", en: "Firefight" };
 const FIREFIGHT_TEXT: Localized = { es: "Dispara sin moverse.", en: "Fires without moving." };
 const RELOAD_NAME: Localized = { es: "Recargar", en: "Reload" };
+const REGROUP_NAME: Localized = { es: "Reagrupar", en: "Regroup" };
 
 const infantry = (name: string, names: Localized, description: Localized, details: Details) =>
   action(UnitType.INFANTRY, name, names, description, details);
@@ -50,6 +51,12 @@ export const INFANTRY_ACTIONS: readonly UnitAction[] = [
   infantry("medic", { es: "Médico", en: "Medic" },
     { es: "No se mueve ni dispara: recupera 1 figura. Gasta el botiquín.", en: "Doesn't move or fire: gets 1 figure back. Uses up the medic kit." },
     { painting: "medic", cost: { equipment: [Equipment.MEDIC_KIT] }, move: 0, fire: null, effect: "medic" }),
+  infantry("regroup", REGROUP_NAME,
+    {
+      es: "No se mueve ni dispara: recibe figuras de una unidad de infantería contigua hasta completarse. Esa unidad tampoco se mueve ni dispara; si se queda sin figuras, sale del mapa sin dar medalla. Se queda con lo mejor de los suministros de las dos.",
+      en: "Doesn't move or fire: takes figures from an infantry unit next to it until it's full. That unit doesn't move or fire either; if it's left with none, it leaves the map without giving a medal. It keeps the better of both units' supplies.",
+    },
+    { painting: "infantry-assault", cost: energy(2), move: 0, fire: null, effect: "regroup", ownTablets: false }),
   infantry("behindEnemyLines", { es: "Tras las líneas enemigas", en: "Behind Enemy Lines" },
     {
       es: "Se mueve hasta 3 casillas sin que el terreno la detenga y dispara con las unidades que se movieron (las restricciones de combate se mantienen). Tras la batalla se mueve otras 3 casillas.",
@@ -94,8 +101,14 @@ export const TANK_ACTIONS: readonly UnitAction[] = [
     },
     { painting: "armor-forward", cost: fuel(2), move: 3, ignoresTerrain: true, fire: ONE_SHOT }),
   tank("mechanic", { es: "Mecánico", en: "Mechanic" },
-    { es: "No se mueve ni dispara: repara la figura tocada (la que tiene impactos sin haber caído).", en: "Doesn't move or fire: mends the figure that's hit (hit but not lost)." },
+    { es: "No se mueve ni dispara: repara la figura más tocada (la que tiene más impactos sin haber caído).", en: "Doesn't move or fire: mends the most damaged figure (hit but not lost)." },
     { painting: "mechanic", cost: FREE, move: 0, fire: null, effect: "mechanic" }),
+  tank("regroup", REGROUP_NAME,
+    {
+      es: "No se mueve ni dispara: recibe figuras de un blindado contiguo hasta completarse; una figura tocada sigue tocada. Ese blindado tampoco se mueve ni dispara; si se queda sin figuras, sale del mapa sin dar medalla. Se queda con lo mejor de los suministros de los dos.",
+      en: "Doesn't move or fire: takes figures from an armour unit next to it until it's full; a figure that's hit stays hit. That unit doesn't move or fire either; if it's left with none, it leaves the map without giving a medal. It keeps the better of both units' supplies.",
+    },
+    { painting: "infantry-assault", cost: fuel(2), move: 0, fire: null, effect: "regroup", ownTablets: false }),
   tank("reload", RELOAD_NAME,
     { es: "No se mueve ni dispara: recupera 2 proyectiles.", en: "Doesn't move or fire: gets 2 shells back." },
     { painting: "preparations", cost: FREE, move: 0, fire: null, effect: "reload" }),

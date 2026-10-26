@@ -11,7 +11,7 @@ import type { Localized } from "../i18n/lang";
 export type ActionEffect =
   /** Back 1 figure, if the unit has lost one */
   | "medic"
-  /** A tank figure that's hit but not lost is mended */
+  /** The most damaged tank figure (hit but not lost) is mended */
   | "mechanic"
   /** Morale back to full */
   | "moraleUp"
@@ -22,7 +22,9 @@ export type ActionEffect =
   /** Ignores the first 2 infantry-symbol hits this turn (as Personal Armor) */
   | "takeCover"
   /** Ammo or shells back (data/unitSupplies.ts RELOAD) */
-  | "reload";
+  | "reload"
+  /** Figures from a unit next to it, until it's full (the order's `partner`) */
+  | "regroup";
 
 /** When an action's shots come in the battle */
 export interface ActionFire {

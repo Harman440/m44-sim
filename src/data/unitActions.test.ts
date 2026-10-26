@@ -52,6 +52,7 @@ describe("unit actions", () => {
       noRespite: "2 energy, move 1, 1 shot",
       moveOut: "1 energy, move 2, 1 shot if it moves 1",
       medic: "medicKit, move 0, no fire",
+      regroup: "2 energy, move 0, no fire",
       behindEnemyLines: "5 energy, move 3, 1 shot",
       motorized: "4 energy, move 3, no fire",
       moraleUp: "1 energy, move 0, no fire",
@@ -68,6 +69,7 @@ describe("unit actions", () => {
       assault: "1 fuel, move 3, 1 shot",
       armorForward: "2 fuel, move 3, 1 shot",
       mechanic: "free, move 0, no fire",
+      regroup: "2 fuel, move 0, no fire",
       reload: "free, move 0, no fire",
     });
     expect(summary(ARTILLERY_ACTIONS)).toEqual({
@@ -86,8 +88,8 @@ describe("unit actions", () => {
     expect(actionById("tank:armorForward")?.ignoresTerrain).toBe(true);
   });
 
-  it("offers every action on own tablets but Morale Up, as they don't track morale", () => {
-    expect(ACTIONS.filter((each) => !each.ownTablets).map((each) => each.id)).toEqual(["infantry:moraleUp"]);
+  it("offers every action on own tablets but Morale Up and Regroup, as they don't track morale or figures", () => {
+    expect(ACTIONS.filter((each) => !each.ownTablets).map((each) => each.id)).toEqual(["infantry:regroup", "infantry:moraleUp", "tank:regroup"]);
   });
 });
 

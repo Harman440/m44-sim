@@ -12,6 +12,7 @@ import { includesPosition, samePosition } from "../position";
 import { UnitType } from "../unit";
 import { amountOf, UnitSupplies } from "../unitSupplies";
 import { Supply } from "../../data/unitSupplies";
+import { FIGURES } from "../../data/figures";
 import { Position } from "../../types/scenario";
 
 /** A card is played only when it's worth at least this much this turn */
@@ -29,6 +30,10 @@ const POOR_SHOT = 0.15;
 const BOMBARDMENT_SHOT = 0.25;
 /** Infantry with no shot digs in where the enemy fire it draws is at least this */
 const FORTIFY_THREAT = 0.3;
+/** A unit regroups once it has lost at least this many figures */
+const REGROUP_LOSS = 2;
+/** A unit down to this many figures is a medal about to be lost: it joins a bigger one even when that one could fire */
+const REGROUP_SAVES_MEDAL = 2;
 
 const suppliesAt = (view: AiView, position: Position): UnitSupplies | null =>
   view.session.getSnapshot().supplies.find((each) => samePosition(each.position, position))?.supplies ?? null;
@@ -115,8 +120,37 @@ export function chooseMark(view: AiView, markable: readonly Position[], marking:
 }
 
 /**
- * The action for the move the brain chose: a unit with nothing better to do rallies, mends or
- * digs in; a tired one rests; armour low on fuel keeps it while it has a shot where it stands;
+ * Regroup: the unit and a unit next to it, both weakened, whose figures fit in one unit. The
+ * bigger one takes the smaller one's figures (which leaves the map), when it has no good shot
+ * where it stands, or when the smaller one is down to `REGROUP_SAVES_MEDAL` figures; the smallest
+ * such partner first. Null when there's no such pair
+ */
+function regroupWith(view: AiView, from: Position, unitType: UnitType): ActionChoice {
+  const { session } = view;
+  const full = FIGURES[unitType].figures;
+  const figuresAt = (position: Position) => session.figuresAt(position) ?? full;
+  const figures = figuresAt(from);
+  if (full - figures < REGROUP_LOSS) return null;
+  const neighbours = session.board.getHex(from)?.getNeighbors() ?? [];
+  const pairs = neighbours
+    .filter((next) => session.board.getHex(next)?.unit?.getUnitType() === unitType)
+    .map((next) => ({ next, figures: figuresAt(next) }))
+    .filter((other) => other.figures < full && other.figures + figures <= full)
+    .sort((a, b) => a.figures - b.figures);
+  for (const other of pairs) {
+    const [receiver, partner] = other.figures > figures ? [other.next, from] : [from, other.next];
+    const savesMedal = Math.min(figures, other.figures) <= REGROUP_SAVES_MEDAL;
+    if (!savesMedal && shotHere(view, unitType, receiver, suppliesAt(view, receiver)) >= POOR_SHOT) continue;
+    if (!includesPosition(session.regroupPartners(receiver), partner)) continue;
+    const action = session.getActions(receiver)?.find((option) => option.action.effect === "regroup");
+    if (action) return { action: action.action.id, to: receiver, partner, receiver };
+  }
+  return null;
+}
+
+/**
+ * The action for the move the brain chose: a weakened unit that holds regroups with a weakened
+ * unit next to it (`regroupWith`); one with nothing better to do rallies, mends or digs in; a tired one rests; armour low on fuel keeps it while it has a shot where it stands;
  * artillery with a good shot bombards. Otherwise the plain action for the move (null)
  */
 export function chooseAction(view: AiView, from: Position, to: Position): ActionChoice {
@@ -136,17 +170,22 @@ export function chooseAction(view: AiView, from: Position, to: Position): Action
       const morale = amountOf(supplies, Supply.MORALE);
       if (morale === 0) return give("infantry:moraleUp") ?? "rest";
       if (morale <= 1 && holds && shot === 0) return give("infantry:moraleUp");
+      const regroup = holds ? regroupWith(view, from, unitType) : null;
+      if (regroup) return regroup;
       if (holds && shot < POOR_SHOT && allowed("infantry:medic")) return give("infantry:medic");
       // Tired, with no shot where it ends: it rests, and gets more energy back
       if (amountOf(supplies, Supply.ENERGY) <= 1 && shotHere(view, unitType, to, supplies) === 0) return "rest";
       if (holds && shot === 0 && !hex.sandbags && threatAt(view, unitType, from) >= FORTIFY_THREAT) return give("infantry:fortify");
       return null;
     }
-    case UnitType.TANK:
+    case UnitType.TANK: {
+      const regroup = holds ? regroupWith(view, from, unitType) : null;
+      if (regroup) return regroup;
       if (holds && shot < POOR_SHOT && allowed("tank:mechanic")) return give("tank:mechanic");
       // The last of the fuel is kept while it has a shot from where it stands
       if (!holds && amountOf(supplies, Supply.FUEL) <= 1 && shot > 0) return give("tank:firefight");
       return null;
+    }
     case UnitType.ARTILLERY:
       if (holds && shot >= BOMBARDMENT_SHOT && amountOf(supplies, Supply.SHELLS) >= 2) return give("artillery:bombardment");
       return null;

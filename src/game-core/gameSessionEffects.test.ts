@@ -63,6 +63,19 @@ function withSupplies(
   return restore(saved);
 }
 
+/** The session saved and restored with the unit at `position` holding these figures (the hits each has taken) */
+function withFigures(session: GameSession, position: Position, figures: number[]): GameSession {
+  const saved = session.save();
+  const unit = saved.units.findIndex((each) => each.position && samePosition(each.position, position));
+  saved.figureHits = [...saved.figureHits.filter((each) => each.unit !== unit), { unit, figures }];
+  return restore(saved);
+}
+const figuresAt = (session: GameSession, position: Position): number[] | undefined => {
+  const saved = session.save();
+  const unit = saved.units.findIndex((each) => each.position && samePosition(each.position, position));
+  return saved.figureHits.find((each) => each.unit === unit)?.figures;
+};
+
 const holdWith = (session: GameSession, position: Position, actionId: string) => {
   expect(session.giveAction(position, actionId, position)).toBe(true);
   return session;
@@ -125,6 +138,18 @@ describe("GameSession healing", () => {
       [INF, "infantry:medic"],
       [TANK, "tank:mechanic"],
     ]);
+  });
+
+  it("keeps each tank figure's damage: hits go to the most damaged, Mechanic mends it, both survive a save", () => {
+    const session = withFigures(withNoCard(ordering()), ELITE_TANK, [1, 2, 0]);
+    expect(strengthAt(session, ELITE_TANK)).toMatchObject({ figures: 3, damaged: true });
+    expect(figuresAt(restore(session.save()), ELITE_TANK)).toEqual([1, 2, 0]);
+    commit(holdWith(session, ELITE_TANK, "tank:mechanic"));
+    expect(figuresAt(session, ELITE_TANK)).toEqual([1, 0, 0]);
+
+    const hit = withFigures(withNoCard(ordering()), ELITE_TANK, [1, 2, 0]);
+    expect(hit.sufferHits(ELITE_TANK, 1, 0)).toBe(true);
+    expect(figuresAt(hit, ELITE_TANK)).toEqual([1, 0]);
   });
 
   it("loses an elite tank's figure on its third hit", () => {

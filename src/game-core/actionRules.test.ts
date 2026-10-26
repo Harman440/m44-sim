@@ -32,10 +32,12 @@ const refusal = (id: string, supplies: UnitSupplies, ownTablets = false) =>
 describe("which actions a unit can be given", () => {
   it("allows every action of its type with full supplies, in pass and play, but the ones that would change nothing", () => {
     const pointless = ["infantry:moraleUp", "infantry:reload", "tank:reload", "artillery:reload"];
+    // Regroup needs a unit next to it, which this check doesn't have
+    const alone = ["infantry:regroup", "tank:regroup"];
     for (const unitType of Object.values(UnitType)) {
       for (const each of UNIT_ACTIONS[unitType]) {
         const why = actionRefusal(each, { unitType, supplies: fullSupplies(unitType), ownTablets: false });
-        expect(why, each.id).toBe(pointless.includes(each.id) ? "notNeeded" : null);
+        expect(why, each.id).toBe(pointless.includes(each.id) ? "notNeeded" : alone.includes(each.id) ? "noPartner" : null);
       }
     }
   });
@@ -71,7 +73,18 @@ describe("which actions a unit can be given", () => {
     expect(refusal("infantry:moraleUp", fullSupplies(UnitType.INFANTRY), true)).toBe("ownTablets");
     expect(actionsFor(UnitType.INFANTRY, true).map((each) => each.id)).not.toContain("infantry:moraleUp");
     expect(actionsFor(UnitType.INFANTRY, false).map((each) => each.id)).toContain("infantry:moraleUp");
-    expect(actionsFor(UnitType.TANK, true)).toEqual(UNIT_ACTIONS[UnitType.TANK]);
+    expect(actionsFor(UnitType.TANK, true)).toEqual(UNIT_ACTIONS[UnitType.TANK].filter((each) => each.id !== "tank:regroup"));
+  });
+
+  it("offers Regroup only to a unit that has lost a figure, with a unit next to it, and never on own tablets", () => {
+    const context = { unitType: UnitType.INFANTRY, supplies: fullSupplies(UnitType.INFANTRY), ownTablets: false };
+    const lost = { lost: true, damaged: false };
+    expect(actionRefusal(action("infantry:regroup"), { ...context, wounds: { lost: false, damaged: false }, partners: true })).toBe("notNeeded");
+    expect(actionRefusal(action("infantry:regroup"), { ...context, wounds: lost, partners: false })).toBe("noPartner");
+    expect(actionRefusal(action("infantry:regroup"), { ...context, wounds: lost, partners: true })).toBeNull();
+    expect(actionRefusal(action("infantry:regroup"), { ...context, ownTablets: true })).toBe("ownTablets");
+    const tired = suppliesWith(UnitType.INFANTRY, { [Supply.ENERGY]: 1 });
+    expect(actionRefusal(action("infantry:regroup"), { ...context, supplies: tired, wounds: lost, partners: true })).toBe(Supply.ENERGY);
   });
 
   it("at morale 0 allows only Morale Up", () => {
