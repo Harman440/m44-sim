@@ -53,7 +53,7 @@ import { Supply } from "../data/unitSupplies";
 import { TAKE_COVER_HITS } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
-import { ARTILLERY_CREW_FIGURES, figureDamaged, figuresLeft, hitsPerFigure, hitsToDestroy } from "../data/figures";
+import { ARTILLERY_CREW_FIGURES, damagedFigures, FIGURES, freshFigures, healFigure, hitsPerFigure, mendFigure, takeHits, type Figures } from "../data/figures";
 import type { MarkerRule } from "./actionCard";
 import { ActionCard, ActionCardEffect, HeldCard, cardsOf, isReady, turnsLeft } from "./actionCard";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
@@ -432,8 +432,8 @@ class GameSession {
   private markers: Position[] = [];
   private cardAttacks: CardAttack[] = [];
   private standingCollisions: StandingCollisionRoll[] = [];
-  /** Pass and play: hits each unit has taken (kept from turn to turn) */
-  private hits = new Map<Unit, number>();
+  /** Pass and play: each unit's figures and the hits each has taken (kept from turn to turn); a unit missing is at full strength */
+  private figureHits = new Map<Unit, Figures>();
   /** Pass and play: flags each unit took this turn: one pins it, each more makes it retreat a hex at once */
   private retreatFlags = new Map<Unit, number>();
   /** Pass and play: hexes each unit must still retreat now */
@@ -624,9 +624,13 @@ class GameSession {
 
   /** Pass and play: whether the unit has lost a figure (for Medic) and has one hit but not lost (for Mechanic) */
   private woundsOf(unit: Unit): { lost: boolean; damaged: boolean } {
-    const hits = this.hits.get(unit) ?? 0;
-    const type = unit.getUnitType();
-    return { lost: hits >= hitsPerFigure(type, unit.elite), damaged: figureDamaged(type, hits, unit.elite) };
+    const figures = this.figuresOf(unit);
+    return { lost: figures.length < FIGURES[unit.getUnitType()].figures, damaged: damagedFigures(figures) > 0 };
+  }
+
+  /** Pass and play: the unit's figures, each with the hits it has taken */
+  private figuresOf(unit: Unit): Figures {
+    return this.figureHits.get(unit) ?? freshFigures(unit.getUnitType());
   }
 
   /** The unit has an action it can be given */
@@ -881,8 +885,6 @@ class GameSession {
     const { unit } = order;
     const full = fullSupplies(unit.getUnitType(), unit.elite);
     const supplies = this.suppliesOf(unit);
-    const hits = this.hits.get(unit) ?? 0;
-    const perFigure = hitsPerFigure(unit.getUnitType(), unit.elite);
     switch (action.effect) {
       case "reload":
         this.supplies.set(unit, reload(supplies, full));
@@ -891,10 +893,10 @@ class GameSession {
         this.supplies.set(unit, refill(supplies, full, [Supply.MORALE]));
         break;
       case "medic":
-        if (this.figures && hits >= perFigure) this.setHits(unit, hits - perFigure);
+        if (this.figures) this.setFigures(unit, healFigure(this.figuresOf(unit), unit.getUnitType()));
         break;
       case "mechanic":
-        if (this.figures) this.setHits(unit, hits - (hits % perFigure));
+        if (this.figures) this.setFigures(unit, mendFigure(this.figuresOf(unit)));
         break;
       case "fortify": {
         const hex = this.board.getHex(order.end);
@@ -907,11 +909,8 @@ class GameSession {
     }
   }
 
-  private setHits(unit: Unit, hits: number) {
-    const next = new Map(this.hits);
-    if (hits > 0) next.set(unit, hits);
-    else next.delete(unit);
-    this.hits = next;
+  private setFigures(unit: Unit, figures: Figures) {
+    this.figureHits = new Map(this.figureHits).set(unit, figures);
   }
 
   /**
@@ -938,7 +937,7 @@ class GameSession {
   figuresAt(position: Position): number | null {
     const unit = this.board.getHex(position)?.unit;
     if (!this.figures || !unit) return null;
-    return figuresLeft(unit.getUnitType(), this.hits.get(unit) ?? 0, unit.elite);
+    return this.figuresOf(unit).length;
   }
 
   /** Pass and play: the unit on this hex took a flag this turn: it's pinned (infantry fires with a die less) */
@@ -980,10 +979,10 @@ class GameSession {
       const morale = Math.max(0, amountOf(supplies, Supply.MORALE) - flags);
       this.supplies.set(unit, { ...supplies, amounts: { ...supplies.amounts, [Supply.MORALE]: morale } });
     }
-    const taken = (this.hits.get(unit) ?? 0) + hits;
-    if (taken < hitsToDestroy(unit.getUnitType(), unit.elite)) {
+    const left = takeHits(this.figuresOf(unit), hits, hitsPerFigure(unit.getUnitType(), unit.elite));
+    if (left.length > 0) {
       if (hits > 0) {
-        this.hits = new Map(this.hits).set(unit, taken);
+        this.setFigures(unit, left);
         this.turnHits = new Map(this.turnHits).set(unit, (this.turnHits.get(unit) ?? 0) + hits);
       }
       if (flags > 0) {
@@ -998,7 +997,7 @@ class GameSession {
     }
 
     this.board.removeUnitAt(position);
-    const damage = new Map(this.hits);
+    const damage = new Map(this.figureHits);
     damage.delete(unit);
     const flagged = new Map(this.retreatFlags);
     flagged.delete(unit);
@@ -1007,9 +1006,9 @@ class GameSession {
     const crew = unit.getUnitType() === UnitType.ARTILLERY ? new Unit(UnitType.INFANTRY) : undefined;
     if (crew) {
       this.board.placeUnitAt(position, crew);
-      damage.set(crew, hitsToDestroy(UnitType.INFANTRY) - ARTILLERY_CREW_FIGURES);
+      damage.set(crew, freshFigures(UnitType.INFANTRY, ARTILLERY_CREW_FIGURES));
     }
-    this.hits = damage;
+    this.figureHits = damage;
     this.retreatFlags = flagged;
     this.retreatsDue = due;
     const hitThisTurn = new Map(this.turnHits);
@@ -1087,9 +1086,8 @@ class GameSession {
     return this.board.getAllHexes().flatMap((hex) => {
       const unit = hex.unit;
       if (!unit) return [];
-      const hits = this.hits.get(unit) ?? 0;
-      const figures = figuresLeft(unit.getUnitType(), hits, unit.elite);
-      const damaged = figureDamaged(unit.getUnitType(), hits, unit.elite);
+      const figures = this.figuresOf(unit).length;
+      const damaged = damagedFigures(this.figuresOf(unit)) > 0;
       const hitThisTurn = this.turnHits.get(unit) ?? 0;
       const pinned = (this.retreatFlags.get(unit) ?? 0) > 0;
       const retreats = this.retreatsDue.get(unit) ?? 0;
@@ -2289,7 +2287,7 @@ class GameSession {
       markers: this.markers,
       cardAttacks: this.cardAttacks,
       standingCollisions: this.standingCollisions,
-      hits: this.hits,
+      figureHits: this.figureHits,
       retreatFlags: this.retreatFlags,
       retreatsDue: this.retreatsDue,
       turnHits: this.turnHits,
@@ -2330,7 +2328,7 @@ class GameSession {
     session.markers = state.markers;
     session.cardAttacks = state.cardAttacks;
     session.standingCollisions = [...state.standingCollisions];
-    session.hits = new Map(state.hits);
+    session.figureHits = new Map(state.figureHits);
     session.retreatFlags = new Map(state.retreatFlags);
     session.retreatsDue = new Map(state.retreatsDue);
     session.turnHits = new Map(state.turnHits);

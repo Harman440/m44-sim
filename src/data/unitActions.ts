@@ -94,7 +94,7 @@ export const TANK_ACTIONS: readonly UnitAction[] = [
     },
     { painting: "armor-forward", cost: fuel(2), move: 3, ignoresTerrain: true, fire: ONE_SHOT }),
   tank("mechanic", { es: "Mecánico", en: "Mechanic" },
-    { es: "No se mueve ni dispara: repara la figura tocada (la que tiene impactos sin haber caído).", en: "Doesn't move or fire: mends the figure that's hit (hit but not lost)." },
+    { es: "No se mueve ni dispara: repara la figura más tocada (la que tiene más impactos sin haber caído).", en: "Doesn't move or fire: mends the most damaged figure (hit but not lost)." },
     { painting: "mechanic", cost: FREE, move: 0, fire: null, effect: "mechanic" }),
   tank("reload", RELOAD_NAME,
     { es: "No se mueve ni dispara: recupera 2 proyectiles.", en: "Doesn't move or fire: gets 2 shells back." },

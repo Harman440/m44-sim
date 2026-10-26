@@ -11,7 +11,7 @@ import type { Localized } from "../i18n/lang";
 export type ActionEffect =
   /** Back 1 figure, if the unit has lost one */
   | "medic"
-  /** A tank figure that's hit but not lost is mended */
+  /** The most damaged tank figure (hit but not lost) is mended */
   | "mechanic"
   /** Morale back to full */
   | "moraleUp"
