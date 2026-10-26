@@ -8,45 +8,51 @@
   fill: transparent;
 }
 .hexagon__tile--selected {
-  fill: rgba(255, 255, 255, 0.25);
-  stroke: #ffd54f;
-  stroke-width: 4;
+  fill: rgba(255, 213, 79, 0.14);
+  stroke: #ffe082;
+  stroke-width: 5;
+  stroke-linejoin: round;
 }
 /* Can move here and still fire */
 .hexagon__tile--move-and-fire {
-  fill: color-mix(in srgb, var(--m44-move-fire, #43a047) 50%, transparent);
+  fill: color-mix(in srgb, var(--m44-move-fire, #43a047) 24%, transparent);
   stroke: var(--m44-move-fire, #43a047);
-  stroke-width: 3;
+  stroke-width: 4;
+  stroke-linejoin: round;
 }
 /* Can move here but won't be able to fire */
 .hexagon__tile--move {
-  fill: color-mix(in srgb, var(--m44-move-only, #ffb300) 45%, transparent);
+  fill: color-mix(in srgb, var(--m44-move-only, #ffb300) 20%, transparent);
   stroke: var(--m44-move-only, #ffb300);
-  stroke-width: 3;
+  stroke-width: 4;
   stroke-dasharray: 6 4;
+  stroke-linejoin: round;
 }
 
 /* Can be marked for a combat card (Barrage, Air Power, a Reinforcements cross…) */
 .hexagon__tile--mark {
-  fill: color-mix(in srgb, var(--m44-accent, #e53935) 30%, transparent);
-  stroke: var(--m44-accent, #e53935);
-  stroke-width: 3;
-  stroke-dasharray: 2 5;
+  fill: color-mix(in srgb, #8e44ad 15%, transparent);
+  stroke: #8e44ad;
+  stroke-width: 4;
+  stroke-dasharray: 3 5;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* A unit can fire at this hex */
 .hexagon__tile--target {
-  fill: color-mix(in srgb, var(--m44-accent, #e53935) 22%, transparent);
+  fill: color-mix(in srgb, var(--m44-accent, #e53935) 16%, transparent);
   stroke: var(--m44-accent, #e53935);
-  stroke-width: 3;
+  stroke-width: 4;
+  stroke-linejoin: round;
 }
 
 /* The target picked */
 .hexagon__tile--target-selected {
-  fill: color-mix(in srgb, var(--m44-accent, #e53935) 55%, transparent);
+  fill: color-mix(in srgb, var(--m44-accent, #e53935) 38%, transparent);
   stroke: var(--m44-accent, #e53935);
   stroke-width: 6;
+  stroke-linejoin: round;
 }
 
 /* Red flash for a tap that can't be ordered or reached */

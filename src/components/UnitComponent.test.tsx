@@ -6,12 +6,16 @@ import { Faction } from "../types/faction";
 import { DEFAULT_SETTINGS, SettingsContext } from "../settings";
 import alliedInfantry from "../assets/units/allies/infantry.webp";
 import alliedInfantryBack from "../assets/units/allies/infantry-back.webp";
-import alliedTank from "../assets/units/allies/tank.svg";
-import alliedArtillery from "../assets/units/allies/artillery.svg";
+import alliedTank from "../assets/units/allies/tank.webp";
+import alliedTankBack from "../assets/units/allies/tank-back.webp";
+import alliedArtillery from "../assets/units/allies/artillery.webp";
+import alliedArtilleryBack from "../assets/units/allies/artillery-back.webp";
 import axisInfantry from "../assets/units/axis/infantry.webp";
 import axisInfantryBack from "../assets/units/axis/infantry-back.webp";
-import axisTank from "../assets/units/axis/tank.svg";
-import axisArtillery from "../assets/units/axis/artillery.svg";
+import axisTank from "../assets/units/axis/tank.webp";
+import axisTankBack from "../assets/units/axis/tank-back.webp";
+import axisArtillery from "../assets/units/axis/artillery.webp";
+import axisArtilleryBack from "../assets/units/axis/artillery-back.webp";
 
 const renderUnit = (faction: Faction, unitType?: UnitType, readyToFire?: boolean) =>
   render(
@@ -44,7 +48,7 @@ describe("UnitComponent", () => {
     expect(image.getAttribute("data-unit-type")).toBe(unitType);
   });
 
-  it("draws its own side's infantry from behind, and the front for a unit type with no back view", () => {
+  it("draws the back of each unit type when seen from behind", () => {
     const sprite = (faction: Faction, unitType: UnitType) =>
       render(
         <svg>
@@ -53,9 +57,11 @@ describe("UnitComponent", () => {
       ).container.querySelector("image")!.getAttribute("href");
 
     expect(sprite("Allies", UnitType.INFANTRY)).toBe(alliedInfantryBack);
-    expect(sprite("Allies", UnitType.TANK)).toBe(alliedTank);
+    expect(sprite("Allies", UnitType.TANK)).toBe(alliedTankBack);
+    expect(sprite("Allies", UnitType.ARTILLERY)).toBe(alliedArtilleryBack);
     expect(sprite("Axis", UnitType.INFANTRY)).toBe(axisInfantryBack);
-    expect(sprite("Axis", UnitType.TANK)).toBe(axisTank);
+    expect(sprite("Axis", UnitType.TANK)).toBe(axisTankBack);
+    expect(sprite("Axis", UnitType.ARTILLERY)).toBe(axisArtilleryBack);
   });
 
   it.each([
@@ -74,7 +80,7 @@ describe("UnitComponent", () => {
     expect(drawn(1)).toBe(1);
   });
 
-  it("shows no figure count, only a red dot for a figure hit once", () => {
+  it("shows smoke and flame for a damaged tank without a damage badge", () => {
     const tank = (damaged: boolean) =>
       render(
         <svg>
@@ -84,7 +90,8 @@ describe("UnitComponent", () => {
 
     expect(tank(false).querySelector("text")).toBeNull();
     expect(tank(false).querySelector('[data-testid="damaged-badge"]')).toBeNull();
-    expect(tank(true).querySelector('[data-testid="damaged-badge"]')).not.toBeNull();
+    expect(tank(true).querySelector('[data-testid="damage-fire"]')).not.toBeNull();
+    expect(tank(true).querySelector('[data-testid="damaged-badge"]')).toBeNull();
   });
 
   it.each([

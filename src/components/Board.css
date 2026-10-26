@@ -22,6 +22,10 @@
   stroke-linecap: round;
 }
 
+.board__marker--target {
+  stroke-width: 4;
+}
+
 .board__marker-number {
   fill: var(--m44-accent, #e53935);
   stroke: var(--m44-paper, #fff);
@@ -31,6 +35,11 @@
   font-size: 26px;
   text-anchor: middle;
   dominant-baseline: middle;
+}
+
+.board__marker--target .board__marker-number {
+  stroke-width: 2.5;
+  font-size: 20px;
 }
 
 /* A combat card given to a unit this turn (Explosives…): a small card by the token */

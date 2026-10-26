@@ -105,6 +105,8 @@ interface BoardProps {
    * from: the reveal before the armies move. Taken off, they glide to where they stand
    */
   atStart?: boolean;
+  /** Draw the orders' movement arrows (both sides'); off in the battle, where the moves are done */
+  showArrows?: boolean;
   /**
    * The player can zoom and pan: pinch, the mouse wheel and the +/− buttons
    * zoom, a drag pans to what's out of sight (a drag is never a tap on a hex).
@@ -122,9 +124,9 @@ interface BoardProps {
   startsWhole?: boolean;
   /** More buttons under the zoom buttons */
   zoomTools?: React.ReactNode;
-  /** What this side's units lost or gained this turn (morale, ammo, luck): a pill under each. Never the other army's */
+  /** Legacy compatibility; turn changes are shown in unit rows rather than beside map units. */
   changes?: readonly UnitChange[];
-  /** What each of this side's units has run out of: a red pill over it. Never the other army's */
+  /** Legacy compatibility; empty supplies are visible in unit meters and are no longer map badges. */
   empty?: readonly { position: Position; supplies: readonly Supply[] }[];
   /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
   onViewChange?: () => void;
@@ -146,10 +148,6 @@ interface PlacedToken {
   retreats?: number;
   damaged?: boolean;
   hitThisTurn?: number;
-  /** This side's units only: what it lost or gained this turn */
-  change?: UnitChange;
-  /** This side's units only: the supplies it has run out of */
-  empty?: readonly Supply[];
 }
 
 /** A stable key per unit, so its token is the same element wherever it moves and can glide there */
@@ -193,14 +191,13 @@ function Board({
   strength: strengthProp,
   collisions = [],
   atStart = false,
+  showArrows = true,
   zoomable = false,
   zoomOn = null,
   dragPans = true,
   startsWhole = false,
   zoomTools,
   onViewChange,
-  changes = [],
-  empty = []
 }: BoardProps) {
   const t = useMessages(TEXT);
   const shared = useContext(OpponentContext);
@@ -243,7 +240,7 @@ function Board({
     const previewUnit = pathPreview && pathPreview.length > 1 ? boardManager.getHex(pathPreview[0]!)?.unit : null;
     return (
       <>
-        {orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
+        {showArrows && orders.map((order, index) => hiddenUnits.has(order.unit) ? null : (
           <OrderComponent
             key={index} // an order's index identifies it for the whole turn (see Order)
             orderIndex={index}
@@ -272,7 +269,7 @@ function Board({
     const center = (position: Position) => geometry.hexCenter(turnedRound(position, boardManager.size));
     return (
       <g className="board__opponent" data-testid="opponent-army" pointerEvents="none">
-        {opponent.orders.map((order, index) => (
+        {showArrows && opponent.orders.map((order, index) => (
           <OrderComponent
             key={index}
             orderIndex={index}
@@ -356,8 +353,8 @@ function Board({
   const renderMarkers = () =>
     markers.map((position, i) => {
       const { x, y } = geometry.hexCenter(position);
-      const r = hexSize * 0.55;
       const kind = typeof markerKind === 'string' ? markerKind : (markerKind[i] ?? 'target');
+      const r = hexSize * (kind === 'target' ? 0.4 : 0.55);
       return (
         <g
           key={`${i}-${positionKey(position)}`}
@@ -483,8 +480,6 @@ function Board({
         retreats: stands?.retreats,
         damaged: stands?.damaged,
         hitThisTurn: stands?.hitThisTurn,
-        change: changes.find((each) => samePosition(each.position, position)),
-        empty: empty.find((each) => samePosition(each.position, position))?.supplies,
       }];
     });
     if (!opponent) return own;
@@ -555,8 +550,6 @@ function Board({
                 retreats={token.retreats}
                 damaged={token.damaged}
                 hitThisTurn={token.hitThisTurn}
-                change={token.change}
-                empty={token.empty}
               />
             </g>
           </g>
@@ -565,8 +558,8 @@ function Board({
   };
 
   /**
-   * The sandbags, this side's and the other army's, in front of the tokens like a wall. Each side's
-   * face its enemy: the top of the map for the side it's seen from, the bottom for the other
+   * Sandbags sit on the terrain after fog, with unit figures drawn over them. Each side's wall
+   * faces its enemy: the top of the map for the side it's seen from, the bottom for the other.
    */
   const renderSandbags = () => {
     // At the start of the movement the units ordered off their sandbags still stand behind them
@@ -596,7 +589,7 @@ function Board({
     });
   };
 
-  /** A small card on the units a combat card was given to, at the token's left */
+  /** A small card just left of the unit's status badges */
   /** The camouflage token, right of the token, halfway down */
   const renderCamouflage = () =>
     camouflaged.filter((position) => !badgeHidden(position)).map((position) => {
@@ -614,9 +607,9 @@ function Board({
       const { x, y } = geometry.hexCenter(position);
       const w = hexSize * 0.3;
       const h = w * 1.4;
-      // Left of the token, halfway down: its corners hold the order, elite, figures and retreat badges
-      const cx = x - hexSize * 0.68;
-      const cy = y;
+      // Dock it at the left edge, clear of the elite and retreat marks in the token's corners.
+      const cx = x - hexSize * 0.78;
+      const cy = y - hexSize * 0.08;
       return (
         <g key={`${i}-${positionKey(position)}`} className="board__card-badge" data-card-badge={positionKey(position)} pointerEvents="none">
           <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={w * 0.15} transform={`rotate(12 ${cx} ${cy})`} />
@@ -700,11 +693,11 @@ function Board({
           />
         )}
 
-        {/* Layer 2: Hexagon tiles, then the units and the sandbags in front of them */}
+        {/* Layer 2: Terrain, fog, cover, then unit figures and their status markers */}
         {renderBoard()}
         {renderFog()}
-        {renderUnits()}
         {renderSandbags()}
+        {renderUnits()}
         {renderObjectives()}
         {renderCardBadges()}
         {renderCamouflage()}

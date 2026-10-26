@@ -16,7 +16,7 @@ const TEXT = defineMessages({
     endBattle: "Terminar batalla",
     instructions: "Instrucciones",
     help:
-      "El mapa muestra las órdenes y qué unidades ya han disparado. Toca una carta para leerla entera. Las bajas y " +
+      "El mapa muestra qué unidades ya han disparado. Toca una carta para leerla entera. Las bajas y " +
       "retiradas se reflejan en el mapa en la fase final.",
   },
   en: {
@@ -25,7 +25,7 @@ const TEXT = defineMessages({
     endBattle: "End battle",
     instructions: "Instructions",
     help:
-      "The map shows the orders and which units have already fired. Tap a card to read all of it. Casualties and " +
+      "The map shows which units have already fired. Tap a card to read all of it. Casualties and " +
       "retreats are mirrored on the map in the final phase.",
   },
 });
@@ -41,7 +41,7 @@ interface BattleMapProps {
 const noop = () => {};
 
 /**
- * Read-only map of the battle phase: the orders and which units have fired,
+ * Read-only map of the battle phase: which units have fired (no movement arrows),
  * laid out like Movimiento, with the cards played this turn. Casualties and
  * retreats are mirrored on the map in the final phase, once the battle is
  * over on the table.
@@ -66,6 +66,7 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           possibleMoveAndFirePositions={[]}
           boardManager={session.board}
           orders={game.orders}
+          showArrows={false}
           markers={game.markers}
           markerKind={game.markerKinds}
           camouflaged={game.camouflaged}
