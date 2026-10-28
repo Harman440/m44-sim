@@ -162,7 +162,7 @@ const en: Labels = {
     if (chain && awayFromOwnUnits)
       return `Mark ${hexes(count)} in a chain, each one next to the one before, that aren't on or next to your units.`;
     if (chain) return `Mark ${hexes(count)} in a chain: each one next to the one before.`;
-    if (awayFromOwnUnits) return `Mark ${hexes(count)} that aren't on or next to your units.`;
+    if (awayFromOwnUnits) return `Mark ${hexes(count)} that ${count === 1 ? "isn't" : "aren't"} on or next to your units.`;
     return `Mark ${hexes(count)} without your units.`;
   },
 };

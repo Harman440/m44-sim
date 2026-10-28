@@ -164,7 +164,7 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Mechanic — 2: 1 weak ordered armor/artillery unit receives 1 figure, the same way. For armour a figure is 2 hits, so a tank hit only once counts as weak and is mended whole
 - Lost Message — 5: opponent loses 2 orders of his choice
 - Tactician — 2: change the section of a section card
-- Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; supplies count and retreats can't be ignored
+- Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; supplies count and retreats can't be ignored; the hex can't be next to your units
 - Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 1 die; supplies count, retreats can't be ignored; hexes can't be next to your units
 
 ### Original battle combat cards (cost)

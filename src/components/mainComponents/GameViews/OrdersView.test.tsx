@@ -290,7 +290,7 @@ describe("OrdersView the card played", () => {
   it("marks the Barrage hex on the map before the orders can be confirmed", () => {
     const { session, container, tap } = withCard("barrage");
     expect(screen.queryByRole("button", { name: "Confirmar Órdenes" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("order-card-marks")).toHaveTextContent("Marca 1 casilla sin unidades tuyas. (0/1)");
+    expect(screen.getByTestId("order-card-marks")).toHaveTextContent("Marca 1 casilla que no esté en tus unidades ni junto a ellas. (0/1)");
 
     fireEvent.click(screen.getByRole("button", { name: "Marcar en el mapa" }));
     expect(container.querySelectorAll(".hexagon__tile--mark").length).toBeGreaterThan(0);

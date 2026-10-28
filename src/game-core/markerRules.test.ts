@@ -61,8 +61,8 @@ describe("canMark", () => {
     expect(canMark(bombardment, board, [], FAR)).toBe(true);
   });
 
-  it("keeps both air cards' hexes away from your units", () => {
-    for (const id of ["air-power", "air-bombardment"]) {
+  it("keeps Barrage's and the air cards' hexes away from your units", () => {
+    for (const id of ["barrage", "air-power", "air-bombardment"]) {
       const rule = actionCardById(id)!.marker!;
       expect(canMark(rule, board, [], neighbors(TANK)[0]!)).toBe(false);
       expect(canMark(rule, board, [], FAR)).toBe(true);

@@ -1312,30 +1312,27 @@ describe("GameSession attack cards", () => {
     return session;
   };
 
-  it("keeps your units off the marked hexes, and next to them for Air Bombardment", () => {
+  it("keeps your units off the marked hexes and next to them for Barrage and Air Bombardment", () => {
     const session = turnTwo();
-    session.pickCard(barrage);
-    const target = session.getMoveOptions(LEFT_INF)!.moves[0]!;
-    expect(session.markHex(target)).toBe(true);
-    expect(session.getMoveOptions(LEFT_INF)!.moves).not.toContainEqual(target);
-    expect(session.issueOrder(LEFT_INF, target)).toBe(false);
-
-    session.undoMarker();
-    session.unpickCard();
-    session.pickCard(card("air-bombardment"));
     const mark = { row: 4, col: 2 };
     const nextToMark = new Hex(mark).getNeighbors();
-    expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(true);
-    expect(session.markHex(mark)).toBe(true);
-    expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(false);
+    for (const id of ["barrage", "air-bombardment"]) {
+      session.pickCard(card(id));
+      expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(true);
+      expect(session.markHex(mark)).toBe(true);
+      expect(session.getMoveOptions(LEFT_INF)!.moves).not.toContainEqual(mark);
+      expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(false);
+      session.undoMarker();
+      session.unpickCard();
+    }
   });
 
-  it("erases a mark when undoing an order brings a unit back on it", () => {
+  it("erases a mark when undoing an order brings a unit back on it or next to it", () => {
     const session = turnTwo();
     session.pickCard(barrage);
-    const to = session.getMoveOptions(LEFT_INF)!.moves[0]!;
+    const to = session.getMoveOptions(LEFT_INF)!.moves.find((p) => hexDistance(p, LEFT_INF) === 2)!;
     session.issueOrder(LEFT_INF, to);
-    expect(session.markHex(LEFT_INF)).toBe(true); // empty now
+    expect(session.markHex(LEFT_INF)).toBe(true); // empty now, and the unit two hexes off
     session.undoLastOrder();
     expect(session.getSnapshot().markers).toEqual([]);
   });

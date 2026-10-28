@@ -72,8 +72,10 @@ const toBattle = (match: PassAndPlayMatch, axis: Parameters<typeof play>[1] = {}
 
 describe("attack cards and wire in the shared battle", () => {
   it("rolls an attack card on its marked hexes before anyone fires, dealing the hits there", () => {
-    const match = newMatch(); // the attack die shows infantry: hits on infantry
-    toBattle(match, {}, { card: "barrage", marks: [{ row: 4, col: 3 }] });
+    // A second Axis infantry at (4,6), away from the Allied units (Barrage can't mark next to them)
+    const far: Scenario = { ...scenario, units: { ...scenario.units, axis: { ...scenario.units.axis, infantry: [{ row: 4, col: 3 }, { row: 4, col: 6 }] } } };
+    const match = newMatch(0, far); // the attack die shows infantry: hits on infantry
+    toBattle(match, {}, { card: "barrage", marks: [{ row: 4, col: 6 }] });
 
     const battle = match.getSnapshot().battle!;
     expect(battle).toMatchObject({ attacks: ["Allies"], side: null });
@@ -82,7 +84,7 @@ describe("attack cards and wire in the shared battle", () => {
     expect(match.rollAttacks("Axis")).toBe(false);
     expect(match.rollAttacks("Allies")).toBe(true);
     // Barrage rolls 4 dice on the hex: 4 hits on the Axis infantry
-    expect(match.sessions.Axis.figuresAt(axisView(4, 3))).toBe(INFANTRY_FIGURES - 4);
+    expect(match.sessions.Axis.figuresAt(axisView(4, 6))).toBe(INFANTRY_FIGURES - 4);
     expect(match.getSnapshot().battle).toMatchObject({ attacks: [], side: "Axis" });
   });
 

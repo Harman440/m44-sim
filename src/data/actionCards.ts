@@ -72,13 +72,13 @@ export const ACTION_CARDS: readonly ActionCard[] = [
     id: "barrage",
     name: { es: "Cortina de Fuego", en: "Barrage" },
     description: {
-      es: "Marca una casilla: si hay una unidad enemiga, tira 4 dados de ataque (con una granada en lugar del suministro) contra ella. Las retiradas no se pueden ignorar.",
-      en: "Mark a hex: if there's an enemy unit on it, roll 4 attack dice (with a grenade instead of the supply) against it. Retreats can't be ignored.",
+      es: "Marca una casilla que no esté junto a tus unidades: si hay una unidad enemiga, tira 4 dados de ataque (con una granada en lugar del suministro) contra ella. Las retiradas no se pueden ignorar.",
+      en: "Mark a hex that isn't next to your units: if there's an enemy unit on it, roll 4 attack dice (with a grenade instead of the supply) against it. Retreats can't be ignored.",
     },
     painting: "barrage",
     cost: 8,
     needs: "bigGuns",
-    marker: { kind: "target", count: 1 },
+    marker: { kind: "target", count: 1, awayFromOwnUnits: true },
     effect: { kind: "attack", dicePerHex: 4 },
   },
   {
