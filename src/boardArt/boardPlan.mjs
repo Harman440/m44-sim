@@ -37,6 +37,12 @@ export const BRIDGE_WIDTH = 0.86;
  * @type {Record<string, string[] | undefined>}
  */
 export const DRAWABLE = { river: ["river", "bridge"], hedgerow: ["hedgerow"] };
+/**
+ * Library tiles never given to a hex at random, only where a board picks them (`picked`): the
+ * church, for Sainte-Mère-Église's (scripts/boards.json)
+ * @type {Record<string, string[] | undefined>}
+ */
+export const PICKED_ONLY = { town: ["village-5.webp"] };
 /** Painted terrain that blends into the same terrain next to it (joinedTiles.mjs) */
 export const JOINED_TERRAIN = ["forest", "town"];
 /**
@@ -486,11 +492,17 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       lakeArt.set(hex, painted ? (list[pickFor(hex, 5, list.length)] ?? null) : null);
     });
   }
-  /** A tile of a terrain's library: the one picked for the hex, or one by the hex @param {string} key @param {string} type */
+  /**
+   * A tile of a terrain's library: the one picked for the hex, or one by the hex (never one of
+   * PICKED_ONLY's) @param {string} key @param {string} type
+   */
   const tileFor = (key, type) => {
-    const choices = library[type] ?? [];
+    const all = library[type] ?? [];
     const pick = `${picked[key]}.webp`;
-    return `${type}/${choices.includes(pick) ? pick : choices[pickFor(key, 1, choices.length)]}`;
+    if (all.includes(pick)) return `${type}/${pick}`;
+    const kept = all.filter((file) => !PICKED_ONLY[type]?.includes(file));
+    const choices = kept.length ? kept : all;
+    return `${type}/${choices[pickFor(key, 1, choices.length)]}`;
   };
 
   // A river's edges facing a hill, whose ridge runs on into it up to the water, and the hill tile

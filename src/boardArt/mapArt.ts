@@ -9,7 +9,7 @@ import { BoardSize, STANDARD_BOARD, boardSizeOf } from "../game-core/boardSize";
 export const ART_WAIT_MS = 15_000;
 
 const drawn = new Map<string, Promise<string>>();
-const ART_RENDER_VERSION = 4; // Invalidate images made before the old town code went (forests' edges are laid out anew).
+const ART_RENDER_VERSION = 5; // Invalidate images made before the church left the towns' random tiles.
 
 /** A map's board art as an image URL (a blob: URL kept for as long as the app is open) */
 export function boardArtFor(tiles: Tiles, size: BoardSize = STANDARD_BOARD, picked: PickedTile[] = []): Promise<string> {

@@ -262,13 +262,14 @@ const drawnTile = async (hex) => {
   return placed(input, hex.key, tileWidth, tileHeight);
 };
 
-async function build({ terrain, image, drawn = [], separateHills = false }) {
+async function build({ terrain, image, drawn = [], separateHills = false, picked: boardPicked = {} }) {
   const json = JSON.parse(readFileSync(terrain, "utf8"));
   // A catalog scenario's file has its terrain in `tiles`, and the town tiles picked in the editor
   const scenario = "version" in json && "tiles" in json;
   if (scenario && json.board !== "standard") throw new Error(`${terrain}: only a standard 13×9 board can be painted (the app draws a bigger one)`);
   const tiles = scenario ? json.tiles : json;
-  const picked = scenario ? pickedByHex(json.pickedTiles) : {};
+  // and the tiles boards.json picks (the church only goes where a board asks for it)
+  const picked = { ...(scenario ? pickedByHex(json.pickedTiles) : {}), ...boardPicked };
   let plan;
   try {
     plan = planBoard(tiles, library, { drawn, separateHills, outskirts: true, picked });

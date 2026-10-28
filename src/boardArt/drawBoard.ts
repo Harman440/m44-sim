@@ -26,6 +26,7 @@ import {
   bridgeAngle,
   canPaintRivers,
   drawnSvg,
+  PICKED_ONLY,
   pickFor,
   pickedByHex,
   planBoard,
@@ -56,8 +57,12 @@ for (const name of [...TILE_URLS.keys()].sort()) {
   (TILE_LIBRARY[terrain] ??= []).push(file);
 }
 
-/** The tiles a terrain can be painted with, as Scenario.pickedTiles names them (the file's name without ".webp") */
-export const tilesFor = (type: HexType): string[] => (TILE_LIBRARY[type] ?? []).map((file) => file.replace(/\.webp$/, ""));
+/**
+ * The tiles a terrain can be painted with, as Scenario.pickedTiles names them (the file's name
+ * without ".webp"); not PICKED_ONLY's, kept for the boards that pick them
+ */
+export const tilesFor = (type: HexType): string[] =>
+  (TILE_LIBRARY[type] ?? []).filter((file) => !PICKED_ONLY[type]?.includes(file)).map((file) => file.replace(/\.webp$/, ""));
 
 /**
  * The art the app plans for a map's terrain (`plain`: each hex its own tile, nothing joined;

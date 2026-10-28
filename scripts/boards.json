@@ -2,5 +2,9 @@
   { "terrain": "src/data/boards/foret-decouves.json", "image": "src/assets/scenarios/ForetDEcouves.webp" },
   { "terrain": "src/data/boards/arracourt.json", "image": "src/assets/scenarios/Arracourt.webp" },
   { "terrain": "src/data/boards/pegasus-bridge.json", "image": "src/assets/scenarios/PegasusBridge.webp", "drawn": ["river"] },
-  { "terrain": "src/data/boards/sainte-mere-eglise.json", "image": "src/assets/scenarios/SainteMereEglise.webp" }
+  {
+    "terrain": "src/data/boards/sainte-mere-eglise.json",
+    "image": "src/assets/scenarios/SainteMereEglise.webp",
+    "picked": { "4-7": "village-5" }
+  }
 ]
