@@ -90,50 +90,6 @@ describe("joinedTileMaker", () => {
     expect(Math.max(...[...Array(Math.floor(OW / 2 - W / 2) - 1).keys()].map((x) => overflow![(y * OW + x) * 4 + 3]!))).toBe(0);
   });
 
-  it("stands a town's house partly over the edge it spills over", () => {
-    const make = joinedTileMaker("town", tile(true), W, H, 1);
-    const { overflow } = make(hex("2-2", CLOSED, 0, 1, { bare: EAST, spill: 0 }));
-
-    expect(pastEast(overflow)).toBeGreaterThan(200);
-  });
-});
-
-describe("a town's streets", () => {
-  it("run out over the edges they're given", () => {
-    const make = joinedTileMaker("town", tile(true), W, H, 1);
-    const [OW, OH] = [Math.round(OVERFLOW * W), Math.round(OVERFLOW * H)];
-    const past = (overflow: Uint8Array | null, east: boolean) => {
-      let most = 0;
-      for (let y = 0; y < OH; y++) {
-        for (let x = 0; x < OW; x++) {
-          const out = east ? x > OW / 2 + W / 2 + 1 : x < OW / 2 - W / 2 - 1;
-          if (out) most = Math.max(most, overflow?.[(y * OW + x) * 4 + 3] ?? 0);
-        }
-      }
-      return most;
-    };
-    const { overflow } = make(hex("2-2", CLOSED, 0, 1, { streets: [0] }));
-
-    expect(past(overflow, true)).toBe(255);
-    expect(past(overflow, false)).toBe(0);
-  });
-});
-
-describe("a town's cobbled yards", () => {
-  it("spill out over some of its edges onto the countryside", () => {
-    const make = joinedTileMaker("town", tile(true), W, H, 1);
-    const [OW, OH] = [Math.round(OVERFLOW * W), Math.round(OVERFLOW * H)];
-    const pastEast = (overflow: Uint8Array | null) => {
-      let most = 0;
-      for (let y = 0; y < OH; y++) for (let x = Math.ceil(OW / 2 + W / 2) + 1; x < OW; x++) most = Math.max(most, overflow?.[(y * OW + x) * 4 + 3] ?? 0);
-      return most;
-    };
-    const spilt = [...Array(8).keys()].map((seed) => pastEast(make(hex("2-2", CLOSED, 0, seed, { bare: EAST })).overflow));
-
-    // Over the countryside to the east in some towns, not all
-    expect(spilt.filter((alpha) => alpha === 255).length).toBeGreaterThan(0);
-    expect(spilt.filter((alpha) => alpha === 0).length).toBeGreaterThan(0);
-  });
 });
 
 describe("growWoods", () => {

@@ -451,7 +451,8 @@ function layHouses(houses, W, H, rand, inside, first) {
           const [x, y] = [W / 2 + radius * Math.cos(at), H / 2 + radius * Math.sin(at)];
           const angle = rand() * 2 * Math.PI;
           const [cos, sin] = [scale * Math.cos(angle), scale * Math.sin(angle)];
-          const spot = ([u, v]) => [Math.round(x + u * cos - v * sin), Math.round(y + u * sin + v * cos)];
+          /** @param {number[]} point */
+          const spot = ([u = 0, v = 0]) => [Math.round(x + u * cos - v * sin), Math.round(y + u * sin + v * cos)];
           const fits = house.points.every((point) => {
             const [sx = 0, sy = 0] = spot(point);
             return sx >= 0 && sy >= 0 && sx < W && sy < H && free[sy * W + sx];
@@ -541,6 +542,7 @@ export function joinedTileMaker(type, tile, tileWidth, tileHeight, scale = 2, fo
       return { tile: out, overflow: null };
     };
   }
+  /** @type {House[]} */
   const houses = [];
   const ground = tile;
   const trees = type === "forest" ? findCrowns(tile, 0.24) : [];

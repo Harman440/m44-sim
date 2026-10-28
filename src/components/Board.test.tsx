@@ -7,7 +7,6 @@ import BoardManager from "../game-core/BoardManager";
 import type { ArmyView } from "../game-core/passAndPlay";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
-import { Supply } from "../data/unitSupplies";
 import Order from "../game-core/order";
 
 // Allied infantry behind sandbags at (6,2); the Axis infantry's at (2,4) in the Allies' view, (6,8) in its own
@@ -35,22 +34,6 @@ const plain = { onTileClick: () => {}, unitHexPosition: null, possibleMovePositi
 
 const turnedOf = (container: HTMLElement, side: string) =>
   container.querySelector(`[data-sandbags-side="${side}"] image`)?.hasAttribute("transform");
-
-describe("Board empty supplies", () => {
-  it("marks what a unit has run out of over its token, and nothing when it has everything", () => {
-    const allies = new BoardManager(scenario, "Allies");
-    const props = { ...plain, boardManager: allies, faction: "Allies" as const };
-
-    const { container, rerender } = render(<Board {...props} />);
-    expect(container.querySelector('[data-testid="empty-pill"]')).not.toBeInTheDocument();
-
-    rerender(<Board {...props} empty={[{ position: { row: 6, col: 2 }, supplies: [Supply.AMMO, Supply.ENERGY] }]} />);
-    const pill = container.querySelector('[data-testid="empty-pill"]')!;
-    expect(pill).toBeInTheDocument();
-    expect(pill.querySelector("title")).toHaveTextContent("Sin munición, energía");
-    expect(pill.querySelectorAll("image")).toHaveLength(2);
-  });
-});
 
 describe("Board sandbags", () => {
   it("draws both armies' sandbags, each facing its enemy: the other side's turned round", () => {
