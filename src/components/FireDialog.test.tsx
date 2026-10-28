@@ -269,7 +269,7 @@ describe("FireDialog", () => {
   it("reaches 6 hexes with artillery", () => {
     open(UnitType.ARTILLERY);
 
-    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance: 3 / 3 / 2 / 2 / 1 / 1");
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance: 1 / 3 / 3 / 2 / 2 / 1");
     expect(hasBadge({ row: 1, col: 1 })).toBe(true); // 6 hexes up
   });
 

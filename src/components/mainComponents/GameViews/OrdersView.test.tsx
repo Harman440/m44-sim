@@ -110,7 +110,7 @@ describe("OrdersView selecting units", () => {
     expect(actions.queryByRole("button", { name: /^Subir la moral/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("action-popup")).toContainElement(screen.getByRole("list", { name: "Acciones" }));
     const row = screen.getAllByTestId("unit-row")[0]!;
-    for (const meter of ["Moral: 5 de 5", "Energía: 5 de 5", "Munición: 2 de 2"]) expect(within(row).getByRole("img", { name: meter })).toBeInTheDocument();
+    for (const meter of ["Moral: 4 de 4", "Energía: 5 de 5", "Munición: 2 de 2"]) expect(within(row).getByRole("img", { name: meter })).toBeInTheDocument();
   });
 
   it("switches the selection when another orderable unit is tapped", () => {

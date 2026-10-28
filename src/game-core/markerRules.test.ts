@@ -5,6 +5,7 @@ import { canMark, conflictsWithMark, markablePositions } from "./markerRules";
 import { includesPosition } from "./position";
 import { Position, Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
+import { actionCardById } from "../data/actionCards";
 
 const INFANTRY: Position = { row: 7, col: 1 };
 const TANK: Position = { row: 4, col: 6 };
@@ -58,6 +59,14 @@ describe("canMark", () => {
 
     expect(canMark(bombardment, board, [], neighbors(TANK)[0]!)).toBe(false);
     expect(canMark(bombardment, board, [], FAR)).toBe(true);
+  });
+
+  it("keeps both air cards' hexes away from your units", () => {
+    for (const id of ["air-power", "air-bombardment"]) {
+      const rule = actionCardById(id)!.marker!;
+      expect(canMark(rule, board, [], neighbors(TANK)[0]!)).toBe(false);
+      expect(canMark(rule, board, [], FAR)).toBe(true);
+    }
   });
 });
 

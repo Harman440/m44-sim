@@ -160,6 +160,8 @@ const es: Labels = {
   },
   describeMarkerRule: ({ kind, count, chain, awayFromOwnUnits }) => {
     if (kind === "cross") return "Marca con una cruz la casilla libre donde aparece la unidad.";
+    if (chain && awayFromOwnUnits)
+      return `Marca ${hexes(count)} en cadena, cada una junto a la anterior, que no estén en tus unidades ni junto a ellas.`;
     if (chain) return `Marca ${hexes(count)} en cadena: cada una junto a la anterior.`;
     if (awayFromOwnUnits) return `Marca ${hexes(count)} que no estén en tus unidades ni junto a ellas.`;
     return `Marca ${hexes(count)} sin unidades tuyas.`;

@@ -85,13 +85,13 @@ export const ACTION_CARDS: readonly ActionCard[] = [
     id: "air-power",
     name: { es: "Poder aéreo", en: "Air Power" },
     description: {
-      es: "Marca 4 casillas adyacentes, en cadena: 1 dado de ataque (con una granada en lugar del suministro) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
-      en: "Mark 4 adjacent hexes, in a chain: 1 attack die (with a grenade instead of the supply) against each enemy unit on them. Retreats can't be ignored.",
+      es: "Marca 4 casillas adyacentes, en cadena, que no estén junto a tus unidades: 1 dado de ataque (con una granada en lugar del suministro) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
+      en: "Mark 4 adjacent hexes, in a chain, that aren't next to your units: 1 attack die (with a grenade instead of the supply) against each enemy unit on them. Retreats can't be ignored.",
     },
     painting: "air-power",
     cost: 7,
     needs: "air",
-    marker: { kind: "target", count: 4, chain: true },
+    marker: { kind: "target", count: 4, chain: true, awayFromOwnUnits: true },
     effect: { kind: "attack", dicePerHex: 1 },
   },
 ];

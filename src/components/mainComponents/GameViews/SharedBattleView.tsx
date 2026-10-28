@@ -477,6 +477,11 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
   const marks = {
     positions: markSides.flatMap(({ faction, game }) => game.markers.map((m) => inBoardView(faction, m))),
     kind: markSides.flatMap(({ game }) => game.markerKinds),
+    // The hexes whose dice are rolled, as indexes in `positions`
+    rolled: markSides.flatMap(({ game }, i) => {
+      const offset = i === 0 ? 0 : markSides[0]!.game.markers.length;
+      return game.cardAttacks.map((attack) => offset + attack.marker);
+    }),
   };
 
   const tapMap = (position: Position) => {
@@ -541,6 +546,7 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 selectedTarget={shownShot ? shotTarget : (aim?.position ?? null)}
                 markers={marks.positions}
                 markerKind={marks.kind}
+                rolledMarkers={marks.rolled}
                 camouflaged={boardGame.camouflaged}
                 possibleMoveAndFirePositions={[]}
                 boardManager={boardSession.board}

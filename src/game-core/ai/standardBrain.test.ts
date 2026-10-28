@@ -57,7 +57,7 @@ describe("standardBrain", () => {
   it("regroups weakened units in a game against itself, the smaller unit leaving the map", () => {
     // A game picked where it happens (the dice are seeded)
     const scenario = scenarios.find((each) => each.id === "foret-decouves")!;
-    const match = playOut(scenario, { Allies: standardBrain, Axis: standardBrain }, seeded(3), 20);
+    const match = playOut(scenario, { Allies: standardBrain, Axis: standardBrain }, seeded(8), 20);
     const log = FACTIONS.flatMap((side) => match.sessions[side].getSnapshot().log);
     const regroups = log.flatMap((turn) => turn.orders.filter((order) => order.action.endsWith(":regroup")));
     const left = log.flatMap((turn) => turn.battleEdits.filter((edit) => edit.kind === "remove" && edit.regroupedInto));

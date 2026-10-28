@@ -16,7 +16,7 @@ import { Localized, byLang } from "../i18n/lang";
 export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
   [UnitType.INFANTRY]: [3, 2, 1],
   [UnitType.TANK]: [3, 3, 3],
-  [UnitType.ARTILLERY]: [3, 3, 2, 2, 1, 1],
+  [UnitType.ARTILLERY]: [1, 3, 3, 2, 2, 1],
 };
 
 /**

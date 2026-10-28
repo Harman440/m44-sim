@@ -81,11 +81,11 @@ describe("fire questions (house rules)", () => {
     [UnitType.TANK, "2", "plains", 3],
     [UnitType.TANK, "1", "forest", 1],
     [UnitType.TANK, "3", "hill", 2],
-    [UnitType.ARTILLERY, "5", "plains", 1],
+    [UnitType.ARTILLERY, "5", "plains", 2],
     [UnitType.ARTILLERY, "2", "town", 3], // artillery ignores terrain
     [UnitType.INFANTRY, "1", "bunker", 2],
     [UnitType.TANK, "1", "bunker", 1],
-    [UnitType.ARTILLERY, "3", "bunker", 2],
+    [UnitType.ARTILLERY, "3", "bunker", 3],
   ])("%s at %s hexes, target in %s: %i dice", (unitType, distance, targetTerrain, expected) => {
     expect(dice(unitType, { distance, targetTerrain })).toBe(expected);
   });
@@ -141,7 +141,7 @@ describe("fire questions (house rules)", () => {
   });
 
   it("never takes a die from artillery for sandbags, but the flag is still ignored", () => {
-    const answers = { distance: "1", targetTerrain: "plains", sandbags: "yes" };
+    const answers = { distance: "2", targetTerrain: "plains", sandbags: "yes" };
     const result = calculateFireDice(FIRE_QUESTIONS, context(UnitType.ARTILLERY), answers, fireBonusSteps);
 
     expect(result.dice).toBe(3);
@@ -176,7 +176,7 @@ describe("fire questions (house rules)", () => {
     // …on top of the target's cover
     expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.TANK), { ...near, targetTerrain: "forest" }, fireBonusSteps).dice).toBe(0);
     expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.INFANTRY), near, fireBonusSteps).dice).toBe(3);
-    expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.ARTILLERY), near, fireBonusSteps).dice).toBe(3);
+    expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.ARTILLERY), { ...near, distance: "2" }, fireBonusSteps).dice).toBe(3);
   });
 
   it("takes a die from any unit firing out of a ford, and fires at a unit in a river as in the open", () => {

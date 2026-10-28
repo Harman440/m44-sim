@@ -146,7 +146,7 @@ describe("GameSession giving actions", () => {
       const to = session.getMoveOptions(INF, "infantry:assault")!.moveAndFire.find((move) => hexDistance(move, INF) === 2)!;
       expect(session.giveAction(INF, "infantry:assault", to)).toBe(true);
       expect(session.commitOrders()).toBe(true);
-      expect(suppliesAt(session, to).amounts).toMatchObject({ [Supply.ENERGY]: 2, [Supply.MORALE]: figures ? 3 : 5 });
+      expect(suppliesAt(session, to).amounts).toMatchObject({ [Supply.ENERGY]: 2, [Supply.MORALE]: figures ? 2 : 4 });
     }
   });
 

@@ -165,7 +165,7 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Lost Message — 5: opponent loses 2 orders of his choice
 - Tactician — 2: change the section of a section card
 - Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; supplies count and retreats can't be ignored
-- Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 1 die; supplies count, retreats can't be ignored
+- Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 1 die; supplies count, retreats can't be ignored; hexes can't be next to your units
 
 ### Original battle combat cards (cost)
 - Heat of battle: 1 infantry successful close assault (retreat or eliminated) can "overrun" like armor, take ground and battle again even if the hex would normally prevent battling

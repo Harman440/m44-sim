@@ -67,6 +67,8 @@ interface BoardProps {
   markers?: readonly Position[];
   /** How the marks are drawn: one kind for all, or each mark's kind (two cards can mark hexes) */
   markerKind?: MarkerRule['kind'] | readonly MarkerRule['kind'][];
+  /** Indexes in `markers` whose dice have been rolled: not drawn, the others keep their numbers */
+  rolledMarkers?: readonly number[];
   /** Hexes that can be marked next, highlighted */
   markablePositions?: readonly Position[];
   /** The combat cards given to units this turn (Explosives…): a small card badge on each unit */
@@ -177,6 +179,7 @@ function Board({
   orderablePositions = [],
   markers = [],
   markerKind = 'target',
+  rolledMarkers = [],
   markablePositions = [],
   cardBadges = [],
   camouflaged = [],
@@ -352,6 +355,7 @@ function Board({
 
   const renderMarkers = () =>
     markers.map((position, i) => {
+      if (rolledMarkers.includes(i)) return null;
       const { x, y } = geometry.hexCenter(position);
       const kind = typeof markerKind === 'string' ? markerKind : (markerKind[i] ?? 'target');
       const r = hexSize * (kind === 'target' ? 0.4 : 0.55);

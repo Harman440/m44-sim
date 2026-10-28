@@ -89,7 +89,7 @@ describe("GameSession morale", () => {
   it("takes a point of infantry's morale for each flag, never below 0; armour has none to lose", () => {
     const session = withNoCard(ordering());
     expect(session.sufferHits(INF, 0, 2)).toBe(true);
-    expect(amount(session, INF, Supply.MORALE)).toBe(3);
+    expect(amount(session, INF, Supply.MORALE)).toBe(2);
     expect(session.sufferHits(INF, 1, 5)).toBe(true);
     expect(amount(session, INF, Supply.MORALE)).toBe(0);
 
@@ -101,7 +101,7 @@ describe("GameSession morale", () => {
     const session = withSupplies(withNoCard(ordering()), INF, { [Supply.MORALE]: 0 });
     expect(session.giveAction(INF, "infantry:firefight", INF)).toBe(false);
     commit(holdWith(session, INF, "infantry:moraleUp"));
-    expect(amount(session, INF, Supply.MORALE)).toBe(5);
+    expect(amount(session, INF, Supply.MORALE)).toBe(4);
   });
 });
 
@@ -239,7 +239,7 @@ describe("GameSession Resupply and Refuel", () => {
     expect(session.pickCard(actionCardById("resupply")!)).toBe(true);
     commit(session);
 
-    expect(suppliesAt(session, INF).amounts).toEqual({ morale: 5, energy: 1, ammo: 2 });
+    expect(suppliesAt(session, INF).amounts).toEqual({ morale: 4, energy: 1, ammo: 2 });
     expect(suppliesAt(session, INF).equipment[Equipment.EXPLOSIVES]).toBe(1);
     expect(amount(session, TANK, Supply.SHELLS)).toBe(0);
   });
@@ -261,7 +261,7 @@ describe("GameSession artillery crews", () => {
     const session = withNoCard(ordering());
     expect(session.sufferHits(ARTILLERY, 3, 0)).toBe(true);
     expect(session.board.getHex(ARTILLERY)!.unit!.getUnitType()).toBe("infantry");
-    expect(suppliesAt(session, ARTILLERY).amounts).toEqual({ morale: 5, energy: 5, ammo: 2 });
+    expect(suppliesAt(session, ARTILLERY).amounts).toEqual({ morale: 4, energy: 5, ammo: 2 });
   });
 });
 

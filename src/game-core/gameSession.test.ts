@@ -1474,7 +1474,7 @@ describe("GameSession Reinforcements", () => {
   it("brings the unit with no energy and everything else full", () => {
     const session = finalPhase();
     const { supplies } = session.getSnapshot().supplies.find((each) => samePosition(each.position, FAR))!;
-    expect(supplies.amounts).toMatchObject({ energy: 0, morale: 5, ammo: 2 });
+    expect(supplies.amounts).toMatchObject({ energy: 0, morale: 4, ammo: 2 });
     expect(supplies.equipment).toMatchObject({ explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 });
   });
 
@@ -1998,7 +1998,7 @@ describe("GameSession elite units", () => {
     expect(session.giveAction(LEFT_INF, "infantry:moveOut", { row: 5, col: 1 })).toBe(true);
     expect(session.getSnapshot().orders[0]!.canFire).toBe(false);
     expect(suppliesAt({ row: 5, col: 1 }).amounts).toMatchObject({ morale: 10, energy: 10 });
-    expect(suppliesAt(OTHER_INF).amounts).toMatchObject({ morale: 5, energy: 5 });
+    expect(suppliesAt(OTHER_INF).amounts).toMatchObject({ morale: 4, energy: 5 });
   });
 
   it("keeps elite units elite in a save", () => {

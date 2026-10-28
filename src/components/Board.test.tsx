@@ -113,6 +113,18 @@ describe("Board fog of war", () => {
   });
 });
 
+describe("Board card marks", () => {
+  it("leaves off the marks whose dice are rolled, the others keeping their numbers", () => {
+    const allies = new BoardManager(scenario, "Allies");
+    const markers = [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }];
+    const { container } = render(<Board {...plain} boardManager={allies} faction="Allies" markers={markers} rolledMarkers={[0, 2]} />);
+
+    const marks = [...container.querySelectorAll("[data-marker]")];
+    expect(marks.map((mark) => mark.getAttribute("data-marker"))).toEqual(["0-1"]);
+    expect(marks[0]).toHaveTextContent("2");
+  });
+});
+
 describe("Board zooming onto a hex", () => {
   const viewWidth = (container: HTMLElement) => Number(container.querySelector("svg.board__svg")!.getAttribute("viewBox")!.split(" ")[2]);
 

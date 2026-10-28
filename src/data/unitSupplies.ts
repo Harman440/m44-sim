@@ -35,7 +35,7 @@ export const EQUIPMENT: readonly Equipment[] = Object.values(Equipment);
 
 /** A unit's supplies when full: what it starts with and the most it can hold */
 export const FULL_SUPPLIES: Record<UnitType, Partial<Record<Supply, number>>> = {
-  [UnitType.INFANTRY]: { [Supply.MORALE]: 5, [Supply.ENERGY]: 5, [Supply.AMMO]: 2 },
+  [UnitType.INFANTRY]: { [Supply.MORALE]: 4, [Supply.ENERGY]: 5, [Supply.AMMO]: 2 },
   [UnitType.TANK]: { [Supply.FUEL]: 5, [Supply.SHELLS]: 2 },
   [UnitType.ARTILLERY]: { [Supply.FUEL]: 1, [Supply.SHELLS]: 2 },
 };

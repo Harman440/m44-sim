@@ -69,6 +69,7 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           showArrows={false}
           markers={game.markers}
           markerKind={game.markerKinds}
+          rolledMarkers={game.cardAttacks.map((attack) => attack.marker)}
           camouflaged={game.camouflaged}
           backgroundImage={session.scenario.image}
           firedUnits={firedUnits}
