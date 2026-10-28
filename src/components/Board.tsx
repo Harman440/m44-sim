@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef } from 'react';
 import { IconButton } from '@mui/material';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
-import type { UnitChange, UnitStrength } from '../game-core/gameSession';
+import type { UnitStrength } from '../game-core/gameSession';
 import { OpponentContext, ViewSideContext, type BoardFog } from './OpponentContext';
 import { VictoryContext } from './VictoryContext';
 import { iconUrl } from './GameIcon';
@@ -22,7 +22,6 @@ import type { MarkerRule } from '../game-core/actionCard';
 import { SandbagsArt } from './SandbagsIcon';
 import { CamouflageBadge } from './CamouflageIcon';
 import { useBoardZoom } from './boardZoom';
-import type { Supply } from '../data/unitSupplies';
 import { defineMessages, useMessages } from '../i18n/useI18n';
 
 const TEXT = defineMessages({
@@ -126,10 +125,6 @@ interface BoardProps {
   startsWhole?: boolean;
   /** More buttons under the zoom buttons */
   zoomTools?: React.ReactNode;
-  /** Legacy compatibility; turn changes are shown in unit rows rather than beside map units. */
-  changes?: readonly UnitChange[];
-  /** Legacy compatibility; empty supplies are visible in unit meters and are no longer map badges. */
-  empty?: readonly { position: Position; supplies: readonly Supply[] }[];
   /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
   onViewChange?: () => void;
 }

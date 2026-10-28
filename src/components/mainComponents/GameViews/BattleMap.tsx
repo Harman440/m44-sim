@@ -7,7 +7,6 @@ import PlayedCards, { playedCardOf } from "../../PlayedCards";
 import InfoButton from "../../InfoButton";
 import "./PhaseLayout.css";
 import { defineMessages, useMessages } from "../../../i18n/useI18n";
-import { emptyMarks } from "./emptyMarks";
 
 const TEXT = defineMessages({
   es: {
@@ -73,8 +72,6 @@ function BattleMap({ faction, session, game, onShowSummary, onEndBattle }: Battl
           camouflaged={game.camouflaged}
           backgroundImage={session.scenario.image}
           firedUnits={firedUnits}
-          changes={game.changes}
-          empty={emptyMarks(game)}
           faction={faction}
         />
       </div>

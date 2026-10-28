@@ -86,7 +86,7 @@ describe("planBoard", () => {
     // Adjacent hedgerows share an open edge, while the tile art stays inside one hex.
     expect(at(plan, "6-6")[0]).toMatchObject({ open: [true, false, false, false, false, false] });
     // A town keeps its painted tile: nothing joined, no house spilling out
-    expect(at(plan, "2-2")[0]).toMatchObject({ art: "joined", open: [], spill: -1 });
+    expect(at(plan, "2-2")[0]).toMatchObject({ art: "joined", open: [] });
     // A forest's trees grow over a town, a river or a hedgerow beside it, which end in countryside
     expect(at(planBoard({ forest: [p(4, 4)], town: [p(4, 5)], river: [p(4, 3)], hedgerow: [p(3, 3)] }, LIBRARY), "4-4")[0]).toMatchObject({
       bare: [true, true, true, true, true, true],
@@ -126,7 +126,7 @@ describe("planBoard", () => {
     const plan = planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY);
 
     expect(at(plan, "4-4")).toEqual([
-      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), spill: -1, woods: Array(6).fill(false), seed: 57 },
+      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), woods: Array(6).fill(false), seed: 57 },
       { key: "4-4", type: "bridge", art: "bridgePiece", edges: [0, 3] },
     ]);
     // Plain, its tile as it is
@@ -285,7 +285,6 @@ describe("the outskirts", () => {
 
     expect(art("-1-2")?.type).toBe("forest");
     expect(art("1--1")?.type).toBe("town");
-    expect((art("1--1") as JoinedHex).spill).toBe(-1);
     // The board's forest runs on into it; no lone trees stand out from it on the board
     expect((art("0-2") as JoinedHex).open[5]).toBe(true);
     expect(plan.filter((hex) => hex.art === "spill").every((hex) => (hex as SpillHex).toward.some(Boolean) && BOARD_KEYS.includes(hex.key))).toBe(true);

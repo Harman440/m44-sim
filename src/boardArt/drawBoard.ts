@@ -232,7 +232,7 @@ const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
   const edges = (list: boolean[]) => list.map(Number).join("");
   const center = grid.center(hex.key);
-  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}:${hex.streets ?? ""}:${edges(hex.woods ?? [])}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`;
+  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${edges(hex.woods ?? [])}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`;
   return cached(joinedArt, key, async () => {
     // The tile's folder is its terrain (a bridge's is a river tile)
     const { tile, overflow } = (await joinedMaker(hex.tile.split("/")[0] ?? hex.type, hex.tile, width, height))({ ...hex, center });

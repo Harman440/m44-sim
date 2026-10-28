@@ -26,7 +26,7 @@
 // land beside it, its surf toward the ocean; an ocean hex turns its shore toward the land. A river forks, ends in a pond, or runs into a lake beside it, with the tile that
 // fits it; a lake is painted with the lake tiles when every hex of it has one that fits, and drawn
 // otherwise.
-// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes and hedgerows always, and rivers
+// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers
 // and bridges when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes. Hedgerows use their painted field image; the board's edges are made soft
 // (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside and the hex

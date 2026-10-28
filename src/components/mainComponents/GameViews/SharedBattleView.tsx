@@ -50,7 +50,6 @@ import "./PhaseLayout.css";
 import MedalTally from "../../MedalTally";
 import FireOptionPicker from "../../FireOptionPicker";
 import UnitChangeChips from "../../UnitChangeChips";
-import { emptyMarks } from "./emptyMarks";
 import StatBar from "../../StatBar";
 import { SUPPLY_ICONS } from "../../SupplyIcons";
 import { unitSprite } from "../../UnitComponent";
@@ -559,8 +558,6 @@ function SharedBattleView({ match }: SharedBattleViewProps) {
                 strength={boardGame.strength}
                 // Only the side acting now, and never the computer's (the person's enemy): the
                 // enemy's supplies and luck aren't shown
-                changes={boardSide !== computer ? boardGame.changes : []}
-                empty={boardSide !== computer ? emptyMarks(boardGame) : []}
                 firedUnits={
                   new Set(boardGame.orders.filter((_, i) => boardSession.orderSummaries()[i]?.shots.length).map((o) => o.unit))
                 }

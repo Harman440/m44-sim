@@ -12,7 +12,6 @@ import GameIcon from "../../GameIcon";
 import { BarbedWireIcon } from "../../BarbedWire";
 import SandbagsIcon from "../../SandbagsIcon";
 import "./PhaseLayout.css";
-import { emptyMarks } from "./emptyMarks";
 
 const TEXT = defineMessages({
   es: {
@@ -151,8 +150,6 @@ function EndOfTurnMap({
           invalidFlash={flash}
           markers={reinforcements ? game.markers.filter((_, i) => game.markerKinds[i] === "cross") : []}
           markerKind="cross"
-          changes={game.changes}
-          empty={emptyMarks(game)}
           faction={faction}
         />
       </div>

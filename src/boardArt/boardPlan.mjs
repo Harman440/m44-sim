@@ -165,7 +165,7 @@ const isRiver = (type) => type === "river" || type === "bridge";
  * across their `bare` edges; a town keeps its painted tile and lets countryside fade into its
  * outside edge; a painted river (or bridge) gives way to the countryside or a forest across its
  * `woods` edges; a beach fades out across its `fade` edges, into the land there
- * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], spill: number, streets?: number[], woods?: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[], fade?: boolean[], seed: number }} JoinedHex
+ * @typedef {{ key: string, type: string, art: "joined", tile: string, turns: number, open: boolean[], bare: boolean[], woods?: boolean[], hills?: boolean[], hillTile?: string, hillShapes?: HillShape[], fade?: boolean[], seed: number }} JoinedHex
  */
 /**
  * The bridge piece laid across a painted river, from edge to edge
@@ -413,7 +413,7 @@ const SURF = "surf-";
  * Scenario.pickedTiles), its file's name without ".webp" by "row-col", taken when its terrain's
  * folder has it; `outskirts`: the terrain carried on into the hexes just outside the board, as
  * far as the art's box shows them (outskirtTerrain), so a forest or a river doesn't stop dead at
- * the board's edge. They never spill back onto the board (no lone trees, houses or streets).
+ * the board's edge. They never spill back onto the board (no lone trees).
  * A lake is painted from the library's lake tiles when every hex of it has one that fits (the
  * edges its water carries on through, and any river flowing in), and drawn otherwise. A beach
  * fades into the land beside it, a beach tile whose name starts with edges (grass tufts on them)
@@ -539,7 +539,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       }
       // Its tile's grass giving way to the countryside round it (joinedTiles.mjs), unless plain
       if (plain) plan.push({ key, type, art: "painted", ...fit });
-      else plan.push({ key, type, art: "joined", ...fit, open: edgesTo(key, ["river", "bridge"]), bare: edgesTo(key, []).map(() => false), spill: -1, woods: edgesTo(key, ["forest"]), ...hillsBeside(key), seed });
+      else plan.push({ key, type, art: "joined", ...fit, open: edgesTo(key, ["river", "bridge"]), bare: edgesTo(key, []).map(() => false), woods: edgesTo(key, ["forest"]), ...hillsBeside(key), seed });
       if (type === "bridge") plan.push({ key, type, art: "bridgePiece", edges });
     } else if (type === "beach") {
       const fade = [...Array(6).keys()].map((d) => {
@@ -559,7 +559,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
         ? { tile: `beach/${pick}`, turns: pickFor(key, 2, 6) }
         : (best[pickFor(key, 4, best.length)] ?? { tile: `beach/${sand[pickFor(key, 1, sand.length)] ?? files[0]}`, turns: pickFor(key, 2, 6) });
       if (plain) plan.push({ key, type, art: "painted", ...art });
-      else plan.push({ key, type, art: "joined", ...art, open: edgesTo(key, ["beach"]), bare: fade.map(() => false), spill: -1, fade, seed });
+      else plan.push({ key, type, art: "joined", ...art, open: edgesTo(key, ["beach"]), bare: fade.map(() => false), fade, seed });
     } else if (type === "ocean") {
       const land = [...Array(6).keys()].filter((d) => {
         const other = neighbor(key, d);
@@ -576,7 +576,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
         const other = neighbor(key, d);
         return onBoard.has(other) && (wanted.get(other) ?? "plains") !== "swamp";
       });
-      plan.push({ key, type, art: "joined", tile: tileFor(key, type), turns: pickFor(key, 2, 6), open: edgesTo(key, ["swamp"]), bare: fade.map(() => false), spill: -1, fade, seed });
+      plan.push({ key, type, art: "joined", tile: tileFor(key, type), turns: pickFor(key, 2, 6), open: edgesTo(key, ["swamp"]), bare: fade.map(() => false), fade, seed });
     } else {
       const tile = tileFor(key, type);
       // A hill is a ridge (its cliffs giving way to the countryside), running on into the hills and
@@ -584,7 +584,7 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
       const ridge = type === "hill" && !separateHills && !plain ? edgesTo(key, ["hill", "river", "bridge"]) : [];
       const cliffs = type === "hill" && !plain ? edgesTo(key, ["beach", "ocean"]) : [];
       const joins = JOINED_TERRAIN.includes(type) && !plain ? edgesTo(key, [type]) : [];
-      if (type === "town" && !plain) plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: [], bare: [], spill: -1, seed });
+      if (type === "town" && !plain) plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: [], bare: [], seed });
       else if (type === "hill" && !plain && (!separateHills || cliffs.some(Boolean)))
         plan.push({ key, type, art: "ridge", tile, open: ridge, toRiver: edgesTo(key, ["river", "bridge"]), ...(cliffs.some(Boolean) ? { cliffs } : {}), seed });
       else if ((ALWAYS_JOINED.includes(type) && !plain) || joins.some(Boolean)) {
@@ -592,9 +592,9 @@ export function planBoard(tiles, library, { drawn: drawnChoice = [], separateHil
         // so a forest's trees grow out over them)
         // (an outskirt hex has none: nothing of it reaches back onto the board)
         const across = (/** @type {number} */ d) => (!outside(key) && onBoard.has(neighbor(key, d)) ? (wanted.get(neighbor(key, d)) ?? "plains") : null);
-        // (a town's cobbled yards spill onto a river's bank)
+        // (a forest's ground patches spill onto a river's bank too)
         const bare = [...Array(6).keys()].map((d) => ["plains", ...COUNTRYSIDE_ENDS].includes(across(d) ?? ""));
-        plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, bare, spill: -1, seed });
+        plan.push({ key, type, art: "joined", tile, turns: pickFor(key, 2, 6), open: joins, bare, seed });
       }
       else plan.push({ key, type, art: "painted", tile, turns: pickFor(key, 2, 6) });
     }

@@ -19,8 +19,8 @@ const [W, H] = [40, 46];
 const CLOSED = [false, false, false, false, false, false];
 const at = (pixels: Uint8Array, x: number, y: number) => [...pixels.slice((y * W + x) * 4, (y * W + x) * 4 + 3)];
 type Hex = Parameters<ReturnType<typeof joinedTileMaker>>[0];
-// A hex with no countryside round it and no house over its edge, unless given
-const hex = (key: string, open: boolean[], turns: number, seed: number, more: Partial<Hex> = {}): Hex => ({ key, open, turns, seed, bare: CLOSED, spill: -1, ...more });
+// A hex with no countryside round it, unless given
+const hex = (key: string, open: boolean[], turns: number, seed: number, more: Partial<Hex> = {}): Hex => ({ key, open, turns, seed, bare: CLOSED, ...more });
 const EAST = [true, false, false, false, false, false];
 
 describe("joinedTileMaker", () => {
@@ -54,7 +54,7 @@ describe("joinedTileMaker", () => {
     expect(at(joined, W - 2, H / 2)).not.toEqual(at(plain, W - 2, H / 2));
   });
 
-  it("lays a town's houses out again on each hex", () => {
+  it("keeps a town's painted tile, turned by the hex, with nothing spilling out", () => {
     const make = joinedTileMaker("town", tile(true), W, H, 1);
     const blue = (pixels: Uint8Array) => {
       let n = 0;
@@ -62,10 +62,11 @@ describe("joinedTileMaker", () => {
       return n;
     };
     const one = make(hex("2-2", CLOSED, 0, 1));
-    const other = make(hex("5-7", CLOSED, 0, 70));
+    const other = make(hex("5-7", CLOSED, 3, 70));
 
-    // Houses still on it, but not where they were, nor where the other town has them
+    // Its houses still on it, turned round with the tile in the other town
     expect(blue(one.tile)).toBeGreaterThan(100);
+    expect(blue(other.tile)).toBeGreaterThan(100);
     expect(one.tile).not.toEqual(other.tile);
     expect(one.overflow).toBeNull();
   });
