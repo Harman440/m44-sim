@@ -7,6 +7,7 @@ import { ActionChoice, AiView, SeenEnemy } from "./aiStep";
 import { bestShotFrom, inAlliesView, shotValue, threatAt } from "./scoring";
 import type { ActionCard } from "../actionCard";
 import type { GameSnapshot } from "../gameSession";
+import type { DieKind } from "../dice";
 import { hexDistance } from "../fireTargets";
 import { includesPosition, samePosition } from "../position";
 import { UnitType } from "../unit";
@@ -54,14 +55,14 @@ const shotHere = (view: AiView, unitType: UnitType, position: Position, supplies
   supplies && hasShot(unitType, supplies) ? bestShotFrom(view, unitType, position) : 0;
 
 /** The best targets' worth for a card attacking `count` hexes with this many dice each (not next to own units when it says so) */
-function attackWorth(view: AiView, card: ActionCard, dice: number): number {
+function attackWorth(view: AiView, card: ActionCard, dice: number, die: DieKind): number {
   const count = card.marker?.count ?? 1;
   const own = army(view).map(({ position }) => position);
   const targets = view.enemies.filter(
     (enemy) => !card.marker?.awayFromOwnUnits || own.every((position) => hexDistance(position, enemy.position) > 1),
   );
   return targets
-    .map((enemy) => shotValue(dice, enemy))
+    .map((enemy) => shotValue(dice, enemy, die))
     .sort((a, b) => b - a)
     .slice(0, count)
     .reduce((sum, value) => sum + value, 0);
@@ -85,7 +86,7 @@ export function cardWorth(view: AiView, card: ActionCard): number {
     case "refuel":
       return REFUEL_PER_UNIT * units.filter(({ unitType, supplies }) => unitType !== UnitType.INFANTRY && amountOf(supplies, Supply.FUEL) === 0).length;
     case "attack":
-      return attackWorth(view, card, card.effect.dicePerHex);
+      return attackWorth(view, card, card.effect.dicePerHex, card.effect.die ?? "attack");
     case "reinforcements":
       return view.session.unitsLost().length > 0 ? REINFORCEMENTS_WORTH : 0;
   }
@@ -113,8 +114,8 @@ export function chooseMark(view: AiView, markable: readonly Position[], marking:
       ? (position: Position) => Math.min(...view.enemies.map((enemy) => hexDistance(enemy.position, position)))
       : (position: Position) => {
           const enemy = enemyAt(position);
-          const dice = marking.card.effect.kind === "attack" ? marking.card.effect.dicePerHex : 1;
-          return enemy ? shotValue(dice, enemy) : 0;
+          const effect = marking.card.effect;
+          return enemy ? (effect.kind === "attack" ? shotValue(effect.dicePerHex, enemy, effect.die ?? "attack") : shotValue(1, enemy)) : 0;
         };
   return markable.reduce<Position | null>((best, position) => (best === null || score(position) > score(best) ? position : best), null);
 }

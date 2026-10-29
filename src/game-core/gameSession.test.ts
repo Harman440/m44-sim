@@ -13,6 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
+import { SUPPRESSIVE_DIE_SIDES } from "./dice";
 import { same } from "../i18n/lang";
 import { Faction } from "../types/faction";
 import { Supply } from "../data/unitSupplies";
@@ -1312,6 +1313,22 @@ describe("GameSession attack cards", () => {
     return session;
   };
 
+  it("rolls Air Power on the suppressive die, 2 dice on each of its 4 hexes", () => {
+    const session = turnTwo();
+    session.pickCard(card("air-power"));
+    expect(session.markHex(FAR)).toBe(true);
+    while (session.getSnapshot().marking) expect(session.markHex(session.getSnapshot().markable[0]!)).toBe(true);
+    orderAllAndFight(session);
+
+    const marks = session.getSnapshot().attackMarks;
+    expect(marks).toHaveLength(4);
+    expect(marks.every((mark) => mark.die === "suppressive" && mark.dicePerHex === 2)).toBe(true);
+    expect(session.attackHex(0, true)).toBe(true);
+    const [attack] = session.getSnapshot().cardAttacks;
+    expect(attack).toMatchObject({ dice: 2, target: { infantry: true, die: "suppressive" } });
+    expect(attack!.faces.every((face) => SUPPRESSIVE_DIE_SIDES.includes(face))).toBe(true);
+  });
+
   it("keeps your units off the marked hexes and next to them for Barrage and Air Bombardment", () => {
     const session = turnTwo();
     const mark = { row: 4, col: 2 };
@@ -1339,7 +1356,7 @@ describe("GameSession attack cards", () => {
 
   it("rolls the card's dice on each marked hex before any unit fires on the attack die", () => {
     const session = barrageBattle();
-    expect(session.getSnapshot().attackMarks).toEqual([{ marker: 0, position: FAR, card: barrage, dicePerHex: 4 }]);
+    expect(session.getSnapshot().attackMarks).toEqual([{ marker: 0, position: FAR, card: barrage, dicePerHex: 4, die: "attack" }]);
     expect(session.getSnapshot().attacksPending).toBe(true);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
 

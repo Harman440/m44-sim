@@ -3,7 +3,7 @@ import BoardManager from "./BoardManager";
 import Order from "./order";
 import Unit, { UnitType } from "./unit";
 import { ShotTarget, TargetKinds, enemyTargetKinds, faceHits } from "../data/hitRules";
-import { ATTACK_DIE_SIDES, DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
+import { DieFace, DieKind, SIDES_OF, rollDice, suppressed } from "./dice";
 import { appliedFaces, isKeptList, readRoll } from "./rollResult";
 import { CombatBonus, DiceStep, FireAnswers, FireContext, calculateFireDice, nextFireQuestion, setFaces } from "./fireRules";
 import { FireTarget, fireTargets, hasFireTarget, hexDistance, mapAnswers } from "./fireTargets";
@@ -334,6 +334,8 @@ export interface AttackMark {
   position: Position;
   card: ActionCard;
   dicePerHex: number;
+  /** The die it rolls: the attack die, or the suppressive die (Air Power) */
+  die: DieKind;
 }
 
 /** `kept` names distinct dice of the roll and leaves out only hits: flags and supplies always count */
@@ -1379,6 +1381,7 @@ class GameSession {
         position,
         card: span.card,
         dicePerHex: effect.dicePerHex,
+        die: effect.die ?? "attack",
       }));
     });
   }
@@ -1389,7 +1392,7 @@ class GameSession {
   }
 
   /**
-   * Roll the attack card on a marked hex, on the attack die: `infantry`
+   * Roll the attack card on a marked hex, on its die (the attack die, or Air Power's suppressive one): `infantry`
    * says whether the enemy unit on it is infantry, or null when the hex was
    * empty (nothing to roll).
    */
@@ -1404,9 +1407,9 @@ class GameSession {
         ? { marker, target: null, dice: 0, faces: [] }
         : {
             marker,
-            target: { infantry, closeAssault: false, die: "attack" },
+            target: { infantry, closeAssault: false, die: mark.die },
             dice: mark.dicePerHex,
-            faces: rollDice(mark.dicePerHex, this.random, ATTACK_DIE_SIDES),
+            faces: rollDice(mark.dicePerHex, this.random, SIDES_OF[mark.die]),
           };
     this.cardAttacks = [...this.cardAttacks, attack];
     return this.publish();

@@ -165,7 +165,7 @@ Notes: add combat cards to substitute medic (pay 4 recover 4 soldiers, or a "ret
 - Lost Message — 5: opponent loses 2 orders of his choice
 - Tactician — 2: change the section of a section card
 - Barrage — 4: select a hex; if there is an enemy unit roll 4 dice on it; supplies count and retreats can't be ignored; the hex can't be next to your units
-- Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 1 die; supplies count, retreats can't be ignored; hexes can't be next to your units
+- Air power — 3: select 4 adjacent hexes; if there is an enemy on a hex roll 2 suppressive dice (2026-10-29, was 1 attack die); the supply face misses, retreats can't be ignored; hexes can't be next to your units
 
 ### Original battle combat cards (cost)
 - Heat of battle: 1 infantry successful close assault (retreat or eliminated) can "overrun" like armor, take ground and battle again even if the hex would normally prevent battling
@@ -284,7 +284,7 @@ An 8-sided die would look like: tank, grenade, inf, inf, inf, retreat, miss, mis
 **Built (custom dice):** the tank symbol hits any unit that isn't infantry (armour and artillery).
 - Battle die (close assault, and at range without the long-range die): 2 infantry, tank, grenade, supply, flag. Infantry 3/6, anything else 2/6.
 - Long-range die (8 sides, a per-game option, only at targets that aren't adjacent): 2 tanks, 3 infantry, flag, 2 supplies. Infantry 3/8, anything else 2/8 (also when infantry fires), retreat 1/8, supply 2/8.
-- Attack cards' die (Barrage, Air Power, Air Bombardment): 2 infantry, tank, 2 grenades, flag (a grenade where the supply was, since supplies hit on these cards). Infantry 4/6, anything else 3/6.
+- Attack cards' die (Barrage, Air Bombardment; Air Power rolls the suppressive die since 2026-10-29): 2 infantry, tank, 2 grenades, flag (a grenade where the supply was, since supplies hit on these cards). Infantry 4/6, anything else 3/6.
 - The app only asks "infantry or not" when the enemy starts the scenario with both (paratroopers count); it doesn't track the enemy's losses, and a reinforcement of the other kind is picked by hand ("Cambiar").
 
 While programming make sure there is at least one side that is a coin and a retreat. Calculate for special units.

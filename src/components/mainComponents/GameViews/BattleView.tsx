@@ -234,6 +234,7 @@ function BattleView({ faction, session, game, onEndBattle, onShowCoins }: Battle
           }
           cardName={attackMark ? tr(attackMark.card.name) : ""}
           dicePerHex={attackMark?.dicePerHex ?? 0}
+          die={attackMark?.die ?? "attack"}
           attack={attackingHex === null ? null : attackOn(attackingHex)}
           faction={faction}
           targetKinds={session.targetKinds}

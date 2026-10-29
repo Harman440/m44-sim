@@ -6,6 +6,8 @@ import { hasLineOfSight, hexDistance } from "../fireTargets";
 import { positionKey } from "../position";
 import BoardManager, { turnedRound } from "../BoardManager";
 import { UnitType, checksLineOfSight } from "../unit";
+import { DieKind, SIDES_OF } from "../dice";
+import { faceHits } from "../../data/hitRules";
 import { BASE_DICE_BY_DISTANCE, TARGET_TERRAIN_MODIFIERS, TargetTerrain } from "../../data/fireQuestions";
 import { TERRAIN } from "../../data/terrain";
 import { Position } from "../../types/scenario";
@@ -21,8 +23,12 @@ export const UNIT_VALUE: Record<UnitType, number> = {
   [UnitType.ARTILLERY]: 1.2,
 };
 
-/** The chance that one die hits a unit of this type: the infantry symbol (2 faces) or the tank, and the grenade */
-export const hitChance = (target: UnitType): number => (target === UnitType.INFANTRY ? 3 / 6 : 2 / 6);
+/** The chance that one die hits a unit of this type: on the battle die, the infantry symbol (2 faces) or the tank, and the grenade */
+export const hitChance = (target: UnitType, die: DieKind = "battle"): number => {
+  const sides = SIDES_OF[die];
+  const infantry = target === UnitType.INFANTRY;
+  return sides.filter((face) => faceHits(face, { infantry, closeAssault: false, die })).length / sides.length;
+};
 
 /** The dice a unit of this type loses firing at a hex, from its terrain */
 export function coverAt(board: BoardManager, position: Position, firing: UnitType): number {
@@ -39,9 +45,9 @@ export function diceAt(board: BoardManager, firing: UnitType, distance: number, 
 }
 
 /** The hits a shot is worth: what share of the target it would destroy, by how much the target matters */
-export function shotValue(dice: number, target: SeenEnemy): number {
+export function shotValue(dice: number, target: SeenEnemy, die: DieKind = "battle"): number {
   const figures = Math.max(1, target.figures ?? 1);
-  const hits = dice * hitChance(target.unitType);
+  const hits = dice * hitChance(target.unitType, die);
   return (Math.min(hits, figures) / figures) * UNIT_VALUE[target.unitType];
 }
 

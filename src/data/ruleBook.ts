@@ -406,8 +406,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Barrage rolls the normal dice; Air Power counts stars as hits.",
         },
         house: {
-          es: "Cortina de Fuego, Poder aéreo y Bombardeo aéreo tiran un dado con una segunda granada en lugar de la estrella, y las retiradas no se pueden ignorar.",
-          en: "Barrage, Air Power and Air Bombardment roll a die with a second grenade in place of the star, and retreats can't be ignored.",
+          es: "Cortina de Fuego y Bombardeo aéreo tiran un dado con una segunda granada en lugar de la estrella. Poder aéreo tira 2 dados de supresión por casilla (1 infantería, 1 granada, 3 banderas y 1 suministro): los ataques a tierra desde el aire inmovilizaban más que destruían. En los tres, las retiradas no se pueden ignorar.",
+          en: "Barrage and Air Bombardment roll a die with a second grenade in place of the star. Air Power rolls 2 suppressive dice a hex (1 infantry, 1 grenade, 3 flags and 1 supply): ground attack from the air pinned troops down more than it destroyed them. In all three, retreats can't be ignored.",
         },
       },
     ],

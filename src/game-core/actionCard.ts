@@ -3,6 +3,7 @@
 // if it can pay for it, and then waits out its cooldown. The scenario says which ones a side
 // has (air, big guns) and can make some cheaper (`Scenario.cardCosts`). The cards are in
 // data/actionCards.ts.
+import type { DieKind } from "./dice";
 import type { UnitType } from "./unit";
 import type { Faction } from "../types/faction";
 import type { Scenario } from "../types/scenario";
@@ -14,6 +15,8 @@ import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
 export interface AttackEffect {
   kind: "attack";
   dicePerHex: number;
+  /** The die rolled: the attack die (a grenade for the supply) unless it says the suppressive die (Air Power) */
+  die?: Extract<DieKind, "suppressive">;
 }
 
 /** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */
