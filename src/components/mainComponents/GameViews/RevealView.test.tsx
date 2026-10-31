@@ -43,4 +43,31 @@ describe("RevealView", () => {
     expect(screen.getAllByTestId("collision")).toHaveLength(1);
     expect(screen.getByTestId("collision-painting")).toHaveAttribute("src", expect.stringContaining("close-assault"));
   });
+
+  it("says when Armor Forward went through enemy infantry, with no collision to roll", () => {
+    const scenario: Scenario = {
+      id: "test",
+      name: same("Test"),
+      description: same(""),
+      attacker: "Axis",
+      tiles: {},
+      units: { allies: { infantry: [{ row: 4, col: 4 }] }, axis: { tank: [{ row: 4, col: 6 }] } },
+    };
+    const side = (faction: Faction) => new GameSession({ scenario, faction, figures: true });
+    const match = new PassAndPlayMatch(scenario, { Allies: side("Allies"), Axis: side("Axis") });
+    match.uncover();
+    const axis = match.activeSession();
+    axis.pickCard(null);
+    axis.giveAction(turnedRound({ row: 4, col: 6 }, STANDARD_BOARD), "tank:armorForward", turnedRound({ row: 4, col: 2 }, STANDARD_BOARD));
+    axis.commitOrders();
+    match.uncover();
+    match.activeSession().pickCard(null);
+    match.activeSession().commitOrders();
+    match.moveUnits();
+
+    render(<RevealView match={match} turn={1} viewer="Allies" />);
+    expect(screen.queryAllByTestId("collision")).toHaveLength(0);
+    expect(screen.getByTestId("overruns")).toHaveTextContent("atravesó infantería enemiga: le sale una bandera");
+    expect(screen.getByTestId("overruns")).toHaveTextContent("Blindado (Eje) atravesó infantería (Aliados)");
+  });
 });

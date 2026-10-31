@@ -8,6 +8,10 @@ export interface Mover {
   /** Its order's index in its side's turn */
   order: number;
   path: readonly Position[];
+  /** It's infantry: armour with Armor Forward goes through it when it stays put (`throughInfantry`) */
+  infantry?: boolean;
+  /** Armor Forward (house rule): it goes through enemy infantry that stays put, which takes a flag */
+  throughInfantry?: boolean;
 }
 
 /** A unit that doesn't move this turn: no order, or an order to hold */
@@ -16,6 +20,23 @@ export interface Stander {
   /** Its order's index when it was ordered to hold; null without an order */
   order: number | null;
   position: Position;
+  /** It's infantry: armour with Armor Forward goes through it (`Mover.throughInfantry`) */
+  infantry?: boolean;
+}
+
+/**
+ * Armour with Armor Forward went through a hex of enemy infantry that stayed put (house rule):
+ * no collision, and the infantry takes a flag, as if one had been rolled on it (pinned, or a
+ * retreat if it was pinned already)
+ */
+export interface Overrun {
+  step: number;
+  /** The infantry's hex */
+  hex: Position;
+  /** The armour that went through */
+  armour: { side: Faction; order: number };
+  /** The infantry it went through */
+  infantry: CollidingUnit;
 }
 
 /** One of the two units in a collision, where it stands once the movement is over */
@@ -45,12 +66,15 @@ export interface MovementResult {
   /** Where each mover ends, by side and order index: its path's end, or where it stopped */
   ends: { side: Faction; order: number; end: Position; stopped: boolean }[];
   collisions: Collision[];
+  overruns: Overrun[];
 }
 
 interface Moving {
   side: Faction;
   order: number;
   path: readonly Position[];
+  infantry?: boolean;
+  throughInfantry?: boolean;
   /** Index in the path of the hex it stands on */
   at: number;
   /** Still moving: it hasn't reached its end, met an enemy or been blocked */
@@ -60,7 +84,8 @@ interface Moving {
 
 /**
  * Carry out both sides' moves at once, one hex at a time (house rule): every unit takes its
- * first step, then its second, and so on. A unit stops when it meets an enemy (a collision).
+ * first step, then its second, and so on. A unit stops when it meets an enemy (a collision),
+ * except armour with Armor Forward going through infantry that stays put (an `Overrun`).
  * Units of one side never hold each other up on the way: only the hex a unit ends on counts.
  * When two of them end on one hex (one stopped short there by a collision), the one that got
  * there last goes back along its path to the nearest free hex. All positions are in one side's
@@ -74,6 +99,7 @@ export function moveSimultaneously(movers: readonly Mover[], standers: readonly 
     stopped: false,
   }));
   const collisions: Collision[] = [];
+  const overruns: Overrun[] = [];
   const longest = Math.max(0, ...movers.map((mover) => mover.path.length - 1));
 
   const here = (unit: Moving) => unit.path[unit.at]!;
@@ -125,6 +151,15 @@ export function moveSimultaneously(movers: readonly Mover[], standers: readonly 
         const held: CollidingUnit = stayingMover
           ? colliding(stayingMover)
           : { side: stander!.side, order: stander!.order, position: stander!.position };
+        // Armor Forward goes through infantry that stays put, on the way (not to end there)
+        const infantry = stayingMover ? stayingMover.infantry : stander!.infantry;
+        const onTheWay = unit.at + 1 < unit.path.length - 1;
+        if (unit.throughInfantry && infantry && onTheWay) {
+          if (!overruns.some((each) => each.armour.side === unit.side && each.armour.order === unit.order && samePosition(each.hex, target))) {
+            overruns.push({ step, hex: target, armour: { side: unit.side, order: unit.order }, infantry: held });
+          }
+          continue;
+        }
         collisions.push({ step, kind: "standing", hex: target, units: [colliding(unit), held] });
         halt(unit);
         changed = true;
@@ -143,6 +178,7 @@ export function moveSimultaneously(movers: readonly Mover[], standers: readonly 
   return {
     ends: units.map((unit) => ({ side: unit.side, order: unit.order, end: here(unit), stopped: unit.stopped })),
     collisions,
+    overruns,
   };
 }
 

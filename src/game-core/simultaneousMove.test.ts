@@ -156,4 +156,41 @@ describe("moveSimultaneously", () => {
     expect(result.collisions).toHaveLength(1);
     expect(result.collisions[0]!.units[0]).toEqual({ side: "Allies", order: 1, position: { row: 4, col: 3 } });
   });
+
+  describe("Armor Forward through infantry", () => {
+    const armorForward = (path: Position[]): Mover => ({ side: "Allies", order: 0, path, throughInfantry: true });
+    const infantryAt = (col: number) => ({ side: "Axis" as const, order: null, position: { row: 4, col }, infantry: true });
+
+    it("goes through enemy infantry that stays put, with no collision, and records it", () => {
+      const result = moveSimultaneously([armorForward(row(4, 1, 2, 3, 4))], [infantryAt(2), infantryAt(3)]);
+
+      expect(result.collisions).toEqual([]);
+      expect(result.ends[0]).toEqual({ side: "Allies", order: 0, end: { row: 4, col: 4 }, stopped: false });
+      expect(result.overruns).toEqual([
+        { step: 1, hex: { row: 4, col: 2 }, armour: { side: "Allies", order: 0 }, infantry: { side: "Axis", order: null, position: { row: 4, col: 2 } } },
+        { step: 2, hex: { row: 4, col: 3 }, armour: { side: "Allies", order: 0 }, infantry: { side: "Axis", order: null, position: { row: 4, col: 3 } } },
+      ]);
+    });
+
+    it("still collides with infantry on its last hex, with armour or artillery, and without Armor Forward", () => {
+      expect(moveSimultaneously([armorForward(row(4, 1, 2, 3))], [infantryAt(3)]).collisions).toHaveLength(1);
+      expect(moveSimultaneously([armorForward(row(4, 1, 2, 3))], [{ ...infantryAt(2), infantry: false }]).collisions).toHaveLength(1);
+      const assault = moveSimultaneously([allies(0, row(4, 1, 2, 3))], [infantryAt(2)]);
+      expect(assault.collisions).toHaveLength(1);
+      expect(assault.overruns).toEqual([]);
+    });
+
+    it("goes through infantry stopped on its way, but collides with infantry stepping into the same hex", () => {
+      // The Axis infantry is stopped by the Allied infantry at once, and the armour then goes through it
+      const stopped = moveSimultaneously(
+        [armorForward(row(4, 1, 2, 3, 4)), allies(1, row(5, 3)), { side: "Axis", order: 0, path: [{ row: 4, col: 3 }, { row: 5, col: 3 }], infantry: true }],
+        []
+      );
+      expect(stopped.overruns.map((each) => each.hex)).toEqual([{ row: 4, col: 3 }]);
+
+      const meeting = moveSimultaneously([armorForward(row(4, 1, 2, 3)), { side: "Axis", order: 0, path: row(4, 3, 2), infantry: true }], []);
+      expect(meeting.overruns).toEqual([]);
+      expect(meeting.collisions).toHaveLength(1);
+    });
+  });
 });

@@ -53,6 +53,11 @@ export interface UnitAction {
   readonly fireMove?: number;
   /** Its move ignores terrain movement limits (battle limits still apply) */
   readonly ignoresTerrain?: boolean;
+  /**
+   * Pass and play: its move goes through enemy infantry that stays put instead of colliding with
+   * it, and gives each a flag (Armor Forward)
+   */
+  readonly throughInfantry?: boolean;
   /** Hexes it moves after the battle (Behind Enemy Lines) */
   readonly moveAfterBattle?: number;
   /** How it fires, or null when it doesn't */

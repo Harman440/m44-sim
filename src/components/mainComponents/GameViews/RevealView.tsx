@@ -27,6 +27,11 @@ const TEXT = defineMessages({
     moveHelp: "Todas las unidades avanzan a la vez, casilla a casilla. Las que se encuentran con el enemigo se paran y chocan.",
     moved: (turn: number) => `Turno ${turn}: el movimiento`,
     noCollisions: "Ninguna unidad ha chocado.",
+    overruns: (n: number) =>
+      n === 1
+        ? "Un blindado con Blindados adelante atravesó infantería enemiga: le sale una bandera (queda inmovilizada, o se retira si ya lo estaba)."
+        : `${n} veces un blindado con Blindados adelante atravesó infantería enemiga: a cada una le sale una bandera (queda inmovilizada, o se retira si ya lo estaba).`,
+    overrun: (armour: string, infantry: string) => `Blindado (${armour}) atravesó infantería (${infantry})`,
     collisions: (n: number) => (n === 1 ? "Un choque: tiran las dos unidades." : `${n} choques: en cada uno tiran las dos unidades.`),
     collisionRule: "Dados de asalto cercano menos 1, sin contar el terreno. Las retiradas no se pueden ignorar. El choque es el disparo de la unidad este turno.",
     collision: (n: number) => `Choque ${n}`,
@@ -51,6 +56,11 @@ const TEXT = defineMessages({
     moveHelp: "Every unit moves at once, one hex at a time. Units that run into the enemy stop and collide.",
     moved: (turn: number) => `Turn ${turn}: the movement`,
     noCollisions: "No unit collided.",
+    overruns: (n: number) =>
+      n === 1
+        ? "Armor with Armor Forward went through enemy infantry: it takes a flag (pinned, or it retreats if it was pinned already)."
+        : `${n} times armor with Armor Forward went through enemy infantry: each takes a flag (pinned, or it retreats if it was pinned already).`,
+    overrun: (armour: string, infantry: string) => `Armor (${armour}) went through infantry (${infantry})`,
     collisions: (n: number) => (n === 1 ? "One collision: both units roll." : `${n} collisions: both units roll in each.`),
     collisionRule: "Close assault dice minus 1, terrain doesn't count. Retreats can't be ignored. The collision is the unit's shot this turn.",
     collision: (n: number) => `Collision ${n}`,
@@ -79,10 +89,12 @@ interface RevealViewProps {
 const noop = () => {};
 
 /** Where a collision is marked, in the viewer's view: the hex fought over, or both units' hexes for a crossing */
-const markOf = (collision: CollisionView, viewer: Faction, size: BoardSize): Position[] => {
-  const hexes = collision.hex ? [collision.hex] : collision.units.map((unit) => unit.position);
-  return viewer === "Axis" ? hexes.map((hex) => turnedRound(hex, size)) : hexes;
-};
+const markOf = (collision: CollisionView, viewer: Faction, size: BoardSize): Position[] =>
+  inView(collision.hex ? [collision.hex] : collision.units.map((unit) => unit.position), viewer, size);
+
+/** Hexes in the Allies' view, turned to the viewer's */
+const inView = (hexes: Position[], viewer: Faction, size: BoardSize): Position[] =>
+  viewer === "Axis" ? hexes.map((hex) => turnedRound(hex, size)) : hexes;
 
 /**
  * Pass and play, once both sides have given their orders (in the extra first turn, the
@@ -128,7 +140,10 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                 opponent={match.opponentOf(viewer)}
                 fog={match.fogOn(viewer)}
                 strength={game.strength}
-                collisions={moved?.collisions.map((collision) => markOf(collision, viewer, boardSizeOf(match.scenario))) ?? []}
+                collisions={[
+                  ...(moved?.collisions.map((collision) => markOf(collision, viewer, boardSizeOf(match.scenario))) ?? []),
+                  ...(moved?.overruns.map((overrun) => inView([overrun.hex], viewer, boardSizeOf(match.scenario))) ?? []),
+                ]}
                 // Until "Mover" the armies stand where they started; then they glide to where they stop
                 atStart={!moved}
               />
@@ -187,6 +202,22 @@ function RevealView({ match, turn, viewer }: RevealViewProps) {
                       )}
                     </Stack>
                   ))}
+                  {/* Armor Forward through infantry: no roll, the infantry takes a flag */}
+                  {moved.overruns.length > 0 && (
+                    <Stack component="section" spacing={0.5} data-testid="overruns">
+                      <Typography variant="body2" color="text.secondary">
+                        {t.overruns(moved.overruns.length)}
+                      </Typography>
+                      {moved.overruns.map((overrun, i) => (
+                        <Stack key={i} direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
+                          <FactionInsignia faction={overrun.armour.side} size={20} decorative />
+                          <Typography variant="body2">
+                            {t.overrun(labels.factions[overrun.armour.side], labels.factions[overrun.infantry.side])}
+                          </Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  )}
                   <Box sx={{ mt: "auto", display: "flex", flexDirection: "column", gap: 0.5 }}>
                     {!moved.done && (
                       <Typography variant="body2" color="text.secondary">

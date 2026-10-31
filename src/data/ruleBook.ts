@@ -291,6 +291,13 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
         },
       },
       {
+        title: { es: "Blindados adelante a través de infantería", en: "Armor Forward through infantry" },
+        house: {
+          es: "Un blindado con Blindados adelante pasa a través de la infantería enemiga que no se mueve, sin chocar (no puede acabar en su casilla: ahí sí choca). Esa infantería recibe una bandera, como si se la hubieran sacado en una tirada: queda inmovilizada (dispara con 1 dado menos) y, si ya lo estaba o le sale otra bandera, se retira. Contra blindados, artillería o infantería que se mueve a la vez, hay choque como siempre. En pasar y jugar lo hace la app; en tablets propias se hace en la mesa.",
+          en: "Armor with Armor Forward goes through enemy infantry that doesn't move, without colliding (it can't end on its hex: there it collides). That infantry takes a flag, as if one had been rolled on it: it's pinned (it fires with 1 die less) and, if it was pinned already or takes another flag, it retreats. Against armor, artillery or infantry moving at the same time, there's a collision as usual. In pass and play the app does it; on own tablets it's done on the table.",
+        },
+      },
+      {
         title: { es: "Orden de fuego", en: "Firing order" },
         official: {
           es: "El jugador del turno combate con sus unidades en el orden que quiera.",

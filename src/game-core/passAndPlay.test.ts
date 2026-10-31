@@ -96,7 +96,7 @@ describe("PassAndPlayMatch", () => {
 
     expect(match.moveUnits()).toBe(true);
     expect(match.moveUnits()).toBe(false);
-    expect(match.getSnapshot().movement).toEqual({ turn: 1, collisions: [], done: true });
+    expect(match.getSnapshot().movement).toEqual({ turn: 1, collisions: [], overruns: [], done: true });
     expect(match.finishReveal()).toBe(true);
     // The battle, on one screen: nobody fires (hold orders but no enemy in range)
     expect(match.getSnapshot()).toMatchObject({ covered: false, revealTurn: null, movement: null, battle: { turn: 1 } });
@@ -289,6 +289,39 @@ describe("PassAndPlayMatch", () => {
       },
     ]);
     expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES);
+    expect(match.finishReveal()).toBe(true);
+  });
+
+  it("lets Armor Forward go through enemy infantry: no collision, and the infantry takes a flag (pinned)", () => {
+    // Allies' view: Axis armour on (4,6) drives west to (4,2), through the Allied infantry on (4,4), which rests
+    const through: Scenario = {
+      ...scenario,
+      units: { allies: { infantry: [{ row: 4, col: 4 }] }, axis: { tank: [{ row: 4, col: 6 }] } },
+    };
+    const side = (faction: Faction) => new GameSession({ scenario: through, faction, figures: true });
+    const match = new PassAndPlayMatch(through, { Allies: side("Allies"), Axis: side("Axis") });
+    match.uncover();
+    const axis = match.activeSession();
+    axis.pickCard(null);
+    const turned = (position: { row: number; col: number }) => turnedRound(position, STANDARD_BOARD);
+    expect(axis.giveAction(turned({ row: 4, col: 6 }), "tank:armorForward", turned({ row: 4, col: 2 }))).toBe(true);
+    expect(axis.getSnapshot().orders[0]!.path!.map(turned)).toContainEqual({ row: 4, col: 4 });
+    expect(axis.commitOrders()).toBe(true);
+    restAll(match);
+
+    expect(match.moveUnits()).toBe(true);
+    const movement = match.getSnapshot().movement!;
+    expect(movement.collisions).toEqual([]);
+    expect(movement.done).toBe(true);
+    expect(movement.overruns).toMatchObject([{ hex: { row: 4, col: 4 }, armour: { side: "Axis", order: 0 }, infantry: { side: "Allies", position: { row: 4, col: 4 } } }]);
+    // The armour ends where it was going; the infantry is pinned (a flag: no hex to retreat yet)
+    expect(axis.getSnapshot().orders[0]!.end).toEqual(turned({ row: 4, col: 2 }));
+    expect(match.sessions.Allies.getSnapshot().strength[0]).toMatchObject({ position: { row: 4, col: 4 }, pinned: true, retreats: 0 });
+    expect(match.sessions.Allies.isPinned({ row: 4, col: 4 })).toBe(true);
+
+    // Kept in a save
+    const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), through, (saved) => GameSession.restore(saved, through));
+    expect(restored.getSnapshot().movement!.overruns).toEqual(movement.overruns);
     expect(match.finishReveal()).toBe(true);
   });
 

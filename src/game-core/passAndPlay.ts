@@ -7,11 +7,12 @@ import { boardPositions, boardSizeOf } from "./boardSize";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
 import { inSight, seenHexes } from "./fogOfWar";
-import { Collision, CollidingUnit, moveSimultaneously, Mover, Stander } from "./simultaneousMove";
+import { Collision, CollidingUnit, moveSimultaneously, Mover, Overrun, Stander } from "./simultaneousMove";
 import { appliedFaces, keptForHits, readRoll } from "./rollResult";
 import { OrderSummary } from "./turnSummary";
 import { MatchResult, Medals, countMedals, heldObjectives, winnerOf } from "./victory";
 import { resultLimit } from "../data/figures";
+import { actionById } from "../data/unitActions";
 import { Faction, FACTIONS } from "../types/faction";
 import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
@@ -110,6 +111,8 @@ export interface RollRef {
 export interface MatchMovement {
   turn: number;
   collisions: MatchCollision[];
+  /** Armor Forward through enemy infantry: each gave the infantry a flag (left out in older saves) */
+  overruns?: Overrun[];
 }
 
 /**
@@ -154,7 +157,7 @@ export interface MatchSnapshot {
    * The units of the turn being revealed have moved: the collisions, each with both units'
    * rolls once rolled; `done` once every one has been dealt. Null before "Mover"
    */
-  movement: { turn: number; collisions: readonly CollisionView[]; done: boolean } | null;
+  movement: { turn: number; collisions: readonly CollisionView[]; overruns: readonly Overrun[]; done: boolean } | null;
   /** The shared battle, once the movement is over; null otherwise */
   battle: BattleState | null;
   /**
@@ -357,14 +360,19 @@ class PassAndPlayMatch {
       const session = this.sessions[side];
       const { orders } = session.getSnapshot();
       const view = (position: Position) => this.inAlliesView(side, position);
+      const isInfantry = (unit: Unit) => unit.getUnitType() === UnitType.INFANTRY;
       orders.forEach((order, index) => {
-        if (samePosition(order.start, order.end)) standers.push({ side, order: index, position: view(order.start) });
-        else movers.push({ side, order: index, path: (order.path ?? [order.start, order.end]).map(view) });
+        const infantry = isInfantry(order.unit);
+        if (samePosition(order.start, order.end)) standers.push({ side, order: index, position: view(order.start), infantry });
+        else {
+          const path = (order.path ?? [order.start, order.end]).map(view);
+          movers.push({ side, order: index, path, infantry, throughInfantry: !!actionById(order.action)?.throughInfantry });
+        }
       });
       const ordered = new Set(orders.map((order) => order.unit));
       armyOf(session)
         .filter(({ unit }) => !ordered.has(unit))
-        .forEach(({ position }) => standers.push({ side, order: null, position: view(position) }));
+        .forEach(({ unit, position }) => standers.push({ side, order: null, position: view(position), infantry: isInfantry(unit) }));
     }
 
     const result = moveSimultaneously(movers, standers);
@@ -376,9 +384,16 @@ class PassAndPlayMatch {
     }
     // The tanks that went through barbed wire took it off the other side's board too
     this.settleWire();
+    // Infantry that Armor Forward went through takes a flag, as if rolled on it: it's pinned, or
+    // retreats (before the battle, as after a collision) if it was pinned already
+    for (const overrun of result.overruns) {
+      const { side, position } = overrun.infantry;
+      this.sessions[side].sufferHits(this.inAlliesView(side, position), 0, 1);
+    }
     this.movement = {
       turn,
       collisions: result.collisions.map((collision) => ({ ...collision, rolls: null, applied: false })),
+      overruns: result.overruns,
     };
     return this.publish();
   }
@@ -1163,7 +1178,7 @@ class PassAndPlayMatch {
         };
       }) as [CollidingUnitView, CollidingUnitView],
     }));
-    return { turn: movement.turn, collisions, done: collisions.every((collision) => collision.applied) };
+    return { turn: movement.turn, collisions, overruns: movement.overruns ?? [], done: collisions.every((collision) => collision.applied) };
   }
 
   private canPass(): boolean {

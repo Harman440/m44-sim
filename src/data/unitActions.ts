@@ -96,10 +96,10 @@ export const TANK_ACTIONS: readonly UnitAction[] = [
     { painting: "infantry-assault", cost: fuel(1), move: 4, fireMove: 2, fire: ONE_SHOT }),
   tank("armorForward", { es: "Blindados adelante", en: "Armor Forward" },
     {
-      es: "Se mueve hasta 4 casillas sin que el terreno la detenga; dispara si se movió 2 o menos, salvo si acaba en una casilla desde la que no se puede disparar.",
-      en: "Moves up to 4 hexes with no terrain stopping it; fires if it moved 2 or fewer, unless it ends on a hex it can't fire from.",
+      es: "Se mueve hasta 4 casillas sin que el terreno la detenga; dispara si se movió 2 o menos, salvo si acaba en una casilla desde la que no se puede disparar. Pasa a través de la infantería enemiga sin chocar: la deja inmovilizada, como si le hubiera salido una bandera (si ya lo estaba, se retira).",
+      en: "Moves up to 4 hexes with no terrain stopping it; fires if it moved 2 or fewer, unless it ends on a hex it can't fire from. It goes through enemy infantry without colliding: the infantry is pinned, as if a flag had been rolled on it (if it was pinned already, it retreats).",
     },
-    { painting: "armor-forward", cost: fuel(2), move: 4, fireMove: 2, ignoresTerrain: true, fire: ONE_SHOT }),
+    { painting: "armor-forward", cost: fuel(2), move: 4, fireMove: 2, ignoresTerrain: true, throughInfantry: true, fire: ONE_SHOT }),
   tank("mechanic", { es: "Mecánico", en: "Mechanic" },
     { es: "No se mueve ni dispara: repara la figura más tocada (la que tiene más impactos sin haber caído).", en: "Doesn't move or fire: mends the most damaged figure (hit but not lost)." },
     { painting: "mechanic", cost: FREE, move: 0, fire: null, effect: "mechanic" }),
