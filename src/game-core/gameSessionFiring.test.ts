@@ -172,11 +172,11 @@ describe("GameSession firing with ammo and shells", () => {
     expect(tank.fire(0, at(1), "tank:suppressive")).toBe(false);
   });
 
-  it("gives armour's normal fire 1 die more in close assault only when it didn't move", () => {
+  it("gives armour 4 dice in close assault when it didn't move, 3 when it did, and no die from its normal fire", () => {
     const held = holding("tank:firefight", TANK);
     expect(held.fire(0, at(1))).toBe(true);
     expect(lastShot(held).dice).toBe(4);
-    expect(held.getSnapshot().shots[0]!.steps.map((step) => step.kind)).toEqual(["base", "fireOption"]);
+    expect(held.getSnapshot().shots[0]!.steps.map((step) => step.kind)).toEqual(["base"]);
 
     const moved = ordering();
     const to = new Hex(TANK, HexType.PLAINS).getNeighbors().find((p) => !samePosition(p, FOREST))!;
@@ -184,6 +184,17 @@ describe("GameSession firing with ammo and shells", () => {
     fight(moved);
     expect(moved.fire(0, at(1))).toBe(true);
     expect(lastShot(moved).dice).toBe(3);
+  });
+
+  it("gives infantry 3-2-2-1 when it didn't move, 3-2 when it did, and 2-2 at armour or artillery", () => {
+    const held = holding("infantry:firefight", INF);
+    expect(held.fire(0, { ...at(2), distance: "4" })).toBe(true);
+    expect(lastShot(held).dice).toBe(1);
+    // Beyond 2 hexes, armour is out of its reach: no shot
+    const atArmour = holding("infantry:firefight", INF);
+    expect(atArmour.fire(0, { ...at(2), distance: "3", targetType: TARGET_OTHER })).toBe(false);
+    expect(atArmour.fire(0, { ...at(1), targetType: TARGET_OTHER })).toBe(true);
+    expect(lastShot(atArmour).dice).toBe(2);
   });
 
   it("keeps each shot's fire option and what it spent in a save", () => {

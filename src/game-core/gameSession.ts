@@ -17,7 +17,8 @@ import {
   PUSH_BACK_UNIT_TYPES,
   TARGET_INFANTRY,
   TARGET_OTHER,
-  BASE_DICE_BY_DISTANCE,
+  maxRange,
+  baseDiceByDistance,
   combatBonusDice,
   fireBonusSteps,
   targetAnswer,
@@ -1443,7 +1444,7 @@ class GameSession {
       closeAssaultOnly: summary.closeAssaultOnly || !!option?.closeAssaultOnly,
       combatBonuses: this.combatBonusesFor(orderIndex),
       ...(option && { fireOption: option }),
-      moved: !samePosition(order.start, order.end) || summary.tookGround,
+      moved: !samePosition(order.start, order.end),
       fromTerrain: this.board.getHex(summary.firingFrom)?.getType(),
       fromWire: this.board.getHex(summary.firingFrom)?.wire ?? false,
       fromFord: !!this.board.getHex(summary.firingFrom)?.getTerrain().ford,
@@ -1499,7 +1500,11 @@ class GameSession {
     const context = option && this.fireContextFor(orderIndex, option);
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
     const seen = this.seenEnemies();
-    const targets = fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, seen?.map((enemy) => enemy.position));
+    const infantryAt = (position: Position) => {
+      const enemy = seen?.find((each) => samePosition(each.position, position));
+      return enemy && enemy.unitType === UnitType.INFANTRY;
+    };
+    const targets = fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, seen?.map((enemy) => enemy.position), seen && infantryAt);
     // Pass and play knows each enemy's type: Suppressive Fire only aims at infantry
     if (!seen || !option.infantryTargetOnly) return targets;
     return targets.filter((target) => seen.some((enemy) => samePosition(enemy.position, target.position) && enemy.unitType === UnitType.INFANTRY));
@@ -1643,6 +1648,8 @@ class GameSession {
     if (infantry === null || !this.canBeTarget(infantry)) return null;
     // Suppressive Fire: only at infantry
     if (option.infantryTargetOnly && !infantry) return null;
+    // Out of reach of this target (infantry at armour fires 2 hexes at most)
+    if (baseDiceByDistance(context.unitType, { moved: context.moved, infantryTarget: infantry })[Number(answers.distance) - 1] === undefined) return null;
     const plain = this.targetFor(infantry, answers.distance === "1");
     // Suppressive Fire rolls the suppressive die of the same shape
     const target = option.die ? { ...plain, die: suppressed(plain.die) } : plain;
@@ -1652,7 +1659,7 @@ class GameSession {
 
   /**
    * The unit's last shot was a close assault that pushed back or eliminated
-   * its target, so it can take ground and fire once more: armour only
+   * its target, so it can take ground, and then it fires no more this turn: armour only
    * (infantry never overruns; pass and play's push-back is `groundRuleFor`).
    * Once per unit per turn; not after a collision.
    */
@@ -1661,8 +1668,8 @@ class GameSession {
   }
 
   /**
-   * How the unit may take ground after its last shot: an overrun (it fires once more) or, in
-   * pass and play, infantry pushing back the unit its close assault made retreat (no more shot)
+   * How the unit may take ground after its last shot: armour's overrun or, in pass and play,
+   * infantry pushing back the unit its close assault made retreat. Neither fires again that turn
    */
   groundRuleFor(orderIndex: number): "overrun" | "pushBack" | null {
     if (this.phase !== TurnPhase.BATTLE) return null;
@@ -1692,8 +1699,8 @@ class GameSession {
 
   /**
    * The unit took ground after its last shot: it moves to the hex it fired at
-   * (as a map edit, as the player would in the final phase) and gets one more
-   * shot, in close assault, from there.
+   * (as a map edit, as the player would in the final phase), and fires no more
+   * this turn (house rule).
    */
   takeGround(orderIndex: number): boolean {
     const rule = this.groundRuleFor(orderIndex);
@@ -1713,7 +1720,7 @@ class GameSession {
     return this.publish();
   }
 
-  /** Take back taking ground, while its extra shot hasn't been fired: the unit goes back */
+  /** Take back taking ground: the unit goes back */
   undoTakeGround(orderIndex: number): boolean {
     if (this.phase !== TurnPhase.BATTLE) return false;
     const last = this.shots.findLast((shot) => shot.orderIndex === orderIndex);
@@ -1757,13 +1764,14 @@ class GameSession {
     if (!enemies) return new Set(summaries.map((summary) => summary.index));
     const all = this.enemyView!();
     const positions = enemies.map((enemy) => enemy.position);
+    const infantryAt = (position: Position) => enemies.find((enemy) => samePosition(enemy.position, position))?.unitType === UnitType.INFANTRY;
     const hasShot = (summary: OrderSummary) => {
       if (this.board.getHex(summary.firingFrom)?.wire && this.canRemoveWire(summary.index)) return true;
-      const range = BASE_DICE_BY_DISTANCE[summary.unitType].length;
+      const range = maxRange(summary.unitType);
       if (!positions.some((position) => hexDistance(position, summary.firingFrom) <= range)) return false;
       const option = this.fireOptionFor(summary.index);
       const context = option && this.fireContextFor(summary.index, option, { summary, enemies: all });
-      return !!context && hasFireTarget(this.board, summary.firingFrom, context, positions);
+      return !!context && hasFireTarget(this.board, summary.firingFrom, context, positions, infantryAt);
     };
     return new Set(summaries.filter(hasShot).map((summary) => summary.index));
   }

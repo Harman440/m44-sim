@@ -76,7 +76,7 @@ export function makeStandardBrain(weights: BrainWeights): Brain {
       const score = (position: Position) => {
         const holds = samePosition(position, from);
         const fires = holds ? holdFires : canFire.has(positionKey(position));
-        const offence = fires ? bestShotFrom(view, unitType, position) : 0;
+        const offence = fires ? bestShotFrom(view, unitType, position, !holds) : 0;
         return (
           offence -
           weights.threat * threatAt(view, unitType, position, figures) -

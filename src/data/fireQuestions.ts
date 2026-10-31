@@ -12,16 +12,40 @@ import { TERRAIN } from "./terrain";
 import { LABELS } from "../labels";
 import { Localized, byLang } from "../i18n/lang";
 
-/** Base dice by distance to the target (index 0 = adjacent); its length is the unit's range */
-export const BASE_DICE_BY_DISTANCE: Record<UnitType, number[]> = {
-  [UnitType.INFANTRY]: [3, 2, 1],
-  [UnitType.TANK]: [3, 3, 3],
-  [UnitType.ARTILLERY]: [1, 3, 3, 2, 2, 1],
+/**
+ * A unit type's base dice by distance to the target (index 0 = adjacent); each list's length is
+ * its range. `unmoved` when it didn't move this turn, `moved` when it did, and `atArmour`, when
+ * given, at a tank or artillery target whether it moved or not (infantry: 2–2)
+ */
+export interface BaseDice {
+  unmoved: readonly number[];
+  moved: readonly number[];
+  atArmour?: readonly number[];
+}
+
+export const BASE_DICE: Record<UnitType, BaseDice> = {
+  [UnitType.INFANTRY]: { unmoved: [3, 2, 2, 1], moved: [3, 2], atArmour: [2, 2] },
+  [UnitType.TANK]: { unmoved: [4, 3, 3, 2], moved: [3, 3] },
+  [UnitType.ARTILLERY]: { unmoved: [1, 3, 3, 2, 2, 1], moved: [1, 3, 3, 2, 2, 1] },
 };
 
 /**
+ * The base dice by distance of a shot: whether the unit moved, and whether its target is
+ * infantry (`true`), a tank or artillery (`false`) or not known yet (left out: the longest
+ * reach, as at infantry)
+ */
+export function baseDiceByDistance(unitType: UnitType, { moved = false, infantryTarget }: { moved?: boolean; infantryTarget?: boolean | null } = {}): readonly number[] {
+  const base = BASE_DICE[unitType];
+  if (infantryTarget === false && base.atArmour) return base.atArmour;
+  return moved ? base.moved : base.unmoved;
+}
+
+/** The farthest a unit of this type can ever fire: when it didn't move */
+export const maxRange = (unitType: UnitType): number => BASE_DICE[unitType].unmoved.length;
+
+/**
  * Units that can take ground after a close assault that eliminates or pushes
- * back the target, and fire once more (house rule: in close assault only).
+ * back the target; then it fires no more this turn (house rule).
  * Infantry never does (pass and play's push-back is `PUSH_BACK_UNIT_TYPES`).
  */
 export const TAKE_GROUND_UNIT_TYPES: readonly UnitType[] = [UnitType.TANK];
@@ -56,18 +80,27 @@ const YES_NO = [
 const distanceQuestion: FireQuestion = {
   id: "distance",
   text: { es: "¿A cuántas casillas está el objetivo?", en: "How many hexes away is the target?" },
-  options: ({ unitType, closeAssaultOnly }) =>
-    BASE_DICE_BY_DISTANCE[unitType].slice(0, closeAssaultOnly ? 1 : undefined).map((_, i) => ({
+  options: ({ unitType, closeAssaultOnly, moved }) =>
+    baseDiceByDistance(unitType, { moved }).slice(0, closeAssaultOnly ? 1 : undefined).map((_, i) => ({
       value: String(i + 1),
       label: i === 0 ? { es: "1 (adyacente)", en: "1 (adjacent)" } : byLang(() => String(i + 1)),
     })),
-  effect: ({ unitType }, answer) => {
+  // The target's type counts too (infantry at a tank or artillery), once it's answered
+  effect: ({ unitType, moved = false }, answer, answers) => {
     const distance = Number(answer);
-    const dice = BASE_DICE_BY_DISTANCE[unitType][distance - 1] ?? 0;
+    const infantryTarget = targetAnswer(answers.targetType);
+    const table = baseDiceByDistance(unitType, { moved, infantryTarget });
+    const atArmour = infantryTarget === false && table === BASE_DICE[unitType].atArmour;
+    const dice = table[distance - 1] ?? 0;
+    const how = atArmour
+      ? { es: ", contra blindados o artillería", en: ", at armour or artillery" }
+      : moved
+        ? { es: ", tras moverse", en: ", after moving" }
+        : { es: ", sin moverse", en: ", unmoved" };
     return {
       label: {
-        es: `Base: ${LABELS.es.units[unitType]} a ${LABELS.es.hexes(distance)}`,
-        en: `Base: ${LABELS.en.units[unitType]} at ${LABELS.en.hexes(distance)}`,
+        es: `Base: ${LABELS.es.units[unitType]} a ${LABELS.es.hexes(distance)}${unitType === UnitType.ARTILLERY ? "" : how.es}`,
+        en: `Base: ${LABELS.en.units[unitType]} at ${LABELS.en.hexes(distance)}${unitType === UnitType.ARTILLERY ? "" : how.en}`,
       },
       dice,
       kind: "base",
@@ -340,7 +373,7 @@ export const fireBonusSteps = (context: FireContext, answers: FireAnswers): Dice
 export const collisionSteps = (context: FireContext): DiceStep[] => [
   {
     label: byLang((lang) => `Base: ${LABELS[lang].units[context.unitType]} ${lang === "es" ? "en choque" : "in a collision"}`),
-    dice: BASE_DICE_BY_DISTANCE[context.unitType][0] ?? 0,
+    dice: baseDiceByDistance(context.unitType, { moved: true })[0] ?? 0,
     kind: "base",
   },
   { label: { es: "Choque", en: "Collision" }, dice: -1, kind: "collision" },

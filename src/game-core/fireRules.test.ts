@@ -68,23 +68,47 @@ describe("fire questions (house rules)", () => {
   it("offers distances up to each unit's range", () => {
     const distance = FIRE_QUESTIONS.find((q) => q.id === "distance")!;
 
-    expect(distance.options(context(UnitType.INFANTRY))).toHaveLength(3);
-    expect(distance.options(context(UnitType.TANK))).toHaveLength(3);
+    expect(distance.options(context(UnitType.INFANTRY))).toHaveLength(4);
+    expect(distance.options(context(UnitType.TANK))).toHaveLength(4);
     expect(distance.options(context(UnitType.ARTILLERY))).toHaveLength(6);
+    // Having moved, infantry and armour reach 2 hexes; artillery as far as ever
+    const moved = (unitType: UnitType) => ({ ...context(unitType), moved: true });
+    expect(distance.options(moved(UnitType.INFANTRY))).toHaveLength(2);
+    expect(distance.options(moved(UnitType.TANK))).toHaveLength(2);
+    expect(distance.options(moved(UnitType.ARTILLERY))).toHaveLength(6);
+  });
+
+  it.each([
+    // Infantry: 3-2-2-1 unmoved, 3-2 moved, 2-2 at armour or artillery either way
+    [UnitType.INFANTRY, false, "infantry", [3, 2, 2, 1]],
+    [UnitType.INFANTRY, true, "infantry", [3, 2, 0, 0]],
+    [UnitType.INFANTRY, false, "other", [2, 2, 0, 0]],
+    [UnitType.INFANTRY, true, "other", [2, 2, 0, 0]],
+    // Armour: 4-3-3-2 unmoved, 3-3 moved, at any target
+    [UnitType.TANK, false, "infantry", [4, 3, 3, 2]],
+    [UnitType.TANK, true, "infantry", [3, 3, 0, 0]],
+    [UnitType.TANK, false, "other", [4, 3, 3, 2]],
+    [UnitType.TANK, true, "other", [3, 3, 0, 0]],
+  ] as const)("%s, moved %s, at %s: %j dice from 1 to 4 hexes in the open", (unitType, moved, targetType, expected) => {
+    const at = (distance: number) =>
+      calculateFireDice(FIRE_QUESTIONS, { ...context(unitType), moved }, { distance: String(distance), targetType, targetTerrain: "plains", sandbags: "no" }, fireBonusSteps).dice;
+    expect([1, 2, 3, 4].map(at)).toEqual(expected);
   });
 
   it.each([
     [UnitType.INFANTRY, "1", "plains", 3],
-    [UnitType.INFANTRY, "3", "plains", 1],
+    [UnitType.INFANTRY, "3", "plains", 2],
+    [UnitType.INFANTRY, "4", "plains", 1],
     [UnitType.INFANTRY, "2", "forest", 1],
-    [UnitType.INFANTRY, "3", "town", 0],
+    [UnitType.INFANTRY, "3", "town", 1],
+    [UnitType.INFANTRY, "4", "town", 0],
     [UnitType.TANK, "2", "plains", 3],
-    [UnitType.TANK, "1", "forest", 1],
+    [UnitType.TANK, "1", "forest", 2],
     [UnitType.TANK, "3", "hill", 2],
     [UnitType.ARTILLERY, "5", "plains", 2],
     [UnitType.ARTILLERY, "2", "town", 3], // artillery ignores terrain
     [UnitType.INFANTRY, "1", "bunker", 2],
-    [UnitType.TANK, "1", "bunker", 1],
+    [UnitType.TANK, "1", "bunker", 2],
     [UnitType.ARTILLERY, "3", "bunker", 3],
   ])("%s at %s hexes, target in %s: %i dice", (unitType, distance, targetTerrain, expected) => {
     expect(dice(unitType, { distance, targetTerrain })).toBe(expected);
@@ -170,7 +194,7 @@ describe("fire questions (house rules)", () => {
     const far = { distance: "3", targetTerrain: "plains", sandbags: "no" };
 
     const { dice, steps } = calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.TANK), near, fireBonusSteps);
-    expect(dice).toBe(1);
+    expect(dice).toBe(2);
     expect(steps).toContainEqual({ label: { es: "Desde un pueblo", en: "From a town" }, dice: -2, kind: "fromTown" });
     expect(calculateFireDice(FIRE_QUESTIONS, fromTown(UnitType.TANK), far, fireBonusSteps).dice).toBe(1);
     // …on top of the target's cover
@@ -186,7 +210,7 @@ describe("fire questions (house rules)", () => {
     const { dice, steps } = calculateFireDice(FIRE_QUESTIONS, fromFord(UnitType.INFANTRY), near, fireBonusSteps);
     expect(dice).toBe(2);
     expect(steps).toContainEqual({ label: { es: "Desde un vado", en: "From a ford" }, dice: -1, kind: "ford" });
-    expect(calculateFireDice(FIRE_QUESTIONS, fromFord(UnitType.TANK), near, fireBonusSteps).dice).toBe(2);
+    expect(calculateFireDice(FIRE_QUESTIONS, fromFord(UnitType.TANK), near, fireBonusSteps).dice).toBe(3);
     const atRiver = { ...near, targetTerrain: HexType.RIVER };
     expect(calculateFireDice(FIRE_QUESTIONS, context(UnitType.INFANTRY), atRiver, fireBonusSteps).dice).toBe(3);
   });
@@ -220,7 +244,7 @@ describe("fire questions (house rules)", () => {
     );
 
     expect(steps).toEqual([
-      { label: { es: "Base: Infantería a 2 casillas", en: "Base: Infantry at 2 hexes" }, dice: 2, kind: "base" },
+      { label: { es: "Base: Infantería a 2 casillas, sin moverse", en: "Base: Infantry at 2 hexes, unmoved" }, dice: 2, kind: "base" },
       { label: { es: "Objetivo en bosque", en: "Target in forest" }, dice: -1, kind: "terrain" },
     ]);
   });
@@ -231,10 +255,12 @@ describe("the action's and the fire option's dice", () => {
   const steps = (extra: Partial<FireContext>) =>
     calculateFireDice(FIRE_QUESTIONS, { unitType: UnitType.TANK, ...extra }, answers, fireBonusSteps).steps;
 
-  it("adds the option's dice in close assault unless it says only when the unit didn't move", () => {
+  it("gives armour's normal fire no extra die in close assault: its base dice already count whether it moved", () => {
     const tankNormal = fireOptionById("tank:normal")!;
-    expect(steps({ fireOption: tankNormal }).map((step) => step.kind)).toEqual(["base", "fireOption"]);
-    expect(steps({ fireOption: tankNormal, moved: true }).map((step) => step.kind)).toEqual(["base"]);
+    expect(steps({ fireOption: tankNormal })).toEqual([
+      { label: { es: "Base: Tanque a 1 casilla, sin moverse", en: "Base: Tank at 1 hex, unmoved" }, dice: 4, kind: "base" },
+    ]);
+    expect(steps({ fireOption: tankNormal, moved: true }).map((step) => [step.kind, step.dice])).toEqual([["base", 3]]);
   });
 
   it("keeps a step that changes the die thrown, though it adds no dice", () => {

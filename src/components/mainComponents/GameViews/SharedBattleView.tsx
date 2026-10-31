@@ -22,7 +22,7 @@ import { FACTIONS, Faction } from "../../../types/faction";
 import { Position } from "../../../types/scenario";
 import GameSession, { ShotAim } from "../../../game-core/gameSession";
 import { samePosition } from "../../../game-core/position";
-import { BASE_DICE_BY_DISTANCE } from "../../../data/fireQuestions";
+import { BASE_DICE, baseDiceByDistance } from "../../../data/fireQuestions";
 import { turnedRound } from "../../../game-core/BoardManager";
 import Board from "../../Board";
 import GameIcon from "../../GameIcon";
@@ -65,7 +65,7 @@ const TEXT = defineMessages({
     noTarget: (side: string, n: number) =>
       n === 1 ? `${side}: 1 unidad no tiene a qué disparar y no dispara.` : `${side}: ${n} unidades no tienen a qué disparar y no disparan.`,
     leftToFire: (n: number) => (n === 1 ? "Queda 1 unidad por disparar" : `Quedan ${n} unidades por disparar`),
-    range: (range: string) => `Alcance: ${range}`,
+    range: (range: string, atArmour?: string) => `Alcance: ${range}${atArmour ? ` (contra blindados o artillería: ${atArmour})` : ""}`,
     closeAssaultOnly: "Solo asalto cercano",
     tapTarget: "Toca un objetivo en el mapa: el número son los dados que tira.",
     noTargets: "No tiene a ningún enemigo a tiro.",
@@ -123,7 +123,7 @@ const TEXT = defineMessages({
     noTarget: (side: string, n: number) =>
       n === 1 ? `${side}: 1 unit has nothing to fire at and doesn't fire.` : `${side}: ${n} units have nothing to fire at and don't fire.`,
     leftToFire: (n: number) => (n === 1 ? "1 unit left to fire" : `${n} units left to fire`),
-    range: (range: string) => `Range: ${range}`,
+    range: (range: string, atArmour?: string) => `Range: ${range}${atArmour ? ` (at armour or artillery: ${atArmour})` : ""}`,
     closeAssaultOnly: "Close assault only",
     tapTarget: "Tap a target on the map: the number is the dice it rolls.",
     noTargets: "No enemy is within its fire.",
@@ -222,7 +222,9 @@ function FiringUnit({ side, session, order, aims, aim, option, onPickOption, onF
   const summary = session.orderSummaries()[order]!;
   const unit = labels.unitKind(summary.unitType, summary.elite);
   const figures = session.figuresAt(summary.firingFrom);
-  const range = BASE_DICE_BY_DISTANCE[summary.unitType];
+  // What it rolls at each distance, having moved or not (infantry rolls less at armour)
+  const range = baseDiceByDistance(summary.unitType, { moved: !summary.hold });
+  const atArmour = BASE_DICE[summary.unitType].atArmour?.join(" / ");
   const game = session.getSnapshot();
   const fireOptions = session.fireOptions(order);
 
@@ -235,7 +237,7 @@ function FiringUnit({ side, session, order, aims, aim, option, onPickOption, onF
           <Typography variant="body2" color="text.secondary">
             {[
               figures !== null && t.figures(figures),
-              summary.closeAssaultOnly ? t.closeAssaultOnly : t.range(range.join(" / ")),
+              summary.closeAssaultOnly ? t.closeAssaultOnly : t.range(range.join(" / "), atArmour),
             ]
               .filter(Boolean)
               .join(" · ")}

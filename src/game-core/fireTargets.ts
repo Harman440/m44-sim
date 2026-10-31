@@ -7,7 +7,7 @@ import { Position } from "../types/scenario";
 import { HexType } from "../types/hex";
 import type Hex from "./hex";
 import { FireAnswers, FireContext, calculateFireDice } from "./fireRules";
-import { BASE_DICE_BY_DISTANCE, FIRE_QUESTIONS, fireBonusSteps } from "../data/fireQuestions";
+import { FIRE_QUESTIONS, TARGET_INFANTRY, TARGET_OTHER, baseDiceByDistance, fireBonusSteps } from "../data/fireQuestions";
 import { positionKey, samePosition } from "./position";
 import { checksLineOfSight } from "./unit";
 
@@ -125,7 +125,9 @@ export function fireTargets(
   from: Position,
   firing: FireContext,
   /** Pass and play: the other army's hexes; then only they are targets, and they block the view */
-  enemies?: readonly Position[]
+  enemies?: readonly Position[],
+  /** Pass and play: whether the enemy on a hex is infantry, which changes the dice (infantry at armour) */
+  infantryAt?: (position: Position) => boolean | undefined
 ): FireTarget[] {
   const { context, range, enemyKeys } = aiming(board, from, firing, enemies);
   return board
@@ -134,7 +136,10 @@ export function fireTargets(
     .filter((hex) => !enemies || enemyKeys.has(hex.getKey()))
     .map((hex) => ({ hex, distance: hexDistance(from, hex.getPosition()) }))
     .filter(({ distance }) => distance >= 1 && distance <= range)
-    .map(({ hex, distance }) => ({ ...diceAt(context, hex, distance), lineOfSight: inSight(board, from, context, hex.getPosition(), enemyKeys) }));
+    .map(({ hex, distance }) => ({
+      ...diceAt(context, hex, distance, infantryAt?.(hex.getPosition())),
+      lineOfSight: inSight(board, from, context, hex.getPosition(), enemyKeys),
+    }));
 }
 
 /**
@@ -142,28 +147,39 @@ export function fireTargets(
  * `fireTargets`, but it tries only the enemies' hexes and stops at the first (the battle asks it
  * of every unit, on every change)
  */
-export function hasFireTarget(board: BoardManager, from: Position, firing: FireContext, enemies: readonly Position[]): boolean {
+export function hasFireTarget(
+  board: BoardManager,
+  from: Position,
+  firing: FireContext,
+  enemies: readonly Position[],
+  infantryAt?: (position: Position) => boolean | undefined
+): boolean {
   const { context, range, enemyKeys } = aiming(board, from, firing, enemies);
   return enemies.some((position) => {
     const distance = hexDistance(from, position);
     const hex = board.getHex(position);
     if (!hex || !hex.canEnter() || distance < 1 || distance > range) return false;
-    return diceAt(context, hex, distance).dice > 0 && inSight(board, from, context, position, enemyKeys);
+    return diceAt(context, hex, distance, infantryAt?.(position)).dice > 0 && inSight(board, from, context, position, enemyKeys);
   });
 }
 
 /** What every target of a unit at `from` shares: the context with its hex, its reach, the enemies' hexes */
 function aiming(board: BoardManager, from: Position, firing: FireContext, enemies?: readonly Position[]) {
   const context = { ...firing, fromTerrain: board.getHex(from)?.getType() };
-  const range = context.closeAssaultOnly || context.adjacentEnemy ? 1 : BASE_DICE_BY_DISTANCE[context.unitType].length;
+  // A unit that moved reaches less far (infantry at armour even less: its dice say so)
+  const range = context.closeAssaultOnly || context.adjacentEnemy ? 1 : baseDiceByDistance(context.unitType, { moved: context.moved }).length;
   return { context, range, enemyKeys: new Set((enemies ?? []).map(positionKey)) };
 }
 
-/** The dice at a target on this hex */
-function diceAt(context: FireContext, hex: Hex, distance: number): Omit<FireTarget, "lineOfSight"> {
+/** The dice at a target on this hex; when it's known whether the target is infantry, at that target */
+function diceAt(context: FireContext, hex: Hex, distance: number, infantry?: boolean): Omit<FireTarget, "lineOfSight"> {
   const terrain = hex.getType();
   // The combat card's dice count: it can make a hex worth firing at
-  const answers = { ...mapAnswers({ distance, terrain }), combatCard: "yes" };
+  const answers = {
+    ...mapAnswers({ distance, terrain }),
+    combatCard: "yes",
+    ...(infantry !== undefined && { targetType: infantry ? TARGET_INFANTRY : TARGET_OTHER }),
+  };
   const { dice } = calculateFireDice(FIRE_QUESTIONS, context, answers, fireBonusSteps);
   return { position: hex.getPosition(), distance, terrain, dice };
 }

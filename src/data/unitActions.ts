@@ -92,14 +92,14 @@ export const INFANTRY_ACTIONS: readonly UnitAction[] = [
 export const TANK_ACTIONS: readonly UnitAction[] = [
   tank("firefight", FIREFIGHT_NAME, FIREFIGHT_TEXT, { painting: "firefight", cost: FREE, move: 0, fire: ONE_SHOT }),
   tank("assault", { es: "Asalto", en: "Assault" },
-    { es: "Se mueve hasta 3 casillas y dispara.", en: "Moves up to 3 hexes and fires." },
-    { painting: "infantry-assault", cost: fuel(1), move: 3, fire: ONE_SHOT }),
+    { es: "Se mueve hasta 4 casillas; dispara si se movió 2 o menos.", en: "Moves up to 4 hexes; fires if it moved 2 or fewer." },
+    { painting: "infantry-assault", cost: fuel(1), move: 4, fireMove: 2, fire: ONE_SHOT }),
   tank("armorForward", { es: "Blindados adelante", en: "Armor Forward" },
     {
-      es: "Se mueve hasta 3 casillas sin que el terreno la detenga y dispara, salvo si acaba en una casilla desde la que no se puede disparar.",
-      en: "Moves up to 3 hexes with no terrain stopping it and fires, unless it ends on a hex it can't fire from.",
+      es: "Se mueve hasta 4 casillas sin que el terreno la detenga; dispara si se movió 2 o menos, salvo si acaba en una casilla desde la que no se puede disparar.",
+      en: "Moves up to 4 hexes with no terrain stopping it; fires if it moved 2 or fewer, unless it ends on a hex it can't fire from.",
     },
-    { painting: "armor-forward", cost: fuel(2), move: 3, ignoresTerrain: true, fire: ONE_SHOT }),
+    { painting: "armor-forward", cost: fuel(2), move: 4, fireMove: 2, ignoresTerrain: true, fire: ONE_SHOT }),
   tank("mechanic", { es: "Mecánico", en: "Mechanic" },
     { es: "No se mueve ni dispara: repara la figura más tocada (la que tiene más impactos sin haber caído).", en: "Doesn't move or fire: mends the most damaged figure (hit but not lost)." },
     { painting: "mechanic", cost: FREE, move: 0, fire: null, effect: "mechanic" }),
@@ -174,11 +174,8 @@ export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
       infantryTargetOnly: true, description: SUPPRESSIVE_TEXT },
   ],
   [UnitType.TANK]: [
-    { id: "tank:normal", unitType: UnitType.TANK, name: NORMAL_NAME, painting: "firefight", cost: shell, closeAssaultBonus: { dice: 1, unmoved: true },
-      description: {
-        es: "Dispara como siempre, con 1 dado más en asalto cercano si no se movió.",
-        en: "Fires as usual, with 1 extra die in close assault if it didn't move.",
-      } },
+    { id: "tank:normal", unitType: UnitType.TANK, name: NORMAL_NAME, painting: "firefight", cost: shell,
+      description: { es: "Dispara como siempre.", en: "Fires as usual." } },
   ],
   [UnitType.ARTILLERY]: [
     { id: "artillery:fire", unitType: UnitType.ARTILLERY, name: { es: "Fuego", en: "Fire" }, painting: "spotter", cost: shell,

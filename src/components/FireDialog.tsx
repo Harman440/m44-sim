@@ -22,7 +22,7 @@ import { FireContext } from "../game-core/fireRules";
 import { FireTarget } from "../game-core/fireTargets";
 import BoardManager from "../game-core/BoardManager";
 import { OrderSummary } from "../game-core/turnSummary";
-import { BASE_DICE_BY_DISTANCE } from "../data/fireQuestions";
+import { BASE_DICE, baseDiceByDistance } from "../data/fireQuestions";
 import ShotDice from "./ShotDice";
 import ShotSteps from "./ShotSteps";
 import { UnitType } from "../game-core/unit";
@@ -50,10 +50,10 @@ const TEXT = defineMessages({
       "Anula el último disparo de esta unidad solo si se registró por error. La tirada se borra y la unidad podrá disparar de nuevo.",
     confirmMistake: "Confirmo que fue un error",
     takeGroundInfo:
-      "¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno: se mueve a su casilla y combate otra vez, solo en asalto cercano.",
+      "¿El objetivo se retiró o fue eliminado? La unidad puede tomar terreno: se mueve a su casilla, y ya no dispara más este turno.",
     takeGround: "Tomar terreno",
     freeHex: "¿Casilla libre?",
-    groundTakenInfo: "Ya está en la casilla tomada en el mapa, y combate otra vez desde ahí en asalto cercano.",
+    groundTakenInfo: "Ya está en la casilla tomada en el mapa; no dispara más este turno.",
     undo: "Deshacer",
     groundTaken: "Terreno tomado",
     opponentFires: "Ahora dispara el rival.",
@@ -69,7 +69,7 @@ const TEXT = defineMessages({
     close: "Cerrar",
     title: (unit: string) => `Disparo: ${unit}`,
     closeAssaultOnly: (dice: string) => `Solo asalto cercano: ${dice}`,
-    range: (range: string) => `Alcance: ${range}`,
+    range: (range: string, atArmour?: string) => `Alcance: ${range}${atArmour ? ` (contra blindados o artillería: ${atArmour})` : ""}`,
   },
   en: {
     moreInfo: "More information",
@@ -82,10 +82,10 @@ const TEXT = defineMessages({
       "Cancel this unit's last shot only if it was recorded by mistake. The roll is erased and the unit can fire again.",
     confirmMistake: "I confirm it was a mistake",
     takeGroundInfo:
-      "Did the target retreat or was it eliminated? The unit can take ground: it moves into its hex and battles again, in close assault only.",
+      "Did the target retreat or was it eliminated? The unit can take ground: it moves into its hex, and fires no more this turn.",
     takeGround: "Take ground",
     freeHex: "Hex empty?",
-    groundTakenInfo: "It's already on the hex it took on the map, and battles again from there in close assault.",
+    groundTakenInfo: "It's already on the hex it took on the map; it fires no more this turn.",
     undo: "Undo",
     groundTaken: "Ground taken",
     opponentFires: "Now your opponent fires.",
@@ -101,7 +101,7 @@ const TEXT = defineMessages({
     close: "Close",
     title: (unit: string) => `Fire: ${unit}`,
     closeAssaultOnly: (dice: string) => `Close assault only: ${dice}`,
-    range: (range: string) => `Range: ${range}`,
+    range: (range: string, atArmour?: string) => `Range: ${range}${atArmour ? ` (at armour or artillery: ${atArmour})` : ""}`,
   },
 });
 
@@ -387,7 +387,7 @@ function FireDialog({
               {t.freeHex}
             </ExplainedAction>
           )}
-          {takenGround && canFire && (
+          {takenGround && (
             <ExplainedAction
               info={t.groundTakenInfo}
               action={
@@ -505,7 +505,10 @@ function FireDialog({
     );
   };
 
-  const range = summary.closeAssaultOnly ? [BASE_DICE_BY_DISTANCE[summary.unitType][0]] : BASE_DICE_BY_DISTANCE[summary.unitType];
+  // What it rolls at each distance, having moved or not (infantry rolls less at armour)
+  const reach = baseDiceByDistance(summary.unitType, { moved: !summary.hold });
+  const range = summary.closeAssaultOnly ? [reach[0]] : reach;
+  const atArmour = BASE_DICE[summary.unitType].atArmour?.join(" / ");
   const onMap = aiming && !confirmingUndo;
 
   return (
@@ -526,7 +529,7 @@ function FireDialog({
             <Typography component="span" variant="body2" color="text.secondary">
               {summary.closeAssaultOnly
                 ? t.closeAssaultOnly(diceText(range[0] ?? 0))
-                : t.range(range.join(" / "))}
+                : t.range(range.join(" / "), atArmour)}
             </Typography>
           </Stack>
         </Stack>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import BoardManager from "./BoardManager";
 import { VISION, VISION_FROM_HILL, inSight, seenHexes } from "./fogOfWar";
-import { BASE_DICE_BY_DISTANCE } from "../data/fireQuestions";
+import { maxRange } from "../data/fireQuestions";
 import { UnitType } from "./unit";
 import { newDraft } from "./scenarioDraft";
 import { HexType } from "../types/hex";
@@ -39,7 +39,7 @@ describe("fog of war", () => {
 
   it("sees every unit that can fire at one of its own, artillery aside", () => {
     for (const unitType of Object.values(UnitType).filter((type) => type !== UnitType.ARTILLERY)) {
-      expect(BASE_DICE_BY_DISTANCE[unitType].length).toBeLessThanOrEqual(VISION);
+      expect(maxRange(unitType)).toBeLessThanOrEqual(VISION);
     }
   });
 

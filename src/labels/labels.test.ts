@@ -24,7 +24,7 @@ describe("Spanish descriptions", () => {
   it.each([
     ["infantry:assault", "Mueve hasta 2 casillas; puede disparar si mueve hasta 2 casillas"],
     ["infantry:moveOut", "Mueve hasta 2 casillas; puede disparar si mueve hasta 1 casilla"],
-    ["tank:assault", "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
+    ["tank:assault", "Mueve hasta 4 casillas; puede disparar si mueve hasta 2 casillas"],
     ["artillery:reposition", "Mueve hasta 2 casillas; no puede disparar"],
     ["artillery:firefight", "No se mueve; dispara"],
     ["infantry:reload", "No se mueve ni dispara"],

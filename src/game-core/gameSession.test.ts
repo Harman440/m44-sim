@@ -569,7 +569,7 @@ describe("GameSession firing", () => {
   it("records a 0-dice shot without rolling: the unit has used its fire", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "3", lineOfSight: "yes", targetType: "infantry", targetTerrain: "town", sandbags: "no", camouflage: "no" })).toBe(true);
+    expect(session.fire(0, { distance: "4", lineOfSight: "yes", targetType: "infantry", targetTerrain: "town", sandbags: "no", camouflage: "no" })).toBe(true);
 
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [] });
     expect(session.shotsLeft(0)).toBe(0);
@@ -1590,10 +1590,11 @@ describe("GameSession firing at a hex on the map", () => {
   it("lists the hexes the unit can fire at, with their dice", () => {
     const session = tankBattle();
 
-    // Close assault 3, −2 for armour firing into a forest, +1 for armour's normal fire when it held
+    // Close assault 4 when it held, −2 for armour firing into a forest
     expect(target(session, { row: 4, col: 7 })).toMatchObject({ distance: 1, terrain: HexType.FOREST, dice: 2 });
     expect(target(session, { row: 4, col: 3 })).toMatchObject({ distance: 3, terrain: HexType.PLAINS, dice: 3 });
-    expect(target(session, { row: 4, col: 2 })).toBeUndefined(); // out of range
+    expect(target(session, { row: 4, col: 2 })).toMatchObject({ distance: 4, terrain: HexType.PLAINS, dice: 2 });
+    expect(target(session, { row: 4, col: 1 })).toBeUndefined(); // out of range
     expect(target(session, TANK)).toBeUndefined();
   });
 
@@ -1610,7 +1611,7 @@ describe("GameSession firing at a hex on the map", () => {
   it("won't fire at a hex out of range, out of sight, with a unit of its own or with no dice", () => {
     const session = tankBattle();
 
-    expect(session.fireAt(0, { position: { row: 4, col: 2 }, infantry: true, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 1 }, infantry: true, sandbags: false })).toBe(false);
     expect(session.fireAt(0, { position: { row: 4, col: 9 }, infantry: true, sandbags: false })).toBe(false); // behind the forest
     expect(session.fireAt(0, { position: LEFT_INF, infantry: true, sandbags: false })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
@@ -1636,23 +1637,17 @@ describe("GameSession taking ground", () => {
   };
   const FOREST: Position = { row: 4, col: 7 };
 
-  it("lets armour take ground after a close assault and fire once more, adjacent to the hex it took", () => {
+  it("lets armour take ground after a close assault, and then it fires no more this turn", () => {
     const session = tankBattle();
     expect(session.canTakeGround(0)).toBe(false); // hasn't fired
     session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
 
     expect(session.takeGround(0)).toBe(true);
 
-    expect(session.shotsLeft(0)).toBe(1);
-    const targets = session.fireTargetsFor(0);
-    expect(targets.every((t) => t.distance === 1)).toBe(true);
-    expect(targets.some((t) => samePosition(t.position, { row: 4, col: 8 }))).toBe(true); // next to the forest
-    expect(session.fireAt(0, { position: { row: 4, col: 3 }, infantry: false, sandbags: false })).toBe(false);
-    expect(shoot(session, 0, AT_INFANTRY)).toBe(false); // not in close assault
-    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false, sandbags: false })).toBe(true);
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false, sandbags: false })).toBe(false);
     // Once per turn
     expect(session.canTakeGround(0)).toBe(false);
-    expect(session.shotsLeft(0)).toBe(0);
   });
 
   it("only when the roll could have pushed back or eliminated the target (a flag or a hit)", () => {
@@ -1686,7 +1681,7 @@ describe("GameSession taking ground", () => {
     expect(session.takeGround(0)).toBe(false);
   });
 
-  it("takes it back while the extra shot hasn't been fired", () => {
+  it("takes it back", () => {
     const session = tankBattle();
     session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
     session.takeGround(0);
@@ -1704,7 +1699,8 @@ describe("GameSession taking ground", () => {
 
     const restored = reload(session);
 
-    expect(restored.shotsLeft(0)).toBe(1);
+    expect(restored.shotsLeft(0)).toBe(0);
+    expect(restored.board.getHex(FOREST)!.hasUnit()).toBe(true);
     expect(restored.getSnapshot().shots[0]).toMatchObject({ tookGround: true, targetPosition: FOREST });
   });
 

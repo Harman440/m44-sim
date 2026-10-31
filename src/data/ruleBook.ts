@@ -12,8 +12,9 @@ import { LUCK_LIMIT, LUCK_PER_POINT } from "./luck";
 import { UnitType } from "../game-core/unit";
 import { VISION, VISION_FROM_HILL } from "../game-core/fogOfWar";
 import { TERRAIN } from "./terrain";
-import { FORD_FIRE_DICE } from "./fireQuestions";
+import { BASE_DICE, FORD_FIRE_DICE } from "./fireQuestions";
 import { HexType } from "../types/hex";
+
 import {
   DEFENDER_SHORTFALL,
   ELITE_FULL_SUPPLIES,
@@ -24,6 +25,9 @@ import {
   RESTING_ENERGY_PER_TURN,
   Supply,
 } from "./unitSupplies";
+
+/** Dice by distance as the rule book writes them: 3-2-2-1 */
+const dashed = (dice: readonly number[]) => dice.join("-");
 
 const infantry = FIGURES[UnitType.INFANTRY];
 const armor = FIGURES[UnitType.TANK];
@@ -322,8 +326,19 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
           en: "Infantry that wins a close assault may advance into the hex the enemy leaves. Armor may advance and battle again (overrun), at range too.",
         },
         house: {
-          es: "Solo los blindados toman terreno; la infantería nunca arrolla. Si el objetivo se retira o es eliminado (una sola bandera solo lo inmoviliza), el blindado ocupa su casilla y combate otra vez, solo en asalto cercano. Una vez por unidad y turno.",
-          en: "Only armor takes ground; infantry never overruns. If the target retreats or is eliminated (a single flag only pins it), the armor moves into its hex and battles again, in close assault only. Once per unit per turn.",
+          es: "Solo los blindados toman terreno; la infantería nunca arrolla. Si el objetivo se retira o es eliminado (una sola bandera solo lo inmoviliza), el blindado ocupa su casilla, y ya no dispara más ese turno. Una vez por unidad y turno. En pasar y jugar la infantería puede hacer retroceder a la unidad que se retira y ocupar su casilla, y tampoco dispara más. Una unidad que se retira no dispara más ese turno.",
+          en: "Only armor takes ground; infantry never overruns. If the target retreats or is eliminated (a single flag only pins it), the armor moves into its hex, and fires no more that turn. Once per unit per turn. In pass and play infantry may push back the unit that retreats and take its hex, and it fires no more either. A unit that retreats fires no more that turn.",
+        },
+      },
+      {
+        title: { es: "Alcance y dados", en: "Range and dice" },
+        official: {
+          es: "Infantería 3-2-1, blindados 3-3-3, artillería 3-3-2-2-1-1, se muevan o no.",
+          en: "Infantry 3-2-1, armor 3-3-3, artillery 3-3-2-2-1-1, whether they moved or not.",
+        },
+        house: {
+          es: `Los dados por distancia (adyacente primero) dependen de si la unidad se movió en su orden. La infantería que no se movió tira ${dashed(BASE_DICE[UnitType.INFANTRY].unmoved)}, y la que se movió ${dashed(BASE_DICE[UnitType.INFANTRY].moved)}; contra blindados o artillería, ${dashed(BASE_DICE[UnitType.INFANTRY].atArmour!)} siempre. Los blindados que no se movieron tiran ${dashed(BASE_DICE[UnitType.TANK].unmoved)}, y los que se movieron ${dashed(BASE_DICE[UnitType.TANK].moved)}; ya no tienen el dado más en asalto cercano. La artillería tira ${dashed(BASE_DICE[UnitType.ARTILLERY].unmoved)}. Los blindados se mueven hasta 4 casillas con Asalto o Blindados adelante, pero solo disparan si se movieron 2 o menos.`,
+          en: `The dice by distance (adjacent first) depend on whether the unit moved with its order. Infantry that didn't move rolls ${dashed(BASE_DICE[UnitType.INFANTRY].unmoved)}, and infantry that moved ${dashed(BASE_DICE[UnitType.INFANTRY].moved)}; at armor or artillery, ${dashed(BASE_DICE[UnitType.INFANTRY].atArmour!)} always. Armor that didn't move rolls ${dashed(BASE_DICE[UnitType.TANK].unmoved)}, and armor that moved ${dashed(BASE_DICE[UnitType.TANK].moved)}; it no longer has the extra die in close assault. Artillery rolls ${dashed(BASE_DICE[UnitType.ARTILLERY].unmoved)}. Armor moves up to 4 hexes with Assault or Armor Forward, but only fires if it moved 2 or fewer.`,
         },
       },
     ],
@@ -455,8 +470,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Disparar", en: "Firing" },
         house: {
-          es: `Cada disparo gasta 1 munición (infantería) o 1 proyectil (tanques y artillería), y una unidad que se queda sin ellos ya no dispara. Al disparar se elige cómo: la infantería, disparo normal, explosivos (solo en asalto cercano: 1 dado más, y gasta los explosivos) o fuego de supresión (solo contra infantería); los tanques, disparo normal (con 1 dado más en asalto cercano si no se movieron); la artillería, fuego. El fuego de supresión, solo de infantería contra infantería, nunca contra tanques ni artillería, tira el dado de supresión: el de batalla con 1 infantería, 1 granada, 3 banderas y 1 suministro, o el de 8 caras con 2 infantería, 4 banderas y 2 suministros. Recargar devuelve ${reloadAmmo} de munición o ${reloadShells} proyectiles en cuanto se confirman las órdenes, y la unidad no dispara ese turno.`,
-          en: `Each shot uses 1 ammo (infantry) or 1 shell (tanks and artillery), and a unit that runs out can't fire any more. Each shot picks how it fires: infantry, normal fire, explosives (close assault only: 1 extra die, and it uses up the explosives) or suppressive fire (only at infantry); tanks, normal fire (with 1 extra die in close assault if they didn't move); artillery, fire. Suppressive fire, only infantry at infantry and never at tanks or artillery, rolls the suppressive die: the battle die with 1 infantry, 1 grenade, 3 flags and 1 supply, or the 8-sided one with 2 infantry, 4 flags and 2 supplies. Reload gives back ${reloadAmmo} ammo or ${reloadShells} shells as soon as the orders are confirmed, and the unit doesn't fire that turn.`,
+          es: `Cada disparo gasta 1 munición (infantería) o 1 proyectil (tanques y artillería), y una unidad que se queda sin ellos ya no dispara. Al disparar se elige cómo: la infantería, disparo normal, explosivos (solo en asalto cercano: 1 dado más, y gasta los explosivos) o fuego de supresión (solo contra infantería); los tanques, disparo normal; la artillería, fuego. El fuego de supresión, solo de infantería contra infantería, nunca contra tanques ni artillería, tira el dado de supresión: el de batalla con 1 infantería, 1 granada, 3 banderas y 1 suministro, o el de 8 caras con 2 infantería, 4 banderas y 2 suministros. Recargar devuelve ${reloadAmmo} de munición o ${reloadShells} proyectiles en cuanto se confirman las órdenes, y la unidad no dispara ese turno.`,
+          en: `Each shot uses 1 ammo (infantry) or 1 shell (tanks and artillery), and a unit that runs out can't fire any more. Each shot picks how it fires: infantry, normal fire, explosives (close assault only: 1 extra die, and it uses up the explosives) or suppressive fire (only at infantry); tanks, normal fire; artillery, fire. Suppressive fire, only infantry at infantry and never at tanks or artillery, rolls the suppressive die: the battle die with 1 infantry, 1 grenade, 3 flags and 1 supply, or the 8-sided one with 2 infantry, 4 flags and 2 supplies. Reload gives back ${reloadAmmo} ammo or ${reloadShells} shells as soon as the orders are confirmed, and the unit doesn't fire that turn.`,
         },
       },
       {
@@ -594,8 +609,8 @@ export const HOUSE_RULES: readonly HouseRuleGroup[] = [
       {
         title: { es: "Niebla de guerra", en: "Fog of war" },
         house: {
-          es: `En pasar y jugar y contra el ordenador, con «Niebla de guerra» en Ajustes (encendida si no la apagas). Contra el ordenador: al principio de la partida se ven los dos ejércitos. Cuando las unidades han movido y empieza la batalla, solo ves las unidades enemigas a ${VISION} casillas o menos de una de las tuyas y en su línea de visión (los bosques, pueblos, colinas y otras unidades la tapan); una unidad tuya en una colina ve a ${VISION_FROM_HILL}. Lo que ves cambia durante la batalla, al retirarse o caer unidades, y lo que veías al terminarla es lo que sabes al dar las órdenes del turno siguiente: las unidades que salen de la vista desaparecen del mapa. Las casillas que no ves quedan a oscuras. Solo puedes disparar a lo que ves; una artillería con orden de disparar se ve desde que empieza la batalla, y una unidad oculta que dispara se ve el resto del turno. Las demás unidades que pueden dispararte siempre están a la vista: su alcance es menor que la vista. Un bombardeo o un ataque aéreo alcanza lo que haya en sus casillas, se vea o no. El ordenador juega con la misma niebla. Entre dos jugadores la niebla solo cuenta en la batalla, en la pantalla que compartís: una casilla queda a oscuras salvo que la vean los dos bandos, y cada unidad se ve solo si su enemigo la ve.`,
-          en: `In pass and play and against the computer, with "Fog of war" in Settings (on unless you switch it off). Against the computer: at the start of the game both armies are known. Once the units have moved and the battle starts, you only see the enemy units ${VISION} hexes or less from one of yours and in its line of sight (forests, towns, hills and other units block it); a unit of yours on a hill sees ${VISION_FROM_HILL}. What you see changes during the battle as units retreat or fall, and what you saw when it ended is what you know while giving the next turn's orders: units that go out of sight disappear from the map. The hexes you don't see are darkened. You can only fire at what you see; artillery ordered to fire is seen from the start of the battle, and a hidden unit that fires is seen for the rest of the turn. The other units that can fire at you are always in sight: their range is shorter than the sight. A barrage or an air attack hits whatever is on its hexes, seen or not. The computer plays under the same fog. Between two players the fog only counts in the battle, on the screen you share: a hex is darkened unless both sides see it, and each unit is seen only when its enemy sees it.`,
+          es: `En pasar y jugar y contra el ordenador, con «Niebla de guerra» en Ajustes (encendida si no la apagas). Contra el ordenador: al principio de la partida se ven los dos ejércitos. Cuando las unidades han movido y empieza la batalla, solo ves las unidades enemigas a ${VISION} casillas o menos de una de las tuyas y en su línea de visión (los bosques, pueblos, colinas y otras unidades la tapan); una unidad tuya en una colina ve a ${VISION_FROM_HILL}. Lo que ves cambia durante la batalla, al retirarse o caer unidades, y lo que veías al terminarla es lo que sabes al dar las órdenes del turno siguiente: las unidades que salen de la vista desaparecen del mapa. Las casillas que no ves quedan a oscuras. Solo puedes disparar a lo que ves; una artillería con orden de disparar se ve desde que empieza la batalla, y una unidad oculta que dispara se ve el resto del turno. Las demás unidades que pueden dispararte siempre están a la vista: su alcance no pasa de la vista. Un bombardeo o un ataque aéreo alcanza lo que haya en sus casillas, se vea o no. El ordenador juega con la misma niebla. Entre dos jugadores la niebla solo cuenta en la batalla, en la pantalla que compartís: una casilla queda a oscuras salvo que la vean los dos bandos, y cada unidad se ve solo si su enemigo la ve.`,
+          en: `In pass and play and against the computer, with "Fog of war" in Settings (on unless you switch it off). Against the computer: at the start of the game both armies are known. Once the units have moved and the battle starts, you only see the enemy units ${VISION} hexes or less from one of yours and in its line of sight (forests, towns, hills and other units block it); a unit of yours on a hill sees ${VISION_FROM_HILL}. What you see changes during the battle as units retreat or fall, and what you saw when it ended is what you know while giving the next turn's orders: units that go out of sight disappear from the map. The hexes you don't see are darkened. You can only fire at what you see; artillery ordered to fire is seen from the start of the battle, and a hidden unit that fires is seen for the rest of the turn. The other units that can fire at you are always in sight: their range is no longer than the sight. A barrage or an air attack hits whatever is on its hexes, seen or not. The computer plays under the same fog. Between two players the fog only counts in the battle, on the screen you share: a hex is darkened unless both sides see it, and each unit is seen only when its enemy sees it.`,
         },
       },
       {
