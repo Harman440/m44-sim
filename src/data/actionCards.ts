@@ -85,14 +85,14 @@ export const ACTION_CARDS: readonly ActionCard[] = [
     id: "air-power",
     name: { es: "Poder aéreo", en: "Air Power" },
     description: {
-      es: "Marca 4 casillas adyacentes, en cadena, que no estén junto a tus unidades: 2 dados de supresión (más banderas, menos impactos) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
-      en: "Mark 4 adjacent hexes, in a chain, that aren't next to your units: 2 suppressive dice (more flags, fewer hits) against each enemy unit on them. Retreats can't be ignored.",
+      es: "Marca 4 casillas adyacentes, en cadena, que no estén junto a tus unidades: 2 dados aéreos (3 banderas, 2 infantería y 1 tanque) contra cada unidad enemiga que haya en ellas. Las retiradas no se pueden ignorar.",
+      en: "Mark 4 adjacent hexes, in a chain, that aren't next to your units: 2 air dice (3 flags, 2 infantry and 1 tank) against each enemy unit on them. Retreats can't be ignored.",
     },
     painting: "air-power",
     cost: 7,
     needs: "air",
     marker: { kind: "target", count: 4, chain: true, awayFromOwnUnits: true },
-    effect: { kind: "attack", dicePerHex: 2, die: "suppressive" },
+    effect: { kind: "attack", dicePerHex: 2, die: "air" },
   },
 ];
 

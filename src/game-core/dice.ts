@@ -45,7 +45,7 @@ export const LONG_RANGE_DIE_SIDES: readonly DieFace[] = [
 ];
 
 /**
- * The die of the attack combat cards (Barrage, Air Power, Air Bombardment):
+ * The die of the attack combat cards (Barrage, Air Bombardment; Air Power has its own, `AIR_DIE_SIDES`):
  * the battle die with a second grenade for the supply, since the supply hit
  * on these cards. Infantry is hit 4/6, any other unit 3/6.
  */
@@ -80,9 +80,22 @@ export const LONG_RANGE_SUPPRESSIVE_DIE_SIDES: readonly DieFace[] = [
   DieFace.SUPPLY,
 ];
 
+/**
+ * The Air Power card's die, a colour of its own: 3 flags, 2 infantry and 1 tank. Ground attack
+ * from the air pinned troops down more than it destroyed them, and no grenade or supply
+ */
+export const AIR_DIE_SIDES: readonly DieFace[] = [
+  DieFace.FLAG,
+  DieFace.FLAG,
+  DieFace.FLAG,
+  DieFace.INFANTRY,
+  DieFace.INFANTRY,
+  DieFace.TANK,
+];
+
 /** Which die a roll uses */
-export type DieKind = "battle" | "longRange" | "attack" | "suppressive" | "longRangeSuppressive";
-export const DIE_KINDS: readonly DieKind[] = ["battle", "longRange", "attack", "suppressive", "longRangeSuppressive"];
+export type DieKind = "battle" | "longRange" | "attack" | "suppressive" | "longRangeSuppressive" | "air";
+export const DIE_KINDS: readonly DieKind[] = ["battle", "longRange", "attack", "suppressive", "longRangeSuppressive", "air"];
 
 export const SIDES_OF: Record<DieKind, readonly DieFace[]> = {
   battle: DIE_SIDES,
@@ -90,6 +103,7 @@ export const SIDES_OF: Record<DieKind, readonly DieFace[]> = {
   attack: ATTACK_DIE_SIDES,
   suppressive: SUPPRESSIVE_DIE_SIDES,
   longRangeSuppressive: LONG_RANGE_SUPPRESSIVE_DIE_SIDES,
+  air: AIR_DIE_SIDES,
 };
 
 /** The 8-sided dice (an octahedron in 3D) */

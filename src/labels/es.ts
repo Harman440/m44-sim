@@ -43,6 +43,7 @@ const DIE_NOTES: Record<DieKind, string> = {
   attack: " · dado de ataque",
   suppressive: " · dado de supresión",
   longRangeSuppressive: " · dado de 8 caras de supresión",
+  air: " · dado aéreo",
 };
 
 const SUPPLY_NAMES: Labels["supplies"] = {

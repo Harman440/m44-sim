@@ -238,6 +238,6 @@ describe("the action's and the fire option's dice", () => {
   });
 
   it("keeps a step that changes the die thrown, though it adds no dice", () => {
-    expect(steps({ fireOption: fireOptionById("tank:suppressive")! }).at(-1)).toMatchObject({ kind: "fireOption", dice: 0, die: "suppressive" });
+    expect(steps({ fireOption: fireOptionById("infantry:suppressive")! }).at(-1)).toMatchObject({ kind: "fireOption", dice: 0, die: "suppressive" });
   });
 });

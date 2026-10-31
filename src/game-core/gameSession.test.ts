@@ -13,7 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
-import { SUPPRESSIVE_DIE_SIDES } from "./dice";
+import { AIR_DIE_SIDES } from "./dice";
 import { same } from "../i18n/lang";
 import { Faction } from "../types/faction";
 import { Supply } from "../data/unitSupplies";
@@ -1313,7 +1313,7 @@ describe("GameSession attack cards", () => {
     return session;
   };
 
-  it("rolls Air Power on the suppressive die, 2 dice on each of its 4 hexes", () => {
+  it("rolls Air Power on the air die, 2 dice on each of its 4 hexes", () => {
     const session = turnTwo();
     session.pickCard(card("air-power"));
     expect(session.markHex(FAR)).toBe(true);
@@ -1322,11 +1322,11 @@ describe("GameSession attack cards", () => {
 
     const marks = session.getSnapshot().attackMarks;
     expect(marks).toHaveLength(4);
-    expect(marks.every((mark) => mark.die === "suppressive" && mark.dicePerHex === 2)).toBe(true);
+    expect(marks.every((mark) => mark.die === "air" && mark.dicePerHex === 2)).toBe(true);
     expect(session.attackHex(0, true)).toBe(true);
     const [attack] = session.getSnapshot().cardAttacks;
-    expect(attack).toMatchObject({ dice: 2, target: { infantry: true, die: "suppressive" } });
-    expect(attack!.faces.every((face) => SUPPRESSIVE_DIE_SIDES.includes(face))).toBe(true);
+    expect(attack).toMatchObject({ dice: 2, target: { infantry: true, die: "air" } });
+    expect(attack!.faces.every((face) => AIR_DIE_SIDES.includes(face))).toBe(true);
   });
 
   it("keeps your units off the marked hexes and next to them for Barrage and Air Bombardment", () => {
@@ -2286,6 +2286,24 @@ describe("GameSession camouflage", () => {
 
     expect(session.aimAt(left, { row: 5, col: 1 })).toBeNull();
     expect(session.aimAt(left, { row: 6, col: 1 })).not.toBeNull();
+  });
+
+  it("in pass and play Suppressive Fire only aims at infantry, never at tanks or artillery", () => {
+    const session = defenderTurn();
+    session.pickCard(null);
+    session.setEnemyView(() => [
+      { position: { row: 6, col: 1 }, unitType: UnitType.TANK, sandbags: false, camouflaged: false },
+      { position: { row: 6, col: 2 }, unitType: UnitType.INFANTRY, sandbags: false, camouflaged: false },
+    ]);
+    orderAllAndFight(session);
+    const left = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
+
+    expect(session.aimAt(left, { row: 6, col: 1 })).not.toBeNull();
+    expect(session.aimAt(left, { row: 6, col: 1 }, "infantry:suppressive")).toBeNull();
+    expect(session.aimAt(left, { row: 6, col: 2 }, "infantry:suppressive")).not.toBeNull();
+    const targets = session.fireTargetsFor(left, "infantry:suppressive").map((target) => target.position);
+    expect(targets).not.toContainEqual({ row: 6, col: 1 });
+    expect(targets).toContainEqual({ row: 6, col: 2 });
   });
 
   it("asks whether the target is camouflaged only when the enemy has infantry", () => {

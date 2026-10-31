@@ -156,8 +156,8 @@ const NORMAL_NAME: Localized = { es: "Disparo normal", en: "Normal fire" };
 const SUPPRESSIVE_NAME: Localized = { es: "Fuego de supresión", en: "Suppressive Fire" };
 /* Short: what it spends is on the option itself as icons, and the rule book has each die's faces */
 const SUPPRESSIVE_TEXT: Localized = {
-  es: "Tira el dado de supresión: más banderas y menos impactos.",
-  en: "Rolls the suppressive die: more flags, fewer hits.",
+  es: "Solo contra infantería: tira el dado de supresión, con más banderas y menos impactos.",
+  en: "Only at infantry: rolls the suppressive die, with more flags and fewer hits.",
 };
 
 export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
@@ -171,7 +171,7 @@ export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
         en: "Close assault only: 1 extra die.",
       } },
     { id: "infantry:suppressive", unitType: UnitType.INFANTRY, name: SUPPRESSIVE_NAME, painting: "heat-of-battle", cost: ammo, die: "suppressive",
-      description: SUPPRESSIVE_TEXT },
+      infantryTargetOnly: true, description: SUPPRESSIVE_TEXT },
   ],
   [UnitType.TANK]: [
     { id: "tank:normal", unitType: UnitType.TANK, name: NORMAL_NAME, painting: "firefight", cost: shell, closeAssaultBonus: { dice: 1, unmoved: true },
@@ -179,8 +179,6 @@ export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
         es: "Dispara como siempre, con 1 dado más en asalto cercano si no se movió.",
         en: "Fires as usual, with 1 extra die in close assault if it didn't move.",
       } },
-    { id: "tank:suppressive", unitType: UnitType.TANK, name: SUPPRESSIVE_NAME, painting: "heat-of-battle", cost: shell, die: "suppressive",
-      description: SUPPRESSIVE_TEXT },
   ],
   [UnitType.ARTILLERY]: [
     { id: "artillery:fire", unitType: UnitType.ARTILLERY, name: { es: "Fuego", en: "Fire" }, painting: "spotter", cost: shell,

@@ -87,9 +87,10 @@ export const targetAnswer = (answer: string | undefined): boolean | null =>
 export const targetTypeQuestion: FireQuestion = {
   id: "targetType",
   text: { es: "¿El objetivo es infantería?", en: "Is the target infantry?" },
-  options: () => [
+  // Suppressive Fire only fires at infantry
+  options: ({ fireOption }) => [
     { value: TARGET_INFANTRY, label: byLang((lang) => LABELS[lang].target(true)) },
-    { value: TARGET_OTHER, label: byLang((lang) => LABELS[lang].target(false)) },
+    ...(fireOption?.infantryTargetOnly ? [] : [{ value: TARGET_OTHER, label: byLang((lang) => LABELS[lang].target(false)) }]),
   ],
   effect: () => null,
 };

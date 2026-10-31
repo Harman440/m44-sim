@@ -26,8 +26,8 @@ const TEXT = defineMessages({
     empty: "Vacía",
     explanation: (dice: string, note: string) =>
       `Se tiran ${dice} de ataque: llevan una granada donde el dado normal tiene el suministro. ${note}`,
-    suppressiveExplanation: (dice: string, note: string) =>
-      `Se tiran ${dice} de supresión: 1 infantería, 1 granada, 3 banderas y 1 suministro. ${note}`,
+    airExplanation: (dice: string, note: string) =>
+      `Se tiran ${dice} aéreos, de otro color: 3 banderas, 2 infantería y 1 tanque. ${note}`,
     undo: "Anular",
     undoWarning: "Anula esta tirada solo si se registró por error.",
     undoRoll: "Anular tirada",
@@ -43,8 +43,8 @@ const TEXT = defineMessages({
     empty: "Empty",
     explanation: (dice: string, note: string) =>
       `You roll ${dice} with the attack die: it has a second grenade where the battle die has the supply. ${note}`,
-    suppressiveExplanation: (dice: string, note: string) =>
-      `You roll ${dice} with the suppressive die: 1 infantry, 1 grenade, 3 flags and 1 supply. ${note}`,
+    airExplanation: (dice: string, note: string) =>
+      `You roll ${dice} with the air die, a colour of its own: 3 flags, 2 infantry and 1 tank. ${note}`,
     undo: "Cancel",
     undoWarning: "Cancel this roll only if it was recorded by mistake.",
     undoRoll: "Cancel roll",
@@ -59,7 +59,7 @@ interface CardAttackDialogProps {
   hex: { index: number; place: string } | null;
   cardName: string;
   dicePerHex: number;
-  /** The die the card rolls: the attack die, or the suppressive die (Air Power) */
+  /** The die the card rolls: the attack die, or the air die (Air Power) */
   die: DieKind;
   /** The roll already made on this hex */
   attack: CardAttack | null;
@@ -76,7 +76,7 @@ interface CardAttackDialogProps {
  * An attack combat card's roll on one marked hex (Barrage, Air Power, Air
  * Bombardment): the player says what enemy unit, if any, is on it at the
  * table, and the app rolls the card's die (the attack die, a grenade where the
- * battle die has a supply, or Air Power's suppressive die); retreats can't be ignored.
+ * battle die has a supply, or Air Power's air die); retreats can't be ignored.
  */
 function CardAttackDialog({ hex, cardName, dicePerHex, die, attack, faction, targetKinds, onAttack, onUndo, onClose }: CardAttackDialogProps) {
   const [target, setTarget] = useState<TargetChoice | null>(null);
@@ -134,7 +134,7 @@ function CardAttackDialog({ hex, cardName, dicePerHex, die, attack, faction, tar
             </Typography>
             <TargetKindPicker kinds={targetKinds} value={target} onChange={setTarget} enemy={enemy} emptyLabel={t.empty} />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              {(die === "suppressive" ? t.suppressiveExplanation : t.explanation)(dice, tr(CARD_ATTACK_NOTE))}
+              {(die === "air" ? t.airExplanation : t.explanation)(dice, tr(CARD_ATTACK_NOTE))}
             </Typography>
           </>
         )}

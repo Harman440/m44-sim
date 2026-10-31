@@ -78,4 +78,6 @@ export interface FireOption {
   readonly closeAssaultBonus?: { dice: number; unmoved?: boolean };
   /** Rolls the suppressive die: `suppressed()` of the die the shot would roll */
   readonly die?: Extract<DieKind, "suppressive">;
+  /** Only at an infantry target (Suppressive Fire: never at tanks or artillery) */
+  readonly infantryTargetOnly?: boolean;
 }

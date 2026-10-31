@@ -15,8 +15,8 @@ import { airSortiesOf, hasBigGuns } from "../data/scenarioRules";
 export interface AttackEffect {
   kind: "attack";
   dicePerHex: number;
-  /** The die rolled: the attack die (a grenade for the supply) unless it says the suppressive die (Air Power) */
-  die?: Extract<DieKind, "suppressive">;
+  /** The die rolled: the attack die (a grenade for the supply) unless it says the air die (Air Power) */
+  die?: Extract<DieKind, "air">;
 }
 
 /** Which hexes a card makes the player mark on the orders map. The rules are in markerRules.ts. */

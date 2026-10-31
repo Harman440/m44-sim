@@ -289,10 +289,13 @@ describe("FireDialog", () => {
     expect(session.getSnapshot().shots[0]).toMatchObject({ option: "infantry:explosives", dice: 4 });
   });
 
-  it("rolls the suppressive die with Suppressive Fire", () => {
+  it("rolls the suppressive die with Suppressive Fire, only at infantry: it doesn't ask the target", () => {
     const session = open(UnitType.INFANTRY);
     choose(/^Fuego de supresión/);
-    fireAt(ADJACENT, "Infantería", "3 dados");
+    tapHex(ADJACENT);
+    expect(screen.queryByRole("button", { name: /Blindados o artillería/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
+    choose("Disparar");
     expect(session.getSnapshot().shots[0]!.target.die).toBe("suppressive");
     expect(screen.getByTestId("shot-steps")).toHaveTextContent("Fuego de supresión");
   });

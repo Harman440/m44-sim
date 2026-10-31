@@ -8,7 +8,7 @@ import { turnedRound } from "./BoardManager";
 import { STANDARD_BOARD } from "./boardSize";
 import { samePosition } from "./position";
 import { Equipment, Supply } from "../data/unitSupplies";
-import { TARGET_INFANTRY } from "../data/fireQuestions";
+import { TARGET_INFANTRY, TARGET_OTHER, targetTypeQuestion } from "../data/fireQuestions";
 import { FireAnswers } from "./fireRules";
 import { HexType } from "../types/hex";
 import { TurnPhase } from "../types/gameManager";
@@ -157,6 +157,19 @@ describe("GameSession firing with ammo and shells", () => {
     const longRange = holding("infantry:firefight", INF, { longRangeDie: true });
     expect(longRange.fire(0, at(2), "infantry:suppressive")).toBe(true);
     expect(lastShot(longRange).target.die).toBe("longRangeSuppressive");
+  });
+
+  it("fires Suppressive Fire only at infantry, and only infantry has it", () => {
+    const session = holding("infantry:firefight", INF);
+    expect(session.fire(0, { ...at(1), targetType: TARGET_OTHER }, "infantry:suppressive")).toBe(false);
+    expect(session.getSnapshot().shots).toEqual([]);
+    // The questionnaire only offers infantry as its target
+    const context = session.fireContextOf(0, "infantry:suppressive")!;
+    expect(targetTypeQuestion.options(context).map((option) => option.value)).toEqual([TARGET_INFANTRY]);
+
+    const tank = holding("tank:firefight", TANK);
+    expect(tank.fireOptions(0).map(({ option }) => option.id)).toEqual(["tank:normal"]);
+    expect(tank.fire(0, at(1), "tank:suppressive")).toBe(false);
   });
 
   it("gives armour's normal fire 1 die more in close assault only when it didn't move", () => {

@@ -334,7 +334,7 @@ export interface AttackMark {
   position: Position;
   card: ActionCard;
   dicePerHex: number;
-  /** The die it rolls: the attack die, or the suppressive die (Air Power) */
+  /** The die it rolls: the attack die, or the air die (Air Power) */
   die: DieKind;
 }
 
@@ -1392,7 +1392,7 @@ class GameSession {
   }
 
   /**
-   * Roll the attack card on a marked hex, on its die (the attack die, or Air Power's suppressive one): `infantry`
+   * Roll the attack card on a marked hex, on its die (the attack die, or Air Power's air die): `infantry`
    * says whether the enemy unit on it is infantry, or null when the hex was
    * empty (nothing to roll).
    */
@@ -1498,8 +1498,11 @@ class GameSession {
     const option = this.fireOptionFor(orderIndex, optionId);
     const context = option && this.fireContextFor(orderIndex, option);
     if (this.phase !== TurnPhase.BATTLE || !context) return [];
-    const enemies = this.seenEnemies()?.map((enemy) => enemy.position);
-    return fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, enemies);
+    const seen = this.seenEnemies();
+    const targets = fireTargets(this.board, this.summaries()[orderIndex]!.firingFrom, context, seen?.map((enemy) => enemy.position));
+    // Pass and play knows each enemy's type: Suppressive Fire only aims at infantry
+    if (!seen || !option.infantryTargetOnly) return targets;
+    return targets.filter((target) => seen.some((enemy) => samePosition(enemy.position, target.position) && enemy.unitType === UnitType.INFANTRY));
   }
 
   /**
@@ -1580,6 +1583,8 @@ class GameSession {
     const enemy = this.enemyAt(position);
     if (enemy) {
       infantry = enemy.unitType === UnitType.INFANTRY;
+      // Suppressive Fire: only at infantry
+      if (!infantry && context.fireOption?.infantryTargetOnly) return null;
       sandbags = enemy.sandbags;
       camouflaged = enemy.camouflaged;
     }
@@ -1636,6 +1641,8 @@ class GameSession {
     if (blocked) return null;
     const infantry = targetAnswer(answers.targetType);
     if (infantry === null || !this.canBeTarget(infantry)) return null;
+    // Suppressive Fire: only at infantry
+    if (option.infantryTargetOnly && !infantry) return null;
     const plain = this.targetFor(infantry, answers.distance === "1");
     // Suppressive Fire rolls the suppressive die of the same shape
     const target = option.die ? { ...plain, die: suppressed(plain.die) } : plain;

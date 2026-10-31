@@ -109,8 +109,10 @@ describe("fire options", () => {
     });
   });
 
-  it("give armour's normal fire 1 extra die in close assault if it didn't move, and suppressive fire to infantry and armour only", () => {
+  it("give armour's normal fire 1 extra die in close assault if it didn't move, and suppressive fire to infantry only, at infantry only", () => {
     expect(fireOptionById("tank:normal")?.closeAssaultBonus).toEqual({ dice: 1, unmoved: true });
-    expect(OPTIONS.filter((each) => each.die === "suppressive").map((each) => each.unitType)).toEqual([UnitType.INFANTRY, UnitType.TANK]);
+    expect(OPTIONS.filter((each) => each.die === "suppressive").map((each) => each.unitType)).toEqual([UnitType.INFANTRY]);
+    expect(fireOptionById("infantry:suppressive")?.infantryTargetOnly).toBe(true);
+    expect(fireOptionById("tank:suppressive")).toBeUndefined();
   });
 });

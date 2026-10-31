@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ATTACK_DIE_SIDES,
+  AIR_DIE_SIDES,
   DieFace,
   DIE_SIDES,
   LONG_RANGE_DIE_SIDES,
@@ -76,7 +77,12 @@ describe("the attack cards' die", () => {
       attack: ATTACK_DIE_SIDES,
       suppressive: SUPPRESSIVE_DIE_SIDES,
       longRangeSuppressive: LONG_RANGE_SUPPRESSIVE_DIE_SIDES,
+      air: AIR_DIE_SIDES,
     });
+  });
+
+  it("gives Air Power its own die: 3 flags, 2 infantry and 1 tank", () => {
+    expect(countFaces(AIR_DIE_SIDES)).toEqual({ infantry: 2, tank: 1, grenade: 0, supply: 0, flag: 3 });
   });
 });
 

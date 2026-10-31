@@ -464,7 +464,8 @@ function FireDialog({
           targets={targetsFor(optionId)}
           context={context}
           longRangeDie={longRangeDie}
-          targetKinds={targetKinds}
+          // Suppressive Fire only fires at infantry
+          targetKinds={context.fireOption?.infantryTargetOnly ? { infantry: true, other: false } : targetKinds}
           onFire={handleFire}
         />
       </Stack>
