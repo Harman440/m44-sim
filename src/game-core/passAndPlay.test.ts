@@ -306,6 +306,15 @@ describe("PassAndPlayMatch", () => {
       expect(movement(match).collisions[0]!.applied).toBe(true);
     });
 
+    it("drops a save made in the middle of the movement as it was before (no run), and keeps the others", () => {
+      const match = intoResting(0);
+      expect(match.moveUnits()).toBe(true);
+      const saved = JSON.parse(JSON.stringify(match.save()));
+      const restore = (save: unknown) => PassAndPlayMatch.restore(save as never, match.scenario, (side) => GameSession.restore(side, match.scenario));
+      expect(() => restore({ ...saved, movement: { turn: 1, collisions: [], overruns: [] } })).toThrow("Invalid movement");
+      expect(restore({ ...saved, movement: null }).getSnapshot().movement).toBeNull();
+    });
+
     it("sends back a hex, the way it came, the unit that wasn't there first when nobody rolls a flag", () => {
       const match = intoResting(0); // infantry: 2 hits, no flag
       expect(moveUntilWaiting(match)).toBe(true);

@@ -33,7 +33,7 @@ import { Position, Scenario } from "../types/scenario";
 import type { Localized } from "../i18n/lang";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 20;
+export const MATCH_SAVE_VERSION = 19;
 
 /** Hits that destroy any unit: one surrounded in a collision, with no hex to leave the enemy's to */
 const SURROUNDED_HITS = 99;
@@ -1210,6 +1210,7 @@ class PassAndPlayMatch {
     if (!Number.isInteger(saved.revealedTurn)) throw new Error("Invalid revealed turn");
     const sessions = { Allies: restoreSide(saved.sides.allies), Axis: restoreSide(saved.sides.axis) };
     const movement = saved.movement;
+    // A save made in the middle of the movement before it went a hex at a time has no run: it's dropped
     if (movement !== null && (!Number.isInteger(movement?.turn) || !Array.isArray(movement.run?.units) || !Array.isArray(movement.rolls))) {
       throw new Error("Invalid movement");
     }
