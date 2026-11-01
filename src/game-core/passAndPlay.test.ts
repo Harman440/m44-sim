@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import GameSession from "./gameSession";
 import PassAndPlayMatch, { armyOf, otherSide } from "./passAndPlay";
+import { moveUntilWaiting, playMovement } from "./ai/selfPlay";
 import { SavedGame } from "./saveGame";
 import { UnitType } from "./unit";
 import { FIGURES } from "../data/figures";
@@ -12,6 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Scenario } from "../types/scenario";
 import { same } from "../i18n/lang";
 import { samePosition } from "./position";
+import { hexDistance } from "./fireTargets";
 
 const INFANTRY_FIGURES = FIGURES[UnitType.INFANTRY].figures;
 
@@ -56,8 +58,7 @@ const restAll = (match: PassAndPlayMatch) => {
 
 /** The reveal: the units move, every collision is rolled, then a battle where nobody fires */
 const carryOut = (match: PassAndPlayMatch) => {
-  expect(match.moveUnits()).toBe(true);
-  match.getSnapshot().movement!.collisions.forEach((_, i) => expect(match.rollCollision(i)).toBe(true));
+  expect(playMovement(match)).toBe(true);
   expect(match.finishReveal()).toBe(true);
   expect(match.endBattle()).toBe(true);
 };
@@ -96,7 +97,10 @@ describe("PassAndPlayMatch", () => {
 
     expect(match.moveUnits()).toBe(true);
     expect(match.moveUnits()).toBe(false);
-    expect(match.getSnapshot().movement).toEqual({ turn: 1, collisions: [], overruns: [], done: true });
+    // Nobody moves: the first step finds nothing to do, and the movement is over
+    expect(match.finishReveal()).toBe(false);
+    expect(match.advanceMovement()).toBe(true);
+    expect(match.getSnapshot().movement).toEqual({ turn: 1, step: 0, waiting: null, collisions: [], overruns: [], choice: null, done: true });
     expect(match.finishReveal()).toBe(true);
     // The battle, on one screen: nobody fires (hold orders but no enemy in range)
     expect(match.getSnapshot()).toMatchObject({ covered: false, revealTurn: null, movement: null, battle: { turn: 1 } });
@@ -118,7 +122,7 @@ describe("PassAndPlayMatch", () => {
       expect(allies.pickCard(null)).toBe(true);
       expect(allies.giveAction(FROM, "infantry:behindEnemyLines", TO)).toBe(true);
       expect(allies.commitOrders()).toBe(true);
-      expect(match.moveUnits()).toBe(true);
+      expect(playMovement(match)).toBe(true);
       expect(match.finishReveal()).toBe(true);
       for (let battle = match.getSnapshot().battle!; battle.side; battle = match.getSnapshot().battle!) {
         expect(match.holdFire(battle.fireable[0]!)).toBe(true);
@@ -219,176 +223,194 @@ describe("PassAndPlayMatch", () => {
     expect(match.opponentOf("Allies").orders).toHaveLength(0); // the next turn has begun
   });
 
-  it("moves both armies at once, stopping and rolling the units that collide", () => {
-    // Face to face in row 4 (the Allies' view): Allied infantry on (4,2), Axis infantry on (4,4)
-    const close: Scenario = {
-      ...scenario,
-      units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
-    };
-    const side = (faction: Faction) => new GameSession({ scenario: close, faction, figures: true });
-    const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
-
-    // The Axis infantry heads 2 hexes west on Motorized, into the Allied unit, which rests
-    match.uncover();
-    const axis = match.activeSession();
-    axis.pickCard(null);
-    expect(axis.giveAction(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), "infantry:motorized", turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
-    expect(axis.commitOrders()).toBe(true);
-    restAll(match);
-    expect(match.rollCollision(0)).toBe(false); // nothing has moved yet
-
-    expect(match.moveUnits()).toBe(true);
-    const movement = match.getSnapshot().movement!;
-    expect(movement.done).toBe(false);
-    expect(movement.collisions).toHaveLength(1);
-    expect(movement.collisions[0]).toMatchObject({
-      step: 2,
-      kind: "standing",
-      hex: { row: 4, col: 2 },
-      rolled: false,
-      applied: false,
-      units: [
-        { side: "Axis", order: 0, position: { row: 4, col: 3 }, unitType: UnitType.INFANTRY, roll: null },
-        { side: "Allies", order: null, position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, roll: null },
-      ],
-    });
-    // The Axis unit stopped short, on its own board too
-    expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }, STANDARD_BOARD));
-    expect(match.finishReveal()).toBe(false); // the collision isn't rolled
-
-    // Saved and restored mid-movement
-    const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), close, (saved) =>
-      GameSession.restore(saved, close)
-    );
-    expect(restored.getSnapshot().movement).toEqual(movement);
-
-    expect(match.rollCollision(0)).toBe(true);
-    expect(match.rollCollision(0)).toBe(false);
-    const [axisUnit, alliedUnit] = match.getSnapshot().movement!.collisions[0]!.units;
-    // On Motorized, the Axis infantry couldn't have fired: it doesn't roll
-    expect(axisUnit.roll).toBeNull();
-    expect(axis.getSnapshot().shots).toHaveLength(0);
-    // The Allied unit, without an order, rolls infantry's 3 close assault dice minus 1
-    expect(alliedUnit.roll).toMatchObject({ dice: 2, collision: true, target: { infantry: true } });
-    expect(match.sessions.Allies.getSnapshot().standingCollisions).toHaveLength(1);
-
-    // Dealt at once: the Axis unit took the Allied hits and flags
-    const { hits, retreats } = readRoll(alliedUnit.roll!.faces, alliedUnit.roll!.target);
-    expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
-    // Without a flag the Axis unit goes back the hex it came from (bounceBack)
-    const stays = retreats > 0 ? { row: 4, col: 3 } : { row: 4, col: 4 };
-    // Its first flag pins it; each flag after that is a hex it retreats as the battle starts
-    expect(axis.getSnapshot().strength).toEqual([
-      {
-        position: turnedRound(stays, STANDARD_BOARD),
-        figures: INFANTRY_FIGURES - hits,
-        pinned: retreats > 0,
-        retreats: Math.max(0, retreats - 1),
-        damaged: false,
-        hitThisTurn: hits,
-      },
-    ]);
-    expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES);
-    expect(match.finishReveal()).toBe(true);
-  });
-
-  it("lets Armor Forward go through enemy infantry: no collision, and the infantry takes a flag (pinned)", () => {
-    // Allies' view: Axis armour on (4,6) drives west to (4,2), through the Allied infantry on (4,4), which rests
-    const through: Scenario = {
-      ...scenario,
-      units: { allies: { infantry: [{ row: 4, col: 4 }] }, axis: { tank: [{ row: 4, col: 6 }] } },
-    };
-    const side = (faction: Faction) => new GameSession({ scenario: through, faction, figures: true });
-    const match = new PassAndPlayMatch(through, { Allies: side("Allies"), Axis: side("Axis") });
-    match.uncover();
-    const axis = match.activeSession();
-    axis.pickCard(null);
-    const turned = (position: { row: number; col: number }) => turnedRound(position, STANDARD_BOARD);
-    expect(axis.giveAction(turned({ row: 4, col: 6 }), "tank:armorForward", turned({ row: 4, col: 2 }))).toBe(true);
-    expect(axis.getSnapshot().orders[0]!.path!.map(turned)).toContainEqual({ row: 4, col: 4 });
-    expect(axis.commitOrders()).toBe(true);
-    restAll(match);
-
-    expect(match.moveUnits()).toBe(true);
-    const movement = match.getSnapshot().movement!;
-    expect(movement.collisions).toEqual([]);
-    expect(movement.done).toBe(true);
-    expect(movement.overruns).toMatchObject([{ hex: { row: 4, col: 4 }, armour: { side: "Axis", order: 0 }, infantry: { side: "Allies", position: { row: 4, col: 4 } } }]);
-    // The armour ends where it was going; the infantry is pinned (a flag: no hex to retreat yet)
-    expect(axis.getSnapshot().orders[0]!.end).toEqual(turned({ row: 4, col: 2 }));
-    expect(match.sessions.Allies.getSnapshot().strength[0]).toMatchObject({ position: { row: 4, col: 4 }, pinned: true, retreats: 0 });
-    expect(match.sessions.Allies.isPinned({ row: 4, col: 4 })).toBe(true);
-
-    // Kept in a save
-    const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), through, (saved) => GameSession.restore(saved, through));
-    expect(restored.getSnapshot().movement!.overruns).toEqual(movement.overruns);
-    expect(match.finishReveal()).toBe(true);
-  });
-
-  describe("a collision without a flag", () => {
-    // The Axis infantry moves 2 hexes west from (4,4), into the Allied infantry on (4,2)
-    const collide = (face: number) => {
-      const close: Scenario = {
-        ...scenario,
-        units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
-      };
-      const side = (faction: Faction) =>
-        new GameSession({ scenario: close, faction, figures: true, random: () => face / 6 });
+  describe("the movement, a hex at a time", () => {
+    const view = (row: number, col: number) => turnedRound({ row, col }, STANDARD_BOARD);
+    /**
+     * Allies' view, row 4: Allied units at `allies`, Axis infantry at `axis`. Every die shows
+     * `face` (0: infantry, 5: a flag). The Axis infantry is ordered first, then the Allies'
+     * orders are given by `alliedOrders` (none: they rest)
+     */
+    const meeting = (
+      { allies, axis, face }: { allies: { row: number; col: number }; axis: { row: number; col: number }; face: number },
+      axisOrder: (session: GameSession) => void,
+      alliedOrders: (session: GameSession) => void = () => {}
+    ) => {
+      const close: Scenario = { ...scenario, units: { allies: { infantry: [allies] }, axis: { infantry: [axis] } } };
+      const side = (faction: Faction) => new GameSession({ scenario: close, faction, figures: true, random: () => face / 6 });
       const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
+      match.uncover();
+      const axisSession = match.activeSession();
+      axisSession.pickCard(null);
+      axisOrder(axisSession);
+      expect(axisSession.commitOrders()).toBe(true);
+      match.uncover();
+      const alliedSession = match.activeSession();
+      alliedSession.pickCard(null);
+      alliedOrders(alliedSession);
+      expect(alliedSession.commitOrders()).toBe(true);
+      return match;
+    };
+    const movement = (match: PassAndPlayMatch) => match.getSnapshot().movement!;
+    const axisOrderEnd = (match: PassAndPlayMatch) => match.sessions.Axis.getSnapshot().orders[0]!.end;
+
+    // The Axis infantry drives 2 hexes west on Motorized (it can't fire), into the Allied one, which rests
+    const intoResting = (face: number) =>
+      meeting({ allies: { row: 4, col: 2 }, axis: { row: 4, col: 4 }, face }, (axis) =>
+        expect(axis.giveAction(view(4, 4), "infantry:motorized", view(4, 2))).toBe(true)
+      );
+
+    it("moves every unit a hex a step, and stops at the collision until it's rolled: the unit goes into the enemy's hex", () => {
+      const match = intoResting(0);
+      expect(match.rollCollision(0)).toBe(false); // nothing has moved yet
+      expect(match.moveUnits()).toBe(true);
+      expect(movement(match)).toMatchObject({ step: 0, waiting: "step", collisions: [], done: false });
+
+      expect(match.advanceMovement()).toBe(true);
+      expect(movement(match).step).toBe(1);
+      expect(match.unitsNow("Axis")!.get(match.sessions.Axis.getSnapshot().orders[0]!.unit)).toEqual(view(4, 3));
+
+      expect(match.advanceMovement()).toBe(true);
+      expect(movement(match)).toMatchObject({
+        step: 2,
+        waiting: "collision",
+        collisions: [
+          {
+            step: 2,
+            kind: "standing",
+            hex: { row: 4, col: 2 },
+            rolled: false,
+            applied: false,
+            units: [
+              { side: "Axis", order: 0, position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, roll: null },
+              { side: "Allies", order: null, position: { row: 4, col: 2 }, unitType: UnitType.INFANTRY, roll: null },
+            ],
+          },
+        ],
+      });
+      // Nothing moves on until it's rolled, and the battle can't start
+      expect(match.advanceMovement()).toBe(false);
+      expect(match.finishReveal()).toBe(false);
+
+      // Saved and restored mid-movement
+      const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), match.scenario, (saved) =>
+        GameSession.restore(saved, match.scenario)
+      );
+      expect(restored.getSnapshot().movement).toEqual(movement(match));
+
+      expect(match.rollCollision(0)).toBe(true);
+      expect(match.rollCollision(0)).toBe(false);
+      const [axisUnit, alliedUnit] = movement(match).collisions[0]!.units;
+      // On Motorized, the Axis infantry couldn't have fired: it doesn't roll. The Allied one rolls 3 − 1
+      expect(axisUnit.roll).toBeNull();
+      expect(alliedUnit.roll).toMatchObject({ dice: 2, collision: true, target: { infantry: true } });
+      expect(movement(match).collisions[0]!.applied).toBe(true);
+    });
+
+    it("sends back a hex, the way it came, the unit that wasn't there first when nobody rolls a flag", () => {
+      const match = intoResting(0); // infantry: 2 hits, no flag
+      expect(moveUntilWaiting(match)).toBe(true);
+      expect(match.rollCollision(0)).toBe(true);
+      expect(movement(match).waiting).toBe("push");
+      expect(match.advanceMovement()).toBe(true);
+      expect(movement(match).collisions[0]!.units[0].position).toEqual({ row: 4, col: 3 });
+
+      expect(playMovement(match)).toBe(true);
+      expect(movement(match).done).toBe(true);
+      expect(axisOrderEnd(match)).toEqual(view(4, 3));
+      expect(match.sessions.Axis.figuresAt(view(4, 3))).toBe(INFANTRY_FIGURES - 2);
+      expect(match.sessions.Allies.figuresAt({ row: 4, col: 2 })).toBe(INFANTRY_FIGURES);
+      expect(match.finishReveal()).toBe(true);
+    });
+
+    it("pushes a unit back a hex for every flag, and pins it", () => {
+      const match = intoResting(5); // flags: 2
+      expect(moveUntilWaiting(match)).toBe(true);
+      expect(match.rollCollision(0)).toBe(true);
+      // One hex at a time: (4,3), then (4,4), where it started
+      expect(match.advanceMovement()).toBe(true);
+      expect(movement(match).collisions[0]!.units[0].position).toEqual({ row: 4, col: 3 });
+      expect(match.advanceMovement()).toBe(true);
+      expect(movement(match).collisions[0]!.units[0].position).toEqual({ row: 4, col: 4 });
+      expect(playMovement(match)).toBe(true);
+
+      expect(axisOrderEnd(match)).toEqual(view(4, 4));
+      expect(match.sessions.Axis.isPinned(view(4, 4))).toBe(true);
+      // Its retreats are made: none is left for the battle
+      expect(match.sessions.Axis.mustRetreat(view(4, 4))).toBe(false);
+      expect(match.finishReveal()).toBe(true);
+      expect(match.getSnapshot().battle!.retreat).toBeFalsy();
+    });
+
+    it("lets the player pick the hex of a unit that can't go back the way it came, not nearer the enemy", () => {
+      // The Axis infantry moves 1 hex on Move Out (it fires), into the resting Allied one: both roll 2 flags
+      const match = meeting({ allies: { row: 4, col: 2 }, axis: { row: 4, col: 3 }, face: 5 }, (axis) =>
+        expect(axis.giveAction(view(4, 3), "infantry:moveOut", view(4, 2))).toBe(true)
+      );
+      expect(moveUntilWaiting(match)).toBe(true);
+      expect(match.rollCollision(0)).toBe(true);
+      // The Axis unit goes back to (4,3), where it came from; then it has no path left
+      expect(match.advanceMovement()).toBe(true);
+      expect(match.advanceMovement()).toBe(false);
+      const { choice } = movement(match);
+      expect(movement(match).waiting).toBe("choice");
+      expect(choice).toMatchObject({ side: "Axis", position: { row: 4, col: 3 } });
+      expect(choice!.options.length).toBeGreaterThan(0);
+      expect(choice!.options.every((hex) => hexDistance(hex, { row: 4, col: 2 }) >= 1)).toBe(true);
+      expect(match.choosePush({ row: 4, col: 2 })).toBe(false); // the hex it was pushed out of
+      expect(match.choosePush(choice!.options[0]!)).toBe(true);
+
+      // Then the Allied unit, which didn't move: its player picks both hexes
+      expect(movement(match)).toMatchObject({ waiting: "choice", choice: { side: "Allies", position: { row: 4, col: 2 } } });
+      expect(playMovement(match)).toBe(true);
+      expect(match.sessions.Allies.getSnapshot().strength[0]!.position).not.toEqual({ row: 4, col: 2 });
+      expect(match.finishReveal()).toBe(true);
+    });
+
+    it("sends both back when they stepped into a hex at once and nobody rolled a flag: nobody keeps it", () => {
+      const match = meeting(
+        { allies: { row: 4, col: 2 }, axis: { row: 4, col: 4 }, face: 0 },
+        (axis) => expect(axis.giveAction(view(4, 4), "infantry:moveOut", view(4, 3))).toBe(true),
+        (allies) => expect(allies.giveAction({ row: 4, col: 2 }, "infantry:moveOut", { row: 4, col: 3 })).toBe(true)
+      );
+      expect(moveUntilWaiting(match)).toBe(true);
+      expect(movement(match).collisions[0]).toMatchObject({ kind: "same-hex", hex: { row: 4, col: 3 } });
+      expect(playMovement(match)).toBe(true);
+      expect(axisOrderEnd(match)).toEqual(view(4, 4));
+      expect(match.sessions.Allies.getSnapshot().orders[0]!.end).toEqual({ row: 4, col: 2 });
+    });
+
+    it("deals no more hits than the unit has figures, at once", () => {
+      const match = intoResting(0); // every die a hit on infantry
+      match.sessions.Allies.sufferHits({ row: 4, col: 2 }, INFANTRY_FIGURES - 1, 0); // 1 figure left
+      expect(moveUntilWaiting(match)).toBe(true);
+      expect(match.rollCollision(0)).toBe(true);
+      // 2 hits rolled, 1 figure: 1 hit dealt, the other die set aside
+      const allied = movement(match).collisions[0]!.units[1];
+      expect(allied.roll).toMatchObject({ dice: 2, kept: [0] });
+      expect(playMovement(match)).toBe(true);
+      expect(match.sessions.Axis.figuresAt(view(4, 3))).toBe(INFANTRY_FIGURES - 1);
+    });
+
+    it("lets Armor Forward go through enemy infantry: no collision, and the infantry takes a flag (pinned)", () => {
+      // Allies' view: Axis armour on (4,6) drives west to (4,2), through the Allied infantry on (4,4), which rests
+      const through: Scenario = { ...scenario, units: { allies: { infantry: [{ row: 4, col: 4 }] }, axis: { tank: [{ row: 4, col: 6 }] } } };
+      const side = (faction: Faction) => new GameSession({ scenario: through, faction, figures: true });
+      const match = new PassAndPlayMatch(through, { Allies: side("Allies"), Axis: side("Axis") });
       match.uncover();
       const axis = match.activeSession();
       axis.pickCard(null);
-      expect(axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD))).toBe(true);
+      expect(axis.giveAction(view(4, 6), "tank:armorForward", view(4, 2))).toBe(true);
+      expect(axis.getSnapshot().orders[0]!.path!.map((hex) => turnedRound(hex, STANDARD_BOARD))).toContainEqual({ row: 4, col: 4 });
       expect(axis.commitOrders()).toBe(true);
       restAll(match);
-      expect(match.moveUnits()).toBe(true);
-      // It stopped on (4,3), next to the Allied unit
-      expect(axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }, STANDARD_BOARD));
-      expect(match.rollCollision(0)).toBe(true);
-      return match;
-    };
 
-    it("sends the unit that moved one hex back the way it came; the standing one stays", () => {
-      const match = collide(0); // hits only
-      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD));
-      expect(match.sessions.Axis.board.getHex(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD))?.unit).not.toBeNull();
-      expect(match.sessions.Allies.board.getHex({ row: 4, col: 2 })?.unit).not.toBeNull();
-      expect(match.getSnapshot().movement!.collisions[0]!.units[0].position).toEqual({ row: 4, col: 4 });
+      expect(playMovement(match)).toBe(true);
+      expect(movement(match)).toMatchObject({ collisions: [], done: true, overruns: [{ hex: { row: 4, col: 4 }, armour: "Axis", infantry: "Allies" }] });
+      // The armour ends where it was going; the infantry is pinned (a flag: no hex to retreat yet)
+      expect(axisOrderEnd(match)).toEqual(view(4, 2));
+      expect(match.sessions.Allies.getSnapshot().strength[0]).toMatchObject({ position: { row: 4, col: 4 }, pinned: true, retreats: 0 });
+      expect(match.finishReveal()).toBe(true);
     });
-
-    it("leaves the units where they stopped when a flag was rolled", () => {
-      const match = collide(5); // flags
-      expect(match.sessions.Axis.getSnapshot().orders[0]!.end).toEqual(turnedRound({ row: 4, col: 3 }, STANDARD_BOARD));
-    });
-  });
-
-  it("deals no more hits than the unit has figures, at once", () => {
-    const close: Scenario = {
-      ...scenario,
-      units: { allies: { infantry: [{ row: 4, col: 2 }] }, axis: { infantry: [{ row: 4, col: 4 }] } },
-    };
-    // Every die shows infantry: a hit on infantry
-    const side = (faction: Faction) =>
-      new GameSession({ scenario: close, faction, figures: true, random: () => 0 });
-    const match = new PassAndPlayMatch(close, { Allies: side("Allies"), Axis: side("Axis") });
-    match.sessions.Allies.sufferHits({ row: 4, col: 2 }, INFANTRY_FIGURES - 1, 0); // 1 figure left
-
-    match.uncover();
-    const axis = match.activeSession();
-    axis.pickCard(null);
-    axis.issueOrder(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD), turnedRound({ row: 4, col: 2 }, STANDARD_BOARD));
-    axis.commitOrders();
-    restAll(match);
-    match.moveUnits();
-    expect(match.rollCollision(0)).toBe(true);
-
-    // 2 hits rolled, 1 figure: 1 hit dealt, the other die set aside
-    const allied = match.getSnapshot().movement!.collisions[0]!.units[1];
-    expect(allied.roll).toMatchObject({ dice: 2, kept: [0] });
-    expect(match.getSnapshot().movement!.collisions[0]!.applied).toBe(true);
-    // No flag: the Axis unit went back the hex it came from
-    expect(axis.figuresAt(turnedRound({ row: 4, col: 4 }, STANDARD_BOARD))).toBe(INFANTRY_FIGURES - 1);
-    expect(match.finishReveal()).toBe(true);
   });
 
   describe("the shared battle", () => {
@@ -416,7 +438,7 @@ describe("PassAndPlayMatch", () => {
     const allHold = (match: PassAndPlayMatch) => {
       giveOrders(match);
       restAll(match);
-      expect(match.moveUnits()).toBe(true);
+      expect(playMovement(match)).toBe(true);
       expect(match.finishReveal()).toBe(true);
     };
     const axisView = (row: number, col: number) => turnedRound({ row, col }, STANDARD_BOARD);
@@ -526,7 +548,7 @@ describe("PassAndPlayMatch", () => {
       const match = battleMatch();
       giveOrders(match); // the Axis'
       giveOrders(match); // the Allies'
-      match.moveUnits();
+      playMovement(match);
       match.finishReveal();
 
       const order = () => match.getSnapshot().battle!.side;
@@ -601,7 +623,7 @@ describe("PassAndPlayMatch", () => {
       const match = battleMatch(5); // flags
       giveOrders(match); // the Axis'
       giveOrders(match); // the Allies'
-      match.moveUnits();
+      playMovement(match);
       match.finishReveal();
 
       const axis = match.sessions.Axis;
@@ -860,7 +882,7 @@ describe("a match against the computer", () => {
     holdAll(computer);
     expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, revealTurn: 1 });
 
-    expect(match.moveUnits()).toBe(true);
+    expect(playMovement(match)).toBe(true);
     expect(match.finishReveal()).toBe(true);
     expect(match.getSnapshot()).toMatchObject({ active: "Allies", covered: false, battle: { turn: 1 } });
     expect(match.endBattle()).toBe(true);

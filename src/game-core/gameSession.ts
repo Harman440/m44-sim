@@ -1063,9 +1063,10 @@ class GameSession {
    * the faces that hit) and, if it survives, `flags`. Its first flag this turn pins it; each flag
    * after that is a hex it must retreat at once (`retreatOptions`), and it doesn't battle any
    * more this turn. A unit that loses its last figure is removed; artillery leaves its crew
-   * behind, `ARTILLERY_CREW_FIGURES` infantry figures
+   * behind, `ARTILLERY_CREW_FIGURES` infantry figures. In a collision (`pushedNow`) every flag
+   * pins it and is a hex it's pushed back, which the movement does there and then: none is left due
    */
-  sufferHits(position: Position, rolledHits: number, flags: number, hitFaces: readonly DieFace[] = []): boolean {
+  sufferHits(position: Position, rolledHits: number, flags: number, hitFaces: readonly DieFace[] = [], { pushedNow = false } = {}): boolean {
     const unit = this.board.getHex(position)?.unit;
     if (!this.figures || !unit || rolledHits < 0 || flags < 0) return false;
     const hits = rolledHits - this.takeCover(unit, hitFaces);
@@ -1085,8 +1086,8 @@ class GameSession {
         const before = this.retreatFlags.get(unit) ?? 0;
         const after = before + flags;
         this.retreatFlags = new Map(this.retreatFlags).set(unit, after);
-        // The first flag only pins it: the rest are hexes to retreat
-        const hexes = Math.max(0, after - 1) - Math.max(0, before - 1);
+        // The first flag only pins it: the rest are hexes to retreat (a collision's are made already)
+        const hexes = pushedNow ? 0 : Math.max(0, after - 1) - Math.max(0, before - 1);
         if (hexes > 0) this.retreatsDue = new Map(this.retreatsDue).set(unit, (this.retreatsDue.get(unit) ?? 0) + hexes);
       }
       return this.publish();
@@ -1194,34 +1195,52 @@ class GameSession {
   // --- Pass and play: the app carries out both sides' moves at once (PassAndPlayMatch)
 
   /**
-   * Cut orders short where their units stopped: a collision, or one of their own units on the
-   * hex it was to end on. Each stop is a hex of the order's path before its end. Only in the movement phase
+   * Pass and play: the movement is over, and these units end somewhere else than this side's
+   * board has them (`from`, where their orders were to end or where they stood): stopped short by
+   * a collision, pushed back by one, or pushed off their path. Each order then ends where its unit
+   * does: on its path, its path is cut there; off it, its path is `path`, the hexes it went
+   * through (from its start straight there when left out).
+   * A tank that never got to the end of its path didn't clear the wire there, a unit back home
+   * keeps its sandbags, and a unit pushed off the hex it stood on leaves its sandbags behind.
+   * Only in the movement phase
    */
-  haltOrders(stops: readonly { order: number; at: Position }[]): boolean {
+  endMovement(moves: readonly { from: Position; to: Position; reachedEnd: boolean; path?: readonly Position[] }[]): boolean {
     if (this.phase !== TurnPhase.MOVEMENT) return false;
-    if (new Set(stops.map((stop) => stop.order)).size !== stops.length) return false;
-    const halts = stops.map(({ order, at }) => ({ index: order, order: this.orders[order], at }));
-    const onTheWay = (order: Order | undefined, at: Position) =>
-      !!order && (order.path ?? []).slice(0, -1).some((hex) => samePosition(hex, at));
-    if (!halts.every(({ order, at }) => onTheWay(order, at))) return false;
-
-    // Lift every unit first: one may stop where another's move ended
-    halts.forEach(({ order }) => this.board.removeUnitAt(order!.end));
+    const placed = moves.map((move) => ({ ...move, unit: this.board.getHex(move.from)?.unit }));
+    if (placed.some((move) => !move.unit || !this.board.getHex(move.to))) return false;
+    // Lift every unit first: one may go where another was
+    placed.forEach(({ from }) => this.board.removeUnitAt(from));
+    if (placed.some(({ to }) => this.board.getHex(to)!.hasUnit())) {
+      placed.forEach(({ from, unit }) => this.board.getHex(from)!.placeUnit(unit!));
+      return false;
+    }
     const orders = [...this.orders];
-    for (const { index, order, at } of halts) {
-      const halted = order!;
-      this.board.getHex(at)!.placeUnit(halted.unit);
-      // A tank that didn't get there didn't clear the wire; a unit still home keeps its sandbags
-      if (halted.clearedWire) this.board.getHex(halted.end)?.setWire(true);
-      const home = samePosition(at, halted.start);
-      if (home) this.restoreSandbags(halted.lostSandbags);
-      const reached = halted.path!.findIndex((hex) => samePosition(hex, at));
+    for (const { from, to, reachedEnd, unit, path: went } of placed) {
+      this.board.getHex(to)!.placeUnit(unit!);
+      const index = orders.findIndex((order) => order.unit === unit);
+      if (index === -1) {
+        // A unit without an order, pushed off its hex: its sandbags stay behind and go
+        const hex = this.board.getHex(from)!;
+        if (hex.sandbags && !samePosition(from, to)) hex.setSandbags(false);
+        continue;
+      }
+      const order = orders[index]!;
+      if (order.clearedWire && !reachedEnd) this.board.getHex(order.end)?.setWire(true);
+      const home = samePosition(to, order.start);
+      if (home) this.restoreSandbags(order.lostSandbags);
+      else if (samePosition(order.start, order.end)) {
+        // A unit that held, pushed off its hex: its sandbags go
+        const hex = this.board.getHex(order.start)!;
+        if (hex.sandbags) hex.setSandbags(false);
+      }
+      const path = order.path ?? [order.start, order.end];
+      const reached = path.findIndex((hex) => samePosition(hex, to));
       orders[index] = new Order({
-        ...halted,
-        end: { ...at },
-        path: halted.path!.slice(0, reached + 1),
-        clearedWire: false,
-        lostSandbags: home ? [] : halted.lostSandbags,
+        ...order,
+        end: { ...to },
+        path: home ? null : reached >= 0 ? path.slice(0, reached + 1) : (went?.map((hex) => ({ ...hex })) ?? [{ ...order.start }, { ...to }]),
+        clearedWire: order.clearedWire && reachedEnd,
+        lostSandbags: home ? [] : order.lostSandbags,
       });
     }
     this.orders = orders;

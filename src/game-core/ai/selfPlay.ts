@@ -28,13 +28,43 @@ export function sharedStep(match: PassAndPlayMatch): boolean {
   const { revealTurn, movement, battle } = match.getSnapshot();
   if (revealTurn !== null) {
     if (!movement) return match.moveUnits();
-    const next = movement.collisions.findIndex((collision) => !collision.rolled);
-    return next >= 0 ? match.rollCollision(next) : match.finishReveal();
+    if (movement.done) return match.finishReveal();
+    if (movement.waiting === "collision") return match.rollCollision(movement.collisions.findIndex((collision) => !collision.rolled));
+    // Both sides played by the computer here: the first hex will do
+    if (movement.waiting === "choice") return match.choosePush(movement.choice!.options[0]!);
+    return match.advanceMovement();
   }
   if (battle && battle.side === null && !battle.retreat && !battle.ground && battle.attacks.length === 0) {
     return match.endBattle();
   }
   return false;
+}
+
+/**
+ * Move the units until the movement waits for the players: a collision to roll, a hex to pick,
+ * or nothing more (it's over). False when it doesn't start
+ */
+export function moveUntilWaiting(match: PassAndPlayMatch): boolean {
+  const movement = match.getSnapshot().movement;
+  if (!movement && !match.moveUnits()) return false;
+  for (let guard = 0; guard < 1000 && match.advanceMovement(); guard++);
+  return true;
+}
+
+/**
+ * The whole movement as the shared screen plays it: each collision rolled as it comes, each
+ * pushed unit sent to the first hex offered when its player must pick. False when it doesn't start
+ */
+export function playMovement(match: PassAndPlayMatch): boolean {
+  if (!moveUntilWaiting(match)) return false;
+  for (let guard = 0; guard < 1000; guard++) {
+    const movement = match.getSnapshot().movement;
+    if (!movement || movement.done) return true;
+    if (movement.waiting === "collision") match.rollCollision(movement.collisions.findIndex((collision) => !collision.rolled));
+    else if (movement.waiting === "choice") match.choosePush(movement.choice!.options[0]!);
+    else if (!match.advanceMovement()) return true;
+  }
+  return true;
 }
 
 export const unitsLeft = (match: PassAndPlayMatch) => FACTIONS.map((side) => armyOf(match.sessions[side]).length);

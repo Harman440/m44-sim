@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import GameSession from "./gameSession";
 import PassAndPlayMatch from "./passAndPlay";
+import { playMovement } from "./ai/selfPlay";
 import { UnitType } from "./unit";
 import { turnedRound } from "./BoardManager";
 import { STANDARD_BOARD } from "./boardSize";
@@ -66,7 +67,7 @@ const play = (
 const toBattle = (match: PassAndPlayMatch, axis: Parameters<typeof play>[1] = {}, allies: Parameters<typeof play>[1] = {}) => {
   play(match, axis);
   play(match, allies);
-  expect(match.moveUnits()).toBe(true);
+  expect(playMovement(match)).toBe(true);
   expect(match.finishReveal()).toBe(true);
 };
 
@@ -113,7 +114,7 @@ describe("attack cards and wire in the shared battle", () => {
     // Hidden from the Axis until the orders are carried out
     expect(axis.board.getHex(axisView(5, 2))!.wire).toBe(true);
 
-    expect(match.moveUnits()).toBe(true);
+    expect(playMovement(match)).toBe(true);
     expect(match.sessions.Allies.board.getHex({ row: 5, col: 2 })!.wire).toBe(false);
     expect(axis.board.getHex(axisView(5, 2))!.wire).toBe(false);
   });

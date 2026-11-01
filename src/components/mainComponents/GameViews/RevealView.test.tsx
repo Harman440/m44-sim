@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import RevealView from "./RevealView";
 import GameSession from "../../../game-core/gameSession";
 import PassAndPlayMatch from "../../../game-core/passAndPlay";
+import { moveUntilWaiting, playMovement } from "../../../game-core/ai/selfPlay";
 import { turnedRound } from "../../../game-core/BoardManager";
 import { STANDARD_BOARD } from "../../../game-core/boardSize";
 import { same } from "../../../i18n/lang";
@@ -38,9 +39,10 @@ describe("RevealView", () => {
     const { rerender } = render(<RevealView match={match} turn={1} viewer="Allies" />);
     expect(screen.queryByTestId("collision-painting")).not.toBeInTheDocument();
 
-    match.moveUnits();
+    moveUntilWaiting(match);
     rerender(<RevealView match={match} turn={1} viewer="Allies" />);
     expect(screen.getAllByTestId("collision")).toHaveLength(1);
+    expect(screen.getByTestId("movement-status")).toHaveTextContent("Tira el choque para seguir moviendo.");
     expect(screen.getByTestId("collision-painting")).toHaveAttribute("src", expect.stringContaining("close-assault"));
   });
 
@@ -63,11 +65,31 @@ describe("RevealView", () => {
     match.uncover();
     match.activeSession().pickCard(null);
     match.activeSession().commitOrders();
-    match.moveUnits();
+    playMovement(match);
 
     render(<RevealView match={match} turn={1} viewer="Allies" />);
     expect(screen.queryAllByTestId("collision")).toHaveLength(0);
     expect(screen.getByTestId("overruns")).toHaveTextContent("atravesó infantería enemiga: le sale una bandera");
     expect(screen.getByTestId("overruns")).toHaveTextContent("Blindado (Eje) atravesó infantería (Aliados)");
+  });
+
+  it("moves the units by itself a hex at a time once they set off, and stops for the collision", () => {
+    vi.useFakeTimers();
+    try {
+      const match = collidingMatch();
+      render(<RevealView match={match} turn={1} viewer="Allies" />);
+      fireEvent.click(screen.getByRole("button", { name: "Mover las unidades" }));
+      expect(screen.getByTestId("movement-status")).toHaveTextContent("Las unidades se ponen en marcha…");
+      act(() => vi.advanceTimersByTime(800));
+      expect(match.getSnapshot().movement!.step).toBe(1);
+      act(() => vi.advanceTimersByTime(800));
+      // Into the Allied unit's hex: it waits for the roll
+      expect(match.getSnapshot().movement!.waiting).toBe("collision");
+      act(() => vi.advanceTimersByTime(5000));
+      expect(match.getSnapshot().movement!.step).toBe(2);
+      expect(screen.getByRole("button", { name: "Tirar el choque 1" })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

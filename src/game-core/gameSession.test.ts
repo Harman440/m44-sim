@@ -2042,25 +2042,34 @@ describe("pass and play movement", () => {
     return { session, order: session.getSnapshot().orders[0]! };
   };
 
-  it("cuts an order short where its unit stopped, and only on its way", () => {
+  it("puts units where the movement left them: on its path, its order is cut there; off it, from its start", () => {
     const { session, order } = movedTwo();
     const halfway = order.path![1]!;
 
-    expect(session.haltOrders([{ order: 0, at: order.end }])).toBe(false); // the end isn't a stop
-    expect(session.haltOrders([{ order: 0, at: { row: 0, col: 0 } }])).toBe(false);
-    expect(session.haltOrders([{ order: 0, at: halfway }])).toBe(true);
-
+    expect(session.endMovement([{ from: { row: 0, col: 0 }, to: halfway, reachedEnd: false }])).toBe(false); // no unit there
+    expect(session.endMovement([{ from: order.end, to: halfway, reachedEnd: false }])).toBe(true);
     const halted = session.getSnapshot().orders[0]!;
     expect(halted.end).toEqual(halfway);
     expect(halted.path).toEqual(order.path!.slice(0, 2));
     expect(unitAt(session, halfway)).toBe(order.unit);
     expect(unitAt(session, order.end)).toBeNull();
+
+    // Pushed off its path: its order runs from its start to there
+    const aside = new Hex(halfway).getNeighbors().find((hex) => session.board.getHex(hex)?.isPassable() && !session.board.getHex(hex)!.hasUnit() && !order.path!.some((p) => samePosition(p, hex)))!;
+    expect(session.endMovement([{ from: halfway, to: aside, reachedEnd: false }])).toBe(true);
+    expect(session.getSnapshot().orders[0]).toMatchObject({ end: aside, path: [order.start, aside] });
+  });
+
+  it("won't put a unit on another's hex", () => {
+    const { session, order } = movedOne();
+    expect(session.endMovement([{ from: order.end, to: OTHER_INF, reachedEnd: false }])).toBe(false);
+    expect(unitAt(session, order.end)).toBe(order.unit);
   });
 
   it("is only for the movement phase", () => {
     const session = makeSession();
     session.pickCard(null);
-    expect(session.haltOrders([])).toBe(false);
+    expect(session.endMovement([])).toBe(false);
     expect(session.rollCollision(LEFT_INF, true, null)).toBe(false);
   });
 
