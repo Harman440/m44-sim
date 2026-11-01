@@ -106,6 +106,11 @@ interface BoardProps {
    * from: the reveal before the armies move. Taken off, they glide to where they stand
    */
   atStart?: boolean;
+  /**
+   * Pass and play's movement: where this side's units stand now, in its view, while they move a
+   * hex at a time (their board has them where their orders end until it's over)
+   */
+  unitPositions?: ReadonlyMap<Unit, Position> | null;
   /** Draw the orders' movement arrows (both sides'); off in the battle, where the moves are done */
   showArrows?: boolean;
   /**
@@ -189,6 +194,7 @@ function Board({
   strength: strengthProp,
   collisions = [],
   atStart = false,
+  unitPositions = null,
   showArrows = true,
   zoomable = false,
   zoomOn = null,
@@ -468,7 +474,7 @@ function Board({
       return [{
         unit,
         faction: unitFactionAt?.(position) ?? faction,
-        position: ownStarts?.get(unit) ?? position,
+        position: unitPositions?.get(unit) ?? ownStarts?.get(unit) ?? position,
         other: false,
         readyToFire: unitsReadyToFire.has(unit),
         fired: firedUnits?.has(unit) ?? false,
@@ -516,10 +522,20 @@ function Board({
       if (before !== undefined && hitThisTurn > before) shaken.set(unit, hitThisTurn);
       seen.set(unit, hitThisTurn);
     }
+    // Two units on one hex (enemies that collided, until it's settled) stand side by side on it
+    const hexOf = (token: PlacedToken) => (token.other ? turnedRound(token.position, boardManager.size) : token.position);
+    const sharing = new Map<string, PlacedToken[]>();
+    for (const token of drawn) sharing.set(positionKey(hexOf(token)), [...(sharing.get(positionKey(hexOf(token))) ?? []), token]);
+    const shift = (token: PlacedToken) => {
+      const here = sharing.get(positionKey(hexOf(token)))!;
+      if (here.length < 2) return 0;
+      return (here.indexOf(token) - (here.length - 1) / 2) * hexSize * 0.55;
+    };
     return drawn
       .sort((a, b) => unitKey(a.unit) - unitKey(b.unit))
       .map((token) => {
-        const { x, y } = geometry.hexCenter(token.other ? turnedRound(token.position, boardManager.size) : token.position);
+        const center = geometry.hexCenter(hexOf(token));
+        const { x, y } = { x: center.x + shift(token), y: center.y };
         return (
           <g
             key={unitKey(token.unit)}

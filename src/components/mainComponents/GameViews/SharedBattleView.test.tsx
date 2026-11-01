@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import SharedBattleView from "./SharedBattleView";
 import GameSession from "../../../game-core/gameSession";
 import PassAndPlayMatch from "../../../game-core/passAndPlay";
+import { playMovement } from "../../../game-core/ai/selfPlay";
 import { same } from "../../../i18n/lang";
 import { Faction } from "../../../types/faction";
 import { Position, Scenario } from "../../../types/scenario";
@@ -28,7 +29,7 @@ const battleOf = (allies: Position, axis: Position, computer: Faction | null = n
     if (faction === "Axis") for (const position of session.getSnapshot().orderable) session.issueOrder(position, position);
     session.commitOrders();
   }
-  match.moveUnits();
+  playMovement(match);
   match.finishReveal();
   return match;
 };
