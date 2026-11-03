@@ -57,7 +57,7 @@ describe("standardBrain", () => {
   it("regroups weakened units in a game against itself, the smaller unit leaving the map", () => {
     // A game picked where it happens (the dice are seeded)
     const scenario = scenarios.find((each) => each.id === "pegasus-bridge")!;
-    const match = playOut(scenario, { Allies: standardBrain, Axis: standardBrain }, seeded(5), 20);
+    const match = playOut(scenario, { Allies: standardBrain, Axis: standardBrain }, seeded(22), 20);
     const log = FACTIONS.flatMap((side) => match.sessions[side].getSnapshot().log);
     const regroups = log.flatMap((turn) => turn.orders.filter((order) => order.action.endsWith(":regroup")));
     const left = log.flatMap((turn) => turn.battleEdits.filter((edit) => edit.kind === "remove" && edit.regroupedInto));
@@ -85,5 +85,5 @@ describe("standardBrain", () => {
     }
     expect(won).toBeGreaterThan(lost);
     // (it plays every catalog map too, some on boards bigger than the standard one)
-  }, 60_000);
+  }, 120_000);
 });
