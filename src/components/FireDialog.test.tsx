@@ -117,7 +117,7 @@ describe("FireDialog", () => {
     const session = open(UnitType.INFANTRY, 1, { forest: [TWO_AWAY] });
 
     expect(screen.getByRole("dialog")).toHaveTextContent("Disparo: Infantería");
-    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance: 3 / 2 / 1");
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance: 3 / 2 / 2 / 1 (contra blindados o artillería: 2 / 2)");
     expect(diceBadges()).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Disparar" })).toBeDisabled();
 
@@ -127,7 +127,7 @@ describe("FireDialog", () => {
 
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName("1 dado");
     const breakdown = await readBreakdown();
-    expect(breakdown).toContain("Base: Infantería a 2 casillas+2");
+    expect(breakdown).toContain("Base: Infantería a 2 casillas, sin moverse+2");
     expect(breakdown).toContain("Objetivo en bosque-1");
     expect(breakdown).toContain("Total: 1 dado");
 
@@ -185,13 +185,13 @@ describe("FireDialog", () => {
 
   it("shows the stored shot read-only when the unit is opened again", () => {
     open(UnitType.INFANTRY);
-    fireAt(ADJACENT, "Blindados o artillería", "3 dados");
+    fireAt(ADJACENT, "Blindados o artillería", "2 dados");
     choose("Cerrar");
 
     fireEvent.click(screen.getByText("abrir"));
 
-    expect(grenades()).toHaveLength(3);
-    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Base: Infantería a 1 casilla +3"));
+    expect(grenades()).toHaveLength(2);
+    expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Base: Infantería a 1 casilla, contra blindados o artillería +2"));
     expect(screen.getByTestId("shot-steps")).toHaveAccessibleName(expect.stringContaining("Contra blindados o artillería · asalto cercano"));
     expect(screen.queryByTestId("fire-map")).not.toBeInTheDocument();
   });
@@ -257,7 +257,7 @@ describe("FireDialog", () => {
 
   it("shows no dice when sandbags in the open take the last one", async () => {
     open(UnitType.INFANTRY);
-    tapHex({ row: 4, col: 1 }); // 3 hexes: 1 die
+    tapHex({ row: 3, col: 1 }); // 4 hexes: 1 die
     choose("Infantería");
     expect(screen.getByTestId("fire-total")).toHaveAccessibleName("1 dado");
     fireEvent.click(screen.getByRole("switch", { name: "¿Sacos terreros?" }));
@@ -269,7 +269,7 @@ describe("FireDialog", () => {
   it("reaches 6 hexes with artillery", () => {
     open(UnitType.ARTILLERY);
 
-    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance: 3 / 3 / 2 / 2 / 1 / 1");
+    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Alcance: 1 / 3 / 3 / 2 / 2 / 1");
     expect(hasBadge({ row: 1, col: 1 })).toBe(true); // 6 hexes up
   });
 
@@ -289,10 +289,13 @@ describe("FireDialog", () => {
     expect(session.getSnapshot().shots[0]).toMatchObject({ option: "infantry:explosives", dice: 4 });
   });
 
-  it("rolls the suppressive die with Suppressive Fire", () => {
+  it("rolls the suppressive die with Suppressive Fire, only at infantry: it doesn't ask the target", () => {
     const session = open(UnitType.INFANTRY);
     choose(/^Fuego de supresión/);
-    fireAt(ADJACENT, "Infantería", "3 dados");
+    tapHex(ADJACENT);
+    expect(screen.queryByRole("button", { name: /Blindados o artillería/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("fire-total")).toHaveAccessibleName("3 dados");
+    choose("Disparar");
     expect(session.getSnapshot().shots[0]!.target.die).toBe("suppressive");
     expect(screen.getByTestId("shot-steps")).toHaveTextContent("Fuego de supresión");
   });
@@ -388,28 +391,25 @@ describe("FireDialog", () => {
     expect(screen.getByTestId("fire-map")).toBeInTheDocument();
   });
 
-  it("lets armour take ground after a close assault with a hit or flag: it moves there and fires again, adjacent only", () => {
+  it("lets armour take ground after a close assault with a hit or flag: it moves there, and fires no more", () => {
     const session = open(UnitType.TANK);
-    fireAt(ADJACENT, "Infantería", "4 dados"); // grenades: hits (+1 die: armour that held, in close assault)
+    fireAt(ADJACENT, "Infantería", "4 dados"); // grenades: hits (armour that held rolls 4 in close assault)
 
     const takeGround = screen.getByTestId("take-ground");
     // The explanation is behind the info button
     expect(takeGround).not.toHaveTextContent("se mueve a su casilla");
     fireEvent.click(within(takeGround).getByRole("button", { name: "Más información" }));
-    expect(takeGround).toHaveTextContent("se mueve a su casilla y combate otra vez");
+    expect(takeGround).toHaveTextContent("se mueve a su casilla, y ya no dispara más este turno");
     choose("Tomar terreno");
     // The unit is on the hex it took, as the player will leave it on the table
     expect(session.board.getHex(ADJACENT)!.hasUnit()).toBe(true);
     expect(session.board.getHex(UNIT)!.hasUnit()).toBe(false);
-    choose("Disparar otra vez (queda 1)");
-
-    expect(screen.getByTestId("firing-unit")).toHaveTextContent("Solo asalto cercano");
-    expect(hasBadge(TWO_AWAY)).toBe(true); // next to the hex taken
-    expect(hasBadge({ row: 4, col: 1 })).toBe(false);
-    fireAt(TWO_AWAY, "Blindados o artillería", "3 dados");
-
-    expect(session.getSnapshot().shots).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Disparar otra vez/ })).not.toBeInTheDocument();
     expect(screen.queryByTestId("take-ground")).not.toBeInTheDocument();
+    // It can still be taken back
+    choose("Deshacer");
+    expect(session.board.getHex(UNIT)!.hasUnit()).toBe(true);
+    expect(session.getSnapshot().shots).toHaveLength(1);
   });
 
   it("doesn't offer taking ground to infantry", () => {

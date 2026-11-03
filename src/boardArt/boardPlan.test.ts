@@ -71,7 +71,7 @@ describe("planBoard", () => {
     expect(planBoard(hills, LIBRARY, { separateHills: true }).map((hex) => hex.art)).toEqual(["painted", "painted", "painted"]);
   });
 
-  it("blends forests into their own kind, lays every town's houses out again, and draws hedgerows", () => {
+  it("blends forests into their own kind, fades towns into the countryside, and draws hedgerows", () => {
     const plan = planBoard({ forest: [p(4, 4), p(4, 5), p(0, 0)], hedgerow: [p(6, 6), p(6, 7)], town: [p(2, 2)] }, LIBRARY);
 
     expect(own(plan).map((hex) => [hex.key, hex.art])).toEqual([
@@ -85,26 +85,12 @@ describe("planBoard", () => {
     expect(at(plan, "4-5")[0]).toMatchObject({ tile: "forest/official.webp", open: [false, false, false, true, false, false] });
     // Adjacent hedgerows share an open edge, while the tile art stays inside one hex.
     expect(at(plan, "6-6")[0]).toMatchObject({ open: [true, false, false, false, false, false] });
-    expect(drawnSvg(at(plan, "6-6")[0] as DrawnHex)).toMatch(/viewBox="-86\.6 -100 173\.2 200"/);
-    expect(at(plan, "2-2")[0]).toMatchObject({ open: [false, false, false, false, false, false] });
+    // A town keeps its painted tile: nothing joined, no house spilling out
+    expect(at(plan, "2-2")[0]).toMatchObject({ art: "joined", open: [] });
     // A forest's trees grow over a town, a river or a hedgerow beside it, which end in countryside
     expect(at(planBoard({ forest: [p(4, 4)], town: [p(4, 5)], river: [p(4, 3)], hedgerow: [p(3, 3)] }, LIBRARY), "4-4")[0]).toMatchObject({
       bare: [true, true, true, true, true, true],
     });
-  });
-
-  it("runs a town's streets out over an edge or two, and always to a bridge", () => {
-    const streets = (tiles: Terrain) => (at(planBoard(tiles, LIBRARY), "4-4")[0] as { streets: number[] }).streets;
-
-    for (const key of ["4-4", "2-6", "6-2"]) {
-      const [row = 0, col = 0] = key.split("-").map(Number);
-      const out = (at(planBoard({ town: [p(row, col)] }, LIBRARY), key)[0] as { streets: number[] }).streets;
-      expect(out.length).toBeGreaterThanOrEqual(1);
-      expect(out.length).toBeLessThanOrEqual(2);
-    }
-    expect(streets({ town: [p(4, 4)], river: [p(4, 2)], bridge: [p(4, 3)] })).toContain(3);
-    // Not into another town, nor a lake
-    expect(streets({ town: [p(4, 4), p(4, 5), p(4, 3), p(3, 4), p(3, 3)], lake: [p(5, 3), p(5, 4)] })).toEqual([]);
   });
 
   it("runs a hill on into a river beside it, and the river's art up to the water", () => {
@@ -140,7 +126,7 @@ describe("planBoard", () => {
     const plan = planBoard({ river: [p(4, 3), p(4, 5)], bridge: [p(4, 4)] }, LIBRARY);
 
     expect(at(plan, "4-4")).toEqual([
-      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), spill: -1, woods: Array(6).fill(false), seed: 57 },
+      { key: "4-4", type: "bridge", art: "joined", tile: "river/3-0.webp", turns: 0, open: [true, false, false, true, false, false], bare: Array(6).fill(false), woods: Array(6).fill(false), seed: 57 },
       { key: "4-4", type: "bridge", art: "bridgePiece", edges: [0, 3] },
     ]);
     // Plain, its tile as it is
@@ -266,6 +252,17 @@ describe("planBoard", () => {
     expect(planBoard(tiles, library, { picked: { "4-4": "gone" } })).toEqual(planBoard(tiles, library));
   });
 
+  it("gives the church to no town at random, only where a board picks it (Sainte-Mère-Église's)", () => {
+    const towns: Terrain = { town: BOARD_KEYS.map((key) => parseKey(key)) };
+    const library = { ...LIBRARY, town: ["official.webp", "village-1.webp", "village-5.webp"] };
+    const tileOf = (plan: HexArt[], key: string) => (at(plan, key)[0] as { tile: string }).tile;
+
+    expect(BOARD_KEYS.some((key) => tileOf(planBoard(towns, library), key) === "town/village-5.webp")).toBe(false);
+    expect(tileOf(planBoard(towns, library, { picked: { "4-7": "village-5" } }), "4-7")).toBe("town/village-5.webp");
+    const sainteMere = boards.find((board) => board.terrain.includes("sainte-mere-eglise")) as { picked?: Record<string, string> };
+    expect(sainteMere.picked).toEqual({ "4-7": "village-5" });
+  });
+
   it("stops at a bend no river tile turns to fit", () => {
     expect(() => planBoard(SHARP_BEND, LIBRARY)).toThrow("No painted river tile joins edges 2 and 3 (at 4-5)");
     expect(planBoard(SHARP_BEND, LIBRARY, { drawn: ["river"] }).map((hex) => hex.art)).toEqual(["drawn", "drawn", "drawn"]);
@@ -299,8 +296,6 @@ describe("the outskirts", () => {
 
     expect(art("-1-2")?.type).toBe("forest");
     expect(art("1--1")?.type).toBe("town");
-    expect((art("1--1") as JoinedHex).spill).toBe(-1);
-    expect((art("1--1") as JoinedHex).streets).toEqual([]);
     // The board's forest runs on into it; no lone trees stand out from it on the board
     expect((art("0-2") as JoinedHex).open[5]).toBe(true);
     expect(plan.filter((hex) => hex.art === "spill").every((hex) => (hex as SpillHex).toward.some(Boolean) && BOARD_KEYS.includes(hex.key))).toBe(true);

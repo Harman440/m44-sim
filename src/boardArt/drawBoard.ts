@@ -26,6 +26,7 @@ import {
   bridgeAngle,
   canPaintRivers,
   drawnSvg,
+  PICKED_ONLY,
   pickFor,
   pickedByHex,
   planBoard,
@@ -56,8 +57,12 @@ for (const name of [...TILE_URLS.keys()].sort()) {
   (TILE_LIBRARY[terrain] ??= []).push(file);
 }
 
-/** The tiles a terrain can be painted with, as Scenario.pickedTiles names them (the file's name without ".webp") */
-export const tilesFor = (type: HexType): string[] => (TILE_LIBRARY[type] ?? []).map((file) => file.replace(/\.webp$/, ""));
+/**
+ * The tiles a terrain can be painted with, as Scenario.pickedTiles names them (the file's name
+ * without ".webp"); not PICKED_ONLY's, kept for the boards that pick them
+ */
+export const tilesFor = (type: HexType): string[] =>
+  (TILE_LIBRARY[type] ?? []).filter((file) => !PICKED_ONLY[type]?.includes(file)).map((file) => file.replace(/\.webp$/, ""));
 
 /**
  * The art the app plans for a map's terrain (`plain`: each hex its own tile, nothing joined;
@@ -234,7 +239,7 @@ const joinedTile = (hex: JoinedHex, grid: ReturnType<typeof artGrid>) => {
   const [width, height] = [Math.round(grid.hexWidth), Math.round(2 * grid.radius)];
   const edges = (list: boolean[]) => list.map(Number).join("");
   const center = grid.center(hex.key);
-  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${hex.spill}:${hex.streets ?? ""}:${edges(hex.woods ?? [])}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`;
+  const key = `${hex.tile}:${hex.key}:${hex.turns}:${edges(hex.open)}:${edges(hex.bare)}:${edges(hex.woods ?? [])}:${JSON.stringify(hex.hillShapes ?? [])}:${center.x},${center.y}@${width}x${height}`;
   return cached(joinedArt, key, async () => {
     // The tile's folder is its terrain (a bridge's is a river tile)
     const { tile, overflow } = (await joinedMaker(hex.tile.split("/")[0] ?? hex.type, hex.tile, width, height))({ ...hex, center });

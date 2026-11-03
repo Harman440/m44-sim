@@ -27,7 +27,7 @@ const TEXT = defineMessages({
     takeGround: "Tomar terreno",
     takeGroundRule:
       "Si un blindado gana un asalto cercano (el objetivo se retira o es eliminado; una sola bandera solo lo inmoviliza), puede tomar terreno: se mueve " +
-      "a la casilla del objetivo y combate otra vez, solo en asalto cercano. Una vez por unidad y turno. La " +
+      "a la casilla del objetivo, y ya no dispara más este turno. Una vez por unidad y turno. La " +
       "infantería no toma terreno.",
     wire: "Alambradas",
     wireRule:
@@ -62,7 +62,7 @@ const TEXT = defineMessages({
     takeGround: "Take ground",
     takeGroundRule:
       "If an armor unit wins a close assault (the target retreats or is eliminated; a single flag only pins it), it can take ground: it moves " +
-      "to the target's hex and fights again, in close assault only. Once per unit per turn. Infantry " +
+      "to the target's hex, and fires no more this turn. Once per unit per turn. Infantry " +
       "doesn't take ground.",
     wire: "Barbed wire",
     wireRule:

@@ -33,7 +33,6 @@ import ActionPopup from "./ActionPopup";
 import { moveLimitsOf } from "../../../game-core/actionRules";
 import ActionPanel from "./ActionPanel";
 import "./PhaseLayout.css";
-import { emptyMarks } from "./emptyMarks";
 
 const TEXT = defineMessages({
   es: {
@@ -409,7 +408,6 @@ function OrdersView({ faction, session, game, handLeaving = false, onHandGone = 
           markerKind={game.markerKinds}
           markablePositions={marking ? game.markable : []}
           camouflaged={game.camouflaged}
-          empty={emptyMarks(game)}
           faction={faction}
         />
       </div>

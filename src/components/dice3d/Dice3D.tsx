@@ -23,6 +23,7 @@ const LEAN: Record<DieKind, Quaternion> = {
   longRange: new Quaternion().setFromEuler(new Euler(-0.06, 0.07, 0)),
   suppressive: new Quaternion().setFromEuler(new Euler(-0.2, 0.22, 0)),
   longRangeSuppressive: new Quaternion().setFromEuler(new Euler(-0.06, 0.07, 0)),
+  air: new Quaternion().setFromEuler(new Euler(-0.2, 0.22, 0)),
 };
 
 export interface Point {

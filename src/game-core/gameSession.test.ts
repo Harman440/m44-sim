@@ -13,6 +13,7 @@ import { TurnPhase } from "../types/gameManager";
 import { Position, Scenario } from "../types/scenario";
 import { includesPosition, positionKey, samePosition } from "./position";
 import { hexDistance } from "./fireTargets";
+import { AIR_DIE_SIDES } from "./dice";
 import { same } from "../i18n/lang";
 import { Faction } from "../types/faction";
 import { Supply } from "../data/unitSupplies";
@@ -568,7 +569,7 @@ describe("GameSession firing", () => {
   it("records a 0-dice shot without rolling: the unit has used its fire", () => {
     const session = battle();
 
-    expect(session.fire(0, { distance: "3", lineOfSight: "yes", targetType: "infantry", targetTerrain: "town", sandbags: "no", camouflage: "no" })).toBe(true);
+    expect(session.fire(0, { distance: "4", lineOfSight: "yes", targetType: "infantry", targetTerrain: "town", sandbags: "no", camouflage: "no" })).toBe(true);
 
     expect(session.getSnapshot().shots[0]).toMatchObject({ dice: 0, faces: [] });
     expect(session.shotsLeft(0)).toBe(0);
@@ -1312,37 +1313,50 @@ describe("GameSession attack cards", () => {
     return session;
   };
 
-  it("keeps your units off the marked hexes, and next to them for Air Bombardment", () => {
+  it("rolls Air Power on the air die, 2 dice on each of its 4 hexes", () => {
     const session = turnTwo();
-    session.pickCard(barrage);
-    const target = session.getMoveOptions(LEFT_INF)!.moves[0]!;
-    expect(session.markHex(target)).toBe(true);
-    expect(session.getMoveOptions(LEFT_INF)!.moves).not.toContainEqual(target);
-    expect(session.issueOrder(LEFT_INF, target)).toBe(false);
+    session.pickCard(card("air-power"));
+    expect(session.markHex(FAR)).toBe(true);
+    while (session.getSnapshot().marking) expect(session.markHex(session.getSnapshot().markable[0]!)).toBe(true);
+    orderAllAndFight(session);
 
-    session.undoMarker();
-    session.unpickCard();
-    session.pickCard(card("air-bombardment"));
-    const mark = { row: 4, col: 2 };
-    const nextToMark = new Hex(mark).getNeighbors();
-    expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(true);
-    expect(session.markHex(mark)).toBe(true);
-    expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(false);
+    const marks = session.getSnapshot().attackMarks;
+    expect(marks).toHaveLength(4);
+    expect(marks.every((mark) => mark.die === "air" && mark.dicePerHex === 2)).toBe(true);
+    expect(session.attackHex(0, true)).toBe(true);
+    const [attack] = session.getSnapshot().cardAttacks;
+    expect(attack).toMatchObject({ dice: 2, target: { infantry: true, die: "air" } });
+    expect(attack!.faces.every((face) => AIR_DIE_SIDES.includes(face))).toBe(true);
   });
 
-  it("erases a mark when undoing an order brings a unit back on it", () => {
+  it("keeps your units off the marked hexes and next to them for Barrage and Air Bombardment", () => {
+    const session = turnTwo();
+    const mark = { row: 4, col: 2 };
+    const nextToMark = new Hex(mark).getNeighbors();
+    for (const id of ["barrage", "air-bombardment"]) {
+      session.pickCard(card(id));
+      expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(true);
+      expect(session.markHex(mark)).toBe(true);
+      expect(session.getMoveOptions(LEFT_INF)!.moves).not.toContainEqual(mark);
+      expect(session.getMoveOptions(LEFT_INF)!.moves.some((p) => includesPosition(nextToMark, p))).toBe(false);
+      session.undoMarker();
+      session.unpickCard();
+    }
+  });
+
+  it("erases a mark when undoing an order brings a unit back on it or next to it", () => {
     const session = turnTwo();
     session.pickCard(barrage);
-    const to = session.getMoveOptions(LEFT_INF)!.moves[0]!;
+    const to = session.getMoveOptions(LEFT_INF)!.moves.find((p) => hexDistance(p, LEFT_INF) === 2)!;
     session.issueOrder(LEFT_INF, to);
-    expect(session.markHex(LEFT_INF)).toBe(true); // empty now
+    expect(session.markHex(LEFT_INF)).toBe(true); // empty now, and the unit two hexes off
     session.undoLastOrder();
     expect(session.getSnapshot().markers).toEqual([]);
   });
 
   it("rolls the card's dice on each marked hex before any unit fires on the attack die", () => {
     const session = barrageBattle();
-    expect(session.getSnapshot().attackMarks).toEqual([{ marker: 0, position: FAR, card: barrage, dicePerHex: 4 }]);
+    expect(session.getSnapshot().attackMarks).toEqual([{ marker: 0, position: FAR, card: barrage, dicePerHex: 4, die: "attack" }]);
     expect(session.getSnapshot().attacksPending).toBe(true);
     expect(shoot(session, 0, AT_INFANTRY)).toBe(false);
 
@@ -1474,7 +1488,7 @@ describe("GameSession Reinforcements", () => {
   it("brings the unit with no energy and everything else full", () => {
     const session = finalPhase();
     const { supplies } = session.getSnapshot().supplies.find((each) => samePosition(each.position, FAR))!;
-    expect(supplies.amounts).toMatchObject({ energy: 0, morale: 5, ammo: 2 });
+    expect(supplies.amounts).toMatchObject({ energy: 0, morale: 4, ammo: 2 });
     expect(supplies.equipment).toMatchObject({ explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 });
   });
 
@@ -1576,10 +1590,11 @@ describe("GameSession firing at a hex on the map", () => {
   it("lists the hexes the unit can fire at, with their dice", () => {
     const session = tankBattle();
 
-    // Close assault 3, −2 for armour firing into a forest, +1 for armour's normal fire when it held
+    // Close assault 4 when it held, −2 for armour firing into a forest
     expect(target(session, { row: 4, col: 7 })).toMatchObject({ distance: 1, terrain: HexType.FOREST, dice: 2 });
     expect(target(session, { row: 4, col: 3 })).toMatchObject({ distance: 3, terrain: HexType.PLAINS, dice: 3 });
-    expect(target(session, { row: 4, col: 2 })).toBeUndefined(); // out of range
+    expect(target(session, { row: 4, col: 2 })).toMatchObject({ distance: 4, terrain: HexType.PLAINS, dice: 2 });
+    expect(target(session, { row: 4, col: 1 })).toBeUndefined(); // out of range
     expect(target(session, TANK)).toBeUndefined();
   });
 
@@ -1596,7 +1611,7 @@ describe("GameSession firing at a hex on the map", () => {
   it("won't fire at a hex out of range, out of sight, with a unit of its own or with no dice", () => {
     const session = tankBattle();
 
-    expect(session.fireAt(0, { position: { row: 4, col: 2 }, infantry: true, sandbags: false })).toBe(false);
+    expect(session.fireAt(0, { position: { row: 4, col: 1 }, infantry: true, sandbags: false })).toBe(false);
     expect(session.fireAt(0, { position: { row: 4, col: 9 }, infantry: true, sandbags: false })).toBe(false); // behind the forest
     expect(session.fireAt(0, { position: LEFT_INF, infantry: true, sandbags: false })).toBe(false);
     expect(session.getSnapshot().shots).toHaveLength(0);
@@ -1622,23 +1637,17 @@ describe("GameSession taking ground", () => {
   };
   const FOREST: Position = { row: 4, col: 7 };
 
-  it("lets armour take ground after a close assault and fire once more, adjacent to the hex it took", () => {
+  it("lets armour take ground after a close assault, and then it fires no more this turn", () => {
     const session = tankBattle();
     expect(session.canTakeGround(0)).toBe(false); // hasn't fired
     session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
 
     expect(session.takeGround(0)).toBe(true);
 
-    expect(session.shotsLeft(0)).toBe(1);
-    const targets = session.fireTargetsFor(0);
-    expect(targets.every((t) => t.distance === 1)).toBe(true);
-    expect(targets.some((t) => samePosition(t.position, { row: 4, col: 8 }))).toBe(true); // next to the forest
-    expect(session.fireAt(0, { position: { row: 4, col: 3 }, infantry: false, sandbags: false })).toBe(false);
-    expect(shoot(session, 0, AT_INFANTRY)).toBe(false); // not in close assault
-    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false, sandbags: false })).toBe(true);
+    expect(session.shotsLeft(0)).toBe(0);
+    expect(session.fireAt(0, { position: { row: 4, col: 8 }, infantry: false, sandbags: false })).toBe(false);
     // Once per turn
     expect(session.canTakeGround(0)).toBe(false);
-    expect(session.shotsLeft(0)).toBe(0);
   });
 
   it("only when the roll could have pushed back or eliminated the target (a flag or a hit)", () => {
@@ -1672,7 +1681,7 @@ describe("GameSession taking ground", () => {
     expect(session.takeGround(0)).toBe(false);
   });
 
-  it("takes it back while the extra shot hasn't been fired", () => {
+  it("takes it back", () => {
     const session = tankBattle();
     session.fireAt(0, { position: FOREST, infantry: true, sandbags: false });
     session.takeGround(0);
@@ -1690,7 +1699,8 @@ describe("GameSession taking ground", () => {
 
     const restored = reload(session);
 
-    expect(restored.shotsLeft(0)).toBe(1);
+    expect(restored.shotsLeft(0)).toBe(0);
+    expect(restored.board.getHex(FOREST)!.hasUnit()).toBe(true);
     expect(restored.getSnapshot().shots[0]).toMatchObject({ tookGround: true, targetPosition: FOREST });
   });
 
@@ -1998,7 +2008,7 @@ describe("GameSession elite units", () => {
     expect(session.giveAction(LEFT_INF, "infantry:moveOut", { row: 5, col: 1 })).toBe(true);
     expect(session.getSnapshot().orders[0]!.canFire).toBe(false);
     expect(suppliesAt({ row: 5, col: 1 }).amounts).toMatchObject({ morale: 10, energy: 10 });
-    expect(suppliesAt(OTHER_INF).amounts).toMatchObject({ morale: 5, energy: 5 });
+    expect(suppliesAt(OTHER_INF).amounts).toMatchObject({ morale: 4, energy: 5 });
   });
 
   it("keeps elite units elite in a save", () => {
@@ -2032,25 +2042,34 @@ describe("pass and play movement", () => {
     return { session, order: session.getSnapshot().orders[0]! };
   };
 
-  it("cuts an order short where its unit stopped, and only on its way", () => {
+  it("puts units where the movement left them: on its path, its order is cut there; off it, from its start", () => {
     const { session, order } = movedTwo();
     const halfway = order.path![1]!;
 
-    expect(session.haltOrders([{ order: 0, at: order.end }])).toBe(false); // the end isn't a stop
-    expect(session.haltOrders([{ order: 0, at: { row: 0, col: 0 } }])).toBe(false);
-    expect(session.haltOrders([{ order: 0, at: halfway }])).toBe(true);
-
+    expect(session.endMovement([{ from: { row: 0, col: 0 }, to: halfway, reachedEnd: false }])).toBe(false); // no unit there
+    expect(session.endMovement([{ from: order.end, to: halfway, reachedEnd: false }])).toBe(true);
     const halted = session.getSnapshot().orders[0]!;
     expect(halted.end).toEqual(halfway);
     expect(halted.path).toEqual(order.path!.slice(0, 2));
     expect(unitAt(session, halfway)).toBe(order.unit);
     expect(unitAt(session, order.end)).toBeNull();
+
+    // Pushed off its path: its order runs from its start to there
+    const aside = new Hex(halfway).getNeighbors().find((hex) => session.board.getHex(hex)?.isPassable() && !session.board.getHex(hex)!.hasUnit() && !order.path!.some((p) => samePosition(p, hex)))!;
+    expect(session.endMovement([{ from: halfway, to: aside, reachedEnd: false }])).toBe(true);
+    expect(session.getSnapshot().orders[0]).toMatchObject({ end: aside, path: [order.start, aside] });
+  });
+
+  it("won't put a unit on another's hex", () => {
+    const { session, order } = movedOne();
+    expect(session.endMovement([{ from: order.end, to: OTHER_INF, reachedEnd: false }])).toBe(false);
+    expect(unitAt(session, order.end)).toBe(order.unit);
   });
 
   it("is only for the movement phase", () => {
     const session = makeSession();
     session.pickCard(null);
-    expect(session.haltOrders([])).toBe(false);
+    expect(session.endMovement([])).toBe(false);
     expect(session.rollCollision(LEFT_INF, true, null)).toBe(false);
   });
 
@@ -2273,6 +2292,24 @@ describe("GameSession camouflage", () => {
 
     expect(session.aimAt(left, { row: 5, col: 1 })).toBeNull();
     expect(session.aimAt(left, { row: 6, col: 1 })).not.toBeNull();
+  });
+
+  it("in pass and play Suppressive Fire only aims at infantry, never at tanks or artillery", () => {
+    const session = defenderTurn();
+    session.pickCard(null);
+    session.setEnemyView(() => [
+      { position: { row: 6, col: 1 }, unitType: UnitType.TANK, sandbags: false, camouflaged: false },
+      { position: { row: 6, col: 2 }, unitType: UnitType.INFANTRY, sandbags: false, camouflaged: false },
+    ]);
+    orderAllAndFight(session);
+    const left = session.getSnapshot().orders.findIndex((o) => samePosition(o.start, LEFT_INF));
+
+    expect(session.aimAt(left, { row: 6, col: 1 })).not.toBeNull();
+    expect(session.aimAt(left, { row: 6, col: 1 }, "infantry:suppressive")).toBeNull();
+    expect(session.aimAt(left, { row: 6, col: 2 }, "infantry:suppressive")).not.toBeNull();
+    const targets = session.fireTargetsFor(left, "infantry:suppressive").map((target) => target.position);
+    expect(targets).not.toContainEqual({ row: 6, col: 1 });
+    expect(targets).toContainEqual({ row: 6, col: 2 });
   });
 
   it("asks whether the target is camouflaged only when the enemy has infantry", () => {

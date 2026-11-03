@@ -6,7 +6,9 @@ import { hasLineOfSight, hexDistance } from "../fireTargets";
 import { positionKey } from "../position";
 import BoardManager, { turnedRound } from "../BoardManager";
 import { UnitType, checksLineOfSight } from "../unit";
-import { BASE_DICE_BY_DISTANCE, TARGET_TERRAIN_MODIFIERS, TargetTerrain } from "../../data/fireQuestions";
+import { DieKind, SIDES_OF } from "../dice";
+import { faceHits } from "../../data/hitRules";
+import { TARGET_TERRAIN_MODIFIERS, TargetTerrain, baseDiceByDistance, maxRange } from "../../data/fireQuestions";
 import { TERRAIN } from "../../data/terrain";
 import { Position } from "../../types/scenario";
 
@@ -21,8 +23,12 @@ export const UNIT_VALUE: Record<UnitType, number> = {
   [UnitType.ARTILLERY]: 1.2,
 };
 
-/** The chance that one die hits a unit of this type: the infantry symbol (2 faces) or the tank, and the grenade */
-export const hitChance = (target: UnitType): number => (target === UnitType.INFANTRY ? 3 / 6 : 2 / 6);
+/** The chance that one die hits a unit of this type: on the battle die, the infantry symbol (2 faces) or the tank, and the grenade */
+export const hitChance = (target: UnitType, die: DieKind = "battle"): number => {
+  const sides = SIDES_OF[die];
+  const infantry = target === UnitType.INFANTRY;
+  return sides.filter((face) => faceHits(face, { infantry, closeAssault: false, die })).length / sides.length;
+};
 
 /** The dice a unit of this type loses firing at a hex, from its terrain */
 export function coverAt(board: BoardManager, position: Position, firing: UnitType): number {
@@ -32,28 +38,37 @@ export function coverAt(board: BoardManager, position: Position, firing: UnitTyp
   return TARGET_TERRAIN_MODIFIERS[terrain]?.dice[firing] ?? 0;
 }
 
-/** The dice a unit rolls at a target this far away on this hex (0 out of range) */
-export function diceAt(board: BoardManager, firing: UnitType, distance: number, target: Position): number {
-  const base = BASE_DICE_BY_DISTANCE[firing][distance - 1] ?? 0;
+/**
+ * The dice a unit rolls at a target this far away on this hex (0 out of range): having moved or
+ * not, and at infantry or not (infantry rolls less at armour); left out, unmoved at infantry
+ */
+export function diceAt(
+  board: BoardManager,
+  firing: UnitType,
+  distance: number,
+  target: Position,
+  { moved = false, infantryTarget = true }: { moved?: boolean; infantryTarget?: boolean } = {}
+): number {
+  const base = baseDiceByDistance(firing, { moved, infantryTarget })[distance - 1] ?? 0;
   return base > 0 ? Math.max(0, base + coverAt(board, target, firing)) : 0;
 }
 
 /** The hits a shot is worth: what share of the target it would destroy, by how much the target matters */
-export function shotValue(dice: number, target: SeenEnemy): number {
+export function shotValue(dice: number, target: SeenEnemy, die: DieKind = "battle"): number {
   const figures = Math.max(1, target.figures ?? 1);
-  const hits = dice * hitChance(target.unitType);
+  const hits = dice * hitChance(target.unitType, die);
   return (Math.min(hits, figures) / figures) * UNIT_VALUE[target.unitType];
 }
 
 /** The best shot a unit of this type would have from this hex, among the enemies in range and in sight */
-export function bestShotFrom(view: AiView, firing: UnitType, from: Position): number {
+export function bestShotFrom(view: AiView, firing: UnitType, from: Position, moved = false): number {
   const { board } = view.session;
   const blockers = new Set(view.enemies.map((enemy) => positionKey(enemy.position)));
   return Math.max(
     0,
     ...view.enemies.map((enemy) => {
       const distance = hexDistance(from, enemy.position);
-      const dice = diceAt(board, firing, distance, enemy.position);
+      const dice = diceAt(board, firing, distance, enemy.position, { moved, infantryTarget: enemy.unitType === UnitType.INFANTRY });
       if (dice === 0) return 0;
       if (checksLineOfSight(firing) && !hasLineOfSight(board, from, enemy.position, blockers)) return 0;
       return shotValue(dice, enemy);
@@ -68,7 +83,7 @@ export function bestShotFrom(view: AiView, firing: UnitType, from: Position): nu
 export function threatAt(view: AiView, unitType: UnitType, at: Position, figures = 1): number {
   const { board } = view.session;
   const hits = view.enemies.reduce((sum, enemy) => {
-    const dice = diceAt(board, enemy.unitType, hexDistance(enemy.position, at), at);
+    const dice = diceAt(board, enemy.unitType, hexDistance(enemy.position, at), at, { infantryTarget: unitType === UnitType.INFANTRY });
     return sum + dice * hitChance(unitType);
   }, 0);
   return (Math.min(hits, figures) / figures) * UNIT_VALUE[unitType];
@@ -90,7 +105,7 @@ export function top<T>(options: readonly T[], score: (option: T) => number, rand
 export function unitWorth(view: AiView, position: Position): number {
   const unitType = view.session.board.getHex(position)?.unit?.getUnitType();
   if (!unitType || view.enemies.length === 0) return 0;
-  const reach = BASE_DICE_BY_DISTANCE[unitType].length + (unitType === UnitType.ARTILLERY ? 0 : 1);
+  const reach = maxRange(unitType) + (unitType === UnitType.ARTILLERY ? 0 : 1);
   return 1 + (nearestEnemy(view.enemies, position) <= reach ? 1 : 0);
 }
 

@@ -1,6 +1,3 @@
-- Art work for cards
-    - Cards using default art: refuel
-
 - Think about special unit that hit with star
     - Use same dice as air power and create new 8 sided dice with one more tank or one more infantry depending on the unit it can hit with stars. remove one supplies
 - More air powers?? double when air superiority or tripple

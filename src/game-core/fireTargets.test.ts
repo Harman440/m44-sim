@@ -84,19 +84,32 @@ describe("fireTargets", () => {
     const b = board({ forest: [{ row: 4, col: 5 }] }, { infantry: [from, { row: 4, col: 3 }] });
     const targets = fireTargets(b, from, { unitType: UnitType.INFANTRY });
 
-    expect(targets.every((t) => t.distance >= 1 && t.distance <= 3)).toBe(true);
+    expect(targets.every((t) => t.distance >= 1 && t.distance <= 4)).toBe(true);
+    expect(targets.some((t) => t.distance === 4)).toBe(true);
     expect(at(targets, { row: 4, col: 3 })).toBeUndefined(); // own unit
     expect(at(targets, from)).toBeUndefined();
     expect(at(targets, { row: 4, col: 5 })).toMatchObject({ distance: 1, terrain: HexType.FOREST, dice: 2 });
     expect(at(targets, { row: 4, col: 6 })).toMatchObject({ distance: 2, terrain: HexType.PLAINS, dice: 2 });
   });
 
-  it("gives 0 dice where terrain takes them all (infantry 3 hexes away into forest), and adds the card's dice", () => {
-    const b = board({ forest: [{ row: 4, col: 7 }] });
-    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY }), { row: 4, col: 7 })!.dice).toBe(0);
+  it("reaches 2 hexes once the unit moved, and gives infantry 2 dice at armour or artillery, 2 hexes at most", () => {
+    const moved = fireTargets(board(), from, { unitType: UnitType.INFANTRY, moved: true });
+    expect(Math.max(...moved.map((t) => t.distance))).toBe(2);
+    expect(at(moved, { row: 4, col: 5 })!.dice).toBe(3);
+    expect(at(fireTargets(board(), from, { unitType: UnitType.TANK, moved: true }), { row: 4, col: 6 })!.dice).toBe(3);
+
+    const enemies = [{ row: 4, col: 5 }, { row: 4, col: 7 }];
+    const atArmour = fireTargets(board(), from, { unitType: UnitType.INFANTRY }, enemies, () => false);
+    expect(at(atArmour, { row: 4, col: 5 })!.dice).toBe(2);
+    expect(at(atArmour, { row: 4, col: 7 })!.dice).toBe(0);
+  });
+
+  it("gives 0 dice where terrain takes them all (infantry 4 hexes away into forest), and adds the card's dice", () => {
+    const b = board({ forest: [{ row: 4, col: 8 }] });
+    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY }), { row: 4, col: 8 })!.dice).toBe(0);
 
     const combatBonuses = [{ name: same("Bonus"), dice: 1 }];
-    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, combatBonuses }), { row: 4, col: 7 })!.dice).toBe(1);
+    expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY, combatBonuses }), { row: 4, col: 8 })!.dice).toBe(1);
   });
 
   it("reaches only adjacent hexes in close assault", () => {
@@ -107,15 +120,15 @@ describe("fireTargets", () => {
 
   it("fires from a hill at a hill as if it were open ground", () => {
     const b = board({ hill: [from, { row: 4, col: 5 }] });
-    expect(at(fireTargets(b, from, { unitType: UnitType.TANK }), { row: 4, col: 5 })!.dice).toBe(3);
+    expect(at(fireTargets(b, from, { unitType: UnitType.TANK }), { row: 4, col: 5 })!.dice).toBe(4);
     const low = board({ hill: [{ row: 4, col: 5 }] });
-    expect(at(fireTargets(low, from, { unitType: UnitType.TANK }), { row: 4, col: 5 })!.dice).toBe(2);
+    expect(at(fireTargets(low, from, { unitType: UnitType.TANK }), { row: 4, col: 5 })!.dice).toBe(3);
   });
 
   it("gives armour in a town 2 dice fewer at every target", () => {
     const b = board({ town: [from] });
     const tank = fireTargets(b, from, { unitType: UnitType.TANK });
-    expect(at(tank, { row: 4, col: 5 })!.dice).toBe(1);
+    expect(at(tank, { row: 4, col: 5 })!.dice).toBe(2);
     expect(at(tank, { row: 4, col: 7 })!.dice).toBe(1);
     expect(at(fireTargets(b, from, { unitType: UnitType.INFANTRY }), { row: 4, col: 5 })!.dice).toBe(3);
   });

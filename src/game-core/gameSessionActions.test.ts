@@ -146,7 +146,7 @@ describe("GameSession giving actions", () => {
       const to = session.getMoveOptions(INF, "infantry:assault")!.moveAndFire.find((move) => hexDistance(move, INF) === 2)!;
       expect(session.giveAction(INF, "infantry:assault", to)).toBe(true);
       expect(session.commitOrders()).toBe(true);
-      expect(suppliesAt(session, to).amounts).toMatchObject({ [Supply.ENERGY]: 2, [Supply.MORALE]: figures ? 3 : 5 });
+      expect(suppliesAt(session, to).amounts).toMatchObject({ [Supply.ENERGY]: 2, [Supply.MORALE]: figures ? 2 : 4 });
     }
   });
 
@@ -154,8 +154,10 @@ describe("GameSession giving actions", () => {
     const session = ordering();
 
     expect(farthest(session.getMoveOptions(TANK, "tank:assault")!.moves, TANK)).toBe(1);
-    expect(farthest(session.getMoveOptions(TANK, "tank:armorForward")!.moves, TANK)).toBe(3);
-    const far = session.getMoveOptions(TANK, "tank:armorForward")!.moves.find((move) => hexDistance(move, TANK) === 3)!;
+    expect(farthest(session.getMoveOptions(TANK, "tank:armorForward")!.moves, TANK)).toBe(4);
+    // It moves up to 4 hexes, and fires only after 2 or fewer
+    expect(farthest(session.getMoveOptions(TANK, "tank:armorForward")!.moveAndFire, TANK)).toBe(2);
+    const far = session.getMoveOptions(TANK, "tank:armorForward")!.moves.find((move) => hexDistance(move, TANK) === 4)!;
     expect(session.giveAction(TANK, "tank:assault", far)).toBe(false);
     expect(session.giveAction(TANK, "tank:armorForward", far)).toBe(true);
   });

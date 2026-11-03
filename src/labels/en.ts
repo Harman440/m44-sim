@@ -43,6 +43,7 @@ const DIE_NOTES: Record<DieKind, string> = {
   attack: " · attack die",
   suppressive: " · suppressive die",
   longRangeSuppressive: " · 8-sided suppressive die",
+  air: " · air die",
 };
 
 const SUPPLY_NAMES: Labels["supplies"] = {
@@ -159,8 +160,10 @@ const en: Labels = {
   },
   describeMarkerRule: ({ kind, count, chain, awayFromOwnUnits }) => {
     if (kind === "cross") return "Mark the empty hex where the unit appears with a cross.";
+    if (chain && awayFromOwnUnits)
+      return `Mark ${hexes(count)} in a chain, each one next to the one before, that aren't on or next to your units.`;
     if (chain) return `Mark ${hexes(count)} in a chain: each one next to the one before.`;
-    if (awayFromOwnUnits) return `Mark ${hexes(count)} that aren't on or next to your units.`;
+    if (awayFromOwnUnits) return `Mark ${hexes(count)} that ${count === 1 ? "isn't" : "aren't"} on or next to your units.`;
     return `Mark ${hexes(count)} without your units.`;
   },
 };

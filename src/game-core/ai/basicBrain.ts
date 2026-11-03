@@ -5,7 +5,7 @@ import { Brain, SeenEnemy } from "./aiStep";
 import { hexDistance } from "../fireTargets";
 import { positionKey, samePosition } from "../position";
 import { UnitType } from "../unit";
-import { BASE_DICE_BY_DISTANCE } from "../../data/fireQuestions";
+import { baseDiceByDistance } from "../../data/fireQuestions";
 import { Position } from "../../types/scenario";
 
 /** How far the nearest enemy is from this hex (Infinity with none left) */
@@ -22,7 +22,7 @@ function best<T>(options: readonly T[], score: (option: T) => number, random: ()
 }
 
 /** The dice a unit of this type rolls at an enemy this far away (0 out of range) */
-const diceAt = (unitType: UnitType, distance: number): number => BASE_DICE_BY_DISTANCE[unitType][distance - 1] ?? 0;
+const diceAt = (unitType: UnitType, distance: number): number => baseDiceByDistance(unitType)[distance - 1] ?? 0;
 
 export const basicBrain: Brain = {
   dropAt: (view, options) => best(options, () => 0, view.random),

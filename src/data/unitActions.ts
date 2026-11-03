@@ -92,14 +92,14 @@ export const INFANTRY_ACTIONS: readonly UnitAction[] = [
 export const TANK_ACTIONS: readonly UnitAction[] = [
   tank("firefight", FIREFIGHT_NAME, FIREFIGHT_TEXT, { painting: "firefight", cost: FREE, move: 0, fire: ONE_SHOT }),
   tank("assault", { es: "Asalto", en: "Assault" },
-    { es: "Se mueve hasta 3 casillas y dispara.", en: "Moves up to 3 hexes and fires." },
-    { painting: "infantry-assault", cost: fuel(1), move: 3, fire: ONE_SHOT }),
+    { es: "Se mueve hasta 4 casillas; dispara si se movió 2 o menos.", en: "Moves up to 4 hexes; fires if it moved 2 or fewer." },
+    { painting: "infantry-assault", cost: fuel(1), move: 4, fireMove: 2, fire: ONE_SHOT }),
   tank("armorForward", { es: "Blindados adelante", en: "Armor Forward" },
     {
-      es: "Se mueve hasta 3 casillas sin que el terreno la detenga y dispara, salvo si acaba en una casilla desde la que no se puede disparar.",
-      en: "Moves up to 3 hexes with no terrain stopping it and fires, unless it ends on a hex it can't fire from.",
+      es: "Se mueve hasta 4 casillas sin que el terreno la detenga; dispara si se movió 2 o menos, salvo si acaba en una casilla desde la que no se puede disparar. Pasa a través de la infantería enemiga sin chocar: la deja inmovilizada, como si le hubiera salido una bandera (si ya lo estaba, se retira).",
+      en: "Moves up to 4 hexes with no terrain stopping it; fires if it moved 2 or fewer, unless it ends on a hex it can't fire from. It goes through enemy infantry without colliding: the infantry is pinned, as if a flag had been rolled on it (if it was pinned already, it retreats).",
     },
-    { painting: "armor-forward", cost: fuel(2), move: 3, ignoresTerrain: true, fire: ONE_SHOT }),
+    { painting: "armor-forward", cost: fuel(2), move: 4, fireMove: 2, ignoresTerrain: true, throughInfantry: true, fire: ONE_SHOT }),
   tank("mechanic", { es: "Mecánico", en: "Mechanic" },
     { es: "No se mueve ni dispara: repara la figura más tocada (la que tiene más impactos sin haber caído).", en: "Doesn't move or fire: mends the most damaged figure (hit but not lost)." },
     { painting: "mechanic", cost: FREE, move: 0, fire: null, effect: "mechanic" }),
@@ -156,8 +156,8 @@ const NORMAL_NAME: Localized = { es: "Disparo normal", en: "Normal fire" };
 const SUPPRESSIVE_NAME: Localized = { es: "Fuego de supresión", en: "Suppressive Fire" };
 /* Short: what it spends is on the option itself as icons, and the rule book has each die's faces */
 const SUPPRESSIVE_TEXT: Localized = {
-  es: "Tira el dado de supresión: más banderas y menos impactos.",
-  en: "Rolls the suppressive die: more flags, fewer hits.",
+  es: "Solo contra infantería: tira el dado de supresión, con más banderas y menos impactos.",
+  en: "Only at infantry: rolls the suppressive die, with more flags and fewer hits.",
 };
 
 export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
@@ -171,16 +171,11 @@ export const FIRE_OPTIONS: Record<UnitType, readonly FireOption[]> = {
         en: "Close assault only: 1 extra die.",
       } },
     { id: "infantry:suppressive", unitType: UnitType.INFANTRY, name: SUPPRESSIVE_NAME, painting: "heat-of-battle", cost: ammo, die: "suppressive",
-      description: SUPPRESSIVE_TEXT },
+      infantryTargetOnly: true, description: SUPPRESSIVE_TEXT },
   ],
   [UnitType.TANK]: [
-    { id: "tank:normal", unitType: UnitType.TANK, name: NORMAL_NAME, painting: "firefight", cost: shell, closeAssaultBonus: { dice: 1, unmoved: true },
-      description: {
-        es: "Dispara como siempre, con 1 dado más en asalto cercano si no se movió.",
-        en: "Fires as usual, with 1 extra die in close assault if it didn't move.",
-      } },
-    { id: "tank:suppressive", unitType: UnitType.TANK, name: SUPPRESSIVE_NAME, painting: "heat-of-battle", cost: shell, die: "suppressive",
-      description: SUPPRESSIVE_TEXT },
+    { id: "tank:normal", unitType: UnitType.TANK, name: NORMAL_NAME, painting: "firefight", cost: shell,
+      description: { es: "Dispara como siempre.", en: "Fires as usual." } },
   ],
   [UnitType.ARTILLERY]: [
     { id: "artillery:fire", unitType: UnitType.ARTILLERY, name: { es: "Fuego", en: "Fire" }, painting: "spotter", cost: shell,

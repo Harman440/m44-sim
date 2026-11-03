@@ -26,7 +26,7 @@
 // land beside it, its surf toward the ocean; an ocean hex turns its shore toward the land. A river forks, ends in a pond, or runs into a lake beside it, with the tile that
 // fits it; a lake is painted with the lake tiles when every hex of it has one that fits, and drawn
 // otherwise.
-// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes and hedgerows always, and rivers
+// Drawn terrain comes from src/boardArt/terrainTiles.mjs: lakes always, and rivers
 // and bridges when the board asks. A river runs through the edges it shares with the next river or
 // bridge hexes. Hedgerows use their painted field image; the board's edges are made soft
 // (src/boardArt/softLines.mjs): the empty board's dark frame filled with countryside and the hex
@@ -262,13 +262,14 @@ const drawnTile = async (hex) => {
   return placed(input, hex.key, tileWidth, tileHeight);
 };
 
-async function build({ terrain, image, drawn = [], separateHills = false }) {
+async function build({ terrain, image, drawn = [], separateHills = false, picked: boardPicked = {} }) {
   const json = JSON.parse(readFileSync(terrain, "utf8"));
   // A catalog scenario's file has its terrain in `tiles`, and the town tiles picked in the editor
   const scenario = "version" in json && "tiles" in json;
   if (scenario && json.board !== "standard") throw new Error(`${terrain}: only a standard 13×9 board can be painted (the app draws a bigger one)`);
   const tiles = scenario ? json.tiles : json;
-  const picked = scenario ? pickedByHex(json.pickedTiles) : {};
+  // and the tiles boards.json picks (the church only goes where a board asks for it)
+  const picked = { ...(scenario ? pickedByHex(json.pickedTiles) : {}), ...boardPicked };
   let plan;
   try {
     plan = planBoard(tiles, library, { drawn, separateHills, outskirts: true, picked });

@@ -66,8 +66,8 @@ describe("unit actions", () => {
   it("costs and moves armour and artillery as the house rules say", () => {
     expect(summary(TANK_ACTIONS)).toEqual({
       firefight: "free, move 0, 1 shot",
-      assault: "1 fuel, move 3, 1 shot",
-      armorForward: "2 fuel, move 3, 1 shot",
+      assault: "1 fuel, move 4, 1 shot if it moves 2",
+      armorForward: "2 fuel, move 4, 1 shot if it moves 2",
       mechanic: "free, move 0, no fire",
       regroup: "2 fuel, move 0, no fire",
       reload: "free, move 0, no fire",
@@ -109,8 +109,10 @@ describe("fire options", () => {
     });
   });
 
-  it("give armour's normal fire 1 extra die in close assault if it didn't move, and suppressive fire to infantry and armour only", () => {
-    expect(fireOptionById("tank:normal")?.closeAssaultBonus).toEqual({ dice: 1, unmoved: true });
-    expect(OPTIONS.filter((each) => each.die === "suppressive").map((each) => each.unitType)).toEqual([UnitType.INFANTRY, UnitType.TANK]);
+  it("give armour's normal fire no extra die, and suppressive fire to infantry only, at infantry only", () => {
+    expect(fireOptionById("tank:normal")?.closeAssaultBonus).toBeUndefined();
+    expect(OPTIONS.filter((each) => each.die === "suppressive").map((each) => each.unitType)).toEqual([UnitType.INFANTRY]);
+    expect(fireOptionById("infantry:suppressive")?.infantryTargetOnly).toBe(true);
+    expect(fireOptionById("tank:suppressive")).toBeUndefined();
   });
 });

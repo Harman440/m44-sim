@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef } from 'react';
 import { IconButton } from '@mui/material';
 import type React from 'react';
 import type { ArmyView } from '../game-core/passAndPlay';
-import type { UnitChange, UnitStrength } from '../game-core/gameSession';
+import type { UnitStrength } from '../game-core/gameSession';
 import { OpponentContext, ViewSideContext, type BoardFog } from './OpponentContext';
 import { VictoryContext } from './VictoryContext';
 import { iconUrl } from './GameIcon';
@@ -22,7 +22,6 @@ import type { MarkerRule } from '../game-core/actionCard';
 import { SandbagsArt } from './SandbagsIcon';
 import { CamouflageBadge } from './CamouflageIcon';
 import { useBoardZoom } from './boardZoom';
-import type { Supply } from '../data/unitSupplies';
 import { defineMessages, useMessages } from '../i18n/useI18n';
 
 const TEXT = defineMessages({
@@ -67,6 +66,8 @@ interface BoardProps {
   markers?: readonly Position[];
   /** How the marks are drawn: one kind for all, or each mark's kind (two cards can mark hexes) */
   markerKind?: MarkerRule['kind'] | readonly MarkerRule['kind'][];
+  /** Indexes in `markers` whose dice have been rolled: not drawn, the others keep their numbers */
+  rolledMarkers?: readonly number[];
   /** Hexes that can be marked next, highlighted */
   markablePositions?: readonly Position[];
   /** The combat cards given to units this turn (Explosives…): a small card badge on each unit */
@@ -105,6 +106,11 @@ interface BoardProps {
    * from: the reveal before the armies move. Taken off, they glide to where they stand
    */
   atStart?: boolean;
+  /**
+   * Pass and play's movement: where this side's units stand now, in its view, while they move a
+   * hex at a time (their board has them where their orders end until it's over)
+   */
+  unitPositions?: ReadonlyMap<Unit, Position> | null;
   /** Draw the orders' movement arrows (both sides'); off in the battle, where the moves are done */
   showArrows?: boolean;
   /**
@@ -124,10 +130,6 @@ interface BoardProps {
   startsWhole?: boolean;
   /** More buttons under the zoom buttons */
   zoomTools?: React.ReactNode;
-  /** Legacy compatibility; turn changes are shown in unit rows rather than beside map units. */
-  changes?: readonly UnitChange[];
-  /** Legacy compatibility; empty supplies are visible in unit meters and are no longer map badges. */
-  empty?: readonly { position: Position; supplies: readonly Supply[] }[];
   /** The part of the board shown changed (a zoom or a pan): something laid over a hex can follow it */
   onViewChange?: () => void;
 }
@@ -178,6 +180,7 @@ function Board({
   orderablePositions = [],
   markers = [],
   markerKind = 'target',
+  rolledMarkers = [],
   markablePositions = [],
   cardBadges = [],
   camouflaged = [],
@@ -192,6 +195,7 @@ function Board({
   strength: strengthProp,
   collisions = [],
   atStart = false,
+  unitPositions = null,
   showArrows = true,
   zoomable = false,
   zoomOn = null,
@@ -353,6 +357,7 @@ function Board({
 
   const renderMarkers = () =>
     markers.map((position, i) => {
+      if (rolledMarkers.includes(i)) return null;
       const { x, y } = geometry.hexCenter(position);
       const kind = typeof markerKind === 'string' ? markerKind : (markerKind[i] ?? 'target');
       const r = hexSize * (kind === 'target' ? 0.4 : 0.55);
@@ -470,7 +475,7 @@ function Board({
       return [{
         unit,
         faction: unitFactionAt?.(position) ?? faction,
-        position: ownStarts?.get(unit) ?? position,
+        position: unitPositions?.get(unit) ?? ownStarts?.get(unit) ?? position,
         other: false,
         readyToFire: unitsReadyToFire.has(unit),
         fired: firedUnits?.has(unit) ?? false,
@@ -520,10 +525,20 @@ function Board({
       if (before !== undefined && hitThisTurn > before) shaken.set(unit, hitThisTurn);
       seen.set(unit, hitThisTurn);
     }
+    // Two units on one hex (enemies that collided, until it's settled) stand side by side on it
+    const hexOf = (token: PlacedToken) => (token.other ? turnedRound(token.position, boardManager.size) : token.position);
+    const sharing = new Map<string, PlacedToken[]>();
+    for (const token of drawn) sharing.set(positionKey(hexOf(token)), [...(sharing.get(positionKey(hexOf(token))) ?? []), token]);
+    const shift = (token: PlacedToken) => {
+      const here = sharing.get(positionKey(hexOf(token)))!;
+      if (here.length < 2) return 0;
+      return (here.indexOf(token) - (here.length - 1) / 2) * hexSize * 0.55;
+    };
     return drawn
       .sort((a, b) => unitKey(a.unit) - unitKey(b.unit))
       .map((token) => {
-        const { x, y } = geometry.hexCenter(token.other ? turnedRound(token.position, boardManager.size) : token.position);
+        const center = geometry.hexCenter(hexOf(token));
+        const { x, y } = { x: center.x + shift(token), y: center.y };
         return (
           <g
             key={unitKey(token.unit)}

@@ -19,8 +19,8 @@ const [W, H] = [40, 46];
 const CLOSED = [false, false, false, false, false, false];
 const at = (pixels: Uint8Array, x: number, y: number) => [...pixels.slice((y * W + x) * 4, (y * W + x) * 4 + 3)];
 type Hex = Parameters<ReturnType<typeof joinedTileMaker>>[0];
-// A hex with no countryside round it and no house over its edge, unless given
-const hex = (key: string, open: boolean[], turns: number, seed: number, more: Partial<Hex> = {}): Hex => ({ key, open, turns, seed, bare: CLOSED, spill: -1, ...more });
+// A hex with no countryside round it, unless given
+const hex = (key: string, open: boolean[], turns: number, seed: number, more: Partial<Hex> = {}): Hex => ({ key, open, turns, seed, bare: CLOSED, ...more });
 const EAST = [true, false, false, false, false, false];
 
 describe("joinedTileMaker", () => {
@@ -54,7 +54,7 @@ describe("joinedTileMaker", () => {
     expect(at(joined, W - 2, H / 2)).not.toEqual(at(plain, W - 2, H / 2));
   });
 
-  it("lays a town's houses out again on each hex", () => {
+  it("keeps a town's painted tile, turned by the hex, with nothing spilling out", () => {
     const make = joinedTileMaker("town", tile(true), W, H, 1);
     const blue = (pixels: Uint8Array) => {
       let n = 0;
@@ -62,10 +62,11 @@ describe("joinedTileMaker", () => {
       return n;
     };
     const one = make(hex("2-2", CLOSED, 0, 1));
-    const other = make(hex("5-7", CLOSED, 0, 70));
+    const other = make(hex("5-7", CLOSED, 3, 70));
 
-    // Houses still on it, but not where they were, nor where the other town has them
+    // Its houses still on it, turned round with the tile in the other town
     expect(blue(one.tile)).toBeGreaterThan(100);
+    expect(blue(other.tile)).toBeGreaterThan(100);
     expect(one.tile).not.toEqual(other.tile);
     expect(one.overflow).toBeNull();
   });
@@ -90,50 +91,6 @@ describe("joinedTileMaker", () => {
     expect(Math.max(...[...Array(Math.floor(OW / 2 - W / 2) - 1).keys()].map((x) => overflow![(y * OW + x) * 4 + 3]!))).toBe(0);
   });
 
-  it("stands a town's house partly over the edge it spills over", () => {
-    const make = joinedTileMaker("town", tile(true), W, H, 1);
-    const { overflow } = make(hex("2-2", CLOSED, 0, 1, { bare: EAST, spill: 0 }));
-
-    expect(pastEast(overflow)).toBeGreaterThan(200);
-  });
-});
-
-describe("a town's streets", () => {
-  it("run out over the edges they're given", () => {
-    const make = joinedTileMaker("town", tile(true), W, H, 1);
-    const [OW, OH] = [Math.round(OVERFLOW * W), Math.round(OVERFLOW * H)];
-    const past = (overflow: Uint8Array | null, east: boolean) => {
-      let most = 0;
-      for (let y = 0; y < OH; y++) {
-        for (let x = 0; x < OW; x++) {
-          const out = east ? x > OW / 2 + W / 2 + 1 : x < OW / 2 - W / 2 - 1;
-          if (out) most = Math.max(most, overflow?.[(y * OW + x) * 4 + 3] ?? 0);
-        }
-      }
-      return most;
-    };
-    const { overflow } = make(hex("2-2", CLOSED, 0, 1, { streets: [0] }));
-
-    expect(past(overflow, true)).toBe(255);
-    expect(past(overflow, false)).toBe(0);
-  });
-});
-
-describe("a town's cobbled yards", () => {
-  it("spill out over some of its edges onto the countryside", () => {
-    const make = joinedTileMaker("town", tile(true), W, H, 1);
-    const [OW, OH] = [Math.round(OVERFLOW * W), Math.round(OVERFLOW * H)];
-    const pastEast = (overflow: Uint8Array | null) => {
-      let most = 0;
-      for (let y = 0; y < OH; y++) for (let x = Math.ceil(OW / 2 + W / 2) + 1; x < OW; x++) most = Math.max(most, overflow?.[(y * OW + x) * 4 + 3] ?? 0);
-      return most;
-    };
-    const spilt = [...Array(8).keys()].map((seed) => pastEast(make(hex("2-2", CLOSED, 0, seed, { bare: EAST })).overflow));
-
-    // Over the countryside to the east in some towns, not all
-    expect(spilt.filter((alpha) => alpha === 255).length).toBeGreaterThan(0);
-    expect(spilt.filter((alpha) => alpha === 0).length).toBeGreaterThan(0);
-  });
 });
 
 describe("growWoods", () => {

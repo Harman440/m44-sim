@@ -53,6 +53,11 @@ export interface UnitAction {
   readonly fireMove?: number;
   /** Its move ignores terrain movement limits (battle limits still apply) */
   readonly ignoresTerrain?: boolean;
+  /**
+   * Pass and play: its move goes through enemy infantry that stays put instead of colliding with
+   * it, and gives each a flag (Armor Forward)
+   */
+  readonly throughInfantry?: boolean;
   /** Hexes it moves after the battle (Behind Enemy Lines) */
   readonly moveAfterBattle?: number;
   /** How it fires, or null when it doesn't */
@@ -78,4 +83,6 @@ export interface FireOption {
   readonly closeAssaultBonus?: { dice: number; unmoved?: boolean };
   /** Rolls the suppressive die: `suppressed()` of the die the shot would roll */
   readonly die?: Extract<DieKind, "suppressive">;
+  /** Only at an infantry target (Suppressive Fire: never at tanks or artillery) */
+  readonly infantryTargetOnly?: boolean;
 }

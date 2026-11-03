@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import GameSession from "./gameSession";
 import PassAndPlayMatch from "./passAndPlay";
+import { playMovement } from "./ai/selfPlay";
 import { SavedGame } from "./saveGame";
 import { Faction } from "../types/faction";
 import { Scenario } from "../types/scenario";
@@ -67,7 +68,7 @@ const spottedMatch = ({ computer }: { computer?: Faction }) => {
 const toBattle = (match: PassAndPlayMatch) => {
   holdAll(match.sessions.Axis);
   restAll(match.sessions.Allies);
-  expect(match.moveUnits()).toBe(true);
+  expect(playMovement(match)).toBe(true);
   expect(match.finishReveal()).toBe(true);
 };
 
@@ -100,14 +101,14 @@ describe("fog of war against the computer", () => {
     // Only the infantry (4-6 in both views) is ordered: the artillery (3-6, which is 5-5 in the Axis' view) is out of sight
     holdOnly(match.sessions.Axis, { row: 4, col: 6 });
     restAll(match.sessions.Allies);
-    expect(match.moveUnits()).toBe(true);
+    expect(playMovement(match)).toBe(true);
     expect(match.finishReveal()).toBe(true);
     expect(seenBy(match, "Allies")).toEqual(["4-6"]);
 
     const ordered = spottedMatch({ computer: "Axis" });
     holdAll(ordered.sessions.Axis);
     restAll(ordered.sessions.Allies);
-    expect(ordered.moveUnits()).toBe(true);
+    expect(playMovement(ordered)).toBe(true);
     expect(ordered.finishReveal()).toBe(true);
     expect(seenBy(ordered, "Allies")).toEqual(["4-6", "5-5"]);
     const artillery = ordered.sessions.Axis.getSnapshot().orders.findIndex((order) => order.unit.getUnitType() === "artillery");
@@ -122,7 +123,7 @@ describe("fog of war against the computer", () => {
     expect(match.fogOn("Allies")).toBeNull();
     holdOnly(match.sessions.Axis, { row: 4, col: 6 });
     restAll(match.sessions.Allies);
-    expect(match.moveUnits()).toBe(true);
+    expect(playMovement(match)).toBe(true);
     expect(match.finishReveal()).toBe(true);
 
     const allies = match.fogOn("Allies")!;
@@ -164,7 +165,7 @@ describe("fog of war between two people", () => {
     // The Axis orders its infantry only; the Allies rest
     holdOnly(match.sessions.Axis, { row: 4, col: 6 });
     restAll(match.sessions.Allies);
-    expect(match.moveUnits()).toBe(true);
+    expect(playMovement(match)).toBe(true);
     // The movement isn't fogged
     expect(match.fogOn("Allies")).toBeNull();
     expect(match.finishReveal()).toBe(true);

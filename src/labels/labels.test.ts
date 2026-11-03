@@ -24,7 +24,7 @@ describe("Spanish descriptions", () => {
   it.each([
     ["infantry:assault", "Mueve hasta 2 casillas; puede disparar si mueve hasta 2 casillas"],
     ["infantry:moveOut", "Mueve hasta 2 casillas; puede disparar si mueve hasta 1 casilla"],
-    ["tank:assault", "Mueve hasta 3 casillas; puede disparar si mueve hasta 3 casillas"],
+    ["tank:assault", "Mueve hasta 4 casillas; puede disparar si mueve hasta 2 casillas"],
     ["artillery:reposition", "Mueve hasta 2 casillas; no puede disparar"],
     ["artillery:firefight", "No se mueve; dispara"],
     ["infantry:reload", "No se mueve ni dispara"],
@@ -69,7 +69,7 @@ describe("English descriptions", () => {
   it("lists a unit's supplies, and why an action can't be given", () => {
     expect(LABELS.en.describeSupplies(fullSupplies(UnitType.TANK))).toBe("Fuel 5 · Shells 2");
     expect(LABELS.es.describeSupplies(fullSupplies(UnitType.INFANTRY))).toBe(
-      "Moral 5 · Energía 5 · Munición 2 · Explosivos 1 · Sacos terreros 1 · Botiquín 1 · Red de camuflaje 1"
+      "Moral 4 · Energía 5 · Munición 2 · Explosivos 1 · Sacos terreros 1 · Botiquín 1 · Red de camuflaje 1"
     );
     expect(LABELS.en.actionRefusals[Supply.ENERGY]).toBe("No energy");
     expect(LABELS.es.describeCost(actionById("infantry:fortify")!.cost)).toBe("2 energía + sacos terreros");

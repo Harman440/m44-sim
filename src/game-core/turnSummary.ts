@@ -21,11 +21,11 @@ export interface OrderSummary {
   hexesMoved: number;
   destinationTerrain: HexType;
   canFire: boolean;
-  /** It fires only at an adjacent enemy: its shot after taking ground */
+  /** It fires only at an adjacent enemy (no longer happens: taking ground ends the unit's fire) */
   closeAssaultOnly: boolean;
   /** Where it fires from: where the order left it, or the hex it took ground on */
   firingFrom: Position;
-  /** It took ground after a close assault and gets one more shot, in close assault */
+  /** It took ground after a close assault, and fires no more this turn */
   tookGround: boolean;
   /** The unit has since been removed from the board (destroyed in battle) */
   removed: boolean;
@@ -78,17 +78,16 @@ function summarizeEach(
     const unmovedGroup = hold || fire?.round === "unmoved";
     const removed = !unitsOnBoard.has(order.unit);
     const unitShots = shots.filter((shot) => shot.orderIndex === index);
-    // Taking ground after a close assault gives one more shot, from the hex taken (once per turn)
+    // Taking ground after a close assault (armour's overrun, pass and play's infantry pushing
+    // back) moves the unit in, and it fires no more this turn (house rule)
     const groundShot = unitShots.find((shot) => shot.tookGround);
-    // Pushing back (pass and play's infantry) moves the unit in without a shot more
-    const bonusShot = !!groundShot && !groundShot.pushedBack;
-    const allowed = order.shots + (bonusShot ? 1 : 0);
-    const overrunPending = bonusShot && unitShots.at(-1) === groundShot;
+    const allowed = order.shots;
     const firingFrom = (groundShot && groundShot.targetPosition) || order.end;
-    // It fought a collision (house rule), it's marked to retreat, or it took ground into the
-    // ocean, where nothing fires (house rule): no more shots this turn
+    // It fought a collision (house rule), took ground, or is marked to retreat (pushed back):
+    // no more shots this turn. Nor from the ocean, where nothing fires (house rule)
     const blocked =
       unitShots.some((shot) => shot.collision) ||
+      !!groundShot ||
       retreating.has(order.unit) ||
       outOfAmmo.has(order.unit) ||
       !!board.getHex(firingFrom)?.getTerrain().noFire;
@@ -103,7 +102,8 @@ function summarizeEach(
       hexesMoved: hold ? 0 : Math.max(1, (order.path?.length ?? 2) - 1),
       destinationTerrain: destination.getType(),
       canFire: order.canFire,
-      closeAssaultOnly: overrunPending,
+      // Nothing fires in close assault only now: taking ground ends the unit's fire
+      closeAssaultOnly: false,
       firingFrom,
       tookGround: !!groundShot,
       removed,

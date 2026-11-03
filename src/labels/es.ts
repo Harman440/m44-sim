@@ -43,6 +43,7 @@ const DIE_NOTES: Record<DieKind, string> = {
   attack: " · dado de ataque",
   suppressive: " · dado de supresión",
   longRangeSuppressive: " · dado de 8 caras de supresión",
+  air: " · dado aéreo",
 };
 
 const SUPPLY_NAMES: Labels["supplies"] = {
@@ -160,8 +161,10 @@ const es: Labels = {
   },
   describeMarkerRule: ({ kind, count, chain, awayFromOwnUnits }) => {
     if (kind === "cross") return "Marca con una cruz la casilla libre donde aparece la unidad.";
+    if (chain && awayFromOwnUnits)
+      return `Marca ${hexes(count)} en cadena, cada una junto a la anterior, que no estén en tus unidades ni junto a ellas.`;
     if (chain) return `Marca ${hexes(count)} en cadena: cada una junto a la anterior.`;
-    if (awayFromOwnUnits) return `Marca ${hexes(count)} que no estén en tus unidades ni junto a ellas.`;
+    if (awayFromOwnUnits) return `Marca ${hexes(count)} que no ${count === 1 ? "esté" : "estén"} en tus unidades ni junto a ellas.`;
     return `Marca ${hexes(count)} sin unidades tuyas.`;
   },
 };

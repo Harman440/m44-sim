@@ -20,8 +20,8 @@ describe("what a unit has run out of", () => {
 });
 
 describe("unit supplies", () => {
-  it("fills infantry with morale 5, energy 5, ammo 2 and one of each piece of equipment", () => {
-    expect(infantry.amounts).toEqual({ morale: 5, energy: 5, ammo: 2 });
+  it("fills infantry with morale 4, energy 5, ammo 2 and one of each piece of equipment", () => {
+    expect(infantry.amounts).toEqual({ morale: 4, energy: 5, ammo: 2 });
     expect(infantry.equipment).toEqual({ explosives: 1, sandbags: 1, medicKit: 1, camouflageNet: 1 });
   });
 
@@ -39,7 +39,7 @@ describe("unit supplies", () => {
   });
 
   it("starts the defending side with 1 ammo or shell less, and reloads it up to full", () => {
-    expect(startingSupplies(UnitType.INFANTRY, false, true)).toEqual({ ...infantry, amounts: { morale: 5, energy: 5, ammo: 1 } });
+    expect(startingSupplies(UnitType.INFANTRY, false, true)).toEqual({ ...infantry, amounts: { morale: 4, energy: 5, ammo: 1 } });
     expect(startingSupplies(UnitType.TANK, true, true).amounts).toEqual({ fuel: 7, shells: 1 });
     expect(startingSupplies(UnitType.ARTILLERY, false, true).amounts).toEqual({ fuel: 1, shells: 1 });
     expect(startingSupplies(UnitType.TANK, false, false)).toEqual(tank);
@@ -69,11 +69,11 @@ describe("unit supplies", () => {
 
   it("refills the listed supplies and, if asked, the equipment", () => {
     const spent = pay(infantry, {
-      amounts: { [Supply.MORALE]: 5, [Supply.AMMO]: 2, [Supply.ENERGY]: 3 },
+      amounts: { [Supply.MORALE]: 4, [Supply.AMMO]: 2, [Supply.ENERGY]: 3 },
       equipment: [Equipment.EXPLOSIVES],
     })!;
     const resupplied = refill(spent, infantry, [Supply.MORALE, Supply.AMMO], { equipment: true });
-    expect(resupplied.amounts).toEqual({ morale: 5, energy: 2, ammo: 2 });
+    expect(resupplied.amounts).toEqual({ morale: 4, energy: 2, ammo: 2 });
     expect(equipmentOf(resupplied, Equipment.EXPLOSIVES)).toBe(1);
     expect(equipmentOf(refill(spent, infantry, [Supply.AMMO]), Equipment.EXPLOSIVES)).toBe(0);
   });

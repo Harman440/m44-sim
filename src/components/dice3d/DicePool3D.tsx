@@ -20,6 +20,7 @@ const POSE: Record<DieKind, Quaternion> = {
   longRange: new Quaternion().setFromEuler(new Euler(-0.32, 0.4, 0)),
   suppressive: new Quaternion().setFromEuler(new Euler(-0.5, 0.62, 0.08)),
   longRangeSuppressive: new Quaternion().setFromEuler(new Euler(-0.32, 0.4, 0)),
+  air: new Quaternion().setFromEuler(new Euler(-0.5, 0.62, 0.08)),
 };
 
 /** One die of the pool, from when it pops in until it has dropped out */

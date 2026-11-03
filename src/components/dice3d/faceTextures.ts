@@ -15,7 +15,8 @@ interface Wood {
 /**
  * A wood per kind of die, so a roll is read at a glance: beech for the battle die, a paler ash
  * for the long-range one, a grey-green walnut for the suppressive dice (the pale one 8-sided) and
- * a dark red mahogany for the attack die, the one with no supply face
+ * a dark red mahogany for the attack die, the one with no supply face, and a sky blue for Air
+ * Power's air die
  */
 const WOODS: Record<DieKind, Wood> = {
   battle: { light: [226, 196, 150], dark: [176, 128, 78] },
@@ -23,6 +24,7 @@ const WOODS: Record<DieKind, Wood> = {
   attack: { light: [198, 136, 110], dark: [140, 68, 50] },
   suppressive: { light: [176, 180, 158], dark: [108, 114, 92] },
   longRangeSuppressive: { light: [206, 208, 190], dark: [136, 142, 118] },
+  air: { light: [150, 184, 214], dark: [74, 112, 150] },
 };
 
 const TEXTURE_SIZE = 256;
