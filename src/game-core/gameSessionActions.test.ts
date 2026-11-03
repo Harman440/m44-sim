@@ -150,13 +150,29 @@ describe("GameSession giving actions", () => {
     }
   });
 
+  it("lets tanks move 3 hexes and fire, but not 4, with either moving action", () => {
+    for (const figures of [true, false]) {
+      for (const action of ["tank:assault", "tank:armorForward"]) {
+        for (const distance of [3, 4]) {
+          const session = new GameSession({ scenario: { ...scenario, tiles: {} }, faction: "Allies", figures });
+          expect(session.pickCard(null)).toBe(true);
+          const options = session.getMoveOptions(TANK, action)!;
+          const to = options.moves.find((move) => hexDistance(move, TANK) === distance)!;
+          expect(to).toBeDefined();
+          expect(session.giveAction(TANK, action, to)).toBe(true);
+          expect(session.getSnapshot().orders[0]).toMatchObject({ action, canFire: distance === 3 });
+        }
+      }
+    }
+  });
+
   it("moves Armour Forward through terrain that stops an Assault", () => {
     const session = ordering();
 
     expect(farthest(session.getMoveOptions(TANK, "tank:assault")!.moves, TANK)).toBe(1);
     expect(farthest(session.getMoveOptions(TANK, "tank:armorForward")!.moves, TANK)).toBe(4);
-    // It moves up to 4 hexes, and fires only after 2 or fewer
-    expect(farthest(session.getMoveOptions(TANK, "tank:armorForward")!.moveAndFire, TANK)).toBe(2);
+    // It moves up to 4 hexes, and fires only after 3 or fewer
+    expect(farthest(session.getMoveOptions(TANK, "tank:armorForward")!.moveAndFire, TANK)).toBe(3);
     const far = session.getMoveOptions(TANK, "tank:armorForward")!.moves.find((move) => hexDistance(move, TANK) === 4)!;
     expect(session.giveAction(TANK, "tank:assault", far)).toBe(false);
     expect(session.giveAction(TANK, "tank:armorForward", far)).toBe(true);
