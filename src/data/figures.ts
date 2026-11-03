@@ -26,28 +26,36 @@ export const hitsPerFigure = (unitType: UnitType, elite = false): number =>
 export const hitsToDestroy = (unitType: UnitType, elite = false): number => FIGURES[unitType].figures * hitsPerFigure(unitType, elite);
 
 /**
- * A unit's figures, each with the hits it has taken, front first and the squad leader last. Only
- * armour has figures that take more than one hit, so only a tank figure is ever above 0
+ * A unit's figures, each with the hits it has taken, front first and the squad leaders last (one,
+ * or more once a unit has taken in another's leader with Regroup: `leaders`). Only armour has
+ * figures that take more than one hit, so only a tank figure is ever above 0
  */
 export type Figures = readonly number[];
+
+/** The squad leaders a unit is left with: they're its last figures, so never more than it has */
+export const leadersLeft = (figures: Figures, leaders: number): number => Math.min(leaders, figures.length);
 
 /** A unit's figures at full strength */
 export const freshFigures = (unitType: UnitType, count = FIGURES[unitType].figures): Figures => Array<number>(count).fill(0);
 
 /**
- * The figure the next hit goes to: the most damaged one in front of the squad leader (the front
- * one of equals); the leader only once it's alone
+ * The figure the next hit goes to: the most damaged one in front of the squad leaders (the front
+ * one of equals); a leader only once only leaders are left
  */
-const nextHit = (figures: Figures): number => {
-  const inFront = figures.length > 1 ? figures.slice(0, -1) : figures;
+const nextHit = (figures: Figures, leaders: number): number => {
+  const front = figures.slice(0, Math.max(0, figures.length - leaders));
+  const inFront = front.length > 0 ? front : figures;
   return inFront.indexOf(Math.max(...inFront));
 };
 
-/** The figures after `hits` more, one by one; a figure that has taken all it takes is lost */
-export function takeHits(figures: Figures, hits: number, perFigure: number): Figures {
+/**
+ * The figures after `hits` more, one by one; a figure that has taken all it takes is lost. With
+ * only leaders left, each figure lost is a leader (`leadersLeft`)
+ */
+export function takeHits(figures: Figures, hits: number, perFigure: number, leaders = 1): Figures {
   const next = [...figures];
   for (let hit = 0; hit < hits && next.length > 0; hit++) {
-    const at = nextHit(next);
+    const at = nextHit(next, leaders);
     const taken = (next[at] ?? 0) + 1;
     if (taken >= perFigure) next.splice(at, 1);
     else next[at] = taken;
@@ -70,23 +78,45 @@ export function mendFigure(figures: Figures): Figures {
 export const healFigure = (figures: Figures, unitType: UnitType): Figures =>
   figures.length < FIGURES[unitType].figures ? [0, ...figures] : figures;
 
+/** A unit's figures and how many of them are squad leaders */
+export interface Squad {
+  figures: Figures;
+  leaders: number;
+}
+
 /**
  * Regroup: the giver's figures join the receiver until it's back to full, the giver's healthy ones
- * first, then its damaged ones (the least damaged first), and its squad leader last. The figures
- * that join go in front of the receiver's, so its own leader stays its leader; a giver's leader
- * that joins is a plain figure there. The giver keeps the rest, its leader last
+ * first, then its damaged ones (the least damaged first), and its squad leaders last. Plain
+ * figures that join go in front of the receiver's; a giver's leader that joins stays a leader,
+ * just in front of the receiver's own, so the receiver has a leader more. The giver keeps the
+ * rest, its leaders last
  */
-export function regroupFigures(receiver: Figures, giver: Figures, unitType: UnitType): { receiver: Figures; giver: Figures } {
-  const room = Math.max(0, FIGURES[unitType].figures - receiver.length);
-  const inFront = giver
-    .slice(0, -1)
+export function regroupFigures(receiver: Squad, giver: Squad, unitType: UnitType): { receiver: Squad; giver: Squad } {
+  const room = Math.max(0, FIGURES[unitType].figures - receiver.figures.length);
+  const giverLeaders = leadersLeft(giver.figures, giver.leaders);
+  const firstLeader = giver.figures.length - giverLeaders;
+  const plain = giver.figures
+    .slice(0, firstLeader)
     .map((hits, at) => ({ hits, at }))
     .sort((a, b) => a.hits - b.hits)
     .map(({ at }) => at);
-  const taken = new Set([...inFront, giver.length - 1].slice(0, Math.min(room, giver.length)));
+  const leaders = Array.from({ length: giverLeaders }, (_, i) => firstLeader + i);
+  const taken = new Set([...plain, ...leaders].slice(0, Math.min(room, giver.figures.length)));
+  const pick = (from: number, to: number) => [...taken].filter((at) => at >= from && at < to).map((at) => giver.figures[at]!);
+  const receiverLeaders = leadersLeft(receiver.figures, receiver.leaders);
+  const receiverFirstLeader = receiver.figures.length - receiverLeaders;
+  const leadersJoining = pick(firstLeader, giver.figures.length);
   return {
-    receiver: [...[...taken].map((at) => giver[at]!), ...receiver],
-    giver: giver.filter((_, at) => !taken.has(at)),
+    receiver: {
+      figures: [
+        ...pick(0, firstLeader),
+        ...receiver.figures.slice(0, receiverFirstLeader),
+        ...leadersJoining,
+        ...receiver.figures.slice(receiverFirstLeader),
+      ],
+      leaders: receiverLeaders + leadersJoining.length,
+    },
+    giver: { figures: giver.figures.filter((_, at) => !taken.has(at)), leaders: giverLeaders - leadersJoining.length },
   };
 }
 

@@ -285,6 +285,7 @@ describe("PassAndPlayMatch", () => {
         pinned: retreats > 0,
         retreats: Math.max(0, retreats - 1),
         damaged: false,
+        leaders: 1,
         hitThisTurn: hits,
       },
     ]);
@@ -748,6 +749,7 @@ describe("PassAndPlayMatch", () => {
         pinned: true,
         retreats: shot.dice - 2,
         damaged: false,
+        leaders: 1,
         hitThisTurn: 0,
       });
     });
@@ -879,7 +881,7 @@ describe("winning a match", () => {
     const { result, victory } = match.getSnapshot();
     expect(victory!.held.Allies).toEqual([{ row: 7, col: 1 }]);
     expect(result).toMatchObject({ winner: "Allies", turn: 1, wipedOut: false });
-    expect(result!.medals.Allies).toEqual({ destroyed: 0, objectives: 1, total: 1 });
+    expect(result!.medals.Allies).toEqual({ destroyed: 0, leaders: 0, objectives: 1, total: 1 });
 
     const restored = PassAndPlayMatch.restore(JSON.parse(JSON.stringify(match.save())), map, (saved) =>
       GameSession.restore(saved, map)

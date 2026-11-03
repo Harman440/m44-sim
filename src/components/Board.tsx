@@ -148,6 +148,7 @@ interface PlacedToken {
   retreats?: number;
   damaged?: boolean;
   hitThisTurn?: number;
+  leaders?: number;
 }
 
 /** A stable key per unit, so its token is the same element wherever it moves and can glide there */
@@ -480,13 +481,14 @@ function Board({
         retreats: stands?.retreats,
         damaged: stands?.damaged,
         hitThisTurn: stands?.hitThisTurn,
+        leaders: stands?.leaders,
       }];
     });
     if (!opponent) return own;
     const otherStarts = atStart ? startOf(opponent.orders) : null;
     const otherMoved = movedUnits(opponent.orders);
     const otherReady = new Set(opponent.toFire);
-    const other = opponent.units.map(({ position, unit, figures, pinned, retreats, damaged, hitThisTurn }): PlacedToken => ({
+    const other = opponent.units.map(({ position, unit, figures, pinned, retreats, damaged, hitThisTurn, leaders }): PlacedToken => ({
       unit,
       faction: opponent.faction,
       position: otherStarts?.get(unit) ?? position,
@@ -499,6 +501,7 @@ function Board({
       retreats,
       damaged,
       hitThisTurn,
+      leaders,
     }));
     return [...own, ...other];
   };
@@ -550,6 +553,7 @@ function Board({
                 retreats={token.retreats}
                 damaged={token.damaged}
                 hitThisTurn={token.hitThisTurn}
+                leaders={token.leaders}
               />
             </g>
           </g>

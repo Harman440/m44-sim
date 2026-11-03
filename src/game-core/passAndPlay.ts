@@ -18,7 +18,7 @@ import { Position, Scenario } from "../types/scenario";
 import type { Localized } from "../i18n/lang";
 
 /** Bump when the shape of `SavedMatch` (or what it means) changes: older saves are dropped, not migrated */
-export const MATCH_SAVE_VERSION = 19;
+export const MATCH_SAVE_VERSION = 20;
 
 /** A pass and play match as plain JSON: each side's game, whose turn it is on the device, the last turn revealed */
 export interface SavedMatch {
@@ -177,6 +177,8 @@ export interface PlacedUnit {
   retreats?: number;
   /** A figure was hit once (armour): marked */
   damaged?: boolean;
+  /** Its squad leaders (more than one after Regroup) */
+  leaders?: number;
   /** Hits it took this turn */
   hitThisTurn?: number;
 }
@@ -801,7 +803,7 @@ class PassAndPlayMatch {
     };
     this.held = heldObjectives(victory.objectives ?? [], units);
     const lost = this.unitsLost();
-    const medals = countMedals(lost, this.held);
+    const medals = countMedals(lost, this.held, this.leadersLost());
     const won = winnerOf(victory, medals, { Allies: units.Allies.length, Axis: units.Axis.length });
     if (won) {
       const turn = this.sessions[this.scenario.attacker].getSnapshot().turn;
@@ -813,10 +815,14 @@ class PassAndPlayMatch {
     return { Allies: this.sessions.Allies.unitsLost(), Axis: this.sessions.Axis.unitsLost() };
   }
 
+  private leadersLost(): Record<Faction, number> {
+    return { Allies: this.sessions.Allies.leadersLost(), Axis: this.sessions.Axis.leadersLost() };
+  }
+
   private victoryView(): MatchSnapshot["victory"] {
     const victory = this.scenario.victory;
     if (!victory) return null;
-    return { medals: victory.medals, standing: countMedals(this.unitsLost(), this.held), held: this.held };
+    return { medals: victory.medals, standing: countMedals(this.unitsLost(), this.held, this.leadersLost()), held: this.held };
   }
 
   /** The person's side, playing against the computer */
@@ -1033,6 +1039,7 @@ class PassAndPlayMatch {
         pinned: stands?.pinned ?? false,
         retreats: stands?.retreats ?? 0,
         damaged: stands?.damaged ?? false,
+        leaders: stands?.leaders ?? 1,
         hitThisTurn: stands?.hitThisTurn ?? 0,
       };
     };

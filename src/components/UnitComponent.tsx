@@ -26,6 +26,7 @@ const TEXT = defineMessages({
     fired: (moved: boolean): string => (moved ? "Se movió y disparó" : "Disparó sin moverse"),
     damaged: (n: number) => `${n === 1 ? "1 figura" : `${n} figuras`}, una ya tocada: el próximo impacto la quita`,
     leader: "Jefe de escuadra: es la última figura que cae, y la que da la medalla",
+    leaders: (n: number) => `Jefe de escuadra, uno de ${n}: caen los últimos, y cada uno que cae da una medalla`,
     hitThisTurn: (n: number) => (n === 1 ? "1 impacto este turno" : `${n} impactos este turno`),
     pinned: "Inmovilizada: otra bandera la hace retirarse",
     retreats: (n: number) => (n === 1 ? "Se retira 1 casilla ahora" : `Se retira ${n} casillas ahora`),
@@ -36,6 +37,7 @@ const TEXT = defineMessages({
     fired: (moved: boolean): string => (moved ? "Moved and fired" : "Fired without moving"),
     damaged: (n: number) => `${n === 1 ? "1 figure" : `${n} figures`}, one already hit: the next hit removes it`,
     leader: "Squad leader: the last figure to fall, and the one that gives the medal",
+    leaders: (n: number) => `Squad leader, one of ${n}: they fall last, and each one that falls gives a medal`,
     hitThisTurn: (n: number) => (n === 1 ? "1 hit this turn" : `${n} hits this turn`),
     pinned: "Pinned: another flag makes it retreat",
     retreats: (n: number) => (n === 1 ? "Retreats 1 hex now" : `Retreats ${n} hexes now`),
@@ -97,6 +99,8 @@ interface UnitProps {
   damaged?: boolean;
   /** Pass and play: hits it took this turn, a red tag over the token until the turn ends */
   hitThisTurn?: number;
+  /** Pass and play: its squad leaders, each marked; more than one after Regroup */
+  leaders?: number;
 }
 
 const TOKEN_RADIUS = 27;
@@ -161,6 +165,7 @@ const UnitComponent: React.FC<UnitProps> = ({
   retreats = 0,
   damaged = false,
   hitThisTurn = 0,
+  leaders = 1,
 }) => {
   const t = useMessages(TEXT);
   const unitType = unitData?.getUnitType() ?? UnitType.INFANTRY;
@@ -202,18 +207,18 @@ const UnitComponent: React.FC<UnitProps> = ({
         />
       ))}
 
-      {/* The squad leader: the first spot, the last figure to go, with a rank chevron under it */}
-      {figuresShown > 0 && (
-        <g className="unit__leader" data-testid="leader-mark">
-          <title>{t.leader}</title>
+      {/* The squad leaders: the first spots, the last figures to go, each with a rank chevron under it */}
+      {layout.spots.slice(0, Math.min(leaders, figuresShown)).map(([dx, dy], i) => (
+        <g key={i} className="unit__leader" data-testid="leader-mark">
+          <title>{leaders > 1 ? t.leaders(leaders) : t.leader}</title>
           <path
-            d={leaderChevron(x + layout.spots[0]![0], y + layout.spots[0]![1] + layout.size / 2 - 4)}
+            d={leaderChevron(x + dx, y + dy + layout.size / 2 - 4)}
             style={{ fill: "var(--m44-accent)", stroke: "var(--m44-paper)" }}
             strokeWidth={1.2}
             strokeLinejoin="round"
           />
         </g>
-      )}
+      ))}
 
       {/* A damaged tank figure smoulders from its roof */}
       {damaged && unitType === UnitType.TANK && (

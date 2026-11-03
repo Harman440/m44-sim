@@ -23,14 +23,20 @@ describe("victory", () => {
       { Allies: [{ row: 2, col: 3 }], Axis: [] }
     );
     expect(medals).toEqual({
-      Allies: { destroyed: 2, objectives: 1, total: 3 },
-      Axis: { destroyed: 1, objectives: 0, total: 1 },
+      Allies: { destroyed: 2, leaders: 0, objectives: 1, total: 3 },
+      Axis: { destroyed: 1, leaders: 0, objectives: 0, total: 1 },
     });
+  });
+
+  it("gives a medal for each other enemy squad leader that fell", () => {
+    const medals = countMedals({ Allies: [], Axis: [UnitType.INFANTRY] }, { Allies: [], Axis: [] }, { Allies: 0, Axis: 1 });
+    expect(medals.Allies).toEqual({ destroyed: 1, leaders: 1, objectives: 0, total: 2 });
+    expect(medals.Axis.total).toBe(0);
   });
 
   it("is won by the side that reaches the medals, the one with more when both do, and goes on when they're level", () => {
     const victory = { medals: 3 };
-    const side = (total: number) => ({ destroyed: total, objectives: 0, total });
+    const side = (total: number) => ({ destroyed: total, leaders: 0, objectives: 0, total });
     const units = { Allies: 5, Axis: 5 };
     expect(winnerOf(victory, { Allies: side(2), Axis: side(2) }, units)).toBeNull();
     expect(winnerOf(victory, { Allies: side(3), Axis: side(1) }, units)).toEqual({ winner: "Allies", wipedOut: false });
@@ -39,7 +45,7 @@ describe("victory", () => {
   });
 
   it("is lost by a side with no units left, whatever the medals", () => {
-    const none = { destroyed: 0, objectives: 0, total: 0 };
+    const none = { destroyed: 0, leaders: 0, objectives: 0, total: 0 };
     expect(winnerOf({ medals: 6 }, { Allies: none, Axis: none }, { Allies: 0, Axis: 2 })).toEqual({ winner: "Axis", wipedOut: true });
   });
 });

@@ -53,7 +53,7 @@ import { Supply } from "../data/unitSupplies";
 import { TAKE_COVER_HITS } from "../data/unitActions";
 import { CoinEntry, sumCoins, turnCoins } from "./coins";
 import { STARTING_COINS, TEST_MODE_COINS } from "../data/coinRules";
-import { ARTILLERY_CREW_FIGURES, damagedFigures, FIGURES, freshFigures, healFigure, hitsPerFigure, mendFigure, regroupFigures, takeHits, type Figures } from "../data/figures";
+import { ARTILLERY_CREW_FIGURES, damagedFigures, FIGURES, freshFigures, healFigure, hitsPerFigure, leadersLeft, mendFigure, regroupFigures, takeHits, type Figures } from "../data/figures";
 import type { MarkerRule } from "./actionCard";
 import { ActionCard, ActionCardEffect, HeldCard, cardsOf, isReady, turnsLeft } from "./actionCard";
 import { canMark, firstConflictingMark, markablePositions } from "./markerRules";
@@ -194,6 +194,8 @@ export interface UnitStrength {
   retreats: number;
   /** A figure took a hit but not all it takes (armour hit once): the next hit removes it */
   damaged: boolean;
+  /** Its squad leaders: one, or more once it took in another unit's leader (Regroup) */
+  leaders: number;
   /** Hits it took this turn, shown on the map until the turn ends */
   hitThisTurn: number;
 }
@@ -441,6 +443,13 @@ class GameSession {
   private standingCollisions: StandingCollisionRoll[] = [];
   /** Pass and play: each unit's figures and the hits each has taken (kept from turn to turn); a unit missing is at full strength */
   private figureHits = new Map<Unit, Figures>();
+  /** Pass and play: the units with more than one squad leader (Regroup), how many; any other has one */
+  private squadLeaders = new Map<Unit, number>();
+  /**
+   * Pass and play: this side's squad leaders that fell beyond one per unit destroyed (a unit with
+   * two leaders loses one before it's destroyed): each is a medal for the enemy, as a unit is
+   */
+  private leadersFallen = 0;
   /** Pass and play: flags each unit took this turn: one pins it, each more makes it retreat a hex at once */
   private retreatFlags = new Map<Unit, number>();
   /** Pass and play: hexes each unit must still retreat now */
@@ -675,6 +684,18 @@ class GameSession {
   /** Pass and play: the unit's figures, each with the hits it has taken */
   private figuresOf(unit: Unit): Figures {
     return this.figureHits.get(unit) ?? freshFigures(unit.getUnitType());
+  }
+
+  /** Pass and play: how many of the unit's figures are squad leaders (its last ones) */
+  private leadersOf(unit: Unit): number {
+    return this.squadLeaders.get(unit) ?? 1;
+  }
+
+  private setLeaders(unit: Unit, leaders: number) {
+    const next = new Map(this.squadLeaders);
+    if (leaders === 1) next.delete(unit);
+    else next.set(unit, leaders);
+    this.squadLeaders = next;
   }
 
   /** The unit has an action it can be given */
@@ -982,17 +1003,24 @@ class GameSession {
     const at = this.positionOf(unit);
     if (!giver || !at) return;
     const given = this.figuresOf(giver);
-    const moved = regroupFigures(this.figuresOf(unit), given, unit.getUnitType());
-    this.setFigures(unit, moved.receiver);
+    const moved = regroupFigures(
+      { figures: this.figuresOf(unit), leaders: this.leadersOf(unit) },
+      { figures: given, leaders: this.leadersOf(giver) },
+      unit.getUnitType()
+    );
+    this.setFigures(unit, moved.receiver.figures);
+    this.setLeaders(unit, moved.receiver.leaders);
     this.supplies.set(unit, betterOf(this.suppliesOf(unit), this.suppliesOf(giver), fullSupplies(unit.getUnitType(), unit.elite)));
-    if (moved.giver.length > 0) {
-      this.setFigures(giver, moved.giver);
+    if (moved.giver.figures.length > 0) {
+      this.setFigures(giver, moved.giver.figures);
+      this.setLeaders(giver, moved.giver.leaders);
       return;
     }
     this.board.removeUnitAt(from);
     const figures = new Map(this.figureHits);
     figures.delete(giver);
     this.figureHits = figures;
+    this.setLeaders(giver, 1);
     this.supplies.delete(giver);
     this.camouflaged.delete(giver);
     const hex = this.board.getHex(from)!;
@@ -1072,10 +1100,14 @@ class GameSession {
       const morale = Math.max(0, amountOf(supplies, Supply.MORALE) - flags);
       this.supplies.set(unit, { ...supplies, amounts: { ...supplies.amounts, [Supply.MORALE]: morale } });
     }
-    const left = takeHits(this.figuresOf(unit), hits, hitsPerFigure(unit.getUnitType(), unit.elite));
+    const leaders = this.leadersOf(unit);
+    const left = takeHits(this.figuresOf(unit), hits, hitsPerFigure(unit.getUnitType(), unit.elite), leaders);
+    // Every squad leader that falls is a medal: the last one through the unit destroyed, any other here
+    this.leadersFallen += Math.max(0, leaders - leadersLeft(left, leaders) - (left.length === 0 ? 1 : 0));
     if (left.length > 0) {
       if (hits > 0) {
         this.setFigures(unit, left);
+        this.setLeaders(unit, leadersLeft(left, leaders));
         this.turnHits = new Map(this.turnHits).set(unit, (this.turnHits.get(unit) ?? 0) + hits);
       }
       if (flags > 0) {
@@ -1092,6 +1124,7 @@ class GameSession {
     this.board.removeUnitAt(position);
     const damage = new Map(this.figureHits);
     damage.delete(unit);
+    this.setLeaders(unit, 1);
     const flagged = new Map(this.retreatFlags);
     flagged.delete(unit);
     const due = new Map(this.retreatsDue);
@@ -1181,10 +1214,11 @@ class GameSession {
       if (!unit) return [];
       const figures = this.figuresOf(unit).length;
       const damaged = damagedFigures(this.figuresOf(unit)) > 0;
+      const leaders = leadersLeft(this.figuresOf(unit), this.leadersOf(unit));
       const hitThisTurn = this.turnHits.get(unit) ?? 0;
       const pinned = (this.retreatFlags.get(unit) ?? 0) > 0;
       const retreats = this.retreatsDue.get(unit) ?? 0;
-      return [{ position: hex.getPosition(), figures, pinned, retreats, damaged, hitThisTurn }];
+      return [{ position: hex.getPosition(), figures, pinned, retreats, damaged, leaders, hitThisTurn }];
     });
   }
 
@@ -1515,6 +1549,14 @@ class GameSession {
   /** Pass and play: the enemy unit this side sees on this hex (this side's view), if any; `hidden` finds one in the fog too */
   enemyAt(position: Position, { hidden = false }: { hidden?: boolean } = {}): EnemyUnit | null {
     return this.enemyView?.().find((enemy) => samePosition(enemy.position, position) && (hidden || !enemy.hidden)) ?? null;
+  }
+
+  /**
+   * Pass and play: this side's squad leaders that fell besides one per unit destroyed (`unitsLost`):
+   * the leaders a unit took in with Regroup. Each is a medal for the enemy
+   */
+  leadersLost(): number {
+    return this.leadersFallen;
   }
 
   /**
@@ -2394,6 +2436,8 @@ class GameSession {
       cardAttacks: this.cardAttacks,
       standingCollisions: this.standingCollisions,
       figureHits: this.figureHits,
+      squadLeaders: this.squadLeaders,
+      leadersFallen: this.leadersFallen,
       retreatFlags: this.retreatFlags,
       retreatsDue: this.retreatsDue,
       turnHits: this.turnHits,
@@ -2435,6 +2479,8 @@ class GameSession {
     session.cardAttacks = state.cardAttacks;
     session.standingCollisions = [...state.standingCollisions];
     session.figureHits = new Map(state.figureHits);
+    session.squadLeaders = new Map(state.squadLeaders);
+    session.leadersFallen = state.leadersFallen;
     session.retreatFlags = new Map(state.retreatFlags);
     session.retreatsDue = new Map(state.retreatsDue);
     session.turnHits = new Map(state.turnHits);

@@ -14,6 +14,7 @@ const TEXT = defineMessages({
     goal: (medals: number) =>
       `Gana el primero que llegue a ${medals} medallas al final de un turno; si los dos llegan, el que tenga más, y con las mismas se sigue jugando. Un bando sin unidades pierde.`,
     destroyed: "Unidades enemigas destruidas",
+    leaders: "Otros jefes de escuadra enemigos caídos",
     objectives: "Objetivos que ocupa",
     total: "Total",
     objectiveList: "Objetivos",
@@ -27,6 +28,7 @@ const TEXT = defineMessages({
     goal: (medals: number) =>
       `The first side to ${medals} medals at the end of a turn wins; if both get there, the one with more, and with as many each the game goes on. A side with no units left loses.`,
     destroyed: "Enemy units destroyed",
+    leaders: "Other enemy squad leaders fallen",
     objectives: "Objectives held",
     total: "Total",
     objectiveList: "Objectives",
@@ -41,8 +43,11 @@ export function MedalBreakdown({ victory }: { victory: VictoryInfo }) {
   const t = useMessages(TEXT);
   const labels = useLabels();
   const tr = useTr();
+  // The leaders' row only once a unit with two leaders has lost one
+  const leaders = FACTIONS.some((side) => victory.standing[side].leaders > 0);
   const rows: [string, (side: Faction) => number][] = [
     [t.destroyed, (side) => victory.standing[side].destroyed],
+    ...(leaders ? [[t.leaders, (side: Faction) => victory.standing[side].leaders] as [string, (side: Faction) => number]] : []),
     [t.objectives, (side) => victory.standing[side].objectives],
     [t.total, (side) => victory.standing[side].total],
   ];

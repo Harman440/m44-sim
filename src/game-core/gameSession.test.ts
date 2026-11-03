@@ -2152,6 +2152,7 @@ describe("pass and play figures", () => {
       pinned: true,
       retreats: 2,
       damaged: false,
+      leaders: 1,
       hitThisTurn: 1,
     });
     // Two flags at once on a unit not pinned yet: it's pinned and retreats 1

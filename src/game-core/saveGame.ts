@@ -23,7 +23,7 @@ import { LUCK_LIMIT } from "../data/luck";
 import { FIGURES, hitsPerFigure, type Figures } from "../data/figures";
 
 /** Bump when SavedGame changes shape (or what it means); older saves are dropped instead of misread */
-export const SAVE_VERSION = 45;
+export const SAVE_VERSION = 46;
 
 interface SavedUnit {
   type: UnitType;
@@ -47,6 +47,10 @@ export interface SavedGame {
   figures: boolean;
   /** Each unit's figures that isn't at full strength, the hits each figure has taken (front first, the squad leader last), by unit index */
   figureHits: { unit: number; figures: number[] }[];
+  /** The units with more than one squad leader (Regroup), how many, by unit index */
+  squadLeaders: { unit: number; leaders: number }[];
+  /** Squad leaders that fell besides one per unit destroyed: each a medal for the enemy */
+  leadersFallen: number;
   /** Flags each unit took this turn (one pins it, each more makes it retreat), by unit index */
   retreatFlags: { unit: number; flags: number }[];
   /** Hexes each unit must still retreat now, by unit index */
@@ -129,6 +133,10 @@ export interface SessionState {
   standingCollisions: readonly StandingCollisionRoll[];
   /** Pass and play: each unit's figures and the hits each has taken (kept from turn to turn) */
   figureHits: ReadonlyMap<Unit, Figures>;
+  /** Pass and play: the units with more than one squad leader, how many */
+  squadLeaders: ReadonlyMap<Unit, number>;
+  /** Pass and play: squad leaders that fell besides one per unit destroyed */
+  leadersFallen: number;
   /** Pass and play: flags the unit took this turn (one pins it) */
   retreatFlags: ReadonlyMap<Unit, number>;
   /** Pass and play: hexes the unit must still retreat now */
@@ -180,7 +188,7 @@ function readUnits(indexes: unknown, what: string, unit: (index: number) => Unit
   return new Set(indexes.map(unit));
 }
 
-function readUnitCounts<K extends "hits" | "flags">(
+function readUnitCounts<K extends "hits" | "flags" | "leaders">(
   entries: unknown,
   key: K,
   unit: (index: number) => Unit
@@ -192,6 +200,11 @@ function readUnitCounts<K extends "hits" | "flags">(
       return [unit(entry.unit), entry[key]] as const;
     })
   );
+}
+
+function readCount(count: unknown, what: string): number {
+  if (!Number.isInteger(count) || (count as number) < 0) throw new Error(`Unknown ${what}`);
+  return count as number;
 }
 
 function readRegrouped(regrouped: Regrouped): Regrouped {
@@ -357,6 +370,8 @@ export function writeSave(
     })),
     drops: state.drops.map((p) => ({ ...p })),
     figureHits: [...state.figureHits].map(([unit, figures]) => ({ unit: unitIndex(unit), figures: [...figures] })),
+    squadLeaders: [...state.squadLeaders].map(([unit, leaders]) => ({ unit: unitIndex(unit), leaders })),
+    leadersFallen: state.leadersFallen,
     retreatFlags: [...state.retreatFlags].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     retreatsDue: [...state.retreatsDue].map(([unit, flags]) => ({ unit: unitIndex(unit), flags })),
     turnHits: [...state.turnHits].map(([unit, hits]) => ({ unit: unitIndex(unit), hits })),
@@ -510,6 +525,8 @@ export function readSave(saved: SavedGame, board: BoardManager): SessionState {
     cardAttacks: readCardAttacks(saved.cardAttacks, saved.markers.length),
     standingCollisions: readStandingCollisions(saved.standingCollisions),
     figureHits: readFigureHits(saved.figureHits, unit),
+    squadLeaders: readUnitCounts(saved.squadLeaders, "leaders", unit),
+    leadersFallen: readCount(saved.leadersFallen, "Fallen squad leaders"),
     retreatFlags: readUnitCounts(saved.retreatFlags, "flags", unit),
     retreatsDue: readUnitCounts(saved.retreatsDue, "flags", unit),
     turnHits: readUnitCounts(saved.turnHits ?? [], "hits", unit),

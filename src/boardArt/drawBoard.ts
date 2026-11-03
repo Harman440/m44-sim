@@ -127,7 +127,9 @@ const hedgerowTile = (hex: DrawnHex, width: number, height: number) =>
     if (!ctx) throw new Error("No canvas to draw a hedgerow tile on");
     ctx.translate(width / 2, height / 2);
     if (hex.seed % 2) ctx.rotate(Math.PI);
-    ctx.drawImage(image, -width / 2, -height / 2, width, height);
+    // This source is a square pointy-top hex. Draw it at its native square proportions: the
+    // transparent corners make the visible hex exactly match the board's narrower hexWidth.
+    ctx.drawImage(image, -height / 2, -height / 2, height, height);
     return tile;
   });
 

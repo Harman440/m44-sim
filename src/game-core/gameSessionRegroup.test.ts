@@ -202,4 +202,44 @@ describe("GameSession Regroup", () => {
     expect(restore(restored.save()).leftByRegroup()).toEqual([]);
     expect(figuresAt(restored, INF_NEXT)).toBe(2);
   });
+
+  it("keeps the partner's squad leader as a second one, and each leader that falls is a medal", () => {
+    const session = withUnits(ordering(), [
+      [INF, [0, 0, 0]],
+      [INF_NEXT, [0, 0]],
+    ]);
+    expect(session.giveRegroup(INF, INF_NEXT)).toBe(true);
+    commit(session);
+    const leadersAt = (s: GameSession) => s.getSnapshot().strength.find((each) => samePosition(each.position, INF))?.leaders;
+    expect(leadersAt(session)).toBe(2);
+
+    // The plain figures fall first: 5 − 3 leaves the two leaders
+    expect(session.sufferHits(INF, 3, 0)).toBe(true);
+    expect(leadersAt(session)).toBe(2);
+    expect(session.leadersLost()).toBe(0);
+    // Then a leader falls while the unit stands: a medal for the enemy
+    expect(session.sufferHits(INF, 1, 0)).toBe(true);
+    expect(leadersAt(session)).toBe(1);
+    expect(session.leadersLost()).toBe(1);
+
+    // Through a save, and the last leader falls with the unit, which is the unit's medal
+    const restored = restore(session.save());
+    expect(restored.leadersLost()).toBe(1);
+    expect(restored.sufferHits(INF, 1, 0)).toBe(true);
+    expect(restored.unitsLost()).toHaveLength(1);
+    expect(restored.leadersLost()).toBe(1);
+  });
+
+  it("counts both leaders when a unit with two is destroyed at once", () => {
+    const session = withUnits(ordering(), [
+      [INF, [0]],
+      [INF_NEXT, [0]],
+    ]);
+    expect(session.giveRegroup(INF, INF_NEXT)).toBe(true);
+    commit(session);
+    expect(figuresAt(session, INF)).toBe(2);
+    expect(session.sufferHits(INF, 2, 0)).toBe(true);
+    expect(session.unitsLost()).toHaveLength(1);
+    expect(session.leadersLost()).toBe(1);
+  });
 });

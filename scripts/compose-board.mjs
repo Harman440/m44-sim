@@ -240,9 +240,9 @@ const bridgeOver = async (key, edges) => {
 // A drawn hedgerow, rendered at its own hex size so fields cannot spill into neighbors
 const hedgerowOver = async (hex) => {
   const [w, h] = [tileWidth, tileHeight];
-  const image = sharp(HEDGEROW_IMAGE).resize(w, h, { fit: "fill" });
+  const image = sharp(HEDGEROW_IMAGE).resize(h, h, { fit: "fill" });
   if (hex.seed % 2) image.rotate(180, { background: CLEAR });
-  return placed(await image.png().toBuffer(), hex.key, w, h);
+  return placed(await image.png().toBuffer(), hex.key, h, h);
 };
 // A drawn tile, rendered at the board's hex size; a river's grass giving way to the countryside,
 // or to a forest beside it

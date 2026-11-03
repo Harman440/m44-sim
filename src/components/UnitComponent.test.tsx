@@ -126,6 +126,18 @@ describe("UnitComponent", () => {
     expect(container.querySelector("[data-testid='leader-mark'] title")?.textContent).toMatch(/Jefe de escuadra/);
   });
 
+  it("marks each squad leader of a unit that took in another's, as many as it has figures for", () => {
+    const leaders = (figures: number) =>
+      render(
+        <svg>
+          <UnitComponent x={0} y={0} faction="Axis" unitData={new Unit(UnitType.INFANTRY)} figures={figures} leaders={2} />
+        </svg>
+      ).container.querySelectorAll("[data-testid='leader-mark']");
+    expect(leaders(4)).toHaveLength(2);
+    expect(leaders(4)[0]!.querySelector("title")?.textContent).toMatch(/uno de 2/);
+    expect(leaders(1)).toHaveLength(1);
+  });
+
   it("marks an elite unit with a star badge", () => {
     const badge = (unit: Unit) =>
       render(

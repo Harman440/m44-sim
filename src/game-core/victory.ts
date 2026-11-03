@@ -1,6 +1,7 @@
 // game-core/victory.ts
 // Winning a scenario (pass and play, where the app knows both armies): each
-// enemy unit destroyed is a medal, and each objective hex a medal for its side
+// enemy unit destroyed is a medal, so is each enemy squad leader that fell in a unit that had
+// taken in another's leader (Regroup), and each objective hex is a medal for its side
 // while one of its units stands on it at the end of a turn. At the end of each
 // turn, a side that has reached the scenario's medals wins, the one with more
 // when both have; with as many each, the game goes on. A side with no units
@@ -10,9 +11,11 @@ import { Faction, FACTIONS } from "../types/faction";
 import { includesPosition } from "./position";
 import { UnitType } from "./unit";
 
-/** A side's medals: for the enemy units it destroyed and the objective hexes it holds */
+/** A side's medals: for the enemy units it destroyed, the other enemy squad leaders that fell and the objective hexes it holds */
 export interface SideMedals {
   destroyed: number;
+  /** Enemy squad leaders that fell besides one per unit destroyed (units with two or more, after Regroup) */
+  leaders: number;
   objectives: number;
   total: number;
 }
@@ -45,12 +48,20 @@ export function heldObjectives(
   return { Allies: held("Allies"), Axis: held("Axis") };
 }
 
-/** Each side's medals, from the units each side lost and the objective hexes each holds */
-export function countMedals(lost: Record<Faction, readonly UnitType[]>, held: Record<Faction, readonly Position[]>): Medals {
+/**
+ * Each side's medals, from the units each side lost, the other squad leaders each lost
+ * (`leadersLost`) and the objective hexes each holds
+ */
+export function countMedals(
+  lost: Record<Faction, readonly UnitType[]>,
+  held: Record<Faction, readonly Position[]>,
+  leadersLost: Record<Faction, number> = { Allies: 0, Axis: 0 }
+): Medals {
   const medals = (side: Faction): SideMedals => {
     const destroyed = lost[otherSide(side)].length;
+    const leaders = leadersLost[otherSide(side)];
     const objectives = held[side].length;
-    return { destroyed, objectives, total: destroyed + objectives };
+    return { destroyed, leaders, objectives, total: destroyed + leaders + objectives };
   };
   return { Allies: medals("Allies"), Axis: medals("Axis") };
 }

@@ -25,6 +25,10 @@ Work through it one step at a time. Each step is one commit on `feat/regroup` th
 - **Sandbags:** a giver that leaves the board takes its sandbags with it, as a destroyed unit does.
 - **Branch:** built on `feat/regroup`, merged into `main` when the steps are done.
 
+## Changed (2026-10-26, after it was built)
+- **A giver's squad leader stays a leader:** a receiver that takes in the giver's leader has two (or more, after another Regroup). Its plain figures are hit first, then the leaders; each leader that falls is a medal for the enemy, even while the unit stands (`GameSession.leadersLost`, `SideMedals.leaders`). Medic brings back a plain figure, never a leader.
+- **The computer no longer regroups to save a medal** (`REGROUP_SAVES_MEDAL` is gone): the giver's leader still gives one, so it regroups only when the receiver has no good shot.
+
 ---
 
 ## Step R1: Hits per figure (no rule change)

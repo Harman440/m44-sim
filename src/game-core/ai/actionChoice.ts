@@ -32,8 +32,6 @@ const BOMBARDMENT_SHOT = 0.25;
 const FORTIFY_THREAT = 0.3;
 /** A unit regroups once it has lost at least this many figures */
 const REGROUP_LOSS = 2;
-/** A unit down to this many figures is a medal about to be lost: it joins a bigger one even when that one could fire */
-const REGROUP_SAVES_MEDAL = 2;
 
 const suppliesAt = (view: AiView, position: Position): UnitSupplies | null =>
   view.session.getSnapshot().supplies.find((each) => samePosition(each.position, position))?.supplies ?? null;
@@ -121,9 +119,9 @@ export function chooseMark(view: AiView, markable: readonly Position[], marking:
 
 /**
  * Regroup: the unit and a unit next to it, both weakened, whose figures fit in one unit. The
- * bigger one takes the smaller one's figures (which leaves the map), when it has no good shot
- * where it stands, or when the smaller one is down to `REGROUP_SAVES_MEDAL` figures; the smallest
- * such partner first. Null when there's no such pair
+ * bigger one takes the smaller one's figures (which leaves the map) when it has no good shot
+ * where it stands; the smallest such partner first. It saves no medal (the smaller one's squad
+ * leader still gives one when it falls), so it's only for a stronger unit. Null when there's no such pair
  */
 function regroupWith(view: AiView, from: Position, unitType: UnitType): ActionChoice {
   const { session } = view;
@@ -139,8 +137,7 @@ function regroupWith(view: AiView, from: Position, unitType: UnitType): ActionCh
     .sort((a, b) => a.figures - b.figures);
   for (const other of pairs) {
     const [receiver, partner] = other.figures > figures ? [other.next, from] : [from, other.next];
-    const savesMedal = Math.min(figures, other.figures) <= REGROUP_SAVES_MEDAL;
-    if (!savesMedal && shotHere(view, unitType, receiver, suppliesAt(view, receiver)) >= POOR_SHOT) continue;
+    if (shotHere(view, unitType, receiver, suppliesAt(view, receiver)) >= POOR_SHOT) continue;
     if (!includesPosition(session.regroupPartners(receiver), partner)) continue;
     const action = session.getActions(receiver)?.find((option) => option.action.effect === "regroup");
     if (action) return { action: action.action.id, to: receiver, partner, receiver };
