@@ -66,8 +66,8 @@ describe("unit actions", () => {
   it("costs and moves armour and artillery as the house rules say", () => {
     expect(summary(TANK_ACTIONS)).toEqual({
       firefight: "free, move 0, 1 shot",
-      assault: "1 fuel, move 4, 1 shot if it moves 2",
-      armorForward: "2 fuel, move 4, 1 shot if it moves 2",
+      assault: "1 fuel, move 4, 1 shot if it moves 3",
+      armorForward: "2 fuel, move 4, 1 shot if it moves 3",
       mechanic: "free, move 0, no fire",
       regroup: "2 fuel, move 0, no fire",
       reload: "free, move 0, no fire",
